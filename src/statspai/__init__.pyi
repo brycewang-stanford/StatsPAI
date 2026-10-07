@@ -489,6 +489,8 @@ from .doe.effects import factorial_effects as factorial_effects
 from .doe.factorial import FactorialDesignResult as FactorialDesignResult
 from .doe.factorial import design_aberration as design_aberration
 from .doe.factorial import factorial_design as factorial_design
+from .doe.importance import FactorImportanceResult as FactorImportanceResult
+from .doe.importance import factor_importance as factor_importance
 from .doe.mixture import mixture_design as mixture_design
 from .doe.optimal import ModelDesignResult as ModelDesignResult
 from .doe.optimal import doe_optimal as doe_optimal

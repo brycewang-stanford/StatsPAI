@@ -15410,7 +15410,7 @@
     }
   },
   {
-    "description": "Space-filling design: n runs spread evenly over a box of factors. Maximum projection (default), maximin or uniform Latin hypercube, random Latin hypercube, scrambled Sobol' / Halton points. For simulation studies over a parameter region, training runs of a surrogate, multi-start optimisers and simulation draws (R SFDesign / MaxPro / lhs). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Qualitative (categorical) factors: not yet supported. Do NOT use when: The model to be fitted is known: sp.doe_optimal puts the runs where that model is estimated best; Factors are qualitative or have two or three levels: use sp.factorial_design; A certified optimum is required: the search is stochastic and returns a good design, not a proven best one.",
+    "description": "Space-filling design: n runs spread evenly over a box of factors. Maximum projection (default), maximin or uniform Latin hypercube, random Latin hypercube, scrambled Sobol' / Halton points. For simulation studies over a parameter region, training runs of a surrogate, multi-start optimisers and simulation draws (R SFDesign / MaxPro / lhs). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Qualitative factors only with method='maxpro' and without a constraint. Do NOT use when: The model to be fitted is known: sp.doe_optimal puts the runs where that model is estimated best; Every factor has two or three levels: use sp.factorial_design; A certified optimum is required: the search is stochastic and returns a good design, not a proven best one.",
     "name": "space_filling",
     "parameters": {
       "properties": {
@@ -15468,6 +15468,10 @@
         "polish": {
           "description": "Move levels continuously after the search (default: True for maxpro)",
           "type": "boolean"
+        },
+        "qualitative": {
+          "description": "{name: [levels]} for factors without an order; balanced over the runs, space-filling within each level",
+          "type": "object"
         },
         "r": {
           "description": "Power of the reciprocal-distance criterion (default 2p)",
@@ -15574,7 +15578,7 @@
     }
   },
   {
-    "description": "Full factorial design for factors with any number of levels, or a two-level fractional factorial 2^(k-m) from generators or by minimum-aberration search, with defining relation, resolution, word length pattern and alias structure (R FrF2). For multi-factor experiments, conjoint and factorial survey designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Fractions are built for two-level factors only; Minimum-aberration search only up to 30,000 generator choices (about 9 factors in 32 or 64 runs); beyond that generators= is required.",
+    "description": "Full factorial design for factors with any number of levels, or a fraction: two-level 2^(k-m) from generators or by minimum-aberration search (with defining relation, resolution, word length pattern and alias structure; R FrF2), Plackett-Burman in 12 / 20 / 24 runs, regular fractions at 3, 5 or 7 levels, and the orthogonal array L18. For multi-factor experiments, conjoint and factorial survey designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Mixed-level fractions only as columns of L18; other mixed-level orthogonal arrays are not implemented; Minimum-aberration search only up to about 15 factors in 32 runs or 12 in 64; beyond that generators= is required.",
     "name": "factorial_design",
     "parameters": {
       "properties": {
@@ -15614,7 +15618,7 @@
           ]
         },
         "n_runs": {
-          "description": "A power of two below 2^k asks for the minimum-aberration fraction of that size",
+          "description": "Size of a fraction: a power of two (minimum aberration), 12 / 20 / 24 (Plackett-Burman), a power of 3, 5 or 7 for factors at that many levels, or 18 (L18)",
           "type": "integer"
         },
         "randomize": {
@@ -15873,7 +15877,7 @@
           "type": "string"
         },
         "estimator": {
-          "default": "jansen",
+          "default": "saltelli",
           "description": "First-order estimator",
           "enum": [
             "jansen",
@@ -15934,6 +15938,58 @@
       "required": [
         "func",
         "factors"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Model-free ranking and selection of regressors by total Sobol' index, straight from data (FIRST): nearest-neighbour estimates of the conditional variance of the outcome with forward-backward selection. Sees non-linear effects and interactions; no model is fitted (R first::first). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal effect is wanted: importance for prediction says nothing about what happens under intervention; More than about ten relevant factors: nearest neighbours degrade and weak factors are missed.",
+    "name": "factor_importance",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "The data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "factors": {
+          "description": "Candidate columns (default all)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "n_forward": {
+          "default": 2,
+          "description": "Forward-selection passes",
+          "type": "integer"
+        },
+        "n_mc": {
+          "description": "Observations to evaluate at (all)",
+          "type": "integer"
+        },
+        "n_neighbors": {
+          "description": "Neighbours per conditional variance (2; 3 for a binary outcome)",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seed of the subset",
+          "type": "integer"
+        },
+        "standardize": {
+          "default": true,
+          "description": "Scale numeric factors",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y"
       ],
       "type": "object"
     }
@@ -16131,6 +16187,15 @@
     "name": "sequential_design",
     "parameters": {
       "properties": {
+        "criterion": {
+          "default": "variance",
+          "description": "Rule for goal='emulate'",
+          "enum": [
+            "variance",
+            "alc"
+          ],
+          "type": "string"
+        },
         "design": {
           "description": "Runs already made",
           "type": "string"

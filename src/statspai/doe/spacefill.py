@@ -9,6 +9,7 @@ distance-based criteria the levels are then moved continuously.
 
 from __future__ import annotations
 
+import itertools
 import warnings
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
@@ -57,8 +58,18 @@ class _PairCriterion:
     at a cost linear in the number of runs.
     """
 
-    def __init__(self, kind: str, p: int, r: float, delta: float, n: int) -> None:
+    def __init__(
+        self,
+        kind: str,
+        p: int,
+        r: float,
+        delta: float,
+        n: int,
+        offset: Optional[np.ndarray] = None,
+    ) -> None:
         self.kind, self.p, self.r, self.delta = kind, p, r, delta
+        # fixed log pair terms of factors the search does not move
+        self.offset = np.zeros((n, n)) if offset is None else offset
         # log pair terms are shifted by a constant so that sums stay finite
         if kind == "maxpro":
             self.shift = -p * np.log(1.0 / (3.0 * n) ** 2 + delta)
@@ -83,7 +94,7 @@ class _PairCriterion:
 
     def state(self, X: np.ndarray) -> np.ndarray:
         n = X.shape[0]
-        S = np.zeros((n, n))
+        S = self.offset.copy()
         for col in X.T:
             S += self.piece(col[:, None] - col[None, :])
         S[np.diag_indices(n)] = np.inf if self.kind == "maximin" else -np.inf
@@ -112,6 +123,7 @@ def _anneal(
         float(crit.shift),
         int(iterations),
         int(rng.integers(2**31 - 1)),
+        np.ascontiguousarray(crit.offset, dtype=np.float64),
     )
     # the running total drifts by rounding; report the exact value
     return best_X, crit.total(best_X)
@@ -173,7 +185,13 @@ def _anneal_loop(
     return best_X, crit.total(best_X)
 
 
-def _polish(X0: np.ndarray, kind: str, r: float, delta: float) -> np.ndarray:
+def _polish(
+    X0: np.ndarray,
+    kind: str,
+    r: float,
+    delta: float,
+    offset: Optional[np.ndarray] = None,
+) -> np.ndarray:
     """Move the levels continuously within the cube (L-BFGS-B, exact gradient)."""
     n, p = X0.shape
     iu = np.triu_indices(n, k=1)
@@ -186,6 +204,8 @@ def _polish(X0: np.ndarray, kind: str, r: float, delta: float) -> np.ndarray:
             den = sq + delta
             den[np.arange(n), np.arange(n), :] = 1.0
             lg = -np.log(np.maximum(den, 1e-300)).sum(axis=2)
+            if offset is not None:
+                lg = lg + offset
         else:
             d2 = sq.sum(axis=2)
             d2[np.arange(n), np.arange(n)] = 1.0
@@ -294,6 +314,7 @@ def space_filling(
     n_candidates: Optional[int] = None,
     delta: float = 0.0,
     r: Optional[float] = None,
+    qualitative: Optional[Mapping[str, Any]] = None,
 ) -> DesignResult:
     """A space-filling design: runs spread evenly over the factor region.
 
@@ -352,6 +373,16 @@ def space_filling(
         Power of the reciprocal-distance criterion that stands in for
         maximin during the search. Default ``2 p``.
 
+    qualitative : dict, optional
+        ``{name: [levels]}`` for factors without an order (a model
+        variant, a solver, a region). Each level gets the same number of
+        runs, as nearly as ``n`` allows, and the quantitative factors are
+        arranged so that the runs fill the space within every level as
+        well as overall (Joseph, Gul and Ba 2020). ``method`` must be
+        ``'maxpro'``. ``criteria['maxpro_qq']`` is the criterion that
+        was minimised; the other measures refer to the quantitative
+        factors alone.
+
     Returns
     -------
     DesignResult
@@ -378,8 +409,8 @@ def space_filling(
 
     References
     ----------
-    joseph2015maximum; morris1995exploratory; mckay1979comparison;
-    joseph2025experimental
+    joseph2015maximum; joseph2020designing; morris1995exploratory;
+    mckay1979comparison; joseph2025experimental
     """
     kind = _method(method)
     names, lo, hi = resolve_factors(factors)
@@ -392,6 +423,40 @@ def space_filling(
     rng = np.random.default_rng(seed)
     rr = float(2 * p if r is None else r)
     info: Dict[str, Any] = {"notes": []}
+    nominal: Dict[str, np.ndarray] = {}
+    offset = None
+    if qualitative:
+        if kind != "maxpro" or constraint is not None:
+            raise MethodIncompatibility(
+                "Qualitative factors are supported with method='maxpro' and "
+                "without a constraint only."
+            )
+        clash = [str(k) for k in qualitative if str(k) in names]
+        if clash:
+            raise MethodIncompatibility(
+                f"{clash[0]!r} is both quantitative and qualitative."
+            )
+        sets = {str(k): list(v) for k, v in qualitative.items()}
+        for nm, lv in sets.items():
+            if len(lv) < 2 or len(set(map(str, lv))) != len(lv):
+                raise MethodIncompatibility(
+                    f"Qualitative factor {nm!r} needs at least two distinct levels."
+                )
+        # every combination of levels equally often, in random run order
+        combos = list(itertools.product(*[range(len(v)) for v in sets.values()]))
+        reps = int(np.ceil(n / len(combos)))
+        codes = np.array((combos * reps), dtype=int)
+        codes = codes[rng.permutation(len(codes))[:n]] if n % len(combos) else codes[:n]
+        if n % len(combos):
+            info["notes"].append(
+                f"{n} runs are not a multiple of the {len(combos)} level "
+                "combinations: the levels are not perfectly balanced."
+            )
+        offset = np.zeros((n, n))
+        for j, (nm, lv) in enumerate(sets.items()):
+            diff = (codes[:, j][:, None] != codes[:, j][None, :]).astype(float)
+            offset -= 2.0 * np.log(diff + 1.0 / len(lv))
+            nominal[nm] = np.array(lv, dtype=object)[codes[:, j]]
     if constraint is not None:
         if kind not in ("maxpro", "maximin"):
             raise MethodIncompatibility(
@@ -436,7 +501,7 @@ def space_filling(
             if iterations is not None
             else int(min(400000, max(20000, 1000 * n * p)))
         )
-        crit = _PairCriterion(kind, p, rr, delta, n)
+        crit = _PairCriterion(kind, p, rr, delta, n, offset)
         best_X, best_f = None, np.inf
         for _ in range(max(int(n_starts), 1)):
             Xs, fs = _anneal(_random_lhd(n, p, rng), crit, its, rng)
@@ -450,7 +515,7 @@ def space_filling(
                 "polish is available for 'maxpro' and 'maximin' only."
             )
         if do_polish and n * n * p <= 4_000_000:
-            X = _polish(X, kind, rr, delta)
+            X = _polish(X, kind, rr, delta, offset)
         elif do_polish:
             info["notes"].append("Too large to polish; the Latin hypercube is kept.")
             do_polish = False
@@ -461,11 +526,27 @@ def space_filling(
         }[kind] + (" (polished)" if do_polish and kind == "maximin" else "")
         info.update(iterations=its, n_starts=int(n_starts), polished=do_polish)
     info["method"] = kind
+    frame = pd.DataFrame(lo + X * (hi - lo), columns=names)
+    measures = all_criteria(X, delta=delta, r=r, fill=p <= 8)
+    if nominal:
+        assert offset is not None
+        from .criteria import _log_maxpro_terms
+
+        iu = np.triu_indices(n, k=1)
+        lg = _log_maxpro_terms(X, delta) + offset[iu]
+        top = lg.max()
+        measures["maxpro_qq"] = float(
+            np.exp((top + np.log(np.exp(lg - top).mean())) / (p + len(nominal)))
+        )
+        for nm, col in nominal.items():
+            frame[nm] = col
+        label += f" with {len(nominal)} qualitative factor(s)"
+        info["qualitative"] = list(nominal)
     return DesignResult(
-        design=pd.DataFrame(lo + X * (hi - lo), columns=names),
+        design=frame,
         unit=X,
         method=label,
-        criteria=all_criteria(X, delta=delta, r=r, fill=p <= 8),
+        criteria=measures,
         lower=lo,
         upper=hi,
         model_info=info,

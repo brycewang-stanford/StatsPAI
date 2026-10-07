@@ -17860,6 +17860,14 @@ def _build_registry() -> None:
                     None,
                     "Power of the reciprocal-distance criterion (default 2p)",
                 ),
+                ParamSpec(
+                    "qualitative",
+                    "dict",
+                    False,
+                    None,
+                    "{name: [levels]} for factors without an order; balanced "
+                    "over the runs, space-filling within each level",
+                ),
             ],
             returns="DesignResult",
             example=(
@@ -17874,18 +17882,21 @@ def _build_registry() -> None:
                 "computer experiment",
                 "quasi-monte carlo",
             ],
-            reference="joseph2015maximum; morris1995exploratory; mckay1979comparison",
+            reference=(
+                "joseph2015maximum; joseph2020designing; morris1995exploratory; "
+                "mckay1979comparison"
+            ),
             alternatives=["factorial_design", "doe_optimal", "support_points"],
             not_recommended_when=[
                 "The model to be fitted is known: sp.doe_optimal puts the "
                 "runs where that model is estimated best",
-                "Factors are qualitative or have two or three levels: use "
-                "sp.factorial_design",
+                "Every factor has two or three levels: use sp.factorial_design",
                 "A certified optimum is required: the search is stochastic "
                 "and returns a good design, not a proven best one",
             ],
             limitations=[
-                "Qualitative (categorical) factors: not yet supported",
+                "Qualitative factors only with method='maxpro' and without "
+                "a constraint",
             ],
         )
     )
@@ -18028,11 +18039,13 @@ def _build_registry() -> None:
             category="experimental",
             description=(
                 "Full factorial design for factors with any number of "
-                "levels, or a two-level fractional factorial 2^(k-m) from "
-                "generators or by minimum-aberration search, with defining "
-                "relation, resolution, word length pattern and alias "
-                "structure (R FrF2). For multi-factor experiments, conjoint "
-                "and factorial survey designs."
+                "levels, or a fraction: two-level 2^(k-m) from generators or "
+                "by minimum-aberration search (with defining relation, "
+                "resolution, word length pattern and alias structure; R "
+                "FrF2), Plackett-Burman in 12 / 20 / 24 runs, regular "
+                "fractions at 3, 5 or 7 levels, and the orthogonal array "
+                "L18. For multi-factor experiments, conjoint and factorial "
+                "survey designs."
             ),
             params=[
                 ParamSpec(
@@ -18048,8 +18061,9 @@ def _build_registry() -> None:
                     "int",
                     False,
                     None,
-                    "A power of two below 2^k asks for the minimum-aberration "
-                    "fraction of that size",
+                    "Size of a fraction: a power of two (minimum aberration), "
+                    "12 / 20 / 24 (Plackett-Burman), a power of 3, 5 or 7 for "
+                    "factors at that many levels, or 18 (L18)",
                 ),
                 ParamSpec(
                     "generators",
@@ -18082,13 +18096,13 @@ def _build_registry() -> None:
                 "aliasing",
                 "conjoint",
             ],
-            reference="box2005statistics; wu2021experiments",
+            reference="box2005statistics; wu2021experiments; plackett1946design",
             alternatives=["doe_optimal", "space_filling", "randomize"],
             limitations=[
-                "Fractions are built for two-level factors only",
-                "Minimum-aberration search only up to 30,000 generator "
-                "choices (about 9 factors in 32 or 64 runs); beyond that "
-                "generators= is required",
+                "Mixed-level fractions only as columns of L18; other "
+                "mixed-level orthogonal arrays are not implemented",
+                "Minimum-aberration search only up to about 15 factors in "
+                "32 runs or 12 in 64; beyond that generators= is required",
             ],
         )
     )
@@ -18379,7 +18393,7 @@ def _build_registry() -> None:
                     "estimator",
                     "str",
                     False,
-                    "jansen",
+                    "saltelli",
                     "First-order estimator",
                     enum=["jansen", "saltelli"],
                 ),
@@ -18429,6 +18443,63 @@ def _build_registry() -> None:
                 "Each model evaluation is expensive and there are many "
                 "inputs: screen with sp.morris_screening first, or run the "
                 "indices on a surrogate fitted by sp.gp_regress",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="factor_importance",
+            category="experimental",
+            description=(
+                "Model-free ranking and selection of regressors by total "
+                "Sobol' index, straight from data (FIRST): nearest-neighbour "
+                "estimates of the conditional variance of the outcome with "
+                "forward-backward selection. Sees non-linear effects and "
+                "interactions; no model is fitted (R first::first)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "The data"),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec(
+                    "factors",
+                    "list[str]",
+                    False,
+                    None,
+                    "Candidate columns (default all)",
+                ),
+                ParamSpec(
+                    "n_neighbors",
+                    "int",
+                    False,
+                    None,
+                    "Neighbours per conditional variance (2; 3 for a binary "
+                    "outcome)",
+                ),
+                ParamSpec("n_forward", "int", False, 2, "Forward-selection passes"),
+                ParamSpec("standardize", "bool", False, True, "Scale numeric factors"),
+                ParamSpec(
+                    "n_mc", "int", False, None, "Observations to evaluate at (all)"
+                ),
+                ParamSpec("seed", "int", False, None, "Seed of the subset"),
+            ],
+            returns="FactorImportanceResult",
+            example='sp.factor_importance(df, "y").summary()',
+            tags=[
+                "variable importance",
+                "feature selection",
+                "sobol",
+                "sensitivity analysis",
+                "model-free",
+            ],
+            reference="huang2025factor; sobol2001global",
+            assumptions=["Independent observations"],
+            alternatives=["sobol_indices", "variable_importance", "rlasso"],
+            not_recommended_when=[
+                "A causal effect is wanted: importance for prediction says "
+                "nothing about what happens under intervention",
+                "More than about ten relevant factors: nearest neighbours "
+                "degrade and weak factors are missed",
             ],
         )
     )
@@ -18641,6 +18712,14 @@ def _build_registry() -> None:
                     enum=["frame", "array", "rows"],
                 ),
                 ParamSpec("seed", "int", False, None, "Random seed"),
+                ParamSpec(
+                    "criterion",
+                    "str",
+                    False,
+                    "variance",
+                    "Rule for goal='emulate'",
+                    enum=["variance", "alc"],
+                ),
             ],
             returns="SequentialDesignResult",
             example=(

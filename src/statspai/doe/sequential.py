@@ -123,6 +123,27 @@ class SequentialDesignResult(ResultProtocolMixin):
         return ax
 
 
+def _alc(gp: Any, cand: np.ndarray, ref: np.ndarray) -> np.ndarray:
+    """Average reduction of the predictive variance over reference points
+    when a candidate is added: ``mean_r cov(r, c)^2 / var(c)``, with the
+    posterior covariance of the process at the current hyperparameters."""
+    from scipy import linalg
+
+    from ..mcmc.gp import _kernel
+
+    st = gp._state
+    kind, X, length, sf = gp.kernel, st["X"], st["length"], st["signal_var"]
+    a = linalg.solve_triangular(
+        st["chol"], _kernel(kind, X, cand, length, sf), lower=True
+    )
+    b = linalg.solve_triangular(
+        st["chol"], _kernel(kind, X, ref, length, sf), lower=True
+    )
+    cov = _kernel(kind, ref, cand, length, sf) - b.T @ a
+    var = np.maximum(sf - (a * a).sum(axis=0), 1e-12 * sf)
+    return np.asarray((cov * cov).mean(axis=0) / var)
+
+
 def sequential_design(
     func: Callable[..., Any],
     factors: Any,
@@ -136,6 +157,7 @@ def sequential_design(
     n_candidates: Optional[int] = None,
     pass_as: str = "frame",
     seed: Optional[int] = None,
+    criterion: str = "variance",
 ) -> SequentialDesignResult:
     """Choose the runs of an expensive function one at a time.
 
@@ -159,9 +181,8 @@ def sequential_design(
     goal : {'minimize', 'maximize', 'emulate'}, default 'minimize'
         ``'minimize'`` / ``'maximize'`` add the run with the largest
         expected improvement (Jones, Schonlau and Welch 1998);
-        ``'emulate'`` the run where the predictive standard deviation is
-        largest, which spreads runs where the surface is hardest to
-        predict.
+        ``'emulate'`` the run that most reduces the uncertainty of the
+        surrogate over the region (see ``criterion``).
     n_init : int, optional
         Size of the initial maximum projection design. Default
         ``max(5 p, 6)``.
@@ -180,6 +201,15 @@ def sequential_design(
     pass_as : {'frame', 'array', 'rows'}, default 'frame'
         See ``sp.sobol_indices``.
     seed : int, optional
+    criterion : {'variance', 'alc'}, default 'variance'
+        For ``goal='emulate'``. ``'variance'`` adds the run where the
+        predictive variance is largest; ``'alc'`` the run that lowers the
+        predictive variance averaged over the region the most. Neither
+        is better throughout: with 10 initial and 20 added runs the root
+        mean squared prediction error on the two-input Branin function
+        was 0.18 (variance) against 0.36 (alc), and on a three-input
+        test function 0.19 against 0.05, the first figure driven by one
+        poor run in four.
 
     Returns
     -------
@@ -230,6 +260,11 @@ def sequential_design(
     if g not in _GOALS:
         raise MethodIncompatibility(
             f"goal must be one of {', '.join(_GOALS)}; got {goal!r}."
+        )
+    rule = str(criterion).lower()
+    if rule not in ("alc", "variance"):
+        raise MethodIncompatibility(
+            f"criterion must be 'variance' or 'alc'; got {criterion!r}."
         )
     if not isinstance(factors, dict):
         raise MethodIncompatibility("factors is a {name: (lower, upper)} dict.")
@@ -314,8 +349,10 @@ def sequential_design(
             cand = np.vstack([cand, local])
         cand = cand[pair_sqdist(cand, U).min(axis=1) > 1e-10]
         cframe = pd.DataFrame(cand, columns=cols)
-        if g == "emulate":
+        if g == "emulate" and rule == "variance":
             score = gp.predict(cframe)["sd"].to_numpy()
+        elif g == "emulate":
+            score = _alc(gp, cand, _sobol(512, p, int(rng.integers(2**31))))
         else:
             if noisy:
                 at_runs = gp.predict(pd.DataFrame(U, columns=cols))["mean"].to_numpy()

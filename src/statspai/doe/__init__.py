@@ -16,7 +16,8 @@ combinations of factor levels to try.
 - ``support_points`` / ``split_data``: representative points of a
   distribution and train / test splits built from them.
 - ``sobol_indices`` / ``morris_screening``: global sensitivity analysis
-  of a model.
+  of a model. ``factor_importance``: the same question asked of a data
+  set, without a model.
 - ``sequential_design``: Bayesian optimisation and active learning with
   a Gaussian process.
 """
@@ -25,6 +26,7 @@ from ._common import DesignResult
 from .criteria import design_criteria
 from .effects import FactorialEffectsResult, factorial_effects
 from .factorial import FactorialDesignResult, design_aberration, factorial_design
+from .importance import FactorImportanceResult, factor_importance
 from .mixture import mixture_design
 from .optimal import ModelDesignResult, doe_optimal
 from .sensitivity import MorrisResult, SobolResult, morris_screening, sobol_indices
@@ -42,6 +44,8 @@ __all__ = [
     "FactorialDesignResult",
     "factorial_effects",
     "FactorialEffectsResult",
+    "factor_importance",
+    "FactorImportanceResult",
     "mixture_design",
     "doe_optimal",
     "ModelDesignResult",

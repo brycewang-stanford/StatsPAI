@@ -40,12 +40,15 @@ def anneal(
     shift: float,
     iterations: int,
     seed: int,
+    offset: np.ndarray,
 ) -> Tuple[np.ndarray, float]:
     """Swap two levels within a column; Metropolis rule on the log criterion.
 
     The state holds, for every pair of runs, a quantity additive over the
     factors (log pair terms, or the squared distance), so a swap updates
-    two rows at a cost linear in the number of runs.
+    two rows at a cost linear in the number of runs. ``offset`` is added
+    to the state of every pair: the fixed contribution of factors that the
+    search does not move (qualitative factors).
     """
     np.random.seed(seed)
     n, p = X0.shape
@@ -55,7 +58,7 @@ def anneal(
     cur = 0.0
     for i in range(n):
         for m in range(i + 1, n):
-            s = 0.0
+            s = offset[i, m]
             for k in range(p):
                 s += _piece(kind, X[i, k] - X[m, k], delta)
             S[i, m] = s

@@ -9,7 +9,7 @@
 # Requires: SFDesign (0.1.5), MaxPro (4.1-2), twinning (1.1), SPlit (1.3),
 #           support (0.1.7, archived on CRAN), sensitivity (1.31.0),
 #           FrF2 (2.3-5), DoE.base (1.2-5), unrepx (1.0-2), AlgDesign
-#           (1.2.1.2), rkriging (1.0.2), MASS, jsonlite.
+#           (1.2.1.2), rkriging (1.0.2), first (2.1), MASS, jsonlite.
 # Run:      Rscript tests/reference_parity/_fixtures/_generate_joseph_doe.R
 #           (from the repository root)
 # ---------------------------------------------------------------------------
@@ -132,8 +132,43 @@ out$kriging <- list(x = D1, y = y1, test = test,
                     noisy = list(x = Dn, y = yn, lengthscale = p2$lengthscale, nu2 = p2$nu2, sigma2 = p2$sigma2, mu = p2$mu,
                                  mean = q2$mean, sd = q2$sd))
 
+# --- mixed quantitative and qualitative factors (MaxPro) ---------------------
+Lq <- (apply(X, 2, rank) - .5) / 8
+g1 <- rep(1:2, 4); g2 <- c(1, 2, 3, 1, 2, 3, 1, 2)
+qq <- sapply(1:3, function(s) { set.seed(s); ini <- cbind(MaxProLHD(18, 2)$Design, rep(1:3, 6)); MaxProQQ(ini, p_nom = 1)$measure })
+out$qualitative <- list(L = Lq, g1 = g1, g2 = g2, one = MaxProMeasure(cbind(Lq, g1), p_nom = 1),
+                        other = MaxProMeasure(cbind(Lq, g2), p_nom = 1),
+                        both = MaxProMeasure(cbind(Lq, g1, g2), p_nom = 2), searched_18_2_3 = qq)
+
+# --- more fractions: larger minimum-aberration searches, L18, L9, L27 --------
+big <- list()
+for (cfg in list(c(32, 10), c(32, 12), c(32, 14), c(64, 10), c(64, 11), c(64, 12))) {
+  d <- FrF2(cfg[1], cfg[2], randomize = FALSE)
+  big[[paste(cfg, collapse = "_")]] <- list(gwlp = as.numeric(GWLP(d, k = 6))[-1], resolution = design.info(d)$catlg.entry[[1]]$res)
+}
+out$frf2_large <- big
+L27 <- data.matrix(undesign(oa.design(nfactors = 5, nlevels = 3, nruns = 27, randomize = FALSE)))
+out$arrays <- list(L18_gwlp = as.numeric(GWLP(L18, k = 5))[-1], L9_gwlp = as.numeric(GWLP(L9))[-1],
+                   L27_5 = as.numeric(GWLP(L27))[-1])
+
+# --- factor importance from data (first) -------------------------------------
+suppressMessages(library(first))
+set.seed(123); Nf <- 400
+Df <- MASS::mvrnorm(Nf, c(0, 0), matrix(c(1, .9, .9, 1), 2)); Df <- cbind(Df, rnorm(Nf), rnorm(Nf))
+yf <- 3 * Df[, 1] + 2 * Df[, 2] + sqrt(3) * Df[, 3] + rnorm(Nf, sd = .5)
+ish <- function(x) { x <- -pi + 2 * pi * x; sin(x[1]) + 7 * sin(x[2])^2 + 0.1 * x[3]^4 * sin(x[1]) }
+set.seed(7); Xi <- matrix(runif(600 * 6), ncol = 6); yi <- apply(Xi, 1, ish) + rnorm(600)
+Ff <- data.frame(a = Df[, 1], g = factor(sample(c("u", "v", "w"), Nf, TRUE)), c = Df[, 3])
+yg <- 2 * Ff$a + (Ff$g == "v") * 3 + rnorm(Nf, sd = .3)
+yb <- as.numeric(Df[, 1] + Df[, 3] + rnorm(Nf, sd = .5) > 0)
+out$first <- list(D = Df, y = yf, default = first(Df, yf), forward4 = first(Df, yf, n.forward = 4),
+                  knn5 = first(Df, yf, n.knn = 5), subset = first(Df[, c(1, 3, 4)], yf),
+                  raw = first(Df, yf, rescale = FALSE),
+                  Xi = Xi, yi = yi, ishigami = first(Xi, yi, n.knn = 2, rescale = FALSE),
+                  F = Ff, yg = yg, factor = first(Ff, yg), yb = yb, binary = first(Df, yb, n.knn = 3))
+
 out$versions <- sapply(c("SFDesign", "MaxPro", "twinning", "SPlit", "support", "sensitivity", "FrF2",
-                         "DoE.base", "unrepx", "AlgDesign", "rkriging"), function(p) as.character(packageVersion(p)))
+                         "DoE.base", "unrepx", "AlgDesign", "rkriging", "first"), function(p) as.character(packageVersion(p)))
 out$R <- R.version.string
 write_json(out, "tests/reference_parity/_fixtures/joseph_doe_R.json", digits = 17, auto_unbox = TRUE,
            dataframe = "columns", pretty = FALSE)

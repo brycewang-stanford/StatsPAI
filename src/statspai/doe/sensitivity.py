@@ -117,7 +117,7 @@ class SobolResult(ResultProtocolMixin):
     >>> import statspai as sp
     >>> res = sp.sobol_indices(lambda X: X[:, 0] + 2 * X[:, 1], 3,
     ...                        n=1024, pass_as="array", seed=0, n_boot=0)
-    >>> [round(float(v), 1) for v in res.indices["first"]]
+    >>> [abs(round(float(v), 1)) for v in res.indices["first"]]
     [0.2, 0.8, 0.0]
     """
 
@@ -167,12 +167,16 @@ def _sobol_estimates(
     yA: np.ndarray, yB: np.ndarray, yAB: np.ndarray, estimator: str
 ) -> Tuple[np.ndarray, np.ndarray, float]:
     """First-order and total indices from the three sets of evaluations."""
-    var = float(np.var(yA, ddof=1))
-    total = 0.5 * np.mean((yA[:, None] - yAB) ** 2, axis=0) / var
     if estimator == "jansen":
+        var = float(np.var(yA, ddof=1))
         first = 1.0 - 0.5 * np.mean((yB[:, None] - yAB) ** 2, axis=0) / var
     else:
-        first = np.mean(yB[:, None] * (yAB - yA[:, None]), axis=0) / var
+        # centred on the pooled mean: the product then has mean zero for
+        # an inert input whatever the level of the output
+        both = np.r_[yA, yB]
+        var = float(np.var(both, ddof=1))
+        first = np.mean((yB - both.mean())[:, None] * (yAB - yA[:, None]), axis=0) / var
+    total = 0.5 * np.mean((yA[:, None] - yAB) ** 2, axis=0) / var
     return first, total, var
 
 
@@ -180,7 +184,7 @@ def sobol_indices(
     func: Callable[..., Any],
     factors: Any,
     n: int = 1024,
-    estimator: str = "jansen",
+    estimator: str = "saltelli",
     sampling: str = "sobol",
     pass_as: str = "frame",
     n_boot: int = 200,
@@ -212,10 +216,10 @@ def sobol_indices(
     n : int, default 1024
         Base sample size. The model is evaluated ``n (p + 2)`` times.
         With ``sampling='sobol'`` it is rounded up to a power of two.
-    estimator : {'jansen', 'saltelli'}, default 'jansen'
-        Estimator of the first-order index: Jansen (1999), or Saltelli
-        et al. (2010); see Notes for which to prefer. The total index is
-        Jansen's in both cases.
+    estimator : {'saltelli', 'jansen'}, default 'saltelli'
+        Estimator of the first-order index: that of Saltelli et al.
+        (2010) on centred outputs, or Jansen (1999); see Notes for which
+        to prefer. The total index is Jansen's in both cases.
     sampling : {'sobol', 'random'}, default 'sobol'
         Scrambled Sobol' points (smaller error for a given ``n``) or
         independent draws.
@@ -243,21 +247,24 @@ def sobol_indices(
     column ``i`` taken from ``B``,
 
     ``total_i = mean (f(A) - f(AB_i))^2 / (2 V)`` and
-    ``first_i = 1 - mean (f(B) - f(AB_i))^2 / (2 V)`` (Jansen), or
-    ``first_i = mean f(B) (f(AB_i) - f(A)) / V`` (Saltelli et al.),
+    ``first_i = mean (f(B) - m) (f(AB_i) - f(A)) / V`` (Saltelli et
+    al., with ``m`` and ``V`` the mean and variance of the pooled
+    outputs), or ``first_i = 1 - mean (f(B) - f(AB_i))^2 / (2 V)``
+    (Jansen, with ``V`` the variance of ``f(A)``).
 
-    with ``V`` the sample variance of ``f(A)``. ``sensitivity::
-    soboljansen`` in R computes the same quantities with the sums divided
-    by ``2 n - 1`` instead of ``2 n``; after that rescaling the two agree
-    to rounding error.
+    Neither first-order estimator dominates. On the eight-input borehole
+    function with ``n = 512`` Sobol' points the root mean squared errors
+    are 0.008 (Saltelli) against 0.005 (Jansen) for the input that
+    explains 83% of the variance, 0.005 against 0.011 for inputs that
+    explain 4%, and 0.0001 against 0.009 for the three inert inputs. The
+    default is the one with the smaller worst case, and the one that
+    tells an inert input from a weak one. With ``sampling='random'``
+    Jansen's is three times more accurate for a dominant input.
 
-    Neither first-order estimator dominates. Jansen's is the more
-    accurate for an input that explains most of the variance, Saltelli's
-    for inputs that explain little: on the eight-input borehole function
-    with ``n = 512`` Sobol' points the root mean squared errors are 0.005
-    against 0.012 for the dominant input (index 0.83) and about 0.008
-    against 0.0001 for the three inert ones. Read small Jansen
-    first-order indices with their intervals, or switch estimator.
+    ``estimator='jansen'`` reproduces ``sensitivity::soboljansen`` in R,
+    which computes the same quantities with the sums divided by
+    ``2 n - 1`` instead of ``2 n``; after that rescaling the two agree to
+    rounding error.
 
     Estimates can fall slightly below zero or sum to more than one by
     sampling error; that is the Monte Carlo noise to read the indices

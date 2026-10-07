@@ -22,9 +22,10 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
-_SEARCH_LIMIT = 30000
+# combinations of generators times the defining words of each
+_SEARCH_LIMIT = 4e9
 
 
 def _letters(k: int) -> List[str]:
@@ -92,13 +93,26 @@ def _min_aberration(k: int, base: int) -> Tuple[List[int], List[int]]:
             f"of that size holds at most {(1 << base) - 1}."
         )
     n_combo = math.comb(len(cand), m)
-    if n_combo > _SEARCH_LIMIT:
+    if n_combo * float(1 << m) > _SEARCH_LIMIT:
         raise MethodIncompatibility(
             f"Searching the {n_combo:,} fractions of {k} factors in "
             f"{1 << base} runs is not attempted. Give the generators= of a "
             "tabulated design (Wu and Hamada 2021, Appendix 5A; Box, Hunter "
             "and Hunter 2005, Table 6.22)."
         )
+    if n_combo > 2000:
+        try:
+            from ._factorial_core import search
+        except ImportError:  # numba missing: only small searches in Python
+            if n_combo > 30000:
+                raise MethodIncompatibility(
+                    f"Searching {n_combo:,} fractions needs numba, which could "
+                    "not be imported. Give generators=."
+                ) from None
+        else:
+            idx, pat = search(np.array(cand, dtype=np.int64), m, base, k)
+            words = [cand[int(i)] | (1 << (base + j)) for j, i in enumerate(idx)]
+            return words, [int(v) for v in pat]
     best: Optional[Tuple[List[int], List[int]]] = None
     for combo in itertools.combinations(cand, m):
         words = [c | (1 << (base + j)) for j, c in enumerate(combo)]
@@ -107,6 +121,175 @@ def _min_aberration(k: int, base: int) -> Tuple[List[int], List[int]]:
             best = (words, pat)
     assert best is not None
     return best
+
+
+_PB_ROWS = {
+    12: "++-+++---+-",
+    20: "++--++++-+-+----++-",
+    24: "+++++-+-++--++--+-+----",
+}
+
+
+def _plackett_burman(n: int) -> np.ndarray:
+    """Plackett-Burman design in ``n`` runs: cyclic shifts of a first row,
+    closed by a row of minus signs. Checked for orthogonality on the spot."""
+    row = np.array([1 if c == "+" else -1 for c in _PB_ROWS[n]], dtype=int)
+    X = np.array([np.roll(row, i) for i in range(n - 1)] + [-np.ones(n - 1, dtype=int)])
+    if not np.array_equal(X.T @ X, n * np.eye(n - 1, dtype=int)):
+        raise NumericalInstability(  # pragma: no cover - guards the table
+            f"The {n}-run Plackett-Burman array is not orthogonal."
+        )
+    return X
+
+
+def _regular_columns(s: int, m: int) -> Tuple[np.ndarray, List[Tuple[int, ...]]]:
+    """All ``(s^m - 1) / (s - 1)`` columns of the saturated regular design
+    over the integers mod a prime ``s``: linear combinations of ``m`` base
+    factors whose first non-zero coefficient is one."""
+    grid = np.array(list(itertools.product(range(s), repeat=m)), dtype=int)
+    coefs = [
+        c
+        for c in itertools.product(range(s), repeat=m)
+        if any(c) and next(v for v in c if v) == 1
+    ]
+    coefs.sort(key=lambda c: (sum(1 for v in c if v), c[::-1]))
+    cols = np.column_stack([(grid @ np.array(c)) % s for c in coefs])
+    return cols, coefs
+
+
+def _difference_matrix_6x3() -> np.ndarray:
+    """A 6 x 6 matrix over the integers mod 3 in which the difference of
+    any two columns takes each value twice (found by backtracking; the
+    first row and column are zero)."""
+    rows, cols = 6, 6
+    D = np.zeros((rows, cols), dtype=int)
+    options = list(itertools.product(range(3), repeat=rows - 1))
+
+    def ok(col: np.ndarray, upto: int) -> bool:
+        for j in range(upto):
+            diff = (col - D[:, j]) % 3
+            if not np.array_equal(np.bincount(diff, minlength=3), [2, 2, 2]):
+                return False
+        return True
+
+    def fill(j: int) -> bool:
+        if j == cols:
+            return True
+        for opt in options:
+            col = np.r_[0, opt]
+            if ok(col, j):
+                D[:, j] = col
+                if fill(j + 1):
+                    return True
+        return False
+
+    if not fill(1):  # pragma: no cover - the matrix exists
+        raise NumericalInstability("No difference matrix found.")
+    return D
+
+
+def _l18() -> np.ndarray:
+    """The 18-run orthogonal array with one two-level and seven three-level
+    columns (levels coded from 0), from a difference matrix: run (i, g)
+    has the six-level factor at i and three-level columns D[i, j] + g; the
+    six-level factor is then split into a two- and a three-level one."""
+    D = _difference_matrix_6x3()
+    runs = []
+    for i in range(6):
+        for g in range(3):
+            runs.append([i // 3, i % 3] + [int((D[i, j] + g) % 3) for j in range(6)])
+    return np.array(runs, dtype=int)
+
+
+def _orthogonal_array(
+    lev: List[int], n_runs: int, names: Sequence[str]
+) -> Tuple[np.ndarray, str, List[str]]:
+    """Level indices (from 0) of a fraction that is not a two-level regular
+    one: a regular prime-level fraction, a Plackett-Burman design or L18."""
+    k = len(lev)
+    notes: List[str] = []
+    s = lev[0]
+    same = all(v == s for v in lev)
+    if same and s == 2 and n_runs in _PB_ROWS:
+        if k > n_runs - 1:
+            raise MethodIncompatibility(
+                f"A {n_runs}-run Plackett-Burman design holds at most "
+                f"{n_runs - 1} factors."
+            )
+        X = (_plackett_burman(n_runs)[:, :k] + 1) // 2
+        notes.append(
+            "Non-regular design: main effects are orthogonal to each other "
+            "and partially aliased with two-factor interactions."
+        )
+        return X, f"Plackett-Burman design, {n_runs} runs", notes
+    if (
+        n_runs == 18
+        and sorted(lev)[-1] == 3
+        and lev.count(2) <= 1
+        and lev.count(3) <= 7
+    ):
+        if lev.count(2) + lev.count(3) != k:
+            raise MethodIncompatibility(
+                "L18 holds one 2-level and seven 3-level factors."
+            )
+        full = _l18()
+        three = iter(range(1, 8))
+        l18_cols = [0 if v == 2 else next(three) for v in lev]
+        notes.append("Columns of the orthogonal array L18; strength two.")
+        return full[:, l18_cols], "orthogonal array L18", notes
+    prime = s in (2, 3, 5, 7)
+    m = int(round(math.log(n_runs, s))) if same and prime and n_runs > 1 else 0
+    if same and prime and s > 2 and s**m == n_runs and m >= 2:
+        cols, coefs = _regular_columns(s, m)
+        if k > cols.shape[1]:
+            raise MethodIncompatibility(
+                f"{n_runs} runs hold at most {cols.shape[1]} factors at {s} levels."
+            )
+        if k <= m:
+            raise MethodIncompatibility(
+                f"{k} factors at {s} levels in {n_runs} runs is not a fraction."
+            )
+        extra = list(range(m, cols.shape[1]))
+        n_combo = math.comb(len(extra), k - m)
+        chosen = list(range(k))
+        if 1 < n_combo <= 1500 and n_runs <= 243:
+            best = None
+            for combo in itertools.combinations(extra, k - m):
+                pick = list(range(m)) + list(combo)
+                a = design_aberration(
+                    pd.DataFrame(cols[:, pick]), max_order=min(k, 5)
+                ).to_numpy()[:-2]
+                key = tuple(np.round(a, 8))
+                if best is None or key < best[0]:
+                    best = (key, pick)
+            assert best is not None
+            chosen = best[1]
+            notes.append("Minimum-aberration choice of columns, by search.")
+        elif n_combo > 1:
+            notes.append(
+                "Too many column choices to search: the first columns of the "
+                "saturated design are used."
+            )
+        gens = []
+        for pos, c in enumerate(chosen[m:], start=m):
+            terms = " + ".join(
+                (f"{v}*" if v > 1 else "") + f"x{j + 1}"
+                for j, v in enumerate(coefs[c])
+                if v
+            )
+            gens.append(f"{names[pos]} = ({terms}) mod {s}")
+        notes.append(
+            "Generators on levels coded 0.." + str(s - 1) + ": " + "; ".join(gens)
+        )
+        return cols[:, chosen], f"{s}^({k}-{k - m}) regular fractional factorial", notes
+    raise MethodIncompatibility(
+        "Fractions are built for: two-level factors (regular in 2^m runs; "
+        "Plackett-Burman in 12, 20 or 24 runs), factors that all have 3, 5 "
+        "or 7 levels in a power of that many runs, and the 18-run array "
+        "with one 2-level and up to seven 3-level factors. For other "
+        "designs bring your own and check it with sp.design_aberration, or "
+        "use sp.doe_optimal with candidates=."
+    )
 
 
 @dataclass
@@ -149,7 +332,7 @@ class FactorialDesignResult(ResultProtocolMixin):
     generators: List[str] = field(default_factory=list)
     defining_relation: List[str] = field(default_factory=list)
     resolution: Optional[int] = None
-    word_length_pattern: List[int] = field(default_factory=list)
+    word_length_pattern: List[Any] = field(default_factory=list)
     aliases: Dict[str, List[str]] = field(default_factory=dict)
     model_info: Dict[str, Any] = field(default_factory=dict)
 
@@ -186,6 +369,12 @@ class FactorialDesignResult(ResultProtocolMixin):
                     "No main effect or two-factor interaction is aliased with "
                     "another."
                 )
+        elif self.word_length_pattern:
+            lines.append(f"Resolution: {self.resolution}")
+            lines.append(
+                "Generalized word length pattern (A1, A2, ...): "
+                + ", ".join(f"{v:g}" for v in self.word_length_pattern)
+            )
         for note in self.model_info.get("notes", []):
             lines.append(f"Note: {note}")
         return "\n".join(lines)
@@ -221,9 +410,13 @@ def factorial_design(
     levels : int or list of int, default 2
         Levels per factor.
     n_runs : int, optional
-        For two-level factors, a power of two smaller than ``2^k`` asks
-        for the minimum-aberration fraction of that size. Omitted, the
-        full factorial.
+        Size of a fraction. Omitted, the full factorial. Available:
+        two-level factors in a power of two (the minimum-aberration
+        regular fraction) or in 12, 20 or 24 runs (Plackett-Burman);
+        factors that all have 3, 5 or 7 levels in a power of that number
+        (a regular fraction, e.g. four three-level factors in 9 runs);
+        and 18 runs for one two-level and up to seven three-level factors
+        (the orthogonal array L18).
     generators : list of str, optional
         Generators of a two-level fraction, e.g. ``['E = ABC', 'F =
         BCD']`` (or ``'E = A*B*C'`` when names are longer than one
@@ -250,16 +443,21 @@ def factorial_design(
 
     Notes
     -----
-    The minimum-aberration search enumerates every choice of generators,
-    which is feasible up to about 9 factors in 32 or 64 runs; beyond
-    that give ``generators=`` from a published table. Designs found this
-    way have the word length pattern of the designs returned by
-    ``FrF2::FrF2`` in R; the generators themselves may differ, as
-    minimum-aberration designs are unique only up to relabelling.
+    The minimum-aberration search enumerates every choice of generators.
+    It covers up to 15 factors in 32 runs and 12 in 64 (a few seconds at
+    the upper end); beyond that give ``generators=`` from a published
+    table. Designs found this way have the word length pattern of the
+    designs returned by ``FrF2::FrF2`` in R; the generators themselves
+    may differ, as minimum-aberration designs are unique only up to
+    relabelling.
 
-    Fractions of factors with more than two levels and orthogonal arrays
-    such as L18 are not constructed. ``sp.design_aberration`` evaluates
-    any design you bring.
+    For the fractions that are not two-level regular ones there is no
+    defining relation in letters; ``word_length_pattern`` then holds the
+    generalized pattern ``A1, A2, ...`` of ``sp.design_aberration`` and
+    ``resolution`` the first non-zero entry. In a Plackett-Burman design
+    every main effect is partially aliased with many two-factor
+    interactions: it screens main effects and cannot separate
+    interactions.
 
     Examples
     --------
@@ -287,7 +485,8 @@ def factorial_design(
 
     References
     ----------
-    box2005statistics; wu2021experiments; joseph2025experimental
+    box2005statistics; wu2021experiments; plackett1946design;
+    joseph2025experimental
     """
     values: Optional[Dict[str, List[Any]]] = None
     if isinstance(factors, dict):
@@ -333,13 +532,27 @@ def factorial_design(
     gen_text: List[str] = []
     relation: List[str] = []
     resolution: Optional[int] = None
-    pattern: List[int] = []
+    pattern: List[Any] = []
+    levels_idx: np.ndarray
     aliases: Dict[str, List[str]] = {}
-    if fractional:
+    power_of_two = n_runs is not None and n_runs >= 2 and (n_runs & (n_runs - 1)) == 0
+    if fractional and generators is None and not (two_level and power_of_two):
+        assert n_runs is not None
+        if n_runs >= full:
+            raise MethodIncompatibility(
+                f"n_runs must be smaller than the full factorial ({full})."
+            )
+        levels_idx, kind, more = _orthogonal_array(lev, int(n_runs), names)
+        info["notes"].extend(more)
+        ab = design_aberration(pd.DataFrame(levels_idx), max_order=min(k, 5))
+        pattern = [float(round(v, 10)) for v in ab.to_numpy()[:-2]]
+        resolution = None if np.isnan(ab["resolution"]) else int(ab["resolution"])
+        info["generalized_word_length"] = True
+    elif fractional:
         if not two_level:
             raise MethodIncompatibility(
-                "Fractions are built for two-level factors only. For other "
-                "designs bring your own and check it with sp.design_aberration."
+                "generators= are for two-level factors. Leave them out to get "
+                "a three-, five- or seven-level regular fraction."
             )
         signs: Dict[int, int] = {}
         if generators is not None:
@@ -450,7 +663,7 @@ def factorial_design(
             seen.update(m for m, _ in mates)
             aliases[_word(e, names)] = [signed(m, sg) for m, sg in mates]
         kind = f"2^({k}-{len(words)}) fractional factorial, resolution {resolution}"
-        levels_idx: np.ndarray = (coded + 1) // 2
+        levels_idx = (coded + 1) // 2
     else:
         levels_idx = np.array(
             list(itertools.product(*[range(v) for v in lev])), dtype=int

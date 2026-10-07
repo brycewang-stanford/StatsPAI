@@ -25,8 +25,9 @@ removed from CRAN and now exist only in the archive: `support`, `mixexp`,
 used; the two mixture designs they provide have closed forms. The Python
 port does not help, since it shells out to the same packages.
 
-Thirteen functions were added as a new subpackage `statspai.doe`, and one
-defect was found and fixed in an existing function.
+Fourteen functions were added as a new subpackage `statspai.doe` (thirteen
+in a first round, `sp.factor_importance` in a second), and one defect was
+found and fixed in an existing function.
 
 All reference packages are GPL or LGPL and StatsPAI is MIT. Nothing was
 translated. The implementations follow the papers and were compared with R
@@ -209,31 +210,78 @@ in nine small cases). What it found, all fixed and each now a test in
   position; `sp.support_points` gave a numpy error when few draws had
   positive weight; one Morris trajectory gave a silent NaN.
 
+## Second round, the same day
+
+Bryce delegated two decisions and asked for the remaining work.
+
+**The default first-order Sobol' estimator is now Saltelli's on centred
+outputs.** Measured on the borehole function with 512 Sobol' points, 60
+replications: root mean squared error 0.008 against 0.005 (Jansen) for the
+dominant input, 0.005 against 0.011 for inputs that explain 4%, and 0.0001
+against 0.009 for inert inputs. The smaller worst case and the ability to
+tell an inert input from a weak one decided it. Centring on the pooled
+mean matters: without it the error for the dominant input is 0.012.
+`estimator='jansen'` remains and is what the parity test uses.
+
+**Added.**
+
+- `sp.space_filling(qualitative=)`: factors without an order, balanced
+  over the runs, with the quantitative factors arranged by the
+  mixed-factor MaxPro criterion of Joseph, Gul and Ba (2020). The
+  criterion equals `MaxPro::MaxProMeasure(p_nom=)` to 1e-12 on a fixed
+  design. Searched designs score 8.5 to 8.7 where `MaxProQQ` scores 10.2
+  to 10.3 (18 runs, two quantitative factors, one three-level factor);
+  ours also moves the levels continuously, so this is a screen.
+- `sp.factor_importance`: the FIRST procedure of Huang and Joseph (2025).
+  Its algorithm was pinned down from the package's help page and from
+  outputs: the conditional variance of a set is the mean, over
+  observations, of the sample variance of the outcome among the `k`
+  nearest neighbours in that set; forward selection with early dropping,
+  repeated `n_forward` times; backward elimination; importance
+  `(v(S without i) - v(S)) / (Var(y) - v(S))`. The denominator was found
+  from the constant ratio between a first guess and the output. Seven
+  configurations agree with `first::first` to 1e-10, including a binary
+  outcome and the noisy Ishigami example of the package.
+- More fractions in `sp.factorial_design`: Plackett-Burman designs in 12,
+  20 and 24 runs, regular fractions at 3, 5 and 7 levels, and the
+  orthogonal array L18 (built from a difference matrix found by
+  backtracking). L9 and L18 have the generalized word length pattern of
+  the arrays in `DoE.base`.
+- The minimum-aberration search is compiled and now covers up to 15
+  factors in 32 runs and 12 in 64. Six of the larger cases equal the
+  `FrF2` catalogue.
+- `sp.sequential_design(criterion='alc')`. It is not the default: with 10
+  initial and 20 added runs the prediction error was 0.36 against 0.18
+  (largest variance) on Branin and 0.05 against 0.19 on a three-input
+  function.
+
+**One place where we differ from `first` on purpose.** For a set that
+holds categorical factors only, every observation of a cell is a tied
+nearest neighbour and the tree search returns an arbitrary `k` of them,
+the same ones for every query in the cell. On `y = 2 a + 3 [g = v] +
+noise`, where the share of `a` is 4/6, `first` returns 0.549. We use the
+variance within the cell and get 0.619 on those 400 observations.
+
+**A claim that was withdrawn before it shipped.** A first draft of the
+docstring said that two factors acting only through their product are not
+found by the greedy search. In the population neither lowers the
+conditional variance alone, but in a sample one of them does by chance
+about as often as not, and then the other follows. The docstring now says
+they can be missed.
+
 ## Not done
 
-Ordered by how much an applied user would miss them.
-
-1. **Qualitative factors in space-filling designs** (`MaxProQQ`, sliced
-   Latin hypercubes). A simulation study often has a categorical factor.
-   Today the user builds one design per level.
-2. **Factor ranking from data** (`first`, Huang and Joseph 2025). Total
-   Sobol' indices estimated from a data set by nearest neighbours, with
-   forward selection. It would connect to variable importance elsewhere in
-   the package. Stochastic, so the evidence would be a screen.
-3. **Bayesian analysis of factorial experiments** (`HiGarrote`), which
-   uses effect heredity. `sp.factorial_effects` stops at Lenth.
-4. **Other active-learning criteria** (ALC, ALMV). The book's own
-   comparison does not favour them clearly over the largest-variance rule.
-5. **Regular fractions at three levels and orthogonal arrays** (L9, L18).
-   `sp.design_aberration` assesses them; nothing builds them.
-6. **MOFAT screening designs, derivative-based sensitivity, minimax and
+1. **Bayesian analysis of factorial experiments** (`HiGarrote`). A
+   nonnegative garrote with heredity constraints under a Gaussian process
+   prior. It is a large piece whose output could only be screened against
+   the package, so it was left out.
+2. **Mixed-level orthogonal arrays other than L18** (L12 with a
+   three-level column, L36). `sp.design_aberration` assesses them and
+   `sp.doe_optimal(candidates=)` builds a design for any level structure.
+3. **MOFAT screening designs, derivative-based sensitivity, minimax and
    minimum energy designs, inverse designs, nested and multi-fidelity
    designs, supervised compression, twin Gaussian processes, balanced
-   sampling.** Specialised; no request for them yet.
-
-The minimum-aberration search in `sp.factorial_design` is exhaustive and
-refuses problems with more than 30,000 generator choices (ten factors in
-32 or 64 runs are the first ones refused). A catalogue would lift that.
+   sampling, the ALMV rule.** Specialised; no request for them yet.
 
 `sp.doe_optimal` finds exact designs by a multi-start exchange. On a
 problem with many local optima (14 runs for a three-factor quadratic on a

@@ -263,6 +263,36 @@ Guide: `docs/guides/schuler_vanderlaan_modern_causal_inference.md`.
   ratio scale, with the curve of the implied causal estimate over
   hypothetical gaps.
 
+### Design of experiments, second round
+
+Review: `docs/dev/2026-10-07-joseph-experimental-design-review.md`.
+
+#### Added
+
+- **`sp.factor_importance`**: model-free ranking and selection of
+  regressors by total Sobol' index, estimated from nearest neighbours
+  (FIRST, Huang and Joseph 2025). Equal to R `first::first` to 1e-10 on
+  numeric data. For a set of categorical factors only it uses the
+  variance within each cell where the reference takes arbitrary tied
+  neighbours.
+- **`sp.space_filling(qualitative=)`**: factors without an order,
+  balanced over the runs, with the mixed-factor MaxPro criterion (equal to
+  R `MaxPro::MaxProMeasure` to 1e-12).
+- **`sp.factorial_design`** also builds Plackett-Burman designs (12, 20,
+  24 runs), regular fractions at 3, 5 and 7 levels, and the orthogonal
+  array L18. The minimum-aberration search is compiled and covers up to 15
+  factors in 32 runs and 12 in 64 (it stopped at 9).
+- **`sp.sequential_design(criterion='alc')`** for `goal='emulate'`.
+
+#### Changed
+
+- **`sp.sobol_indices` defaults to `estimator='saltelli'`**, computed on
+  centred outputs. Released code never had the other default: the
+  function is new in this cycle. With 512 Sobol' points on the borehole
+  function its error for inert inputs is 0.0001 against 0.009 for
+  Jansen's estimator, at the cost of 0.008 against 0.005 for the dominant
+  input. `estimator='jansen'` is unchanged.
+
 ### Design of experiments: `statspai.doe`
 
 From a pass over V. Roshan Joseph, *Experimental Design for Data Science

@@ -217,8 +217,8 @@ class TestFactorial:
     @pytest.mark.parametrize(
         "kwargs,match",
         [
-            ({"factors": 3, "levels": 3, "n_runs": 9}, "two-level factors only"),
-            ({"factors": 4, "n_runs": 6}, "power of two"),
+            ({"factors": 3, "levels": 4, "n_runs": 8}, "Fractions are built for"),
+            ({"factors": 4, "n_runs": 6}, "Fractions are built for"),
             ({"factors": 8, "n_runs": 4}, "at most 3"),
             ({"factors": 4, "generators": ["D = ABZ"]}, "not a factor"),
             ({"factors": 4, "generators": ["D ABC"]}, "reads 'E = ABC'"),
@@ -1012,6 +1012,168 @@ class TestReviewFindings:
         )
         counts = np.unique(np.round(res.design.to_numpy(), 6), return_counts=True)[1]
         assert counts.max() / counts.min() < 1.15
+
+
+# ---------------------------------------------------------------------------
+# Second round: qualitative factors, other fractions, factor importance
+# ---------------------------------------------------------------------------
+
+
+class TestSecondRound:
+    def test_qualitative_factors_are_balanced_and_fill_each_level(self):
+        d = sp.space_filling(
+            24,
+            {"x": (0, 10), "z": (-1, 1)},
+            seed=1,
+            qualitative={"solver": ["a", "b"], "region": ["n", "s", "w"]},
+        )
+        assert d.design.groupby(["solver", "region"]).size().tolist() == [4] * 6
+        assert d.design["x"].between(0, 10).all()
+        # within a level the runs are spread out, not clumped: compare with
+        # an arrangement that ignores the qualitative factor
+        plain = sp.space_filling(24, 2, seed=1).unit
+        rng = np.random.default_rng(0)
+        labels = d.design["solver"].to_numpy()
+        ours = min(
+            sp.design_criteria(d.unit[labels == lv])["maximin"] for lv in ("a", "b")
+        )
+        blind = np.mean(
+            [
+                min(
+                    sp.design_criteria(plain[m])["maximin"],
+                    sp.design_criteria(plain[~m])["maximin"],
+                )
+                for m in (rng.permutation(labels) == "a" for _ in range(200))
+            ]
+        )
+        assert ours > blind
+
+    def test_qualitative_errors(self):
+        with pytest.raises(MethodIncompatibility, match="method='maxpro'"):
+            sp.space_filling(8, 2, method="maximin", qualitative={"g": ["a", "b"]})
+        with pytest.raises(MethodIncompatibility, match="two distinct levels"):
+            sp.space_filling(8, 2, qualitative={"g": ["a"]})
+        with pytest.raises(MethodIncompatibility, match="both quantitative"):
+            sp.space_filling(8, ["g", "x"], qualitative={"g": ["a", "b"]})
+
+    @pytest.mark.parametrize("n", [12, 20, 24])
+    def test_plackett_burman_is_orthogonal(self, n):
+        d = sp.factorial_design(n - 1, n_runs=n)
+        X = d.design.to_numpy()
+        np.testing.assert_array_equal(X.T @ X, n * np.eye(n - 1))
+        assert (X.sum(axis=0) == 0).all()
+        assert d.resolution == 3
+
+    @pytest.mark.parametrize(
+        "kwargs,runs",
+        [
+            ({"factors": 4, "levels": 3, "n_runs": 9}, 9),
+            ({"factors": 7, "levels": 3, "n_runs": 27}, 27),
+            ({"factors": 6, "levels": 5, "n_runs": 25}, 25),
+            ({"factors": 8, "levels": [2] + [3] * 7, "n_runs": 18}, 18),
+            ({"factors": 5, "levels": [3, 3, 2, 3, 3], "n_runs": 18}, 18),
+        ],
+    )
+    def test_other_fractions_are_orthogonal_arrays_of_strength_two(self, kwargs, runs):
+        """Every pair of columns shows every pair of levels equally often."""
+        d = sp.factorial_design(**kwargs)
+        assert d.n_runs == runs
+        for a, b in itertools.combinations(d.design.columns, 2):
+            counts = d.design.groupby([a, b]).size()
+            assert counts.nunique() == 1
+            assert len(counts) == d.design[a].nunique() * d.design[b].nunique()
+        assert d.resolution == 3
+
+    def test_values_of_a_three_level_fraction(self):
+        d = sp.factorial_design(
+            {"dose": [10, 20, 40], "freq": [1, 2, 3], "form": ["a", "b", "c"]},
+            n_runs=9,
+        )
+        assert set(d.design["dose"]) == {10, 20, 40}
+        assert d.design.drop_duplicates().shape[0] == 9
+
+    def test_fraction_that_is_not_available(self):
+        with pytest.raises(MethodIncompatibility, match="Fractions are built for"):
+            sp.factorial_design(3, levels=4, n_runs=8)
+        with pytest.raises(MethodIncompatibility, match="at most 11"):
+            sp.factorial_design(13, n_runs=12)
+
+    def test_python_and_compiled_searches_agree(self):
+        from statspai.doe._factorial_core import search
+        from statspai.doe.factorial import _wlp
+
+        base, k = 4, 8
+        cand = [c for c in range(1, 1 << base) if bin(c).count("1") >= 2]
+        idx, pat = search(np.array(cand, dtype=np.int64), k - base, base, k)
+        best = min(
+            _wlp([c | (1 << (base + j)) for j, c in enumerate(combo)], k)
+            for combo in itertools.combinations(cand, k - base)
+        )
+        assert [int(v) for v in pat] == best
+
+    def test_factor_importance_finds_interaction_and_ignores_noise(self):
+        """y = x1 (1 + x2) + x3^2: x2 acts only through x1 and x3 has no
+        linear relation with y."""
+        rng = np.random.default_rng(1)
+        df = pd.DataFrame(
+            rng.uniform(-1, 1, size=(800, 6)), columns=[f"x{i}" for i in range(1, 7)]
+        )
+        df["y"] = (
+            df["x1"] * (1 + df["x2"]) + df["x3"] ** 2 + 0.05 * rng.normal(size=800)
+        )
+        assert abs(np.corrcoef(df["x2"], df["y"])[0, 1]) < 0.1
+        assert abs(np.corrcoef(df["x3"], df["y"])[0, 1]) < 0.1
+        res = sp.factor_importance(df, "y")
+        assert sorted(res.selected) == ["x1", "x2", "x3"]
+        assert (res.importance[["x4", "x5", "x6"]] == 0).all()
+        assert res.noise_share < 0.2
+
+    def test_factor_importance_pure_noise_selects_little(self):
+        rng = np.random.default_rng(2)
+        hits = []
+        for _ in range(20):
+            df = pd.DataFrame(rng.normal(size=(300, 5)), columns=list("abcde"))
+            df["y"] = rng.normal(size=300)
+            hits.append(len(sp.factor_importance(df, "y").selected))
+        # with nothing to find, each factor is picked now and then by
+        # chance; on average well under one of the five
+        assert np.mean(hits) < 1.5
+
+    def test_factor_importance_errors(self):
+        df = pd.DataFrame({"a": np.arange(30.0), "y": np.ones(30)})
+        with pytest.raises(MethodIncompatibility, match="does not vary"):
+            sp.factor_importance(df, "y")
+        with pytest.raises(Exception, match="not in the data"):
+            sp.factor_importance(df, "z")
+        with pytest.raises(DataInsufficient, match="too few"):
+            sp.factor_importance(df.head(5).assign(y=np.arange(5.0)), "y")
+
+    def test_alc_rule_runs_and_reduces_average_variance(self):
+        f = lambda d: np.sin(5 * d["a"]) * d["b"]  # noqa: E731
+        res = sp.sequential_design(
+            f,
+            {"a": (0, 1), "b": (0, 1)},
+            n_new=8,
+            n_init=8,
+            goal="emulate",
+            criterion="alc",
+            seed=1,
+        )
+        grid = pd.DataFrame(
+            np.random.default_rng(0).random((500, 2)), columns=["a", "b"]
+        )
+        assert np.sqrt(np.mean((res.predict(grid)["mean"] - f(grid)) ** 2)) < 0.05
+        with pytest.raises(MethodIncompatibility, match="criterion"):
+            sp.sequential_design(f, {"a": (0, 1), "b": (0, 1)}, criterion="x")
+
+    def test_sobol_default_separates_inert_from_weak(self):
+        """The reason the centred Saltelli estimator is the default: an
+        input that does nothing gets an index of zero to three decimals
+        at a sample size where Jansen's wanders by 0.01."""
+        f = lambda X: 4 * X[:, 0] + 0.6 * X[:, 1] + 0 * X[:, 2]  # noqa: E731
+        s = sp.sobol_indices(f, 3, n=512, pass_as="array", seed=3, n_boot=0)
+        assert abs(s.indices["first"].iloc[2]) < 1e-3
+        assert s.indices["first"].iloc[1] == pytest.approx(0.36 / 16.36, abs=5e-3)
 
 
 # ---------------------------------------------------------------------------

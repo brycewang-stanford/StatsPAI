@@ -322,7 +322,9 @@ class TestSensitivity:
 
     def test_jansen_estimates_after_the_divisor_rescaling(self):
         A, B = np.array(self.ref["A"]), np.array(self.ref["B"])
-        res = sp.sobol_indices(borehole, 8, A=A, B=B, pass_as="array", n_boot=0)
+        res = sp.sobol_indices(
+            borehole, 8, A=A, B=B, pass_as="array", n_boot=0, estimator="jansen"
+        )
         n = A.shape[0]
         # sensitivity::soboljansen divides the sums of squares by 2n - 1,
         # the estimator of Jansen (1999) by 2n. Undo that and compare.
@@ -451,3 +453,151 @@ class TestKriging:
         pred = fit.predict(self.test)
         np.testing.assert_allclose(pred["mean"], nz["mean"], atol=1e-4)
         np.testing.assert_allclose(pred["sd"], nz["sd"], atol=1e-4)
+
+
+# ---------------------------------------------------------------------------
+# Second round: qualitative factors, larger fractions, factor importance
+# ---------------------------------------------------------------------------
+
+
+class TestQualitativeFactors:
+    ref = REF["qualitative"]
+
+    def _criterion(self, groups):
+        """The mixed-factor MaxPro criterion, written out: each pair of
+        runs contributes 1 / prod (x_il - x_jl)^2 / prod (d_k + 1/L_k)^2
+        with d_k = 1 when the runs differ in qualitative factor k."""
+        L = np.array(self.ref["L"])
+        n = len(L)
+        iu = np.triu_indices(n, k=1)
+        lg = np.zeros(iu[0].size)
+        for col in L.T:
+            lg -= 2 * np.log(np.abs(col[iu[0]] - col[iu[1]]))
+        for g in groups:
+            g = np.array(g)
+            d = (g[iu[0]] != g[iu[1]]).astype(float)
+            lg -= 2 * np.log(d + 1 / len(set(g)))
+        return np.exp(lg).mean() ** (1 / (L.shape[1] + len(groups)))
+
+    def test_criterion_formula_is_that_of_maxpromeasure(self):
+        r = self.ref
+        assert self._criterion([r["g1"]]) == pytest.approx(r["one"], rel=1e-12)
+        assert self._criterion([r["g2"]]) == pytest.approx(r["other"], rel=1e-12)
+        assert self._criterion([r["g1"], r["g2"]]) == pytest.approx(
+            r["both"], rel=1e-12
+        )
+
+    def test_reported_criterion_is_that_formula(self):
+        d = sp.space_filling(18, 2, seed=1, qualitative={"g": [1, 2, 3]})
+        X = d.unit
+        g = d.design["g"].to_numpy()
+        iu = np.triu_indices(18, k=1)
+        lg = np.zeros(iu[0].size)
+        for col in X.T:
+            lg -= 2 * np.log(np.abs(col[iu[0]] - col[iu[1]]))
+        lg -= 2 * np.log((g[iu[0]] != g[iu[1]]).astype(float) + 1 / 3)
+        assert d.criteria["maxpro_qq"] == pytest.approx(
+            np.exp(lg).mean() ** (1 / 3), rel=1e-10
+        )
+
+    def test_searched_design_is_on_par(self):
+        """A screen. MaxProQQ permutes the levels of a Latin hypercube;
+        ours also moves them continuously, so it should not be worse."""
+        ours = min(
+            sp.space_filling(18, 2, seed=s, qualitative={"g": [1, 2, 3]}).criteria[
+                "maxpro_qq"
+            ]
+            for s in range(2)
+        )
+        assert ours <= min(self.ref["searched_18_2_3"]) * 1.02
+
+
+@pytest.mark.parametrize("key", sorted(REF["frf2_large"]))
+def test_larger_minimum_aberration_searches(key):
+    """The compiled exhaustive search against the FrF2 catalogue."""
+    runs, k = (int(v) for v in key.split("_"))
+    d = sp.factorial_design(k, n_runs=runs)
+    ref = REF["frf2_large"][key]
+    assert d.resolution == ref["resolution"]
+    assert d.word_length_pattern[:6] == [int(round(v)) for v in ref["gwlp"][:6]]
+
+
+class TestOtherFractions:
+    ref = REF["arrays"]
+
+    def test_l18_has_the_pattern_of_the_catalogued_array(self):
+        """Built from a difference matrix found by search; an orthogonal
+        array is defined up to isomorphism, so the generalized word
+        length pattern is what can be compared."""
+        d = sp.factorial_design(8, levels=[2] + [3] * 7, n_runs=18)
+        np.testing.assert_allclose(
+            d.word_length_pattern[:5], self.ref["L18_gwlp"][:5], atol=1e-8
+        )
+
+    def test_l9(self):
+        d = sp.factorial_design(4, levels=3, n_runs=9)
+        np.testing.assert_allclose(
+            d.word_length_pattern[:4], self.ref["L9_gwlp"][:4], atol=1e-8
+        )
+
+    def test_five_three_level_factors_in_27_runs_is_no_worse(self):
+        """DoE.base picks columns of its L27; ours searches for minimum
+        aberration, so its pattern must be at most the catalogue's."""
+        d = sp.factorial_design(5, levels=3, n_runs=27)
+        ours = [round(v, 8) for v in d.word_length_pattern[:5]]
+        ref = [round(v, 8) for v in self.ref["L27_5"][:5]]
+        assert ours <= ref
+
+
+class TestFactorImportance:
+    ref = REF["first"]
+
+    def _frame(self):
+        df = pd.DataFrame(np.array(self.ref["D"]), columns=list("abcd"))
+        df["y"] = self.ref["y"]
+        return df
+
+    @pytest.mark.parametrize(
+        "kwargs,key",
+        [
+            ({}, "default"),
+            ({"n_forward": 4}, "forward4"),
+            ({"n_neighbors": 5}, "knn5"),
+            ({"factors": ["a", "c", "d"]}, "subset"),
+            ({"standardize": False}, "raw"),
+        ],
+    )
+    def test_equals_first(self, kwargs, key):
+        """Deterministic given the data: nearest neighbours, sample
+        variances and a greedy selection. Rounding error only."""
+        res = sp.factor_importance(self._frame(), "y", **kwargs)
+        np.testing.assert_allclose(res.importance, self.ref[key], atol=1e-10)
+
+    def test_ishigami_with_noise(self):
+        df = pd.DataFrame(np.array(self.ref["Xi"]), columns=[f"x{i}" for i in range(6)])
+        df["y"] = self.ref["yi"]
+        res = sp.factor_importance(df, "y", standardize=False)
+        np.testing.assert_allclose(res.importance, self.ref["ishigami"], atol=1e-10)
+
+    def test_binary_outcome(self):
+        df = self._frame().drop(columns="y")
+        df["y"] = self.ref["yb"]
+        res = sp.factor_importance(df, "y")
+        np.testing.assert_allclose(res.importance, self.ref["binary"], atol=1e-10)
+
+    def test_categorical_factor(self):
+        """y = 2 a + 3 [g = v] + noise. The importance of ``g`` needs the
+        conditional variance given ``a`` and equals the reference. That
+        of ``a`` needs the conditional variance given ``g`` alone, where
+        every observation of a level is a tied nearest neighbour: the
+        reference takes whichever the tree returns (0.549), we take the
+        variance within the level. The population value is 4 / 6."""
+        F = pd.DataFrame(self.ref["F"])
+        F["y"] = self.ref["yg"]
+        res = sp.factor_importance(F, "y")
+        assert res.importance["g"] == pytest.approx(self.ref["factor"][1], abs=1e-10)
+        assert res.importance["c"] == 0.0
+        assert self.ref["factor"][0] == pytest.approx(0.549, abs=1e-3)
+        # 0.619 in this sample of 400
+        assert res.importance["a"] == pytest.approx(4 / 6, abs=0.06)
+        assert abs(res.importance["a"] - 4 / 6) < abs(self.ref["factor"][0] - 4 / 6)

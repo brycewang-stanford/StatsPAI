@@ -43,30 +43,30 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `agent` | 42,524 | 69 | 4 |
 | `regression` | 32,421 | 43 | 62 |
 | `timeseries` | 31,180 | 55 | 88 |
-| `synth` | 30,394 | 40 | 56 |
+| `synth` | 30,976 | 41 | 56 |
 | `rd` | 23,681 | 35 | 57 |
 | `smart` | 16,690 | 21 | 31 |
-| `forest` | 16,231 | 18 | 32 |
+| `forest` | 16,354 | 18 | 32 |
 | `matching` | 16,017 | 26 | 39 |
-| `inference` | 15,321 | 31 | 56 |
+| `inference` | 15,365 | 31 | 56 |
 | `output` | 14,196 | 22 | 42 |
 | `diagnostics` | 14,008 | 26 | 47 |
 | `mcmc` | 13,151 | 23 | 46 |
 | `core` | 12,509 | 21 | 6 |
 | `panel` | 12,182 | 20 | 23 |
-| `decomposition` | 9,912 | 19 | 32 |
 | `dml` | 10,106 | 25 | 17 |
+| `decomposition` | 9,912 | 19 | 32 |
 | `iv` | 8,883 | 17 | 10 |
 | `fast` | 7,871 | 16 | 0 |
 | `spatial` | 7,860 | 30 | 38 |
 | `dag` | 7,037 | 12 | 27 |
 | `plots` | 6,015 | 7 | 8 |
 | `causal_discovery` | 5,804 | 14 | 24 |
+| `doe` | 5,717 | 14 | 24 |
 | `multilevel` | 5,384 | 9 | 11 |
 | `bayes` | 5,352 | 12 | 20 |
-| `metalearners` | 5,194 | 10 | 25 |
+| `metalearners` | 5,242 | 10 | 25 |
 | `mendelian` | 5,187 | 13 | 41 |
-| `doe` | 4,986 | 12 | 22 |
 | `frontier` | 4,986 | 8 | 12 |
 | `structural` | 4,974 | 12 | 14 |
 | `utils` | 4,868 | 11 | 35 |
@@ -129,7 +129,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **629,514** | **1064** | **1552** |
+| **Total** | **630,328** | **1066** | **1554** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

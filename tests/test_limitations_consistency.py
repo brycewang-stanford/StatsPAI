@@ -428,16 +428,18 @@ def _runtime_map() -> (
             ),
             (NotImplementedError, ValueError),
         ),
-        ("factorial_design", "two-level factors only"): (
-            lambda: sp.factorial_design(3, levels=3, n_runs=9),
+        ("factorial_design", "Mixed-level fractions only as columns of L18"): (
+            lambda: sp.factorial_design(3, levels=[2, 4, 3], n_runs=12),
             MethodIncompatibility,
         ),
-        ("factorial_design", "only up to 30,000 generator"): (
-            lambda: sp.factorial_design(12, n_runs=128),
+        ("factorial_design", "Minimum-aberration search only up to"): (
+            lambda: sp.factorial_design(20, n_runs=128),
             MethodIncompatibility,
         ),
-        ("space_filling", "Qualitative (categorical) factors"): (
-            lambda: sp.space_filling(6, {"x": (0, 1), "g": ("a", "b")}),
+        ("space_filling", "Qualitative factors only with method='maxpro'"): (
+            lambda: sp.space_filling(
+                6, 2, method="maximin", qualitative={"g": ["a", "b"]}
+            ),
             MethodIncompatibility,
         ),
     }

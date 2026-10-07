@@ -24,6 +24,7 @@ how closely is in the last section.
 | Add a second batch, or validation runs | `sp.design_augment` |
 | How good is this design at filling the region | `sp.design_criteria` |
 | Which inputs of my model matter | `sp.morris_screening`, `sp.sobol_indices` |
+| Which columns of my data matter, without a model | `sp.factor_importance` |
 | A few points that stand in for a distribution | `sp.support_points` |
 | A test set that looks like the whole data | `sp.split_data` |
 | Minimise an expensive function in few evaluations | `sp.sequential_design` |
@@ -61,9 +62,23 @@ Aliased effects:
 Resolution 4 means that main effects are clear of two-factor
 interactions, and two-factor interactions come in pairs that cannot be
 told apart. Without generators, `sp.factorial_design(k, n_runs=...)`
-searches for the fraction with minimum aberration. That search is
-exhaustive and is refused beyond about nine factors in 32 or 64 runs;
-give the generators of a tabulated design there.
+searches for the fraction with minimum aberration. The search is
+exhaustive and covers up to 15 factors in 32 runs and 12 in 64; beyond
+that, give the generators of a tabulated design.
+
+Other fractions come from the same call:
+
+```python
+sp.factorial_design(11, n_runs=12)              # Plackett-Burman (also 20, 24)
+sp.factorial_design(4, levels=3, n_runs=9)      # 3^(4-2), the array L9
+sp.factorial_design(8, levels=[2] + [3] * 7, n_runs=18)   # the array L18
+```
+
+A Plackett-Burman design screens main effects in very few runs. Every
+main effect is partially aliased with many two-factor interactions, so it
+cannot tell an interaction from a main effect. These designs have no
+defining relation in letters; `word_length_pattern` then holds the
+generalized pattern of `sp.design_aberration`.
 
 `d.design` holds the runs coded -1 / +1. Pass `{name: [low, high]}` to
 get them in real units, `randomize=True` for a run order, and
@@ -221,6 +236,19 @@ every projection onto a subset of the factors. Other choices of `method`:
 On the MaxPro criterion (smaller is better) the 30-run design above
 scores 25.6. A random Latin hypercube of the same size scores 98.
 
+Factors without an order (which solver, which model variant, which
+region) go in `qualitative=`. Each combination of their levels gets the
+same number of runs, and the quantitative factors fill the space within
+every level as well as overall.
+
+```python
+d = sp.space_filling(
+    24, {"beta": (0.9, 0.99), "gamma": (1, 5)}, seed=1,
+    qualitative={"solver": ["vfi", "egm"], "shock": ["low", "mid", "high"]},
+)
+d.design.groupby(["solver", "shock"]).size().tolist()   # [4, 4, 4, 4, 4, 4]
+```
+
 A region that is not a box is handled by `constraint=`, a function that
 says which candidate runs are feasible. `sp.design_augment(design, n_new)`
 adds runs to an existing design and leaves the old ones in place, which is
@@ -285,6 +313,43 @@ confounding (`sp.sensemakr`, `sp.evalue`).
 When each evaluation is expensive, fit a surrogate on a space-filling
 design with `sp.gp_regress(..., interpolate=True)` and compute the indices
 on `lambda d: fit.predict(d)["mean"]`.
+
+The first-order index has two estimators. The default (Saltelli and
+co-authors, on centred outputs) gives an inert input an index of zero to
+three decimals at a few hundred runs. `estimator="jansen"` is more
+accurate for an input that explains most of the variance and is the one R
+`sensitivity::soboljansen` computes.
+
+## Which columns matter, from data alone
+
+The same question can be put to a data set with no model at hand.
+`sp.factor_importance` estimates total Sobol' indices from nearest
+neighbours and selects the columns that carry information about the
+outcome, whatever the functional form.
+
+```python
+rng = np.random.default_rng(1)
+df = pd.DataFrame(rng.uniform(-1, 1, size=(800, 6)),
+                  columns=[f"x{i}" for i in range(1, 7)])
+df["y"] = df["x1"] * (1 + df["x2"]) + df["x3"] ** 2 + 0.05 * rng.normal(size=800)
+sp.factor_importance(df, "y").importance
+```
+
+```text
+x1    0.8012
+x2    0.1890
+x3    0.1448
+x4    0.0000
+x5    0.0000
+x6    0.0000
+```
+
+The correlations of `x2` and `x3` with `y` are 0.03 and 0.05: `x2` acts
+only through `x1`, and `x3` through its square. Both are found, and the
+three noise columns get exactly zero. The numbers are a ranking and a
+selection for prediction. They say nothing about what happens under an
+intervention, and two columns that carry the same information share a
+small index between them.
 
 ## A few points for a whole distribution
 
@@ -356,14 +421,15 @@ spacing of the candidate points. Finish with a local optimiser from
 | --- | --- | --- |
 | `sp.design_criteria` | `SFDesign` | Four criteria equal to 1e-12 on the same runs. |
 | `sp.design_augment` | `MaxPro::MaxProAugment` | Same runs chosen from the same candidates. |
-| `sp.space_filling` | `SFDesign`, `MaxPro` | Stochastic search. Criterion values on par or better. A screen. |
-| `sp.factorial_design` | `FrF2` | Same word length pattern for 17 design sizes. |
+| `sp.space_filling` | `SFDesign`, `MaxPro` | Stochastic search. Criterion values on par or better. A screen. The mixed-factor criterion equals `MaxProMeasure` to 1e-12. |
+| `sp.factorial_design` | `FrF2`, `DoE.base` | Same word length pattern for 23 two-level design sizes; L9 and L18 have the pattern of the catalogued arrays. Plackett-Burman checked for orthogonality. |
 | `sp.design_aberration` | `DoE.base::GWLP` | Equal to 1e-10, including unbalanced mixed-level designs. |
 | `sp.factorial_effects` | `lm`, `unrepx` | Effects and PSE exact. Simulated margins within Monte Carlo error. |
 | `sp.mixture_design` | none | Counts and closed forms. |
 | `sp.doe_optimal` | `AlgDesign::optFederov`, closed forms | Same criterion value on two exact designs. Polynomial, exponential and logistic designs match their closed forms. |
 | `sp.sobol_indices` | `sensitivity::soboljansen`, analytic indices | Equal to 1e-12 after a documented divisor. Ishigami function recovered. |
 | `sp.morris_screening` | `sensitivity::morris` | Equal to 1e-10 from the same trajectories. |
+| `sp.factor_importance` | `first::first` | Equal to 1e-10 on numeric data. One documented difference for sets of categorical factors only. |
 | `sp.support_points` | `support::sp` | Stochastic. Energy distance on par. A screen. |
 | `sp.split_data` | `twinning::twin`, `SPlit` | Twinning returns the same rows from the same start. SPlit on par. |
 | `sp.gp_regress` | `rkriging` | Predictions equal to 1e-10 at given hyperparameters. Fitted values agree to 1e-4. |
@@ -373,10 +439,10 @@ All of these R packages are GPL or LGPL. Nothing was translated from
 them. The implementations follow the papers and were compared with R as a
 black box.
 
-Not covered: qualitative factors in space-filling designs, nested and
-multi-fidelity designs, minimax designs, minimum energy designs, factor
-ranking from data (`huang2025factor`), MOFAT screening designs
-(`xiao2023maximum`), and Bayesian analysis of factorial experiments.
+Not covered: nested and multi-fidelity designs, minimax designs, minimum
+energy designs, MOFAT screening designs (`xiao2023maximum`), mixed-level
+orthogonal arrays other than L18, and Bayesian analysis of factorial
+experiments.
 
 ## References
 
@@ -384,7 +450,8 @@ Bib keys in `paper.bib`: `joseph2025experimental`, `box2005statistics`,
 `wu2021experiments`, `lenth1989quick`, `daniel1959use`, `xu2001generalized`,
 `scheffe1958experiments`, `scheffe1963simplex`, `kiefer1960equivalence`,
 `fedorov1972theory`, `yu2010monotonic`, `chaloner1995bayesian`,
-`joseph2015maximum`, `morris1995exploratory`, `mckay1979comparison`,
+`joseph2015maximum`, `joseph2020designing`, `plackett1946design`,
+`morris1995exploratory`, `mckay1979comparison`,
 `johnson1990minimax`, `hickernell1998generalized`, `morris1991factorial`,
 `campolongo2007effective`, `sobol2001global`, `jansen1999analysis`,
 `saltelli2010variance`, `harenberg2019uncertainty`, `mak2018support`,
