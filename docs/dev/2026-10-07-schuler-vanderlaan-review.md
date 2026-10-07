@@ -171,7 +171,7 @@ Bryce delegated the decisions. What was done with each.
    the efficient estimator with a known propensity.
 4. **Note to the `tmle` maintainers**: drafted in
    `docs/dev/2026-10-07-tmle-weighted-odds-ratio-note-draft.md`, with a
-   self-contained R snippet that was run. Not sent.
+   self-contained R snippet that was run. Bryce sent it on 2026-10-07.
 5. The stability-audit failure on main (`mswitch_lrtest`, `tvp_var_sv`)
    was fixed by the line that owned it before this round started.
 

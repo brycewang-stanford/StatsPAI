@@ -1,9 +1,9 @@
-# Draft note to the `tmle` maintainers: weighted odds-ratio variance
+# Note to the `tmle` maintainer: weighted odds-ratio variance
 
-Status: draft, not sent. Bryce sends messages himself. The R snippet was
-run on 2026-10-07 and prints the numbers quoted under it.
+Status: sent by Bryce by email on 2026-10-07. No reply yet. The R snippet
+was run on 2026-10-07 and prints the numbers quoted under it.
 
-Suggested venue: an email to the maintainer named in the package's
+Venue: an email to the maintainer named in the package's
 DESCRIPTION, Susan Gruber `<sgruber@cal.berkeley.edu>` (read from the
 installed `tmle` 2.1.1; not otherwise checked). The DESCRIPTION lists no
 issue tracker, and the only GitHub repository is the read-only CRAN
