@@ -247,6 +247,33 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "known effect."
         ),
     },
+    "glmnet": {
+        "status": "bit-exact",
+        "reference": "glmnet::glmnet and glmnet::cv.glmnet (gaussian, binomial; thresh = 1e-14)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "glmnet": "4.1.10",
+        },
+        "tolerance": (
+            "penalty path 1e-10 and equal length; coefficients 1e-6 "
+            "absolute (5e-5 with more predictors than rows); deviance "
+            "explained 1e-7; cross-validated error and its standard error "
+            "1e-4; lambda.min and lambda.1se the same grid point"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_glmnet_r_parity.py",
+            "tests/reference_parity/_fixtures/glmnet_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: five designs x three mixing weights, penalty "
+            "factors, supplied penalties, no standardisation, the adaptive "
+            "lasso. With 40 rows, 60 predictors and a penalty of 0.001 "
+            "glmnet's iterate is 1e-3 from the minimiser; that point is "
+            "compared at 5e-3 and the StatsPAI fit is checked against the "
+            "subgradient conditions instead."
+        ),
+    },
     "full_match": {
         "status": "aligned",
         "reference": "MatchIt::matchit(method = 'full') 4.7.2, optmatch 0.10.8; lm + sandwich::vcovCL",

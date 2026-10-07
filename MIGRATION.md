@@ -5,6 +5,17 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: `CausalForest.variable_importance()` defaults to grf's measure
+
+**What changed.** Without `method=` the method returns the depth-weighted
+split frequencies of `grf::variable_importance` (the same numbers as
+`sp.variable_importance(forest)`), and no longer warns. It returned the
+permutation measure, with a `FutureWarning` announcing this change since
+1.31. Forests grown with `split_rule="legacy"` keep the permutation
+measure, because they record no split depths.
+
+**What to do.** Pass `method="permutation"` to keep the old numbers.
+
 ## 1.38.0 → next: ⚠️ `sp.gsynth` with covariates
 
 **What changed.** The coefficients on `covariates` are estimated inside

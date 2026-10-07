@@ -118,7 +118,9 @@ def ipw(
         ``'sandwich'`` is the stacked M-estimation variance of the logit
         score and the normalised IPW means (divisor ``n``) -- the robust
         standard error of Stata ``teffects ipw``, deterministic and
-        bootstrap-free. Requires ``normalize=True`` and ``trim=0``.
+        bootstrap-free. With ``normalize=False`` it is the variance of the
+        Horvitz-Thompson estimator; with ``trim > 0`` the clipped scores
+        are held fixed, as they are in the estimator.
     ps_model : {'logit', 'probit'}, default 'logit'
         The binary model for the propensity score. ``'probit'`` is the
         treatment model of Stata ``teffects ipw (y) (d x, probit)``. The
@@ -197,14 +199,6 @@ def ipw(
     if ps_model not in ("logit", "probit"):
         raise MethodIncompatibility(
             f"ps_model must be 'logit' or 'probit', got {ps_model!r}"
-        )
-    if se_method == "sandwich" and (not normalize or trim > 0):
-        raise MethodIncompatibility(
-            "se_method='sandwich' is the M-estimation variance of the "
-            "normalised (Hajek) IPW estimator without trimming; it requires "
-            "normalize=True and trim=0.",
-            recovery_hint="Use se_method='bootstrap' for trimmed or "
-            "Horvitz-Thompson weights.",
         )
     rng = np.random.RandomState(seed)
 
@@ -318,7 +312,17 @@ def ipw(
 
     if se_method == "sandwich":
         se = _ipw_sandwich_se(
-            X, T, Y, pscore, estimand, sw, groups, ps_model, ps_known=ps_known
+            X,
+            T,
+            Y,
+            pscore,
+            estimand,
+            sw,
+            groups,
+            ps_model,
+            normalize=normalize,
+            e_fit=pscore_raw if trim > 0 else None,
+            ps_known=ps_known,
         )
         boot_estimates = None
     else:
@@ -526,8 +530,22 @@ def _ipw_sandwich_se(
     groups: Optional[np.ndarray],
     ps_model: str = "logit",
     ps_known: bool = False,
+    normalize: bool = True,
+    e_fit: Optional[np.ndarray] = None,
 ) -> float:
-    """M-estimation SE of the normalised IPW contrast (Stata ``teffects ipw``).
+    """M-estimation SE of the IPW contrast (Stata ``teffects ipw``).
+
+    ``normalize=False`` is the Horvitz-Thompson estimator
+    ``sum(w (a_1 - a_0) Y) / sum(w t)`` with ``t`` the indicator of the
+    target population; row ``i`` of its influence function is
+    ``[w (a_1 - a_0) Y - tau w t + G' IF_gamma] / mean(w t)``,
+    ``G = mean(w Y d(a_1 - a_0) / d gamma)``.
+
+    ``e_fit`` holds the fitted scores when ``e`` has been clipped to
+    ``[trim, 1 - trim]``. The propensity score equations are those of the
+    fitted model, so their score and Hessian use ``e_fit``; a clipped
+    score does not move with the coefficients, so ``d a_k / d gamma`` is
+    zero on the clipped rows.
 
     Stacks the (weighted) logit score ``w (T - e) x`` with the two Hajek
     means ``w a_k (Y - mu_k) = 0``, where ``a_1 = T/e, a_0 = (1-T)/(1-e)``
@@ -552,14 +570,16 @@ def _ipw_sandwich_se(
     w = np.ones(n) if sw is None else sw
     Xc = np.column_stack([np.ones(n), X])
     odds = e / (1 - e)
+    ef = e if e_fit is None else e_fit  # the fitted, unclipped scores
+    free = np.ones(n) if e_fit is None else (e_fit == e).astype(float)
     if ps_model == "probit":
-        index = sp_stats.norm.ppf(e)
+        index = sp_stats.norm.ppf(ef)
         dens = sp_stats.norm.pdf(index)  # d e / d index
-        score = (T - e) * dens / (e * (1 - e))
+        score = (T - ef) * dens / (ef * (1 - ef))
         curv = score * (score + index)  # minus the observed second derivative
     else:
-        dens = e * (1 - e)
-        score = T - e
+        dens = ef * (1 - ef)
+        score = T - ef
         curv = dens
     # d(1/e) and d(e/(1-e)) with respect to the index; the logit forms are
     # written out so that path keeps its earlier floating-point result
@@ -585,8 +605,23 @@ def _ipw_sandwich_se(
         a0 = (1 - T) * np.where(low, odds, 1.0)
         da1 = np.where(low, 0.0, d_inv)
         da0 = np.where(low, d_odds, 0.0)
+    if e_fit is not None:
+        da1, da0 = da1 * free, da0 * free
     H = (Xc * (w * curv)[:, None]).T @ Xc / n
     if_gamma = np.linalg.solve(H, (Xc * (w * score)[:, None]).T).T
+
+    if not normalize:
+        target = {"ATT": T, "ATC": 1 - T}.get(estimand, np.ones(n))
+        size = float(np.mean(w * target))
+        tau = float(np.mean(w * (a1 - a0) * Y)) / size
+        u_ht = w * (a1 - a0) * Y - tau * w * target
+        if not ps_known:  # a design probability has no estimation term
+            G_ht = (Xc * (w * Y * (da1 - da0))[:, None]).mean(axis=0)
+            u_ht = u_ht + if_gamma @ G_ht
+        u_ht = u_ht / size
+        if groups is not None:
+            u_ht = np.bincount(groups, weights=u_ht)
+        return float(np.sqrt(np.sum(u_ht**2)) / n)
 
     def _if(a: np.ndarray, da: np.ndarray) -> np.ndarray:
         mu = np.sum(w * a * Y) / np.sum(w * a)

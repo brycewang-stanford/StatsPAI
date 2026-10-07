@@ -13799,8 +13799,9 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "bootstrap",
-                    "'sandwich' = teffects ipw robust M-estimation SE "
-                    "(needs normalize=True, trim=0)",
+                    "'sandwich' = teffects ipw robust M-estimation SE; "
+                    "also for normalize=False (Horvitz-Thompson) and "
+                    "trim > 0 (clipped scores held fixed)",
                     ["bootstrap", "sandwich"],
                 ),
                 ParamSpec(

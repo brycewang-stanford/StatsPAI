@@ -373,14 +373,16 @@ def test_seeds_are_reproducible_and_independent():
     assert np.mean(np.abs(a.predictions - c.predictions)) > 0.02
 
 
-def test_causal_forest_variable_importance_future_warning(cf_fit):
+def test_causal_forest_variable_importance_default_is_split(cf_fit):
+    """The default became grf's split measure in 1.39, as announced."""
     _, cf = cf_fit
-    with pytest.warns(FutureWarning, match="split"):
-        cf.variable_importance()
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
+        default = cf.variable_importance()
         split = cf.variable_importance(method="split")
         perm = cf.variable_importance(method="permutation")
+    pd.testing.assert_series_equal(default, split)
+    pd.testing.assert_series_equal(split, sp.variable_importance(cf))
     assert split.sum() == pytest.approx(1.0) and perm.sum() == pytest.approx(1.0)
 
 

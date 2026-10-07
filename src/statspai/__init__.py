@@ -1143,9 +1143,11 @@ from .rlasso import (  # noqa: E402
 )
 from .robustness.itcv import itcv
 from .selection import (
+    GlmnetResult,
     SelectionResult,
     ShrinkageResult,
     best_subset,
+    glmnet,
     lasso_select,
     shrinkage,
     stepwise,
@@ -2107,6 +2109,8 @@ __all__ = [
     "BoxCoxResult",
     "shrinkage",
     "ShrinkageResult",
+    "glmnet",
+    "GlmnetResult",
     "SelectionResult",
     # Quantile Treatment Effects
     "qdid",
@@ -3975,7 +3979,12 @@ _ELSEWHERE_NAMES = {
     "PooledOLS": "sp.panel(..., method='pooled')",
     "xtreg": "sp.panel",
     "newey": "sp.regress(..., robust='hac', hac_lags=)",
-    "lasso": "sp.shrinkage(..., method='lasso') or sp.rlasso",
+    "lasso": "sp.glmnet, sp.shrinkage(..., method='lasso') or sp.rlasso",
+    "cv_glmnet": "sp.glmnet (cross-validates by default)",
+    "elastic_net": "sp.glmnet(..., alpha=0.5)",
+    "ElasticNet": "sp.glmnet(..., alpha=)",
+    "ElasticNetCV": "sp.glmnet(..., alpha=)",
+    "LassoCV": "sp.glmnet(..., alpha=1)",
     "pcr": "sp.shrinkage(..., method='pcr')",
     "pca": "sp.shrinkage(..., method='pcr')",
     "summary_col": "sp.regtable",

@@ -1738,16 +1738,21 @@ class CausalForest(BaseModel):
 
         Parameters
         ----------
-        method : {"split", "permutation"}, optional
+        method : {"split", "permutation"}, default "split"
             ``"split"`` is ``grf::variable_importance``: the depth-weighted
             share of splits on each covariate (see
             :func:`statspai.variable_importance`).  ``"permutation"`` is the
             earlier StatsPAI measure: shuffle one covariate and record the
             mean squared change of ``effect(X)`` on the training rows (which
             uses in-bag trees, so it reflects the fitted function, not
-            out-of-sample relevance).  Omitting ``method`` keeps
-            ``"permutation"`` for now and warns: the default becomes
-            ``"split"`` in 1.33.
+            out-of-sample relevance).
+
+            A forest grown with ``split_rule="legacy"`` records no split
+            depths; for it the default is ``"permutation"``.
+
+            .. versionchanged:: 1.39.0
+               The default is ``"split"``. It was ``"permutation"``, with a
+               ``FutureWarning`` announcing the change since 1.31.
         decay_exponent, max_depth
             Options of the ``"split"`` measure.
 
@@ -1762,15 +1767,9 @@ class CausalForest(BaseModel):
                 recovery_hint="Call fit() before computing variable importance.",
             )
         if method is None:
-            warnings.warn(
-                "CausalForest.variable_importance(): the default measure "
-                "changes from 'permutation' to grf's 'split' importance in "
-                "1.33. Pass method='split' (grf) or method='permutation' "
-                "(current default) to silence this warning.",
-                FutureWarning,
-                stacklevel=_external_stacklevel(),
-            )
-            method = "permutation"
+            from . import _grf_inference as _gi
+
+            method = "split" if _gi.is_grf_forest(self) else "permutation"
         if method == "split":
             from .forest_tools import variable_importance as _vi
 

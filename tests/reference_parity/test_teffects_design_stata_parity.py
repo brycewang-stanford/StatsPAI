@@ -204,8 +204,12 @@ def test_ipw_cluster_bootstrap_resamples_clusters() -> None:
     assert b.se != a.se and b.model_info["n_clusters"] == 60
 
 
-def test_ipw_sandwich_refuses_trimmed_or_unnormalised_weights() -> None:
-    with pytest.raises(MethodIncompatibility, match="normalize=True and trim=0"):
-        sp.ipw(_data(), "y", "d", ["x1"], se_method="sandwich", trim=0.05)
-    with pytest.raises(MethodIncompatibility, match="normalize=True and trim=0"):
-        sp.ipw(_data(), "y", "d", ["x1"], se_method="sandwich", normalize=False)
+def test_ipw_sandwich_takes_trimmed_and_unnormalised_weights() -> None:
+    """Refused before 1.39. The numbers are checked against an independent
+    numerical M-estimator in test_yuksel_aydede_causal_ml_parity.py; here
+    only that the Hajek path with trim=0 is the special case."""
+    base = sp.ipw(_data(), "y", "d", ["x1"], se_method="sandwich")
+    same = sp.ipw(_data(), "y", "d", ["x1"], se_method="sandwich", trim=1e-12)
+    assert same.se == pytest.approx(base.se, rel=1e-12)
+    ht = sp.ipw(_data(), "y", "d", ["x1"], se_method="sandwich", normalize=False)
+    assert np.isfinite(ht.se) and ht.se > 0 and ht.se != base.se

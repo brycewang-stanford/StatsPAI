@@ -268,6 +268,106 @@ def test_aipw_reports_the_scores_it_clips(sel, ref):
         sp.aipw(sel, "Y", "D", COV, trim=0.6)
 
 
+def _stacked_sandwich_se(X, T, Y, estimand, normalize, trim):
+    """M-estimation SE by brute force: stack the logit score with the
+    estimating equations of the weighted means, differentiate the stacked
+    moments numerically, and form A^-1 B A^-T / n. Shares no code with
+    sp.ipw."""
+    import statsmodels.api as sm
+    from scipy.special import expit
+
+    n = len(Y)
+    Xc = np.column_stack([np.ones(n), X])
+    k = Xc.shape[1]
+    gamma = sm.Logit(T, Xc).fit(disp=0, tol=1e-14, maxiter=200).params
+
+    def terms(g):
+        e = expit(Xc @ g)
+        ec = np.clip(e, trim, 1 - trim) if trim > 0 else e
+        if estimand == "ATE":
+            return e, T / ec, (1 - T) / (1 - ec), np.ones(n)
+        if estimand == "ATT":
+            return e, T, (1 - T) * ec / (1 - ec), T
+        return e, T * (1 - ec) / ec, 1 - T, 1 - T
+
+    _, a1, a0, t = terms(gamma)
+    if normalize:
+        theta = np.r_[gamma, np.sum(a1 * Y) / a1.sum(), np.sum(a0 * Y) / a0.sum()]
+    else:
+        theta = np.r_[gamma, np.sum((a1 - a0) * Y) / t.sum()]
+
+    def psi(th):
+        e, a1, a0, t = terms(th[:k])
+        cols = [Xc * (T - e)[:, None]]
+        if normalize:
+            cols += [(a1 * (Y - th[k]))[:, None], (a0 * (Y - th[k + 1]))[:, None]]
+        else:
+            cols += [((a1 - a0) * Y - th[k] * t)[:, None]]
+        return np.hstack(cols)
+
+    m = len(theta)
+    A = np.empty((m, m))
+    for j in range(m):
+        step = np.zeros(m)
+        step[j] = 1e-6
+        A[:, j] = (psi(theta + step).mean(0) - psi(theta - step).mean(0)) / 2e-6
+    P = psi(theta)
+    V = np.linalg.solve(A, (P.T @ P / n) @ np.linalg.solve(A, np.eye(m)).T) / n
+    c = np.zeros(m)
+    c[k] = 1.0
+    if normalize:
+        c[k + 1] = -1.0
+    return float(np.sqrt(c @ V @ c)), float(c[k:] @ theta[k:])
+
+
+@pytest.mark.parametrize("estimand", ["ATE", "ATT", "ATC"])
+@pytest.mark.parametrize("normalize", [True, False])
+@pytest.mark.parametrize("trim", [0.0, 0.05])
+def test_ipw_sandwich_covers_horvitz_thompson_and_clipped_weights(
+    estimand, normalize, trim
+):
+    """Before 1.39 the analytic standard error refused normalize=False and
+    trim > 0. No package reference: an independent numerical M-estimator.
+    Tolerance 1e-6 is the accuracy of the central difference."""
+    rng = np.random.default_rng(3)
+    n = 1500
+    X = rng.normal(size=(n, 2))
+    T = rng.binomial(1, 1 / (1 + np.exp(-(0.3 + 1.6 * X[:, 0] - 0.8 * X[:, 1]))))
+    T = T.astype(float)
+    Y = 1 + X[:, 0] + (1 + X[:, 1]) * T + rng.normal(size=n)
+    df = pd.DataFrame(X, columns=["a", "b"]).assign(t=T, y=Y)
+    fit = _quiet(
+        sp.ipw,
+        df,
+        "y",
+        "t",
+        ["a", "b"],
+        estimand=estimand,
+        normalize=normalize,
+        trim=trim,
+        se_method="sandwich",
+    )
+    se, est = _stacked_sandwich_se(X, T, Y, estimand, normalize, trim)
+    assert fit.estimate == pytest.approx(est, rel=1e-9)
+    assert fit.se == pytest.approx(se, rel=1e-6)
+
+
+def test_ipw_horvitz_thompson_interval_covers():
+    """Known truth: ATE = 1. 300 replications, Monte Carlo SE of coverage
+    0.013; the analytic interval should cover near 0.95."""
+    rng = np.random.default_rng(11)
+    cover = []
+    for _ in range(300):
+        n = 800
+        x = rng.normal(size=n)
+        t = rng.binomial(1, 1 / (1 + np.exp(-0.8 * x))).astype(float)
+        y = 2 + x + 1.0 * t + rng.normal(size=n)
+        df = pd.DataFrame({"x": x, "t": t, "y": y})
+        fit = _quiet(sp.ipw, df, "y", "t", ["x"], normalize=False, se_method="sandwich")
+        cover.append(fit.ci[0] <= 1.0 <= fit.ci[1])
+    assert 0.91 <= np.mean(cover) <= 0.99
+
+
 # --- double machine learning -------------------------------------------------
 
 

@@ -30,8 +30,9 @@ and `tests/reference_parity/test_dml_did_doubleml_parity.py`.
 | | `MatchIt` optimal pairs on a supplied score | `sp.optimal_match(covariates=[score], metric='euclidean')` |
 | | `MatchIt` full matching | `sp.match(method='full')` or `sp.full_match` |
 | | balance tables and density plots | `sp.balance_table`, `sp.love_plot`, `sp.overlap_plot`; `fit.balance` |
-| Inverse weighting and doubly robust estimation | Hajek and Horvitz-Thompson weights, trimming | `sp.ipw(normalize=, trim=)`; `sp.ps_weights`; `sp.trimming` |
+| Inverse weighting and doubly robust estimation | Hajek and Horvitz-Thompson weights, trimming | `sp.ipw(normalize=, trim=, se_method='sandwich')`; `sp.ps_weights`; `sp.trimming` |
 | | AIPW by hand, with and without cross-fitting | `sp.aipw(cross_fit=, trim=0)` |
+| Penalized regression | `glmnet`, `cv.glmnet`: ridge, lasso, elastic net, adaptive lasso | `sp.glmnet(alpha=, penalty_factor=, foldid=)` |
 | Double machine learning | partialling out with `cv.glmnet`, `hdm::rlasso`, trees, forests | `sp.dml(model='plr', ml_g=, ml_m=, fold_indices=)`; `sp.rlasso_effect` |
 | Selection on unobservables and DML-IV | cross-fitted residuals, then 2SLS; first-stage F | `sp.dml(model='pliv', instrument=)` |
 | Difference-in-differences and DML-DiD | Chang's (2020) score with cross-fitted learners | `sp.dml_did` |
@@ -39,10 +40,10 @@ and `tests/reference_parity/test_dml_did_doubleml_parity.py`.
 | Causal trees and forests | `grf::causal_forest`, ATE and ATT, effects in a subset, variable importance, best linear projection, calibration test, RATE | `sp.causal_forest`; `cf.average_treatment_effect(subset=)`; `sp.variable_importance`; `sp.best_linear_projection`; `sp.test_calibration`; `sp.rate` |
 | Synthetic control, synthetic DiD and RD | `Synth`, `gsynth`, `augsynth`, `synthdid`, `rdrobust` | `sp.synth`; `sp.gsynth(treat=)`; `sp.augsynth`; `sp.sdid`; `sp.rdrobust`, `sp.rdbwselect`, `sp.rdplot` |
 
-The first half of the book (cross-validation, trees, random forests,
-boosting, neural networks, classification metrics) is general machine
-learning. StatsPAI takes any scikit-learn estimator as a nuisance learner
-and does not reimplement them.
+The rest of the first half of the book (trees, random forests, boosting,
+neural networks, classification metrics) is general machine learning.
+StatsPAI takes any scikit-learn estimator as a nuisance learner and does
+not reimplement them.
 
 ## Where the numbers agree, and to how many digits
 
@@ -59,6 +60,7 @@ On the book's designs, with the same data on both sides:
 | T- and X-learner with per-arm learners | by hand in R | 1e-9 |
 | subset average on a forest | `grf` (given its forest) | 1e-14 |
 | generalized synthetic control, 0 to 3 factors, with covariates, staggered | `gsynth` | 1e-12 |
+| elastic net path, coefficients, `lambda.min`, `lambda.1se` | `glmnet` | path 1e-10, coefficients 1e-6, same penalties selected |
 | `rdrobust`, `rdbwselect` | `rdrobust` | 1e-9 |
 | synthetic DiD, SC and DiD on Proposition 99 | `synthdid` | 1e-9 (point estimates) |
 | augmented synthetic control, Kansas | `augsynth` | 1e-8 |
@@ -115,22 +117,52 @@ in the first. The book *drops* observations outside the bounds instead,
 which changes the population the estimate refers to: do that explicitly
 with `sp.trimming` before estimating.
 
-**`cv.glmnet` and `sp.shrinkage` state the penalty differently.**
-`glmnet` minimises `RSS / (2n) + lambda * penalty` on predictors scaled by
-the divisor-`n` standard deviation, and for the ridge it also scales the
-outcome to unit variance. `sp.shrinkage` minimises `RSS + penalty * ...` on
-predictors scaled by the divisor-`n - 1` standard deviation. The same fit
-is obtained with
+**`glmnet` and `cv.glmnet` are `sp.glmnet`.** Same objective, same
+standardisation, same penalty path, same cross-validation summaries. With
+the same fold labels the two choose the same `lambda.min` and
+`lambda.1se`.
 
-| | `sp.shrinkage(penalty=)` |
-| --- | --- |
-| lasso (`alpha = 1`) | `2 * n * lam * sqrt((n - 1) / n)` |
-| ridge (`alpha = 0`) | `n * (lam / sd_y) * (n - 1) / n`, `sd_y` with divisor `n` |
+```python
+fit = sp.glmnet(df, "y", xs, alpha=0.5, foldid="fold")   # elastic net
+fit.lambda_min, fit.lambda_1se
+fit.coef("lambda.1se")
+fit.predict(new, s="lambda.min")
 
-and the predictions then agree with `glmnet` to 1e-8. Elastic net,
-penalty factors (the adaptive lasso) and `lambda.1se` are not in
-`sp.shrinkage`. As a DML nuisance learner any scikit-learn `ElasticNetCV`
-can be passed.
+# the adaptive lasso of the book: ridge first, then weights 1 / |b|
+ridge = sp.glmnet(df, "y", xs, alpha=0, lambda_=0.1, cv=False)
+ada = sp.glmnet(df, "y", xs, penalty_factor=1 / ridge.params.abs())
+```
+
+On five designs and three mixing weights the penalty path agrees to 1e-10
+and stops at the same length, coefficients agree to 1e-6, and the
+cross-validated error at every penalty to 1e-4. Four conventions that the
+`glmnet` documentation does not spell out matter for that agreement, and
+for reading `glmnet` output generally:
+
+- A Gaussian outcome is scaled to unit variance before the penalty is
+  applied. The lasso does not notice. The ridge does: in the units of the
+  data its penalty is `lambda / sd(y)`, so `glmnet(alpha = 0)` is not the
+  textbook ridge at the same `lambda`.
+- The first point of a computed path is the fit at an infinite penalty.
+  For the ridge that is the null model, whatever its label says.
+- A computed path stops early, on a relative gain in deviance explained
+  for a Gaussian outcome and an absolute one for a binomial.
+- `cv.glmnet` does not refit the folds at the full-sample penalties. Each
+  training set builds its own path, and the coefficients are interpolated
+  linearly in `lambda`.
+
+`sp.glmnet` solves each problem to a tighter tolerance than `glmnet`'s
+default (`thresh = 1e-7`). A default R run is itself up to 6e-4 away from
+R at `thresh = 1e-14` in the coefficients of the test designs, so expect
+agreement with default R output to about three decimal places, and to six
+once R is told to converge. With more predictors than rows and a penalty near
+zero, `glmnet` at `thresh = 1e-14` is still 1e-3 from the minimiser; the
+StatsPAI fit satisfies the subgradient conditions to 1e-7.
+
+`sp.shrinkage` remains for comparing ridge, lasso and principal components
+by cross-validated error, with the penalty stated on the residual sum of
+squares: lasso `penalty = 2 n lambda sqrt((n - 1) / n)`, ridge
+`penalty = n (lambda / sd_y) (n - 1) / n`.
 
 **DML standard errors.** The book regresses the cross-fitted residuals
 with `lm_robust(se_type = "HC3")`. `sp.dml` reports the standard error of
@@ -190,4 +222,3 @@ units.
   forest for estimation; for an interpretable rule use `sp.policy_tree`.
 - Continuous-treatment DML-DiD (`causalweight::didcontDMLpanel`). See
   `sp.continuous_did` for a continuous dose without machine learners.
-- Elastic net with `glmnet`'s conventions, as noted above.

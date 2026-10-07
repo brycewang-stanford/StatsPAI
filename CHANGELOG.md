@@ -4,6 +4,39 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.glmnet`: the elastic net with `glmnet`'s conventions; IPW standard errors without the bootstrap
+
+Second round of the Yuksel and Aydede pass: the items the first round left
+as decisions.
+
+#### Added
+
+- **`sp.glmnet`**: lasso, ridge and elastic net for a Gaussian or binomial
+  outcome, on a penalty path, with penalty factors (hence the adaptive
+  lasso) and K-fold cross-validation reporting `lambda.min` and
+  `lambda.1se`. The objective, standardisation, path and cross-validation
+  summaries are those of R `glmnet` / `cv.glmnet`. On five designs and
+  three mixing weights the path agrees with `glmnet` 4.1-10 to 1e-10 and
+  stops at the same length, coefficients agree to 1e-6, cross-validated
+  errors to 1e-4, and the selected penalties are the same grid points
+  (`tests/reference_parity/test_glmnet_r_parity.py`). Written from the
+  paper and the documentation; `glmnet` is GPL and was run as a black box.
+  Four conventions the documentation leaves open were recovered from its
+  output and are documented and tested one by one.
+- **`sp.ipw(se_method='sandwich')` for Horvitz-Thompson and clipped
+  weights.** It used to require `normalize=True` and `trim=0` and send
+  everything else to the bootstrap. The M-estimation variance now covers
+  `normalize=False` and `trim > 0` (a clipped score is held fixed, as it is
+  in the estimator), for the ATE, ATT and ATC. Equal to a numerically
+  differentiated stacked M-estimator to 1e-10 in all twelve combinations.
+
+#### Changed
+
+- **`CausalForest.variable_importance()` defaults to grf's split measure**,
+  as its `FutureWarning` has announced since 1.31. It returned the
+  permutation measure. `method="permutation"` keeps the old numbers;
+  forests grown with `split_rule="legacy"` keep it as their default.
+
 ### Yuksel and Aydede, *Causal Inference and Machine Learning*: DML-DiD, full matching, gsynth with several treated units
 
 A pass over the causal chapters of the book against the R packages it

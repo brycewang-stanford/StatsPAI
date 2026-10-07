@@ -242,38 +242,73 @@ found nothing.
 The mean standard error of predictions at 101 test points was 0.42 for
 StatsPAI and 0.37 to 0.40 for grf. Not pursued.
 
-## Open items
+## Second round: the open items, decided
 
-1. **Elastic net with `glmnet`'s conventions.** The book's penalised
-   regression chapter uses the elastic net, penalty factors (adaptive
-   lasso) and `lambda.min` / `lambda.1se`. `sp.shrinkage` has ridge and
-   lasso. A `glmnet`-compatible elastic net with a supplied `foldid` could
-   be held to 1e-8 against R, which no Python library offers. It is a
-   prediction tool, so it was left as a decision for Bryce. The mapping in
-   the guide covers lasso and ridge today.
-2. **Honest causal tree.** `causalTree` did not install, so there is no
-   reference to hold an implementation to. `sp.policy_tree` and the forest
-   cover the uses.
-3. **`sp.ipw(se_method='sandwich')` refuses `normalize=False` and
-   `trim > 0`.** The M-estimation variance of the Horvitz-Thompson
-   estimator is a small extension. `trim` in `sp.ipw` clips scores; the
-   book drops rows. A `trim_method` could offer both.
-4. **`CausalForest.variable_importance()` still warns that its default
-   "changes in 1.33".** The version is 1.38. Either make the change or
-   move the date.
-5. **`sp.gsynth` without covariates and with one treated unit** still
-   chooses the number of factors by masking random cells of the control
-   matrix, which is neither the paper's rule nor `fect`'s. It is what Track
-   A module 19 was recorded with, so it was left alone. Moving it to the
-   leave-one-period-out rule would make the function uniform; it would
-   also change a frozen parity artifact.
-6. **Continuous-treatment DML-DiD** (`causalweight::didcontDMLpanel`, used
-   in one cell of the book). Not attempted.
-7. **`sp.dml` default learners on the book's PLR design** give 1.962 (SE
-   0.024) for a true 2.0, where lasso, `rlasso` and OLS all give 1.994 to
-   1.996. Gradient boosting with a binary treatment modelled as a
-   regression target is the default; the existing warning about default
-   learners fires. Worth a look when the defaults are next reviewed.
+Bryce delegated the decisions on 2026-10-07. What was done with each.
+
+1. **Elastic net with `glmnet`'s conventions: added as `sp.glmnet`.**
+   A separate function rather than a method of `sp.shrinkage`, because
+   the point is a different statement of the penalty and the two would
+   contradict each other inside one signature. Gaussian and binomial,
+   penalty factors, user-supplied penalties, `lambda.min` / `lambda.1se`.
+   `glmnet` is GPL: nothing was read, and four conventions had to be
+   found by experiment.
+
+   | convention | how it was found |
+   | --- | --- |
+   | Gaussian outcome scaled to unit variance, so the ridge penalty in data units is `lambda / sd(y)` | the closed-form ridge reproduces `glmnet` only with that factor (1e-12) |
+   | first point of a computed path is the fit at an infinite penalty | ridge coefficients of 2.5e-36 at the first penalty, 2.7e-3 when the same penalty is supplied |
+   | path stops on a relative gain (Gaussian), an absolute gain (binomial), threshold 1e-5 | two low-signal designs where the rules stop at different lengths; all 17 path lengths tried are reproduced |
+   | `cv.glmnet` lets each training set build its own path and interpolates linearly in `lambda` | refitting the folds at the full-sample penalties misses `cvm` by up to 7e-3; own path plus `predict(s=)` reproduces it to 4e-16 |
+
+   The third and fourth are worth knowing when reading any `cv.glmnet`
+   output: the cross-validated error at a penalty is not the error of the
+   model fitted at that penalty.
+
+   With 40 rows and 60 predictors and a penalty of 0.001, `glmnet` at
+   `thresh = 1e-14` is 1e-3 from the minimiser in the coefficients (its
+   convergence test is on the change per sweep, which is tiny when
+   coordinate descent crawls). Ours stops on a tighter threshold and
+   satisfies the subgradient conditions to 1e-7 there; that penalty is
+   compared loosely and the KKT check is the evidence. This is a
+   convergence gap in the reference, not a convention.
+
+   Speed: pure NumPy coordinate descent on the Gram matrix. 2,000 rows,
+   200 predictors, 10 folds: 1.7 s. It will be slow for thousands of
+   predictors; that is what scikit-learn's Cython solver is for.
+2. **`sp.ipw(se_method='sandwich')` for Horvitz-Thompson and clipped
+   weights: added.** No package computes this exact variance (Stata
+   `teffects ipw` is the Hajek estimator), so the reference is an
+   independent implementation in the test: the stacked estimating
+   equations differentiated numerically. Twelve combinations, 1e-10.
+   Coverage of the Horvitz-Thompson interval in 300 replications is in the
+   test as well.
+3. **`CausalForest.variable_importance()`: the announced default change
+   was made.** The warning dated the change to 1.33 and the version is
+   1.38, so the buffer the deprecation policy asks for had long passed.
+4. **Single-unit `sp.gsynth` without covariates: left alone.** Track A
+   module 19 calls it with `n_factors=None`, so its committed result
+   depends on the present rule for choosing the number of factors.
+   Changing the rule would change a frozen artifact for no gain in
+   correctness (both rules are cross-validations). It stays until the JSS
+   paper is re-anchored; the docstring says which rule applies where.
+5. **`sp.dml` default learners: left alone, with more evidence.** On the
+   book's linear PLR design (n = 2,000, 10 covariates, 40 replications)
+   the default gradient boosting gives a mean estimate of 1.945 for a true
+   2.0 (Monte Carlo SE 0.011) and 95% intervals that cover 0.825; lasso
+   and linear learners give 2.001 and 0.975. This is the known issue that
+   `summary()` already prints a note about and that the Track B coverage
+   table reports (0.88 at n = 500). The default is quoted in the JSS
+   manuscript, so changing it is a re-anchoring decision, not a patch.
+   When it is revisited: choosing between a linear and a boosted learner
+   by out-of-fold loss would fix this design without giving up the
+   non-linear ones.
+6. **Honest causal tree: not added.** No reference implementation could
+   be built on this machine, and CLAUDE.md asks for one or for an
+   analytical test of something worth having; the forest and
+   `sp.policy_tree` cover the uses.
+7. **Continuous-treatment DML-DiD: not added.** One cell of the book, and
+   `causalweight` would be the only reference.
 
 ## Rerun
 
@@ -282,8 +317,10 @@ StatsPAI and 0.37 to 0.40 for grf. Not pursued.
 Rscript tests/reference_parity/_fixtures/_generate_yuksel_aydede_causal_ml.R
 # DoubleML reference
 python tests/reference_parity/_fixtures/_generate_dml_did_doubleml.py
+Rscript tests/reference_parity/_fixtures/_generate_glmnet.R
 pytest tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py \
-       tests/reference_parity/test_dml_did_doubleml_parity.py -q
+       tests/reference_parity/test_dml_did_doubleml_parity.py \
+       tests/reference_parity/test_glmnet_r_parity.py -q
 ```
 
 `ivreg` must not be loaded in the same R session as `AER`: both register
