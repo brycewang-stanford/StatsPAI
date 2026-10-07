@@ -57,7 +57,7 @@ fake data".
 | 11 | `bayes_R2`, `loo_R2` | `sp.bayes_r2`, `sp.loo_r2` |
 | 11 | `loo`, `loo_compare`, `kfold` | `sp.loo`, `sp.loo_compare`, `sp.kfold` |
 | 12 | logs, `arm::standardize`, rescaling by two standard deviations | formulas with `log()`; `sp.standardize` |
-| 12 | horseshoe prior `hs()` on many predictors | `sp.bayes_shrink(prior='horseshoe', p0=, slab_scale=)` |
+| 12 | horseshoe prior `hs()` on many predictors | `sp.bayes_shrink(prior='horseshoe', p0=, slab_scale=)`; `family='logit'` for a binary outcome |
 | 13, 14 | `stan_glm(family = binomial)`, `invlogit` | `sp.bayes_regress(model='logit')`; `sp.logit`; `sp.invlogit` |
 | 14 | average predictive comparisons | `sp.margins`, `sp.margins_at` |
 | 14 | `binnedplot` | `sp.binned_residuals`, `sp.binned_residuals_plot` |
@@ -218,8 +218,8 @@ the model expects, to Poisson (`mu`) and negative binomial
   A posterior far from normal (very few observations, near separation)
   gets less; the acceptance rate of the independence proposal is in
   `fit._extras['independence_accept']`.
-- A shrinkage prior for the logit model. `sp.bayes_shrink` is for a
-  Gaussian outcome.
+- Shrinkage priors for count outcomes. `sp.bayes_shrink` covers Gaussian
+  and binary (`family='logit'`) outcomes.
 
 ## Reproducing the checks
 

@@ -534,6 +534,12 @@ Bayesian workflow against `rstanarm` 2.32.2 and `loo` 2.9.0. Review in
   the exact posterior.
 - **`sp.binned_residuals(band='model')`**: a band from the fitted
   probabilities that does not collapse where the outcome hardly varies.
+- **`sp.bayes_shrink(prior='horseshoe', family='logit')`**: the horseshoe,
+  plain or regularized, for a binary outcome, by Polya-Gamma Gibbs
+  sampling (Polson, Scott and Windle 2013). It stays finite where too
+  many regressors separate the outcome and maximum likelihood has no
+  solution. Checked against the exact posterior; the Polya-Gamma draws
+  against their exact moments and series representation.
 
 #### Changed
 

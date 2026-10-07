@@ -483,6 +483,115 @@ def test_regularized_horseshoe_posterior_with_one_regressor(tau0):
     assert abs(plain.params["x"]) > abs(fit.params["x"]) + 0.02
 
 
+def test_polya_gamma_draws_have_the_exact_moments_and_law():
+    """``PG(1, c)`` has mean ``tanh(c / 2) / (2 c)`` and variance
+    ``(sinh c - c) / (4 c^3 cosh^2(c / 2))``, and equals in law
+    ``(1 / 2 pi^2) sum_k g_k / ((k - 1/2)^2 + c^2 / 4 pi^2)`` with
+    standard exponential ``g_k``. The series is truncated at 500 terms and
+    the mean of the dropped tail added back."""
+    from statspai.mcmc._polyagamma import polyagamma_mean, rpolyagamma
+
+    rng = np.random.default_rng(31)
+    n, m = 200_000, 20_000
+    k = np.arange(1, 501)
+    for c in (0.0, 0.3, 1.5, 4.0, 12.0, 40.0):
+        w = rpolyagamma(rng, np.full(n, c))
+        var = 1 / 24 if c == 0 else (np.sinh(c) - c) / (4 * c**3 * np.cosh(c / 2) ** 2)
+        assert abs(w.mean() - polyagamma_mean(c)) < 4 * np.sqrt(var / n)
+        assert w.var() == pytest.approx(var, rel=0.03)
+        denom = (k - 0.5) ** 2 + c * c / (4 * np.pi**2)
+        series = (rng.exponential(size=(m, 500)) / denom).sum(axis=1)
+        later = np.arange(501, 400_001)
+        series = series + (1.0 / ((later - 0.5) ** 2 + c * c / (4 * np.pi**2))).sum()
+        series /= 2 * np.pi**2
+        assert stats.ks_2samp(w[:m], series).pvalue > 1e-3
+    # the sign of the argument does not matter, and the shape is kept
+    grid = rng.normal(scale=3.0, size=(7, 5))
+    assert rpolyagamma(rng, grid).shape == (7, 5)
+    np.testing.assert_allclose(polyagamma_mean(-grid), polyagamma_mean(grid))
+
+
+@pytest.mark.parametrize("tau0", [1.0, 0.3])
+def test_logit_horseshoe_posterior_with_one_regressor(tau0):
+    """Polya-Gamma Gibbs for the logit against the exact posterior of
+    (intercept, slope) under the marginal horseshoe prior."""
+    rng = np.random.default_rng(23)
+    n = 40
+    x = rng.normal(size=n)
+    df = pd.DataFrame({"x": x})
+    df["y"] = (rng.uniform(size=n) < special.expit(0.2 + 0.9 * x)).astype(int)
+    y = df["y"].to_numpy(dtype=float)
+    z = (x - x.mean()) / x.std(ddof=1)
+    # Neither (slope, rho) nor (slope / rho, rho) can be put on a grid: the
+    # first has a spike at zero for small rho, the second a ridge of width
+    # 1 / rho for large rho. So rho is integrated out of the prior by
+    # quadrature, which leaves a two-dimensional posterior in (intercept,
+    # slope) with the marginal horseshoe density. That density has a
+    # logarithmic pole at zero, handled by the cubic spacing b = u^3.
+    lr_axis = np.linspace(-34.0, 30.0, 1601)
+    step = lr_axis[1] - lr_axis[0]
+    f_rho = np.exp(_product_of_half_cauchy_logpdf(lr_axis, tau0)) * step
+    u_axis = np.linspace(-1.75, 1.75, 1401)
+    b_axis = u_axis**3
+    dens = stats.norm.pdf(b_axis[:, None], 0.0, np.exp(lr_axis)[None, :])
+    prior_b = dens @ f_rho
+    kap_rho = 1.0 / (1.0 + n * (z @ z / n) * np.exp(2 * lr_axis) / 4.0)
+    kap_b = (dens @ (f_rho * kap_rho)) / prior_b
+    a_axis = np.linspace(-3.6, 4.0, 305)
+    A, B = np.meshgrid(a_axis, b_axis, indexing="ij")
+    lk = np.zeros_like(A)
+    for zi, yi in zip(z, y):
+        eta = A + B * zi
+        lk = lk + yi * eta - np.logaddexp(0.0, eta)
+    w = np.exp(lk - lk.max()) * (prior_b * 3.0 * u_axis**2)[None, :]
+    for edge in (w[0], w[-1], w[:, 0], w[:, -1]):
+        assert edge.max() < 1e-5 * w.max()
+    w = w / w.sum()
+    m_b = float((w * B).sum())
+    sd_b = float(np.sqrt((w * (B - m_b) ** 2).sum()))
+    kappa = float((w * kap_b[None, :]).sum())
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_shrink(
+            "y ~ x",
+            df,
+            prior="horseshoe",
+            family="logit",
+            global_scale=tau0,
+            draws=30000,
+            burnin=3000,
+            seed=8,
+        )
+    sx = x.std(ddof=1)
+    row = fit.table.loc["x"]
+    assert abs(row["mean"] - m_b / sx) < 4 * row["mcse"] + 0.003 * sd_b / sx
+    assert row["sd"] == pytest.approx(sd_b / sx, rel=0.06)
+    assert fit.table.loc["x", "shrinkage"] == pytest.approx(kappa, abs=0.02)
+    # the predictive side treats the fit as a logit
+    d = fit.draws.to_numpy()
+    want = stats.bernoulli.logpmf(
+        y.astype(int), special.expit(d[:, [0]] + d[:, [1]] * x)
+    )
+    np.testing.assert_allclose(fit.log_lik(), want, rtol=1e-9, atol=1e-10)
+    # a very wide slab is the plain horseshoe
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wide = sp.bayes_shrink(
+            "y ~ x",
+            df,
+            prior="horseshoe",
+            family="logit",
+            global_scale=tau0,
+            slab_scale=1e4,
+            draws=20000,
+            burnin=4000,
+            seed=9,
+        )
+    wrow = wide.table.loc["x"]
+    assert abs(wrow["mean"] - m_b / sx) < 5 * wrow["mcse"] + 0.01 * sd_b / sx
+    assert wrow["sd"] == pytest.approx(sd_b / sx, rel=0.08)
+
+
 def test_ordered_logit_posterior(data):
     """Grid over the internal coordinates (intercept, slope, log distance
     between the two cutpoints); reported are the slope and the cutpoints

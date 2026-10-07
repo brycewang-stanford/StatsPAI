@@ -161,6 +161,7 @@ def bayes_shrink(
     p0: Optional[float] = None,
     slab_scale: Optional[float] = None,
     slab_df: float = 4.0,
+    family: str = "gaussian",
 ) -> BayesRegressResult:
     """Linear regression with a shrinkage or a variable-selection prior.
 
@@ -225,6 +226,16 @@ def bayes_shrink(
         drift.
     slab_df : float, default 4
         Degrees of freedom of the slab.
+    family : {'gaussian', 'logit'}, default 'gaussian'
+        ``'logit'``: a binary outcome with the horseshoe (plain or
+        regularized) on the slopes of a logistic regression, sampled by
+        Polya-Gamma data augmentation. There is no residual variance;
+        the scales are those of the log odds, and ``p0`` is calibrated
+        with a latent standard deviation of 2. Too many regressors for
+        the number of observations separate a binary outcome, where the
+        maximum-likelihood fit does not exist; the horseshoe keeps the
+        fit finite, and with ``slab_scale`` keeps the separated
+        coefficients from drifting.
 
     Returns
     -------
@@ -264,7 +275,7 @@ def bayes_shrink(
     References
     ----------
     park2008bayesian, george1993variable, carvalho2010horseshoe,
-    makalic2016simple, piironen2017sparsity
+    makalic2016simple, piironen2017sparsity, polson2013bayesian
     """
     prior = str(prior).lower()
     if prior in ("hs", "horseshoe"):
@@ -297,6 +308,33 @@ def bayes_shrink(
         raise MethodIncompatibility("There is no regressor to shrink.")
     if n < 4:
         raise DataInsufficient("Too few observations.")
+    family_key = str(family).lower()
+    if family_key in ("logit", "logistic", "binomial"):
+        if prior != "horseshoe":
+            raise MethodIncompatibility(
+                "family='logit' is implemented for prior='horseshoe'."
+            )
+        from ._shrink_logit import shrink_logit
+
+        return shrink_logit(
+            formula,
+            y,
+            X,
+            names,
+            getattr(X_df, "design_info", None),
+            standardize,
+            global_scale,
+            p0,
+            slab_scale,
+            slab_df,
+            draws,
+            burnin,
+            thin,
+            spawn_rngs(seed, 1)[0],
+            level,
+        )
+    if family_key not in ("gaussian", "normal"):
+        raise MethodIncompatibility("family must be 'gaussian' or 'logit'.")
     a0, d0 = (float(v) for v in sigma2_prior)
     if a0 <= 0 or d0 <= 0:
         raise MethodIncompatibility("sigma2_prior must be two positive numbers.")

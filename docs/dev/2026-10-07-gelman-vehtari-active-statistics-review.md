@@ -347,11 +347,41 @@ that was Bryce's to make was delegated and is recorded first.
 7. **`sp.nbreg` counts the fixed-effect indicators it estimates** after
    one is omitted for collinearity.
 
+## Third round (same day, "ok continue"): the horseshoe for a binary outcome
+
+`sp.bayes_shrink(prior='horseshoe', family='logit')`, plain or with a
+slab. The coefficients are drawn by Polya-Gamma data augmentation (Polson,
+Scott and Windle 2013): given `omega_i ~ PG(1, x_i' beta)` their full
+conditional is normal with precision `X' Omega X` plus the prior
+precisions, so the scale updates of the Gaussian sampler carry over with
+the residual variance set to one. `mcmc/_polyagamma.py` is the exact
+accept-reject sampler of that paper, written from the paper and vectorised
+(400,000 draws in a quarter of a second); `p0` is calibrated with a latent
+standard deviation of 2, as Piironen and Vehtari propose for the logit.
+
+Evidence. The Polya-Gamma draws have the exact mean and variance at six
+arguments from 0 to 40 and pass a two-sample test against the
+sum-of-exponentials representation of the distribution. The sampler for
+the model is checked against the exact posterior with one regressor at two
+global scales. Two parameterisations of that reference failed before one
+worked: a grid over (slope, scale) cannot resolve the spike at zero for a
+small scale, and a grid over (slope / scale, scale) cannot resolve the
+ridge of width 1 / scale for a large one. The scale has to be integrated
+out of the prior by quadrature, which leaves a two-dimensional posterior
+under the marginal horseshoe density, whose logarithmic pole at zero is
+handled by a cubic grid. The regularized version is checked in the limit
+of a very wide slab, where it must equal the plain one; its scale step is
+the code already verified in the Gaussian case.
+
+On a simulated sparse logit (300 observations, 30 regressors, 3 signals)
+the root mean squared error of the coefficients is 0.11 against 0.23 for
+maximum likelihood, and with 40 observations and 30 regressors, where the
+outcome is separated and maximum likelihood diverges, the regularized
+horseshoe returns a finite posterior that keeps the one real signal.
+
 ## Open items
 
-- A shrinkage prior for the logit model needs a Polya-Gamma sampler (or
-  the same Metropolis treatment as the regularized horseshoe, with a
-  non-Gaussian likelihood for the coefficients). Not done.
+- Shrinkage priors for count outcomes.
 - The slab of the regularized horseshoe is in units of the residual
   standard deviation, which keeps the coefficient update conjugate.
   `rstanarm` scales it by `sd(y)`. The two differ by the factor

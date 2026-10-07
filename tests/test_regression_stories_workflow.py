@@ -953,3 +953,66 @@ def test_nbreg_counts_only_the_fixed_effects_it_estimates(df):
     # 'dup' takes the place of one indicator, which is then omitted
     assert over.model_info["n_fe_params"] == 2
     assert len(over.model_info["omitted"]) == 1
+
+
+def test_logit_horseshoe_surface_and_checks(df):
+    kw = dict(prior="horseshoe", family="logit", draws=600, burnin=300, seed=1)
+    with pytest.raises(
+        MethodIncompatibility, match="implemented for prior='horseshoe'"
+    ):
+        sp.bayes_shrink("y ~ x + z", df, prior="lasso", family="logit")
+    with pytest.raises(MethodIncompatibility, match="0 / 1 outcome"):
+        sp.bayes_shrink("cnt ~ x + z", df, **kw)
+    with pytest.raises(MethodIncompatibility, match="family must be"):
+        sp.bayes_shrink("yc ~ x + z", df, prior="horseshoe", family="poisson")
+    with pytest.raises(MethodIncompatibility, match="not both"):
+        sp.bayes_shrink("y ~ x + z", df, p0=1, global_scale=0.1, **kw)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_shrink("y ~ x + z + a + b", df, p0=2, **kw)
+        slab = sp.bayes_shrink("y ~ x + z + a + b", df, slab_scale=2.5, **kw)
+    assert list(fit.draws.columns) == ["Intercept", "x", "z", "a", "b", "tau"]
+    assert list(slab.draws.columns)[-2:] == ["tau", "slab"]
+    assert fit.model_info["family"] == "logit"
+    assert fit.sampler.startswith("Gibbs (Polya-Gamma")
+    # x is a real signal, z is noise
+    assert fit.table.loc["x", "shrinkage"] < fit.table.loc["z", "shrinkage"]
+    prob = fit.predict(df.iloc[:5])
+    assert np.all((prob > 0) & (prob < 1))
+    assert set(np.unique(fit.posterior_predict(draws=50, seed=1))) <= {0.0, 1.0}
+    assert np.isfinite(sp.loo(fit).elpd)
+    assert 0 < sp.bayes_r2(fit).estimate < 1
+    assert len(sp.binned_residuals(fit, n_bins=6)) == 6
+
+
+def test_logit_horseshoe_stays_finite_under_separation():
+    """More regressors than the data can identify separate a binary
+    outcome. Maximum likelihood then has no solution; the regularized
+    horseshoe returns a proper posterior."""
+    rng = np.random.default_rng(4)
+    n, p = 40, 30
+    X = rng.normal(size=(n, p))
+    d = pd.DataFrame(X, columns=[f"x{i}" for i in range(p)])
+    d["y"] = (X[:, 0] + 0.5 * rng.normal(size=n) > 0).astype(int)
+    formula = "y ~ " + " + ".join(d.columns[:-1])
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        mle = sp.logit(formula, d)
+    assert any("eparation" in str(w.message) for w in caught)
+    assert np.abs(mle.params).max() > 20
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_shrink(
+            formula,
+            d,
+            prior="horseshoe",
+            family="logit",
+            p0=2,
+            slab_scale=2.5,
+            draws=2000,
+            burnin=1000,
+            seed=1,
+        )
+    assert np.abs(fit.params.iloc[1 : p + 1]).max() < 15
+    assert fit.params["x0"] > 1.0
+    assert fit.table["shrinkage"].iloc[2 : p + 1].mean() > 0.5

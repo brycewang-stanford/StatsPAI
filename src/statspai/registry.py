@@ -18960,6 +18960,15 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("slab_df", "float", False, 4.0, "Slab degrees of freedom"),
                 ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "gaussian",
+                    "'logit': binary outcome, horseshoe on the slopes of a "
+                    "logistic regression by Polya-Gamma Gibbs sampling",
+                    ["gaussian", "logit"],
+                ),
+                ParamSpec(
                     "lam", "float", False, None, "Lasso penalty; estimated when omitted"
                 ),
                 ParamSpec(
