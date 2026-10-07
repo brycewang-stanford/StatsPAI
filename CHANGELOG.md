@@ -238,10 +238,24 @@ Guide: `docs/guides/schuler_vanderlaan_modern_causal_inference.md`.
 - **`model_info['influence_function']` on every `sp.tmle` result**: the
   per-row efficient influence function at the targeted fit. Its mean is
   zero to Newton tolerance, which is the equation targeting solves.
-- **`sp.tmle(g1W=0.5)` and `sp.aipw(propensity=)`** take a known
-  treatment probability, one number or a column of design probabilities,
-  for randomised trials. No propensity model is fitted and nothing is
-  clipped.
+- **`sp.tmle(g1W=0.5)`, `sp.aipw(propensity=)` and `sp.ipw(propensity=)`**
+  take a known treatment probability, one number or a column of design
+  probabilities, for randomised trials. No propensity model is fitted and
+  nothing is clipped. For `sp.ipw` the sandwich drops the first-stage
+  term; with one probability for everyone the estimate is the difference
+  in means and the standard error its HC0 one.
+- **`sp.tmle(se_method='bootstrap', n_boot=)`.** The influence-function
+  standard error treats the nuisance fits as known and is too small when
+  propensities approach 0 or 1. With 9% of the true propensities outside
+  [0.025, 0.975], its 95% interval covered the ATE 91% of the time and the
+  ATT 81%. No truncation level repaired that (0.74 to 0.87 for the ATT
+  across the bounds tried). Refitting everything on resamples of the rows gave
+  92% and 90%. The bootstrap resamples whole clusters with `cluster=`,
+  covers every row of `result.detail`, and keeps the analytic values in
+  `model_info['se_influence']`. The weak-overlap warning now points to it.
+- **`sp.tmle(weights=)` with `estimand='ATT'` / `'ATC'`.** Previously
+  refused. Every empirical mean, the treated share included, becomes a
+  weighted one. Integer weights reproduce row replication to 1e-9.
 - **`sp.causal_gap`**: the critical causal gap of the book's section 2.3.
   Given an estimate and its interval, the smallest difference between the
   statistical and the causal estimand at which the interval reaches the

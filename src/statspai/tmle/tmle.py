@@ -80,6 +80,8 @@ def tmle(
     fold_indices: "Optional[Any]" = None,
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
+    se_method: str = "influence",
+    n_boot: int = 200,
 ) -> CausalResult:
     """
     Estimate causal effects using TMLE with Super Learner.
@@ -177,7 +179,23 @@ def tmle(
         Observation (sampling) weights column, R ``tmle``'s ``obsWeights``:
         normalised to mean one, passed to every Super Learner fit, used in
         the fluctuation regression, and multiplying the plug-in average and
-        the influence function. ``estimand='ATE'`` only.
+        the influence function. For ``'ATT'`` / ``'ATC'`` the treated
+        share is the weighted one as well.
+    se_method : {'influence', 'bootstrap'}, default 'influence'
+        ``'influence'`` is the standard deviation of the efficient
+        influence function over ``sqrt(n)``. It treats the nuisance fits
+        as known, which is right to first order and too small when
+        propensities come close to 0 or 1: in a simulation with 9% of the
+        true propensities outside [0.025, 0.975] its 95% interval covered
+        the ATE 91% of the time and the ATT 81%. ``'bootstrap'`` reruns
+        the whole fit, Super Learner included, on ``n_boot`` resamples of
+        the rows (of whole clusters with ``cluster=``); the standard error
+        is the standard deviation of the resampled estimates and the
+        interval their percentile interval (92% and 90% in the same
+        simulation). It costs ``n_boot`` fits. Not with ``Q`` / ``g1W`` or
+        ``fold_indices``.
+    n_boot : int, default 200
+        Number of bootstrap resamples.
     cluster : str, optional
         Cluster column. The standard error sums the influence function
         within clusters: ``G/(G-1) sum_g (S_g - mean S)^2 / n^2``, which
@@ -271,8 +289,14 @@ def tmle(
         fold_indices=fold_indices,
         weights=weights,
         cluster=cluster,
+        se_method=se_method,
+        n_boot=n_boot,
     )
     _result = est.fit()
+    if se_method == "bootstrap":
+        from ._bootstrap import bootstrap_inference
+
+        bootstrap_inference(_result, est)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
@@ -293,6 +317,8 @@ def tmle(
                 "weights": weights,
                 "cluster": cluster,
                 "fluctuation": est.fluctuation,
+                "se_method": se_method,
+                "n_boot": n_boot if se_method == "bootstrap" else None,
                 "outcome_library": (
                     [type(m).__name__ for m in outcome_library]
                     if outcome_library
@@ -413,6 +439,8 @@ class TMLE:
         fold_indices: "Optional[Any]" = None,
         weights: Optional[str] = None,
         cluster: Optional[str] = None,
+        se_method: str = "influence",
+        n_boot: int = 200,
     ):
         if not (0 < q_bound < 0.5):
             raise MethodIncompatibility(
@@ -430,12 +458,6 @@ class TMLE:
             raise ValueError(
                 f"tmle: unknown fluctuation={fluctuation!r}; use "
                 "'single' or 'per_arm'."
-            )
-        on_treated = estimand in ("ATT", "ATC")
-        if weights is not None and on_treated:
-            raise MethodIncompatibility(
-                "tmle: weights= is not implemented for estimand='ATT' / 'ATC'.",
-                recovery_hint="Drop weights= or use estimand='ATE'.",
             )
         if estimand in _ARM_ESTIMANDS:
             # A treatment-specific mean is only targeted when its own score
@@ -484,6 +506,32 @@ class TMLE:
             )
         self.weights = weights
         self.cluster = cluster
+        if se_method not in ("influence", "bootstrap"):
+            raise MethodIncompatibility(
+                f"tmle: se_method must be 'influence' or 'bootstrap', got "
+                f"{se_method!r}"
+            )
+        if se_method == "bootstrap":
+            if Q is not None or g1W is not None:
+                raise MethodIncompatibility(
+                    "tmle: se_method='bootstrap' refits the nuisance models on "
+                    "every resample; with Q / g1W supplied there is nothing to "
+                    "refit and their sampling error would be left out.",
+                    recovery_hint="Drop Q / g1W, or use se_method='influence'.",
+                )
+            if fold_indices is not None:
+                raise MethodIncompatibility(
+                    "tmle: se_method='bootstrap' is not implemented with "
+                    "fold_indices; a resample repeats rows, and copies of one "
+                    "row would land in different folds.",
+                    recovery_hint="Drop fold_indices or use se_method='influence'.",
+                )
+            if int(n_boot) < 20:
+                raise MethodIncompatibility(
+                    "tmle: n_boot must be at least 20 for a standard error."
+                )
+        self.se_method = se_method
+        self.n_boot = int(n_boot)
 
     def fit(self) -> CausalResult:
         """Run TMLE and return causal effect estimates."""
@@ -677,7 +725,9 @@ class TMLE:
                 f"sample. Inspect "
                 f"result.model_info['propensity_diagnostics'] and "
                 f"consider sp.overlap_plot() / a more flexible "
-                f"propensity model.",
+                f"propensity model. The influence-function standard "
+                f"error is too small in this regime; "
+                f"se_method='bootstrap' is closer to nominal.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -788,7 +838,7 @@ class TMLE:
                 - (1 - A) * (Y - Q_star_A_orig) / (1 - g_hat)
                 - psi
             )
-        else:  # ATT
+        elif obs_w is None:  # ATT
             p_treat = np.mean(A)
             psi = float(
                 np.mean(
@@ -802,6 +852,17 @@ class TMLE:
                 - (1 - A) * g_hat * (Y - Q_star_0_orig) / ((1 - g_hat) * p_treat)
                 - psi * A / p_treat
             )
+        else:  # ATT with observation weights
+            # Every empirical mean becomes a weighted one (the weights have
+            # mean one), including the treated share, and each row of the
+            # influence function carries its weight.
+            p_treat = float(np.mean(obs_w * A))
+            summand = (
+                A * (Y - Q_star_0_orig)
+                - (1 - A) * g_hat * (Y - Q_star_0_orig) / (1 - g_hat)
+            ) / p_treat
+            psi = float(np.mean(obs_w * summand))
+            EIF = obs_w * (summand - psi * A / p_treat)
 
         if self.fluctuation == "per_arm" and not on_treated:
             # Both arm-specific score equations are solved, so each

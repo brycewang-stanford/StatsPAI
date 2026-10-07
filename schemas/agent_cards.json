@@ -8461,10 +8461,24 @@
             "description": "Propensity P(A=1|W) replacing the Super Learner; one number is a known randomisation probability.",
             "type": "number"
           },
+          "n_boot": {
+            "default": 200,
+            "description": "Bootstrap resamples for se_method='bootstrap' (>= 20)",
+            "type": "integer"
+          },
           "q_bound": {
             "default": 1e-05,
             "description": "The initial outcome predictions, on the [0, 1] scale the logistic fluctuation works on (continuous outcomes are min-max rescaled), are truncated to ``[q_bound, 1 - q_bound]`` before targeting. ``tmle::tmle`` truncates at ``1 - alpha = 5e-4`` (its default ``alpha = 0.9995``); pass ``q_bound=5e-4`` to reproduce it.",
             "type": "number"
+          },
+          "se_method": {
+            "default": "influence",
+            "description": "'influence': sd of the efficient influence function over sqrt(n); too small when propensities approach 0 or 1. 'bootstrap': refit everything on n_boot resamples of rows (of clusters with cluster=); SE is the sd of the estimates, CI their percentile interval. Costs n_boot fits. Not with Q / g1W or fold_indices.",
+            "enum": [
+              "influence",
+              "bootstrap"
+            ],
+            "type": "string"
           },
           "treat": {
             "description": "Binary treatment column (0/1)",
@@ -8472,7 +8486,7 @@
             "x-statspai-role": "column"
           },
           "weights": {
-            "description": "Observation weights (R tmle obsWeights): weighted Super Learner fits, fluctuation, plug-in and influence function. ATE only; not with fold_indices.",
+            "description": "Observation weights (R tmle obsWeights): weighted Super Learner fits, fluctuation, plug-in and influence function (for ATT / ATC the treated share is weighted too). Not with fold_indices.",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -23000,6 +23014,10 @@
               "ATC"
             ],
             "type": "string"
+          },
+          "propensity": {
+            "description": "Known treatment probability: one number, or a column of per-unit design probabilities. No propensity model is fitted; the sandwich drops the first-stage term. Fitting the propensity is more precise even when it is known.",
+            "type": "number"
           },
           "ps_model": {
             "default": "logit",
@@ -94672,12 +94690,14 @@
         "fluctuation": "Optional[str]",
         "fold_indices": "Optional[Any]",
         "g1W": "Optional[np.ndarray]",
+        "n_boot": "int",
         "n_folds": "int",
         "outcome_library": "Optional[List[BaseEstimator]]",
         "propensity_bounds": "Tuple[float, float]",
         "propensity_library": "Optional[List[BaseEstimator]]",
         "q_bound": "float",
         "random_state": "int",
+        "se_method": "str",
         "treat": "str",
         "weights": "Optional[str]",
         "y": "str"
@@ -94732,6 +94752,11 @@
             "description": "g1W parameter (Optional[np.ndarray]).",
             "type": "string"
           },
+          "n_boot": {
+            "default": 200,
+            "description": "Number of bootstrap replications.",
+            "type": "integer"
+          },
           "n_folds": {
             "default": 5,
             "description": "Number of cross-fitting or cross-validation folds.",
@@ -94771,6 +94796,11 @@
             "default": 42,
             "description": "Random seed or RandomState for reproducible stochastic steps.",
             "type": "integer"
+          },
+          "se_method": {
+            "default": "influence",
+            "description": "se_method parameter (str).",
+            "type": "string"
           },
           "treat": {
             "description": "Treatment indicator or first-treatment-period column.",

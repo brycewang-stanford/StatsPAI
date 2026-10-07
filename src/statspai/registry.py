@@ -6448,8 +6448,9 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Observation weights (R tmle obsWeights): weighted Super "
-                    "Learner fits, fluctuation, plug-in and influence function. "
-                    "ATE only; not with fold_indices.",
+                    "Learner fits, fluctuation, plug-in and influence function "
+                    "(for ATT / ATC the treated share is weighted too). Not "
+                    "with fold_indices.",
                 ),
                 ParamSpec(
                     "cluster",
@@ -6458,6 +6459,26 @@ def _build_registry() -> None:
                     None,
                     "Cluster column: influence function summed within clusters "
                     "with G/(G-1) (R tmle id= for equal cluster sizes).",
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "influence",
+                    "'influence': sd of the efficient influence function over "
+                    "sqrt(n); too small when propensities approach 0 or 1. "
+                    "'bootstrap': refit everything on n_boot resamples of rows "
+                    "(of clusters with cluster=); SE is the sd of the "
+                    "estimates, CI their percentile interval. Costs n_boot "
+                    "fits. Not with Q / g1W or fold_indices.",
+                    enum=["influence", "bootstrap"],
+                ),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    200,
+                    "Bootstrap resamples for se_method='bootstrap' (>= 20)",
                 ),
             ],
             returns="TMLE result",
@@ -13789,6 +13810,16 @@ def _build_registry() -> None:
                     "logit",
                     "Propensity-score model; 'probit' is teffects ipw (..., probit)",
                     ["logit", "probit"],
+                ),
+                ParamSpec(
+                    "propensity",
+                    "float | str",
+                    False,
+                    None,
+                    "Known treatment probability: one number, or a column of "
+                    "per-unit design probabilities. No propensity model is "
+                    "fitted; the sandwich drops the first-stage term. Fitting "
+                    "the propensity is more precise even when it is known.",
                 ),
             ],
             returns="CausalResult",

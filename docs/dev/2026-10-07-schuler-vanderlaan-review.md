@@ -141,22 +141,49 @@ a practical threshold of 0.3) and extends it to ratios.
   wrong.
 - `sp.ipw(se_method='influence')` is not an option. Not needed.
 
-## Open items
+## Second round (same day): the open items
 
-1. **Weak overlap.** With 9% of true propensities outside [0.025, 0.975]
-   every influence-function interval undercovers: ATE 0.91, ATT 0.82 to
-   0.83. `sp.tmle` warns. A collaborative or
-   overlap-adaptive truncation would be the principled remedy and is not
-   implemented.
-2. **Weights for the ATT / ATC** are refused, as before.
-3. **`sp.aipw`** still fits a logit and two linear regressions. Flexible
-   nuisances go through `sp.dml(model='irm')` or `sp.tmle`. A
-   `propensity=` for `sp.ipw` and `sp.dml` would complete finding 5.
-4. **R `tmle`'s uncentred weighted odds-ratio curve** could be reported
-   upstream. No note has been drafted.
-5. The second edition's exercises (estimand-restricted models, the mean
-   with a known median) have no counterpart and little practical use, as
-   the book says itself.
+Bryce delegated the decisions. What was done with each.
+
+1. **Weak overlap: bootstrap standard errors.** 1,000 replications with
+   the initial fits correctly specified show the estimates are unbiased
+   under weak overlap and the standard error is what fails (ATT: sd 0.166,
+   mean influence-function se 0.131). Truncating the propensity at 1e-6,
+   0.025, R's `5 / (sqrt(n) ln n)`, 0.05 or 0.1 leaves ATT coverage
+   between 0.74 and 0.87; none repairs it. Cross-fitting the nuisances
+   moves it from 0.81 to 0.84. A nonparametric bootstrap of the whole fit
+   gives 0.89 (normal interval) and 0.90 (percentile), and 0.92 for the
+   ATE. So `sp.tmle(se_method='bootstrap', n_boot=)` was added, and no
+   adaptive truncation. The percentile interval is the one reported.
+   The shipped option was then run end to end in the same design with an
+   additive (misspecified) outcome regression and a correct propensity,
+   250 replications, 150 resamples: influence-function coverage 0.908
+   (ATE) and 0.824 (ATT), bootstrap 0.940 and 0.920.
+2. **Weights for the ATT / ATC**: implemented. Evidence is two identities:
+   integer weights equal row replication, and a weighted saturated fit
+   equals the weighted stratification formula.
+3. **`sp.ipw(propensity=)`**: implemented, with the sandwich that drops
+   the first-stage term. With one probability for everyone it is the
+   difference in means with its HC0 standard error, exactly. **Not done
+   for `sp.dml(model='irm')`**: that estimator is a Track A parity module
+   with retained out-of-fold records, and a second propensity path there
+   is more risk than a convenience warrants. `sp.aipw(propensity=)` is
+   the efficient estimator with a known propensity.
+4. **Note to the `tmle` maintainers**: drafted in
+   `docs/dev/2026-10-07-tmle-weighted-odds-ratio-note-draft.md`, with a
+   self-contained R snippet that was run. Not sent.
+5. The stability-audit failure on main (`mswitch_lrtest`, `tvp_var_sv`)
+   was fixed by the line that owned it before this round started.
+
+## Still open
+
+- No remedy for the *point estimate* under weak overlap is needed on the
+  evidence above, but the bootstrap interval is still short of nominal for
+  the ATT (0.90). Collaborative TMLE is the literature's answer and is not
+  implemented.
+- `se_method='bootstrap'` is not available with `fold_indices`.
+- The second edition's exercises on estimand-restricted models have no
+  counterpart and little practical use, as the book says itself.
 
 ## Rerun
 
@@ -164,6 +191,6 @@ a practical threshold of 0.3) and extends it to ratios.
 cd tests/reference_parity && Rscript _generate_tmle_parameters_R.R   # needs R tmle
 pytest tests/reference_parity/test_tmle_parameters_R_parity.py \
        tests/test_tmle_targeting_properties.py \
-       tests/test_aipw_known_propensity.py \
+       tests/test_aipw_known_propensity.py tests/test_ipw_known_propensity.py \
        tests/reference_parity/test_causal_gap_known_values.py -q
 ```

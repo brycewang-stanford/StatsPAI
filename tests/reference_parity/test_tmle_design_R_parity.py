@@ -98,8 +98,9 @@ def test_singleton_clusters_reproduce_the_unclustered_se() -> None:
 
 
 def test_unsupported_combinations_fail_loudly() -> None:
-    with pytest.raises(MethodIncompatibility, match="estimand='ATE'"):
-        _fit("gaussian", weights="w", estimand="ATT")
+    # Weights with estimand='ATT' were refused until 1.39; they are now
+    # supported (tests/test_tmle_targeting_properties.py).
+    assert np.isfinite(_fit("gaussian", weights="w", estimand="ATT").estimate)
     with pytest.raises(MethodIncompatibility, match="cross-fitted"):
         _fit("gaussian", weights="w", fold_indices=np.arange(len(_data())) % 3)
     with pytest.raises(MethodIncompatibility, match="strictly positive"):

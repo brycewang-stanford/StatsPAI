@@ -151,9 +151,14 @@ the outcome regression is.
 sp.aipw(trial, y="y", treat="a", covariates=["x"], propensity=0.5)
 sp.aipw(trial, y="y", treat="a", covariates=["x"], propensity="design_p")
 sp.tmle(trial, y="y", treat="a", covariates=["x"], g1W=0.5)
+sp.ipw(trial, y="y", treat="a", covariates=["x"], propensity=0.5)
 ```
 
-No propensity model is fitted and nothing is clipped. For the regression
+No propensity model is fitted and nothing is clipped. One of the second
+edition's exercises is the reason `sp.ipw` documents a caveat: an IPW
+estimator that fits the propensity is more precise than one that uses the
+true propensity, because the fit absorbs chance imbalance. The efficient
+estimators do not have that dependence. For the regression
 estimator the book analyses in section 1.3, and its sandwich variance, see
 `sp.lm_lin`.
 
@@ -211,9 +216,24 @@ coefficients by 2.25, which puts about 9% of the true propensities outside
 
 The second column is the book's warning about inverse weights made
 concrete. The influence-function variance is too small when propensities
-approach zero, for every construction. `sp.tmle` warns when more than 5%
-of the propensities hit `propensity_bounds`. Take the warning seriously and
-look at `sp.overlap_plot` before reporting the interval.
+approach zero, for every construction. The estimates themselves are
+unbiased here; it is the standard error that falls short, by 15% to 21%.
+Moving the truncation bound does not help. Section 4.5 mentions the
+bootstrap as the alternative, and it does help:
+
+```python
+sp.tmle(df, y="y", treat="a", covariates=["x1", "x2"], estimand="ATT",
+        se_method="bootstrap", n_boot=200)
+```
+
+| poor overlap | influence function | cross-fitted | bootstrap percentile |
+| --- | --- | --- | --- |
+| ATE | 0.91 | 0.92 | 0.92 |
+| ATT | 0.81 | 0.84 | 0.90 |
+
+`sp.tmle` warns when more than 5% of the propensities hit
+`propensity_bounds`. Take the warning seriously, look at `sp.overlap_plot`,
+and prefer the bootstrap interval in that regime.
 
 ## What a paper written today would add
 

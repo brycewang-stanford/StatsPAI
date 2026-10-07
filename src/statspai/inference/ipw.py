@@ -26,7 +26,7 @@ Crump, R.K., Hotz, V.J., Imbens, G.W. and Mitnik, O.A. (2009).
 from __future__ import annotations
 
 import warnings
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -56,6 +56,7 @@ def ipw(
     cluster: Optional[str] = None,
     se_method: str = "bootstrap",
     ps_model: str = "logit",
+    propensity: Optional[Union[float, str]] = None,
 ) -> CausalResult:
     """
     Inverse Probability Weighting estimator for treatment effects.
@@ -123,6 +124,17 @@ def ipw(
         treatment model of Stata ``teffects ipw (y) (d x, probit)``. The
         sandwich variance uses the score and the observed Hessian of the
         chosen model.
+    propensity : float or str, optional
+        Known probability of treatment: one number, or a column of
+        per-unit design probabilities (a randomised trial). No propensity
+        model is fitted, the bootstrap resamples the design probabilities
+        with their rows, and the sandwich drops the first-stage term. An
+        IPW estimator that *estimates* the propensity is the more precise
+        of the two even when the truth is known, because the fitted
+        propensity absorbs chance imbalance in the covariates; pass the
+        known one when the design-based estimator is what is wanted, or
+        use ``sp.aipw(propensity=)``, whose variance does not depend on
+        the choice.
 
     Returns
     -------
@@ -198,6 +210,8 @@ def ipw(
 
     # --- Prepare data ---
     extra = [c for c in (weights, cluster) if c is not None]
+    if isinstance(propensity, str):
+        extra.append(propensity)
     missing_cols = [c for c in [y, treat] + list(covariates) + extra if c not in data]
     if missing_cols:
         raise MethodIncompatibility(
@@ -237,8 +251,23 @@ def ipw(
             "control observations"
         )
 
-    # --- Estimate propensity scores ---
-    pscore = _estimate_propensity(X, T, sw, ps_model)
+    # --- Estimate propensity scores (or take the design's) ---
+    ps_known = propensity is not None
+    if ps_known:
+        if isinstance(propensity, str):
+            pscore = df[propensity].to_numpy(dtype=float)
+        else:
+            pscore = np.full(n, float(propensity))
+        if not np.all(np.isfinite(pscore)) or np.any((pscore <= 0) | (pscore >= 1)):
+            raise MethodIncompatibility(
+                "ipw: a known propensity must lie strictly between 0 and 1.",
+                diagnostics={
+                    "min": float(np.nanmin(pscore)),
+                    "max": float(np.nanmax(pscore)),
+                },
+            )
+    else:
+        pscore = _estimate_propensity(X, T, sw, ps_model)
     pscore_raw = np.asarray(pscore, dtype=float).copy()  # pre-trim, for overlap
 
     # --- Trim ---
@@ -288,7 +317,9 @@ def ipw(
         )
 
     if se_method == "sandwich":
-        se = _ipw_sandwich_se(X, T, Y, pscore, estimand, sw, groups, ps_model)
+        se = _ipw_sandwich_se(
+            X, T, Y, pscore, estimand, sw, groups, ps_model, ps_known=ps_known
+        )
         boot_estimates = None
     else:
         # --- Bootstrap SE (whole clusters when cluster= is given) ---
@@ -303,7 +334,10 @@ def ipw(
                 idx = np.concatenate([members[g] for g in pick])
             Y_b, T_b, X_b = Y[idx], T[idx], X[idx]
             sw_b = None if sw is None else sw[idx]
-            ps_b = _estimate_propensity(X_b, T_b, sw_b, ps_model)
+            if ps_known:
+                ps_b = pscore[idx]
+            else:
+                ps_b = _estimate_propensity(X_b, T_b, sw_b, ps_model)
             if trim > 0:
                 ps_b = np.clip(ps_b, trim, 1 - trim)
             w1, w0 = _compute_weights(T_b, ps_b, estimand, normalize, sw_b)
@@ -339,7 +373,8 @@ def ipw(
         "normalized": normalize,
         "n_bootstrap": n_bootstrap if se_method == "bootstrap" else None,
         "se_method": se_method,
-        "ps_model": ps_model,
+        "ps_model": None if ps_known else ps_model,
+        "propensity": "known" if ps_known else "estimated",
         "weights": weights,
         "cluster": cluster,
         "n_clusters": None if groups is None else int(groups.max() + 1),
@@ -376,6 +411,7 @@ def ipw(
                 "cluster": cluster,
                 "se_method": se_method,
                 "ps_model": ps_model,
+                "propensity": propensity,
             },
             data=data,
             overwrite=False,
@@ -489,6 +525,7 @@ def _ipw_sandwich_se(
     sw: Optional[np.ndarray],
     groups: Optional[np.ndarray],
     ps_model: str = "logit",
+    ps_known: bool = False,
 ) -> float:
     """M-estimation SE of the normalised IPW contrast (Stata ``teffects ipw``).
 
@@ -507,6 +544,9 @@ def _ipw_sandwich_se(
     and ``f`` the normal density at the index, ``H`` is the observed Hessian
     ``mean(w lam (lam + index) x x')`` and ``e (1-e)`` in ``d a_k / d gamma``
     becomes ``f``.
+
+    With ``ps_known`` the propensity is a design quantity, there is no
+    first-stage score to stack, and the ``G_k' IF_gamma`` term is dropped.
     """
     n = len(Y)
     w = np.ones(n) if sw is None else sw
@@ -551,6 +591,8 @@ def _ipw_sandwich_se(
     def _if(a: np.ndarray, da: np.ndarray) -> np.ndarray:
         mu = np.sum(w * a * Y) / np.sum(w * a)
         resid = Y - mu
+        if ps_known:
+            return np.asarray(w * a * resid / np.mean(w * a))
         G = (Xc * (w * resid * da)[:, None]).mean(axis=0)
         rows: np.ndarray = (w * a * resid + if_gamma @ G) / np.mean(w * a)
         return rows
