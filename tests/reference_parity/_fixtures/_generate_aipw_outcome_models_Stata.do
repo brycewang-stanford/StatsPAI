@@ -1,5 +1,5 @@
 * Reference values for tests/reference_parity/test_aipw_outcome_models_stata_parity.py
-* Stata 18: teffects aipw with a logit / poisson outcome model and a logit
+* Stata 18: teffects aipw with a logit / probit / poisson outcome model and a logit
 * treatment model, robust, weighted (iweights; teffects aipw refuses pweights) and clustered. Run from this directory.
 * Writes aipw_outcome_models_stata.txt (one "key value" pair per line).
 clear all
@@ -10,8 +10,8 @@ import delimited using "aipw_outcome_models_data.csv", clear
 generate long id = _n
 tempname fh
 file open `fh' using "aipw_outcome_models_stata.txt", write replace text
-foreach om in logit poisson {
-    local yv = cond("`om'" == "logit", "yb", "yc")
+foreach om in logit probit poisson {
+    local yv = cond("`om'" == "poisson", "yc", "yb")
     foreach cs in plain weights cluster {
         local wt = cond("`cs'" == "weights", "[iw = w]", "")
         local vc = cond("`cs'" == "cluster", "vce(cluster g)", "")

@@ -189,14 +189,19 @@ Bryce delegated the decisions. What was done with each.
   uses `[iw=]` with one cluster per row, the convention already pinned in
   `test_teffects_design_stata_parity.py`. Grade: T2.
 
+## Fourth round (same day)
+
+- `sp.aipw(outcome_model='probit')`. The link is not canonical, so the
+  stacked sandwich uses the probit's own score and observed Hessian.
+  Against Stata 18 `teffects aipw (y x, probit) (d x)`: 5e-9 at worst in
+  the same three designs.
+
 ## Still open
 
 - The bootstrap interval is still a little short of nominal for the ATT
   under weak overlap (0.90 to 0.92). Collaborative TMLE is the
   literature's answer. It is a sizeable estimator in its own right, the
   reference package is not installed here, and it was not attempted.
-- `sp.aipw` has no probit outcome model (non-canonical link; the stacked
-  sandwich would need the general score).
 - The second edition's exercises on estimand-restricted models have no
   counterpart and little practical use, as the book says itself.
 

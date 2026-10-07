@@ -37,7 +37,7 @@ from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, MethodIncompatibility
 
-_OUTCOME_MODELS = ("linear", "logit", "poisson")
+_OUTCOME_MODELS = ("linear", "logit", "probit", "poisson")
 
 
 @accepts_aliases(_strict=True, controls="covariates")
@@ -157,13 +157,14 @@ def aipw(
         .. versionchanged:: 1.39.0
            The bound was fixed at 0.01 and could not be changed, and
            ``n_propensity_clipped`` always read 0.
-    outcome_model : {'linear', 'logit', 'poisson'}, default 'linear'
-        The per-arm outcome regression: least squares, a logit for a
-        binary (or fractional) outcome, or a Poisson regression with a log
-        link for a non-negative one, each fitted by maximum likelihood.
-        These are the ``logit`` and ``poisson`` outcome models of Stata
-        ``teffects aipw (y x, logit) (d x)``. With a binary outcome the
-        linear model can predict outside [0, 1]; the logit cannot, though
+    outcome_model : {'linear', 'logit', 'probit', 'poisson'}, default 'linear'
+        The per-arm outcome regression: least squares, a logit or probit
+        for a binary (or fractional) outcome, or a Poisson regression with
+        a log link for a non-negative one, each fitted by maximum
+        likelihood. These are the ``logit``, ``probit`` and ``poisson``
+        outcome models of Stata ``teffects aipw (y x, logit) (d x)``. With
+        a binary outcome the linear model can predict outside [0, 1]; the
+        logit cannot, though
         the AIPW estimate itself is still not a plug-in and is not
         confined to the range (``sp.tmle`` is). ``se_method='sandwich'``
         stacks the score of the chosen model.
@@ -271,9 +272,9 @@ def aipw(
 
     if not set(np.unique(D)).issubset({0, 1}):
         raise ValueError("Treatment must be binary (0/1)")
-    if outcome_model == "logit" and (Y.min() < 0 or Y.max() > 1):
+    if outcome_model in ("logit", "probit") and (Y.min() < 0 or Y.max() > 1):
         raise MethodIncompatibility(
-            "aipw: outcome_model='logit' needs an outcome in [0, 1].",
+            f"aipw: outcome_model={outcome_model!r} needs an outcome in [0, 1].",
             diagnostics={"min": float(Y.min()), "max": float(Y.max())},
         )
     if outcome_model == "poisson" and Y.min() < 0:
@@ -559,28 +560,43 @@ def _aipw_stacked_if(
     For a logit or Poisson outcome model the link is canonical, so the
     score is still ``x (Y - mu)``; the Hessian and the derivative of the
     AIPW moment with respect to the coefficients pick up the variance
-    function ``d mu / d eta`` (``mu (1 - mu)`` and ``mu``).
+    function ``d mu / d eta`` (``mu (1 - mu)`` and ``mu``). A probit is
+    not canonical: its own score and observed Hessian are used, and
+    ``d mu / d eta`` is the normal density at the index.
     """
     n = len(Y)
     om = np.ones(n) if omega is None else omega
     Xc = np.column_stack([np.ones(n), X])
     r1, r0 = Y - mu1, Y - mu0
     w = e * (1 - e)
+    # Per arm: s is the score multiplier (score = s x), h the weight of
+    # minus its derivative (Hessian = mean(h x x')), v = d mu / d eta.
+    s1, s0 = r1, r0
     if outcome_model == "logit":
         v1, v0 = mu1 * (1 - mu1), mu0 * (1 - mu0)
+        h1, h0 = v1, v0
     elif outcome_model == "poisson":
         v1, v0 = mu1, mu0
+        h1, h0 = v1, v0
+    elif outcome_model == "probit":
+        # Not a canonical link: the score is lam x with
+        # lam = (Y - mu) phi / (mu (1 - mu)) and the observed Hessian
+        # weight is lam (lam + eta).
+        eta1, eta0 = stats.norm.ppf(mu1), stats.norm.ppf(mu0)
+        v1, v0 = stats.norm.pdf(eta1), stats.norm.pdf(eta0)
+        s1, s0 = r1 * v1 / (mu1 * (1 - mu1)), r0 * v0 / (mu0 * (1 - mu0))
+        h1, h0 = s1 * (s1 + eta1), s0 * (s0 + eta0)
     else:
-        v1 = v0 = np.ones(n)
+        v1 = v0 = h1 = h0 = np.ones(n)
     if_gamma = np.linalg.solve(
         (Xc * (om * w)[:, None]).T @ Xc / n, (Xc * (om * (D - e))[:, None]).T
     ).T
     if_b1 = np.linalg.solve(
-        (Xc * (om * D * v1)[:, None]).T @ Xc / n, (Xc * (om * D * r1)[:, None]).T
+        (Xc * (om * D * h1)[:, None]).T @ Xc / n, (Xc * (om * D * s1)[:, None]).T
     ).T
     if_b0 = np.linalg.solve(
-        (Xc * (om * (1 - D) * v0)[:, None]).T @ Xc / n,
-        (Xc * (om * (1 - D) * r0)[:, None]).T,
+        (Xc * (om * (1 - D) * h0)[:, None]).T @ Xc / n,
+        (Xc * (om * (1 - D) * s0)[:, None]).T,
     ).T
     # d/d gamma of D r1 / e is -D r1 (1 - e) / e * x; of (1-D) r0 / (1-e)
     # it is (1-D) r0 e / (1 - e) * x. d/d beta of the AIPW moments is
@@ -649,9 +665,11 @@ def _fit_outcome(
         X_tr = sm.add_constant(X_train)
         X_te = sm.add_constant(X_test)
         if model != "linear":
-            family = (
-                sm.families.Binomial() if model == "logit" else sm.families.Poisson()
-            )
+            family = {
+                "logit": sm.families.Binomial,
+                "probit": lambda: sm.families.Binomial(link=sm.families.links.Probit()),
+                "poisson": sm.families.Poisson,
+            }[model]()
             glm = sm.GLM(Y_train, X_tr, family=family, freq_weights=w_train).fit(
                 tol=1e-13, maxiter=300
             )

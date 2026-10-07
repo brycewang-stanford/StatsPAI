@@ -3,7 +3,7 @@
 Reference: ``_fixtures/aipw_outcome_models_stata.txt`` written by
 ``_fixtures/_generate_aipw_outcome_models_Stata.do`` on
 ``_fixtures/aipw_outcome_models_data.csv`` (the TMLE design data plus a
-count outcome). ``teffects aipw (y x, logit | poisson) (d x)``: logit
+count outcome). ``teffects aipw (y x, logit | probit | poisson) (d x)``: logit
 treatment model, per-arm outcome model by maximum likelihood, robust
 standard errors from the stacked estimating equations.
 
@@ -37,7 +37,7 @@ from statspai.exceptions import MethodIncompatibility
 _FIX = pathlib.Path(__file__).parent / "_fixtures"
 RTOL = 1e-6
 COV = ["x1", "x2", "x3"]
-OUTCOME = {"logit": "yb", "poisson": "yc"}
+OUTCOME = {"logit": "yb", "probit": "yb", "poisson": "yc"}
 CASES: Dict[str, Dict[str, Any]] = {
     "plain": {},
     "weights": {"weights": "w"},
@@ -118,5 +118,7 @@ def test_outcome_must_suit_the_model() -> None:
         sp.aipw(d, y="yc", outcome_model="logit", **kw)
     with pytest.raises(MethodIncompatibility, match="non-negative"):
         sp.aipw(d, y="y", outcome_model="poisson", **kw)
+    with pytest.raises(MethodIncompatibility, match=r"\[0, 1\]"):
+        sp.aipw(d, y="yc", outcome_model="probit", **kw)
     with pytest.raises(MethodIncompatibility, match="outcome_model"):
-        sp.aipw(d, y="yb", outcome_model="probit", **kw)
+        sp.aipw(d, y="yb", outcome_model="cloglog", **kw)

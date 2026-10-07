@@ -30164,12 +30164,12 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "linear",
-                    "Per-arm outcome regression: least squares, a logit "
-                    "(outcome in [0, 1]) or a Poisson regression (non-negative "
-                    "outcome), by maximum likelihood. Stata teffects aipw "
-                    "(y x, logit | poisson); se_method='sandwich' stacks the "
-                    "score of the chosen model.",
-                    ["linear", "logit", "poisson"],
+                    "Per-arm outcome regression: least squares, a logit or "
+                    "probit (outcome in [0, 1]) or a Poisson regression "
+                    "(non-negative outcome), by maximum likelihood. Stata "
+                    "teffects aipw (y x, logit | probit | poisson); "
+                    "se_method='sandwich' stacks the score of the chosen model.",
+                    ["linear", "logit", "probit", "poisson"],
                 ),
             ],
             returns="CausalResult",

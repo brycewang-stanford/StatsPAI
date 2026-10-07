@@ -27860,10 +27860,11 @@
         },
         "outcome_model": {
           "default": "linear",
-          "description": "Per-arm outcome regression: least squares, a logit (outcome in [0, 1]) or a Poisson regression (non-negative outcome), by maximum likelihood. Stata teffects aipw (y x, logit | poisson); se_method='sandwich' stacks the score of the chosen model.",
+          "description": "Per-arm outcome regression: least squares, a logit or probit (outcome in [0, 1]) or a Poisson regression (non-negative outcome), by maximum likelihood. Stata teffects aipw (y x, logit | probit | poisson); se_method='sandwich' stacks the score of the chosen model.",
           "enum": [
             "linear",
             "logit",
+            "probit",
             "poisson"
           ],
           "type": "string"

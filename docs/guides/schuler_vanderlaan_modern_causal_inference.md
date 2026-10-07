@@ -39,7 +39,7 @@ plug-in bias.
 For the ATE the one-step and estimating-equation estimators are the same
 formula, which is why one function serves both rows. `sp.aipw` fits a
 logit propensity and per-arm outcome regressions that are linear by
-default; `outcome_model='logit'` or `'poisson'` keeps the fitted
+default; `outcome_model='logit'`, `'probit'` or `'poisson'` keeps the fitted
 regression inside the range of a binary or count outcome, as Stata
 `teffects aipw (y x, logit)` does.
 
