@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-07 — call traces of the count-model modules re-recorded after the second Gelman-Vehtari round
+
+Commit `ceb55c39` re-recorded the entries of Track A modules 37 42 47 58 63
+64 in `tests/r_parity/results/_implementation_trace.json`. The source that
+staled them is in `636d4b16`: `regression/count.py`, where `sp.nbreg` now
+counts the fixed-effect indicators that survive the collinearity scan
+instead of the number of levels minus one. The estimation is untouched.
+
+Effect on the paper: none. The six modules were re-run on the new source
+first and reproduce their committed results; in the trace file only
+`exercised_sources` digests and `seconds` differ. The original-data ledger
+was not stale and is unchanged.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-07 — call traces re-recorded after the Yuksel-Aydede pass
 
 - **Commits.** `d653a302` re-recorded the entries of Track A modules 03 07
