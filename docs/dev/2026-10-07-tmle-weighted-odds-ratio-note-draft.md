@@ -4,7 +4,10 @@ Status: draft, not sent. Bryce sends messages himself. The R snippet was
 run on 2026-10-07 and prints the numbers quoted under it.
 
 Suggested venue: an email to the maintainer named in the package's
-DESCRIPTION (Susan Gruber). The DESCRIPTION lists no issue tracker.
+DESCRIPTION, Susan Gruber `<sgruber@cal.berkeley.edu>` (read from the
+installed `tmle` 2.1.1; not otherwise checked). The DESCRIPTION lists no
+issue tracker, and the only GitHub repository is the read-only CRAN
+mirror, so there is nowhere to open a pull request.
 
 ---
 
@@ -13,16 +16,19 @@ uncentred influence curve
 
 Hello,
 
-Thank you for maintaining `tmle`. While comparing another implementation
-against `tmle` 2.1.1 I found one number that I could not reproduce until I
-dropped a centring term, and I think it is worth a look.
+Thank you for maintaining `tmle`. I maintain StatsPAI, an open-source
+Python package for causal inference and econometrics, and I use `tmle` as
+the reference for its TMLE: with the same initial fits, the two are
+compared number by number. In that comparison against `tmle` 2.1.1 I found
+one number that I could not reproduce until I dropped a centring term, and
+I think it is worth a look.
 
 **What I see.** With the initial `Q` and `g1W` supplied and a binary
 outcome, the treatment-specific means, the additive effect, the risk ratio
 and the odds ratio agree with my calculation to about 1e-11, in estimate
 and variance, with and without `id`. With `obsWeights`, everything still
-agrees except `estimates$OR$var.log.psi`, which is larger than mine by
-0.3% to 2.4% depending on the data.
+agrees except `estimates$OR$var.log.psi`, which is larger than mine, by
+2.4% in the example below.
 
 **What reproduces it.** Write `w` for the weights normalised to mean one,
 `EY1` and `EY0` for the targeted means, and
@@ -90,5 +96,15 @@ With `tmle` 2.1.1 this prints a mean of 1.082 for the reported curve,
 I may be misreading the intended convention. If the uncentred form is
 deliberate I would be glad to know the reasoning.
 
+For context, the comparison lives in StatsPAI's test suite, where the
+weighted odds ratio is the one row that does not match and the test
+rebuilds your number from the centred curve:
+https://github.com/brycewang-stanford/StatsPAI/blob/main/tests/reference_parity/test_tmle_parameters_R_parity.py
+
 Best regards,
 Bryce Wang
+Stanford REAP, Stanford University
+brycew6m@stanford.edu
+StatsPAI: https://github.com/brycewang-stanford/StatsPAI
+(Wang and Rozelle, Journal of Open Source Software, 2026,
+https://doi.org/10.21105/joss.10604)
