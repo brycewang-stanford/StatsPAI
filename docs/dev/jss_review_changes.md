@@ -3411,10 +3411,16 @@ only the recorded source hashes move.
      donors and 57.7x at 100 (4.6 against 264 seconds) and attributes
      99% of the time to the nested V search; none of that holds now. The
      two sides still solve the same task and their estimates agree to
-     5e-5 or better. The StatsPAI change comes from the commits to
-     `synth/scm.py` and `synth/_core.py` since the anchored release;
-     which one removed the cost was not isolated, and the paragraph
-     should not be rewritten until it is. The package-default timings in
+     5e-5 or better. The cause was isolated afterwards by timing the
+     50-donor task at each candidate commit (99.9 s at `v1.34.2`). It is
+     the inner weight problem of the nested fit. `95d87260` solves it
+     exactly when its minimiser is certified unique, where SLSQP iterated
+     before (93.3 to 4.5 s), and `54ad1443` returns the least-norm weights
+     exactly when it is not unique (4.5 to 1.6 s). The estimate is
+     0.182686 at every commit from `v1.34.2` to main, so the search does
+     the same work and reaches the same answer. The paragraph can be
+     rewritten on that basis: the nested V search is still six starts,
+     and its inner step is now a direct solve. The package-default timings in
      the second SCM table fall as well (7.465 to 0.043 seconds at 100
      donors with placebos).
   3. **HDFE.** Unchanged: ratio 1.80 / 0.85 / 0.62 to 1.81 / 0.84 / 0.62.
