@@ -46,12 +46,12 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `synth` | 30,976 | 41 | 56 |
 | `rd` | 23,794 | 35 | 57 |
 | `smart` | 16,690 | 21 | 31 |
-| `forest` | 16,354 | 18 | 32 |
+| `forest` | 16,353 | 18 | 32 |
 | `matching` | 16,017 | 26 | 39 |
-| `inference` | 15,407 | 31 | 56 |
+| `inference` | 15,442 | 31 | 56 |
 | `output` | 14,196 | 22 | 42 |
+| `mcmc` | 14,087 | 25 | 46 |
 | `diagnostics` | 14,043 | 26 | 47 |
-| `mcmc` | 13,680 | 23 | 46 |
 | `core` | 12,509 | 21 | 6 |
 | `panel` | 12,182 | 20 | 23 |
 | `dml` | 10,106 | 25 | 17 |
@@ -80,26 +80,27 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `neural_causal` | 3,442 | 6 | 18 |
 | `postestimation` | 3,280 | 7 | 13 |
 | `bounds` | 3,223 | 6 | 12 |
-| `bartik` | 3,183 | 6 | 9 |
 | `interference` | 3,223 | 11 | 22 |
+| `bartik` | 3,183 | 6 | 9 |
 | `causal_llm` | 3,026 | 10 | 15 |
+| `experimental` | 2,947 | 6 | 17 |
 | `conformal_causal` | 2,929 | 10 | 22 |
 | `rlasso` | 2,840 | 7 | 10 |
 | `crossval` | 2,809 | 7 | 2 |
-| `experimental` | 2,947 | 6 | 17 |
 | `epi` | 2,645 | 6 | 21 |
 | `mediation` | 2,603 | 6 | 6 |
 | `datasets` | 2,460 | 4 | 3 |
+| `selection` | 2,460 | 5 | 8 |
 | `nonparametric` | 2,297 | 5 | 12 |
 | `fixest` | 2,272 | 3 | 4 |
+| `policy_learning` | 2,109 | 5 | 8 |
 | `question` | 2,102 | 3 | 6 |
-| `policy_learning` | 2,072 | 5 | 8 |
 | `power` | 2,061 | 5 | 15 |
 | `proximal` | 2,052 | 8 | 13 |
 | `causal_text` | 1,768 | 4 | 4 |
 | `survey` | 1,746 | 5 | 9 |
 | `bcf` | 1,732 | 5 | 8 |
-| `selection` | 2,460 | 5 | 8 |
+| `ope` | 1,684 | 4 | 9 |
 | `fairness` | 1,489 | 3 | 9 |
 | `target_trial` | 1,475 | 7 | 9 |
 | `bunching` | 1,445 | 5 | 8 |
@@ -112,7 +113,6 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `dose_response` | 1,038 | 3 | 5 |
 | `imputation` | 1,034 | 3 | 4 |
 | `surrogate` | 1,017 | 2 | 3 |
-| `ope` | 1,684 | 4 | 9 |
 | `gformula` | 987 | 3 | 4 |
 | `deepiv` | 882 | 2 | 2 |
 | `transport` | 834 | 5 | 10 |
@@ -129,7 +129,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **632,703** | **1068** | **1561** |
+| **Total** | **633,926** | **1071** | **1561** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

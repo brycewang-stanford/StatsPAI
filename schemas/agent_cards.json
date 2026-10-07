@@ -38231,6 +38231,15 @@
             "description": "As in :func:`statspai.bayes_regress`.",
             "type": "integer"
           },
+          "family": {
+            "default": "gaussian",
+            "description": "'logit': binary outcome, horseshoe on the slopes of a logistic regression by Polya-Gamma Gibbs sampling",
+            "enum": [
+              "gaussian",
+              "logit"
+            ],
+            "type": "string"
+          },
           "formula": {
             "description": "'y ~ x1 + x2 + ...'",
             "type": "string",
