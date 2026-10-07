@@ -65,7 +65,7 @@ Options and evidence for the flagship estimators, read from their signatures and
 | `sp.match` | via `**kwargs` | via `**kwargs` | via `**kwargs` | native | core | certified | — | 2 |
 | `sp.ipw` | `weights` | `cluster` | `se_method='bootstrap'` | native | core | certified | — | — |
 | `sp.aipw` | `weights` | `cluster` | `se_method='influence'` | native | core | certified | — | — |
-| `sp.tmle` | `weights` | `cluster` | — | native | core | certified | — | — |
+| `sp.tmle` | `weights` | `cluster` | `se_method='influence'` | native | core | certified | — | — |
 | `sp.dml` | via `**kwargs` | via `**kwargs` | via `**kwargs` | native | core | certified | yes | 3 |
 | `sp.causal_forest` | via `**kwargs` | `clusters` | via `**kwargs` | native | core | certified | yes | 4 |
 
