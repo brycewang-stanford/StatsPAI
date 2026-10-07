@@ -196,7 +196,8 @@ def text_treatment_effect(
     estimate and the standard error does not account for it. On a design
     with an eight-word vocabulary, a text-borne confounder and a true
     effect of 1.0, 20 buckets gave a mean of 1.08 with 57% coverage of the
-    nominal 95% interval; 256 buckets gave 1.02 with full coverage. Raise
+    nominal 95% interval; 256 buckets gave 1.02 and every interval
+    covered. Raise
     ``n_components`` well above the vocabulary that matters, or pass a
     dense embedder.
 

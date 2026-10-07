@@ -4,6 +4,18 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.39.1] — 2026-10-08
+
+The release the JSS manuscript is anchored to. It adds collaborative TMLE
+and closes the evidence gap left by the functions added in 1.39.0. No
+estimate, standard error or default of an existing function changes, and
+the two default changes announced for 1.40 are not in it. Every frozen
+artifact the manuscript tabulates was re-derived on this tree: 89 R
+modules, 85 Stata modules and the Python side of all 89 reproduce their
+committed results, as do the original-data ledger, the forest seed
+studies and Track B, with the one stale row noted below. Track C was
+re-timed.
+
 ### Collaborative TMLE
 
 #### Added

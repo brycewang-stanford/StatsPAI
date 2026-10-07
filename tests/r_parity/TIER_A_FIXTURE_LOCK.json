@@ -1,5 +1,5 @@
 {
-  "aggregate_sha256": "fcb016623b36f9fa6cb4168a2ac1c3534b2a47b37aa221d400f022f6720b0d12",
+  "aggregate_sha256": "72f4d6b07a7e6b01e5a20593e4747a195a7bf3fd718383d2f2a368121c1ebda8",
   "counts": {
     "files": 637,
     "input_csvs": 88,
@@ -2290,7 +2290,7 @@
     {
       "bytes": 15054,
       "path": "tests/r_parity/results/parity_table.tex",
-      "sha256": "470a0dc82265dddae290b4a79d0b36a10196438351964d7afd1ef8285a569f1b"
+      "sha256": "b1f71de707c8fff272784553e4372f680265342a0c29192f36c97d05156adfeb"
     },
     {
       "bytes": 174755,
@@ -2300,7 +2300,7 @@
     {
       "bytes": 18071,
       "path": "tests/r_parity/results/parity_table_3way.tex",
-      "sha256": "2a668fdc57a29e4c06cb6d47044f4706e75cc7591b1c1f9e63d6dc74a98daebb"
+      "sha256": "070e1083cbb6a0c82ec557c70e9a06327e04d7d066987062824297d63837000d"
     },
     {
       "bytes": 13260,
