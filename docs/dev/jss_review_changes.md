@@ -3335,3 +3335,19 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — call traces of modules 13 and 24 re-recorded after a docstring fix
+
+- **Commits.** `1566fcda` re-recorded the entries of Track A modules 13 and 24 in
+  `tests/r_parity/results/_implementation_trace.json`. The source that
+  staled them is in the same commit: `src/statspai/forest/tuning.py`, a
+  docstring in which two citation keys were separated by a space and are
+  now separated by a comma.
+- **Reason.** The strict documentation build on main was failing on
+  adjacent citation keys in six files; only this one is on a Track A
+  path.
+- **Effect on the paper.** None. No code changed. Both modules were rerun
+  and reproduce their committed results byte for byte; in the trace file
+  only `exercised_sources` digests and `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
