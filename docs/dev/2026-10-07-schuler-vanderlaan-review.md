@@ -253,27 +253,46 @@ squared mean.
 
 **Agreement with R.** On six fixtures (three data sets, a correct and a
 wrong initial fit) the order of entry is identical and the estimate at
-every step agrees to 3e-9. Two things had to be found for that. The
-greedy search has to use the variance-penalised criterion, not the sum of
-squares alone: with the latter our order differed from R's whenever the
-outcome fit was right and the losses were flat. And `ctmle`'s
-cross-validated criterion is that same sum, with a zero bias term.
-Grade for the sequence: T2.
+every step agrees to 5e-9. For that the greedy search has to use the
+variance-penalised criterion, not the sum of squares alone: with the
+latter our order differed from R's whenever the outcome fit was right and
+the losses were flat. Grade for the sequence: T2.
 
-**Not matched, not located.** Given the same folds, the cross-validated
-losses the two report are different numbers (5.8756 against 5.8888 at
-step 0 of the first fixture), and they select different steps in four of
-six cases. The cause was not found. It is recorded in the test and is a
-C-level open item. Over 200 data sets the two have the same profile:
+**The cross-validated step: located in the sixth round.** The first
+reading was that the two implementations compute different
+cross-validated losses on the same folds. They do not score the same
+folds. `ctmleDiscrete` ignores its `folds` argument: with the seed fixed
+it returns the same numbers for three different partitions and for none,
+and with the partition fixed it returns different numbers for different
+seeds. So a row-by-row comparison of the selected step is not available.
+Leave-one-out would remove the randomness, but `ctmleDiscrete` fails with
+one row per fold. What can be compared is the distribution:
 
-| initial fit | | bias | sd | mean se | coverage |
-| --- | --- | --- | --- | --- | --- |
-| correct | `sp.tmle`, full propensity | -0.012 | 0.129 | 0.108 | 0.87 |
-| correct | R `ctmle` | -0.012 | 0.102 | 0.077 | 0.85 |
-| correct | `sp.ctmle` | -0.009 | 0.093 | 0.073 | 0.88 |
-| omits a confounder | `sp.tmle`, full propensity | -0.113 | 0.205 | 0.162 | 0.78 |
-| omits a confounder | R `ctmle` | +0.066 | 0.206 | 0.116 | 0.68 |
-| omits a confounder | `sp.ctmle` | +0.137 | 0.193 | 0.121 | 0.61 |
+- Over 60 random partitions of one data set, the mean cross-validated sum
+  of squares of the two agrees at every step, for both initial fits
+  (differences of 0.1 to 1.1 standard errors).
+- R's default cross-validation criterion is the sum of squares alone. Its
+  reported `penlikelihood` is the cross-validated sum of squares on the
+  outcome's own scale, with no penalty in it. `penalty='search'`
+  reproduces that combination (penalised greedy search, unpenalised
+  cross-validation).
+- With `penalty='search'`, on the same 200 data sets:
+
+| initial fit | | bias | sd | mean selected step |
+| --- | --- | --- | --- | --- |
+| correct | R `ctmle` | -0.012 | 0.102 | 0.94 |
+| correct | `sp.ctmle(penalty='search')` | -0.006 | 0.103 | 0.97 |
+| omits a confounder | R `ctmle` | +0.066 | 0.206 | 2.10 |
+| omits a confounder | `sp.ctmle(penalty='search')` | +0.074 | 0.206 | 2.13 |
+
+This is a statistical screen (S), not a parity row. The held-out variance
+of the influence function, which R reports but does not use by default,
+is about 1% to 10% larger in ours; R's formula for it was not pinned down.
+
+The default stays `penalty='variance+bias'`. On the correctly specified
+fits it gives a standard deviation of 0.093 against 0.103 for the
+reference's criterion, because the variance term in the cross-validation
+keeps the instrument out more often.
 
 R's variance is also not ours once covariates are in the propensity
 (0.0118 against 0.0151 at the same estimate on one fixture). At step 0
@@ -302,12 +321,38 @@ falls along the whole sequence. It does not: the fluctuation maximises a
 Bernoulli likelihood, so the sum of squares can rise slightly after a
 restart. A test caught it; the text and the comment were fixed.
 
+## Sixth round: the three items left after `sp.ctmle`
+
+1. **The cross-validated losses**: located, see above.
+2. **Pre-ordered ("scalable") C-TMLE**: added as `order=`. The candidates
+   are offered in a fixed order, one propensity fit per step. Against
+   `ctmleDiscrete(preOrder = TRUE, order = ...)`: six sequences, four
+   agree to 1e-9 at every step, and in the two where the instrument is
+   offered first the later steps differ by up to 5.4e-6. That residual
+   was not located. The logistic fits agree to 1e-13, and changing the
+   rule for restarting from the current fit made it far worse, not
+   better. Those two are held to 1e-5 and not called strict. R also stops
+   extending a pre-ordered sequence early when its cross-validation says
+   so; ours always builds the whole sequence and lets the cross-validation
+   choose.
+3. **A collaborative ATT**: closed, not open. No published estimator was
+   found to implement: `ctmle` does not offer one, and the construction
+   tried in the fifth round fails for a structural reason, not a tuning
+   one. The criterion measures how well the outcome regression fits, and
+   an additive regression that misses effect heterogeneity fits about as
+   well with any propensity model. Designing a criterion that targets the
+   ATT's own bias would be research, not implementation.
+4. **Lasso C-TMLE** (`ctmleGlmnet`): not done. Its candidates are the
+   fits along a glmnet regularisation path, so the sequence depends on
+   glmnet's path algorithm and its lambda grid, and there is no
+   deterministic object to compare. With `order=` covering the
+   many-candidates case, the remaining gain did not justify a second
+   estimator whose only evidence would be simulation.
+
 ## Still open
 
-- Why `ctmle`'s cross-validated losses differ from ours on the same folds.
-- A collaborative estimator for the ATT that is safe when the outcome
-  model misses heterogeneity.
-- The scalable (pre-ordered) and glmnet variants of C-TMLE.
+- The 5e-6 residual in two pre-ordered sequences.
+- R's formula for the held-out variance of the influence function.
 - The second edition's exercises on estimand-restricted models have no
   counterpart and little practical use, as the book says itself.
 

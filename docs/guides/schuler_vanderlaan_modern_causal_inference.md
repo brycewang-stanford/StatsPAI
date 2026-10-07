@@ -253,6 +253,11 @@ res.detail                                # every step of the sequence
 res.model_info["selection_frequency"]     # across bootstrap resamples
 ```
 
+With many candidates, pass `order=[...]` to offer them in a fixed order
+(the pre-ordered variant of Ju et al.): one propensity fit per step where
+the greedy search needs one per remaining candidate. `penalty='search'`
+reproduces the default criterion of R `ctmle`.
+
 In the poor-overlap design above, where `x2` affects treatment only:
 
 | ATE, `n = 800` | bias | sd | 95% coverage |

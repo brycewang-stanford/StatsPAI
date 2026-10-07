@@ -20,7 +20,7 @@ van der Laan, M. J., Polley, E. C., & Hubbard, A. E. (2007).
 Super Learner. Statistical Applications in Genetics and Molecular Biology, 6(1). [@vanderlaan2007super]
 """
 
-from .ctmle import ctmle
+from .collaborative import ctmle
 from .hal_tmle import HALClassifier, HALRegressor, hal_tmle
 from .ltmle import LTMLEResult, ltmle
 from .ltmle_survival import LTMLESurvivalResult, ltmle_survival

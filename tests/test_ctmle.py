@@ -158,3 +158,28 @@ def test_invalid_input_is_refused() -> None:
         sp.ctmle(df, y="y", treat="a", covariates=COV, Q=q, se_method="bootstrap")
     with pytest.raises(MethodIncompatibility, match="not found"):
         sp.ctmle(df, y="y", treat="a", covariates=["nope"])
+
+
+def test_pre_ordered_search_follows_the_given_order() -> None:
+    df = _data()
+    res = _fit(df, order=["x3", "x1"])
+    assert res.model_info["search"] == "pre-ordered"
+    assert res.model_info["candidate_order"] == ["x3", "x1"]
+    assert list(res.detail["added"]) == ["(intercept)", "x3", "x1"]
+    # A candidate that is not listed is never offered.
+    assert "z" not in res.model_info["selected_covariates"]
+    with pytest.raises(MethodIncompatibility, match="order"):
+        _fit(df, order=["x1", "nope"])
+    with pytest.raises(MethodIncompatibility, match="order"):
+        _fit(df, order=["x1", "x1"])
+
+
+def test_search_penalty_scores_the_cross_validation_on_the_sum_of_squares() -> None:
+    table = _fit(_data(), penalty="search").detail
+    np.testing.assert_allclose(table["cv_criterion"], table["cv_rss"], rtol=0)
+    greedy_penalised = _fit(_data(), penalty="variance").detail
+    # Same greedy search, so the same sequence; only the choice can differ.
+    assert list(table["added"]) == list(greedy_penalised["added"])
+    np.testing.assert_allclose(
+        table["estimate"], greedy_penalised["estimate"], rtol=1e-12
+    )

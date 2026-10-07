@@ -1588,7 +1588,7 @@ from .timeseries.xcorr import CrossCorrelogram as CrossCorrelogram
 from .timeseries.xcorr import xcorr as xcorr
 from .timeseries.zivot_andrews import ZivotAndrewsResult as ZivotAndrewsResult
 from .timeseries.zivot_andrews import zivot_andrews as zivot_andrews
-from .tmle.ctmle import ctmle as ctmle
+from .tmle.collaborative import ctmle as ctmle
 from .tmle.hal_tmle import HALClassifier as HALClassifier
 from .tmle.hal_tmle import HALRegressor as HALRegressor
 from .tmle.hal_tmle import hal_tmle as hal_tmle

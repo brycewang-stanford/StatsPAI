@@ -22856,7 +22856,7 @@ def _build_registry() -> None:
                 "the outcome fit and its size chosen by cross-validation, so "
                 "instruments and covariates the outcome model already "
                 "handles stay out of the weights. For weak overlap. ATE "
-                "only; the greedy sequence equals R ctmle."
+                "only; the greedy and the pre-ordered sequences equal R ctmle."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -22903,6 +22903,16 @@ def _build_registry() -> None:
                     None,
                     "Candidates for the propensity model (default: covariates)",
                 ),
+                ParamSpec(
+                    "order",
+                    "list",
+                    False,
+                    None,
+                    "Fixed order in which candidates are offered to the "
+                    "propensity model (pre-ordered, scalable C-TMLE), "
+                    "replacing the greedy search; linear instead of quadratic "
+                    "in the number of candidates",
+                ),
                 ParamSpec("cv_folds", "int", False, 5, "Folds that select the step"),
                 ParamSpec(
                     "fold_indices",
@@ -22917,11 +22927,12 @@ def _build_registry() -> None:
                     False,
                     "variance+bias",
                     "Added to the residual sum of squares when candidates are "
-                    "compared: the variance of the influence function "
-                    "('variance', R ctmle's criterion), also n times its "
-                    "squared cross-validated mean ('variance+bias'), or "
-                    "nothing ('none')",
-                    ["variance+bias", "variance", "none"],
+                    "compared. 'search': variance of the influence function "
+                    "in the greedy search only (R ctmle's default). "
+                    "'variance': in the cross-validation too. "
+                    "'variance+bias': plus n times the squared held-out mean "
+                    "of the influence function. 'none': nothing.",
+                    ["variance+bias", "variance", "search", "none"],
                 ),
                 ParamSpec("n_folds", "int", False, 5, "Super Learner folds"),
                 ParamSpec(

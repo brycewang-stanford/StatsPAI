@@ -8,18 +8,29 @@ What is compared, and what is not
 ---------------------------------
 * The greedy sequence. The order in which covariates enter the propensity
   model is the same in all six cases, and the estimate at every step
-  agrees to 1e-7 (observed 3e-9: Newton tolerance of the logistic fits).
+  agrees to 1e-7 (observed 5e-9: Newton tolerance of the logistic fits).
   That is the estimator's construction, and it is a strict comparison.
-  ``penalty='variance'`` is ``ctmle``'s criterion.
-* Not the step that cross-validation selects. Given the same folds the two
-  implementations report different cross-validated losses and choose
-  different steps in four of the six cases. ``ctmle`` is GPL and was used
-  as a black box; the reason for the difference was not located. It is
-  recorded here, not asserted away: the test checks only that the step
-  each side selects is one of the common candidates.
+  ``penalty='search'`` is ``ctmleDiscrete``'s default: the variance of the
+  influence function is added in the greedy search, and the
+  cross-validation compares residual sums of squares.
+* The pre-ordered sequence (``order=``, R ``preOrder = TRUE``), six more
+  cases. Four agree to 1e-9. In the two where the instrument is offered
+  first, the steps after it differ by up to 5.4e-6 in relative terms. The
+  cause was not located (the logistic fits agree to 1e-13 and the rule for
+  restarting from the current fit was varied without closing it), so
+  those steps are held to 1e-5 and the row is not called strict.
+* Not the step that cross-validation selects, for a reason that was
+  located: ``ctmleDiscrete`` ignores its ``folds`` argument. Its results
+  depend on the random seed and are identical whatever partition is
+  passed, so the two sides never score the same partition. Over 60 random
+  partitions of one data set the cross-validated sums of squares of the
+  two have the same mean at every step (differences of 0.1 to 1.1
+  standard errors), and over 200 data sets the estimates have the same
+  bias and spread and the same average selected step
+  (``docs/dev/2026-10-07-schuler-vanderlaan-review.md``). That is a
+  statistical screen, not a parity row.
 
-Over 200 simulated data sets the two have the same statistical profile
-(``docs/dev/2026-10-07-schuler-vanderlaan-review.md``).
+``ctmle`` is GPL and was used as a black box.
 """
 
 from __future__ import annotations
@@ -56,7 +67,7 @@ def _data() -> pd.DataFrame:
     return pd.read_csv(_FIX / "ctmle_data.csv")
 
 
-def _fit(rep: int, q: str):
+def _fit(rep: int, q: str, **extra: Any):
     x = _data()
     x = x[x["rep"] == rep].reset_index(drop=True)
     with warnings.catch_warnings():
@@ -67,8 +78,9 @@ def _fit(rep: int, q: str):
             treat="a",
             covariates=COV,
             Q=x[[f"q0{q}", f"q1{q}"]].to_numpy(),
-            penalty="variance",
+            penalty="search",
             fold_indices=x["fold"].to_numpy(),
+            **extra,
         )
 
 
@@ -99,3 +111,25 @@ def test_wrong_outcome_model_brings_the_confounder_in_first() -> None:
     for rep in range(3):
         assert _fit(rep, "w").model_info["candidate_order"][0] == "x1"
         assert "x1" in _fit(rep, "w").model_info["selected_covariates"]
+
+
+_ORDERS = [("x1", "x2", "x3"), ("x2", "x3", "x1"), ("x3", "x1", "x2")]
+
+
+@pytest.mark.parametrize("q", ["c", "w"])
+@pytest.mark.parametrize("order", _ORDERS)
+def test_pre_ordered_sequence_matches_ctmle(q: str, order: tuple) -> None:
+    res = _fit(0, q, order=list(order))
+    assert res.model_info["search"] == "pre-ordered"
+    assert res.model_info["candidate_order"] == list(order)
+    # 1e-9 where the instrument x2 is not offered first; see the module
+    # docstring for the two sequences where it is.
+    rtol = 1e-5 if order[0] == "x2" else 1e-9
+    ref = _ref()["preordered"][q + "_" + "_".join(order)]
+    # ctmle may stop extending a pre-ordered sequence early; compare the
+    # steps it reports.
+    m = len(ref["candidate_estimates"])
+    assert m >= 2 and ref["terms"][1:] == list(order)[: m - 1]
+    np.testing.assert_allclose(
+        res.detail["estimate"].iloc[:m], ref["candidate_estimates"], rtol=rtol
+    )

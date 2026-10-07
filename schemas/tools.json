@@ -7030,7 +7030,7 @@
     "name": "cs_report"
   },
   {
-    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy sequence equals R ctmle. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler. Assumptions: Unconfoundedness given the covariates; Every confounder the outcome model misses is among the propensity candidates. Pre-conditions: binary treatment 0/1; covariates comprise the confounding set. Failure modes: Interval from se_method='influence' is too narrow -> Use se_method='bootstrap'; the influence-function SE ignores the selection of the propensity model; Outcome model badly wrong -> No gain over sp.tmle is to be expected; improve the outcome library first. Alternatives: sp.tmle, sp.hal_tmle, sp.aipw, sp.overlap_weights. Typical minimum N: 300.",
+    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler. Assumptions: Unconfoundedness given the covariates; Every confounder the outcome model misses is among the propensity candidates. Pre-conditions: binary treatment 0/1; covariates comprise the confounding set. Failure modes: Interval from se_method='influence' is too narrow -> Use se_method='bootstrap'; the influence-function SE ignores the selection of the propensity model; Outcome model badly wrong -> No gain over sp.tmle is to be expected; improve the outcome library first. Alternatives: sp.tmle, sp.hal_tmle, sp.aipw, sp.overlap_weights. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "Q": {
@@ -7085,6 +7085,13 @@
           "description": "Super Learner folds",
           "type": "integer"
         },
+        "order": {
+          "description": "Fixed order in which candidates are offered to the propensity model (pre-ordered, scalable C-TMLE), replacing the greedy search; linear instead of quadratic in the number of candidates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "outcome_library": {
           "description": "sklearn estimators for the Super Learner of Q(A, W); the sp.tmle default library if omitted",
           "items": {
@@ -7094,10 +7101,11 @@
         },
         "penalty": {
           "default": "variance+bias",
-          "description": "Added to the residual sum of squares when candidates are compared: the variance of the influence function ('variance', R ctmle's criterion), also n times its squared cross-validated mean ('variance+bias'), or nothing ('none')",
+          "description": "Added to the residual sum of squares when candidates are compared. 'search': variance of the influence function in the greedy search only (R ctmle's default). 'variance': in the cross-validation too. 'variance+bias': plus n times the squared held-out mean of the influence function. 'none': nothing.",
           "enum": [
             "variance+bias",
             "variance",
+            "search",
             "none"
           ],
           "type": "string"

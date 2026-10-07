@@ -45,7 +45,7 @@ from ._targeting import cluster_se
 if TYPE_CHECKING:
     from sklearn.base import BaseEstimator
 
-_PENALTIES = ("none", "variance", "variance+bias")
+_PENALTIES = ("none", "search", "variance", "variance+bias")
 
 
 # ----------------------------------------------------------------------
@@ -89,10 +89,12 @@ def _logit_mle(X: np.ndarray, a: np.ndarray, max_iter: int = 60) -> np.ndarray:
             t *= 0.5
             new = loglik(beta + t * step)
         beta = beta + t * step
-        if abs(new - cur) < 1e-10 * (abs(cur) + 1.0):
-            cur = new
-            break
         cur = new
+        # Converge on the step, not on the likelihood: a likelihood that
+        # has stopped moving to ten digits still leaves the coefficients
+        # short by about its square root.
+        if float(np.max(np.abs(t * step))) < 1e-11:
+            break
     # Back to the original column scale: (intercept, slopes).
     slopes = beta[1:] / sd if X.shape[1] else beta[1:]
     intercept = beta[0] - float(np.sum(slopes * mu)) if X.shape[1] else beta[0]
@@ -174,12 +176,14 @@ class _Sequence:
         bounds: Tuple[float, float],
         max_steps: Optional[int] = None,
         penalise: bool = True,
+        order: Optional[Sequence[int]] = None,
     ):
         self.penalise = penalise
+        self.order = None if order is None else list(order)
         self.y, self.a, self.W = y, a, W
         self.bounds = bounds
         self.init = init
-        p = W.shape[1]
+        p = W.shape[1] if order is None else len(list(order))
         self.max_steps = p if max_steps is None else min(max_steps, p)
         # Each step: (columns of g, tuple of (columns, epsilon) fluctuations)
         self.steps: List[
@@ -224,10 +228,17 @@ class _Sequence:
         fit, eps = self._fluctuate(base, g0)
         self.steps.append((cols, history + ((cols, eps),)))
         self.losses.append(self._criterion(fit, g0))
-        remaining = [j for j in range(self.W.shape[1])]
+        remaining = (
+            [j for j in range(self.W.shape[1])]
+            if self.order is None
+            else list(self.order)
+        )
         while remaining and len(cols) < self.max_steps:
             best: Optional[Tuple[float, int, _Fit, float]] = None
-            for j in remaining:
+            # Greedy: try every remaining covariate. Pre-ordered: only the
+            # next one in the given order.
+            pool = remaining if self.order is None else remaining[:1]
+            for j in pool:
                 g_j = self._g(cols + (j,))
                 cand, e = self._fluctuate(base, g_j)
                 loss = self._criterion(cand, g_j)
@@ -281,6 +292,7 @@ def ctmle(
     outcome_library: "Optional[List[BaseEstimator]]" = None,
     Q: "Optional[np.ndarray]" = None,
     propensity_covariates: Optional[List[str]] = None,
+    order: Optional[List[str]] = None,
     cv_folds: int = 5,
     fold_indices: "Optional[Any]" = None,
     penalty: str = "variance+bias",
@@ -327,21 +339,34 @@ def ctmle(
         parameters).
     propensity_covariates : list of str, optional
         Candidates for the propensity model. Default: ``covariates``.
+    order : list of str, optional
+        A fixed order in which the candidates are offered to the
+        propensity model, replacing the greedy search (the pre-ordered,
+        "scalable" C-TMLE of Ju et al.). Each step then costs one
+        propensity fit instead of one per remaining candidate, so the
+        whole sequence is linear in the number of candidates where the
+        greedy search is quadratic. Candidates not listed are never
+        offered. Put first what is most likely to confound.
     cv_folds : int, default 5
         Folds of the cross-validation that selects the step.
     fold_indices : array-like, optional
         One fold label per row of ``data``, replacing the random
         assignment (and ``cv_folds``).
-    penalty : {'variance+bias', 'variance', 'none'}, default 'variance+bias'
+    penalty : {'variance+bias', 'variance', 'search', 'none'}, default 'variance+bias'
         What is added to the residual sum of squares when candidates are
-        compared. ``'variance'`` adds the variance of the estimator's
-        influence function, both in the greedy search and in the
-        cross-validation; this is what keeps a covariate that only makes
-        the weights extreme out of the propensity model, and it is the
-        criterion of R ``ctmle``. ``'variance+bias'`` also adds ``n`` times
-        the squared cross-validated mean of the influence function, the
-        estimator's squared bias, as in Gruber and van der Laan (2010).
-        ``'none'`` compares on the residual sum of squares alone.
+        compared. The variance of the estimator's influence function is
+        what keeps a covariate that only makes the weights extreme out of
+        the propensity model.
+
+        - ``'search'``: the variance is added in the greedy search and the
+          cross-validation compares residual sums of squares alone. This
+          is what R ``ctmle::ctmleDiscrete`` does by default.
+        - ``'variance'``: the variance is added in the cross-validation
+          too.
+        - ``'variance+bias'``: the cross-validation also adds ``n`` times
+          the squared mean of the held-out influence function, the
+          estimator's squared bias, as in Gruber and van der Laan (2010).
+        - ``'none'``: residual sums of squares throughout.
     n_folds : int, default 5
         Internal folds of the Super Learner.
     propensity_bounds : tuple, default (0.025, 0.975)
@@ -433,7 +458,8 @@ def ctmle(
 
     References
     ----------
-    [@vanderlaan2010collaborative], [@gruber2010application]
+    [@vanderlaan2010collaborative], [@gruber2010application],
+    [@ju2019scalable]
     """
     if not isinstance(estimand, str) or estimand.upper() != "ATE":
         raise MethodIncompatibility(
@@ -473,6 +499,15 @@ def ctmle(
     g_names = list(
         covariates if propensity_covariates is None else propensity_covariates
     )
+    order_idx: Optional[List[int]] = None
+    if order is not None:
+        unknown = [c for c in order if c not in g_names]
+        if unknown or len(set(order)) != len(order) or not len(order):
+            raise MethodIncompatibility(
+                "ctmle: order must list distinct propensity candidates.",
+                diagnostics={"unknown": unknown, "candidates": g_names},
+            )
+        order_idx = [g_names.index(c) for c in order]
     design = [c for c in (cluster,) if c is not None]
     cols = list(dict.fromkeys([y, treat] + list(covariates) + g_names + design))
     missing = [c for c in cols if c not in data.columns]
@@ -542,7 +577,9 @@ def ctmle(
         warnings.simplefilter("ignore")
         full_init = initial_fit(everyone, everyone)
         penalise = penalty != "none"
-        seq = _Sequence(Ys, A, Wg, full_init, bounds, penalise=penalise)
+        seq = _Sequence(
+            Ys, A, Wg, full_init, bounds, penalise=penalise, order=order_idx
+        )
 
         # Cross-validation of the step: rebuild the sequence on each
         # training fold and score every step on the held-out rows.
@@ -580,6 +617,7 @@ def ctmle(
                 bounds,
                 max_steps=K - 1,
                 penalise=penalise,
+                order=order_idx,
             )
             for k in range(K):
                 fit_te, g_te = seq_v.replay(k, Wg[te], init_te)
@@ -604,6 +642,7 @@ def ctmle(
     cv_var = np.array([float(np.var(np.concatenate(v))) for v in cv_ic])
     cv_bias = np.array([float(np.mean(np.concatenate(v))) for v in cv_ic])
     criterion = cv_loss.copy()
+    # 'search' penalises the greedy search only (R ctmle's default).
     if penalty in ("variance", "variance+bias"):
         criterion = criterion + cv_var
     if penalty == "variance+bias":
@@ -638,13 +677,14 @@ def ctmle(
             }
         )
     candidates = pd.DataFrame(rows)
-    order = [g_names[j] for j in seq.steps[-1][0]]
+    entered = [g_names[j] for j in seq.steps[-1][0]]
     selected = [g_names[j] for j in seq.steps[k_star][0]]
     g1 = g
     model_info: Dict[str, Any] = {
         "estimand": estimand,
         "selected_covariates": selected,
-        "candidate_order": order,
+        "candidate_order": entered,
+        "search": "greedy" if order is None else "pre-ordered",
         "step": k_star,
         "n_steps": K,
         "penalty": penalty,
@@ -699,6 +739,7 @@ def ctmle(
                 estimand=estimand,
                 outcome_library=outcome_library,
                 propensity_covariates=propensity_covariates,
+                order=order,
                 cv_folds=cv_folds,
                 penalty=penalty,
                 n_folds=n_folds,
@@ -720,6 +761,7 @@ def ctmle(
                 "covariates": list(covariates),
                 "estimand": estimand,
                 "propensity_covariates": propensity_covariates,
+                "order": order,
                 "cv_folds": cv_folds,
                 "penalty": penalty,
                 "se_method": se_method,
