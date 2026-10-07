@@ -34442,7 +34442,8 @@
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gelman_ros_examples.py",
       "tests/reference_parity/test_bayes_more_exact_posterior.py",
       "tests/reference_parity/test_bayes_regress_exact_posterior.py",
-      "tests/reference_parity/test_bayes_workflow_exact_posterior.py"
+      "tests/reference_parity/test_bayes_workflow_exact_posterior.py",
+      "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
     ],
     "validation_status": "validated"
   },
@@ -36578,17 +36579,21 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points).",
+    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.mixture_design([\"stocks\", \"bonds\", \"cash\"], degree=3)",
@@ -36619,7 +36624,7 @@
       }
     },
     "signature": {
-      "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points).",
+      "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "mixture_design",
       "parameters": {
         "properties": {
@@ -36679,9 +36684,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_doe.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -37470,17 +37476,21 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Choose the runs of an expensive function one at a time with a Gaussian process: Bayesian optimisation by expected improvement (minimise or maximise), or active learning of the whole surface. For simulated-moments objectives, expensive tuning, and building emulators. Do NOT use when: The function is cheap: use a standard optimiser; More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there.",
+    "description": "Choose the runs of an expensive function one at a time with a Gaussian process: Bayesian optimisation by expected improvement (minimise or maximise), or active learning of the whole surface. For simulated-moments objectives, expensive tuning, and building emulators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The function is cheap: use a standard optimiser; More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.sequential_design(objective, {\"a\": (0, 1), \"b\": (0, 1)}, n_new=20)",
@@ -37514,7 +37524,7 @@
       }
     },
     "signature": {
-      "description": "Choose the runs of an expensive function one at a time with a Gaussian process: Bayesian optimisation by expected improvement (minimise or maximise), or active learning of the whole surface. For simulated-moments objectives, expensive tuning, and building emulators. Do NOT use when: The function is cheap: use a standard optimiser; More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there.",
+      "description": "Choose the runs of an expensive function one at a time with a Gaussian process: Bayesian optimisation by expected improvement (minimise or maximise), or active learning of the whole surface. For simulated-moments objectives, expensive tuning, and building emulators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The function is cheap: use a standard optimiser; More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there.",
       "name": "sequential_design",
       "parameters": {
         "properties": {
@@ -37609,9 +37619,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_doe.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -41442,7 +41453,8 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs loo::loo on a log-likelihood matrix (pointwise elpd, p, Pareto k, n_eff, smoothed weights, estimates) [R version 4.5.2 (2025-10-31), loo 2.9.0]; tolerance 1e-9 abs on pointwise elpd, p, Pareto k and log weights; 1e-8 on the estimates; 1e-9 rel on n_eff -- tests/reference_parity/test_regression_stories_r_parity.py",
       "tests/external_parity/test_gelman_ros_examples.py",
-      "tests/reference_parity/test_bayes_workflow_exact_posterior.py"
+      "tests/reference_parity/test_bayes_workflow_exact_posterior.py",
+      "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
     ],
     "validation_status": "certified"
   },
@@ -55100,17 +55112,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples.",
+    "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.interference_test(Y=y, Z=z, adjacency=A)",
@@ -55150,7 +55166,7 @@
       }
     },
     "signature": {
-      "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples.",
+      "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "interference_test",
       "parameters": {
         "properties": {
@@ -55223,9 +55239,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_wager_textbook_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -55239,17 +55256,21 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Assignment probabilities for the next subject of an adaptive experiment from the data so far: Thompson sampling, upper confidence bounds or epsilon-greedy.",
+    "description": "Assignment probabilities for the next subject of an adaptive experiment from the data so far: Thompson sampling, upper confidence bounds or epsilon-greedy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bandit_allocate(df, \"y\", \"arm\", prob_floor=0.05)",
@@ -55273,7 +55294,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Assignment probabilities for the next subject of an adaptive experiment from the data so far: Thompson sampling, upper confidence bounds or epsilon-greedy.",
+      "description": "Assignment probabilities for the next subject of an adaptive experiment from the data so far: Thompson sampling, upper confidence bounds or epsilon-greedy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bandit_allocate",
       "parameters": {
         "properties": {
@@ -55358,9 +55379,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_wager_textbook_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -55373,17 +55395,21 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Run a sequential multi-armed bandit experiment (Thompson sampling, UCB, epsilon-greedy) on a reward sampler or a table of potential outcomes, recording the assignment probabilities needed for inference afterwards.",
+    "description": "Run a sequential multi-armed bandit experiment (Thompson sampling, UCB, epsilon-greedy) on a reward sampler or a table of potential outcomes, recording the assignment probabilities needed for inference afterwards. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bandit_experiment(lambda k, rng: mu[k] + rng.normal(), 500, n_arms=3, prob_floor=0.02)",
@@ -55415,7 +55441,7 @@
       }
     },
     "signature": {
-      "description": "Run a sequential multi-armed bandit experiment (Thompson sampling, UCB, epsilon-greedy) on a reward sampler or a table of potential outcomes, recording the assignment probabilities needed for inference afterwards.",
+      "description": "Run a sequential multi-armed bandit experiment (Thompson sampling, UCB, epsilon-greedy) on a reward sampler or a table of potential outcomes, recording the assignment probabilities needed for inference afterwards. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bandit_experiment",
       "parameters": {
         "properties": {
@@ -55501,9 +55527,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_wager_textbook_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -55518,17 +55545,21 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Confidence intervals for arm means and contrasts after an adaptive (bandit) experiment, using weights that restore asymptotic normality when assignment probabilities depended on earlier outcomes.",
+    "description": "Confidence intervals for arm means and contrasts after an adaptive (bandit) experiment, using weights that restore asymptotic normality when assignment probabilities depended on earlier outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.adaptive_inference(df, \"reward\", \"arm\", \"prob\")",
@@ -55567,7 +55598,7 @@
       }
     },
     "signature": {
-      "description": "Confidence intervals for arm means and contrasts after an adaptive (bandit) experiment, using weights that restore asymptotic normality when assignment probabilities depended on earlier outcomes.",
+      "description": "Confidence intervals for arm means and contrasts after an adaptive (bandit) experiment, using weights that restore asymptotic normality when assignment probabilities depended on earlier outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "adaptive_inference",
       "parameters": {
         "properties": {
@@ -55636,9 +55667,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_wager_textbook_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -55653,17 +55685,21 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Run a sequential experiment whose assignment depends on covariates: linear Thompson sampling, LinUCB or epsilon-greedy with a Gaussian linear reward model per arm, recording exact assignment probabilities.",
+    "description": "Run a sequential experiment whose assignment depends on covariates: linear Thompson sampling, LinUCB or epsilon-greedy with a Gaussian linear reward model per arm, recording exact assignment probabilities. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.contextual_bandit(lambda k, x, rng: x[0] * (k == 1) + rng.normal(), X, n_arms=2, prob_floor=0.05)",
@@ -55695,7 +55731,7 @@
       }
     },
     "signature": {
-      "description": "Run a sequential experiment whose assignment depends on covariates: linear Thompson sampling, LinUCB or epsilon-greedy with a Gaussian linear reward model per arm, recording exact assignment probabilities.",
+      "description": "Run a sequential experiment whose assignment depends on covariates: linear Thompson sampling, LinUCB or epsilon-greedy with a Gaussian linear reward model per arm, recording exact assignment probabilities. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "contextual_bandit",
       "parameters": {
         "properties": {
@@ -55775,9 +55811,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_wager_textbook_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -55795,17 +55832,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon.",
+    "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.mdp_policy_value(df, \"y\", \"w\", [\"state\"], policy=1, baseline=0, propensity=0.5)",
@@ -55839,7 +55880,7 @@
       }
     },
     "signature": {
-      "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon.",
+      "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "mdp_policy_value",
       "parameters": {
         "properties": {
@@ -55912,9 +55953,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_wager_textbook_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -55929,17 +55971,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors.",
+    "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.marginal_policy_effect(df, \"y\", \"w\", [\"x\"], horizon=5)",
@@ -55972,7 +56018,7 @@
       }
     },
     "signature": {
-      "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors.",
+      "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "marginal_policy_effect",
       "parameters": {
         "properties": {
@@ -56039,9 +56085,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_wager_textbook_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -77744,17 +77791,21 @@
     ],
     "category": "causal",
     "cost_profile": "One constrained optimisation over the donor simplex per fit. placebo=True / inference re-runs the whole fit once per donor, so runtime is roughly (donors + 1) x a single fit -- the usual reason a synth call feels slow.",
-    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu).",
+    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.synth_ttest(df, outcome='packspercapita', unit='state',\n time='year', treated_unit='California',\n treatment_time=1989)",
@@ -77829,7 +77880,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu).",
+      "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "synth_ttest",
       "parameters": {
         "properties": {
@@ -77898,8 +77949,10 @@
     },
     "stability": "stable",
     "typical_n_min": 10,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

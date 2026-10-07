@@ -15732,7 +15732,7 @@
     }
   },
   {
-    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points).",
+    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mixture_design",
     "parameters": {
       "properties": {
@@ -16187,7 +16187,7 @@
     }
   },
   {
-    "description": "Choose the runs of an expensive function one at a time with a Gaussian process: Bayesian optimisation by expected improvement (minimise or maximise), or active learning of the whole surface. For simulated-moments objectives, expensive tuning, and building emulators. Do NOT use when: The function is cheap: use a standard optimiser; More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there.",
+    "description": "Choose the runs of an expensive function one at a time with a Gaussian process: Bayesian optimisation by expected improvement (minimise or maximise), or active learning of the whole surface. For simulated-moments objectives, expensive tuning, and building emulators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The function is cheap: use a standard optimiser; More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there.",
     "name": "sequential_design",
     "parameters": {
       "properties": {
@@ -23602,7 +23602,7 @@
     }
   },
   {
-    "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples.",
+    "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "interference_test",
     "parameters": {
       "properties": {
@@ -23673,7 +23673,7 @@
     }
   },
   {
-    "description": "Assignment probabilities for the next subject of an adaptive experiment from the data so far: Thompson sampling, upper confidence bounds or epsilon-greedy.",
+    "description": "Assignment probabilities for the next subject of an adaptive experiment from the data so far: Thompson sampling, upper confidence bounds or epsilon-greedy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bandit_allocate",
     "parameters": {
       "properties": {
@@ -23756,7 +23756,7 @@
     }
   },
   {
-    "description": "Run a sequential multi-armed bandit experiment (Thompson sampling, UCB, epsilon-greedy) on a reward sampler or a table of potential outcomes, recording the assignment probabilities needed for inference afterwards.",
+    "description": "Run a sequential multi-armed bandit experiment (Thompson sampling, UCB, epsilon-greedy) on a reward sampler or a table of potential outcomes, recording the assignment probabilities needed for inference afterwards. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bandit_experiment",
     "parameters": {
       "properties": {
@@ -23840,7 +23840,7 @@
     }
   },
   {
-    "description": "Confidence intervals for arm means and contrasts after an adaptive (bandit) experiment, using weights that restore asymptotic normality when assignment probabilities depended on earlier outcomes.",
+    "description": "Confidence intervals for arm means and contrasts after an adaptive (bandit) experiment, using weights that restore asymptotic normality when assignment probabilities depended on earlier outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "adaptive_inference",
     "parameters": {
       "properties": {
@@ -23907,7 +23907,7 @@
     }
   },
   {
-    "description": "Run a sequential experiment whose assignment depends on covariates: linear Thompson sampling, LinUCB or epsilon-greedy with a Gaussian linear reward model per arm, recording exact assignment probabilities.",
+    "description": "Run a sequential experiment whose assignment depends on covariates: linear Thompson sampling, LinUCB or epsilon-greedy with a Gaussian linear reward model per arm, recording exact assignment probabilities. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "contextual_bandit",
     "parameters": {
       "properties": {
@@ -23985,7 +23985,7 @@
     }
   },
   {
-    "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon.",
+    "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mdp_policy_value",
     "parameters": {
       "properties": {
@@ -24056,7 +24056,7 @@
     }
   },
   {
-    "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors.",
+    "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "marginal_policy_effect",
     "parameters": {
       "properties": {
@@ -34976,7 +34976,7 @@
     }
   },
   {
-    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu).",
+    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "synth_ttest",
     "parameters": {
       "properties": {
@@ -46501,7 +46501,7 @@
     }
   },
   {
-    "description": "Assign ``n`` observations to ``k`` folds of near-equal size.",
+    "description": "Assign ``n`` observations to ``k`` folds of near-equal size. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "kfold_split",
     "parameters": {
       "properties": {
@@ -46534,7 +46534,7 @@
     }
   },
   {
-    "description": "Leave-one-out prediction of each observation from the other ones.",
+    "description": "Leave-one-out prediction of each observation from the other ones. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "loo_predict",
     "parameters": {
       "properties": {
@@ -46629,7 +46629,7 @@
     }
   },
   {
-    "description": "Inverse logit, ``1 / (1 + exp(-x))``.",
+    "description": "Inverse logit, ``1 / (1 + exp(-x))``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "invlogit",
     "parameters": {
       "properties": {
@@ -50847,7 +50847,7 @@
     }
   },
   {
-    "description": "Randomization points and an assignment path for a switchback experiment.",
+    "description": "Randomization points and an assignment path for a switchback experiment. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "switchback_design",
     "parameters": {
       "properties": {

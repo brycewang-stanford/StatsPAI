@@ -138,7 +138,7 @@ changed and the finding must be reviewed.
 | Estimator | Stressor | Deep-audit coverage | Documented band |
 | --- | --- | --- | --- |
 | `sp.ivreg` (HC1) | Weak instrument: pi=0.10, median F = 2.51 | 0.882 (B=1000) | [0.85, 0.95] |
-| `sp.callaway_santanna` (REG) | Heterogeneous timing and magnitude | 0.946 (B=1000) | [0.92, 0.96] |
+| `sp.callaway_santanna` (REG) | Heterogeneous timing and magnitude | 0.954 (B=1000) | [0.92, 0.96] |
 | `sp.causal_question(causal_forest)` | Severe propensity-overlap loss | 0.900 (B=300) | [0.85, 0.99] |
 
 Findings interpretation:

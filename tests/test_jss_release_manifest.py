@@ -762,13 +762,14 @@ def test_methodological_gap_ledger_pins_t4_metadata() -> None:
         "07_scm": {
             "validation_tier": "identification_dependent_native",
             "reference_backend": "Synth",
-            # 0f4b9e2b gave SLSQP the exact adding-up Jacobian; the winning Basque
-            # start is now dirichlet_3, tied with regression to 1e-12 at an unchanged
-            # optimum (see CHANGELOG [Unreleased]). The six diagnostics below did not move.
-            "solver_best_start": "dirichlet_3",
+            # The exact inner solver of 1.36.0 (95d87260) moved the winning Basque
+            # start back to regression (it ties with dirichlet_3 at an unchanged
+            # optimum) and the largest L1 distance between near-best weight
+            # classes from 0.00513 to 0.007786. The two counts did not move.
+            "solver_best_start": "regression",
             "solver_near_best_start_count": "4",
             "solver_near_best_weight_class_count": "2",
-            "solver_near_best_weight_l1_max": "0.00513",
+            "solver_near_best_weight_l1_max": "0.007786",
             "weight_solution_nonunique": "True",
         },
     }

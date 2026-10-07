@@ -6,25 +6,25 @@
     "rate": 0.882,
     "F_median": 2.505714983088154,
     "F_mean": 3.506065867810919,
-    "abs_bias_median": 0.294016028143151,
+    "abs_bias_median": 0.2940160281431511,
     "documented_band": [
       0.85,
       0.95
     ],
-    "wall_s": 2.3
+    "wall_s": 1.7
   },
   {
     "name": "sp.callaway_santanna heterogeneous timing+magnitude",
     "B": 1000,
     "truth": 2.5833333333333335,
-    "covered": 946,
-    "rate": 0.946,
+    "covered": 954,
+    "rate": 0.954,
     "abs_bias_median": 0.07169635595039381,
     "documented_band": [
       0.92,
       0.96
     ],
-    "wall_s": 11.2
+    "wall_s": 11.0
   },
   {
     "name": "sp.causal_forest AIPW under overlap loss",
@@ -39,6 +39,6 @@
       0.99
     ],
     "note": "Capped at B=300 (wall-clock cap; AIPW IF dominates).",
-    "wall_s": 58.5
+    "wall_s": 45.7
   }
 ]

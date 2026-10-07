@@ -31,6 +31,51 @@ All notable changes to StatsPAI will be documented in this file.
   collaborative ATT was implemented, was biased by 0.17 to 0.20 when the
   outcome model missed effect heterogeneity, and was withdrawn.
 
+### Evidence for the functions added in the week before the JSS re-anchor
+
+No estimate, standard error or default changes in this section.
+
+#### Added
+
+- **Known-truth tests for fourteen functions that had no evidence row**
+  (`tests/reference_parity/test_oct2026_reanchor_known_truth.py`):
+  `sp.mixture_design`, `sp.sequential_design`, `sp.switchback_design`,
+  `sp.bandit_allocate`, `sp.bandit_experiment`, `sp.contextual_bandit`,
+  `sp.adaptive_inference`, `sp.interference_test`, `sp.mdp_policy_value`,
+  `sp.marginal_policy_effect`, `sp.synth_ttest`, `sp.loo_predict`,
+  `sp.invlogit` and `sp.kfold_split`. Each is checked against a closed
+  form, an exhaustive enumeration, an algebraic identity or a planted
+  effect with a stated Monte Carlo tolerance. Estimator callables with
+  evidence go from 921 of 940 to 935 of 938; `sp.rdmcplot` and
+  `sp.binned_residuals_plot` are plots and leave the denominator. The
+  three without a grade are deliberate: `sp.tvp_var_sv` (a stochastic
+  sampler, screened only), `sp.text_treatment_effect` (experimental) and
+  `sp.mswitch_lrtest` (below).
+
+#### Known issue
+
+- **`sp.mswitch_lrtest` is not exactly invariant to the unit of `y`.**
+  A shift leaves every bootstrap replicate unchanged; a rescaling sends a
+  few of them to a different local maximum. On white noise with 80
+  observations, `reps=19` and `starts=3`, multiplying `y` by 0.01 moved
+  the p-value from 0.20 to 0.15; with the default `starts=10` it stayed at
+  0.20. The observed statistic does not move. Not fixed in this release;
+  see `docs/dev/2026-10-06-neusser-time-series-econometrics-review.md`.
+
+#### Changed
+
+- **Track B.** The thirteen coverage rows, the size and power sweep and
+  the four mechanism experiments were rerun on this tree and reproduce
+  the committed files to the last printed digit, with one exception. The
+  heterogeneous-timing Callaway-Sant'Anna stress row had been recorded
+  before release 1.31.0 and not refreshed: every release from 1.31.0 on
+  gives 954 of 1,000 intervals covering, where the file said 946. The
+  point estimates are identical; the row is inside its documented band
+  either way.
+- **Track C** was re-timed on this tree, and the solver-agreement column
+  of the synthetic-control row prints in scientific notation (three fixed
+  decimals showed a gap of order 1e-6 as `0.000`).
+
 ## [1.39.0] — 2026-10-07
 
 Three days of textbook passes: the code or the syllabus of more than twenty

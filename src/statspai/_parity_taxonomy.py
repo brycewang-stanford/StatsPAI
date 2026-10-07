@@ -453,6 +453,8 @@ NON_NUMERIC_CALLABLES: Dict[str, str] = {
     "mr_scatter_plot": "plot",
     "interflex_plot": "plot",
     "network_plot": "plot",
+    "binned_residuals_plot": "plot",
+    "rdmcplot": "plot",
     # dataset
     "basque_terrorism": "dataset",
     "dag_simulate": "dataset",

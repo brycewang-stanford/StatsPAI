@@ -497,7 +497,7 @@ Designs built to break an assumption. The band is the range documented in advanc
 | Stress design | B | Coverage | MC SE | Documented band | Note |
 | --- | ---: | ---: | ---: | --- | --- |
 | sp.ivreg (HC1) weak instrument (pi=0.10) | 1000 | 0.882 | 0.0102 | 0.85 to 0.95 |  |
-| sp.callaway_santanna heterogeneous timing+magnitude | 1000 | 0.946 | 0.0071 | 0.92 to 0.96 |  |
+| sp.callaway_santanna heterogeneous timing+magnitude | 1000 | 0.954 | 0.0066 | 0.92 to 0.96 |  |
 | sp.causal_forest AIPW under overlap loss | 300 | 0.900 | 0.0173 | 0.85 to 0.99 | Capped at B=300 (wall-clock cap; AIPW IF dominates). |
 
 | Design | B | Size at 5% | MC SE | Power by effect size |

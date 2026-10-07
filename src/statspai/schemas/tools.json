@@ -17024,7 +17024,7 @@
     "name": "interference"
   },
   {
-    "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples. Assumptions: Every unit had the same probability of treatment (Bernoulli or completely randomized assignment); The focal set was chosen without reference to the realised assignment; No clustering in the assignment mechanism. Pre-conditions: Both treated and untreated units among those re-randomized. Alternatives: sp.network_exposure, sp.fisher_exact, sp.spillover.",
+    "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every unit had the same probability of treatment (Bernoulli or completely randomized assignment); The focal set was chosen without reference to the realised assignment; No clustering in the assignment mechanism. Pre-conditions: Both treated and untreated units among those re-randomized. Alternatives: sp.network_exposure, sp.fisher_exact, sp.spillover.",
     "input_schema": {
       "properties": {
         "Y": {
@@ -17319,7 +17319,7 @@
     "name": "interpret_result"
   },
   {
-    "description": "Inverse logit, ``1 / (1 + exp(-x))``.",
+    "description": "Inverse logit, ``1 / (1 + exp(-x))``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "x": {
@@ -20639,7 +20639,7 @@
     "name": "manski_bounds"
   },
   {
-    "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors. Assumptions: Treatment depends on the past only through the covariates; A treatment stops affecting outcomes after `horizon` periods. Alternatives: sp.mdp_policy_value, sp.switchback, sp.lp_did.",
+    "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Treatment depends on the past only through the covariates; A treatment stops affecting outcomes after `horizon` periods. Alternatives: sp.mdp_policy_value, sp.switchback, sp.lp_did.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21341,7 +21341,7 @@
     "name": "mccrary_test"
   },
   {
-    "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon. Assumptions: The state is fully observed and Markov: past actions affect the future only through it; Time-homogeneous dynamics observed in their stationary regime; The action depends on the past only through the state, with known or estimable probabilities. Alternatives: sp.marginal_policy_effect, sp.ltmle, sp.switchback, sp.q_learning.",
+    "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The state is fully observed and Markov: past actions affect the future only through it; Time-homogeneous dynamics observed in their stationary regime; The action depends on the past only through the state, with known or estimable probabilities. Alternatives: sp.marginal_policy_effect, sp.ltmle, sp.switchback, sp.q_learning.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -38357,7 +38357,7 @@
     "name": "synth_to_markdown"
   },
   {
-    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu). Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
+    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {

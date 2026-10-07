@@ -7013,8 +7013,8 @@
       {
         "design": "sp.callaway_santanna heterogeneous timing+magnitude",
         "B": 1000,
-        "rate": 0.946,
-        "mc_se": 0.0071,
+        "rate": 0.954,
+        "mc_se": 0.0066,
         "documented_band": [
           0.92,
           0.96
