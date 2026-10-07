@@ -22,8 +22,7 @@ All notable changes to StatsPAI will be documented in this file.
   partition; over many partitions and over 200 data sets the two agree in
   distribution. `penalty='search'` is the reference's default criterion.
   `order=` gives the pre-ordered ("scalable") variant, linear in the
-  number of candidates; four of six pre-ordered sequences equal R to 1e-9
-  and two to 5e-6. `result.detail` lists every step. Three things to know. The
+  number of candidates; six pre-ordered sequences equal R to 8e-10. `result.detail` lists every step. Three things to know. The
   influence-function standard error ignores the selection and was 20% to
   40% too small in simulation, in R as well; `se_method='bootstrap'`
   reruns the whole procedure and covered 94%. When the outcome model omits

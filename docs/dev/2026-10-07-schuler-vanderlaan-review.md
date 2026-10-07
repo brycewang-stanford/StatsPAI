@@ -281,9 +281,9 @@ one row per fold. What can be compared is the distribution:
 | initial fit | | bias | sd | mean selected step |
 | --- | --- | --- | --- | --- |
 | correct | R `ctmle` | -0.012 | 0.102 | 0.94 |
-| correct | `sp.ctmle(penalty='search')` | -0.006 | 0.103 | 0.97 |
+| correct | `sp.ctmle(penalty='search')` | -0.005 | 0.103 | 0.97 |
 | omits a confounder | R `ctmle` | +0.066 | 0.206 | 2.10 |
-| omits a confounder | `sp.ctmle(penalty='search')` | +0.074 | 0.206 | 2.13 |
+| omits a confounder | `sp.ctmle(penalty='search')` | +0.066 | 0.201 | 2.17 |
 
 This is a statistical screen (S), not a parity row. The held-out variance
 of the influence function, which R reports but does not use by default,
@@ -326,15 +326,20 @@ restart. A test caught it; the text and the comment were fixed.
 1. **The cross-validated losses**: located, see above.
 2. **Pre-ordered ("scalable") C-TMLE**: added as `order=`. The candidates
    are offered in a fixed order, one propensity fit per step. Against
-   `ctmleDiscrete(preOrder = TRUE, order = ...)`: six sequences, four
-   agree to 1e-9 at every step, and in the two where the instrument is
-   offered first the later steps differ by up to 5.4e-6. That residual
-   was not located. The logistic fits agree to 1e-13, and changing the
-   rule for restarting from the current fit made it far worse, not
-   better. Those two are held to 1e-5 and not called strict. R also stops
-   extending a pre-ordered sequence early when its cross-validation says
-   so; ours always builds the whole sequence and lets the cross-validation
-   choose.
+   `ctmleDiscrete(preOrder = TRUE, order = ...)`, six sequences agree to
+   8e-10 at every step. Two of them first differed by 5e-6 at the steps
+   after the instrument entered. Enumerating all eight restart patterns
+   for those sequences showed which one R had followed, and tabulating
+   the candidates' sums of squares and criteria at each step gave the
+   rule: R restarts from the current targeted fit unless the step lowers
+   both the penalised criterion and the plain sum of squares. Ours had
+   tested the criterion alone, and the two disagree exactly when a
+   candidate has a slightly smaller influence-function variance and a
+   slightly larger sum of squares. The rule was changed; all twelve
+   sequences (six greedy, six pre-ordered) now agree to 5e-9. R also
+   stops extending a pre-ordered sequence early when its cross-validation
+   says so; ours always builds the whole sequence and lets the
+   cross-validation choose.
 3. **A collaborative ATT**: closed, not open. No published estimator was
    found to implement: `ctmle` does not offer one, and the construction
    tried in the fifth round fails for a structural reason, not a tuning
@@ -351,8 +356,13 @@ restart. A test caught it; the text and the comment were fixed.
 
 ## Still open
 
-- The 5e-6 residual in two pre-ordered sequences.
-- R's formula for the held-out variance of the influence function.
+- R's formula for the held-out variance of the influence function
+  (`cv.res$varIC`). Five candidates were compared with its mean over 60
+  seeds: the pooled held-out variance centred at the training or at the
+  held-out plug-in, the mean of fold-wise variances, the held-out values
+  centred within fold, and the mean training-fold variance. The last
+  matches at step 0 and none matches at every step. R's default selection
+  does not use this quantity, so nothing rests on it.
 - The second edition's exercises on estimand-restricted models have no
   counterpart and little practical use, as the book says itself.
 

@@ -14,11 +14,13 @@ What is compared, and what is not
   influence function is added in the greedy search, and the
   cross-validation compares residual sums of squares.
 * The pre-ordered sequence (``order=``, R ``preOrder = TRUE``), six more
-  cases. Four agree to 1e-9. In the two where the instrument is offered
-  first, the steps after it differ by up to 5.4e-6 in relative terms. The
-  cause was not located (the logistic fits agree to 1e-13 and the rule for
-  restarting from the current fit was varied without closing it), so
-  those steps are held to 1e-5 and the row is not called strict.
+  cases, to the same tolerance (observed 8e-10). Getting the last two of
+  them to agree located the rule for restarting from the current targeted
+  fit: a step must lower both the penalised criterion and the plain sum
+  of squares, and when either fails the search restarts. With the
+  criterion alone, two sequences were off by 5e-6 at the steps after the
+  instrument entered, where a candidate had a slightly smaller variance
+  and a slightly larger sum of squares.
 * Not the step that cross-validation selects, for a reason that was
   located: ``ctmleDiscrete`` ignores its ``folds`` argument. Its results
   depend on the random seed and are identical whatever partition is
@@ -122,14 +124,11 @@ def test_pre_ordered_sequence_matches_ctmle(q: str, order: tuple) -> None:
     res = _fit(0, q, order=list(order))
     assert res.model_info["search"] == "pre-ordered"
     assert res.model_info["candidate_order"] == list(order)
-    # 1e-9 where the instrument x2 is not offered first; see the module
-    # docstring for the two sequences where it is.
-    rtol = 1e-5 if order[0] == "x2" else 1e-9
     ref = _ref()["preordered"][q + "_" + "_".join(order)]
     # ctmle may stop extending a pre-ordered sequence early; compare the
     # steps it reports.
     m = len(ref["candidate_estimates"])
     assert m >= 2 and ref["terms"][1:] == list(order)[: m - 1]
     np.testing.assert_allclose(
-        res.detail["estimate"].iloc[:m], ref["candidate_estimates"], rtol=rtol
+        res.detail["estimate"].iloc[:m], ref["candidate_estimates"], rtol=1e-7
     )

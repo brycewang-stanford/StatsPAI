@@ -228,13 +228,14 @@ class _Sequence:
         fit, eps = self._fluctuate(base, g0)
         self.steps.append((cols, history + ((cols, eps),)))
         self.losses.append(self._criterion(fit, g0))
+        last_rss = _rss(self.y, self.a, fit)
         remaining = (
             [j for j in range(self.W.shape[1])]
             if self.order is None
             else list(self.order)
         )
         while remaining and len(cols) < self.max_steps:
-            best: Optional[Tuple[float, int, _Fit, float]] = None
+            best: Optional[Tuple[float, int, _Fit, float, float]] = None
             # Greedy: try every remaining covariate. Pre-ordered: only the
             # next one in the given order.
             pool = remaining if self.order is None else remaining[:1]
@@ -243,20 +244,26 @@ class _Sequence:
                 cand, e = self._fluctuate(base, g_j)
                 loss = self._criterion(cand, g_j)
                 if best is None or loss < best[0]:
-                    best = (loss, j, cand, e)
+                    best = (loss, j, cand, e, _rss(self.y, self.a, cand))
             assert best is not None
-            if best[0] >= self.losses[-1] - 1e-12 and base is not fit:
-                # No covariate improves on the current targeted fit: make
-                # that fit the starting point and search again. (The
-                # fluctuation maximises a Bernoulli likelihood, so even
-                # then the sum of squares is not guaranteed to fall; the
-                # best candidate is accepted regardless and the
-                # cross-validation decides whether the step is used.)
+            # The step has to improve on the current targeted fit both in
+            # the criterion and in the plain sum of squares. With the
+            # variance penalty the two can disagree: a candidate with a
+            # slightly smaller influence-function variance can have a
+            # slightly larger sum of squares.
+            no_gain = best[0] >= self.losses[-1] - 1e-12 or best[4] >= last_rss - 1e-12
+            if no_gain and base is not fit:
+                # Make the current targeted fit the starting point and
+                # search again. (The fluctuation maximises a Bernoulli
+                # likelihood, so even then the sum of squares is not
+                # guaranteed to fall; the best candidate is accepted
+                # regardless and the cross-validation decides whether the
+                # step is used.)
                 base = fit
                 history = self.steps[-1][1]
                 self.restarts += 1
                 continue
-            loss, j, fit, eps = best
+            loss, j, fit, eps, last_rss = best
             cols = cols + (j,)
             remaining.remove(j)
             self.steps.append((cols, history + ((cols, eps),)))
