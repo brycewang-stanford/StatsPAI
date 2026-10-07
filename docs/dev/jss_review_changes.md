@@ -3316,3 +3316,22 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — call traces re-recorded after `sp.aipw(outcome_model=)` and the CV-TMLE bootstrap
+
+- **Commits.** `4134ae32` re-recorded the entry of Track A module 72 in
+  `tests/r_parity/results/_implementation_trace.json` and of original-data
+  module 07 in `tests/orig_parity/results/_implementation_trace.json`.
+  The sources that staled them are in the same commit:
+  `src/statspai/tmle/tmle.py` (the bootstrap is no longer refused with
+  `fold_indices`; no estimation path changes) and
+  `src/statspai/inference/aipw.py` (logit and Poisson outcome models; the
+  default linear path is untouched).
+- **Reason.** Third round of the audit recorded in
+  `docs/dev/2026-10-07-schuler-vanderlaan-review.md`.
+- **Effect on the paper.** None. Both modules were rerun and reproduce
+  their committed results; in both trace files only `exercised_sources`
+  digests and `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
