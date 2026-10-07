@@ -248,7 +248,7 @@ def mmpc(
 
     References
     ----------
-    [@tsamardinos2006maxmin] [@aliferis2010local]
+    [@tsamardinos2006maxmin], [@aliferis2010local]
     """
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility("mmpc: data must be a DataFrame.")

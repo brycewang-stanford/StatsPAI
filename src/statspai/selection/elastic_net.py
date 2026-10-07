@@ -540,8 +540,8 @@ def glmnet(
 
     References
     ----------
-    [@friedman2010regularization]
-    [@zou2005regularization]
+    [@friedman2010regularization],
+    [@zou2005regularization],
     [@zou2006adaptive]
     """
     if family not in ("gaussian", "binomial"):

@@ -506,7 +506,7 @@
    "result_sha256": "27f4c31ee17df71e14c04cf02e97b603839fb5914e8b2a72595ff74e3b446277"
   },
   "13_causal_forest": {
-   "seconds": 11.13,
+   "seconds": 36.57,
    "error": null,
    "boundary_calls": [
     {
@@ -552,7 +552,7 @@
     "src/statspai/forest/multi_arm_forest.py": "337b0119636298c78728a56acf679464e6ce58299fe68f0f0ca2b9e65fa724c3",
     "src/statspai/forest/regression_forests.py": "a22673e6ab3d050d958f8ca06bc14973ec520f69b9f280d6c43a4991250530e9",
     "src/statspai/forest/survival_forest.py": "8f19acd3aeee7f9569f03e4eccd9f308238f3a0e629036653174c5794e6a2e70",
-    "src/statspai/forest/tuning.py": "073f44f7bc0638eea81be0f0404ab4f7c1b1f7a0fbbae12271eabc8d9d154dc2",
+    "src/statspai/forest/tuning.py": "c7ca78ffaf10eb43a59382d4a585a35405e4df9b73e0ad45d4d3f1eacceb1f29",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/utils/_attrs.py": "1f02a82073a223f190963759f9a71b1fea32d03e8ce7442cc17a4647aceae958"
@@ -856,7 +856,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 2.49,
+   "seconds": 9.85,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -892,7 +892,7 @@
     "src/statspai/forest/multi_arm_forest.py": "337b0119636298c78728a56acf679464e6ce58299fe68f0f0ca2b9e65fa724c3",
     "src/statspai/forest/regression_forests.py": "a22673e6ab3d050d958f8ca06bc14973ec520f69b9f280d6c43a4991250530e9",
     "src/statspai/forest/survival_forest.py": "8f19acd3aeee7f9569f03e4eccd9f308238f3a0e629036653174c5794e6a2e70",
-    "src/statspai/forest/tuning.py": "073f44f7bc0638eea81be0f0404ab4f7c1b1f7a0fbbae12271eabc8d9d154dc2",
+    "src/statspai/forest/tuning.py": "c7ca78ffaf10eb43a59382d4a585a35405e4df9b73e0ad45d4d3f1eacceb1f29",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",

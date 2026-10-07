@@ -308,6 +308,7 @@ is for experiments without covariates.
 
 - Optimized regression discontinuity with a multivariate running
   variable, as in geographic designs. The univariate case, sharp or
-  fuzzy, is `sp.rd_optimized`.
+  fuzzy, is `sp.rd_optimized`; for boundaries see `sp.geographic_rd`
+  and `sp.rd2d`.
 - Learning a policy in a Markov decision process (the book evaluates
   policies; it does not learn them either).

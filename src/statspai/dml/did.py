@@ -368,8 +368,8 @@ def dml_did(
 
     References
     ----------
-    [@chang2020double]
-    [@santanna2020doubly]
+    [@chang2020double],
+    [@santanna2020doubly],
     [@chernozhukov2018double]
     """
     if score not in _SCORES:

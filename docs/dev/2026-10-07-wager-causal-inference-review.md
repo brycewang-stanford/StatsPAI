@@ -307,19 +307,39 @@ depends on covariates, the square-root-weighted arm means are no longer
 centred on the arm means. The contextual function's documentation points
 to inverse-probability weighting.
 
-## Open
+## Decided not to build
+
+Bryce delegated the decision on the two remaining items. Both stay out,
+for the reasons below, and neither is a gap relative to the book.
 
 1. **Optimized regression discontinuity with a two-dimensional running
-   variable** (geographic designs), which `optrdd` supports. The least
-   favourable function then lives on a grid in the plane with constraints
-   on its Hessian, which is a quadratic programme with general linear
-   inequality constraints. scipy has no solver suited to it at the size
-   needed, and adding a solver dependency for one function was not
-   judged worth it.
-2. **Inference after a contextual adaptive experiment** with guarantees
-   (the contextual analogue of adaptive weighting). The recorded
-   probabilities make inverse-probability weighting unbiased; normality
-   is not guaranteed.
+   variable** (geographic designs), which `optrdd` supports and the book
+   mentions in one sentence. Three reasons. The least favourable function
+   lives on a grid in the plane with constraints on its Hessian, a
+   quadratic programme with general linear inequalities for which scipy
+   has no suitable solver, so it would add a solver dependency for one
+   function. In one dimension the worst-case bias of the weights is an
+   exact integral, which is what lets `sp.rd_optimized` report a bias that
+   holds for the weights actually used; in two dimensions there is no
+   such formula and the reported bias would be that of the discretised
+   problem, a weaker statement than the rest of the function makes. And
+   StatsPAI already has boundary designs (`sp.geographic_rd`,
+   `sp.boundary_rd`, `sp.rd2d`). Revisit if a user asks for it.
+2. **Inference with guarantees after a contextual adaptive experiment.**
+   The book does not cover it (chapter 6 is explicit that it treats the
+   case without covariates). The known constructions weight each period
+   by a quantity that averages the assignment rule of that period over
+   the covariate distribution, which a log of realised probabilities does
+   not contain. `sp.contextual_bandit` records exact probabilities, so
+   inverse-probability weighting is unbiased, and its documentation says
+   that `sp.adaptive_inference` does not apply.
+
+A side fix made while checking CI after this pass: the documentation
+build on main had been failing in strict mode since other lines added
+docstrings with two citation keys side by side or on consecutive lines,
+which Markdown reads as a reference-style link. The keys are now
+separated by commas in the six files concerned, and the strict build
+passes locally.
 
 ## Rerun
 

@@ -15,7 +15,7 @@ end of the edge between ``i`` and ``j`` (0 none, 1 circle, 2 arrowhead,
 
 References
 ----------
-[@zhang2008completeness] [@colombo2012learning]
+[@zhang2008completeness], [@colombo2012learning]
 """
 
 from __future__ import annotations

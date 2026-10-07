@@ -392,7 +392,7 @@ def full_match(
 
     References
     ----------
-    [@rosenbaum1991characterization]
+    [@rosenbaum1991characterization],
     [@hansen2004full]
     """
     if treat is None or covariates is None:

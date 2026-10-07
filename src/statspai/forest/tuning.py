@@ -157,7 +157,7 @@ def tune_causal_forest(
 
     References
     ----------
-    [@nie2021quasi] [@athey2019generalized]
+    [@nie2021quasi], [@athey2019generalized]
     """
     names = [str(x) for x in parameters]
     unknown = [x for x in names if x not in _TUNABLE]
