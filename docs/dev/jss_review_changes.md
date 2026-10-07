@@ -31,6 +31,40 @@ Rules:
 
 ## Entries
 
+### 2026-10-07 — call traces re-recorded after `sp.glmnet`; one original-data result regenerated
+
+- **Commits.** `ccbdb0a9` re-recorded the entries of Track A modules 03 13 15 24
+  25 26 27 53 65 66 in `tests/r_parity/results/_implementation_trace.json`
+  and of original-data modules 06 08 10 11 in
+  `tests/orig_parity/results/_implementation_trace.json`, and regenerated
+  `tests/orig_parity/results/10_nhefs_ch17_survival_py.json`. The source
+  that staled the traces is in `cda79296` and `bc0ab40a`:
+  `src/statspai/__init__.py` (new exports and name hints),
+  `src/statspai/forest/causal_forest.py` (the default of
+  `variable_importance`, which no module calls) and
+  `src/statspai/inference/ipw.py` (the sandwich variance also covers
+  Horvitz-Thompson and clipped weights; the bootstrap path the modules use
+  is untouched).
+- **Reason.** Second round of the pass recorded in
+  `docs/dev/2026-10-07-yuksel-aydede-causal-ml-review.md`.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes. All fourteen modules were rerun into a scratch directory first.
+  Thirteen reproduce their committed `*_py.json`. Module 10 of the
+  original-data ledger (NHEFS chapter 17) reproduces every parity row to
+  1e-13, but two diagnostics in its `extra` block could not be reproduced:
+  `ipw_pscore_min` / `ipw_pscore_max` were committed as 0.0445 / 0.7951 and
+  the code gives 0.0510 / 0.7769, which is also what an independent
+  `statsmodels` logit gives on the same 1,566 rows. A checkout of main
+  before this change shows the same mismatch, so the stale values predate
+  this work; the trace gate binds hashes and had not noticed. The file was
+  regenerated. Those two numbers are not parity rows and are not printed in
+  the manuscript. The registry census moves to 1,561 registered functions
+  across 90 submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/10_nhefs_ch17_survival_py.json`
+
 ### 2026-10-07 — call traces of the count-model modules re-recorded after the second Gelman-Vehtari round
 
 Commit `ceb55c39` re-recorded the entries of Track A modules 37 42 47 58 63
