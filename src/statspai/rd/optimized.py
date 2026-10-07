@@ -118,6 +118,32 @@ def worst_case_bias(xc: np.ndarray, gamma: np.ndarray, M: float) -> float:
     return float(M * total)
 
 
+def _nn_deviation(x: np.ndarray, y: np.ndarray, J: int = 3) -> np.ndarray:
+    """Signed deviations whose squares are the nearest-neighbour variances.
+
+    ``x`` must be sorted. Each outcome is compared with the mean of its
+    ``J`` nearest neighbours (all ties at the ``J``-th distance), scaled
+    by ``sqrt(J / (J + 1))``, as in :func:`sigma_nn`. Keeping the sign
+    lets the variance of a linear combination of two outcomes be formed
+    from their deviations.
+    """
+    n = len(x)
+    out = np.zeros(n)
+    if n < 2:
+        return out
+    J = min(J, n - 1)
+    for k in range(n):
+        lo = max(k - J, 0)
+        cand = np.concatenate([x[lo:k], x[k + 1 : min(k + J + 1, n)]])
+        d = np.sort(np.abs(cand - x[k]))[J - 1]
+        ind = np.abs(x - x[k]) <= d
+        ind[k] = False
+        jk = float(ind.sum())
+        if jk > 0:
+            out[k] = np.sqrt(jk / (jk + 1.0)) * (y[k] - y[ind].mean())
+    return out
+
+
 # --------------------------------------------------------------------
 # Least favourable function on one side
 # --------------------------------------------------------------------
@@ -233,6 +259,8 @@ def rd_optimized(
     c: float = 0.0,
     M: Optional[float] = None,
     *,
+    fuzzy: Optional[str] = None,
+    M_fuzzy: Optional[float] = None,
     criterion: str = "mse",
     h: Optional[float] = None,
     sigma2: Optional[float] = None,
@@ -259,6 +287,14 @@ def rd_optimized(
         rule of thumb is used (a global quartic fit on each side), as in
         :func:`rd_honest`. The interval is only as credible as this
         bound: report it and vary it.
+    fuzzy : str, optional
+        Column with the treatment actually received, for a fuzzy design
+        in which crossing the cutoff changes the probability of
+        treatment. The estimate is then the ratio of the jump in the
+        outcome to the jump in this column.
+    M_fuzzy : float, optional
+        Bound on the second derivative of the conditional mean of the
+        ``fuzzy`` column. Defaults to the same rule of thumb as ``M``.
     criterion : {"mse", "flci"}, default "mse"
         ``"mse"`` minimises the worst-case mean squared error;
         ``"flci"`` the length of the confidence interval.
@@ -301,6 +337,15 @@ def rd_optimized(
     variable is continuous or not. The standard error uses
     nearest-neighbour variance estimates.
 
+    With ``fuzzy=`` the weights are still those chosen for the outcome.
+    The interval collects every ratio ``t`` for which the weighted sum of
+    ``Y - t * D`` is within its own bias-aware critical value of zero,
+    where the worst-case bias uses the bound ``M + |t| * M_fuzzy``. This
+    is an Anderson-Rubin construction: it stays valid when the jump in
+    treatment is small, in which case it can be unbounded (reported as
+    infinite endpoints). ``se`` is the delta-method standard error of the
+    ratio and is given for reference only.
+
     Compared with :func:`rd_honest`, which uses local linear weights
     under the same bound, the gain in interval length is a few percent
     for a continuous running variable and can be larger for a discrete
@@ -308,7 +353,7 @@ def rd_optimized(
 
     References
     ----------
-    [@imbens2019optimized], [@armstrong2018optimal]
+    [@imbens2019optimized], [@armstrong2018optimal], [@noack2024biasaware]
 
     Examples
     --------
@@ -325,14 +370,16 @@ def rd_optimized(
         raise MethodIncompatibility("criterion must be 'mse' or 'flci'")
     if not 0 < alpha < 1:
         raise MethodIncompatibility("alpha must be in (0, 1)")
-    for col in (y, x):
+    cols = [y, x] + ([fuzzy] if fuzzy is not None else [])
+    for col in cols:
         if col not in data.columns:
             raise MethodIncompatibility(f"column {col!r} not found in data")
-    df = data[[y, x]].dropna()
+    df = data[cols].dropna()
     order = np.argsort(df[x].to_numpy(dtype=float), kind="stable")
     index = df.index.to_numpy()[order]
     xv = df[x].to_numpy(dtype=float)[order]
     yv = df[y].to_numpy(dtype=float)[order]
+    dv = df[fuzzy].to_numpy(dtype=float)[order] if fuzzy is not None else None
     xc_all = xv - c
     if (xc_all >= 0).sum() < 5 or (xc_all < 0).sum() < 5:
         raise DataInsufficient("each side of the cutoff needs at least five units")
@@ -520,6 +567,67 @@ def rd_optimized(
 
     weights_full = np.zeros(xv.shape[0])
     weights_full[keep] = gamma
+    fuzzy_info: Dict[str, Any] = {}
+    if dv is not None:
+        dd = dv[keep]
+        if M_fuzzy is None:
+            try:
+                M_fuzzy = m_rule_of_thumb(xv, dv, c)
+            except ValueError as exc:
+                raise DataInsufficient(str(exc)) from exc
+        M_fuzzy = float(M_fuzzy)
+        if not np.isfinite(M_fuzzy) or M_fuzzy < 0:
+            raise MethodIncompatibility("M_fuzzy must be a non-negative number")
+        # Signed nearest-neighbour deviations, so that the variance of
+        # Y - t * D is available for every t.
+        dev_y, dev_d = np.empty_like(yy), np.empty_like(yy)
+        for mask in (right, ~right):
+            dev_y[mask] = _nn_deviation(xc[mask], yy[mask])
+            dev_d[mask] = _nn_deviation(xc[mask], dd[mask])
+        reduced = estimate  # jump in the outcome
+        first = float(gamma @ dd)  # jump in treatment received
+        unit_bias = max_bias / M  # integral of |G| on both sides
+
+        def gap(t: float) -> float:
+            """Distance of the statistic at ratio ``t`` from its critical value."""
+            se_t = float(np.sqrt(np.sum(gamma**2 * (dev_y - t * dev_d) ** 2)))
+            bias_t = (M + abs(t) * M_fuzzy) * unit_bias
+            return abs(reduced - t * first) - cv_bias(bias_t / se_t, alpha) * se_t
+
+        if first == 0:
+            raise DataInsufficient("the treatment received does not jump at the cutoff")
+        ratio = reduced / first
+        se_ratio = float(
+            np.sqrt(np.sum(gamma**2 * (dev_y - ratio * dev_d) ** 2)) / abs(first)
+        )
+        step = max(se_ratio, 1e-8 * max(1.0, abs(ratio)))
+
+        def endpoint(direction: float) -> float:
+            lo, width = ratio, step
+            for _ in range(60):
+                hi = lo + direction * width
+                if gap(hi) > 0:
+                    return float(optimize.brentq(gap, lo, hi, xtol=1e-10 * step))
+                lo, width = hi, 2.0 * width
+            return direction * np.inf
+
+        ci = (endpoint(-1.0), endpoint(1.0))
+        se_first = float(np.sqrt(np.sum(gamma**2 * dev_d**2)))
+        fuzzy_info = {
+            "fuzzy": fuzzy,
+            "M_fuzzy": M_fuzzy,
+            "reduced_form": reduced,
+            "reduced_form_se": se,
+            "first_stage": first,
+            "first_stage_se": se_first,
+            "first_stage_max_bias": M_fuzzy * unit_bias,
+        }
+        estimate, se = float(ratio), se_ratio
+        # The test of a zero ratio is the test of a zero reduced form.
+        t0 = abs(reduced) / fuzzy_info["reduced_form_se"]
+        b0 = max_bias / fuzzy_info["reduced_form_se"]
+        pvalue = float(stats.norm.sf(t0 - b0) + stats.norm.cdf(-t0 - b0))
+
     model_info: Dict[str, Any] = {
         "M": M,
         "M_estimated": bool(m_estimated),
@@ -545,10 +653,15 @@ def rd_optimized(
             "se": ll_se,
             "half_length": float(ll_half),
         },
+        **fuzzy_info,
     }
     return CausalResult(
         method="Optimized regression discontinuity (minimax linear)",
-        estimand="RD effect at the cutoff",
+        estimand=(
+            "RD effect at the cutoff"
+            if fuzzy is None
+            else "Fuzzy RD effect at the cutoff (ratio of jumps)"
+        ),
         estimate=estimate,
         se=se,
         pvalue=pvalue,

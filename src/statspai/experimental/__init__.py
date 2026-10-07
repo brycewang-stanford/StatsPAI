@@ -11,6 +11,7 @@ from .adaptive import (
     adaptive_inference,
     bandit_allocate,
     bandit_experiment,
+    contextual_bandit,
 )
 from .attrition import AttritionResult, attrition_bounds, attrition_test
 from .design import BalanceResult, RandomizationResult, balance_check, randomize
@@ -31,6 +32,7 @@ __all__ = [
     "switchback_design",
     "bandit_allocate",
     "bandit_experiment",
+    "contextual_bandit",
     "adaptive_inference",
     "BanditExperimentResult",
     "AdaptiveInferenceResult",

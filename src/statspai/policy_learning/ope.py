@@ -166,8 +166,11 @@ def _resolve_q(
     A: np.ndarray,
     R: np.ndarray,
     n_actions: int,
+    n_folds: int = 1,
 ) -> np.ndarray:
     if q_hat is None:
+        if n_folds > 1:
+            return _fit_q_cross(X, A, R, n_actions, n_folds)
         return _fit_q(X, A, R, n_actions)
     Q = np.asarray(q_hat, dtype=float)
     if Q.shape != (len(A), n_actions) or not np.isfinite(Q).all():
@@ -178,8 +181,14 @@ def _resolve_q(
     return Q
 
 
-def _fit_q(X: np.ndarray, A: np.ndarray, R: np.ndarray, n_actions: int) -> np.ndarray:
-    """Return (n, K) Q-hat matrix via a single RF on (X, A one-hot)."""
+def _fit_q(
+    X: np.ndarray,
+    A: np.ndarray,
+    R: np.ndarray,
+    n_actions: int,
+    X_eval: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """(n_eval, K) Q-hat matrix from one random forest on (X, A one-hot)."""
     from sklearn.ensemble import RandomForestRegressor
 
     oh = np.eye(n_actions)[A]
@@ -188,11 +197,30 @@ def _fit_q(X: np.ndarray, A: np.ndarray, R: np.ndarray, n_actions: int) -> np.nd
         n_estimators=200, min_samples_leaf=5, n_jobs=-1, random_state=0
     )
     rf.fit(features, R)
-    Q = np.zeros((len(A), n_actions))
+    X_out = X if X_eval is None else X_eval
+    Q = np.zeros((len(X_out), n_actions))
     for a in range(n_actions):
-        oh_a = np.zeros((len(A), n_actions))
+        oh_a = np.zeros((len(X_out), n_actions))
         oh_a[:, a] = 1
-        Q[:, a] = rf.predict(np.column_stack([X, oh_a]))
+        Q[:, a] = rf.predict(np.column_stack([X_out, oh_a]))
+    return Q
+
+
+def _fit_q_cross(
+    X: np.ndarray, A: np.ndarray, R: np.ndarray, n_actions: int, n_folds: int
+) -> np.ndarray:
+    """Cross-fitted Q-hat: each row is predicted by a forest that did not see it.
+
+    A forest evaluated on its own training rows fits part of the noise,
+    which shrinks the residual the doubly robust correction relies on.
+    """
+    from sklearn.model_selection import KFold
+
+    n = len(A)
+    Q = np.zeros((n, n_actions))
+    folds = KFold(n_splits=min(n_folds, n), shuffle=True, random_state=0)
+    for train, test in folds.split(X):
+        Q[test] = _fit_q(X[train], A[train], R[train], n_actions, X_eval=X[test])
     return Q
 
 
@@ -402,12 +430,16 @@ def doubly_robust(
     clip: float = 50.0,
     alpha: float = 0.05,
     q_hat: Optional[np.ndarray] = None,
+    n_folds: int = 1,
 ) -> OPEResult:
     """Doubly-robust OPE (Dudik et al. 2011).
 
     ``V = mean_i [ sum_a pi_e(a|X_i) Q(X_i, a) + w_i (R_i - Q(X_i, A_i)) ]``
     with ``w_i = min(pi_e(A_i|X_i) / pi_b(A_i|X_i), clip)``. ``Q`` is
-    ``q_hat`` when given, else a random forest. A 1-D ``pi_target`` is a
+    ``q_hat`` when given, else a random forest. With ``n_folds > 1`` the
+    forest is cross-fitted, so that each observation's ``Q`` comes from a
+    forest that did not see it; the default ``n_folds=1`` fits and
+    predicts on the same rows. A 1-D ``pi_target`` is a
     deterministic action vector. With the same ``Q`` and
     ``clip = lambda_`` this is ``obp``'s ``DoublyRobust``.
 
@@ -447,7 +479,12 @@ def doubly_robust(
     else:
         pi_b, pi_b_fallback = _fit_propensity(X, A)
 
-    Q = _resolve_q(q_hat, X, A, R, n_actions)
+    if n_folds < 1:
+        raise MethodIncompatibility(
+            "n_folds must be at least 1.",
+            recovery_hint="Use n_folds=1 for no cross-fitting.",
+        )
+    Q = _resolve_q(q_hat, X, A, R, n_actions, n_folds=int(n_folds))
     Q_pi = (Q * pi_mat).sum(axis=1)
     resid = R - Q[np.arange(len(A)), A]
     ratio = _behaviour_ratio(pi_t_a, pi_b, len(A), clip)

@@ -78,7 +78,6 @@ class TestStabilityFlowsThroughRegistry:
             # that a within-unit time-varying cluster needs panel=False.
             ("callaway_santanna", "panel=False"),
             ("rdrobust", "weights"),
-            ("network_exposure", "design='complete'"),
             ("continuous_did", "method='cgs'"),
             ("etwfe", "panel=False"),
             ("did_multiplegt_dyn", "switch-off"),

@@ -2246,6 +2246,7 @@ __all__ = [
     "switchback_design",
     "bandit_allocate",
     "bandit_experiment",
+    "contextual_bandit",
     "adaptive_inference",
     "BanditExperimentResult",
     "AdaptiveInferenceResult",
@@ -3035,6 +3036,10 @@ __all__ = [
     "q_learning",
     "rwd_rct_concordance",
     "sharp_ope_unobserved",
+    "mdp_policy_value",
+    "MDPPolicyValueResult",
+    "marginal_policy_effect",
+    "MarginalPolicyEffectResult",
     "snmm",
     # GRF family: these were reachable as sp.<name> through _register_lazy
     # but absent from __all__, so sp.list_functions() never saw them.
@@ -3582,6 +3587,10 @@ _register_lazy(
 _register_lazy(
     "ope",
     "OPEResult",
+    "mdp_policy_value",
+    "MDPPolicyValueResult",
+    "marginal_policy_effect",
+    "MarginalPolicyEffectResult",
     "sharp_ope_unobserved",
     "causal_policy_forest",
     "SharpOPEResult",
@@ -3719,6 +3728,7 @@ _register_lazy(
     "switchback_design",
     "bandit_allocate",
     "bandit_experiment",
+    "contextual_bandit",
     "adaptive_inference",
     "BanditExperimentResult",
     "AdaptiveInferenceResult",

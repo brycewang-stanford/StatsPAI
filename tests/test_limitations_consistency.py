@@ -167,9 +167,6 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
     "continuous_did": [
         "method='cgs' is an MVP",
     ],
-    "network_exposure": [
-        "design='complete' is reserved but not implemented",
-    ],
     "text_treatment_effect": [
         "embedder='sbert' requires the optional sentence-transformers",
         "Veitch et al. (2020) full BERT/topic-model recipe",

@@ -209,8 +209,8 @@ def test_network_exposure_edge_cases():
         sp.network_exposure(Y, Z, A, estimator="nope")
     with pytest.raises(MethodIncompatibility):
         sp.network_exposure(Y, Z * 2, A)
-    with pytest.raises(NotImplementedError):
-        sp.network_exposure(Y, Z, A, design="complete")
+    with pytest.raises(MethodIncompatibility):
+        sp.network_exposure(Y, Z, A, design="cluster")
     with pytest.raises(DataInsufficient):
         sp.network_exposure(Y, Z, np.zeros((n, n), dtype=int), p_treat=0.5)
     # A callable mapping reproduces the built-in one up to simulation error
@@ -812,3 +812,415 @@ def test_rd_optimized_errors():
     two = df.assign(x=np.where(df["x"] >= 0, 0.5, -0.5))
     with pytest.raises(DataInsufficient):
         sp.rd_optimized(two, "y", "x", M=4.0)
+
+
+# ----------------------------------------------------------------------
+# Third round: what the first two left open
+# ----------------------------------------------------------------------
+
+
+def test_network_exposure_complete_randomization_probabilities_are_exact():
+    """Eight units, three treated: all 56 assignments are enumerated. The
+    hypergeometric exposure probabilities must equal the enumerated
+    frequencies, for both built-in mappings."""
+    from statspai.interference.network_exposure import (
+        _as4_probabilities,
+        _fraction_probabilities,
+    )
+
+    n, n1 = 8, 3
+    A = np.zeros((n, n), dtype=int)
+    for i, j in [
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),
+        (4, 5),
+        (5, 6),
+        (6, 7),
+        (0, 4),
+        (2, 6),
+    ]:
+        A[i, j] = A[j, i] = 1
+    deg = A.sum(axis=1)
+    cases = (
+        (_as4_mapping, _as4_probabilities(deg, n1 / n, n1)[0]),
+        (_fraction_mapping, _fraction_probabilities(deg, n1 / n, (0.0, 0.5), n1)[0]),
+    )
+    for fn, probs in cases:
+        freq, total = {}, 0
+        for treated in combinations(range(n), n1):
+            z = np.zeros(n, dtype=int)
+            z[list(treated)] = 1
+            total += 1
+            for i, lab in enumerate(fn(z, A)):
+                freq.setdefault(lab, np.zeros(n))[i] += 1
+        for lab, count in freq.items():
+            np.testing.assert_allclose(probs[lab], count / total, atol=1e-14)
+
+
+def test_network_exposure_complete_randomization_covers():
+    """A fixed number treated on a 300-node network, 200 re-randomisations.
+    Probed with 600 draws on 400 nodes: the default interval covered 97 to
+    98% and its mean variance was above the sampling variance. There is no
+    theorem for this design, which is why the check is a simulation."""
+    rng = np.random.default_rng(30)
+    n = 300
+    A = _ring_plus(n)
+    base, het = 5 + rng.normal(size=n), rng.normal(size=n)
+
+    def po(own, has):
+        return base + (2 + het) * own + (1 + 0.5 * het) * has
+
+    truth = float(np.mean(po(0, 1) - po(0, 0)))
+    z0 = np.zeros(n, dtype=int)
+    z0[: n // 2] = 1
+    est, se = [], []
+    for _ in range(200):
+        Z = rng.permutation(z0)
+        Y = po(Z, ((A @ Z) > 0).astype(int))
+        r = sp.network_exposure(Y, Z, A, design="complete")
+        row = r.contrasts.set_index("contrast").loc["spillover (c01 - c00)"]
+        est.append(row["estimate"])
+        se.append(row["se"])
+    est, se = np.asarray(est), np.asarray(se)
+    assert r.design == "complete" and r.p_treat == 0.5
+    assert abs(est.mean() - truth) < 0.06
+    assert np.mean(np.abs(est - truth) < 1.96 * se) >= 0.92
+    assert np.mean(se**2) >= 0.9 * est.var()
+    with pytest.raises(MethodIncompatibility, match="omit p_treat"):
+        sp.network_exposure(Y, Z, A, design="complete", p_treat=0.3)
+
+
+def _sparse_graph(rng, n):
+    A = np.zeros((n, n), dtype=int)
+    for i in range(n):
+        for j in rng.choice(n, 2, replace=False):
+            if i != j:
+                A[i, j] = A[j, i] = 1
+    return A
+
+
+def test_interference_test_richer_nulls_keep_what_the_null_fixes():
+    """For "anonymous" the focal units have disjoint closed neighbourhoods
+    and every draw keeps each focal unit's own treatment and its share of
+    treated neighbours. For "no_higher_order" every draw keeps the
+    treatments of the focal units and of all their neighbours. Recorded by
+    a statistic that stores what it is shown."""
+    rng = np.random.default_rng(31)
+    n = 150
+    A = _sparse_graph(rng, n)
+    Z = (rng.random(n) < 0.5).astype(int)
+    Y = rng.normal(size=n)
+    seen = []
+
+    def spy(Y_, Z_, A_, focal):
+        seen.append((Z_.copy(), focal.copy()))
+        return float(Y_[focal] @ (A_ @ (Z_ * np.arange(n)))[focal])
+
+    r = sp.interference_test(Y, Z, A, null="anonymous", statistic=spy, n_perm=50)
+    focal = r.focal
+    closed = A[focal] + np.eye(n, dtype=int)[focal]
+    assert closed.sum(axis=0).max() == 1
+    for z, f in seen:
+        np.testing.assert_array_equal(z[focal], Z[focal])
+        np.testing.assert_array_equal((A @ z)[focal], (A @ Z)[focal])
+    assert any((z != Z).any() for z, _ in seen)
+
+    seen.clear()
+    r = sp.interference_test(Y, Z, A, null="no_higher_order", statistic=spy, n_perm=50)
+    fixed = np.zeros(n, dtype=bool)
+    fixed[r.focal] = True
+    fixed[A[r.focal].sum(axis=0) > 0] = True
+    for z, _ in seen:
+        np.testing.assert_array_equal(z[fixed], Z[fixed])
+    assert any((z != Z).any() for z, _ in seen)
+    with pytest.raises(MethodIncompatibility):
+        sp.interference_test(Y, Z, null="anonymous")
+    with pytest.raises(MethodIncompatibility, match="share a neighbour"):
+        sp.interference_test(Y, Z, A, null="anonymous", focal=np.arange(40))
+
+
+def test_interference_test_richer_nulls_size():
+    """Outcomes depend on own treatment and on the share of treated
+    neighbours, so both richer hypotheses are true. 200 replications each;
+    the Monte Carlo error of a 5% rate is 0.015. Probed: 0.02 and 0.06."""
+    rng = np.random.default_rng(32)
+    n = 240
+    A = _sparse_graph(rng, n)
+    deg = np.maximum(A.sum(axis=1), 1)
+    base, het = rng.normal(size=n), rng.normal(size=n)
+    for null in ("anonymous", "no_higher_order"):
+        rej = []
+        for rep in range(200):
+            Z = (rng.random(n) < 0.5).astype(int)
+            Y = base + (2 + het) * Z + 2 * (A @ Z) / deg + 0.3 * rng.normal(size=n)
+            p = sp.interference_test(Y, Z, A, null=null, n_perm=149, seed=rep).pvalue
+            rej.append(p <= 0.05)
+        assert np.mean(rej) <= 0.10
+
+
+def test_rd_optimized_fuzzy_reduces_to_sharp_under_full_compliance():
+    """If treatment received is the indicator of crossing the cutoff, its
+    jump is exactly one (the weights sum to one on the right and to minus
+    one on the left), it has no curvature and no noise, so the fuzzy
+    estimate and its interval are the sharp ones."""
+    rng = np.random.default_rng(33)
+    df = _rd_sample(rng, n=400)
+    df["d"] = (df["x"] >= 0).astype(float)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sharp = sp.rd_optimized(df, "y", "x", M=4.0)
+        fuzzy = sp.rd_optimized(df, "y", "x", M=4.0, fuzzy="d", M_fuzzy=0.0)
+    assert fuzzy.model_info["first_stage"] == pytest.approx(1.0, abs=1e-10)
+    assert fuzzy.estimate == pytest.approx(sharp.estimate, abs=1e-10)
+    assert fuzzy.se == pytest.approx(sharp.se, rel=1e-9)
+    np.testing.assert_allclose(fuzzy.ci, sharp.ci, rtol=1e-6)
+    assert fuzzy.pvalue == pytest.approx(sharp.pvalue, rel=1e-9)
+
+
+def test_rd_optimized_fuzzy_interval_covers_and_can_be_unbounded():
+    """Ratio of two jumps with a true value of 2. With a jump of 0.5 in
+    take-up the interval is bounded and covers; with a jump of 0.05 it is
+    an Anderson-Rubin set and is usually unbounded. 40 samples each;
+    probed with 60: coverage 1.00 and 0.98, 95% unbounded when weak."""
+    rng = np.random.default_rng(34)
+
+    def sample(jump):
+        n = 700
+        x = rng.uniform(-1, 1, n)
+        d = rng.binomial(1, np.clip(0.2 + jump * (x >= 0) + 0.1 * x, 0, 1))
+        y = 2.0 * d + x**2 + rng.normal(scale=0.5, size=n)
+        return pd.DataFrame({"y": y, "x": x, "d": d})
+
+    for jump, need_bounded in ((0.5, True), (0.05, False)):
+        cover, unbounded = [], []
+        for _ in range(40):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                r = sp.rd_optimized(
+                    sample(jump), "y", "x", M=4.0, fuzzy="d", M_fuzzy=0.5
+                )
+            cover.append(r.ci[0] <= 2.0 <= r.ci[1])
+            unbounded.append(not np.all(np.isfinite(r.ci)))
+        assert np.mean(cover) >= 0.85
+        if need_bounded:
+            assert np.mean(unbounded) == 0
+        else:
+            assert np.mean(unbounded) > 0.5
+
+
+def test_contextual_bandit_probabilities_support_unbiased_weighting():
+    """The recorded probabilities must be the ones used. If they are, the
+    inverse-probability weighted value of a fixed rule is unbiased, even
+    though assignment adapted. 200 experiments of 300 subjects; the rule
+    "arm 1 if x > 0, else arm 0" has value E|x|/2 = 0.3989."""
+
+    def mean_reward(k, x):
+        return (0.5 * x[0] if k == 1 else -0.5 * x[0]) + (0.3 if k == 2 else 0.0)
+
+    def reward(k, x, g):
+        return mean_reward(k, x) + g.normal()
+
+    rng = np.random.default_rng(35)
+    values = []
+    for seed in range(200):
+        X = rng.normal(size=(300, 1))
+        exp = sp.contextual_bandit(
+            reward, X, n_arms=3, sigma=1.0, prob_floor=0.05, seed=seed
+        )
+        d = exp.data
+        target = np.where(d["x0"] > 0, 1, 0)
+        values.append(np.mean((d["arm"] == target) * d["reward"] / d["prob"]))
+    truth = 0.5 * np.sqrt(2 / np.pi)
+    assert abs(np.mean(values) - truth) < 4 * np.std(values) / np.sqrt(200)
+    np.testing.assert_allclose(d[["prob_0", "prob_1", "prob_2"]].sum(axis=1), 1.0)
+    assert d["prob"].min() >= 0.05 - 1e-12
+
+    X = rng.normal(size=(1200, 1))
+    kw = dict(n_arms=3, sigma=1.0, mean_reward=mean_reward, seed=1)
+    ts = sp.contextual_bandit(reward, X, **kw)
+    ucb = sp.contextual_bandit(reward, X, algorithm="ucb", **kw)
+    uni = sp.contextual_bandit(reward, X, algorithm="uniform", **kw)
+    # Probed regrets: about 30 (Thompson, UCB) against 480 (uniform).
+    assert ts.regret < uni.regret / 4 and ucb.regret < uni.regret / 4
+    coef = ts.detail["coefficients"]
+    assert coef.loc[1, "x0"] > 0.3 and coef.loc[0, "x0"] < 0
+    table = pd.DataFrame(rng.normal(size=(200, 2)), columns=["a", "b"])
+    tab = sp.contextual_bandit(table, rng.normal(size=(200, 2)), seed=0)
+    assert set(tab.data["arm"]) <= {"a", "b"} and tab.regret >= 0
+    with pytest.raises(MethodIncompatibility):
+        sp.contextual_bandit(reward, X)
+
+
+def _tabular_mdp(rng, S=4):
+    P = np.stack([rng.dirichlet(np.ones(S) * 1.5, size=S) for _ in range(2)])
+    r = rng.normal(size=(2, S))
+    return P, r
+
+
+def _mdp_path(rng, P, r, T):
+    S = r.shape[1]
+    s, rows = 0, []
+    for _ in range(T):
+        e1 = 0.3 + 0.1 * s
+        w = int(rng.random() < e1)
+        rows.append((s, w, r[w, s] + rng.normal(), e1 if w else 1 - e1))
+        s = int(rng.choice(S, p=P[w, s]))
+    return pd.DataFrame(rows, columns=["s", "w", "y", "e"])
+
+
+def _stationary_value(P, r, pol):
+    S = r.shape[1]
+    Pp = np.array([P[pol[s], s] for s in range(S)])
+    vals, vecs = np.linalg.eig(Pp.T)
+    mu = np.real(vecs[:, np.argmax(np.real(vals))])
+    mu = mu / mu.sum()
+    return float(sum(mu[s] * r[pol[s], s] for s in range(S)))
+
+
+def test_mdp_policy_value_equals_the_plug_in_of_the_fitted_model():
+    """With one indicator per state the doubly robust estimate, the value
+    solving the fitted Bellman equation and the stationary average of the
+    transition model fitted on policy-consistent periods are one number."""
+    rng = np.random.default_rng(36)
+    P, r = _tabular_mdp(rng)
+    pol = np.array([1, 0, 1, 1])
+    df = _mdp_path(rng, P, r, 3000)
+    fit = sp.mdp_policy_value(
+        df, "y", "w", ["s"], policy=lambda st: pol[st["s"].to_numpy()], propensity="e"
+    )
+    nxt = df["s"].shift(-1)
+    S = 4
+    Ph, rh = np.zeros((S, S)), np.zeros(S)
+    for s in range(S):
+        m = (df["s"] == s) & (df["w"] == pol[s]) & nxt.notna()
+        rh[s] = df.loc[m, "y"].mean()
+        Ph[s] = np.bincount(nxt[m].astype(int), minlength=S) / m.sum()
+    vals, vecs = np.linalg.eig(Ph.T)
+    mu = np.real(vecs[:, np.argmax(np.real(vals))])
+    mu = mu / mu.sum()
+    assert fit.value == pytest.approx(float(mu @ rh), abs=1e-10)
+    assert fit.value == pytest.approx(fit.detail["bellman_value"], abs=1e-10)
+    # A policy column and an estimated propensity give the same point
+    # estimate here: the propensity depends on the state only, so it
+    # cancels state by state.
+    df["target"] = pol[df["s"].to_numpy()]
+    again = sp.mdp_policy_value(df, "y", "w", ["s"], policy="target")
+    assert again.value == pytest.approx(fit.value, abs=1e-10)
+    assert again.detail["propensity_estimated"]
+
+
+def test_mdp_policy_value_recovers_the_long_run_value():
+    """Four states, known transition and reward tables, so the long-run
+    value of a policy is the stationary average. 100 trajectories of
+    2,500 periods. Probed with 200 of 3,000: bias -0.0002 (sd 0.030, mean
+    SE 0.031), coverage 95.5% for the value and 97.5% for a contrast."""
+    rng = np.random.default_rng(37)
+    P, r = _tabular_mdp(rng)
+    pol = np.array([1, 0, 1, 1])
+    truth = _stationary_value(P, r, pol)
+    truth_diff = truth - _stationary_value(P, r, np.zeros(4, dtype=int))
+    out = []
+    for _ in range(100):
+        df = _mdp_path(rng, P, r, 2500)
+        rule = lambda st: pol[st["s"].to_numpy()]  # noqa: E731
+        a = sp.mdp_policy_value(df, "y", "w", ["s"], policy=rule, propensity="e")
+        b = sp.mdp_policy_value(
+            df, "y", "w", ["s"], policy=rule, baseline=0, propensity="e"
+        )
+        out.append((a.value, a.se, b.value, b.se))
+    o = np.array(out)
+    assert abs(o[:, 0].mean() - truth) < 0.012
+    assert 0.75 < o[:, 1].mean() / o[:, 0].std() < 1.3
+    assert np.mean(np.abs(o[:, 0] - truth) < 1.96 * o[:, 1]) >= 0.88
+    assert np.mean(np.abs(o[:, 2] - truth_diff) < 1.96 * o[:, 3]) >= 0.88
+    assert b.value == pytest.approx(b.value_policy - b.value_baseline)
+
+
+def test_mdp_policy_value_linear_basis_and_errors():
+    """A continuous state with a linear basis: y = x + w, x' = 0.5 x + w +
+    noise. Always treating gives a long-run mean state of 2 and value 3;
+    never treating gives 0. The basis contains the truth."""
+    rng = np.random.default_rng(38)
+    T = 6000
+    x, rows = 0.0, []
+    for _ in range(T):
+        w = int(rng.random() < 0.5)
+        rows.append((x, w, x + w + rng.normal()))
+        x = 0.5 * x + w + rng.normal()
+    df = pd.DataFrame(rows, columns=["x", "w", "y"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.mdp_policy_value(
+            df, "y", "w", ["x"], policy=1, baseline=0, propensity=0.5, features=["x"]
+        )
+    assert fit.detail["basis"] == "linear"
+    assert abs(fit.value - 3.0) < 5 * fit.se and fit.se < 0.4
+    with pytest.raises(MethodIncompatibility):
+        sp.mdp_policy_value(df, "y", "w", ["x"], policy=1)  # 6,000 distinct states
+    with pytest.raises(MethodIncompatibility):
+        sp.mdp_policy_value(df, "y", "w", [], policy=1)
+    with pytest.raises(DataInsufficient):
+        sp.mdp_policy_value(
+            df, "y", "w", ["x"], policy=7, propensity=0.5, features=["x"]
+        )
+
+
+def test_marginal_policy_effect_identity_and_truth():
+    rng = np.random.default_rng(39)
+    # Without covariates and with no look-ahead the estimator is the
+    # treated share times the difference in means, exactly.
+    w = rng.binomial(1, 0.3, 400).astype(float)
+    y = w + rng.normal(size=400)
+    df = pd.DataFrame({"y": y, "w": w})
+    r = sp.marginal_policy_effect(df, "y", "w", [], horizon=0, propensity=0.3)
+    by_hand = w.mean() * (y[w == 1].mean() - y[w == 0].mean())
+    assert r.estimate == pytest.approx(by_hand, abs=1e-12)
+    assert r.per_treatment == pytest.approx(by_hand / w.mean(), abs=1e-12)
+
+    # A hidden state u carries the treatment forward:
+    #   u' = 0.5 u + w + noise,  y = w + 0.8 u + 0.5 x + noise.
+    # One treatment is worth 1 now and 0.8 * 0.5^(j-1) in period j, so
+    # theta at look-ahead K is E[e(X)] * (1 + 0.8 * sum_{j<K} 0.5^j).
+    # 60 paths of 3,000; probed with 150: bias 0.008, coverage 97%.
+    K = 3
+    big = 1 / (1 + np.exp(-(-0.8 + 0.5 * rng.normal(size=400000))))
+    truth = big.mean() * (1 + 0.8 * sum(0.5**j for j in range(K)))
+    est, se = [], []
+    for _ in range(60):
+        T = 3000
+        x = rng.normal(size=T)
+        w = rng.binomial(1, 1 / (1 + np.exp(-(-0.8 + 0.5 * x))))
+        u = np.zeros(T)
+        for t in range(1, T):
+            u[t] = 0.5 * u[t - 1] + w[t - 1] + rng.normal()
+        y = w + 0.8 * u + 0.5 * x + rng.normal(size=T)
+        fit = sp.marginal_policy_effect(
+            pd.DataFrame({"y": y, "w": w, "x": x}), "y", "w", ["x"], horizon=K
+        )
+        est.append(fit.estimate)
+        se.append(fit.se)
+    est, se = np.asarray(est), np.asarray(se)
+    assert abs(est.mean() - truth) < 0.03
+    assert np.mean(np.abs(est - truth) < 1.96 * se) >= 0.85
+    assert fit.n_obs == 3000 - K and fit.detail["propensity_estimated"]
+    with pytest.raises(MethodIncompatibility):
+        sp.marginal_policy_effect(df, "y", "w", [], horizon=-1)
+    with pytest.raises(DataInsufficient):
+        sp.marginal_policy_effect(df, "y", "w", [], horizon=390)
+
+
+def test_doubly_robust_cross_fitting_option():
+    rng = np.random.default_rng(40)
+    n = 400
+    X = rng.normal(size=(n, 2))
+    A = rng.binomial(1, 0.5, n)
+    R = X[:, 0] + A * (1 + X[:, 1]) + rng.normal(size=n)
+    target = (X[:, 1] > 0).astype(int)
+    one = sp.doubly_robust(X, A, R, target, n_actions=2)
+    five = sp.doubly_robust(X, A, R, target, n_actions=2, n_folds=5)
+    assert one.value != five.value
+    assert abs(one.value - five.value) < 3 * five.se
+    with pytest.raises(MethodIncompatibility):
+        sp.doubly_robust(X, A, R, target, n_actions=2, n_folds=0)

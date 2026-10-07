@@ -26,7 +26,7 @@ while the book was read against the package.
 | 12 | exposure effects with network-robust variance | `sp.network_exposure` |
 | 13 | difference in differences with staggered adoption; synthetic controls | `sp.did_imputation`, `sp.callaway_santanna`; `sp.synth`, `sp.sdid` |
 | 14 | sequential unconfoundedness; doubly robust evaluation of a dynamic policy | `sp.ltmle(regime_treated=callable)`; `sp.msm`; `sp.gformula_ice_fn` |
-| 15 | Markov decision processes; switchback experiments | `sp.switchback`, `sp.switchback_design` |
+| 15 | long-run policy value in a Markov decision process; marginal policy effects; switchback experiments | `sp.mdp_policy_value`; `sp.marginal_policy_effect`; `sp.switchback`, `sp.switchback_design` |
 
 Chapters 1 to 3 were run on designs with a known answer. The estimators
 recover the truth and their intervals cover at the nominal rate. Two
@@ -149,6 +149,9 @@ r.estimate, r.se, r.ci
 r.model_info["max_bias"]              # exact worst case for these weights
 r.model_info["effective_bandwidth"]   # farthest unit with weight
 r.model_info["local_linear"]          # the same numbers for local linear
+
+# fuzzy design: ratio of the jump in y to the jump in treatment received
+f = sp.rd_optimized(df, "y", "x", c=0, M=0.1, fuzzy="d")
 ```
 
 The interval is the bias-aware one of `sp.rd_honest`: the estimate plus
@@ -179,9 +182,14 @@ t.pvalue
 sp.interference_test(Y, Z, null="no_effect")    # H0: no effect at all
 ```
 
-The two hypotheses are nested, so testing them in that order needs no
-multiplicity correction. The test is valid for Bernoulli and completely
-randomized assignment.
+Two further hypotheses from the book's hierarchy are available:
+`null="anonymous"` (only the share of treated neighbours matters, not
+which ones) and `null="no_higher_order"` (only a unit's own and its
+neighbours' treatments matter). The hypotheses are nested, so testing
+them from the most restrictive down needs no multiplicity correction.
+The tests are valid for Bernoulli and completely randomized assignment.
+The two richer ones hold most of the assignment fixed and have little
+power, so failing to reject them says little.
 
 If spillovers are present, `sp.network_exposure` estimates average
 outcomes by exposure level. The default mapping crosses a unit's own
@@ -189,6 +197,7 @@ treatment with whether any neighbour is treated.
 
 ```python
 r = sp.network_exposure(Y, Z, adjacency=A, p_treat=0.5)
+# design="complete" if a fixed number of units was treated
 r.contrasts     # direct, spillover, composite
 r.estimates     # mean outcome, se, smallest probability and
                 # effective sample size at each exposure level
@@ -248,13 +257,57 @@ intermediate covariate is high, the value of the dynamic policy and its
 contrast with always treating were recovered without bias and the
 interval covered 95%.
 
+## Chapter 15: dynamic systems
+
+When today's action changes tomorrow's state, comparing treated and
+untreated periods answers the wrong question. Two tools, for two
+situations.
+
+**The state is observed.** `sp.mdp_policy_value` estimates the long-run
+average outcome under a policy from one long trajectory collected under
+randomized actions.
+
+```python
+r = sp.mdp_policy_value(
+    df, "y", "w", state=["s"],
+    policy=lambda st: (st["s"] >= 2).astype(int),   # the rule to evaluate
+    baseline=0,                                     # against never treating
+    propensity="e",        # probability of the action that was taken
+)
+r.value, r.se, r.ci
+```
+
+It combines an excess-reward function with the ratio of stationary state
+distributions, and is consistent if either is right. Its error does not
+grow with the length of the trajectory, which is what sequential
+inverse-probability weighting cannot offer. With a state that takes a few
+values the default basis is one indicator per state, and the estimate
+equals the stationary average of the fitted transition model. For a
+continuous state pass `features=`.
+
+**Part of the state is hidden.** Then the value of a different policy is
+hard to learn, but the worth of the current one at the margin is not.
+`sp.marginal_policy_effect` estimates what removing a small share of the
+treatments that occur would do.
+
+```python
+r = sp.marginal_policy_effect(df, "y", "w", ["x"], horizon=5)
+r.estimate         # theta: removing a share eps of treatments costs eps * theta per period
+r.per_treatment    # effect of one treatment on current and future outcomes
+```
+
+`horizon` is how long a treatment keeps mattering. Too short leaves out
+part of the effect, too long adds noise, so show a few values.
+
+For chapter 6 with covariates, `sp.contextual_bandit` runs linear Thompson
+sampling or LinUCB and records exact assignment probabilities. Use
+inverse-probability weighting with them afterwards; `sp.adaptive_inference`
+is for experiments without covariates.
+
 ## Not in StatsPAI
 
 - Optimized regression discontinuity with a multivariate running
-  variable or a fuzzy design (chapter 8.2 treats the univariate sharp
-  case, which is `sp.rd_optimized`).
-- Doubly robust estimation of the long-run value of a policy in a Markov
-  decision process (chapter 15.1), and marginal policy effects (15.2).
-- Contextual bandits (chapter 6 covers the case without covariates).
-- Tests of the richer hypotheses in the chapter 11 hierarchy, such as
-  spillovers that depend only on the share of treated neighbours.
+  variable, as in geographic designs. The univariate case, sharp or
+  fuzzy, is `sp.rd_optimized`.
+- Learning a policy in a Markov decision process (the book evaluates
+  policies; it does not learn them either).

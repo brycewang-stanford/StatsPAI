@@ -20,6 +20,12 @@ from .estimators import (
     snips,
     switch_dr,
 )
+from .mdp import (
+    MarginalPolicyEffectResult,
+    MDPPolicyValueResult,
+    marginal_policy_effect,
+    mdp_policy_value,
+)
 
 __all__ = [
     "direct_method",
@@ -29,6 +35,10 @@ __all__ = [
     "switch_dr",
     "evaluate",
     "OPEResult",
+    "mdp_policy_value",
+    "MDPPolicyValueResult",
+    "marginal_policy_effect",
+    "MarginalPolicyEffectResult",
     "sharp_ope_unobserved",
     "causal_policy_forest",
     "SharpOPEResult",

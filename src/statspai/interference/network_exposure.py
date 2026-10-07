@@ -208,35 +208,57 @@ def _fraction_mapping(
 # --------------------------------------------------------------------
 
 
+def _neighbour_pmf(
+    d: int, own: int, p: float, n: int, n_treated: Optional[int]
+) -> np.ndarray:
+    """Distribution of the number of treated neighbours of a unit.
+
+    Binomial under Bernoulli assignment. With the number treated fixed
+    (``n_treated`` given), the ``d`` neighbours are a draw without
+    replacement from the other ``n - 1`` units, of which
+    ``n_treated - own`` are treated.
+    """
+    k = np.arange(d + 1)
+    if n_treated is None:
+        return np.asarray(stats.binom.pmf(k, d, p))
+    return np.asarray(stats.hypergeom.pmf(k, n - 1, n_treated - own, d))
+
+
 def _as4_probabilities(
-    deg: np.ndarray, p: float
+    deg: np.ndarray, p: float, n_treated: Optional[int] = None
 ) -> Tuple[Dict[str, np.ndarray], List[str]]:
-    """Exact exposure probabilities of the four-cell map, Bernoulli(p)."""
-    none = (1.0 - p) ** deg  # no neighbour treated
+    """Exact exposure probabilities of the four-cell map."""
+    n = deg.shape[0]
+    none = {0: np.empty(n), 1: np.empty(n)}  # no neighbour treated, by own
+    for d in np.unique(deg):
+        for own in (0, 1):
+            none[own][deg == d] = _neighbour_pmf(int(d), own, p, n, n_treated)[0]
     probs = {
-        "c00": (1 - p) * none,
-        "c01": (1 - p) * (1 - none),
-        "c10": p * none,
-        "c11": p * (1 - none),
+        "c00": (1 - p) * none[0],
+        "c01": (1 - p) * (1 - none[0]),
+        "c10": p * none[1],
+        "c11": p * (1 - none[1]),
     }
     return probs, sorted(probs)
 
 
 def _fraction_probabilities(
-    deg: np.ndarray, p: float, thresholds: Tuple[float, ...]
+    deg: np.ndarray,
+    p: float,
+    thresholds: Tuple[float, ...],
+    n_treated: Optional[int] = None,
 ) -> Tuple[Dict[str, np.ndarray], List[str]]:
-    """Exact exposure probabilities of the fraction map, Bernoulli(p)."""
+    """Exact exposure probabilities of the fraction map."""
     n = deg.shape[0]
     n_bins = len(thresholds) + 1
-    bin_prob = np.zeros((n, n_bins))
-    for d in np.unique(deg):
-        k = np.arange(int(d) + 1)
-        pmf = stats.binom.pmf(k, int(d), p)
-        bins = _fraction_bins(k, np.full(k.shape, d), thresholds)
-        row = np.bincount(bins, weights=pmf, minlength=n_bins)
-        bin_prob[deg == d] = row
     probs: Dict[str, np.ndarray] = {}
     for own, p_own in ((0, 1 - p), (1, p)):
+        bin_prob = np.zeros((n, n_bins))
+        for d in np.unique(deg):
+            k = np.arange(int(d) + 1)
+            pmf = _neighbour_pmf(int(d), own, p, n, n_treated)
+            bins = _fraction_bins(k, np.full(k.shape, d), thresholds)
+            bin_prob[deg == d] = np.bincount(bins, weights=pmf, minlength=n_bins)
         for b in range(n_bins):
             col = p_own * bin_prob[:, b]
             if np.any(col > 0):
@@ -250,12 +272,19 @@ def _simulated_probabilities(
     mapping: Callable[[np.ndarray, np.ndarray], np.ndarray],
     n_sim: int,
     rng: np.random.Generator,
+    n_treated: Optional[int] = None,
 ) -> Tuple[Dict[str, np.ndarray], List[str]]:
     """Monte-Carlo exposure probabilities for a user-supplied mapping."""
     n = A.shape[0]
     counts: Dict[str, np.ndarray] = {}
+    base = np.zeros(n, dtype=int)
+    if n_treated is not None:
+        base[:n_treated] = 1
     for _ in range(n_sim):
-        Z_sim = (rng.random(n) < p_treat).astype(int)
+        if n_treated is None:
+            Z_sim = (rng.random(n) < p_treat).astype(int)
+        else:
+            Z_sim = rng.permutation(base)
         labels = np.asarray(mapping(Z_sim, A), dtype=object)
         for lab in np.unique(labels):
             counts.setdefault(lab, np.zeros(n))
@@ -340,8 +369,12 @@ def network_exposure(
     p_treat : float, optional
         Treatment probability of the design. Defaults to the realised
         share of treated units; pass the design value when it is known.
-    design : {"bernoulli"}
-        Independent assignment with probability ``p_treat``.
+    design : {"bernoulli", "complete"}
+        ``"bernoulli"``: independent assignment with probability
+        ``p_treat``. ``"complete"``: a fixed number of units, the number
+        observed in ``Z``, is treated, every such set being equally
+        likely; exposure probabilities are then hypergeometric and
+        ``p_treat`` is not used.
     n_sim : int, default 2000
         Draws used to simulate exposure probabilities of a callable
         mapping. Ignored for the built-in mappings, whose probabilities
@@ -387,6 +420,12 @@ def network_exposure(
 
     The variance estimators are justified for Bernoulli designs under
     the assumption that the exposure mapping is correctly specified.
+    Under ``design="complete"`` the same estimators are used. They treat
+    the exposures of two units with no common source of treatment as
+    independent, which leaves out the weak dependence that fixing the
+    number treated induces between every pair. In simulations on a
+    400-node network the ``"hac_psd"`` interval covered 97 to 98% and the
+    ``"hac"`` interval 92 to 95%; there is no theorem behind this case.
 
     References
     ----------
@@ -423,8 +462,8 @@ def network_exposure(
     A = _to_adj(adjacency, n)
     if A.shape[0] != n:
         raise MethodIncompatibility("adjacency size must match Y/Z length")
-    if design != "bernoulli":
-        raise NotImplementedError("Only 'bernoulli' design is implemented")
+    if design not in ("bernoulli", "complete"):
+        raise MethodIncompatibility("design must be 'bernoulli' or 'complete'")
     if estimator not in ("hajek", "ht"):
         raise MethodIncompatibility("estimator must be 'hajek' or 'ht'")
     if variance not in ("hac_psd", "hac"):
@@ -434,7 +473,18 @@ def network_exposure(
     if not 0 <= min_prob < 1:
         raise MethodIncompatibility("min_prob must be in [0, 1)")
 
-    if p_treat is None:
+    n_treated: Optional[int] = None
+    if design == "complete":
+        # The number treated is fixed by the design, so the treatment
+        # probability is the realised share.
+        n_treated = int(Z_arr.sum())
+        if p_treat is not None and abs(p_treat - n_treated / n) > 1e-9:
+            raise MethodIncompatibility(
+                "under design='complete' the treatment probability is the "
+                f"realised share {n_treated / n:.6g}; omit p_treat"
+            )
+        p_treat = n_treated / n
+    elif p_treat is None:
         p_treat = float(Z_arr.mean())
     if not (0 < p_treat < 1):
         raise MethodIncompatibility("p_treat must be in (0, 1)")
@@ -449,7 +499,7 @@ def network_exposure(
                 "a callable mapping must return one label per unit"
             )
         probs, levels = _simulated_probabilities(
-            A, p_treat, mapping, int(n_sim), np.random.default_rng(seed)
+            A, p_treat, mapping, int(n_sim), np.random.default_rng(seed), n_treated
         )
         for lev in np.unique(exposures):
             if lev not in probs:
@@ -461,12 +511,12 @@ def network_exposure(
     elif mapping == "as4":
         mapping_name = "as4"
         exposures = _as4_mapping(Z_arr, A)
-        probs, levels = _as4_probabilities(deg, p_treat)
+        probs, levels = _as4_probabilities(deg, p_treat, n_treated)
         simulated = False
     elif mapping == "fraction":
         mapping_name = "fraction"
         exposures = _fraction_mapping(Z_arr, A, thresholds)
-        probs, levels = _fraction_probabilities(deg, p_treat, thresholds)
+        probs, levels = _fraction_probabilities(deg, p_treat, thresholds, n_treated)
         simulated = False
     else:
         raise MethodIncompatibility(

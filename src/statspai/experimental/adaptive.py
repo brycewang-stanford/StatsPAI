@@ -516,6 +516,241 @@ def bandit_experiment(
     )
 
 
+def contextual_bandit(
+    reward: Union[
+        Callable[[int, np.ndarray, np.random.Generator], float],
+        np.ndarray,
+        pd.DataFrame,
+    ],
+    contexts: Union[np.ndarray, pd.DataFrame],
+    *,
+    n_arms: Optional[int] = None,
+    algorithm: str = "thompson",
+    sigma: Optional[float] = None,
+    prior_precision: float = 1.0,
+    ucb_scale: float = 2.0,
+    epsilon: float = 0.1,
+    prob_floor: float = 0.0,
+    batch_size: int = 1,
+    add_intercept: bool = True,
+    mean_reward: Optional[Callable[[int, np.ndarray], float]] = None,
+    seed: Optional[int] = None,
+) -> BanditExperimentResult:
+    """
+    Run a sequential experiment whose assignment depends on covariates.
+
+    Each arm has a linear reward model in the subject's covariates, with
+    a Gaussian posterior that is updated after every batch. Assignment
+    probabilities are computed from the posteriors at the covariates of
+    the arriving subject and are recorded.
+
+    Parameters
+    ----------
+    reward : callable, ndarray or DataFrame
+        Either a function ``reward(k, x, rng)`` returning the outcome of
+        giving arm ``k`` to a subject with covariate vector ``x``, or a
+        ``T x K`` table of potential outcomes.
+    contexts : ndarray or DataFrame, shape (T, p)
+        Covariates of the subjects, in order of arrival.
+    n_arms : int, optional
+        Number of arms. Required with a callable.
+    algorithm : {"thompson", "ucb", "epsilon_greedy", "uniform"}
+        ``"thompson"`` assigns each arm with the posterior probability
+        that its expected reward at ``x`` is the largest. ``"ucb"``
+        plays the arm with the largest ``mean + ucb_scale * sd`` at
+        ``x``. ``"epsilon_greedy"`` plays the arm with the largest
+        posterior mean with probability ``1 - epsilon``.
+    sigma : float, optional
+        Reward standard deviation. By default it is re-estimated from
+        the residuals of the fitted models as data arrive.
+    prior_precision : float, default 1.0
+        Precision of the independent normal prior on each coefficient
+        (a ridge penalty).
+    ucb_scale, epsilon, prob_floor, batch_size
+        As in :func:`bandit_experiment`.
+    add_intercept : bool, default True
+        Add a constant to the covariates.
+    mean_reward : callable, optional
+        ``mean_reward(k, x)``, the expected reward of arm ``k`` at
+        ``x``, used to report regret against the best arm for each
+        subject. With a potential-outcome table, realised regret against
+        the best potential outcome in each row is reported instead.
+    seed : int, optional
+
+    Returns
+    -------
+    BanditExperimentResult
+        ``.data`` holds the period, arm, reward, the assignment
+        probability of every arm, and the covariates.
+        ``.detail["coefficients"]`` holds the final posterior means, one
+        row per arm.
+
+    Notes
+    -----
+    The recorded probabilities are exact, not simulated, which is what
+    weighting estimators need afterwards. With them, the value of any
+    fixed rule can be estimated by inverse-probability weighting
+    (:func:`statspai.ips` with ``pi_behavior=`` the ``prob`` column).
+    :func:`adaptive_inference` is for experiments without covariates and
+    should not be applied to these data: once assignment depends on
+    covariates, the weighted arm means are no longer centred on the arm
+    means.
+
+    References
+    ----------
+    [@thompson1933likelihood], [@lai1985asymptotically]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> X = rng.normal(size=(300, 1))
+    >>> exp = sp.contextual_bandit(
+    ...     lambda k, x, g: (x[0] if k == 1 else -x[0]) + g.normal(),
+    ...     X, n_arms=2, sigma=1.0, prob_floor=0.05, seed=0)
+    >>> exp.data.shape[0]
+    300
+    """
+    _check_algorithm(algorithm, "gaussian", epsilon)
+    if batch_size < 1:
+        raise MethodIncompatibility("batch_size must be at least 1")
+    if prior_precision <= 0:
+        raise MethodIncompatibility("prior_precision must be positive")
+    if isinstance(contexts, pd.DataFrame):
+        feature_names = [str(c) for c in contexts.columns]
+        X = contexts.to_numpy(dtype=float)
+    else:
+        X = np.asarray(contexts, dtype=float)
+        if X.ndim == 1:
+            X = X[:, None]
+        feature_names = [f"x{j}" for j in range(X.shape[1])]
+    if X.ndim != 2 or not np.all(np.isfinite(X)):
+        raise MethodIncompatibility("contexts must be a finite (T, p) array")
+    T = X.shape[0]
+    design = np.column_stack([np.ones(T), X]) if add_intercept else X
+    names = (["const"] if add_intercept else []) + feature_names
+    p = design.shape[1]
+
+    rng = np.random.default_rng(seed)
+    table: Optional[np.ndarray] = None
+    sampler: Optional[Callable[[int, np.ndarray, np.random.Generator], float]] = None
+    if callable(reward):
+        if n_arms is None:
+            raise MethodIncompatibility("a callable reward needs n_arms=")
+        sampler = reward
+        K = int(n_arms)
+        labels: List[Any] = list(range(K))
+    else:
+        if isinstance(reward, pd.DataFrame):
+            labels = list(reward.columns)
+            table = reward.to_numpy(dtype=float)
+        else:
+            table = np.asarray(reward, dtype=float)
+            labels = list(range(table.shape[1])) if table.ndim == 2 else []
+        if table.ndim != 2 or table.shape[0] != T:
+            raise MethodIncompatibility(
+                "a potential-outcome table must have one row per context"
+            )
+        K = table.shape[1]
+    if K < 2:
+        raise DataInsufficient("at least two arms are needed")
+
+    precision = np.stack([prior_precision * np.eye(p) for _ in range(K)])
+    xty = np.zeros((K, p))
+    coef = np.zeros((K, p))
+    cov = np.stack([np.eye(p) / prior_precision for _ in range(K)])
+    counts = np.zeros(K)
+    rss = 0.0
+    scale = float(sigma) if sigma is not None else 1.0
+    chosen = np.empty(T, dtype=int)
+    rewards = np.empty(T)
+    probs = np.empty((T, K))
+    track_regret = mean_reward is not None or table is not None
+    total_regret = 0.0
+
+    for t in range(T):
+        if t % batch_size == 0 and t > 0:
+            if sigma is None:
+                dof = counts.sum() - np.count_nonzero(counts) * p
+                if dof > 0 and rss > 0:
+                    scale = float(np.sqrt(rss / dof))
+            for k in range(K):
+                cov[k] = np.linalg.inv(precision[k])
+                coef[k] = cov[k] @ xty[k]
+        x = design[t]
+        if algorithm == "uniform":
+            pr = np.full(K, 1.0 / K)
+        else:
+            mean = coef @ x
+            sd = scale * np.sqrt(np.einsum("i,kij,j->k", x, cov, x))
+            if algorithm == "thompson":
+                pr = _prob_best_gaussian(mean, np.maximum(sd, 1e-12))
+            elif algorithm == "ucb":
+                pr = np.zeros(K)
+                pr[int(np.argmax(mean + ucb_scale * sd))] = 1.0
+            else:
+                pr = np.full(K, epsilon / K)
+                pr[int(np.argmax(mean))] += 1.0 - epsilon
+            pr = _apply_floor(pr, prob_floor)
+        k = int(rng.choice(K, p=pr))
+        if table is not None:
+            r = float(table[t, k])
+        else:
+            assert sampler is not None
+            r = float(sampler(k, X[t], rng))
+        if not np.isfinite(r):
+            raise DataInsufficient(f"non-finite reward in period {t}")
+        chosen[t], rewards[t], probs[t] = k, r, pr
+        rss += float((r - coef[k] @ x) ** 2)
+        precision[k] += np.outer(x, x)
+        xty[k] += x * r
+        counts[k] += 1
+        if mean_reward is not None:
+            values = np.array([mean_reward(j, X[t]) for j in range(K)])
+            total_regret += float(values.max() - values[k])
+        elif table is not None:
+            total_regret += float(table[t].max() - table[t, k])
+
+    for k in range(K):
+        coef[k] = np.linalg.solve(precision[k], xty[k])
+    frame = pd.DataFrame(
+        {
+            "t": np.arange(1, T + 1),
+            "arm": [labels[k] for k in chosen],
+            "reward": rewards,
+            "prob": probs[np.arange(T), chosen],
+        }
+    )
+    for k, lab in enumerate(labels):
+        frame[f"prob_{lab}"] = probs[:, k]
+    for j, name in enumerate(feature_names):
+        frame[name] = X[:, j]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        arm_means = np.array(
+            [rewards[chosen == k].mean() if counts[k] > 0 else np.nan for k in range(K)]
+        )
+    arm_table = pd.DataFrame(
+        {"arm": labels, "pulls": counts.astype(int), "mean": arm_means}
+    )
+    return BanditExperimentResult(
+        data=frame,
+        arms=arm_table,
+        algorithm=f"contextual {algorithm}",
+        model="linear gaussian",
+        n_periods=T,
+        regret=total_regret if track_regret else None,
+        detail={
+            "prob_floor": prob_floor,
+            "batch_size": batch_size,
+            "min_assigned_prob": float(frame["prob"].min()),
+            "arm_labels": labels,
+            "coefficients": pd.DataFrame(coef, index=labels, columns=names),
+            "sigma": scale,
+        },
+    )
+
+
 # --------------------------------------------------------------------
 # Inference after adaptive data collection
 # --------------------------------------------------------------------
@@ -810,6 +1045,7 @@ def adaptive_inference(
 __all__ = [
     "bandit_allocate",
     "bandit_experiment",
+    "contextual_bandit",
     "adaptive_inference",
     "BanditExperimentResult",
     "AdaptiveInferenceResult",

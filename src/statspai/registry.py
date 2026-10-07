@@ -25290,8 +25290,9 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "bernoulli",
-                    "Randomisation design",
-                    ["bernoulli"],
+                    "Randomisation design: independent assignment, or a fixed "
+                    "number treated (exposure probabilities then hypergeometric)",
+                    ["bernoulli", "complete"],
                 ),
                 ParamSpec(
                     "n_sim",
@@ -25391,12 +25392,6 @@ def _build_registry() -> None:
                 "cluster_matched_pair",
             ],
             typical_n_min=200,
-            limitations=[
-                "design='complete' is reserved but not implemented; passing it "
-                "raises NotImplementedError. Use design='bernoulli' with "
-                "p_treat=K/N as an approximation only if that matches the "
-                "assignment mechanism you are willing to assume",
-            ],
         )
     )
 
@@ -25426,8 +25421,11 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "no_spillover",
-                    "Hypothesis tested",
-                    ["no_spillover", "no_effect"],
+                    "Hypothesis tested, nested: no effect at all; outcomes "
+                    "depend only on own treatment; only on own treatment and "
+                    "the share of treated neighbours; only on own and "
+                    "neighbours' treatments",
+                    ["no_spillover", "no_effect", "anonymous", "no_higher_order"],
                 ),
                 ParamSpec(
                     "statistic",
@@ -25437,13 +25435,19 @@ def _build_registry() -> None:
                     "Test statistic (or a callable T(Y, Z, A, focal)); defaults "
                     "to 'neighbor_share' for no_spillover and "
                     "'difference_in_means' for no_effect",
-                    ["neighbor_share", "any_neighbor", "difference_in_means"],
+                    [
+                        "neighbor_share",
+                        "any_neighbor",
+                        "difference_in_means",
+                        "weighted_share",
+                        "second_order_share",
+                    ],
                 ),
                 ParamSpec(
                     "focal",
                     "float",
                     False,
-                    0.5,
+                    None,
                     "Share of units drawn at random as focal units, or an array "
                     "of focal indices chosen without looking at Z",
                 ),
@@ -25686,6 +25690,206 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=["bandit_experiment", "ttest"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="contextual_bandit",
+            category="experimental",
+            description=(
+                "Run a sequential experiment whose assignment depends on "
+                "covariates: linear Thompson sampling, LinUCB or epsilon-greedy "
+                "with a Gaussian linear reward model per arm, recording exact "
+                "assignment probabilities."
+            ),
+            params=[
+                ParamSpec(
+                    "reward",
+                    "callable",
+                    True,
+                    None,
+                    "reward(k, x, rng) -> float, or a T x K table of potential "
+                    "outcomes",
+                ),
+                ParamSpec("contexts", "array", True, None, "Covariates, shape (T, p)"),
+                ParamSpec("n_arms", "int", False, None, "Number of arms"),
+                ParamSpec(
+                    "algorithm",
+                    "str",
+                    False,
+                    "thompson",
+                    "Allocation rule",
+                    ["thompson", "ucb", "epsilon_greedy", "uniform"],
+                ),
+                ParamSpec("sigma", "float", False, None, "Reward sd"),
+                ParamSpec(
+                    "prior_precision",
+                    "float",
+                    False,
+                    1.0,
+                    "Precision of the normal prior on each coefficient",
+                ),
+                ParamSpec("ucb_scale", "float", False, 2.0, "Width of the bound"),
+                ParamSpec("epsilon", "float", False, 0.1, "Exploration share"),
+                ParamSpec(
+                    "prob_floor",
+                    "float",
+                    False,
+                    0.0,
+                    "Lower bound on every assignment probability",
+                ),
+                ParamSpec("batch_size", "int", False, 1, "Periods between updates"),
+                ParamSpec("add_intercept", "bool", False, True, "Add a constant"),
+                ParamSpec(
+                    "mean_reward",
+                    "callable",
+                    False,
+                    None,
+                    "mean_reward(k, x), to report regret",
+                ),
+                ParamSpec("seed", "int", False, None, "Seed"),
+            ],
+            returns="BanditExperimentResult (.data, .arms, .regret)",
+            example=(
+                "sp.contextual_bandit(lambda k, x, rng: x[0] * (k == 1) + "
+                "rng.normal(), X, n_arms=2, prob_floor=0.05)"
+            ),
+            tags=["experiment", "adaptive", "bandit", "contextual", "thompson"],
+            reference="thompson1933likelihood; lai1985asymptotically",
+            assumptions=[
+                "Rewards are linear in the covariates for each arm, with "
+                "independent noise",
+                "sp.adaptive_inference does not apply once assignment depends "
+                "on covariates; use inverse-probability weighting with the "
+                "recorded probabilities",
+            ],
+            alternatives=["bandit_experiment", "ips", "policy_tree"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="mdp_policy_value",
+            category="causal",
+            description=(
+                "Long-run average outcome under a policy in a Markov decision "
+                "process, from one long trajectory: doubly robust in the "
+                "excess-reward function and the stationary state-distribution "
+                "ratio, with an error that does not grow with the horizon."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per period"),
+                ParamSpec("y", "str", True, None, "Outcome of the period"),
+                ParamSpec("treat", "str", True, None, "Action taken"),
+                ParamSpec("state", "list", True, None, "State columns"),
+                ParamSpec(
+                    "policy",
+                    "callable",
+                    True,
+                    None,
+                    "Target policy: function of the state columns, a column of "
+                    "target actions, or one action taken always",
+                ),
+                ParamSpec(
+                    "baseline",
+                    "callable",
+                    False,
+                    None,
+                    "Second policy; the result is then the difference in value",
+                ),
+                ParamSpec(
+                    "propensity",
+                    "str",
+                    False,
+                    None,
+                    "Probability of the action taken given the state: a column "
+                    "or one number; estimated by state frequencies if omitted",
+                ),
+                ParamSpec(
+                    "features",
+                    "list",
+                    False,
+                    None,
+                    "'tabular' (one indicator per distinct state, the default), "
+                    "numeric state columns for a linear basis, or a callable",
+                ),
+                ParamSpec("trajectory", "str", False, None, "Trajectory id column"),
+                ParamSpec("time", "str", False, None, "Time column"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="MDPPolicyValueResult",
+            example=(
+                'sp.mdp_policy_value(df, "y", "w", ["state"], policy=1, '
+                "baseline=0, propensity=0.5)"
+            ),
+            tags=["ope", "mdp", "dynamic", "policy", "doubly_robust"],
+            reference="liao2022batch; kallus2022efficiently",
+            assumptions=[
+                "The state is fully observed and Markov: past actions affect "
+                "the future only through it",
+                "Time-homogeneous dynamics observed in their stationary regime",
+                "The action depends on the past only through the state, with "
+                "known or estimable probabilities",
+                "The target policy visits the states the data visit",
+            ],
+            alternatives=[
+                "marginal_policy_effect",
+                "ltmle",
+                "switchback",
+                "q_learning",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="marginal_policy_effect",
+            category="causal",
+            description=(
+                "Effect of removing a small share of the treatments that occur "
+                "in a dynamic system, on the long-run average outcome. "
+                "Identified when part of the state is unobserved, provided "
+                "treatment depends on the past only through observed "
+                "covariates. Doubly robust with HAC standard errors."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per period"),
+                ParamSpec("y", "str", True, None, "Outcome of the period"),
+                ParamSpec("treat", "str", True, None, "0/1 treatment"),
+                ParamSpec(
+                    "covariates", "list", True, None, "Observed part of the state"
+                ),
+                ParamSpec(
+                    "horizon",
+                    "int",
+                    True,
+                    None,
+                    "Future periods over which a treatment still affects " "outcomes",
+                ),
+                ParamSpec(
+                    "propensity",
+                    "str",
+                    False,
+                    None,
+                    "Treatment probability: a column or one number; logistic "
+                    "regression if omitted",
+                ),
+                ParamSpec("trajectory", "str", False, None, "Trajectory id column"),
+                ParamSpec("time", "str", False, None, "Time column"),
+                ParamSpec(
+                    "hac_lags", "int", False, None, "Bartlett-kernel lags for the SE"
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="MarginalPolicyEffectResult",
+            example='sp.marginal_policy_effect(df, "y", "w", ["x"], horizon=5)',
+            tags=["ope", "dynamic", "policy", "marginal", "time_series"],
+            assumptions=[
+                "Treatment depends on the past only through the covariates",
+                "A treatment stops affecting outcomes after `horizon` periods",
+            ],
+            alternatives=["mdp_policy_value", "switchback", "lp_did"],
         )
     )
 
@@ -32362,6 +32566,23 @@ def _build_registry() -> None:
                     "Armstrong-Kolesar rule of thumb",
                 ),
                 ParamSpec(
+                    "fuzzy",
+                    "str",
+                    False,
+                    None,
+                    "Column with the treatment received, for a fuzzy design; the "
+                    "estimate is then the ratio of the two jumps with an "
+                    "Anderson-Rubin bias-aware interval",
+                ),
+                ParamSpec(
+                    "M_fuzzy",
+                    "float",
+                    False,
+                    None,
+                    "Curvature bound for the treatment-received regression; "
+                    "default the same rule of thumb as M",
+                ),
+                ParamSpec(
                     "criterion",
                     "str",
                     False,
@@ -32982,6 +33203,9 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "bandit_allocate": ["tests/test_wager_textbook_pass.py"],
     "bandit_experiment": ["tests/test_wager_textbook_pass.py"],
     "adaptive_inference": ["tests/test_wager_textbook_pass.py"],
+    "contextual_bandit": ["tests/test_wager_textbook_pass.py"],
+    "mdp_policy_value": ["tests/test_wager_textbook_pass.py"],
+    "marginal_policy_effect": ["tests/test_wager_textbook_pass.py"],
     "mswitch_lrtest": ["tests/test_mswitch_lrtest.py"],
     "mixture_design": ["tests/test_doe.py"],
     "sequential_design": ["tests/test_doe.py"],

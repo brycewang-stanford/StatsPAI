@@ -77,8 +77,12 @@ sp.interference_test(Y=y, Z=z, null="no_effect")     # H0: no effect at all
 
 The focal set is drawn from a seed, never from the realised assignment,
 which is what keeps the test valid. It applies to Bernoulli and
-completely randomized assignment. The two hypotheses are nested, so
-testing them in that order needs no multiplicity correction.
+completely randomized assignment. Two richer hypotheses can be tested the
+same way: `null="anonymous"` (only the share of treated neighbours
+matters) and `null="no_higher_order"` (only a unit's own and its
+neighbours' treatments matter). The hypotheses are nested, so testing
+them from the most restrictive down needs no multiplicity correction. The
+two richer tests have little power.
 
 References: Aronow (2012); Athey, Eckles & Imbens (2018); Basse, Feller &
 Toulis (2019).
@@ -124,7 +128,8 @@ Three choices matter.
   an exposure probability is below 0.01.
 
 **When to use it**: you have the full graph and know the randomization
-design (Bernoulli with known `p_treat`). Not suitable for observational
+design: Bernoulli with known `p_treat`, or a fixed number treated
+(`design="complete"`). Not suitable for observational
 data without a known design — for that see `network_hte` below.
 
 References: Aronow & Samii (2017), *AOAS* 11(4); Leung (2022),

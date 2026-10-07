@@ -179,6 +179,34 @@ already covered and checked out. Review in
   regression, the small gain theory predicts for a continuous running
   variable.
 
+- **`sp.mdp_policy_value`**: the long-run average outcome under a policy
+  in a Markov decision process, from one trajectory collected under
+  randomized actions. Doubly robust in the excess-reward function and
+  the ratio of stationary state distributions, so its error does not grow
+  with the horizon. On a four-state process with known tables it is
+  unbiased with 95.5% coverage; with one indicator per state it equals
+  the stationary average of the fitted transition model to 1e-10.
+- **`sp.marginal_policy_effect`**: what removing a small share of the
+  treatments that occur would do to the long-run average outcome,
+  identified when part of the state is hidden. Doubly robust with HAC
+  standard errors; 97% coverage on a design with a hidden autoregressive
+  state.
+- **`sp.contextual_bandit`**: linear Thompson sampling, LinUCB and
+  epsilon-greedy with covariates. Assignment probabilities are exact, so
+  inverse-probability weighting afterwards is unbiased.
+- **`sp.interference_test(null='anonymous' | 'no_higher_order')`**: the
+  two richer hypotheses of the hierarchy. Spillovers depend only on the
+  share of treated neighbours, or only on a unit's own and its
+  neighbours' treatments.
+- **`sp.network_exposure(design='complete')`**: a fixed number treated,
+  with hypergeometric exposure probabilities. It used to raise
+  `NotImplementedError`.
+- **`sp.rd_optimized(fuzzy=)`**: fuzzy designs, with an Anderson-Rubin
+  bias-aware interval that stays valid when the jump in treatment is
+  small.
+- **`sp.doubly_robust(n_folds=)`**: optional cross-fitting of the outcome
+  forest. The default is unchanged.
+
 #### Changed
 
 - **`sp.metalearner(learner='r' | 'dr')`: the default final-stage model

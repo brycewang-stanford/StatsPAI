@@ -46,7 +46,7 @@ Four kinds of result came out.
 | 12 | Exposure effects, network HAC variance | `sp.network_exposure` | **Rebuilt.** |
 | 13 | Imputation estimator for staggered adoption, synthetic controls, SDID | `sp.did_imputation`, `sp.synth`, `sp.sdid` | Covered by the DiD and synthetic-control passes; not rerun. |
 | 14 | Sequential IPW, g-formula, doubly robust dynamic evaluation | `sp.ltmle`, `sp.msm`, `sp.gformula_ice_fn` | `sp.ltmle` with a callable regime: bias 0.0002 on the dynamic policy value, coverage 95.3% for its contrast with always treating (300 runs). Two labelling fixes. |
-| 15 | Long-run policy value in an MDP, switchbacks | `sp.switchback` | Switchbacks covered. The doubly robust MDP estimator is not implemented. |
+| 15 | Long-run policy value in an MDP, marginal policy effects, switchbacks | `sp.switchback` | Switchbacks covered. Added in a third round: `sp.mdp_policy_value` and `sp.marginal_policy_effect`. |
 
 ## What was wrong
 
@@ -288,23 +288,38 @@ sampling retires the losing arm too fast for the central limit theorem,
 and the weighted interval covers 88% for the worst of three arms. The book
 says as much at the end of chapter 6. The function warns below `1/T`.
 
+## Third round: the open list
+
+The first two rounds left five items open. All but one are now closed.
+
+| Item | What was done | Evidence |
+| --- | --- | --- |
+| Long-run value in a Markov decision process (15.1) | `sp.mdp_policy_value`: the estimator of equation (15.9), with the excess-reward function and the stationary ratio fitted by moment equations that are linear in a basis (one indicator per state by default, or a linear basis). | With the tabular basis it equals the value solving the fitted Bellman equation and the stationary average of the fitted transition model, to 1e-10. On a four-state process with known tables: bias -0.0002 (sd 0.030, mean SE 0.031), coverage 95.5% for a value and 97.5% for a contrast, 200 trajectories of 3,000. |
+| Marginal policy effects (15.2) | `sp.marginal_policy_effect`: the estimand of Theorem 15.4 with a look-ahead window, estimated by a doubly robust score on forward sums of outcomes, with HAC standard errors. | Equals the treated share times the difference in means when there are no covariates and no look-ahead. With a hidden autoregressive state: truth 0.766 at a look-ahead of three, mean 0.774 (sd 0.052, mean SE 0.057), coverage 97%, 150 paths. |
+| `design='complete'` in `sp.network_exposure` | Exposure probabilities are hypergeometric. The variance estimators are those of the Bernoulli design. | Probabilities equal a full enumeration to 1e-16. Over 600 re-randomisations on 400 nodes the default interval covered 97 to 98% and the unadjusted one 92 to 95%. There is no theorem for this case and the docstring says so. |
+| Cross-fitting in `sp.doubly_robust` | `n_folds=` added. The default stays at 1. | On the design used in the first round the two versions had the same bias (-0.013) and spread; the 0.3 standard errors reported earlier were Monte Carlo noise. A change of default was not justified by this evidence. |
+| Contextual bandits | `sp.contextual_bandit`: linear Thompson sampling, LinUCB, epsilon-greedy, with exact recorded probabilities. | The inverse-probability weighted value of a fixed rule, using the recorded probabilities, is unbiased over 300 adaptive experiments (0.3993 against 0.3996). |
+| Richer hypotheses of chapter 11 | `sp.interference_test(null='anonymous' | 'no_higher_order')`. | Each draw keeps exactly what the hypothesis fixes (checked by a statistic that records its inputs). Rejection rates under a true null 0.02 and 0.06; power is low, about 0.2 on the designs tried, and the docstring says so. |
+| Fuzzy optimized RD | `sp.rd_optimized(fuzzy=)`: the ratio of jumps with an Anderson-Rubin bias-aware interval. | Reduces exactly to the sharp result under full compliance. Coverage 100% with a strong first stage and 98% with a weak one, where 95% of the intervals are unbounded, as they should be. |
+
+`sp.adaptive_inference` is not valid for contextual data: once assignment
+depends on covariates, the square-root-weighted arm means are no longer
+centred on the arm means. The contextual function's documentation points
+to inverse-probability weighting.
+
 ## Open
 
-1. **Optimized regression discontinuity beyond the univariate sharp
-   case.** `optrdd` also handles a two-dimensional running variable
-   (geographic designs); fuzzy designs follow Noack and Rothe. Neither is
-   in `sp.rd_optimized`.
-2. **Doubly robust long-run value in a Markov decision process**
-   (section 15.1) and **marginal policy effects** (15.2).
-3. **`design='complete'` in `sp.network_exposure`.** The exposure
-   probabilities are hypergeometric and easy. The variance theory in the
-   book is for Bernoulli designs, since under complete randomization every
-   pair of units is weakly dependent.
-4. **Cross-fitting in `sp.doubly_robust`.** The outcome model is a random
-   forest fitted and evaluated on the same rows. The bias this leaves was
-   0.3 standard errors in our run.
-5. **Contextual bandits**, and tests of the richer hypotheses in the
-   chapter 11 hierarchy.
+1. **Optimized regression discontinuity with a two-dimensional running
+   variable** (geographic designs), which `optrdd` supports. The least
+   favourable function then lives on a grid in the plane with constraints
+   on its Hessian, which is a quadratic programme with general linear
+   inequality constraints. scipy has no solver suited to it at the size
+   needed, and adding a solver dependency for one function was not
+   judged worth it.
+2. **Inference after a contextual adaptive experiment** with guarantees
+   (the contextual analogue of adaptive weighting). The recorded
+   probabilities make inverse-probability weighting unbiased; normality
+   is not guaranteed.
 
 ## Rerun
 
