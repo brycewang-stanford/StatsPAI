@@ -3260,3 +3260,25 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — call traces re-recorded after the third round of the Wager pass
+
+- **Commits.** `49a013c5` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+  in `tests/r_parity/results/_implementation_trace.json` and of module 08
+  in `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `adf32390`: `src/statspai/__init__.py` (new
+  exports).
+- **Reason.** Third round of the pass recorded in
+  `docs/dev/2026-10-07-wager-causal-inference-review.md`
+  (`sp.mdp_policy_value`, `sp.marginal_policy_effect`,
+  `sp.contextual_bandit` and options on four existing functions). No
+  estimator on a Track A or original-data path changed.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes. Each of the eleven modules was rerun before the re-record and
+  reproduces its committed result byte for byte; in both trace files only
+  `exercised_sources` digests and `seconds` differ. The registry census
+  the paper quotes moves to 1,559 registered functions across 90
+  submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
