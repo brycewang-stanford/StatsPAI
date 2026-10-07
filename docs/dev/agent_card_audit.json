@@ -4,8 +4,8 @@
   "n_functions": 60,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 404,
-    "precondition": 48,
+    "ok": 425,
+    "precondition": 55,
     "rejected": 0
   },
   "functions": [
@@ -44,6 +44,9 @@
             "status": "ok"
           },
           "hc3": {
+            "status": "ok"
+          },
+          "hc4": {
             "status": "ok"
           },
           "hac": {
@@ -446,6 +449,9 @@
           "kernel": {
             "status": "ok"
           },
+          "ker": {
+            "status": "ok"
+          },
           "cluster": {
             "status": "precondition",
             "error": "MethodIncompatibility: qreg: vce='cluster' needs a cluster column.\n  -> recovery: Pass cluster='<column>' or vce='cluster <column>'."
@@ -822,6 +828,17 @@
             "status": "ok"
           },
           "varying": {
+            "status": "ok"
+          }
+        },
+        "balance": {
+          "pair": {
+            "status": "ok"
+          },
+          "full": {
+            "status": "ok"
+          },
+          "none": {
             "status": "ok"
           }
         },
@@ -1621,9 +1638,6 @@
           "classic": {
             "status": "ok"
           },
-          "ridge": {
-            "status": "ok"
-          },
           "classic_adh": {
             "status": "ok"
           },
@@ -1631,6 +1645,9 @@
             "status": "ok"
           },
           "penalized": {
+            "status": "ok"
+          },
+          "ridge": {
             "status": "ok"
           },
           "demeaned": {
@@ -2180,6 +2197,9 @@
           "optimal": {
             "status": "ok"
           },
+          "full": {
+            "status": "ok"
+          },
           "genmatch": {
             "status": "ok"
           },
@@ -2236,10 +2256,10 @@
           }
         },
         "ties": {
-          "first": {
+          "all": {
             "status": "ok"
           },
-          "all": {
+          "first": {
             "status": "ok"
           }
         },
@@ -2410,6 +2430,19 @@
             "status": "precondition",
             "error": "MethodIncompatibility: se_method='sandwich' is the stacked M-estimation variance of the full-sample parametric AIPW ATE; it requires cross_fit=False and estimand='"
           }
+        },
+        "outcome_model": {
+          "linear": {
+            "status": "ok"
+          },
+          "logit": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: aipw: outcome_model='logit' needs an outcome in [0, 1]."
+          },
+          "poisson": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: aipw: outcome_model='poisson' needs a non-negative outcome."
+          }
         }
       },
       "alternatives": [
@@ -2464,6 +2497,39 @@
             "status": "ok"
           },
           "ATT": {
+            "status": "ok"
+          },
+          "ATC": {
+            "status": "ok"
+          },
+          "EY1": {
+            "status": "ok"
+          },
+          "EY0": {
+            "status": "ok"
+          },
+          "RR": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: tmle: estimand='RR' is not defined for this outcome: the ratio needs a non-negative outcome with positive targeted means, and the odds ratio"
+          },
+          "OR": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: tmle: estimand='OR' is not defined for this outcome: the ratio needs a non-negative outcome with positive targeted means, and the odds ratio"
+          }
+        },
+        "fluctuation": {
+          "single": {
+            "status": "ok"
+          },
+          "per_arm": {
+            "status": "ok"
+          }
+        },
+        "se_method": {
+          "influence": {
+            "status": "ok"
+          },
+          "bootstrap": {
             "status": "ok"
           }
         }
@@ -2614,6 +2680,9 @@
           "cloglog": {
             "status": "ok"
           },
+          "cauchit": {
+            "status": "ok"
+          },
           "power": {
             "status": "ok"
           },
@@ -2650,7 +2719,7 @@
       ],
       "provenance": {
         "family": 5,
-        "docstring": 2
+        "docstring": 3
       }
     },
     {
@@ -2769,6 +2838,14 @@
             "status": "ok"
           },
           "normal": {
+            "status": "ok"
+          }
+        },
+        "absorb_dof": {
+          "reghdfe": {
+            "status": "ok"
+          },
+          "areg": {
             "status": "ok"
           }
         }
@@ -3136,11 +3213,28 @@
           },
           "logit": {
             "status": "precondition",
-            "error": "MethodIncompatibility: mediate: interaction=True and a non-linear mediator_model are estimated from potential-outcome means, which needs inference='robust'.\n  -> r"
+            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
           },
           "probit": {
             "status": "precondition",
-            "error": "MethodIncompatibility: mediate: interaction=True and a non-linear mediator_model are estimated from potential-outcome means, which needs inference='robust'.\n  -> r"
+            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+          }
+        },
+        "outcome_model": {
+          "linear": {
+            "status": "ok"
+          },
+          "logit": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+          },
+          "probit": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+          },
+          "poisson": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
           }
         }
       },
@@ -3424,6 +3518,17 @@
             "status": "ok"
           },
           "tsls": {
+            "status": "ok"
+          }
+        },
+        "vce": {
+          "hc3": {
+            "status": "ok"
+          },
+          "hc2": {
+            "status": "ok"
+          },
+          "hc1": {
             "status": "ok"
           }
         }

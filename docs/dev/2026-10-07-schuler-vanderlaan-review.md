@@ -175,13 +175,28 @@ Bryce delegated the decisions. What was done with each.
 5. The stability-audit failure on main (`mswitch_lrtest`, `tvp_var_sv`)
    was fixed by the line that owned it before this round started.
 
+## Third round (same day)
+
+- `se_method='bootstrap'` now works with `fold_indices`: a copy of a row
+  keeps that row's fold.
+- `sp.hal_tmle` accepts every estimand of `sp.tmle`.
+- `sp.aipw(outcome_model='logit' | 'poisson')`. Section 4.2 notes that a
+  bias-corrected estimator can leave the range of the parameter; a linear
+  outcome regression for a binary outcome makes that worse than it has to
+  be. Reference is Stata 18 `teffects aipw (y x, logit | poisson) (d x)`:
+  ATE, both potential-outcome means and their standard errors agree to
+  4e-9 in three designs. `teffects aipw` refuses `[pw=]`; the weighted row
+  uses `[iw=]` with one cluster per row, the convention already pinned in
+  `test_teffects_design_stata_parity.py`. Grade: T2.
+
 ## Still open
 
-- No remedy for the *point estimate* under weak overlap is needed on the
-  evidence above, but the bootstrap interval is still short of nominal for
-  the ATT (0.90). Collaborative TMLE is the literature's answer and is not
-  implemented.
-- `se_method='bootstrap'` is not available with `fold_indices`.
+- The bootstrap interval is still a little short of nominal for the ATT
+  under weak overlap (0.90 to 0.92). Collaborative TMLE is the
+  literature's answer. It is a sizeable estimator in its own right, the
+  reference package is not installed here, and it was not attempted.
+- `sp.aipw` has no probit outcome model (non-canonical link; the stacked
+  sandwich would need the general score).
 - The second edition's exercises on estimand-restricted models have no
   counterpart and little practical use, as the book says itself.
 

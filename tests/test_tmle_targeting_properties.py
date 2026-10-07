@@ -323,9 +323,29 @@ def test_bootstrap_refuses_what_it_cannot_resample() -> None:
             g1W=0.5,
             se_method="bootstrap",
         )
-    with pytest.raises(MethodIncompatibility, match="fold_indices"):
-        _fit(df, se_method="bootstrap", fold_indices=np.arange(200) % 4)
     with pytest.raises(MethodIncompatibility, match="at least 20"):
         _fit(df, se_method="bootstrap", n_boot=5)
     with pytest.raises(MethodIncompatibility, match="se_method"):
         _fit(df, se_method="jackknife")
+
+
+def test_bootstrap_with_cv_tmle_keeps_copies_in_one_fold() -> None:
+    df = _data(n=400, seed=9, binary=False)
+    folds = np.arange(len(df)) % 4
+    plain = _fit(df, fold_indices=folds)
+    boot = _fit(df, fold_indices=folds, se_method="bootstrap", n_boot=40)
+    assert boot.estimate == plain.estimate
+    assert boot.model_info["cross_fitted"] and boot.model_info["n_boot_failed"] == 0
+    assert 0.6 < boot.se / plain.se < 1.6
+
+
+@pytest.mark.parametrize("estimand", ["ATC", "RR"])
+def test_hal_tmle_passes_the_estimand_through(estimand: str) -> None:
+    df = _data(n=300, seed=10)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        hal = sp.hal_tmle(df, y="y", treat="a", covariates=COV, estimand=estimand)
+    assert hal.estimand == estimand
+    assert abs(hal.model_info["influence_function"].mean()) < 1e-8
+    with pytest.raises(ValueError, match="estimand"):
+        sp.hal_tmle(df, y="y", treat="a", covariates=COV, estimand="x")

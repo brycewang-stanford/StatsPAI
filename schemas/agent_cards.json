@@ -8473,7 +8473,7 @@
           },
           "se_method": {
             "default": "influence",
-            "description": "'influence': sd of the efficient influence function over sqrt(n); too small when propensities approach 0 or 1. 'bootstrap': refit everything on n_boot resamples of rows (of clusters with cluster=); SE is the sd of the estimates, CI their percentile interval. Costs n_boot fits. Not with Q / g1W or fold_indices.",
+            "description": "'influence': sd of the efficient influence function over sqrt(n); too small when propensities approach 0 or 1. 'bootstrap': refit everything on n_boot resamples of rows (of clusters with cluster=); SE is the sd of the estimates, CI their percentile interval. Costs n_boot fits. Not with Q / g1W.",
             "enum": [
               "influence",
               "bootstrap"
@@ -48456,10 +48456,15 @@
           },
           "estimand": {
             "default": "ATE",
-            "description": "Estimand",
+            "description": "Any estimand of sp.tmle (RR needs a non-negative outcome, OR one in [0, 1])",
             "enum": [
               "ATE",
-              "ATT"
+              "ATT",
+              "ATC",
+              "EY1",
+              "EY0",
+              "RR",
+              "OR"
             ],
             "type": "string"
           },
@@ -64116,6 +64121,16 @@
             "description": "Cross-fitting folds (>= 2)",
             "type": "integer"
           },
+          "outcome_model": {
+            "default": "linear",
+            "description": "Per-arm outcome regression: least squares, a logit (outcome in [0, 1]) or a Poisson regression (non-negative outcome), by maximum likelihood. Stata teffects aipw (y x, logit | poisson); se_method='sandwich' stacks the score of the chosen model.",
+            "enum": [
+              "linear",
+              "logit",
+              "poisson"
+            ],
+            "type": "string"
+          },
           "propensity": {
             "description": "Known treatment probability: one number, or a column of per-unit design probabilities (randomised trials). No propensity model is fitted and nothing is clipped. Not with se_method='sandwich'.",
             "type": "number"
@@ -64169,8 +64184,8 @@
       "Cross-language parity (bit-exact) vs Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) [AIPW 0.6.9.3, R version 4.5.2 (2025-10-31), Stata 18, SuperLearner 2.0.40]; tolerance 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_ness_causal_ai.py",
-      "tests/reference_parity/test_causal_gap_known_values.py",
-      "tests/reference_parity/test_paper_parity.py"
+      "tests/reference_parity/test_aipw_outcome_models_stata_parity.py",
+      "tests/reference_parity/test_causal_gap_known_values.py"
     ],
     "validation_status": "certified"
   },

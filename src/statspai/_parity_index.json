@@ -307,6 +307,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_ness_causal_ai.py",
+        "tests/reference_parity/test_aipw_outcome_models_stata_parity.py",
         "tests/reference_parity/test_causal_gap_known_values.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",

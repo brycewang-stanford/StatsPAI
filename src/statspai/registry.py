@@ -6470,7 +6470,7 @@ def _build_registry() -> None:
                     "'bootstrap': refit everything on n_boot resamples of rows "
                     "(of clusters with cluster=); SE is the sd of the "
                     "estimates, CI their percentile interval. Costs n_boot "
-                    "fits. Not with Q / g1W or fold_indices.",
+                    "fits. Not with Q / g1W.",
                     enum=["influence", "bootstrap"],
                 ),
                 ParamSpec(
@@ -22886,7 +22886,15 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("max_anchors_per_col", "int", False, 40),
                 ParamSpec("n_folds", "int", False, 5),
-                ParamSpec("estimand", "str", False, "ATE", "Estimand", ["ATE", "ATT"]),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "Any estimand of sp.tmle (RR needs a non-negative "
+                    "outcome, OR one in [0, 1])",
+                    ["ATE", "ATT", "ATC", "EY1", "EY0", "RR", "OR"],
+                ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("random_state", "int", False, 42),
             ],
@@ -30150,6 +30158,18 @@ def _build_registry() -> None:
                     "textbook AIPW formula. The number clipped is in "
                     "model_info['n_propensity_clipped'] and a warning is "
                     "issued when it is positive.",
+                ),
+                ParamSpec(
+                    "outcome_model",
+                    "str",
+                    False,
+                    "linear",
+                    "Per-arm outcome regression: least squares, a logit "
+                    "(outcome in [0, 1]) or a Poisson regression (non-negative "
+                    "outcome), by maximum likelihood. Stata teffects aipw "
+                    "(y x, logit | poisson); se_method='sandwich' stacks the "
+                    "score of the chosen model.",
+                    ["linear", "logit", "poisson"],
                 ),
             ],
             returns="CausalResult",

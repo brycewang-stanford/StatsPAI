@@ -192,8 +192,9 @@ def tmle(
         the rows (of whole clusters with ``cluster=``); the standard error
         is the standard deviation of the resampled estimates and the
         interval their percentile interval (92% and 90% in the same
-        simulation). It costs ``n_boot`` fits. Not with ``Q`` / ``g1W`` or
-        ``fold_indices``.
+        simulation). It costs ``n_boot`` fits. Not with ``Q`` / ``g1W``.
+        With ``fold_indices`` every copy of a row keeps that row's fold,
+        so no resampled row is predicted by a model that saw its twin.
     n_boot : int, default 200
         Number of bootstrap resamples.
     cluster : str, optional
@@ -518,13 +519,6 @@ class TMLE:
                     "every resample; with Q / g1W supplied there is nothing to "
                     "refit and their sampling error would be left out.",
                     recovery_hint="Drop Q / g1W, or use se_method='influence'.",
-                )
-            if fold_indices is not None:
-                raise MethodIncompatibility(
-                    "tmle: se_method='bootstrap' is not implemented with "
-                    "fold_indices; a resample repeats rows, and copies of one "
-                    "row would land in different folds.",
-                    recovery_hint="Drop fold_indices or use se_method='influence'.",
                 )
             if int(n_boot) < 20:
                 raise MethodIncompatibility(

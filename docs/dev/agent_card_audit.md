@@ -6,23 +6,23 @@ Each card is checked against a real call on small data: the required arguments, 
 
 - functions audited: **60**
 - functions with a card defect: **0**
-- enum values tried: **452** (404 accepted, 48 need a precondition, 0 refused by the function)
+- enum values tried: **480** (425 accepted, 55 need a precondition, 0 refused by the function)
 
 `precondition` means the call failed for a reason other than the value itself: it needs other arguments, other data or an optional package. Those are listed below so the card can say what the value needs. `rejected` means the schema advertises a value the function does not accept, which is a defect.
 
 | Function | Result class | Enum values ok / precondition / rejected | Card fields curated / inherited / other | Defects |
 | --- | --- | ---: | ---: | --- |
-| `regress` | EconometricResults | 8 / 0 / 0 | 8 / 0 / 0 | none |
+| `regress` | EconometricResults | 9 / 0 / 0 | 8 / 0 / 0 | none |
 | `ivreg` | EconometricResults | 0 / 0 / 0 | 3 / 0 / 6 | none |
 | `iv` | EconometricResults | 16 / 15 / 0 | 10 / 0 / 0 | none |
 | `logit` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
 | `probit` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
 | `poisson` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 8 | none |
-| `qreg` | QuantileRegressionResult | 7 / 1 / 0 | 7 / 0 / 0 | none |
+| `qreg` | QuantileRegressionResult | 8 / 1 / 0 | 7 / 0 / 0 | none |
 | `feols` | EconometricResults | 4 / 0 / 0 | 8 / 0 / 2 | none |
 | `panel` | PanelResults | 12 / 0 / 0 | 8 / 0 / 0 | none |
 | `did` | CausalResult | 17 / 3 / 0 | 10 / 0 / 0 | none |
-| `callaway_santanna` | CausalResult | 17 / 0 / 0 | 5 / 0 / 5 | none |
+| `callaway_santanna` | CausalResult | 20 / 0 / 0 | 5 / 0 / 5 | none |
 | `sun_abraham` | CausalResult | 9 / 0 / 0 | 5 / 0 / 5 | none |
 | `did_imputation` | CausalResult | 8 / 0 / 0 | 5 / 0 / 5 | none |
 | `gardner_did` | CausalResult | 4 / 0 / 0 | 6 / 0 / 4 | none |
@@ -38,14 +38,14 @@ Each card is checked against a real call on small data: the required arguments, 
 | `metalearner` | CausalResult | 5 / 0 / 0 | 8 / 0 / 0 | none |
 | `causal_forest` | CausalForest | 2 / 3 / 0 | 8 / 0 / 0 | none |
 | `psm` | CausalResult | 0 / 0 / 0 | 0 / 0 / 6 | none |
-| `match` | CausalResult | 36 / 1 / 0 | 9 / 0 / 0 | none |
+| `match` | CausalResult | 37 / 1 / 0 | 9 / 0 / 0 | none |
 | `ipw` | CausalResult | 7 / 0 / 0 | 3 / 0 / 5 | none |
-| `aipw` | CausalResult | 3 / 1 / 0 | 8 / 0 / 0 | none |
-| `tmle` | CausalResult | 2 / 0 / 0 | 8 / 0 / 0 | none |
+| `aipw` | CausalResult | 4 / 3 / 0 | 8 / 0 / 0 | none |
+| `tmle` | CausalResult | 9 / 2 / 0 | 8 / 0 / 0 | none |
 | `nbreg` | EconometricResults | 6 / 0 / 0 | 8 / 0 / 0 | none |
-| `glm` | EconometricResults | 18 / 0 / 0 | 0 / 0 / 7 | none |
+| `glm` | EconometricResults | 19 / 0 / 0 | 0 / 0 / 8 | none |
 | `ppmlhdfe` | EconometricResults | 4 / 0 / 0 | 1 / 0 / 9 | none |
-| `hdfe_ols` | FEOLSResult | 13 / 0 / 0 | 7 / 0 / 2 | none |
+| `hdfe_ols` | FEOLSResult | 15 / 0 / 0 | 7 / 0 / 2 | none |
 | `ologit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
 | `mlogit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
 | `tobit` | LimitedDepResult | 2 / 0 / 0 | 8 / 0 / 0 | none |
@@ -53,12 +53,12 @@ Each card is checked against a real call on small data: the required arguments, 
 | `fepois` | EconometricResults | 0 / 0 / 0 | 6 / 0 / 2 | none |
 | `feglm` | EconometricResults | 3 / 0 / 0 | 0 / 0 / 7 | none |
 | `heckman` | LimitedDepResult | 3 / 0 / 0 | 3 / 0 / 4 | none |
-| `mediate` | CausalResult | 4 / 2 / 0 | 8 / 0 / 0 | none |
+| `mediate` | CausalResult | 5 / 5 / 0 | 8 / 0 / 0 | none |
 | `oaxaca` | OaxacaResult | 3 / 0 / 0 | 5 / 0 / 3 | none |
 | `ebalance` | CausalResult | 2 / 0 / 0 | 0 / 0 / 7 | none |
 | `cbps` | CausalResult | 4 / 0 / 0 | 0 / 0 / 7 | none |
 | `lee_bounds` | CausalResult | 5 / 0 / 0 | 0 / 0 / 7 | none |
-| `rdrandinf` | CausalResult | 2 / 0 / 0 | 6 / 0 / 4 | none |
+| `rdrandinf` | CausalResult | 5 / 0 / 0 | 6 / 0 / 4 | none |
 | `rd_honest` | CausalResult | 8 / 0 / 0 | 4 / 0 / 6 | none |
 | `wooldridge_did` | CausalResult | 0 / 0 / 0 | 10 / 0 / 0 | none |
 | `lp_did` | CausalResult | 2 / 0 / 0 | 9 / 0 / 0 | none |
@@ -115,8 +115,15 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.causal_forest(split_rule='cffe')`: MethodIncompatibility: CausalForest: split_rule='cffe' is the tau-heterogeneity criterion of a causal forest with fixed effects. -> recovery: Pass fe='twoway' (w
 - `sp.match(method='radius')`: MethodIncompatibility: match: radius matching requires caliper > 0 (the radius bandwidth)
 - `sp.aipw(se_method='sandwich')`: MethodIncompatibility: se_method='sandwich' is the stacked M-estimation variance of the full-sample parametric AIPW ATE; it requires cross_fit=False and estimand='
-- `sp.mediate(mediator_model='logit')`: MethodIncompatibility: mediate: interaction=True and a non-linear mediator_model are estimated from potential-outcome means, which needs inference='robust'. -> r
-- `sp.mediate(mediator_model='probit')`: MethodIncompatibility: mediate: interaction=True and a non-linear mediator_model are estimated from potential-outcome means, which needs inference='robust'. -> r
+- `sp.aipw(outcome_model='logit')`: MethodIncompatibility: aipw: outcome_model='logit' needs an outcome in [0, 1].
+- `sp.aipw(outcome_model='poisson')`: MethodIncompatibility: aipw: outcome_model='poisson' needs a non-negative outcome.
+- `sp.tmle(estimand='RR')`: MethodIncompatibility: tmle: estimand='RR' is not defined for this outcome: the ratio needs a non-negative outcome with positive targeted means, and the odds ratio
+- `sp.tmle(estimand='OR')`: MethodIncompatibility: tmle: estimand='OR' is not defined for this outcome: the ratio needs a non-negative outcome with positive targeted means, and the odds ratio
+- `sp.mediate(mediator_model='logit')`: MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which
+- `sp.mediate(mediator_model='probit')`: MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which
+- `sp.mediate(outcome_model='logit')`: MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which
+- `sp.mediate(outcome_model='probit')`: MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which
+- `sp.mediate(outcome_model='poisson')`: MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which
 - `sp.did_multiplegt_dyn(switchers='out')`: DataInsufficient: No switcher could be matched with a control at any horizon: every event needs at least one unit that has not switched by the horizon's ancho
 - `sp.fect(method='ife')`: MethodIncompatibility: method='ife' needs r >= 1 factors (or cv=True) -> recovery: Pass r=1 (or more), or cv=True to choose r by cross-validation.
 - `sp.fect(method='mc')`: MethodIncompatibility: method='mc' needs a positive nuclear-norm penalty lam= (or cv=True) -> recovery: Pass lam= (a positive number), or cv=True to choose it by

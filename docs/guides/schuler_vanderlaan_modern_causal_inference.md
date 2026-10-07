@@ -37,7 +37,11 @@ plug-in bias.
 | 4.5 inference | variance of the estimated influence function over `n` | every function above; `model_info['influence_function']` on `sp.tmle` |
 
 For the ATE the one-step and estimating-equation estimators are the same
-formula, which is why one function serves both rows.
+formula, which is why one function serves both rows. `sp.aipw` fits a
+logit propensity and per-arm outcome regressions that are linear by
+default; `outcome_model='logit'` or `'poisson'` keeps the fitted
+regression inside the range of a binary or count outcome, as Stata
+`teffects aipw (y x, logit)` does.
 
 ```python
 import numpy as np, pandas as pd, statspai as sp

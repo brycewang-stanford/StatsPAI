@@ -4058,7 +4058,7 @@
         },
         "se_method": {
           "default": "influence",
-          "description": "'influence': sd of the efficient influence function over sqrt(n); too small when propensities approach 0 or 1. 'bootstrap': refit everything on n_boot resamples of rows (of clusters with cluster=); SE is the sd of the estimates, CI their percentile interval. Costs n_boot fits. Not with Q / g1W or fold_indices.",
+          "description": "'influence': sd of the efficient influence function over sqrt(n); too small when propensities approach 0 or 1. 'bootstrap': refit everything on n_boot resamples of rows (of clusters with cluster=); SE is the sd of the estimates, CI their percentile interval. Costs n_boot fits. Not with Q / g1W.",
           "enum": [
             "influence",
             "bootstrap"
@@ -20800,10 +20800,15 @@
         },
         "estimand": {
           "default": "ATE",
-          "description": "Estimand",
+          "description": "Any estimand of sp.tmle (RR needs a non-negative outcome, OR one in [0, 1])",
           "enum": [
             "ATE",
-            "ATT"
+            "ATT",
+            "ATC",
+            "EY1",
+            "EY0",
+            "RR",
+            "OR"
           ],
           "type": "string"
         },
@@ -27852,6 +27857,16 @@
           "default": 5,
           "description": "Cross-fitting folds (>= 2)",
           "type": "integer"
+        },
+        "outcome_model": {
+          "default": "linear",
+          "description": "Per-arm outcome regression: least squares, a logit (outcome in [0, 1]) or a Poisson regression (non-negative outcome), by maximum likelihood. Stata teffects aipw (y x, logit | poisson); se_method='sandwich' stacks the score of the chosen model.",
+          "enum": [
+            "linear",
+            "logit",
+            "poisson"
+          ],
+          "type": "string"
         },
         "propensity": {
           "description": "Known treatment probability: one number, or a column of per-unit design probabilities (randomised trials). No propensity model is fitted and nothing is clipped. Not with se_method='sandwich'.",

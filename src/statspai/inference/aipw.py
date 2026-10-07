@@ -37,6 +37,8 @@ from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, MethodIncompatibility
 
+_OUTCOME_MODELS = ("linear", "logit", "poisson")
+
 
 @accepts_aliases(_strict=True, controls="covariates")
 @_expands_categorical("covariates")
@@ -55,6 +57,7 @@ def aipw(
     cluster: Optional[str] = None,
     propensity: Optional[Union[float, str]] = None,
     trim: float = 0.01,
+    outcome_model: str = "linear",
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -154,6 +157,16 @@ def aipw(
         .. versionchanged:: 1.39.0
            The bound was fixed at 0.01 and could not be changed, and
            ``n_propensity_clipped`` always read 0.
+    outcome_model : {'linear', 'logit', 'poisson'}, default 'linear'
+        The per-arm outcome regression: least squares, a logit for a
+        binary (or fractional) outcome, or a Poisson regression with a log
+        link for a non-negative one, each fitted by maximum likelihood.
+        These are the ``logit`` and ``poisson`` outcome models of Stata
+        ``teffects aipw (y x, logit) (d x)``. With a binary outcome the
+        linear model can predict outside [0, 1]; the logit cannot, though
+        the AIPW estimate itself is still not a plug-in and is not
+        confined to the range (``sp.tmle`` is). ``se_method='sandwich'``
+        stacks the score of the chosen model.
 
     Returns
     -------
@@ -222,6 +235,11 @@ def aipw(
             "cross_fit=False and estimand='ATE'.",
             recovery_hint="Use se_method='influence'.",
         )
+    if outcome_model not in _OUTCOME_MODELS:
+        raise MethodIncompatibility(
+            f"aipw: outcome_model must be one of {_OUTCOME_MODELS}, got "
+            f"{outcome_model!r}"
+        )
     if propensity is not None and se_method == "sandwich":
         raise MethodIncompatibility(
             "aipw: se_method='sandwich' stacks the score of a fitted "
@@ -253,6 +271,16 @@ def aipw(
 
     if not set(np.unique(D)).issubset({0, 1}):
         raise ValueError("Treatment must be binary (0/1)")
+    if outcome_model == "logit" and (Y.min() < 0 or Y.max() > 1):
+        raise MethodIncompatibility(
+            "aipw: outcome_model='logit' needs an outcome in [0, 1].",
+            diagnostics={"min": float(Y.min()), "max": float(Y.max())},
+        )
+    if outcome_model == "poisson" and Y.min() < 0:
+        raise MethodIncompatibility(
+            "aipw: outcome_model='poisson' needs a non-negative outcome.",
+            diagnostics={"min": float(Y.min())},
+        )
 
     # Sampling weights normalised to mean one (their scale is irrelevant);
     # ``None`` keeps the unweighted path byte-identical to earlier releases.
@@ -314,10 +342,10 @@ def aipw(
         # Outcome regressions (OLS on treated and control separately)
         t1, t0 = D_tr == 1, D_tr == 0
         mu1_hat[test_mask] = _fit_outcome(
-            X_tr[t1], Y_tr[t1], X_te, None if w_tr is None else w_tr[t1]
+            X_tr[t1], Y_tr[t1], X_te, None if w_tr is None else w_tr[t1], outcome_model
         )
         mu0_hat[test_mask] = _fit_outcome(
-            X_tr[t0], Y_tr[t0], X_te, None if w_tr is None else w_tr[t0]
+            X_tr[t0], Y_tr[t0], X_te, None if w_tr is None else w_tr[t0], outcome_model
         )
 
     # Clip propensity scores (a design probability is used as given)
@@ -382,7 +410,16 @@ def aipw(
                     stacklevel=2,
                 )
             if_1, if_0 = _aipw_stacked_if(
-                X, D, Y, e_hat, mu1_hat, mu0_hat, phi1 - m1, phi0 - m0, omega
+                X,
+                D,
+                Y,
+                e_hat,
+                mu1_hat,
+                mu0_hat,
+                phi1 - m1,
+                phi0 - m0,
+                omega,
+                outcome_model,
             )
             if design_based:
                 se = _se_of(if_1 - if_0)
@@ -442,6 +479,7 @@ def aipw(
         "weights": weights,
         "cluster": cluster,
         "propensity": "known" if e_known is not None else "logit",
+        "outcome_model": outcome_model,
         "n_clusters": None if groups is None else int(groups.max() + 1),
         # Provenance for the cross-fitting split: None means the caller
         # explicitly opted into a fresh entropy-seeded split, so this
@@ -480,6 +518,7 @@ def aipw(
                 "weights": weights,
                 "cluster": cluster,
                 "propensity": propensity,
+                "outcome_model": outcome_model,
             },
             data=data,
             overwrite=False,
@@ -499,6 +538,7 @@ def _aipw_stacked_if(
     phi1_c: np.ndarray,
     phi0_c: np.ndarray,
     omega: Optional[np.ndarray] = None,
+    outcome_model: str = "linear",
 ) -> tuple:
     """Influence functions of the two AIPW potential-outcome means.
 
@@ -515,20 +555,31 @@ def _aipw_stacked_if(
     is ``mean(omega_i psi_i) = 0``: each Jacobian becomes an
     ``omega``-weighted mean and each influence row carries its
     ``omega_i`` (the pweight sandwich of Stata ``teffects ... [pw=]``).
+
+    For a logit or Poisson outcome model the link is canonical, so the
+    score is still ``x (Y - mu)``; the Hessian and the derivative of the
+    AIPW moment with respect to the coefficients pick up the variance
+    function ``d mu / d eta`` (``mu (1 - mu)`` and ``mu``).
     """
     n = len(Y)
     om = np.ones(n) if omega is None else omega
     Xc = np.column_stack([np.ones(n), X])
     r1, r0 = Y - mu1, Y - mu0
     w = e * (1 - e)
+    if outcome_model == "logit":
+        v1, v0 = mu1 * (1 - mu1), mu0 * (1 - mu0)
+    elif outcome_model == "poisson":
+        v1, v0 = mu1, mu0
+    else:
+        v1 = v0 = np.ones(n)
     if_gamma = np.linalg.solve(
         (Xc * (om * w)[:, None]).T @ Xc / n, (Xc * (om * (D - e))[:, None]).T
     ).T
     if_b1 = np.linalg.solve(
-        (Xc * (om * D)[:, None]).T @ Xc / n, (Xc * (om * D * r1)[:, None]).T
+        (Xc * (om * D * v1)[:, None]).T @ Xc / n, (Xc * (om * D * r1)[:, None]).T
     ).T
     if_b0 = np.linalg.solve(
-        (Xc * (om * (1 - D))[:, None]).T @ Xc / n,
+        (Xc * (om * (1 - D) * v0)[:, None]).T @ Xc / n,
         (Xc * (om * (1 - D) * r0)[:, None]).T,
     ).T
     # d/d gamma of D r1 / e is -D r1 (1 - e) / e * x; of (1-D) r0 / (1-e)
@@ -536,8 +587,8 @@ def _aipw_stacked_if(
     # x (1 - D / e) and x (1 - (1-D) / (1-e)).
     g1 = (Xc * (om * -D * r1 * (1 - e) / e)[:, None]).mean(axis=0)
     g0 = (Xc * (om * (1 - D) * r0 * e / (1 - e))[:, None]).mean(axis=0)
-    b1 = (Xc * (om * (1 - D / e))[:, None]).mean(axis=0)
-    b0 = (Xc * (om * (1 - (1 - D) / (1 - e)))[:, None]).mean(axis=0)
+    b1 = (Xc * (om * v1 * (1 - D / e))[:, None]).mean(axis=0)
+    b0 = (Xc * (om * v0 * (1 - (1 - D) / (1 - e)))[:, None]).mean(axis=0)
     if_1 = om * phi1_c + if_gamma @ g1 + if_b1 @ b1
     if_0 = om * phi0_c + if_gamma @ g0 + if_b0 @ b0
     return if_1, if_0
@@ -587,8 +638,9 @@ def _fit_outcome(
     Y_train: np.ndarray,
     X_test: np.ndarray,
     w_train: Optional[np.ndarray] = None,
+    model: str = "linear",
 ) -> np.ndarray:
-    """OLS outcome regression (WLS if ``w_train``)."""
+    """Outcome regression: OLS, or a logit / Poisson GLM (weighted if given)."""
     if len(X_train) < 3:
         return np.full(len(X_test), np.mean(Y_train) if len(Y_train) > 0 else 0)
     try:
@@ -596,6 +648,14 @@ def _fit_outcome(
 
         X_tr = sm.add_constant(X_train)
         X_te = sm.add_constant(X_test)
+        if model != "linear":
+            family = (
+                sm.families.Binomial() if model == "logit" else sm.families.Poisson()
+            )
+            glm = sm.GLM(Y_train, X_tr, family=family, freq_weights=w_train).fit(
+                tol=1e-13, maxiter=300
+            )
+            return np.asarray(glm.predict(X_te), dtype=float)
         ols = (
             sm.OLS(Y_train, X_tr)
             if w_train is None

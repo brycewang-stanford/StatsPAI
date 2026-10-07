@@ -314,6 +314,18 @@ Guide: `docs/guides/schuler_vanderlaan_modern_causal_inference.md`.
   92% and 90%. The bootstrap resamples whole clusters with `cluster=`,
   covers every row of `result.detail`, and keeps the analytic values in
   `model_info['se_influence']`. The weak-overlap warning now points to it.
+- **`sp.aipw(outcome_model='logit' | 'poisson')`.** The per-arm outcome
+  regression can be a logit or a Poisson regression fitted by maximum
+  likelihood, the `logit` and `poisson` outcome models of Stata
+  `teffects aipw`. With `cross_fit=False, se_method='sandwich'` the ATE,
+  both potential-outcome means and their standard errors agree with Stata
+  18 to 4e-9, plain, clustered and with sampling weights
+  (`tests/reference_parity/test_aipw_outcome_models_stata_parity.py`). A
+  linear model for a rare binary outcome predicts negative risks; the
+  logit does not.
+- **`se_method='bootstrap'` also works with `fold_indices`** (CV-TMLE):
+  every copy of a resampled row keeps that row's fold. `sp.hal_tmle`
+  accepts every estimand of `sp.tmle`.
 - **`sp.tmle(weights=)` with `estimand='ATT'` / `'ATC'`.** Previously
   refused. Every empirical mean, the treated share included, becomes a
   weighted one. Integer weights reproduce row replication to 1e-9.

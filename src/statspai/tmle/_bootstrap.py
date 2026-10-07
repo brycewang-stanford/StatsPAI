@@ -51,8 +51,12 @@ def bootstrap_inference(result: CausalResult, est: Any) -> None:
 
     design = [c for c in (est.weights, est.cluster) if c is not None]
     cols = list(dict.fromkeys([est.y, est.treat] + list(est.covariates) + design))
+    keep = est.data[cols].notna().all(axis=1).to_numpy()
     clean = est.data[cols].dropna().reset_index(drop=True)
     n = len(clean)
+    # CV-TMLE: a copy of a row stays in that row's fold, so the model that
+    # predicts it has seen neither it nor its copies.
+    folds = None if est.fold_indices is None else np.asarray(est.fold_indices)[keep]
     rng = np.random.default_rng(est.random_state)
     members: List[np.ndarray] = []
     if est.cluster is not None:
@@ -72,7 +76,8 @@ def bootstrap_inference(result: CausalResult, est: Any) -> None:
                 np.arange(len(pick)), [len(members[g]) for g in pick]
             )
         else:
-            sample = clean.iloc[rng.integers(0, n, n)].reset_index(drop=True)
+            idx = rng.integers(0, n, n)
+            sample = clean.iloc[idx].reset_index(drop=True)
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
@@ -90,6 +95,7 @@ def bootstrap_inference(result: CausalResult, est: Any) -> None:
                     random_state=est.random_state,
                     fluctuation=est.fluctuation,
                     q_bound=est.q_bound,
+                    fold_indices=None if folds is None else folds[idx],
                     weights=est.weights,
                     cluster=est.cluster,
                 ).fit()

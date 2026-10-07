@@ -564,7 +564,9 @@ def hal_tmle(
         quantile anchors are substituted.
     n_folds : int, default 5
         Cross-fitting folds passed to :func:`sp.tmle`.
-    estimand : {"ATE", "ATT"}, default "ATE"
+    estimand : str, default "ATE"
+        Any estimand of :func:`sp.tmle`: ``"ATE"``, ``"ATT"``, ``"ATC"``,
+        ``"EY1"``, ``"EY0"``, ``"RR"``, ``"OR"``.
     alpha : float, default 0.05
     propensity_bounds : tuple, default (0.025, 0.975)
         Truncation bounds for the propensity score.
@@ -622,8 +624,11 @@ def hal_tmle(
             f"variant must be 'delta' (got {variant!r}); "
             "'projection' is currently NotImplemented."
         )
-    if estimand not in {"ATE", "ATT"}:
-        raise ValueError("estimand must be 'ATE' or 'ATT'")
+    estimand = str(estimand).upper()
+    if estimand not in {"ATE", "ATT", "ATC", "EY1", "EY0", "RR", "OR"}:
+        raise ValueError(
+            "estimand must be one of 'ATE', 'ATT', 'ATC', 'EY1', 'EY0', 'RR', 'OR'"
+        )
 
     # Lazy import to avoid circular dependency at module load.
     from .tmle import tmle as _tmle
