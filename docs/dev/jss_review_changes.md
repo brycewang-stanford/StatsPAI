@@ -3368,7 +3368,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after `sp.ctmle` was exported
 
-- **Commits.** `3a7fb137` re-recorded the entries of Track A modules 03, 13,
+- **Commits.** `dca3a690` re-recorded the entries of Track A modules 03, 13,
   15, 24, 25, 26, 27, 53, 65, 66 and 72 in
   `tests/r_parity/results/_implementation_trace.json` and of
   original-data module 08 in
