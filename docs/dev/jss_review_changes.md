@@ -3365,3 +3365,23 @@ only the recorded source hashes move.
   `seconds` differ.
 - **Paths.**
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — call traces re-recorded after `sp.ctmle` was exported
+
+- **Commits.** `3a7fb137` re-recorded the entries of Track A modules 03, 13,
+  15, 24, 25, 26, 27, 53, 65, 66 and 72 in
+  `tests/r_parity/results/_implementation_trace.json` and of
+  original-data module 08 in
+  `tests/orig_parity/results/_implementation_trace.json`. The sources
+  that staled them are in the same commit: `src/statspai/__init__.py`
+  (one new import) and `src/statspai/tmle/__init__.py` (one new import;
+  the existing ones reordered by isort).
+- **Reason.** `sp.ctmle`, recorded in
+  `docs/dev/2026-10-07-schuler-vanderlaan-review.md`.
+- **Effect on the paper.** None. No estimation path changed; in both
+  trace files only `exercised_sources` digests and `seconds` differ. The
+  registry census the paper quotes moves to 1,562 registered functions
+  across 90 submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
