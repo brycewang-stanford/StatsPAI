@@ -271,7 +271,7 @@
    "result_sha256": "3eef9a448bc3efcf1ec7188d67a396cda48aad673999bda6a4f8a95581f6a58b"
   },
   "06_nhefs_ch12_ipw": {
-   "seconds": 3.66,
+   "seconds": 4.17,
    "error": null,
    "boundary_calls": [
     {
@@ -332,7 +332,7 @@
     "src/statspai/core/_validate.py": "a6aee38dde05a70009174627d849978a663755513aa52a56294a161ba75e5d62",
     "src/statspai/core/results.py": "5268c0274ace6b4aeb7ab94c6975f9933132efee67598af7f0be8ba07eacdffc",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
-    "src/statspai/inference/ipw.py": "e893fab6409795591d08c490e1224eb3943a426f7e13fd69a77ceff1081e6069",
+    "src/statspai/inference/ipw.py": "270b06497c1f8ee721443b1517d4a620cd33e49d035141fb49a5bf1009c4fc17",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
@@ -460,14 +460,14 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 4.06,
+   "seconds": 1.91,
    "error": null,
    "boundary_calls": [],
    "packages": [],
    "rscript_launches": 0,
    "subprocesses": [],
    "exercised_sources": {
-    "src/statspai/__init__.py": "478b440b697cf09fb166df9afbba02e9ad5591fa4a9a31bcc5b4c4f9005c7199",
+    "src/statspai/__init__.py": "7d16815a27e695ed539a7c635c92297db51bf17d5ee259620671709dfead0296",
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_result_serialize.py": "380cb2d8b5ed65cad656dd0cb2f0721f45e6b3977dd4a0d87568dff9a87b312b",
     "src/statspai/core/results.py": "5268c0274ace6b4aeb7ab94c6975f9933132efee67598af7f0be8ba07eacdffc",
@@ -565,7 +565,7 @@
    "result_sha256": "462bfbeb1e2d111c25a597e311a484d7e2efc75c968d1e6cc4361de50c63c960"
   },
   "10_nhefs_ch17_survival": {
-   "seconds": 4.05,
+   "seconds": 3.87,
    "error": null,
    "boundary_calls": [
     {
@@ -626,7 +626,7 @@
     "src/statspai/core/_validate.py": "a6aee38dde05a70009174627d849978a663755513aa52a56294a161ba75e5d62",
     "src/statspai/core/results.py": "5268c0274ace6b4aeb7ab94c6975f9933132efee67598af7f0be8ba07eacdffc",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
-    "src/statspai/inference/ipw.py": "e893fab6409795591d08c490e1224eb3943a426f7e13fd69a77ceff1081e6069",
+    "src/statspai/inference/ipw.py": "270b06497c1f8ee721443b1517d4a620cd33e49d035141fb49a5bf1009c4fc17",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
@@ -638,10 +638,10 @@
     "scikit-learn": "1.6.1"
    },
    "source_sha256": "9561cf1d2b29d444a5a23ca9f58b9aa66d5908495d775d10156a03bebbd1ddf1",
-   "result_sha256": "e62cb21d80f4866599ff4ad6fca3fdc2943693a612292779f9a415ea2e986c7e"
+   "result_sha256": "861b7e6615d6a2c91d93d4e18046fabce9f85f978111ddda148655d7b40a055c"
   },
   "11_nhefs_evalue": {
-   "seconds": 8.68,
+   "seconds": 9.01,
    "error": null,
    "boundary_calls": [
     {
@@ -703,7 +703,7 @@
     "src/statspai/core/results.py": "5268c0274ace6b4aeb7ab94c6975f9933132efee67598af7f0be8ba07eacdffc",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/diagnostics/evalue.py": "46ada28fab652e40a2bc844adc8e97741a7692776406c002ecfad6d18caa4786",
-    "src/statspai/inference/ipw.py": "e893fab6409795591d08c490e1224eb3943a426f7e13fd69a77ceff1081e6069",
+    "src/statspai/inference/ipw.py": "270b06497c1f8ee721443b1517d4a620cd33e49d035141fb49a5bf1009c4fc17",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },

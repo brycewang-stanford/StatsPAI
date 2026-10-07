@@ -99,7 +99,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `causal_text` | 1,768 | 4 | 4 |
 | `survey` | 1,746 | 5 | 9 |
 | `bcf` | 1,732 | 5 | 8 |
-| `selection` | 1,697 | 4 | 6 |
+| `selection` | 2,460 | 5 | 8 |
 | `fairness` | 1,489 | 3 | 9 |
 | `target_trial` | 1,475 | 7 | 9 |
 | `bunching` | 1,445 | 5 | 8 |
@@ -129,7 +129,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **632,703** | **1068** | **1559** |
+| **Total** | **632,703** | **1068** | **1561** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

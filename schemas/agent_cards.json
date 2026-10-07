@@ -23030,7 +23030,7 @@
           },
           "se_method": {
             "default": "bootstrap",
-            "description": "'sandwich' = teffects ipw robust M-estimation SE (needs normalize=True, trim=0)",
+            "description": "'sandwich' = teffects ipw robust M-estimation SE; also for normalize=False (Horvitz-Thompson) and trim > 0 (clipped scores held fixed)",
             "enum": [
               "bootstrap",
               "sandwich"

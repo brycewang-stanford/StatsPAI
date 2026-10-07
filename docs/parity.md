@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 431 |
+| **Compared against R/Stata** (T2) | bit-exact | 432 |
 | | aligned | 53 |
-| | **subtotal** | **484** |
+| | **subtotal** | **485** |
 | **No external software reference** | analytical-only (T1) | 390 |
 | | external-replication (published numbers) | 62 |
 | | **subtotal** | **452** |
-| No numerical evidence yet | unverified | 623 |
+| No numerical evidence yet | unverified | 624 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 484 | 919 | 938 | 51.6% |
+| estimator callables | 485 | 920 | 939 | 51.7% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
-| result / exception classes | 0 | 4 | 401 | 0.0% |
-| **all registered** | 484 | 936 | 1559 | 31.0% |
+| result / exception classes | 0 | 4 | 402 | 0.0% |
+| **all registered** | 485 | 937 | 1561 | 31.1% |
 
 ### Coverage by estimator family
 
@@ -53,7 +53,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
 | causal | 153 | 341 | 346 |
-| regression | 44 | 57 | 58 |
+| regression | 45 | 58 | 59 |
 | timeseries | 24 | 51 | 53 |
 | inference | 28 | 49 | 49 |
 | bayes | 12 | 47 | 49 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 431 functions
+## bit-exact — 432 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -234,6 +234,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `geweke_diag` | coda::geweke.diag | R 4.5.2; coda 0.19.4.1 | z-scores 1e-9 rel at (0.1, 0.5) and (0.2, 0.3) | — / — | [`test_bayes_mcmc_parity.py`](../tests/reference_parity/test_bayes_mcmc_parity.py) (+1) |
 | `gformula_ice_fn` | ltmle::ltmle 1.3.0 (gcomp = TRUE, SL.library = list(Q = 'SL.lm')) point estimate; base-R lm() ICE with geex::m_estimate 1.1.1 sandwich SE | R 4.5.2; ltmle 1.3.0; SuperLearner 2.0.40; geex 1.1.1 | point 1e-10 rel vs ltmle (observed 2.1e-11), 1e-12 vs hand lm (observed 2.4e-15); sandwich SE 1e-9 rel (observed 7.1e-12) | — / — | [`test_r2_teffects_parity.py`](../tests/reference_parity/test_r2_teffects_parity.py) (+3) |
 | `glm` | base R stats::glm (binomial logit + Poisson log) | R 4.5.2 | coef / logLik / AIC 1e-8 abs (observed <= 5e-13); SE ~1e-3 rel | — / — | [`test_glm_parity.py`](../tests/reference_parity/test_glm_parity.py) (+1) |
+| `glmnet` | glmnet::glmnet and glmnet::cv.glmnet (gaussian, binomial; thresh = 1e-14) | R 4.5.2; glmnet 4.1.10 | penalty path 1e-10 and equal length; coefficients 1e-6 absolute (5e-5 with more predictors than rows); deviance explained 1e-7; cross-validated error and its standard error 1e-4; lambda.min and lambda.1se the same grid point | — / — | [`test_glmnet_r_parity.py`](../tests/reference_parity/test_glmnet_r_parity.py) (+1) |
 | `gmm` | Stata 18 gmm (linear and exponential-mean IV; twostep, igmm, onestep); R gmm::gmm | Stata 18 MP; R 4.5.2; gmm 1.9.1 | vs Stata estimates rtol 1e-10 (observed 1.2e-12), SEs 1e-9 linear / 1e-6 nonlinear (Stata's numerical Jacobian; observed 2.5e-7), J rtol 1e-10; vs R rtol 1e-6 (observed 1.8e-7) | — / — | [`test_panel_gmm_stata_parity.py`](../tests/reference_parity/test_panel_gmm_stata_parity.py) (+1) |
 | `granger_causality` | Stata 18 vargranger; vars::causality 1.6.1 | R 4.5.2; vars 1.6.1; Stata 18 | chi2 and F 1e-10 rel (observed 4.1e-15), p-values 1e-8 | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
 | `gsynth` | gsynth::gsynth | R 4.5.2; gsynth 1.4.0 | rel_est<=1e-06, rel_se<=1e-06 | 7.7e-14 / 2.2e-15 | [`19_gsynth.py`](../tests/r_parity/19_gsynth.py) (+2) |
@@ -1061,6 +1062,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 623 functions
+## unverified — 624 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

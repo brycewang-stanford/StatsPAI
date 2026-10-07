@@ -15149,6 +15149,118 @@
     "name": "glm"
   },
   {
+    "description": "Lasso, ridge and elastic net with the conventions of R ``glmnet``. Validation: certified parity evidence.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 1.0,
+          "description": "Mixing weight: 1 is the lasso, 0 the ridge.",
+          "type": "number"
+        },
+        "cv": {
+          "default": true,
+          "description": "Cross-validate. With ``False`` the last penalty of the path is selected and ``lambda_min`` / ``lambda_1se`` are ``nan``.",
+          "type": "boolean"
+        },
+        "family": {
+          "default": "gaussian",
+          "description": "family parameter (str).",
+          "enum": [
+            "gaussian",
+            "binomial"
+          ],
+          "type": "string"
+        },
+        "foldid": {
+          "description": "Fold label of each row (or a column holding it). Without it rows are assigned at random with ``seed``.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "intercept": {
+          "default": true,
+          "description": "intercept parameter (bool).",
+          "type": "boolean"
+        },
+        "lambda_": {
+          "description": "Penalties to fit. ``None`` builds ``glmnet``'s path: ``n_lambda`` values, log-spaced from the smallest penalty that sets every penalised coefficient to zero down to ``lambda_min_ratio`` of it, stopped early once the deviance explained no longer improves.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "lambda_min_ratio": {
+          "description": "Default ``1e-4`` with more rows than predictors, else ``0.01``.",
+          "type": "number"
+        },
+        "max_iter": {
+          "default": 100000,
+          "description": "Maximum number of optimisation iterations.",
+          "type": "integer"
+        },
+        "n_folds": {
+          "default": 10,
+          "description": "Number of cross-fitting or cross-validation folds.",
+          "type": "integer"
+        },
+        "n_lambda": {
+          "default": 100,
+          "description": "Number of lambda.",
+          "type": "integer"
+        },
+        "penalty_factor": {
+          "description": "Multiplier ``v_j`` of the penalty of each predictor. 0 leaves a predictor unpenalised; weights ``1 / |b_j|`` from a first-stage fit give the adaptive lasso. Rescaled to sum to the number of predictors, as in ``glmnet``.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "rule": {
+          "default": "min",
+          "description": "Which penalty ``params``, ``coef()`` and ``predict()`` use by default.",
+          "enum": [
+            "min",
+            "1se"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "standardize": {
+          "default": true,
+          "description": "Scale predictors to unit standard deviation (divisor ``n``) before penalising. Coefficients are always returned in original units.",
+          "type": "boolean"
+        },
+        "tol": {
+          "default": 1e-18,
+          "description": "Convergence threshold of coordinate descent, on the largest squared coefficient change (standardised units). Much tighter than ``glmnet``'s default ``thresh = 1e-7``, so that the fit is the minimiser to about nine digits. ``glmnet`` at its default is up to 6e-4 from that in the coefficients of the test designs; at ``thresh = 1e-14`` it agrees to 1e-6.",
+          "type": "number"
+        },
+        "x": {
+          "description": "Predictors, in their original units.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome. For ``family='binomial'`` it must be coded 0/1.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "glmnet"
+  },
+  {
     "description": "General GMM estimator for arbitrary moment conditions. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Hansen J-test rejects over-identifying restrictions -> At least one moment condition is invalid; drop the suspect instruments rather than the test; Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250). Alternatives: sp.sp.regress, sp.sp.feols, s...",
     "input_schema": {
       "properties": {
@@ -17158,7 +17270,7 @@
         },
         "se_method": {
           "default": "bootstrap",
-          "description": "'sandwich' = teffects ipw robust M-estimation SE (needs normalize=True, trim=0)",
+          "description": "'sandwich' = teffects ipw robust M-estimation SE; also for normalize=False (Horvitz-Thompson) and trim > 0 (clipped scores held fixed)",
           "enum": [
             "bootstrap",
             "sandwich"
