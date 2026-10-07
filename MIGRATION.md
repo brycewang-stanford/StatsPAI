@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.38.0 → next: `CausalForest.variable_importance()` defaults to grf's measure
+## 1.38.0 → 1.39.0: `CausalForest.variable_importance()` defaults to grf's measure
 
 **What changed.** Without `method=` the method returns the depth-weighted
 split frequencies of `grf::variable_importance` (the same numbers as
@@ -16,7 +16,7 @@ measure, because they record no split depths.
 
 **What to do.** Pass `method="permutation"` to keep the old numbers.
 
-## 1.38.0 → next: ⚠️ `sp.gsynth` with covariates
+## 1.38.0 → 1.39.0: ⚠️ `sp.gsynth` with covariates
 
 **What changed.** The coefficients on `covariates` are estimated inside
 the interactive fixed effects model of the never-treated units, with unit
@@ -41,7 +41,7 @@ Calls without covariates return the same numbers as before.
 change, pass `n_factors=`. The panel has to be balanced on this path;
 `sp.fect` takes unbalanced panels.
 
-## 1.38.0 → next: `sp.aipw` says when it clips propensity scores
+## 1.38.0 → 1.39.0: `sp.aipw` says when it clips propensity scores
 
 **What changed.** No estimate changes. `model_info['n_propensity_clipped']`
 used to be 0 always; it is now the number of fitted scores outside
@@ -52,7 +52,7 @@ The bound is the new argument `trim`, default 0.01 as before.
 (`sp.overlap_plot`). `trim=0` gives the unclipped estimator; restricting
 the sample with `sp.trimming` changes the target population instead.
 
-## 1.38.0 → next: ⚠️ `sp.network_exposure` rebuilt
+## 1.38.0 → 1.39.0: ⚠️ `sp.network_exposure` rebuilt
 
 **What changed.** Exposure probabilities are exact under Bernoulli
 assignment instead of simulated and floored. The default estimator is the
@@ -77,7 +77,7 @@ used only when `mapping` is a callable. To reproduce the Horvitz-Thompson
 point estimate, pass `estimator='ht'`; the old standard errors cannot be
 reproduced and should not be.
 
-## 1.38.0 → next: conditional effects of the R- and DR-learners
+## 1.38.0 → 1.39.0: conditional effects of the R- and DR-learners
 
 **What changed.** When `cate_model=` is not given,
 `sp.metalearner(learner='r')`, `sp.metalearner(learner='dr')`,
@@ -94,7 +94,7 @@ not change.
 `cate_model=GradientBoostingRegressor(n_estimators=200, max_depth=3,
 learning_rate=0.05, subsample=0.8, random_state=42)`.
 
-## 1.38.0 → next: ⚠️ `sp.iv.mte` ATT, ATU and standard errors
+## 1.38.0 → 1.39.0: ⚠️ `sp.iv.mte` ATT, ATU and standard errors
 
 **What changed.** The ATT and ATU are computed from weights over the
 whole sample (each unit in proportion to its propensity, or one minus
@@ -113,7 +113,7 @@ curve itself are unchanged.
 ATT moved from 1.22 to 1.31 (truth 1.30) and the ATE standard error from
 0.075 to 0.022 (sampling spread 0.023).
 
-## 1.38.0 → next: ⚠️ `sp.tmle` validates `estimand`
+## 1.38.0 → 1.39.0: ⚠️ `sp.tmle` validates `estimand`
 
 **What changed.** `sp.tmle(estimand=...)` used to treat every value other
 than the exact string `'ATE'` as the ATT and to label the result with
@@ -127,7 +127,7 @@ and `estimand='ATT'` spelled exactly so are unchanged.
 
 **What to do.** Rerun. The new value is the ATE that was asked for.
 
-## 1.38.0 → next: ⚠️ `sp.gp_regress` hyperparameters on coarse or replicated designs
+## 1.38.0 → 1.39.0: ⚠️ `sp.gp_regress` hyperparameters on coarse or replicated designs
 
 **What changed.** Before maximising the marginal likelihood the function
 now evaluates it on a coarse grid of length scales and noise shares and
@@ -146,7 +146,7 @@ that were at the maximum are unchanged, and so is every call with
 scale below the smallest gap between observed values, refit; the log
 marginal likelihood of the new fit is at least as high.
 
-## 1.38.0 → next: the default prior of `sp.bayes_regress` will change in 1.40
+## 1.38.0 → 1.39.0: the default prior of `sp.bayes_regress` will change in 1.40
 
 **What changes, and when.** Today an omitted `prior` means a fixed
 `N(0, 1000)` on every coefficient (`N(0, 100)` for logit and probit). In
@@ -166,7 +166,7 @@ are the fits that will move.
 the new default now, write `prior='weakly_informative'`. Either silences
 the warning.
 
-## 1.38.0 → next: draws of the Metropolis models of `sp.bayes_regress`
+## 1.38.0 → 1.39.0: draws of the Metropolis models of `sp.bayes_regress`
 
 **What changed.** `model='logit'`, `'poisson'`, `'negbin'` and `'mlogit'`
 are sampled with a mixture of the former random-walk proposal and an
@@ -180,7 +180,7 @@ is three to five times what it was.
 **What to do.** Nothing. `acceptance_rate` still refers to the
 random-walk moves.
 
-## 1.38.0 → next: ⚠️ collinear regressors are omitted by the likelihood-based estimators
+## 1.38.0 → 1.39.0: ⚠️ collinear regressors are omitted by the likelihood-based estimators
 
 **What changed.** `sp.logit`, `sp.probit`, `sp.cloglog`, `sp.glm`,
 `sp.poisson`, `sp.nbreg`, `sp.ologit`, `sp.oprobit`, `sp.mlogit`,
@@ -202,7 +202,7 @@ unchanged to the last digit.
 name. A stored coefficient for a regressor now reported as omitted was
 never identified and should be discarded with the numbers around it.
 
-## 1.38.0 → next: ⚠️ separation warnings from `sp.logit` and `sp.glm`
+## 1.38.0 → 1.39.0: ⚠️ separation warnings from `sp.logit` and `sp.glm`
 
 **What changed.** A binary fit whose linear index classifies every
 observation correctly, or whose fitted probabilities reach 0 or 1 to
@@ -218,7 +218,7 @@ The numbers returned are the same as before and as meaningless as before.
 prior gives a finite answer:
 `sp.bayes_regress(formula, df, model='logit', prior='weakly_informative')`.
 
-## 1.38.0 → next: ⚠️ aggregated SEs of weighted Callaway-Sant'Anna on repeated cross-sections
+## 1.38.0 → 1.39.0: ⚠️ aggregated SEs of weighted Callaway-Sant'Anna on repeated cross-sections
 
 **What changed.** After `sp.callaway_santanna(..., weights=...)` with
 `panel=False` or `allow_unbalanced_panel=True`, the share-estimation term
@@ -236,7 +236,7 @@ without weights.
 **What to do.** Nothing in calling code. A stored result will differ in
 those standard errors after the fifth significant digit or so.
 
-## 1.38.0 → next: ⚠️ `sp.arima` on over-parameterised mixed models
+## 1.38.0 → 1.39.0: ⚠️ `sp.arima` on over-parameterised mixed models
 
 **What changed.** A final fit also searches from zero ARMA coefficients
 and from the estimates of the models with one AR or one MA term fewer, and
@@ -252,7 +252,7 @@ a seasonal pattern left in. A fit that was at its maximum is unchanged.
 **What to do.** Re-run. A higher log-likelihood for the same order is the
 better fit.
 
-## 1.38.0 → next: ⚠️ `sp.garch` with two or more lagged variances
+## 1.38.0 → 1.39.0: ⚠️ `sp.garch` with two or more lagged variances
 
 **What changed.** `sp.garch(y, p=2, ...)` and higher orders search from
 several starting values. Earlier releases could return a lagged-variance
@@ -268,7 +268,7 @@ results do not change.
 **What to do.** Re-run. If the warning appears, report the lower-order
 model.
 
-## 1.38.0 → next: ⚠️ `sp.fci` returns the graph of the full algorithm
+## 1.38.0 → 1.39.0: ⚠️ `sp.fci` returns the graph of the full algorithm
 
 **What changed.** `sp.fci` runs the Possible-D-SEP pass and all ten
 orientation rules. Graphs can lose edges the earlier version kept, and
@@ -280,7 +280,7 @@ circle marks can become tails or arrowheads. The result equals
 **What to do.** Re-run. `sp.fci(..., possible_dsep=False)` keeps the
 earlier skeleton (it is RFCI's); the orientation still uses the ten rules.
 
-## 1.38.0 → next: ⚠️ `sp.match` keeps every tied match by default
+## 1.38.0 → 1.39.0: ⚠️ `sp.match` keeps every tied match by default
 
 **What changed.** `sp.match` (and `sp.psm`, `sp.MatchEstimator`) with
 `replace=True` now defaults to `ties='all'`: when several units are exactly
@@ -299,7 +299,7 @@ matching without replacement, nor data with continuous covariates.
 **What to do.** Re-run. `ties='first'` gives the earlier number, with a
 warning that says how many units had ties.
 
-## 1.38.0 → next: ⚠️ `sp.bayes_mte` with `mte_method='polynomial'` or `'hv_latent'`
+## 1.38.0 → 1.39.0: ⚠️ `sp.bayes_mte` with `mte_method='polynomial'` or `'hv_latent'`
 
 **What changed.** The default `mte_method='polynomial'` fitted
 `Y = alpha + D * g(p)` and reported `g` as the MTE curve. That model
@@ -325,7 +325,7 @@ IV identifies the MTE from variation in the propensity alone.
 
 **What to do.** Re-run. There is no switch for the earlier numbers.
 
-## 1.38.0 → next: ⚠️ `sp.bayes_synth` credible intervals
+## 1.38.0 → 1.39.0: ⚠️ `sp.bayes_synth` credible intervals
 
 **What changed.** The posterior of the effect now includes the treated
 unit's own post-period noise, `N(0, sigma^2 / T1)`, in addition to the
@@ -342,7 +342,7 @@ from `sp.bayes_synth`.
 question (how well the weights are known) and did not cover the effect at
 its nominal rate.
 
-## 1.38.0 → next: ⚠️ `sp.bayes_iv`, `sp.bayes_hte_iv` and `sp.bayes_fuzzy_rd` credible intervals
+## 1.38.0 → 1.39.0: ⚠️ `sp.bayes_iv`, `sp.bayes_hte_iv` and `sp.bayes_fuzzy_rd` credible intervals
 
 **What changed.** `sp.bayes_iv` and `sp.bayes_hte_iv` used first-stage
 residuals computed once by OLS as a regressor in the outcome equation. The
@@ -369,7 +369,7 @@ functions.
 **What to do.** Re-run. There is no switch for the earlier numbers; the
 earlier intervals did not have their nominal coverage.
 
-## 1.38.0 → next: ⚠️ `CoxResult.ph_test()` and the Poisson overdispersion test
+## 1.38.0 → 1.39.0: ⚠️ `CoxResult.ph_test()` and the Poisson overdispersion test
 
 **What changed.**
 
@@ -392,7 +392,7 @@ switch for the earlier numbers: neither was the statistic it was named
 after. `ph_test(method='approx', transform='identity')` reproduces
 Stata's `estat phtest`.
 
-## 1.38.0 → next: ⚠️ `sp.arima` optimiser, automatic search and regressor names
+## 1.38.0 → 1.39.0: ⚠️ `sp.arima` optimiser, automatic search and regressor names
 
 **What changed.**
 
@@ -430,7 +430,7 @@ relied on the order `auto=True` returned. Code that reads
 - `forecast(horizon, alpha)` without `level=` keeps its three columns
   `forecast`, `lower`, `upper`.
 
-## 1.38.0 → next: `sp.ivreg` / `sp.iv` name formula terms as `sp.regress` does
+## 1.38.0 → 1.39.0: `sp.ivreg` / `sp.iv` name formula terms as `sp.regress` does
 
 **What changed.** A transformed, categorical or interacted term in an IV
 formula is reported under the name the formula engine gives it. No number
@@ -451,7 +451,7 @@ The same holds for the keys of `diagnostics` that embed a name
 **What to do.** Use the formula name, `iv.params["np.log(x)"]`. In
 `sp.test` and `sp.lincom` both spellings are read. Plain column names
 were never affected. `sp.panel` still reports the bracket names.
-## 1.38.0 → next: ⚠️ graphs: `sp.dag` parsing, adjustment sets, backdoor paths, `sp.identify`, `sp.pc_algorithm`, `sp.fci`, `sp.front_door`
+## 1.38.0 → 1.39.0: ⚠️ graphs: `sp.dag` parsing, adjustment sets, backdoor paths, `sp.identify`, `sp.pc_algorithm`, `sp.fci`, `sp.front_door`
 
 Found by working through Ness's *Causal AI*
 (`docs/dev/2026-10-06-ness-causal-ai-review.md`). Results that can change:
@@ -493,7 +493,7 @@ What to do.
 `sp.ipw` now warns when the weights leave an arm an effective sample
 under a fifth of its size. The estimate is unchanged.
 
-## 1.38.0 → next: ⚠️ `sp.arima` on differenced series, and `auto=True` with a drift
+## 1.38.0 → 1.39.0: ⚠️ `sp.arima` on differenced series, and `auto=True` with a drift
 
 **What changed.** For a model with `d + D >= 1` and at least one AR or MA
 term, `sp.arima` now starts the integration states from an exact diffuse
@@ -525,7 +525,7 @@ they changed with the unit of the data.
 
 ---
 
-## 1.38.0 → next: ⚠️ two-way clustered standard errors, `sp.poisson` under separation
+## 1.38.0 → 1.39.0: ⚠️ two-way clustered standard errors, `sp.poisson` under separation
 
 **What changed.**
 
@@ -554,7 +554,7 @@ with few clusters in one dimension consider clustering on the other alone,
 or a wild cluster bootstrap. There is no option to turn the adjustment off:
 the unadjusted matrix is not a covariance matrix.
 
-## 1.38.0 → next: ⚠️ `sp.arima` default estimates and `auto=True` order selection
+## 1.38.0 → 1.39.0: ⚠️ `sp.arima` default estimates and `auto=True` order selection
 
 **What changed.** `sp.arima(y, order=...)` with the default
 `method='statespace'` now maximises the exact Gaussian likelihood of every
@@ -578,7 +578,7 @@ maximum likelihood estimates under another name.
 
 **What to do.** Re-run. There is no switch for the earlier numbers; they
 were not the estimates of any documented estimator.
-## 1.38.0 → next: ⚠️ the base level of `C(g)`, `sp.hausman` with factors, RESET on the regressors
+## 1.38.0 → 1.39.0: ⚠️ the base level of `C(g)`, `sp.hausman` with factors, RESET on the regressors
 
 **What changed.**
 
@@ -606,7 +606,7 @@ test of models with factor variables, or RESET with `rhs=True`.
 incomplete rows yourself and set the reference with
 `C(g, Treatment(reference=...))`.
 
-## 1.38.0 → next: ⚠️ `sp.stata` and extended missing values
+## 1.38.0 → 1.39.0: ⚠️ `sp.stata` and extended missing values
 
 **What changed.** `sp.stata` declines `x == .`, `x != .`, `x > .`,
 `x <= .` and any comparison with `.a` to `.z` on a variable that may hold
@@ -627,7 +627,7 @@ meant. Where the kind matters, recode it into a variable of its own before
 calling `sp.stata`.
 <a id="oct2026-qiu-jiaping-fixes"></a>
 
-## 1.38.0 → next: ⚠️ propensity score matching with a redundant covariate or tied controls; `replace` in `sp.stata`; two-step `heckman` with rho outside [-1, 1]
+## 1.38.0 → 1.39.0: ⚠️ propensity score matching with a redundant covariate or tied controls; `replace` in `sp.stata`; two-step `heckman` with rho outside [-1, 1]
 
 **Matching on an estimated propensity score.** Three things changed in
 `sp.match`, `sp.psmatch2` and `teffects psmatch` run through `sp.stata`.
@@ -701,7 +701,7 @@ dataset into the second.
 
 <a id="oct2026-facure-textbook-fixes"></a>
 
-## 1.38.0 → next: ⚠️ `sp.did` with repeated unit-period rows; categorical covariates; `sigma=` in power
+## 1.38.0 → 1.39.0: ⚠️ `sp.did` with repeated unit-period rows; categorical covariates; `sigma=` in power
 
 **`sp.did` and `sp.callaway_santanna` with several rows per unit and
 period.** The Callaway-Sant'Anna reshape used the first row of each (unit,
@@ -750,7 +750,7 @@ effect together with `sigma`, drop `sigma`.
 
 <a id="oct2026-barrett-textbook-fixes"></a>
 
-## 1.38.0 → next: ⚠️ Crump trimming, weighted balance statistics, minimal adjustment sets
+## 1.38.0 → 1.39.0: ⚠️ Crump trimming, weighted balance statistics, minimal adjustment sets
 
 **`sp.trimming(method='crump')`** and
 **`sp.propensity_score(trimming='crump')`** drop more rows than before. The
@@ -782,7 +782,7 @@ Any payload may carry `untranslated_arguments`. Code generated earlier from
 **`sp.contrast`** on a frame in which the variable takes a single value now
 raises. Pass the full data and `subset=` to average over a subpopulation.
 
-## 1.38.0 → next: ⚠️ `sp.cox` robust standard errors under tied event times
+## 1.38.0 → 1.39.0: ⚠️ `sp.cox` robust standard errors under tied event times
 <a id="oct2026-linear-model-fixes"></a>
 
 **What changed.** With `ties='efron'` (the default), `sp.cox(robust=...)`
@@ -799,7 +799,7 @@ model-based standard errors, or fits with `ties='breslow'`.
 standard errors on data with ties. There is no switch for the old numbers;
 they did not correspond to either tie rule.
 
-## 1.38.0 → next: fitted values of zero-inflated models moved from `diagnostics` to `data_info`
+## 1.38.0 → 1.39.0: fitted values of zero-inflated models moved from `diagnostics` to `data_info`
 
 `sp.zip_model`, `sp.zinb` and `sp.hurdle` stored one fitted value per
 observation, three times over, in `result.diagnostics`, so every summary
@@ -814,7 +814,7 @@ fit.data_info["predicted_overall"]     # where it lives now
 return those keys. Scalars (`ll`, `aic`, `bic`, `vuong_stat`, ...) are
 unchanged, and `Log-Likelihood`, `AIC`, `BIC` are added.
 
-## 1.38.0 → next: `sp.kaplan_meier` asks for `conf_type`; the default changes in 1.40
+## 1.38.0 → 1.39.0: `sp.kaplan_meier` asks for `conf_type`; the default changes in 1.40
 
 `sp.kaplan_meier` builds its confidence interval as `S(t) +/- z se`, cut
 off at 0 and 1. From 1.40 the default is the log-log interval, the one
@@ -831,14 +831,14 @@ sp.kaplan_meier(df, "time", "event", conf_type="log")       # R survfit's defaul
 Nothing changes in 1.39 except the `DeprecationWarning`. To keep reported
 intervals fixed across the change, pass `conf_type` explicitly now.
 
-## 1.38.0 → next: `sp.regress` accepts regressions through the origin it used to refuse
+## 1.38.0 → 1.39.0: `sp.regress` accepts regressions through the origin it used to refuse
 
 `sp.regress("y ~ 0 + x + I(1 - x)", df)` and `sp.regress("y ~ 0 + one +
 x", df)` raised `NumericalInstability`. They fit now. A model with an
 intercept behaves as before, and proportional columns (`x` and `2 x`) are
 still caught in a model without one.
 
-## 1.38.0 → next: ⚠️ period dummies in `sp.xtabond` / `sp.xtdpdsys`
+## 1.38.0 → 1.39.0: ⚠️ period dummies in `sp.xtabond` / `sp.xtdpdsys`
 <a id="oct2026-hansen-dynpanel"></a>
 
 **What changed.** With `time_dummies=True` the dummies of periods that have
@@ -865,7 +865,7 @@ two-step estimates of such a fit change and now agree with `xtdpd` and
 `xtabond2`. Fits that did not warn about a singular weight and did not have
 standard errors of order 1e14 are unchanged.
 
-## 1.38.0 → next: ⚠️ random effects with a regressor that is constant within unit
+## 1.38.0 → 1.39.0: ⚠️ random effects with a regressor that is constant within unit
 <a id="oct2026-hansen-fixes"></a>
 
 **What changed.** `sp.panel(method='re')` computes the within residual
@@ -886,7 +886,7 @@ and 300 rows with two such regressors a slope went from 1.09305 to
 
 **What to do.** Re-run. No argument reproduces the old numbers.
 
-## 1.38.0 → next: ⚠️ Dickey-Fuller p-values above the fitted range are 1
+## 1.38.0 → 1.39.0: ⚠️ Dickey-Fuller p-values above the fitted range are 1
 
 **What changed.** `sp.unitroot` (`test='adf'`, `test='pp'`), the
 Fisher-type panel unit-root tests and anything else that calls
@@ -903,7 +903,7 @@ statistics, which is where unit-root tests are usually read, are unchanged.
 
 **What to do.** Re-run any test whose statistic was positive.
 
-## 1.38.0 → next: ⚠️ `sp.rdrandinf` / `sp.rdwinselect` / `sp.rdsensitivity` with `p > 0` use HC3
+## 1.38.0 → 1.39.0: ⚠️ `sp.rdrandinf` / `sp.rdwinselect` / `sp.rdsensitivity` with `p > 0` use HC3
 
 `rdlocrand` 3.0 (2026-10-04) moved the variance behind its large-sample
 test for polynomial-adjusted statistics from HC2 to HC3 and added a `vce`
@@ -916,7 +916,7 @@ sp.rdrandinf(df, y="y", x="x", wl=-1, wr=1, p=1)              # HC3 now
 sp.rdrandinf(df, y="y", x="x", wl=-1, wr=1, p=1, vce="hc2")   # as before
 ```
 
-## 1.38.0 → next: ⚠️ `sp.arima` estimates a constant when the series is not differenced
+## 1.38.0 → 1.39.0: ⚠️ `sp.arima` estimates a constant when the series is not differenced
 <a id="oct2026-syllabus-fixes"></a>
 
 **What changed.** `sp.arima(y, order=(p, 0, q))` with the default
@@ -937,7 +937,7 @@ price index). Series that were demeaned first, and every model with
 fit. `params` has one more entry (`const`) in the affected case, so code
 that indexes it by position should index by name.
 
-## 1.38.0 → next: ⚠️ `sp.tab` on a 2 x 2 table reports Pearson's chi-squared
+## 1.38.0 → 1.39.0: ⚠️ `sp.tab` on a 2 x 2 table reports Pearson's chi-squared
 
 **What changed.** The statistic `sp.tab(df, a, b)` prints as
 "Pearson chi2" on a 2 x 2 table is now Pearson's. It was Yates's
@@ -951,7 +951,7 @@ p-value from `sp.tab` on a 2 x 2 table.
 `tabulate, chi2` prints. If the corrected statistic is wanted, call
 `scipy.stats.chi2_contingency(table)` directly.
 
-## 1.38.0 → next: ⚠️ Stata translation of `tobit`
+## 1.38.0 → 1.39.0: ⚠️ Stata translation of `tobit`
 
 **What changed.** `sp.stata` / `sp.from_stata` write both censoring limits
 out. `tobit y x, ul(2)` is now `sp.tobit(..., ll=None, ul=2.0)`; it used to
@@ -966,7 +966,7 @@ direct calls to `sp.tobit`, whose default stays `ll=0`.
 
 **What to do.** Re-run the command.
 
-## 1.38.0 → next: ⚠️ two-step `sp.heckman` standard errors; `sp.garch(q=0)`
+## 1.38.0 → 1.39.0: ⚠️ two-step `sp.heckman` standard errors; `sp.garch(q=0)`
 
 **What changed.**
 
@@ -981,7 +981,7 @@ digits; any GARCH fit with `q=0`.
 
 **What to do.** Re-run. An ARCH(1) model is `sp.garch(y, p=0, q=1)`.
 
-## 1.38.0 → next: ⚠️ Stata translation of `ivregress gmm`
+## 1.38.0 → 1.39.0: ⚠️ Stata translation of `ivregress gmm`
 
 `sp.stata("ivregress gmm y x (d = z1 z2)", data=df)` and the code
 `sp.from_stata` prints for it change. Stata's `ivregress gmm` uses the
@@ -1001,7 +1001,7 @@ What to do: rerun any `ivregress gmm` line you replayed through
 `sp.ivreg(method='gmm')` are unchanged; `small=False` is newly accepted
 there.
 
-## 1.38.0 → next: ⚠️ `sp.synth(method='classic').ci` is the interval its p-value implies
+## 1.38.0 → 1.39.0: ⚠️ `sp.synth(method='classic').ci` is the interval its p-value implies
 
 `ci` changes for every classic fit with placebos. `estimate`, `se`,
 `pvalue` and the weights do not.
@@ -1021,7 +1021,7 @@ when the old interval is still what `ci` holds (no usable placebo, a
 perfect pre-treatment fit, or every constant effect rejected). Other
 `method=` values are not affected.
 
-## 1.38.0 → next: ⚠️ `sp.fisher_exact(statistic='ks' | 'rank_sum' | 't').ci` is an interval for the effect
+## 1.38.0 → 1.39.0: ⚠️ `sp.fisher_exact(statistic='ks' | 'rank_sum' | 't').ci` is an interval for the effect
 
 For these statistics `FisherResult.ci` used to be the 2.5% and 97.5%
 percentiles of the null distribution of the statistic. It is now the set
@@ -1030,7 +1030,7 @@ interval for `statistic='ate'`. Code that read the two numbers as
 critical values should take `np.percentile(result.perm_dist, [2.5, 97.5])`.
 `statistic`, `p_value` and `p_one_sided` are unchanged.
 
-## 1.38.0 → next: ⚠️ `sp.ipw` Horvitz-Thompson ATT / ATC; the interval of `sp.fisher_exact`
+## 1.38.0 → 1.39.0: ⚠️ `sp.ipw` Horvitz-Thompson ATT / ATC; the interval of `sp.fisher_exact`
 
 **`sp.ipw(estimand='ATT', normalize=False)`** divided the weighted sums by
 `n`. The effect on the treated needs the number of treated, so the result
@@ -1052,7 +1052,7 @@ the edges of the grid.
 
 <a id="oct2026-the-effect-textbook-fixes"></a>
 
-## 1.38.0 → next: ⚠️ formulas on `int8` / `int16` / `int32` columns
+## 1.38.0 → 1.39.0: ⚠️ formulas on `int8` / `int16` / `int32` columns
 
 **What changed.** Integer columns narrower than 64 bits are widened to
 `int64` before a formula is evaluated. Before, `I(x**2)`, `I(x*z)` and any
@@ -1074,7 +1074,7 @@ wrong; there is nothing to reproduce them with.
 data built in Python or read from CSV) or float; formulas without
 arithmetic; factor terms, whose level names are unchanged (`C(g)[T.2]`).
 
-## 1.38.0 → next: ⚠️ `sp.match(method='cem')` coarsening
+## 1.38.0 → 1.39.0: ⚠️ `sp.match(method='cem')` coarsening
 
 **What changed.** Two conventions now follow the `cem` packages for R and
 Stata. The default number of bins is one fewer: Sturges' rule,
@@ -1093,7 +1093,7 @@ covariates.
 **New.** `n_bins` also takes a list (one count per covariate) or a dict
 from covariate to a count or to cut edges.
 
-## 1.38.0 → next: ⚠️ `sp.ebalance` with redundant moments; `sp.sensemakr` benchmarks
+## 1.38.0 → 1.39.0: ⚠️ `sp.ebalance` with redundant moments; `sp.sensemakr` benchmarks
 
 **What changed.** `sp.ebalance(moments=2)` (or 3) on a covariate whose
 higher moment repeats a lower one, such as a 0/1 indicator, used to fail
@@ -1108,7 +1108,7 @@ the entropy-balanced one. `sp.sensemakr` calls with a misspelt benchmark.
 
 **What to do.** Rerun `sp.ebalance`. Correct the benchmark name.
 
-## 1.38.0 → next: ⚠️ Stata translations of factor-variable notation
+## 1.38.0 → 1.39.0: ⚠️ Stata translations of factor-variable notation
 
 **What changed.** In `sp.stata` and `sp.from_stata`:
 
@@ -1132,7 +1132,7 @@ with `egen cell = group(a b)` and use `i.cell`.
 
 <a id="oct2026-wooldridge-textbook-fixes"></a>
 
-## 1.38.0 → next: ⚠️ DFBETAS, `predict` after `sp.glm`, and the Stata translation of `heckman`
+## 1.38.0 → 1.39.0: ⚠️ DFBETAS, `predict` after `sp.glm`, and the Stata translation of `heckman`
 
 **What changed.**
 
@@ -1159,7 +1159,7 @@ or for direct calls to `sp.heckman`.
 
 <a id="oct2026-dcdh-textbook-fixes"></a>
 
-## 1.38.0 → next: ⚠️ `sp.did_multiplegt` with a non-binary treatment
+## 1.38.0 → 1.39.0: ⚠️ `sp.did_multiplegt` with a non-binary treatment
 
 **What changed.** Each switcher now enters with the sign of its own
 treatment change, and the sum is divided by the total absolute change, so
@@ -1178,7 +1178,7 @@ description is corrected (`'r'` is the sign of a plain
 `did_multiplegt_old` run, `'stata'` the sign of `did_multiplegt_old,
 robust_dynamic`).
 
-## 1.38.0 → next: ⚠️ `sp.sun_abraham`: cohort shares and `event_window`
+## 1.38.0 → 1.39.0: ⚠️ `sp.sun_abraham`: cohort shares and `event_window`
 
 **What changed.** (1) The interaction weights are the cohorts' shares of
 the observations at each relative time, not of the units. (2) With
@@ -1197,7 +1197,7 @@ earlier number.
 
 **Unaffected.** Balanced panels without `event_window`.
 
-## 1.38.0 → next: ⚠️ `sp.did_multiplegt_dyn`: `same_switchers`, `aggregation='switchers'`, `controls=`, joint tests
+## 1.38.0 → 1.39.0: ⚠️ `sp.did_multiplegt_dyn`: `same_switchers`, `aggregation='switchers'`, `controls=`, joint tests
 
 **What changed.** (1) `same_switchers=True` keeps the switchers whose
 effect is estimable at every requested horizon. It kept those merely
@@ -1228,7 +1228,7 @@ treatment should check the treatment itself.
 **Unaffected.** Effects, placebos and standard errors of fits without
 these options; bootstrap fits.
 
-## 1.38.0 → next: ⚠️ `regress, vce(hc2 clustvar, dfadjust)` in `sp.stata`
+## 1.38.0 → 1.39.0: ⚠️ `regress, vce(hc2 clustvar, dfadjust)` in `sp.stata`
 
 **What changed.** The command translates to `sp.regress(..., vce='cr2',
 cluster='clustvar', dfadjust=True)`. It used to translate to
@@ -1243,7 +1243,7 @@ freedom.
 
 <a id="oct2026-causalml-textbook-fixes"></a>
 
-## 1.38.0 → next: ⚠️ `sp.dml` PLR / PLIV with a classifier nuisance
+## 1.38.0 → 1.39.0: ⚠️ `sp.dml` PLR / PLIV with a classifier nuisance
 
 **What changed.** With `model='plr'` or `model='pliv'`, a nuisance learner
 that is a scikit-learn classifier now contributes `predict_proba[:, 1]`.
@@ -1263,7 +1263,7 @@ Estimates and standard errors change, and the old ones were wrong: on the
 which resolve to regressors under PLR and PLIV, and the `irm` / `iivm`
 models, which already used probabilities.
 
-## 1.38.0 → next: ⚠️ `sp.dml_sensitivity` on IRM fits, and `rv_qa`
+## 1.38.0 → 1.39.0: ⚠️ `sp.dml_sensitivity` on IRM fits, and `rv_qa`
 
 **What changed.** (1) For `model='irm'` the bias bound is computed from
 `sigma^2 = E[(Y - g(D, X))^2]` and the Riesz representer of the estimand,
@@ -1284,7 +1284,7 @@ score elements are not stored for them; refit without `sample_weight`.
 **Unaffected.** `sp.sensemakr`, `sp.evalue` and the other sensitivity
 tools.
 
-## 1.38.0 → next: ⚠️ `sp.twfe_decomposition` returns the TWFE coefficient and its exact decomposition
+## 1.38.0 → 1.39.0: ⚠️ `sp.twfe_decomposition` returns the TWFE coefficient and its exact decomposition
 
 **What changed.** `sp.twfe_decomposition` described itself as the
 Goodman-Bacon (2021) decomposition with de Chaisemartin-D'Haultfoeuille
@@ -1320,7 +1320,7 @@ does not hold: the coefficient and the dCDH weights are still returned,
 `detail` is empty and a warning says so (it used to return rows computed
 on the unbalanced data).
 
-## 1.38.0 → next: ⚠️ propensity-score matching with tied scores; Stata translations of `teffects ipw` / `teffects aipw` / `boottest`
+## 1.38.0 → 1.39.0: ⚠️ propensity-score matching with tied scores; Stata translations of `teffects ipw` / `teffects aipw` / `boottest`
 
 **Matching.** `sp.match(distance='propensity', ties='all')`, and the
 functions built on it, decide ties by equality of the fitted score. Two
@@ -1347,7 +1347,7 @@ depended on the order of the rows.
 The point estimates of `teffects ipw` were right before; its standard
 error and everything about `teffects aipw` were not Stata's. The direct
 calls `sp.ipw` and `sp.aipw` keep their defaults.
-## 1.38.0 → next: ⚠️ `sp.survreg` now honours `robust=` and `cluster=`; zero durations are refused
+## 1.38.0 → 1.39.0: ⚠️ `sp.survreg` now honours `robust=` and `cluster=`; zero durations are refused
 
 **What changed.** `sp.survreg(..., robust='robust')` and
 `sp.survreg(..., cluster='id')` used to return the same standard errors as
@@ -1365,7 +1365,7 @@ beyond the sixth digit.
 the option. Rows with a duration of zero have to be dropped or the time
 origin shifted before the call.
 
-## 1.38.0 → next: ⚠️ the Vuong statistic of `sp.zip_model` and `sp.zinb` is smaller
+## 1.38.0 → 1.39.0: ⚠️ the Vuong statistic of `sp.zip_model` and `sp.zinb` is smaller
 
 **What changed.** `result.diagnostics['vuong_stat']` and `['vuong_p']`
 compare the zero-inflated fit with the plain Poisson (for `sp.zinb`, the
@@ -1385,7 +1385,7 @@ zero-inflated model and its plain counterpart are nested on a boundary,
 and the statistic is not standard normal under that null (Wilson 2015,
 doi:10.1016/j.econlet.2014.12.029).
 
-## 1.38.0 → next: ⚠️ `sp.rdrandinf(statistic='ksmirnov')` large-sample p-value with tied outcomes
+## 1.38.0 → 1.39.0: ⚠️ `sp.rdrandinf(statistic='ksmirnov')` large-sample p-value with tied outcomes
 
 **What changed.** `model_info['pvalue_asymptotic']` for the
 Kolmogorov-Smirnov statistic is now the exact conditional p-value given
@@ -1401,7 +1401,7 @@ one is 0.356. Without ties nothing changes, and the randomization p-value
 
 **What to do.** Re-run if you reported that number.
 
-## 1.38.0 → next: `sp.rdrobust` checks for manipulation with `sp.rddensity`
+## 1.38.0 → 1.39.0: `sp.rdrobust` checks for manipulation with `sp.rddensity`
 
 **What changed.** The density check that `sp.rdrobust` runs by default
 (`manipulation_test=True`) used McCrary's binned test and now uses the
@@ -1418,7 +1418,7 @@ alarms (43% of placebo cutoffs on one such dataset, against 5% now).
 versions. `model_info['mccrary']['test']` is `'rddensity'` from this
 version on. For McCrary's test call `sp.mccrary_test` directly.
 
-## 1.38.0 → next: ⚠️ `sp.rdrandinf` / `sp.rdrbounds` take the window's endpoints, not offsets
+## 1.38.0 → 1.39.0: ⚠️ `sp.rdrandinf` / `sp.rdrbounds` take the window's endpoints, not offsets
 
 **What changed.** `wl` and `wr` are the left and right ends of the window
 on the scale of the running variable, as in R / Stata `rdrandinf`. They
@@ -1434,7 +1434,7 @@ than the window (`c=0.5, wl=-1, wr=1` was `[-0.5, 1.5]` and is now
 `[-1, 1]`); check any such call. `model_info['window']` holds the window
 actually used.
 
-## 1.38.0 → next: ⚠️ `sp.rdrandinf(p > 0)` is the difference in side-specific fits
+## 1.38.0 → 1.39.0: ⚠️ `sp.rdrandinf(p > 0)` is the difference in side-specific fits
 
 **What changed.** With `p > 0` the outcome used to be residualized on one
 polynomial in the score fitted across both sides, and the difference in
@@ -1458,7 +1458,7 @@ toward zero.
 with `p > 0` or a non-uniform kernel now raise instead of running on
 residuals.
 
-## 1.38.0 → next: ⚠️ `sp.rdrandinf(fuzzy=)` tests the reduced form
+## 1.38.0 → 1.39.0: ⚠️ `sp.rdrandinf(fuzzy=)` tests the reduced form
 
 **What changed.** `pvalue` used to come from permuting the instrument and
 recomputing the Wald ratio. Most permuted first stages are near zero, so
@@ -1481,7 +1481,7 @@ The reduced-form estimate is in `model_info['itt']`.
 old p-value should be revisited. `p > 0` or a kernel with `fuzzy=` now
 raises.
 
-## 1.38.0 → next: ⚠️ `sp.rdwinselect` builds the windows the procedure describes
+## 1.38.0 → 1.39.0: ⚠️ `sp.rdwinselect` builds the windows the procedure describes
 
 **What changed.** The default window sequence, the p-values and the
 columns.
@@ -1508,7 +1508,7 @@ call with both `wmin=` and `wstep=` keeps its windows and counts.
 **What to do.** Re-run. For reproducible, fast p-values pass
 `approx=True`.
 
-## 1.38.0 → next: ⚠️ `sp.rdmc(cutoff_var=)` reports robust inference
+## 1.38.0 → 1.39.0: ⚠️ `sp.rdmc(cutoff_var=)` reports robust inference
 
 **What changed.** For each cutoff, `se`, `ci_lower`, `ci_upper` and
 `p_value` are now the robust bias-corrected ones that `rdmulti::rdmc`
@@ -1529,7 +1529,7 @@ effective-sample-size-weighted average of the cutoffs.
 
 ---
 
-## 1.38.0 → next: ⚠️ `sp.callaway_santanna` with time-varying covariates, `sp.etwfe_emfx` headline SEs, unidentified `sp.did_imputation` leads
+## 1.38.0 → 1.39.0: ⚠️ `sp.callaway_santanna` with time-varying covariates, `sp.etwfe_emfx` headline SEs, unidentified `sp.did_imputation` leads
 
 **`sp.callaway_santanna` with time-varying covariates.**
 *What changed.* A covariate that varies within unit is now read, for each

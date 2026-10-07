@@ -4,6 +4,36 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.39.0] — 2026-10-07
+
+Three days of textbook passes: the code or the syllabus of more than twenty
+econometrics, causal-inference, time-series, Bayesian and experimental
+design texts was run against Stata 18 and R, example by example, and
+everything that disagreed was traced to its first point of divergence.
+Each section below is one of those passes, with what was wrong, what was
+missing and the evidence for the fix.
+
+Read `MIGRATION.md` before upgrading. It has 71 entries under
+`1.38.0 → 1.39.0`, most of them marked ⚠️ because a number changes:
+estimators that returned a wrong value on some class of inputs, and a few
+defaults that moved to the convention of the reference implementation.
+Among the widest: every likelihood-based regression now omits a perfectly
+collinear regressor instead of returning an arbitrary point of a flat
+likelihood; `sp.arima` uses the exact diffuse initialisation, so its
+estimates no longer depend on the units of the data; `sp.match` keeps
+every tied match by default.
+
+Two defaults are announced here and change in 1.40, with a
+`DeprecationWarning` until then: `sp.kaplan_meier(conf_type=)` goes from
+`'plain'` to `'log-log'`, and `sp.bayes_regress(prior=)` from a fixed
+`N(0, 1000)` to `'weakly_informative'`. Naming the argument keeps the
+present behaviour for good.
+
+New subpackages: `statspai.mcmc` (Bayesian regression, model comparison,
+leave-one-out, posterior predictive checks, all without PyMC) and
+`statspai.doe` (design of experiments).
+
+
 ### `sp.glmnet`: the elastic net with `glmnet`'s conventions; IPW standard errors without the bootstrap
 
 Second round of the Yuksel and Aydede pass: the items the first round left
