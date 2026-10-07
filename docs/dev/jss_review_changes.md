@@ -3229,7 +3229,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after the second round on design of experiments
 
-- **Commits.** `2877b14a` re-recorded the entries of Track A modules
+- **Commits.** `5af23458` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and of module 08 in
   `tests/orig_parity/results/_implementation_trace.json`. The source that
