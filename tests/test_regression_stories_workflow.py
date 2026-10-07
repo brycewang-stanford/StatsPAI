@@ -781,3 +781,175 @@ def test_shrinkage_argument_checks(df):
     )
     np.testing.assert_allclose(ll, want, rtol=1e-10)
     assert np.isfinite(sp.loo(hs).elpd)
+
+
+# ---------------------------------------------------------------------
+# second round: default prior, grouped outcomes, ordered logit, slab
+# ---------------------------------------------------------------------
+
+
+def test_default_prior_change_is_announced_only_where_it_applies(df):
+    with pytest.warns(DeprecationWarning, match="will change in StatsPAI 1.40"):
+        sp.bayes_regress("yc ~ x", df, draws=300, seed=1)
+    with pytest.warns(DeprecationWarning):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", StatsPAIWarning)
+            warnings.simplefilter("always", DeprecationWarning)
+            sp.bayes_regress("y ~ x", df, model="logit", draws=300, burnin=200, seed=1)
+    quiet = [
+        dict(prior="vague"),
+        dict(prior="weakly_informative"),
+        dict(prior_var=50.0),
+        dict(prior_mean=[0.5, 0.0]),
+        dict(model="conjugate"),
+        dict(model="t"),
+        dict(model="quantile"),
+    ]
+    for kw in quiet:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            warnings.simplefilter("ignore", StatsPAIWarning)
+            sp.bayes_regress("yc ~ x", df, draws=200, burnin=100, seed=1, **kw)
+    # naming the prior reproduces the unnamed fit exactly, and a refit for
+    # cross-validation does not repeat the announcement
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        a = sp.bayes_regress("yc ~ x", df, draws=300, seed=1)
+    b = sp.bayes_regress("yc ~ x", df, draws=300, seed=1, prior="vague")
+    np.testing.assert_array_equal(a.draws.to_numpy(), b.draws.to_numpy())
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        sp.kfold(a, k=3, seed=1)
+
+
+def test_grouped_binomial_arguments(df):
+    d = df.assign(m=6, hits=np.minimum(df["cnt"], 6))
+    kw = dict(model="logit", prior="weakly_informative", draws=300, burnin=200, seed=1)
+    with pytest.raises(MethodIncompatibility, match="trials= is for model='logit'"):
+        sp.bayes_regress("hits ~ x", d, model="poisson", trials="m", prior="vague")
+    with pytest.raises(MethodIncompatibility, match="must name a column"):
+        sp.bayes_regress("hits ~ x", d, trials="nope", **kw)
+    with pytest.raises(MethodIncompatibility, match="between 0 and trials"):
+        sp.bayes_regress("hits ~ x", d.assign(m=2), trials="m", **kw)
+    with pytest.raises(MethodIncompatibility, match="do not pass trials"):
+        sp.bayes_regress("cbind(hits, m - hits) ~ x", d, trials="m", **kw)
+    with pytest.raises(MethodIncompatibility, match="model='logit'"):
+        sp.bayes_regress("cbind(hits, m - hits) ~ x", d, model="probit", prior="vague")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_regress("cbind(hits, m - hits) ~ x", d, **kw)
+        mle = sp.glm("cbind(hits, m - hits) ~ x", d, family="binomial")
+    assert fit.formula == "cbind(hits, m - hits) ~ x"
+    assert fit.params["x"] == pytest.approx(
+        mle.params["x"], abs=3 * mle.std_errors["x"]
+    )
+    assert fit.posterior_predict(d.iloc[:4], seed=1).shape == (300, 4)
+    assert np.isfinite(sp.loo(fit).elpd)
+    assert np.isfinite(sp.kfold(fit, k=3, seed=1).elpd)
+    assert len(sp.binned_residuals(fit, n_bins=6)) == 6
+    with pytest.raises(MethodIncompatibility, match="grouped binomial"):
+        sp.bayes_r2(fit)
+    with pytest.raises(MethodIncompatibility, match="grouped binomial"):
+        sp.loo_r2(fit)
+
+
+def test_ordered_logit_surface(df):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_regress(
+            "o ~ x + a", df, model="ologit", draws=3000, burnin=500, seed=1
+        )
+        same = sp.bayes_regress(
+            "o ~ x + a", df, model="polr", draws=3000, burnin=500, seed=1
+        )
+        mle = sp.ologit("o ~ x + a", df)
+    np.testing.assert_array_equal(fit.draws.to_numpy(), same.draws.to_numpy())
+    assert list(fit.params.index) == ["x", "a", "cut1", "cut2"]
+    # a diffuse prior and 240 observations: close to maximum likelihood
+    for mine, theirs in zip(["x", "a", "cut1", "cut2"], ["x", "a", "/cut1", "/cut2"]):
+        assert fit.params[mine] == pytest.approx(
+            mle.params[theirs], abs=0.35 * mle.std_errors[theirs]
+        )
+    probs = fit.predict(df.iloc[:5], what="probabilities")
+    np.testing.assert_allclose(probs.sum(axis=1), 1.0)
+    assert set(np.unique(fit.posterior_predict(draws=100, seed=1))) <= {0.0, 1.0, 2.0}
+    assert np.isfinite(sp.loo(fit).elpd)
+    with pytest.raises(MethodIncompatibility):
+        sp.bayes_r2(fit)
+    with pytest.raises(MethodIncompatibility, match="free cutpoints"):
+        sp.bayes_regress("o ~ x - 1", df, model="ologit")
+
+
+def test_metropolis_models_report_both_acceptance_rates(df):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_regress(
+            "cnt ~ x + a",
+            df,
+            model="poisson",
+            prior="weakly_informative",
+            draws=4000,
+            burnin=500,
+            seed=1,
+        )
+    assert 0.1 < fit.acceptance_rate < 0.7
+    assert fit._extras["independence_accept"] > 0.5
+    # nearly independent draws: far more than a random walk alone delivers
+    assert fit.table["ess"].min() > 1200
+
+
+def test_slab_arguments(df):
+    with pytest.raises(MethodIncompatibility, match="belong to prior='horseshoe'"):
+        sp.bayes_shrink("yc ~ x + z", df, prior="lasso", slab_scale=2.0)
+    with pytest.raises(MethodIncompatibility, match="must be positive"):
+        sp.bayes_shrink("yc ~ x + z", df, prior="horseshoe", slab_scale=-1.0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_shrink(
+            "yc ~ x + z + a",
+            df,
+            prior="horseshoe",
+            slab_scale=2.5,
+            draws=800,
+            burnin=500,
+            seed=1,
+        )
+    assert list(fit.draws.columns)[-3:] == ["sigma2", "tau", "slab"]
+    assert fit.model_info["slab_scale"] == 2.5
+    assert len(fit.model_info["metropolis_steps"]) == 4
+    assert np.isfinite(sp.loo(fit).elpd)
+
+
+def test_model_band_does_not_collapse_where_the_outcome_is_constant():
+    rng = np.random.default_rng(2)
+    x = rng.uniform(-3, 3, 4000)
+    d = pd.DataFrame({"x": x})
+    d["y"] = (rng.uniform(size=4000) < 1 / (1 + np.exp(-(x**2 - 2)))).astype(int)
+    fit = sp.logit("y ~ x + I(x**2)", d)
+    arm = sp.binned_residuals(fit, by=d["x"], n_bins=30)
+    model = sp.binned_residuals(fit, by=d["x"], n_bins=30, band="model")
+    # the model is right, yet the empirical band flags the bins at the ends
+    assert arm.attrs["share_outside"] > model.attrs["share_outside"]
+    assert model.attrs["share_outside"] <= 0.15
+    np.testing.assert_allclose(arm["ybar"], model["ybar"])
+    assert sp.binned_residuals_plot(fit, band="model") is not None
+    with pytest.raises(MethodIncompatibility, match="0 / 1 outcome"):
+        counts = d.assign(c=rng.poisson(3.0, size=4000))
+        sp.binned_residuals(sp.poisson("c ~ x", counts), band="model")
+    with pytest.raises(MethodIncompatibility, match="needs the fitted model"):
+        sp.binned_residuals(x, d["y"] - 0.5, band="model")
+    with pytest.raises(MethodIncompatibility):
+        sp.binned_residuals(fit, band="other")
+
+
+def test_nbreg_counts_only_the_fixed_effects_it_estimates(df):
+    d = df.assign(grp=np.arange(len(df)) % 4)
+    d["dup"] = (d["grp"] == 3) * 1.0
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        base = sp.nbreg("cnt ~ x | grp", d)
+        over = sp.nbreg("cnt ~ x + dup | grp", d)
+    assert base.model_info["n_fe_params"] == 3
+    # 'dup' takes the place of one indicator, which is then omitted
+    assert over.model_info["n_fe_params"] == 2
+    assert len(over.model_info["omitted"]) == 1

@@ -39,9 +39,17 @@ def _need_model(fit: Any, what: str) -> None:
         )
 
 
+def _no_grouped(fit: Any, what: str) -> None:
+    if getattr(fit, "_trials", None) is not None:
+        raise MethodIncompatibility(
+            f"{what} is defined for one outcome per row; this fit is on "
+            "grouped binomial counts. Compare models with sp.loo."
+        )
+
+
 def _observed(fit: Any) -> np.ndarray:
     mdl = fit._model
-    y = mdl.yi if fit.model in ("oprobit", "mlogit") else mdl.y
+    y = mdl.yi if fit.model in ("oprobit", "ologit", "mlogit") else mdl.y
     return np.asarray(y, dtype=float)
 
 
@@ -363,7 +371,8 @@ def bayes_r2(fit: Any, kind: str = "model", level: float = 0.95) -> BayesR2Resul
     gelman2019rsquared
     """
     _need_model(fit, "bayes_r2")
-    if fit.model in ("oprobit", "mlogit", "quantile", "tobit"):
+    _no_grouped(fit, "bayes_r2")
+    if fit.model in ("oprobit", "ologit", "mlogit", "quantile", "tobit"):
         raise MethodIncompatibility(
             f"R-squared is not defined for model='{fit.model}': the outcome "
             "scale has no variance for the model to explain."
@@ -434,7 +443,8 @@ def loo_r2(
     gelman2019rsquared, vehtari2017practical
     """
     _need_model(fit, "loo_r2")
-    if fit.model in ("oprobit", "mlogit", "quantile", "tobit"):
+    _no_grouped(fit, "loo_r2")
+    if fit.model in ("oprobit", "ologit", "mlogit", "quantile", "tobit"):
         raise MethodIncompatibility(
             f"R-squared is not defined for model='{fit.model}'."
         )

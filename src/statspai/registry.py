@@ -17051,12 +17051,14 @@ def _build_registry() -> None:
             description=(
                 "Bayesian regression by MCMC with a normal prior on the "
                 "coefficients: Gaussian linear (independent or conjugate "
-                "prior), Student-t errors, logit, probit, ordered probit, "
-                "Poisson, negative binomial, tobit and quantile regression. "
-                "NumPy samplers (Gibbs, data augmentation, random-walk "
-                "Metropolis); no PyMC needed. Returns draws, credible "
-                "intervals, effective sample sizes, convergence "
-                "diagnostics and the log marginal likelihood."
+                "prior), Student-t errors, logit (also grouped binomial), "
+                "probit, ordered probit and logit, Poisson, negative "
+                "binomial, tobit and quantile regression. NumPy samplers "
+                "(Gibbs, data augmentation, Metropolis); no PyMC needed. "
+                "Returns draws, credible intervals, effective sample sizes, "
+                "convergence diagnostics, the log marginal likelihood, and "
+                "the predictive side: posterior_predict / posterior_epred "
+                "/ log_lik for sp.ppc and sp.loo."
             ),
             params=[
                 ParamSpec("formula", "str", True, description="e.g. 'y ~ x1 + x2'"),
@@ -17074,6 +17076,7 @@ def _build_registry() -> None:
                         "logit",
                         "probit",
                         "oprobit",
+                        "ologit",
                         "poisson",
                         "negbin",
                         "tobit",
@@ -17109,7 +17112,9 @@ def _build_registry() -> None:
                     "prior",
                     "str",
                     False,
-                    "vague",
+                    None,
+                    "Omitted: 'vague' today, 'weakly_informative' from 1.40 "
+                    "(a DeprecationWarning says so); name it to be unaffected. "
                     "'weakly_informative': independent normal priors scaled "
                     "to the data (sd 2.5 sd(y)/sd(x) per slope, intercept "
                     "centred at mean(y) with the regressors centred), the "
@@ -17132,6 +17137,15 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Count models: column whose logarithm is the offset",
+                ),
+                ParamSpec(
+                    "trials",
+                    "str",
+                    False,
+                    None,
+                    "model='logit' on grouped data: column with the number of "
+                    "trials; the outcome is the number of successes. "
+                    "Equivalently write the outcome cbind(successes, failures)",
                 ),
                 ParamSpec("draws", "int", False, 10000, "Draws kept per chain"),
                 ParamSpec("burnin", "int", False, 2000, "Iterations discarded"),
@@ -18934,6 +18948,17 @@ def _build_registry() -> None:
                     "coefficients; sets global_scale = p0/(p-p0)/sqrt(n)",
                 ),
                 ParamSpec(
+                    "slab_scale",
+                    "float",
+                    False,
+                    None,
+                    "horseshoe: regularize it with a Student-t slab of this "
+                    "scale on the coefficients that escape shrinkage "
+                    "(Piironen and Vehtari 2017; rstanarm hs()); in residual "
+                    "sd per sd of the regressor, 2.5 is wide",
+                ),
+                ParamSpec("slab_df", "float", False, 4.0, "Slab degrees of freedom"),
+                ParamSpec(
                     "lam", "float", False, None, "Lasso penalty; estimated when omitted"
                 ),
                 ParamSpec(
@@ -20691,6 +20716,17 @@ def _build_registry() -> None:
                     None,
                     "Bin on this variable instead of the fitted values",
                 ),
+                ParamSpec(
+                    "band",
+                    "str",
+                    False,
+                    "empirical",
+                    "'empirical': 2 sd / sqrt(n) of the bin's residuals (arm); "
+                    "'model': the standard error the fitted binary model "
+                    "implies, which does not collapse where the outcome "
+                    "hardly varies",
+                    ["empirical", "model"],
+                ),
             ],
             returns="DataFrame",
             example="sp.binned_residuals(sp.logit('y ~ x', df))",
@@ -20704,8 +20740,8 @@ def _build_registry() -> None:
                 FailureMode(
                     symptom="bins flagged where fitted probabilities are near 0 or 1",
                     exception="",
-                    remedy="The band 2 sd / sqrt(n) collapses where the "
-                    "outcome hardly varies; read those bins by eye.",
+                    remedy="The empirical band 2 sd / sqrt(n) collapses where "
+                    "the outcome hardly varies; pass band='model'.",
                 ),
             ],
             alternatives=["logit_gof", "ppc", "estat"],

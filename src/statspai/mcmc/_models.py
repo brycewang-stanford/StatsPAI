@@ -29,8 +29,8 @@ from ._core import (
     log_gamma,
     log_invgamma,
     log_mvnorm,
+    metropolis_mixture,
     normal_prior,
-    random_walk_metropolis,
     rinvgamma,
     rmvnorm_prec,
     rtruncnorm,
@@ -410,7 +410,7 @@ class ProbitModel(_Model):
 
 
 class _RWModel(_Model):
-    sampler = "random-walk Metropolis"
+    sampler = "Metropolis (random walk and independence proposals)"
 
     def __init__(
         self,
@@ -442,10 +442,14 @@ class _RWModel(_Model):
         if jitter:
             start = rng.multivariate_normal(mode, 4.0 * cov, method="svd")
         tune = self._tune()
-        u, acc = random_walk_metropolis(
-            rng, self.log_kernel, start, tune * tune * cov, n_iter
+        u, acc, acc_ind = metropolis_mixture(
+            rng, self.log_kernel, start, mode, cov, tune, n_iter
         )
-        return {"draws": self.from_u(u), "accept": acc, "extras": {"tune": tune}}
+        return {
+            "draws": self.from_u(u),
+            "accept": acc,
+            "extras": {"tune": tune, "independence_accept": acc_ind},
+        }
 
 
 class LogitModel(_RWModel):
@@ -459,13 +463,53 @@ class LogitModel(_RWModel):
         prior_mean: Any,
         prior_var: Any,
         tune: Any,
+        trials: Any = None,
     ) -> None:
         super().__init__(y, X, xnames, prior_mean, prior_var, tune)
-        _check_binary(self.y, "logit")
+        #: number of trials per row for grouped data; one otherwise
+        self.trials: Any = None
+        self._lchoose = 0.0
+        if trials is None:
+            _check_binary(self.y, "logit")
+        else:
+            m = np.asarray(trials, dtype=float).reshape(-1)
+            ok = np.all(np.isfinite(m)) and np.all(m >= 1)
+            whole = np.all(np.abs(m - np.round(m)) < 1e-9) and np.all(
+                np.abs(self.y - np.round(self.y)) < 1e-9
+            )
+            if m.shape != self.y.shape or not ok or not whole:
+                raise MethodIncompatibility(
+                    "trials must be a positive whole number per row and the "
+                    "outcome a whole number of successes."
+                )
+            if np.any(self.y < 0) or np.any(self.y > m):
+                raise MethodIncompatibility(
+                    "The number of successes must lie between 0 and trials."
+                )
+            self.trials = m
+            self._lchoose = float(
+                (
+                    special.gammaln(m + 1.0)
+                    - special.gammaln(self.y + 1.0)
+                    - special.gammaln(m - self.y + 1.0)
+                ).sum()
+            )
 
     def log_lik(self, theta: np.ndarray) -> float:
         eta = self.X @ theta[: self.k] + self.offset
-        return float(self.y @ eta - np.logaddexp(0.0, eta).sum())
+        m = 1.0 if self.trials is None else self.trials
+        return float(self.y @ eta - (m * np.logaddexp(0.0, eta)).sum() + self._lchoose)
+
+    def start_u(self) -> np.ndarray:
+        u = np.zeros(self.k)
+        if self.trials is not None:
+            # start at the pooled log odds: zero can be very far when the
+            # groups are large
+            const = np.where(np.ptp(self.X, axis=0) == 0)[0]
+            share = float(np.clip(self.y.sum() / self.trials.sum(), 1e-6, 1 - 1e-6))
+            if const.size:
+                u[const[0]] = np.log(share / (1.0 - share)) / self.X[0, const[0]]
+        return u
 
     def expected_value(self, eta: np.ndarray) -> np.ndarray:
         return np.asarray(special.expit(eta))
@@ -816,6 +860,17 @@ class QuantileModel(_Model):
 # ==========================================================================
 
 
+def _log_diff_expit(lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
+    """log(Lambda(hi) - Lambda(lo)) for lo < hi, accurate in both tails."""
+    flip = lo > 0
+    a = np.where(flip, -hi, lo)
+    b = np.where(flip, -lo, hi)
+    lb = special.log_expit(b)
+    la = special.log_expit(a)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.asarray(lb + np.log1p(-np.exp(np.minimum(la - lb, 0.0))))
+
+
 class OrderedProbitModel(_Model):
     """Ordered probit.
 
@@ -1000,6 +1055,52 @@ class OrderedProbitModel(_Model):
         return np.asarray(np.diff(cdf, axis=2).mean(axis=0))
 
 
+class OrderedLogitModel(OrderedProbitModel):
+    """Ordered logit (proportional odds), same parameterisation as the
+    ordered probit. No data augmentation: the whole vector (intercept,
+    slopes, log cutpoint increments) is updated by Metropolis around the
+    posterior mode."""
+
+    name = "ologit"
+    sampler = "Metropolis (random walk and independence proposals)"
+
+    def _loglik_internal(self, b: np.ndarray, d: np.ndarray) -> float:
+        cuts = self._cuts(d)
+        eta = self.X @ b
+        return float(
+            _log_diff_expit(cuts[self.yi] - eta, cuts[self.yi + 1] - eta).sum()
+        )
+
+    def sample(
+        self, rng: np.random.Generator, n_iter: int, jitter: bool
+    ) -> Dict[str, Any]:
+        mode, cov = self.mode()
+        start = mode
+        if jitter:
+            start = rng.multivariate_normal(mode, 4.0 * cov, method="svd")
+        tune = self.tune if self.tune is not None else 2.38 / np.sqrt(self.n_par)
+        if not tune > 0:
+            raise MethodIncompatibility(f"tune must be positive; got {tune}.")
+        u, acc, acc_ind = metropolis_mixture(
+            rng, self.log_kernel, start, mode, cov, float(tune), n_iter
+        )
+        return {
+            "draws": self.from_u(u),
+            "accept": acc,
+            "extras": {"tune": tune, "independence_accept": acc_ind},
+        }
+
+    def category_probabilities(self, draws: np.ndarray, X: np.ndarray) -> np.ndarray:
+        ks = self.k - 1
+        eta = draws[:, :ks] @ X[:, 1:].T
+        cuts = draws[:, ks:]
+        cdf = special.expit(cuts[:, None, :] - eta[:, :, None])
+        cdf = np.concatenate(
+            [np.zeros(cdf.shape[:2] + (1,)), cdf, np.ones(cdf.shape[:2] + (1,))], axis=2
+        )
+        return np.asarray(np.diff(cdf, axis=2).mean(axis=0))
+
+
 class MultinomialLogitModel(_RWModel):
     """Multinomial logit with the first outcome level as the base.
 
@@ -1071,6 +1172,8 @@ class MultinomialLogitModel(_RWModel):
         )
 
 
+ORDERED = ("oprobit", "ologit")
+
 MODELS = (
     "normal",
     "conjugate",
@@ -1078,6 +1181,7 @@ MODELS = (
     "logit",
     "probit",
     "oprobit",
+    "ologit",
     "poisson",
     "negbin",
     "tobit",

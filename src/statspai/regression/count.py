@@ -1657,6 +1657,7 @@ def nbreg(
     y_arr, X, var_names, dep_var, formula_fe, data = _parse_formula_or_xy(
         formula, data, y, x
     )
+    n_own = len(var_names)
     X, var_names, fe_level_counts = _append_fixed_effect_dummies(
         X, var_names, data, formula_fe
     )
@@ -1664,7 +1665,8 @@ def nbreg(
 
     X, var_names, collinear_omitted, _kept = drop_collinear(X, var_names, "nbreg")
     n, k = X.shape
-    n_fe_params = sum(max(v - 1, 0) for v in fe_level_counts.values())
+    # fixed-effect indicators that survive the collinearity scan
+    n_fe_params = sum(1 for j in _kept if j >= n_own)
 
     # Offset / exposure
     offset_arr = np.zeros(n)

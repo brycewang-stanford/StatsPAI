@@ -290,6 +290,77 @@ def random_walk_metropolis(
     return out, accepted / n_iter
 
 
+def metropolis_mixture(
+    rng: np.random.Generator,
+    log_post: Callable[[np.ndarray], float],
+    start: np.ndarray,
+    mode: np.ndarray,
+    cov: np.ndarray,
+    tune: float,
+    n_iter: int,
+    p_independence: float = 0.8,
+    dof: float = 5.0,
+    inflate: float = 1.15,
+) -> Tuple[np.ndarray, float, float]:
+    """Metropolis with two proposals drawn at random each iteration.
+
+    * a random walk, ``N(current, tune^2 cov)``;
+    * an independence proposal, multivariate Student-t with ``dof``
+      degrees of freedom centred at the posterior mode with scale
+      ``inflate^2 cov``.
+
+    Each kernel leaves the posterior invariant, so their mixture does.
+    When the posterior is close to its Laplace approximation, as for a
+    generalized linear model with a few dozen observations or more, the
+    independence proposal is accepted most of the time and successive
+    draws are nearly independent; the random walk keeps the chain moving
+    where the approximation is poor (heavy tails, skewness). The t
+    proposal has heavier tails than the target, which an independence
+    sampler needs.
+
+    Returns the states, the acceptance rate of the random-walk moves and
+    that of the independence moves.
+    """
+    k = start.size
+    chol = linalg.cholesky(0.5 * (cov + cov.T), lower=True)
+    out = np.empty((n_iter, k))
+    cur = np.array(start, dtype=float)
+    lp = log_post(cur)
+
+    def log_q(u: np.ndarray) -> float:
+        z = linalg.solve_triangular(chol, u - mode, lower=True, check_finite=False)
+        return float(-0.5 * (dof + k) * np.log1p(z @ z / (dof * inflate**2)))
+
+    lq = log_q(cur)
+    normals = rng.standard_normal((n_iter, k))
+    chi = rng.chisquare(dof, n_iter)
+    use_ind = rng.random(n_iter) < p_independence
+    log_u = np.log(rng.random(n_iter))
+    acc = [0, 0]
+    tried = [0, 0]
+    for it in range(n_iter):
+        ind = bool(use_ind[it])
+        tried[ind] += 1
+        if ind:
+            cand = mode + inflate * (chol @ normals[it]) / np.sqrt(chi[it] / dof)
+            lq_c = log_q(cand)
+            lp_c = log_post(cand)
+            ratio = lp_c - lp + lq - lq_c
+        else:
+            cand = cur + tune * (chol @ normals[it])
+            lp_c = log_post(cand)
+            ratio = lp_c - lp
+            lq_c = None
+        if log_u[it] < ratio:
+            cur, lp = cand, lp_c
+            lq = log_q(cur) if lq_c is None else lq_c
+            acc[ind] += 1
+        out[it] = cur
+    rw = acc[0] / tried[0] if tried[0] else float("nan")
+    indep = acc[1] / tried[1] if tried[1] else float("nan")
+    return out, rw, indep
+
+
 def check_mcmc_args(draws: int, burnin: int, thin: int, chains: int = 1) -> None:
     for nm, val, lo in (
         ("draws", draws, 1),

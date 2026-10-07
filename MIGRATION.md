@@ -135,6 +135,40 @@ that were at the maximum are unchanged, and so is every call with
 scale below the smallest gap between observed values, refit; the log
 marginal likelihood of the new fit is at least as high.
 
+## 1.38.0 → next: the default prior of `sp.bayes_regress` will change in 1.40
+
+**What changes, and when.** Today an omitted `prior` means a fixed
+`N(0, 1000)` on every coefficient (`N(0, 100)` for logit and probit). In
+1.40 it will mean `prior='weakly_informative'` for the models that have
+one (normal, logit, probit, Poisson, negative binomial): normal priors
+scaled to the data, as R `rstanarm` uses. Nothing changes in this release
+except a `DeprecationWarning` on the calls that will be affected.
+
+**Who is affected.** Calls to `sp.bayes_regress` for those five models
+that pass neither `prior` nor `prior_mean` nor `prior_var`. With regressors
+on a moderate scale the two priors give nearly the same posterior; with a
+regressor or an intercept in large units the fixed prior pulls the
+estimate toward zero (the function already warned about that), and those
+are the fits that will move.
+
+**What to do.** To keep today's numbers, write `prior='vague'`. To adopt
+the new default now, write `prior='weakly_informative'`. Either silences
+the warning.
+
+## 1.38.0 → next: draws of the Metropolis models of `sp.bayes_regress`
+
+**What changed.** `model='logit'`, `'poisson'`, `'negbin'` and `'mlogit'`
+are sampled with a mixture of the former random-walk proposal and an
+independence proposal centred at the posterior mode.
+
+**Who is affected.** Anyone comparing draws or summaries with a stored
+run at the same seed. The posterior is unchanged, so summaries agree
+within Monte Carlo error, which is now smaller: the effective sample size
+is three to five times what it was.
+
+**What to do.** Nothing. `acceptance_rate` still refers to the
+random-walk moves.
+
 ## 1.38.0 → next: ⚠️ collinear regressors are omitted by the likelihood-based estimators
 
 **What changed.** `sp.logit`, `sp.probit`, `sp.cloglog`, `sp.glm`,

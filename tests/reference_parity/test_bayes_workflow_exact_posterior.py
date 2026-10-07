@@ -53,6 +53,8 @@ def data() -> pd.DataFrame:
     df["ycens"] = np.maximum(df["y"] - 8.0, 0.0)
     df["yo"] = np.digitize(eta + rng.normal(size=N), [-0.2, 0.9])
     df["ym"] = rng.integers(0, 3, size=N)
+    df["m"] = rng.integers(3, 12, size=N)
+    df["yg"] = rng.binomial(df["m"], special.expit(eta))
     return df
 
 
@@ -400,6 +402,184 @@ def test_horseshoe_separates_signal_from_noise():
     assert cmp.loc["weak", "elpd_diff"] < -3
 
 
+@pytest.mark.parametrize("tau0", [1.0, 0.3])
+def test_regularized_horseshoe_posterior_with_one_regressor(tau0):
+    """With the slab the coefficient has prior variance
+    ``sigma^2 / (1 / rho^2 + 1 / c^2)``, ``rho = lam * tau``. The scales
+    are no longer conjugate and are updated by Metropolis; the exact
+    posterior is a three-dimensional integral over ``(sigma^2, rho, c^2)``
+    with the coefficient integrated out."""
+    rng = np.random.default_rng(22)
+    n = 25
+    x = rng.normal(size=n)
+    df = pd.DataFrame({"x": x, "y": 0.5 + 1.4 * x + rng.normal(size=n)})
+    a0, d0, slab, nu = 4.0, 3.0, 0.8, 4.0
+    z = (x - x.mean()) / x.std(ddof=1)
+    yc = df["y"].to_numpy() - df["y"].mean()
+    zz, zy, yy = z @ z, z @ yc, yc @ yc
+    # with a slab a large rho costs no likelihood, so its posterior tail is
+    # the prior's (density of log rho falling like |log rho| / rho): go far
+    lr_axis = np.linspace(-14.0, 28.0, 421)
+    rho_prior = _product_of_half_cauchy_logpdf(lr_axis, tau0)
+    s2_hat = (yy - zy**2 / zz) / (n - 2)
+    ls_axis = np.linspace(np.log(s2_hat) - 2.8, np.log(s2_hat) + 3.2, 121)
+    lc_axis = np.linspace(-5.0, 9.0, 141)  # log c^2
+    LS, LR, LC = np.meshgrid(ls_axis, lr_axis, lc_axis, indexing="ij")
+    s2, c2 = np.exp(LS), np.exp(LC)
+    v = 1.0 / (np.exp(-2 * LR) + 1.0 / c2)
+    A = zz + 1.0 / v
+    lk = (
+        -0.5 * (n - 1) * LS
+        - 0.5 * (yy - zy**2 / A) / s2
+        - 0.5 * np.log(v * A)
+        + stats.invgamma.logpdf(s2, a0 / 2, scale=d0 / 2)
+        + LS
+        + rho_prior[None, :, None]
+        + stats.invgamma.logpdf(c2, nu / 2, scale=nu * slab**2 / 2)
+        + LC
+    )
+    w = np.exp(lk - lk.max())
+    for edge in (w[0], w[-1], w[:, 0], w[:, -1], w[:, :, 0], w[:, :, -1]):
+        assert edge.max() < 1e-4
+    w = w / w.sum()
+    cond = zy / A
+    m_b = float((w * cond).sum())
+    sd_b = float(np.sqrt((w * (s2 / A + (cond - m_b) ** 2)).sum()))
+    kappa = float((w / (1.0 + n * (zz / n) * v)).sum())
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_shrink(
+            "y ~ x",
+            df,
+            prior="horseshoe",
+            global_scale=tau0,
+            slab_scale=slab,
+            slab_df=nu,
+            sigma2_prior=(a0, d0),
+            draws=60000,
+            burnin=4000,
+            thin=2,
+            seed=6,
+        )
+    sx = x.std(ddof=1)
+    row = fit.table.loc["x"]
+    assert abs(row["mean"] - m_b / sx) < 4 * row["mcse"] + 0.003 * sd_b / sx
+    assert row["sd"] == pytest.approx(sd_b / sx, rel=0.06)
+    assert fit.table.loc["x", "shrinkage"] == pytest.approx(kappa, abs=0.02)
+    assert "slab" in fit.draws.columns
+    # the slab binds here: without it the same data shrink the slope less
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plain = sp.bayes_shrink(
+            "y ~ x",
+            df,
+            prior="horseshoe",
+            global_scale=tau0,
+            sigma2_prior=(a0, d0),
+            draws=20000,
+            burnin=2000,
+            seed=6,
+        )
+    assert abs(plain.params["x"]) > abs(fit.params["x"]) + 0.02
+
+
+def test_ordered_logit_posterior(data):
+    """Grid over the internal coordinates (intercept, slope, log distance
+    between the two cutpoints); reported are the slope and the cutpoints
+    of the model without intercept."""
+    y, x = data["yo"].to_numpy().astype(int), data["x"].to_numpy()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_regress(
+            "yo ~ x", data, model="ologit", draws=60000, burnin=3000, seed=12
+        )
+    d = fit.draws
+    internal = np.column_stack([-d["cut1"], d["x"], np.log(d["cut2"] - d["cut1"])])
+    center, spread = internal.mean(axis=0), internal.std(axis=0)
+
+    def lk(g):
+        a, b, dd = g[:, [0]], g[:, [1]], g[:, [2]]
+        eta = a + b * x
+        upper = np.exp(dd)
+        cdf0 = special.expit(-eta)
+        cdf1 = special.expit(upper - eta)
+        prob = np.where(y == 0, cdf0, np.where(y == 1, cdf1 - cdf0, 1 - cdf1))
+        return (
+            np.log(np.clip(prob, 1e-300, None)).sum(axis=1)
+            + stats.norm.logpdf(g[:, :2], 0.0, 10.0).sum(axis=1)
+            + stats.norm.logpdf(g[:, 2], 0.0, 1.0)
+        )
+
+    mean, sd = grid_posterior(
+        lk,
+        lambda g: np.column_stack([g[:, 1], -g[:, 0], np.exp(g[:, 2]) - g[:, 0]]),
+        center,
+        spread,
+        points=81,
+        width=6.5,
+    )
+    check(fit, mean, sd, ["x", "cut1", "cut2"])
+    # most proposals are independence proposals, so the chain is efficient
+    assert fit.table["ess"].min() > 0.25 * 60000
+
+
+def test_grouped_binomial_posterior(data):
+    y, m, x = (data[c].to_numpy(dtype=float) for c in ("yg", "m", "x"))
+    s_x, xbar = x.std(ddof=1), x.mean()
+
+    def lk(g):
+        a, b = g[:, [0]], g[:, [1]]
+        eta = a + b * x
+        return (
+            stats.binom.logpmf(y, m, special.expit(eta)).sum(axis=1)
+            + stats.norm.logpdf(a[:, 0] + b[:, 0] * xbar, 0.0, 2.5)
+            + stats.norm.logpdf(b[:, 0], 0.0, 2.5 / s_x)
+        )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_regress(
+            "yg ~ x",
+            data,
+            model="logit",
+            trials="m",
+            prior="weakly_informative",
+            draws=40000,
+            burnin=2000,
+            seed=13,
+        )
+        same = sp.bayes_regress(
+            "cbind(yg, m - yg) ~ x",
+            data,
+            model="logit",
+            prior="weakly_informative",
+            draws=40000,
+            burnin=2000,
+            seed=13,
+        )
+    np.testing.assert_allclose(same.draws.to_numpy(), fit.draws.to_numpy())
+    mean, sd = grid_posterior(
+        lk,
+        lambda g: g,
+        fit.table["mean"].to_numpy(),
+        fit.table["sd"].to_numpy(),
+        points=161,
+        width=7.0,
+    )
+    check(fit, mean, sd, ["Intercept", "x"])
+    # pointwise log-likelihood is the binomial log mass, on old and new rows
+    dr = fit.draws.to_numpy()
+    want = stats.binom.logpmf(y, m, special.expit(dr[:, [0]] + dr[:, [1]] * x))
+    np.testing.assert_allclose(fit.log_lik(), want, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(same.log_lik(data.iloc[3:9]), want[:, 3:9], rtol=1e-9)
+    assert fit.log_lik()[5].sum() == pytest.approx(fit._model.log_lik(dr[5]), rel=1e-10)
+    # predictions: a share between 0 and 1, and counts with binomial moments
+    share = fit.posterior_epred()
+    counts = fit.posterior_predict(seed=3)
+    assert counts.max() <= m.max() and np.all(counts <= m[None, :])
+    np.testing.assert_allclose(counts.mean(axis=0), m * share.mean(axis=0), rtol=0.03)
+
+
 # ---------------------------------------------------------------------
 # PSIS-LOO against exact leave-one-out
 # ---------------------------------------------------------------------
@@ -458,6 +638,7 @@ CASES = [
     ("tobit", "ycens ~ x", {"lower": 0.0}),
     ("quantile", "y ~ x", {"quantile": 0.3}),
     ("oprobit", "yo ~ x", {}),
+    ("ologit", "yo ~ x", {}),
     ("mlogit", "ym ~ x", {}),
 ]
 
@@ -516,7 +697,7 @@ def test_pointwise_log_lik_against_scipy(fits, data):
 
 
 def test_log_lik_on_new_data_is_the_same_function(fits, data):
-    for model in ("normal", "logit", "poisson", "oprobit", "mlogit", "tobit"):
+    for model in ("normal", "logit", "poisson", "oprobit", "ologit", "mlogit", "tobit"):
         fit = fits[model]
         np.testing.assert_allclose(fit.log_lik(data), fit.log_lik(), rtol=1e-10)
         part = fit.log_lik(data.iloc[5:12])
@@ -565,7 +746,7 @@ def test_predictive_draws_have_the_model_moments(data, model):
 
 
 def test_ordered_and_multinomial_predictions_follow_the_probabilities(fits, data):
-    for model in ("oprobit", "mlogit"):
+    for model in ("oprobit", "ologit", "mlogit"):
         fit = fits[model]
         y_rep = fit.posterior_predict(seed=5)
         probs = fit.predict(what="probabilities").to_numpy()

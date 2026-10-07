@@ -57,14 +57,14 @@ fake data".
 | 11 | `bayes_R2`, `loo_R2` | `sp.bayes_r2`, `sp.loo_r2` |
 | 11 | `loo`, `loo_compare`, `kfold` | `sp.loo`, `sp.loo_compare`, `sp.kfold` |
 | 12 | logs, `arm::standardize`, rescaling by two standard deviations | formulas with `log()`; `sp.standardize` |
-| 12 | horseshoe prior `hs()` on many predictors | `sp.bayes_shrink(prior='horseshoe', p0=)` |
+| 12 | horseshoe prior `hs()` on many predictors | `sp.bayes_shrink(prior='horseshoe', p0=, slab_scale=)` |
 | 13, 14 | `stan_glm(family = binomial)`, `invlogit` | `sp.bayes_regress(model='logit')`; `sp.logit`; `sp.invlogit` |
 | 14 | average predictive comparisons | `sp.margins`, `sp.margins_at` |
 | 14 | `binnedplot` | `sp.binned_residuals`, `sp.binned_residuals_plot` |
 | 14 | separation and weakly informative priors | `ConvergenceWarning` from `sp.logit`; `prior='weakly_informative'` |
 | 15 | Poisson and negative binomial with `offset`, overdispersion | `sp.bayes_regress(model='poisson' / 'negbin', exposure=)`; `sp.poisson`, `sp.nbreg`; `sp.glm(family='quasipoisson')` |
-| 15 | `cbind(y, n - y) ~ x` | `sp.glm("cbind(y, n - y) ~ x", family='binomial')` |
-| 15 | probit, ordered logit and probit (`stan_polr`), robit | `sp.probit`, `sp.ologit`, `sp.oprobit`, `sp.bayes_regress(model='oprobit')`; `sp.glm(link='robit(4)')` |
+| 15 | `cbind(y, n - y) ~ x` | the same formula in `sp.glm(family='binomial')` and `sp.bayes_regress(model='logit')` |
+| 15 | probit, ordered logit and probit (`stan_polr`), robit | `sp.probit`, `sp.ologit`, `sp.oprobit`, `sp.bayes_regress(model='ologit' / 'oprobit')`; `sp.glm(link='robit(4)')` |
 | 15 | tobit, mixed discrete and continuous outcomes | `sp.tobit`, `sp.bayes_regress(model='tobit')`; two fits and `posterior_predict` |
 | 16 | sample size, power, type S and type M errors | `sp.power_ttest`, `sp.power_two_proportions`; `sp.retrodesign` |
 | 17 | poststratification | `sp.poststratify(fit, cells, count='N')` |
@@ -95,10 +95,17 @@ residual standard deviation gets an exponential prior with rate
 `1 / sd(y)`. For logit, probit, Poisson and negative binomial models
 `sd(y)` is replaced by 1 and `mean(y)` by 0.
 
-Under the fixed default of `sp.bayes_regress` (variance 1000 on every
+Under the fixed prior of `sp.bayes_regress` (variance 1000 on every
 coefficient) the same fit puts the intercept at 46.1 and says so in a
 warning. A prior of fixed scale is tight for a coefficient measured in
 large units. The weakly informative prior does not depend on units.
+
+The fixed prior is still what an unnamed `prior` gives, for one more
+release. From StatsPAI 1.40 the weakly informative prior becomes the
+default for the models that have one, and a `DeprecationWarning` says so
+until then. Write `prior='vague'` to keep the old numbers or
+`prior='weakly_informative'` to move now. A fit that sets `prior_mean` or
+`prior_var` is not affected.
 
 The prior scales are checked against `prior_summary()` of `rstanarm`
 to nine digits. The sampler is checked against the exact posterior on a
@@ -180,11 +187,12 @@ formula=...)` rescales the columns named in the formula and leaves
 transformed terms alone. Create the transformed column first and
 standardize that.
 
-**Binned residuals where the outcome hardly varies.** The band is
+**Binned residuals where the outcome hardly varies.** The default band is
 `2 sd / sqrt(n)` of the residuals in a bin, as in `arm`. In a bin where
 every outcome is 1 the residuals are all tiny and nearly equal, so the
-band collapses and the bin is flagged. Read flags at fitted
-probabilities near 0 or 1 with that in mind.
+band collapses and the bin is flagged. `band='model'` uses the standard
+error the fitted probabilities imply, `2 sqrt(sum p (1 - p)) / n`, which
+does not collapse.
 
 **Bayesian R-squared for counts.** `rstanarm::bayes_R2` stops at
 Gaussian and binomial models. `sp.bayes_r2` applies the same definition,
@@ -200,13 +208,18 @@ the model expects, to Poisson (`mu`) and negative binomial
   NumPy samplers. The PyMC-based estimators are in `statspai.bayes`.
 - `stan_gamm4` (splines inside a Bayesian fit). `sp.gam` is the
   penalized-likelihood counterpart.
-- A Bayesian ordered *logit* (`stan_polr`). `sp.bayes_regress` has the
-  ordered probit; `sp.ologit` is the likelihood fit.
-- Grouped binomial outcomes in `sp.bayes_regress`. Expand the groups to
-  0 / 1 rows, or use `sp.glm` with `cbind()`.
-- NUTS. The Metropolis samplers for logit, Poisson and negative binomial
-  models return an effective sample size of roughly a tenth of the
-  draws. Run more draws; they are cheap.
+- The prior of `stan_polr`, which is stated on the R-squared of the
+  latent regression. `sp.bayes_regress(model='ologit')` puts a normal
+  prior on the coefficients and on the log distances between cutpoints.
+- NUTS. The logit, ordered logit, Poisson and negative binomial models
+  are sampled by Metropolis with two proposals, a random walk and an
+  independence proposal centred at the posterior mode. On the book's
+  examples the effective sample size is a third to a half of the draws.
+  A posterior far from normal (very few observations, near separation)
+  gets less; the acceptance rate of the independence proposal is in
+  `fit._extras['independence_accept']`.
+- A shrinkage prior for the logit model. `sp.bayes_shrink` is for a
+  Gaussian outcome.
 
 ## Reproducing the checks
 

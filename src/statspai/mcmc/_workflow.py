@@ -26,6 +26,7 @@ PREDICTIVE_MODELS = (
     "logit",
     "probit",
     "oprobit",
+    "ologit",
     "poisson",
     "negbin",
     "tobit",
@@ -189,7 +190,7 @@ def linear_index(model: Any, draws: np.ndarray, X: np.ndarray, offset: Any) -> A
             "A multinomial logit has one index per category; use "
             "predict(what='probabilities')."
         )
-    if name == "oprobit":
+    if name in M.ORDERED:
         return np.asarray(draws[:, : model.k - 1] @ X[:, 1:].T)
     return np.asarray(draws[:, : model.k] @ X.T) + offset
 
@@ -217,7 +218,12 @@ def _mlogit_eta(model: Any, draws: np.ndarray, X: np.ndarray) -> np.ndarray:
 
 
 def pointwise_log_lik(
-    model: Any, draws: np.ndarray, y: np.ndarray, X: np.ndarray, offset: Any = 0.0
+    model: Any,
+    draws: np.ndarray,
+    y: np.ndarray,
+    X: np.ndarray,
+    offset: Any = 0.0,
+    trials: Any = None,
 ) -> np.ndarray:
     """Log density of each observation under each draw: ``draws x n``."""
     name = model.name
@@ -229,12 +235,13 @@ def pointwise_log_lik(
         )[:, :, 0]
         return np.asarray(own - special.logsumexp(eta, axis=2))
     eta = linear_index(model, draws, X, offset)
-    if name == "oprobit":
+    if name in M.ORDERED:
         cuts = _ordered_cuts(model, draws)
         yi = y.astype(int)
         lo = cuts[:, yi] - eta
         hi = cuts[:, yi + 1] - eta
-        return np.asarray(M._log_diff_ndtr(lo, hi))
+        diff = M._log_diff_ndtr if name == "oprobit" else M._log_diff_expit
+        return np.asarray(diff(lo, hi))
     if name in ("normal", "conjugate"):
         s = _scale(model, draws)
         return np.asarray(-0.5 * _LOG_2PI - np.log(s) - 0.5 * ((y - eta) / s) ** 2)
@@ -259,7 +266,15 @@ def pointwise_log_lik(
     if name == "probit":
         return np.asarray(special.log_ndtr(np.where(y > 0.5, eta, -eta)))
     if name == "logit":
-        return np.asarray(y * eta - np.logaddexp(0.0, eta))
+        if trials is None:
+            return np.asarray(y * eta - np.logaddexp(0.0, eta))
+        m = np.asarray(trials, dtype=float)
+        choose = (
+            special.gammaln(m + 1.0)
+            - special.gammaln(y + 1.0)
+            - special.gammaln(m - y + 1.0)
+        )
+        return np.asarray(y * eta - m * np.logaddexp(0.0, eta) + choose)
     if name == "poisson":
         with np.errstate(over="ignore"):
             return np.asarray(y * eta - np.exp(eta) - special.gammaln(y + 1.0))
@@ -284,6 +299,7 @@ def predictive_draws(
     X: np.ndarray,
     rng: np.random.Generator,
     offset: Any = 0.0,
+    trials: Any = None,
 ) -> np.ndarray:
     """One outcome per draw and observation from the predictive
     distribution: ``draws x n``."""
@@ -294,8 +310,13 @@ def predictive_draws(
         u = rng.uniform(size=(n_draws, n, 1))
         return np.asarray((u > np.cumsum(prob, axis=2)).sum(axis=2), dtype=float)
     eta = linear_index(model, draws, X, offset)
-    if name == "oprobit":
-        latent = eta + rng.standard_normal((n_draws, n))
+    if name in M.ORDERED:
+        noise = (
+            rng.standard_normal((n_draws, n))
+            if name == "oprobit"
+            else rng.logistic(size=(n_draws, n))
+        )
+        latent = eta + noise
         cuts = draws[:, model.k - 1 :]
         return np.asarray(
             (latent[:, :, None] > cuts[:, None, :]).sum(axis=2), dtype=float
@@ -318,6 +339,9 @@ def predictive_draws(
     if name == "probit":
         return np.asarray(rng.uniform(size=(n_draws, n)) < special.ndtr(eta), float)
     if name == "logit":
+        if trials is not None:
+            m = np.broadcast_to(np.asarray(trials).astype(int), eta.shape)
+            return np.asarray(rng.binomial(m, special.expit(eta)), dtype=float)
         return np.asarray(rng.uniform(size=(n_draws, n)) < special.expit(eta), float)
     with np.errstate(over="ignore"):
         mu = np.exp(eta)

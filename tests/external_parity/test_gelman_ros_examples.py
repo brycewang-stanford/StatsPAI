@@ -199,6 +199,43 @@ def test_grouped_and_logical_outcomes(R):
     _same_fit(fit, R["earnings"]["log"], rtol=1e-9)
 
 
+def test_golf_putting_as_a_grouped_bayesian_logit(R):
+    """Chapter 15 fits the putting data with ``stan_glm(cbind(y, n - y) ~
+    x)``. Nineteen rows stand for 5,616 putts, so the weak prior is
+    irrelevant and the posterior sits on the maximum-likelihood fit."""
+    golf = _read("Golf", "data", "golf.txt", sep=r"\s+", skiprows=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_regress(
+            "cbind(y, n - y) ~ x", golf, model="logit", draws=10000, burnin=1000, **KW
+        )
+    for j, name in enumerate(["Intercept", "x"]):
+        assert fit.params[name] == pytest.approx(R["golf"]["est"][j], abs=0.1 * R["golf"]["se"][j])
+        assert fit.table.loc[name, "sd"] == pytest.approx(R["golf"]["se"][j], rel=0.05)
+    assert fit.posterior_predict(seed=1).shape == (40000, 19)
+
+
+def test_storable_votes_ordered_logit():
+    """The pooled two-player games, an ordered logit of the vote on the
+    value: the posterior under the diffuse default prior against the
+    maximum-likelihood fit (979 observations)."""
+    games = _read("Storable", "data", "2playergames.csv")
+    mle = sp.ologit("factor(vote) ~ value", games)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.bayes_regress(
+            "vote ~ value", games, model="ologit", draws=10000, burnin=1000, chains=4,
+            seed=20261007,
+        )
+    for mine, theirs in (("value", "value"), ("cut1", "/cut1"), ("cut2", "/cut2")):
+        assert fit.params[mine] == pytest.approx(
+            mle.params[theirs], abs=0.15 * mle.std_errors[theirs]
+        )
+        assert fit.table.loc[mine, "sd"] == pytest.approx(mle.std_errors[theirs], rel=0.06)
+    assert fit.table["ess"].min() > 8000
+    assert sp.loo(fit).p == pytest.approx(3.0, abs=0.7)
+
+
 def test_poststratification(R):
     poll = _read("Poststrat", "data", "poll.csv")
     with warnings.catch_warnings():

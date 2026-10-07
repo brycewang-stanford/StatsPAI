@@ -12,6 +12,7 @@ causal designs (DiD, RD, IV, ...) with PyMC see :mod:`statspai.bayes`.
 
 from __future__ import annotations
 
+import re
 import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -50,6 +51,9 @@ _MODEL_ALIASES = {
     "student-t": "t",
     "ordered_probit": "oprobit",
     "ordered-probit": "oprobit",
+    "ordered_logit": "ologit",
+    "ordered-logit": "ologit",
+    "polr": "ologit",
     "nbreg": "negbin",
     "negative_binomial": "negbin",
     "qreg": "quantile",
@@ -62,6 +66,7 @@ _CITATIONS = {
     "t": ("geweke1993bayesian",),
     "probit": ("albert1993bayesian",),
     "oprobit": ("albert1993bayesian", "cowles1996accelerating"),
+    "ologit": ("metropolis1953equation", "hastings1970monte"),
     "tobit": ("chib1992bayes",),
     "quantile": ("kozumi2011gibbs",),
     "logit": ("metropolis1953equation", "hastings1970monte"),
@@ -242,11 +247,62 @@ class _OffsetSpec:
         return np.asarray(np.log(raw) if self.log else raw)
 
 
+_CBIND_OUTCOME = re.compile(r"^\s*cbind\(\s*([^,()]+?)\s*,\s*([^()]+?)\s*\)\s*~")
+
+
+@dataclass
+class _TrialsSpec:
+    """Number of trials of a grouped binomial outcome, and how to rebuild it.
+
+    Either a column of the data (``trials='n'``) or the two expressions of
+    an outcome written ``cbind(successes, failures) ~ ...``, in which case
+    ``formula`` is the internal formula on the columns ``_successes`` and
+    ``_trials``.
+    """
+
+    values: np.ndarray
+    column: Optional[str]
+    exprs: Optional[Tuple[str, str]]
+    formula: Optional[str]
+    label: str
+
+    def augment(self, data: pd.DataFrame) -> pd.DataFrame:
+        """``data`` with the internal outcome columns, for a cbind outcome."""
+        if self.exprs is None:
+            return data
+        try:
+            succ = np.asarray(data.eval(self.exprs[0]), dtype=float)
+            fail = np.asarray(data.eval(self.exprs[1]), dtype=float)
+        except (
+            SyntaxError,
+            NameError,
+            KeyError,
+            TypeError,
+            ValueError,
+            AttributeError,
+            pd.errors.UndefinedVariableError,
+        ) as exc:
+            raise MethodIncompatibility(
+                f"Could not evaluate cbind({self.exprs[0]}, {self.exprs[1]}) "
+                f"on the data: {exc}"
+            ) from exc
+        return data.assign(_successes=succ, _trials=succ + fail)
+
+    def for_data(self, data: pd.DataFrame) -> np.ndarray:
+        name = "_trials" if self.exprs is not None else self.column
+        if name not in data.columns:
+            raise MethodIncompatibility(
+                f"The new data lack the trials column {name!r}."
+            )
+        return np.asarray(data[name].to_numpy(dtype=float))
+
+
 class _PredictiveMethods:
     """Predictive distribution and pointwise likelihood of a fitted model."""
 
     _model: Any
     _offset: Any
+    _trials: Any
     _frame: Any
     _call: Dict[str, Any]
     _design_info: Any
@@ -286,13 +342,20 @@ class _PredictiveMethods:
             )
         return mdl
 
+    def _trials_for(self, data: Optional[pd.DataFrame]) -> Any:
+        if self._trials is None:
+            return None
+        if data is None:
+            return self._trials.values
+        return self._trials.for_data(data)
+
     def _draw_rows(self, index: Optional[Any]) -> np.ndarray:
         d = self.draws.to_numpy()
         return np.asarray(d if index is None else d[np.asarray(index)])
 
     def _outcome_and_rows(self, data: pd.DataFrame) -> Tuple[np.ndarray, pd.DataFrame]:
         """Outcome of new data on the model's scale, and the rows used."""
-        if self.model in ("oprobit", "mlogit"):
+        if self.model in ("oprobit", "ologit", "mlogit"):
             lhs = self.formula.split("~", 1)[0].strip()
             if lhs not in data.columns:
                 raise MethodIncompatibility(f"The new data lack the outcome {lhs!r}.")
@@ -305,7 +368,10 @@ class _PredictiveMethods:
                     f"fitted to; known levels: {levels}."
                 )
             return np.asarray(codes, dtype=float), rows
-        y_df, _ = create_design_matrices(self.formula, data)
+        formula = self.formula
+        if self._trials is not None and self._trials.formula is not None:
+            formula = self._trials.formula
+        y_df, _ = create_design_matrices(formula, data)
         rows = data.loc[y_df.index]
         return np.asarray(y_df, dtype=float).reshape(-1), rows
 
@@ -359,10 +425,17 @@ class _PredictiveMethods:
                 )
             index = np.unique(np.linspace(0, total - 1, int(draws)).round().astype(int))
         mdl = self._predictive_model("posterior_predict()")
+        if data is not None and self._trials is not None:
+            data = self._trials.augment(data)
         X = self._design(data)
         rng = np.random.default_rng(seed)
         return W.predictive_draws(
-            mdl, self._draw_rows(index), X, rng, self._offset_for(data)
+            mdl,
+            self._draw_rows(index),
+            X,
+            rng,
+            self._offset_for(data),
+            self._trials_for(data),
         )
 
     def log_lik(
@@ -378,11 +451,17 @@ class _PredictiveMethods:
         mdl = self._predictive_model("log_lik()")
         d = self._draw_rows(index)
         if data is None:
-            y = mdl.yi if self.model in ("oprobit", "mlogit") else mdl.y
-            return W.pointwise_log_lik(mdl, d, y, mdl.X, self._offset_for(None))
+            y = mdl.yi if self.model in ("oprobit", "ologit", "mlogit") else mdl.y
+            return W.pointwise_log_lik(
+                mdl, d, y, mdl.X, self._offset_for(None), self._trials_for(None)
+            )
+        if self._trials is not None:
+            data = self._trials.augment(data)
         y, rows = self._outcome_and_rows(data)
         X = self._design(rows)
-        return W.pointwise_log_lik(mdl, d, y, X, self._offset_for(rows))
+        return W.pointwise_log_lik(
+            mdl, d, y, X, self._offset_for(rows), self._trials_for(rows)
+        )
 
     def _refit(self, data: pd.DataFrame) -> Any:
         """The same model fitted to other data (cross-validation)."""
@@ -466,6 +545,7 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
     _frame: Any = field(default=None, repr=False)
     _call: Dict[str, Any] = field(default_factory=dict, repr=False)
     _offset: Any = field(default=None, repr=False)
+    _trials: Any = field(default=None, repr=False)
 
     #: every paper a model of this family rests on; ``cite()`` returns the
     #: ones of the fitted model
@@ -688,7 +768,7 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
         X = self._design(data)
         d = self.draws.to_numpy()
         if what == "probabilities":
-            if self.model not in ("oprobit", "mlogit"):
+            if self.model not in ("oprobit", "ologit", "mlogit"):
                 raise MethodIncompatibility(
                     "what='probabilities' is for model='oprobit' and 'mlogit'."
                 )
@@ -963,9 +1043,10 @@ def bayes_regress(
     size_prior: Optional[Tuple[float, float]] = None,
     cut_prior_var: float = 1.0,
     inference: str = "mcmc",
-    prior: str = "vague",
+    prior: Optional[str] = None,
     offset: Any = None,
     exposure: Optional[str] = None,
+    trials: Optional[str] = None,
 ) -> BayesRegressResult:
     """Bayesian regression by MCMC.
 
@@ -986,9 +1067,16 @@ def bayes_regress(
         likelihood.
         ``'t'``         linear model with Student-t errors of ``dof``
         degrees of freedom (outlier-robust); Gibbs.
-        ``'logit'``, ``'poisson'``, ``'negbin'``  random-walk Metropolis
-        with a proposal shaped by the posterior curvature at the mode.
+        ``'logit'``, ``'poisson'``, ``'negbin'``  Metropolis with two
+        proposals shaped by the posterior curvature at the mode, a random
+        walk and a heavy-tailed independence proposal centred at the mode
+        (most draws are then nearly independent). For grouped data the
+        logit takes ``trials=`` or an outcome written
+        ``cbind(successes, failures)``.
         ``'probit'``    Albert and Chib (1993) data augmentation.
+        ``'ologit'``    ordered logit (proportional odds), the model of
+        ``sp.ologit`` and R ``polr``; same reporting as ``'oprobit'``;
+        Metropolis on all parameters.
         ``'oprobit'``   ordered probit: Albert and Chib (1993) data
         augmentation, the cutpoints updated by a Metropolis step with the
         latent data integrated out (in the spirit of Cowles 1996).
@@ -1058,7 +1146,11 @@ def bayes_regress(
         are dependent a posteriori. ``draws`` are then independent draws
         from the approximation and ``model_info['elbo']`` is the evidence
         lower bound.
-    prior : {'vague', 'weakly_informative'}, default 'vague'
+    prior : {'vague', 'weakly_informative'}, optional
+        Omitted, it is ``'vague'`` today and will be
+        ``'weakly_informative'`` from StatsPAI 1.40 for the models that
+        have one, unless ``prior_mean`` or ``prior_var`` is given; a
+        ``DeprecationWarning`` says so. Name it to be unaffected.
         ``'vague'`` uses ``prior_mean`` and ``prior_var`` as given.
         ``'weakly_informative'`` scales independent normal priors to the
         data (models normal, logit, probit, poisson, negbin): standard
@@ -1076,6 +1168,11 @@ def bayes_regress(
         an array. Predictions for new data need the column form.
     exposure : str, optional
         Column whose logarithm is the offset of a count model.
+    trials : str, optional
+        ``model='logit'`` on grouped data: column with the number of
+        trials of each row, the outcome being the number of successes.
+        ``posterior_epred`` is then the success probability and
+        ``posterior_predict`` a number of successes.
 
     Returns
     -------
@@ -1109,7 +1206,8 @@ def bayes_regress(
     >>> df = pd.DataFrame({"x": rng.normal(size=300)})
     >>> df["y"] = (0.3 + df["x"] + rng.normal(size=300) > 0).astype(int)
     >>> fit = sp.bayes_regress("y ~ x", df, model="probit", draws=2000,
-    ...                        burnin=500, seed=1)
+    ...                        burnin=500, seed=1,
+    ...                        prior="weakly_informative")
     >>> bool(fit.prob("x > 0") > 0.99)
     True
     >>> lml = fit.log_marginal_likelihood()
@@ -1152,8 +1250,12 @@ def bayes_regress(
         "prior": prior,
         "offset": offset,
         "exposure": exposure,
+        "trials": trials,
     }
-    prior_kind = str(prior).lower().replace("-", "_")
+    prior_unset = prior is None
+    prior_kind = "vague" if prior is None else str(prior).lower().replace("-", "_")
+    # a refit (cross-validation) repeats the prior that was used, silently
+    call["prior"] = "vague" if prior is None else prior
     if prior_kind in ("weakly_informative", "weak", "auto", "rstanarm"):
         prior_kind = "weakly_informative"
     elif prior_kind not in ("vague", "default"):
@@ -1171,9 +1273,39 @@ def bayes_regress(
             f"formula must look like 'y ~ x1 + x2'; got {formula!r}."
         )
 
+    user_formula = formula
+    grouped = _CBIND_OUTCOME.match(formula)
+    cbind_exprs: Optional[Tuple[str, str]] = None
+    if grouped is not None:
+        if model_key != "logit":
+            raise MethodIncompatibility(
+                "A cbind(successes, failures) outcome is for model='logit'."
+            )
+        if trials is not None:
+            raise MethodIncompatibility(
+                "With a cbind(successes, failures) outcome the trials are "
+                "their sum; do not pass trials= as well."
+            )
+        cbind_exprs = (grouped.group(1), grouped.group(2))
+        probe = _TrialsSpec(np.zeros(0), None, cbind_exprs, None, "")
+        data = probe.augment(data)
+        data = data.loc[data["_trials"] > 0]
+        formula = "_successes ~" + formula.split("~", 1)[1]
+        trials = "_trials"
+    if trials is not None and model_key != "logit":
+        raise MethodIncompatibility(
+            f"trials= is for model='logit'; got model='{model_key}'."
+        )
+    if trials is not None and (
+        not isinstance(trials, str) or trials not in data.columns
+    ):
+        raise MethodIncompatibility(
+            "trials must name a column of data holding the number of trials."
+        )
+
     levels: List[Any] = []
     work = data
-    if model_key in ("oprobit", "mlogit"):
+    if model_key in ("oprobit", "ologit", "mlogit"):
         lhs = formula.split("~", 1)[0].strip()
         if lhs not in data.columns:
             raise MethodIncompatibility(
@@ -1185,9 +1317,9 @@ def bayes_regress(
         work[lhs] = codes
         rhs = formula.split("~", 1)[1]
         no_const = "-1" in rhs.replace(" ", "") or "+0" in rhs.replace(" ", "")
-        if model_key == "oprobit" and no_const:
+        if model_key in M.ORDERED and no_const:
             raise MethodIncompatibility(
-                "The ordered probit has free cutpoints in place of an "
+                "An ordered model has free cutpoints in place of an "
                 "intercept; write the formula without '- 1'."
             )
     y_df, X_df = create_design_matrices(formula, work)
@@ -1211,6 +1343,35 @@ def bayes_regress(
 
     frame = work.loc[y_df.index] if hasattr(y_df, "index") else work
     offset_spec = _OffsetSpec.build(offset, exposure, work, frame, model_key)
+    trials_spec: Optional[_TrialsSpec] = None
+    if trials is not None:
+        trials_spec = _TrialsSpec(
+            values=frame[trials].to_numpy(dtype=float),
+            column=None if cbind_exprs is not None else trials,
+            exprs=cbind_exprs,
+            formula=formula if cbind_exprs is not None else None,
+            label=(
+                f"{cbind_exprs[0]} + ({cbind_exprs[1]})"
+                if cbind_exprs is not None
+                else trials
+            ),
+        )
+    if prior_unset and (
+        model_key in W.WEAK_PRIOR_MODELS
+        and prior_var is None
+        and not np.any(np.asarray(prior_mean) != 0.0)
+        and str(inference).lower() == "mcmc"
+    ):
+        warnings.warn(
+            "sp.bayes_regress: the default prior of this model will change in "
+            "StatsPAI 1.40 from a fixed N(0, 1000) (N(0, 100) for logit and "
+            "probit) on every coefficient to prior='weakly_informative', "
+            "which is scaled to the data. Pass prior='vague' to keep the "
+            "current prior, or prior='weakly_informative' to adopt the new "
+            "one now. Fits that set prior_mean or prior_var are not affected.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     default_prior = prior_var is None and prior_kind == "vague"
     weak_info: Dict[str, Any] = {}
@@ -1238,6 +1399,7 @@ def bayes_regress(
             "probit": 100.0,
             "logit": 100.0,
             "oprobit": 100.0,
+            "ologit": 100.0,
             "mlogit": 100.0,
         }.get(model_key, 1000.0)
     a0, d0 = (float(v) for v in (sigma2_prior or (0.001, 0.001)))
@@ -1334,7 +1496,17 @@ def bayes_regress(
     elif model_key == "probit":
         mdl = M.ProbitModel(y, X, xnames, prior_mean, prior_var)
     elif model_key == "logit":
-        mdl = M.LogitModel(y, X, xnames, prior_mean, prior_var, tune)
+        mdl = M.LogitModel(
+            y,
+            X,
+            xnames,
+            prior_mean,
+            prior_var,
+            tune,
+            None if trials_spec is None else trials_spec.values,
+        )
+        if trials_spec is not None:
+            info["trials"] = trials_spec.label
     elif model_key == "poisson":
         mdl = M.PoissonModel(y, X, xnames, prior_mean, prior_var, tune)
     elif model_key == "negbin":
@@ -1366,10 +1538,10 @@ def bayes_regress(
         mdl = M.MultinomialLogitModel(y, X, xnames, prior_mean, prior_var, tune, levels)
         info["levels"] = [str(v) for v in levels]
         info["base_level"] = str(levels[0])
-    else:  # oprobit
+    else:  # oprobit, ologit
         if "Intercept" not in xnames:
             raise MethodIncompatibility(
-                "The ordered probit needs the default intercept term in the "
+                "An ordered model needs the default intercept term in the "
                 "formula (it is absorbed into the cutpoints)."
             )
         order = [xnames.index("Intercept")] + [
@@ -1378,7 +1550,10 @@ def bayes_regress(
         if order != list(range(k)):
             X = X[:, order]
             xnames = [xnames[i] for i in order]
-        mdl = M.OrderedProbitModel(
+        ordered_cls = (
+            M.OrderedProbitModel if model_key == "oprobit" else M.OrderedLogitModel
+        )
+        mdl = ordered_cls(
             y, X, xnames, prior_mean, prior_var, tune, cut_prior_var, levels
         )
         prior_info["cutpoints"] = (
@@ -1456,7 +1631,7 @@ def bayes_regress(
 
     res = BayesRegressResult(
         model=model_key,
-        formula=formula,
+        formula=user_formula,
         params=table["mean"].copy(),
         std_errors=table["sd"].copy(),
         table=table,
@@ -1479,6 +1654,7 @@ def bayes_regress(
         _frame=frame,
         _call=call,
         _offset=offset_spec,
+        _trials=trials_spec,
     )
 
     msgs = []
@@ -1625,7 +1801,7 @@ def _note_default_prior(
         return
     k = b0.size
     names = list(res.table.index)[:k]
-    if res.model == "oprobit":
+    if res.model in M.ORDERED:
         # prior is on (intercept, slopes); reported are slopes then cuts
         post_mean = np.append(
             -res.table.loc["cut1", "mean"], res.table["mean"].to_numpy()[: k - 1]

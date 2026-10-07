@@ -464,6 +464,35 @@ Bayesian workflow against `rstanarm` 2.32.2 and `loo` 2.9.0. Review in
   `cbind(successes, failures) ~ x`.
 - **`y ~ .`** in any formula entry point: the dot stands for every other
   column.
+- **`sp.bayes_regress(model='ologit')`**, the ordered logit of
+  `sp.ologit` and R `polr`, and **grouped binomial data** in
+  `model='logit'` through `trials=` or an outcome written
+  `cbind(successes, failures)`. Both checked against grid posteriors.
+- **`sp.bayes_shrink(prior='horseshoe', slab_scale=, slab_df=)`**: the
+  regularized horseshoe of Piironen and Vehtari (2017), checked against
+  the exact posterior.
+- **`sp.binned_residuals(band='model')`**: a band from the fitted
+  probabilities that does not collapse where the outcome hardly varies.
+
+#### Changed
+
+- **The logit, Poisson, negative binomial and multinomial logit models of
+  `sp.bayes_regress` mix three to five times better.** Four draws in
+  five now come from an independence proposal centred at the posterior
+  mode, the rest from the random walk used before. Effective sample size
+  per 4,000 draws went from about 400 to 1,260 and 1,830 on the book's
+  roaches and wells examples. The posterior is the same; the draws for a given seed
+  are different numbers.
+- **The default prior of `sp.bayes_regress` is scheduled to change in
+  1.40** to `prior='weakly_informative'` for the normal, logit, probit,
+  Poisson and negative binomial models. Until then an unnamed `prior`
+  with default `prior_mean` and `prior_var` gives the same numbers as
+  before and a `DeprecationWarning`. See MIGRATION.
+
+#### Fixed
+
+- `sp.nbreg` with absorbed fixed effects reported one fixed-effect
+  parameter too many when an indicator was omitted for collinearity.
 
 ### `sp.callaway_santanna(balance=)`: the three rules for an unbalanced panel
 

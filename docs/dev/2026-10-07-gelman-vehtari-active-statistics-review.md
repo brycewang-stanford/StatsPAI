@@ -282,26 +282,84 @@ small local scale puts a spike at zero that no grid in the coefficient
 resolves. The coefficient is now integrated out analytically and the grid
 runs over the variance and the scale only.
 
+## Second round (same day; Bryce: "you decide, then complete the work left")
+
+The first round ended with seven open items. Six are closed; the decision
+that was Bryce's to make was delegated and is recorded first.
+
+1. **The default prior of `sp.bayes_regress` will change, by the
+   deprecation route.** Decision: yes. A prior of variance 1000 is not
+   vague for a coefficient measured in large units, the book's first
+   example shows it, and a default that needs a warning to be safe is the
+   wrong default. But every stored result would move, so nothing changes
+   in this release: when `prior` is omitted, the model has a weakly
+   informative prior and neither `prior_mean` nor `prior_var` is given, a
+   `DeprecationWarning` announces that 1.40 switches to
+   `prior='weakly_informative'`. `prior='vague'` keeps the present
+   numbers for good. The flip in 1.40 is one line (`prior_kind` when
+   `prior is None`) plus MIGRATION and the test
+   `test_default_prior_change_is_announced_only_where_it_applies`.
+2. **Mixing of the Metropolis samplers.** The logit, Poisson, negative
+   binomial and multinomial logit models used one random-walk proposal
+   and returned an effective sample size near a tenth of the draws. Each
+   iteration now picks, with probability 0.8, an independence proposal
+   instead: multivariate Student-t with 5 degrees of freedom, centred at
+   the posterior mode, scale 1.15 times the Laplace one
+   (`_core.metropolis_mixture`). Both kernels leave the posterior
+   invariant, so the mixture does; the heavy tails are what an
+   independence sampler needs, and the random walk keeps the chain moving
+   where the normal approximation is poor. Effective sample size per
+   4,000 draws, before and after: wells logit 370 to 1,830, roaches
+   negative binomial 440 to 1,260.
+   The exact-posterior tests of all four models pass unchanged. The
+   draws for a given seed are different numbers from before; they
+   estimate the same posterior. `acceptance_rate` remains that of the
+   random-walk moves (the tunable one); the other is in
+   `_extras['independence_accept']`.
+3. **`model='ologit'`**, the model of `stan_polr` and `sp.ologit`, with
+   the reporting of the ordered probit (slopes and cutpoints, no
+   intercept). No data augmentation: the whole vector is updated by the
+   same mixed Metropolis kernel. Checked against a three-dimensional grid
+   posterior, and on the pooled storable-votes data the posterior under
+   the diffuse prior sits on the maximum-likelihood fit.
+4. **Grouped binomial outcomes**: `trials=` or an outcome written
+   `cbind(successes, failures)`, as the book's golf example does. The
+   pointwise log-likelihood is the binomial log mass, predictions are
+   counts, `posterior_epred` the success probability. Checked against a
+   grid posterior. Bayesian R-squared is refused for grouped fits.
+5. **The regularized horseshoe** (`slab_scale=`, `slab_df=`), the prior
+   behind `rstanarm::hs()`. The slab breaks the conjugacy of Makalic and
+   Schmidt's sampler, so the local scales, the global scale and the slab
+   are updated by Metropolis on the log scale with steps tuned during
+   burn-in. Two things were needed for the global scale to mix: a joint
+   move that raises `tau` and lowers every `lam_j` by the same factor
+   (the likelihood of the coefficients does not change along it, so only
+   the priors decide), and five passes over the scales per draw of the
+   coefficients. Effective sample size of `tau` on the 25-regressor
+   example: 37 with one pass and no joint move, 106 with the joint move,
+   490 with both. Checked against the exact posterior with one regressor
+   at two global scales; that grid has to run far out in the scale,
+   because under a slab a large scale costs no likelihood and the
+   posterior keeps the half-Cauchy tail of the prior.
+6. **`sp.binned_residuals(band='model')`**: the standard error the
+   fitted binary model implies, which does not collapse where the outcome
+   hardly varies. The default stays the `arm` band.
+7. **`sp.nbreg` counts the fixed-effect indicators it estimates** after
+   one is omitted for collinearity.
+
 ## Open items
 
-- A Bayesian ordered logit (`stan_polr`) and grouped binomial outcomes in
-  `sp.bayes_regress`.
-- The regularized horseshoe, and a horseshoe for the logit model.
-- The Metropolis samplers return an effective sample size near a tenth of
-  the draws. Centring the regressors inside the proposal, or a
-  Polya-Gamma step for the logit, would raise it.
-- `sp.binned_residuals` follows `arm` in bins where the outcome is nearly
-  constant, where the band collapses. A band from the fitted variance
-  would not; it is not what the book defines.
-- Collinearity among fixed-effect indicators inside `sp.nbreg(formula
-  with | fe)` is handled by the same scan but the count of fixed-effect
-  parameters reported is not reduced when one is omitted.
+- A shrinkage prior for the logit model needs a Polya-Gamma sampler (or
+  the same Metropolis treatment as the regularized horseshoe, with a
+  non-Gaussian likelihood for the coefficients). Not done.
+- The slab of the regularized horseshoe is in units of the residual
+  standard deviation, which keeps the coefficient update conjugate.
+  `rstanarm` scales it by `sd(y)`. The two differ by the factor
+  `sigma / sd(y)`; no attempt was made to match `rstanarm` draws.
 - User-written Stan models (golf putting geometry, the 2 x 2 restaurant
-  example) have no counterpart outside PyMC.
-- The fixed default prior of `sp.bayes_regress` (variance 1000) is kept.
-  Making the weakly informative prior the default would be the better
-  default for new users and would change every stored result; it needs
-  the deprecation route.
+  example) have no counterpart outside PyMC. This is scope, not a gap to
+  close.
+- Flip the default prior in 1.40 (see 1 above).
 
 ## Rerun
 

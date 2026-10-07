@@ -19,7 +19,11 @@ def _fitted_and_residuals(result: Any) -> tuple:
         model = getattr(result, "_model", None)
         if callable(predict) and model is not None and hasattr(model, "y"):
             fitted = np.asarray(predict(), dtype=float)
-            resid = np.asarray(model.y, dtype=float) - fitted
+            observed = np.asarray(model.y, dtype=float)
+            trials = getattr(model, "trials", None)
+            if trials is not None:  # grouped binomial: residual of the share
+                observed = observed / np.asarray(trials, dtype=float)
+            resid = observed - fitted
         else:
             raise MethodIncompatibility(
                 "This result does not expose fitted values and residuals. "
@@ -33,6 +37,7 @@ def binned_residuals(
     residuals: Optional[Any] = None,
     n_bins: Optional[int] = None,
     by: Optional[Any] = None,
+    band: str = "empirical",
 ) -> pd.DataFrame:
     """Average residuals within bins of the fitted value or a regressor.
 
@@ -56,6 +61,15 @@ def binned_residuals(
     by : array-like, optional
         Bin on this variable instead of the fitted values of a model,
         e.g. a regressor, to see whether it needs a transformation.
+
+    band : {'empirical', 'model'}, default 'empirical'
+        ``'empirical'``: ``2 sd / sqrt(n)`` of the residuals in the bin,
+        the band of ``arm::binnedplot``. Where the outcome hardly varies
+        (fitted probabilities near 0 or 1) those residuals are nearly
+        equal, the band collapses and the bin is flagged for no reason.
+        ``'model'``: ``2 sqrt(sum p (1 - p)) / n``, the standard error the
+        fitted binary model implies for the bin average, which does not
+        collapse. Needs a fitted model of a 0 / 1 outcome.
 
     Returns
     -------
@@ -89,10 +103,25 @@ def binned_residuals(
     ----------
     gelman2006data, gelman2020regression
     """
+    if band not in ("empirical", "model"):
+        raise MethodIncompatibility("band must be 'empirical' or 'model'.")
+    prob: Optional[np.ndarray] = None
     if residuals is None:
         fitted, resid = _fitted_and_residuals(x)
         xv = fitted if by is None else np.asarray(by, dtype=float).reshape(-1)
+        if band == "model":
+            outcome = fitted + resid
+            binary = np.all(np.isclose(outcome, 0.0) | np.isclose(outcome, 1.0))
+            if not binary or fitted.min() < 0 or fitted.max() > 1:
+                raise MethodIncompatibility(
+                    "band='model' is for a fitted model of a 0 / 1 outcome."
+                )
+            prob = fitted
     else:
+        if band == "model":
+            raise MethodIncompatibility(
+                "band='model' needs the fitted model, not arrays."
+            )
         if by is not None:
             raise MethodIncompatibility("Pass by= only with a fitted model.")
         xv = np.asarray(x, dtype=float).reshape(-1)
@@ -104,6 +133,8 @@ def binned_residuals(
         )
     keep = np.isfinite(xv) & np.isfinite(resid)
     xv, resid = xv[keep], resid[keep]
+    if prob is not None:
+        prob = prob[keep]
     n = xv.size
     if n < 4:
         raise DataInsufficient("Binned residuals need at least four observations.")
@@ -124,6 +155,9 @@ def binned_residuals(
             continue
         r = resid[inside]
         sd = float(r.std(ddof=1)) if m > 1 else float("nan")
+        if prob is not None:
+            q = prob[inside]
+            sd = float(np.sqrt((q * (1.0 - q)).mean()))
         rows.append(
             {
                 "xbar": float(xv[inside].mean()),
@@ -148,11 +182,12 @@ def binned_residuals_plot(
     by: Optional[Any] = None,
     ax: Any = None,
     xlabel: Optional[str] = None,
+    band: str = "empirical",
 ) -> Any:
     """Plot of :func:`binned_residuals` with its ``+/- 2 se`` band.
 
-    Parameters are those of :func:`binned_residuals`, plus an optional
-    matplotlib ``ax`` and ``xlabel``.
+    Parameters are those of :func:`binned_residuals` (including
+    ``band``), plus an optional matplotlib ``ax`` and ``xlabel``.
 
     Returns
     -------
@@ -173,7 +208,7 @@ def binned_residuals_plot(
     """
     import matplotlib.pyplot as plt
 
-    table = binned_residuals(x, residuals, n_bins=n_bins, by=by)
+    table = binned_residuals(x, residuals, n_bins=n_bins, by=by, band=band)
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 4))
     else:
