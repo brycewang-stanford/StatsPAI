@@ -40,7 +40,14 @@ import pytest
 import statspai as sp
 
 FIX = Path(__file__).parent / "_fixtures"
-CASES = ["tall", "wide", "binomial", "low", "low_binomial"]
+FILES = {
+    "tall": "glmnet_tall.csv",
+    "wide": "glmnet_wide.csv",
+    "binomial": "glmnet_binomial.csv",
+    "low": "glmnet_low.csv",
+    "low_binomial": "glmnet_low_binomial.csv",
+}
+CASES = list(FILES)
 ALPHAS = ["alpha1", "alpha0.5", "alpha0"]
 
 pytestmark = pytest.mark.skipif(
@@ -54,7 +61,7 @@ def ref():
 
 
 def _data(case):
-    df = pd.read_csv(FIX / f"glmnet_{case}.csv")
+    df = pd.read_csv(FIX / FILES[case])
     return df, [c for c in df.columns if c.startswith("X")]
 
 

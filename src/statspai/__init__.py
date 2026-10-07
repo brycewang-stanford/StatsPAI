@@ -3979,7 +3979,7 @@ _ELSEWHERE_NAMES = {
     "PooledOLS": "sp.panel(..., method='pooled')",
     "xtreg": "sp.panel",
     "newey": "sp.regress(..., robust='hac', hac_lags=)",
-    "lasso": "sp.glmnet, sp.shrinkage(..., method='lasso') or sp.rlasso",
+    "lasso": "sp.glmnet (or sp.shrinkage(..., method='lasso'), sp.rlasso)",
     "cv_glmnet": "sp.glmnet (cross-validates by default)",
     "elastic_net": "sp.glmnet(..., alpha=0.5)",
     "ElasticNet": "sp.glmnet(..., alpha=)",
