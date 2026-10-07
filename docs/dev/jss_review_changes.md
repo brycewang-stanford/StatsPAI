@@ -3209,3 +3209,23 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — call traces re-recorded after `sp.tmle(se_method=)` and `sp.ipw(propensity=)`
+
+- **Commits.** `da4baf76` re-recorded the entry of Track A module 72 in
+  `tests/r_parity/results/_implementation_trace.json` and of original-data
+  modules 06, 10 and 11 in
+  `tests/orig_parity/results/_implementation_trace.json`. The sources that
+  staled them are in the same commit: `src/statspai/tmle/tmle.py` (a
+  bootstrap option and observation weights for the ATT / ATC; the ATE path
+  is untouched) and `src/statspai/inference/ipw.py` (a known-propensity
+  argument; the default path is untouched).
+- **Reason.** Second round of the audit recorded in
+  `docs/dev/2026-10-07-schuler-vanderlaan-review.md`.
+- **Effect on the paper.** None. The four modules were rerun and reproduce
+  their committed results (last-digit jitter of 1e-13 in original-data
+  module 10, restored); in both trace files only `exercised_sources`
+  digests and `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
