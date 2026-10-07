@@ -1398,7 +1398,7 @@
    "result_sha256": "add80fa145ca87fd9888b88d5f1461636473949b1b65c604f5ccfa3ede9a04bf"
   },
   "37_ppmlhdfe": {
-   "seconds": 1.45,
+   "seconds": 1.81,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1412,7 +1412,7 @@
     "src/statspai/core/utils.py": "b0638b973a9d4444d28c80b6d65c4746ebe9966642beff0c1bbc5ae1d1c3b458",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
-    "src/statspai/regression/count.py": "e8d1bbaf8c02426064fff3466ae017a88b39c79d6b9f70a4c9c7a3e76a649843"
+    "src/statspai/regression/count.py": "22ed65f84462b696e2cc30944476805096f1fd0e83519ba4018a6a2ecc941316"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -1561,7 +1561,7 @@
    "result_sha256": "2005f2debfedb438aeb79c91a02781dff8c5c472fea6de61e3d50312c9dac9ef"
   },
   "42_nbreg": {
-   "seconds": 1.39,
+   "seconds": 1.89,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1588,7 +1588,7 @@
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
     "src/statspai/regression/_negbin.py": "9c2f8f31f29350beb1f6da8c890af67314998eabc259c89d478a5b467c02134c",
-    "src/statspai/regression/count.py": "e8d1bbaf8c02426064fff3466ae017a88b39c79d6b9f70a4c9c7a3e76a649843"
+    "src/statspai/regression/count.py": "22ed65f84462b696e2cc30944476805096f1fd0e83519ba4018a6a2ecc941316"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -1708,7 +1708,7 @@
    "result_sha256": "0528240c4eda202d6057c087283e7529e16fed99533e8ec9d19603a24b2b0927"
   },
   "47_ppmlhdfe_3fe": {
-   "seconds": 2.11,
+   "seconds": 2.98,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1739,7 +1739,7 @@
     "src/statspai/panel/_hdfe_kernels.py": "2532caba720a62e1ef59514643b48b383077afa755d09fed94b02f1dc5139703",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
-    "src/statspai/regression/count.py": "e8d1bbaf8c02426064fff3466ae017a88b39c79d6b9f70a4c9c7a3e76a649843",
+    "src/statspai/regression/count.py": "22ed65f84462b696e2cc30944476805096f1fd0e83519ba4018a6a2ecc941316",
     "src/statspai/utils/_torch_device.py": "15da3684b384d33bff1e3dde30b75a960f1bb894f27e8aa05f72e46f301abca1"
    },
    "dependency_versions": {
@@ -2139,7 +2139,7 @@
    "result_sha256": "74ec7ceaa04be47bda31dabf3df79474050dc4ee8095fcc9b4456d726bff9b83"
   },
   "58_poisson": {
-   "seconds": 1.01,
+   "seconds": 1.91,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2164,7 +2164,7 @@
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
-    "src/statspai/regression/count.py": "e8d1bbaf8c02426064fff3466ae017a88b39c79d6b9f70a4c9c7a3e76a649843"
+    "src/statspai/regression/count.py": "22ed65f84462b696e2cc30944476805096f1fd0e83519ba4018a6a2ecc941316"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -2284,7 +2284,7 @@
    "result_sha256": "21e8be741b69f2f26fb814e0ce366987029c1eb03d53f28ea3f9a2fe0bbb9189"
   },
   "63_zip": {
-   "seconds": 1.08,
+   "seconds": 1.87,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2299,7 +2299,7 @@
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
     "src/statspai/regression/_optim_helpers.py": "76bcf9db70638ed2de92d1613943da8d070e08dc9f038ac2ca399bdbd7070ce6",
-    "src/statspai/regression/count.py": "e8d1bbaf8c02426064fff3466ae017a88b39c79d6b9f70a4c9c7a3e76a649843",
+    "src/statspai/regression/count.py": "22ed65f84462b696e2cc30944476805096f1fd0e83519ba4018a6a2ecc941316",
     "src/statspai/regression/zeroinflated.py": "81a5806edd0a5adf354d86adee54c233f1e4c6987df14ec7d37bca762b3819d7"
    },
    "dependency_versions": {
@@ -2312,7 +2312,7 @@
    "result_sha256": "924677d27285a283340c25a93687e57c2fcfd38d1b7f1ecd426ec84a3804cb48"
   },
   "64_zinb": {
-   "seconds": 1.24,
+   "seconds": 2.53,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2328,7 +2328,7 @@
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
     "src/statspai/regression/_negbin.py": "9c2f8f31f29350beb1f6da8c890af67314998eabc259c89d478a5b467c02134c",
     "src/statspai/regression/_optim_helpers.py": "76bcf9db70638ed2de92d1613943da8d070e08dc9f038ac2ca399bdbd7070ce6",
-    "src/statspai/regression/count.py": "e8d1bbaf8c02426064fff3466ae017a88b39c79d6b9f70a4c9c7a3e76a649843",
+    "src/statspai/regression/count.py": "22ed65f84462b696e2cc30944476805096f1fd0e83519ba4018a6a2ecc941316",
     "src/statspai/regression/zeroinflated.py": "81a5806edd0a5adf354d86adee54c233f1e4c6987df14ec7d37bca762b3819d7"
    },
    "dependency_versions": {

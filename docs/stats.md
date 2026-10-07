@@ -41,17 +41,17 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 53,410 | 70 | 97 |
 | `agent` | 42,524 | 69 | 4 |
-| `regression` | 32,421 | 43 | 62 |
+| `regression` | 32,423 | 43 | 62 |
 | `timeseries` | 31,180 | 55 | 88 |
 | `synth` | 30,976 | 41 | 56 |
 | `rd` | 23,681 | 35 | 57 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 16,354 | 18 | 32 |
 | `matching` | 16,017 | 26 | 39 |
-| `inference` | 15,365 | 31 | 56 |
+| `inference` | 15,407 | 31 | 56 |
 | `output` | 14,196 | 22 | 42 |
-| `diagnostics` | 14,008 | 26 | 47 |
-| `mcmc` | 13,151 | 23 | 46 |
+| `diagnostics` | 14,043 | 26 | 47 |
+| `mcmc` | 13,680 | 23 | 46 |
 | `core` | 12,509 | 21 | 6 |
 | `panel` | 12,182 | 20 | 23 |
 | `dml` | 10,106 | 25 | 17 |
@@ -62,7 +62,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `dag` | 7,037 | 12 | 27 |
 | `plots` | 6,015 | 7 | 8 |
 | `causal_discovery` | 5,804 | 14 | 24 |
-| `doe` | 5,717 | 14 | 24 |
+| `doe` | 5,714 | 14 | 24 |
 | `multilevel` | 5,384 | 9 | 11 |
 | `bayes` | 5,352 | 12 | 20 |
 | `metalearners` | 5,242 | 10 | 25 |
@@ -73,9 +73,9 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `survival` | 4,531 | 6 | 15 |
 | `workflow` | 4,512 | 5 | 3 |
 | `gmm` | 4,277 | 12 | 4 |
+| `tmle` | 4,173 | 8 | 11 |
 | `qte` | 4,152 | 9 | 13 |
 | `robustness` | 3,968 | 8 | 14 |
-| `tmle` | 3,955 | 7 | 11 |
 | `network` | 3,514 | 9 | 33 |
 | `neural_causal` | 3,442 | 6 | 18 |
 | `postestimation` | 3,280 | 7 | 13 |
@@ -129,7 +129,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **630,328** | **1066** | **1554** |
+| **Total** | **631,218** | **1067** | **1554** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

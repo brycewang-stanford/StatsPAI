@@ -14468,7 +14468,7 @@
     }
   },
   {
-    "description": "Bayesian regression by MCMC with a normal prior on the coefficients: Gaussian linear (independent or conjugate prior), Student-t errors, logit, probit, ordered probit, Poisson, negative binomial, tobit and quantile regression. NumPy samplers (Gibbs, data augmentation, random-walk Metropolis); no PyMC needed. Returns draws, credible intervals, effective sample sizes, convergence diagnostics and the log marginal likelihood. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal design (DiD, RD, IV, synthetic control) is the target: use sp.bayes_did / sp.bayes_rd / sp.bayes_iv; Clustered or panel data with unit effects: the likelihood here treats rows as independent. Cost: O(iterations x n x k); seconds for n in the thousands with the default 12,000 iterations",
+    "description": "Bayesian regression by MCMC with a normal prior on the coefficients: Gaussian linear (independent or conjugate prior), Student-t errors, logit (also grouped binomial), probit, ordered probit and logit, Poisson, negative binomial, tobit and quantile regression. NumPy samplers (Gibbs, data augmentation, Metropolis); no PyMC needed. Returns draws, credible intervals, effective sample sizes, convergence diagnostics, the log marginal likelihood, and the predictive side: posterior_predict / posterior_epred / log_lik for sp.ppc and sp.loo. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal design (DiD, RD, IV, synthetic control) is the target: use sp.bayes_did / sp.bayes_rd / sp.bayes_iv; Clustered or panel data with unit effects: the likelihood here treats rows as independent. Cost: O(iterations x n x k); seconds for n in the thousands with the default 12,000 iterations",
     "name": "bayes_regress",
     "parameters": {
       "properties": {
@@ -14540,6 +14540,7 @@
             "logit",
             "probit",
             "oprobit",
+            "ologit",
             "poisson",
             "negbin",
             "tobit",
@@ -14554,8 +14555,7 @@
           "x-statspai-role": "column"
         },
         "prior": {
-          "default": "vague",
-          "description": "'weakly_informative': independent normal priors scaled to the data (sd 2.5 sd(y)/sd(x) per slope, intercept centred at mean(y) with the regressors centred), the defaults of R rstanarm; results then do not depend on the units of the regressors. Models normal, logit, probit, poisson, negbin",
+          "description": "Omitted: 'vague' today, 'weakly_informative' from 1.40 (a DeprecationWarning says so); name it to be unaffected. 'weakly_informative': independent normal priors scaled to the data (sd 2.5 sd(y)/sd(x) per slope, intercept centred at mean(y) with the regressors centred), the defaults of R rstanarm; results then do not depend on the units of the regressors. Models normal, logit, probit, poisson, negbin",
           "enum": [
             "vague",
             "weakly_informative"
@@ -14622,6 +14622,10 @@
           "default": 1,
           "description": "Keep one draw in thin",
           "type": "integer"
+        },
+        "trials": {
+          "description": "model='logit' on grouped data: column with the number of trials; the outcome is the number of successes. Equivalently write the outcome cbind(successes, failures)",
+          "type": "string"
         },
         "tune": {
           "description": "Metropolis proposal scale; default 2.38 / sqrt(dim)",
@@ -16653,6 +16657,15 @@
           },
           "type": "array"
         },
+        "slab_df": {
+          "default": 4.0,
+          "description": "Slab degrees of freedom",
+          "type": "number"
+        },
+        "slab_scale": {
+          "description": "horseshoe: regularize it with a Student-t slab of this scale on the coefficients that escape shrinkage (Piironen and Vehtari 2017; rstanarm hs()); in residual sd per sd of the regressor, 2.5 is wide",
+          "type": "number"
+        },
         "slab_sd": {
           "default": 1.0,
           "description": "SSVS slab sd, in sd(y) units",
@@ -18438,6 +18451,15 @@
     "name": "binned_residuals",
     "parameters": {
       "properties": {
+        "band": {
+          "default": "empirical",
+          "description": "'empirical': 2 sd / sqrt(n) of the bin's residuals (arm); 'model': the standard error the fitted binary model implies, which does not collapse where the outcome hardly varies",
+          "enum": [
+            "empirical",
+            "model"
+          ],
+          "type": "string"
+        },
         "by": {
           "description": "Bin on this variable instead of the fitted values",
           "type": "string"
@@ -46177,6 +46199,11 @@
       "properties": {
         "ax": {
           "description": "ax parameter.",
+          "type": "string"
+        },
+        "band": {
+          "default": "empirical",
+          "description": "band parameter (str).",
           "type": "string"
         },
         "by": {

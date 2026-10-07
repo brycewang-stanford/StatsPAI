@@ -2508,9 +2508,18 @@
     "name": "bidirectional_pci"
   },
   {
-    "description": "Average residuals within equal-count bins of the fitted value or of a regressor, with a +/- 2 se band: the residual plot for binary and count models, whose raw residuals show nothing. Validation: certified parity evidence. Assumptions: Under a correct mean model about 95 percent of bin averages fall inside the band. Failure modes: bins flagged where fitted probabilities are near 0 or 1 -> The band 2 sd / sqrt(n) collapses where the outcome hardly varies; read those bins by eye. Alternatives: sp.logit_gof, sp.ppc, sp.estat.",
+    "description": "Average residuals within equal-count bins of the fitted value or of a regressor, with a +/- 2 se band: the residual plot for binary and count models, whose raw residuals show nothing. Validation: certified parity evidence. Assumptions: Under a correct mean model about 95 percent of bin averages fall inside the band. Failure modes: bins flagged where fitted probabilities are near 0 or 1 -> The empirical band 2 sd / sqrt(n) collapses where the outcome hardly varies; pass band='model'. Alternatives: sp.logit_gof, sp.ppc, sp.estat.",
     "input_schema": {
       "properties": {
+        "band": {
+          "default": "empirical",
+          "description": "'empirical': 2 sd / sqrt(n) of the bin's residuals (arm); 'model': the standard error the fitted binary model implies, which does not collapse where the outcome hardly varies",
+          "enum": [
+            "empirical",
+            "model"
+          ],
+          "type": "string"
+        },
         "by": {
           "description": "Bin on this variable instead of the fitted values",
           "type": "string"
@@ -2541,6 +2550,11 @@
       "properties": {
         "ax": {
           "description": "ax parameter.",
+          "type": "string"
+        },
+        "band": {
+          "default": "empirical",
+          "description": "band parameter (str).",
           "type": "string"
         },
         "by": {
