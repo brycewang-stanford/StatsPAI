@@ -137,6 +137,33 @@ held out together (`sp.kfold_split(n, k, groups=...)`).
 On the conjugate normal model, where leave-one-out has a closed form,
 `sp.loo` and `sp.kfold` both reproduce the exact pointwise values.
 
+## Average predictive comparisons and average treatment effects
+
+Chapter 14 compares households 100 metres from a safe well with
+households next to one, averaging the difference in the probability of
+switching over the sample. Chapter 19 does the same with a treatment
+indicator in a model with interactions. With a Bayesian fit both are the
+difference of two calls to `posterior_epred`, which gives the comparison
+for every posterior draw and so its uncertainty.
+
+```python
+wells = pd.read_csv("ROS-Examples/Arsenic/data/wells.csv")
+fit = sp.bayes_regress("switch ~ dist100 + arsenic + educ4", wells,
+                       model="logit", prior="weakly_informative",
+                       draws=4000, seed=1)
+diff = (fit.posterior_epred(wells.assign(dist100=1.0))
+        - fit.posterior_epred(wells.assign(dist100=0.0)))
+apc = diff.mean(axis=1)       # one average comparison per draw
+apc.mean(), apc.std()         # -0.205, 0.023
+```
+
+The maximum-likelihood counterpart is `sp.margins_at(sp.logit(...),
+wells, at={"dist100": [0, 1]})`, whose two margins differ by -0.204 with
+a delta-method standard error close to the posterior one. For a
+treatment `z` in a model with `z:x` interactions, replace the two data
+frames by `df.assign(z=1)` and `df.assign(z=0)`; the row means are draws
+of the sample average treatment effect.
+
 ## What StatsPAI does differently, on purpose
 
 **Collinear regressors.** The child care example of chapter 20 puts all

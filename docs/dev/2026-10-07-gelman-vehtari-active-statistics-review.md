@@ -379,6 +379,20 @@ maximum likelihood, and with 40 observations and 30 regressors, where the
 outcome is separated and maximum likelihood diverges, the regularized
 horseshoe returns a finite posterior that keeps the one real signal.
 
+## Closing checks
+
+The three lecture decks of *Active Statistics* (first semester, second
+semester, one-semester version) were read for methods beyond the ROS
+examples. They add none: linear, logistic, Poisson and overdispersed
+Poisson regression, adjustment of a sample to a population, average
+treatment effects from regressions with interactions, noncompliance and
+missing data, all covered above. The decks' "regression with 21 data
+points and 16 predictors" is the case the horseshoe is for.
+
+The full test suite was run on main after the third round: 32,362
+passed, and the one failure, a process-isolation timing test, passes on
+its own (the machine was under heavy load from other sessions).
+
 ## Open items
 
 - Shrinkage priors for count outcomes.
