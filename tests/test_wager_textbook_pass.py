@@ -988,7 +988,9 @@ def test_rd_optimized_fuzzy_interval_covers_and_can_be_unbounded():
 
     def sample(jump):
         n = 700
-        x = rng.uniform(-1, 1, n)
+        # Forty support points: the fit takes a tenth of a second, where a
+        # continuous running variable takes two to three.
+        x = (np.floor(rng.uniform(-1, 1, n) * 20) + 0.5) / 20
         d = rng.binomial(1, np.clip(0.2 + jump * (x >= 0) + 0.1 * x, 0, 1))
         y = 2.0 * d + x**2 + rng.normal(scale=0.5, size=n)
         return pd.DataFrame({"y": y, "x": x, "d": d})
