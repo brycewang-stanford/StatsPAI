@@ -145,7 +145,9 @@ def agreement(est: str, prow: dict, rrow: dict) -> str:
     if kind == "folds":
         se = rrow.get("extra", {}).get("se") or float("nan")
         return f"{diff / se:.2f} SE"
-    return f"{diff:.3f}"
+    # Two non-convex solvers agree to about 1e-5 here; three fixed decimals
+    # printed that as "0.000", which reads as exact agreement.
+    return f"{diff:.0e}"
 
 
 def measured_versions() -> list[str]:

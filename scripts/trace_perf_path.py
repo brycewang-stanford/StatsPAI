@@ -30,6 +30,13 @@ bump alone does not stale them and the check also holds in the JSS archive.
 
 The smallest size exercises the same code as the largest; only ``n`` differs.
 
+``src/statspai/__init__.py`` is left out of the record. The only code of
+that file that can run after the import is the lazy-attribute hook, which
+resolves ``sp.fast`` once, during the warm-up call, and is then bypassed
+because the submodule sits in the package namespace. The file changes with
+every exported name, so recording it made the HDFE timings look stale after
+any release that added a function, with nothing on the timed path changed.
+
 Usage::
 
     python scripts/trace_perf_path.py            # trace every module, write the record
@@ -84,6 +91,8 @@ def _measured_version(stem: str) -> str | None:
 def _trace_child(stem: str, scratch: str) -> dict:
     """Run one perf module at its smallest size under the profiler."""
     src_root = str(REPO / "src" / "statspai")
+    # Import machinery, not timed code: see the module docstring.
+    package_init = str(REPO / "src" / "statspai" / "__init__.py")
     exercised: set = set()
 
     sys.path.insert(0, str(PERF))
@@ -112,7 +121,7 @@ def _trace_child(stem: str, scratch: str) -> dict:
             filename = code.co_filename
         else:
             return
-        if filename.startswith(src_root):
+        if filename.startswith(src_root) and filename != package_init:
             exercised.add(filename)
 
     import statspai  # noqa: F401  (imported before profiling: see the docstring)
