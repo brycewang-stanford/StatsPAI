@@ -33,7 +33,7 @@ plug-in bias.
 | 4.1 naive plug-in | evaluate the estimand at a fitted distribution | `sp.g_computation` |
 | 4.2 bias correction (one-step) | add `P_n phi_hat` to the plug-in | `sp.aipw` |
 | 4.3 estimating equations, "DML" | solve `P_n phi(psi, eta_hat) = 0` for `psi` | `sp.aipw`; `sp.dml(model='irm')` with machine-learned nuisances |
-| 4.4 targeted maximum likelihood | perturb the fit until `P_n phi* = 0`, then plug in | `sp.tmle`; `sp.hal_tmle`; `sp.ltmle` |
+| 4.4 targeted maximum likelihood | perturb the fit until `P_n phi* = 0`, then plug in | `sp.tmle`; `sp.hal_tmle`; `sp.ltmle`; `sp.ctmle` |
 | 4.5 inference | variance of the estimated influence function over `n` | every function above; `model_info['influence_function']` on `sp.tmle` |
 
 For the ATE the one-step and estimating-equation estimators are the same
@@ -234,6 +234,42 @@ sp.tmle(df, y="y", treat="a", covariates=["x1", "x2"], estimand="ATT",
 | --- | --- | --- | --- |
 | ATE | 0.91 | 0.92 | 0.92 |
 | ATT | 0.81 | 0.84 | 0.90 |
+
+### Collaborative targeting
+
+Section 4.4 of the book mentions C-TMLE as a variant. It attacks weak
+overlap at its source. A TMLE needs the propensity only to remove the bias
+the outcome model left, so a covariate that drives treatment but not the
+outcome (an instrument) has no business in it: it buys no bias reduction
+and makes the weights extreme. `sp.ctmle` builds the propensity model one
+covariate at a time, keeping a covariate only if targeting with it
+improves the outcome fit, and lets cross-validation choose where to stop.
+
+```python
+res = sp.ctmle(df, y="y", treat="a", covariates=["x1", "x2", "x3"],
+               se_method="bootstrap")
+res.model_info["selected_covariates"]     # what entered the propensity
+res.detail                                # every step of the sequence
+res.model_info["selection_frequency"]     # across bootstrap resamples
+```
+
+In the poor-overlap design above, where `x2` affects treatment only:
+
+| ATE, `n = 800` | bias | sd | 95% coverage |
+| --- | --- | --- | --- |
+| `sp.tmle`, full propensity, influence function | -0.01 | 0.130 | 0.91 |
+| `sp.ctmle`, influence function | -0.01 | 0.095 | 0.89 |
+| `sp.ctmle`, bootstrap | -0.01 | 0.095 | 0.94 |
+
+Three cautions. Report the bootstrap interval: the influence-function
+standard error ignores the selection and is 20% to 40% too small, in R
+`ctmle` as well. Do not expect a gain when the outcome model is badly
+wrong: with a confounder omitted from it, the method brings that
+confounder into the propensity, as it should, and ends up about as
+accurate as `sp.tmle`. And it is offered for the ATE only. A
+collaborative ATT was tried and was biased when the outcome model missed
+effect heterogeneity, because no step of the sequence is rewarded for
+repairing that.
 
 `sp.tmle` warns when more than 5% of the propensities hit
 `propensity_bounds`. Take the warning seriously, look at `sp.overlap_plot`,

@@ -20771,6 +20771,142 @@
     }
   },
   {
+    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy sequence equals R ctmle. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler.",
+    "name": "ctmle",
+    "parameters": {
+      "properties": {
+        "Q": {
+          "description": "Initial outcome predictions, shape (n, 2) = [Q(0,W), Q(1,W)], replacing the Super Learner; held fixed in the cross-validation",
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column: folds of whole clusters, clustered SE",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Covariates of the outcome regression and default candidates for the propensity model",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "controls"
+          ],
+          "x-statspai-role": "columns"
+        },
+        "cv_folds": {
+          "default": 5,
+          "description": "Folds that select the step",
+          "type": "integer"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "Only the ATE; for ATT / ATC use sp.tmle",
+          "enum": [
+            "ATE"
+          ],
+          "type": "string"
+        },
+        "fold_indices": {
+          "description": "One fold label per row, replacing the random assignment",
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Bootstrap resamples (>= 20)",
+          "type": "integer"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Super Learner folds",
+          "type": "integer"
+        },
+        "outcome_library": {
+          "description": "sklearn estimators for the Super Learner of Q(A, W); the sp.tmle default library if omitted",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "penalty": {
+          "default": "variance+bias",
+          "description": "Added to the residual sum of squares when candidates are compared: the variance of the influence function ('variance', R ctmle's criterion), also n times its squared cross-validated mean ('variance+bias'), or nothing ('none')",
+          "enum": [
+            "variance+bias",
+            "variance",
+            "none"
+          ],
+          "type": "string"
+        },
+        "propensity_bounds": {
+          "default": [
+            0.025,
+            0.975
+          ],
+          "description": "Truncation of every fitted propensity",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "propensity_covariates": {
+          "description": "Candidates for the propensity model (default: covariates)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "q_bound": {
+          "default": 0.0005,
+          "description": "Truncation of the initial outcome predictions on the unit scale",
+          "type": "number"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Seeds the fold assignment and the Super Learner.",
+          "type": "integer"
+        },
+        "se_method": {
+          "default": "influence",
+          "description": "'influence' ignores the selection and is 20% to 40% too small in simulation; 'bootstrap' reruns the whole procedure on n_boot resamples and is the one to report. Not with Q.",
+          "enum": [
+            "influence",
+            "bootstrap"
+          ],
+          "type": "string"
+        },
+        "treat": {
+          "description": "Binary treatment (0/1)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome, binary or continuous",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "TMLE with Highly Adaptive Lasso (HAL) nuisance learners (Qian & van der Laan 2025). The stable 'delta' variant plugs HAL into standard TMLE. The reserved 'projection' variant raises NotImplementedError until the Riesz-projection targeting step has reference parity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: variant='projection' raises NotImplementedError -- the Riesz-projection targeting step from Li-Qiu-Wang-vdL (2025) Section 3.2 is not yet ported (the v1.11.x code path was a no-op on the point estimate; see CHANGELOG). The implementation roadmap and parity-test gates are in docs/rfc/hal_tmle_projection.md.",
     "name": "hal_tmle",
     "parameters": {

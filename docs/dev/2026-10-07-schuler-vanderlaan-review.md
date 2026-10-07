@@ -234,12 +234,80 @@ place in the package. It was not added.
 
 The full algorithm (a greedy, cross-validated sequence of propensity
 models, each retargeted) exists to get the gain without that failure. It
-remains unimplemented. The numbers above are the case for doing it: up to
-a 29% smaller standard deviation under weak overlap.
+was implemented in the fifth round below.
+
+## Fifth round: `sp.ctmle`
+
+Bryce asked for the full algorithm. R `ctmle` 0.1.2 was installed and used
+as a black box (GPL; source not read). The implementation follows van der
+Laan and Gruber (2010) and Gruber and van der Laan (2010).
+
+**Algorithm.** Step 0 targets with an intercept-only propensity. Each
+later step adds the covariate whose targeted fit has the lowest criterion.
+When none improves on the current targeted fit, that fit becomes the
+initial fit and the search continues. The step is chosen by
+cross-validation, rebuilding the sequence on every training fold. The
+criterion is the residual sum of squares plus the variance of the
+influence function, and in the cross-validation also `n` times its
+squared mean.
+
+**Agreement with R.** On six fixtures (three data sets, a correct and a
+wrong initial fit) the order of entry is identical and the estimate at
+every step agrees to 3e-9. Two things had to be found for that. The
+greedy search has to use the variance-penalised criterion, not the sum of
+squares alone: with the latter our order differed from R's whenever the
+outcome fit was right and the losses were flat. And `ctmle`'s
+cross-validated criterion is that same sum, with a zero bias term.
+Grade for the sequence: T2.
+
+**Not matched, not located.** Given the same folds, the cross-validated
+losses the two report are different numbers (5.8756 against 5.8888 at
+step 0 of the first fixture), and they select different steps in four of
+six cases. The cause was not found. It is recorded in the test and is a
+C-level open item. Over 200 data sets the two have the same profile:
+
+| initial fit | | bias | sd | mean se | coverage |
+| --- | --- | --- | --- | --- | --- |
+| correct | `sp.tmle`, full propensity | -0.012 | 0.129 | 0.108 | 0.87 |
+| correct | R `ctmle` | -0.012 | 0.102 | 0.077 | 0.85 |
+| correct | `sp.ctmle` | -0.009 | 0.093 | 0.073 | 0.88 |
+| omits a confounder | `sp.tmle`, full propensity | -0.113 | 0.205 | 0.162 | 0.78 |
+| omits a confounder | R `ctmle` | +0.066 | 0.206 | 0.116 | 0.68 |
+| omits a confounder | `sp.ctmle` | +0.137 | 0.193 | 0.121 | 0.61 |
+
+R's variance is also not ours once covariates are in the propensity
+(0.0118 against 0.0151 at the same estimate on one fixture). At step 0
+the two agree. Ours is the plain variance of the efficient influence
+function, the larger of the two, and still too small.
+
+**Inference.** The influence-function standard error is 20% to 40% too
+small for both implementations. With the propensity deliberately
+misspecified, that function is not the estimator's influence function,
+and the selection is ignored. `se_method='bootstrap'` reruns everything.
+End to end with a refitted outcome regression (100 replications, 80
+resamples): `sp.tmle` rmse 0.130 and coverage 0.91; `sp.ctmle` rmse 0.095,
+influence-function coverage 0.89, bootstrap coverage 0.94.
+
+**The ATT, tried and withdrawn.** The same construction with the ATT
+clever covariate was implemented. In the end-to-end run, where the
+outcome regression is additive and the effect varies with a confounder,
+it was biased by -0.17 (rmse 0.251 against 0.195 for `sp.tmle`). The
+intercept-only propensity already gives the lowest criterion, and nothing
+in the criterion rewards a step that would repair the missing
+heterogeneity. `sp.ctmle` therefore accepts `estimand='ATE'` only and
+says why. R `ctmle` is ATE-only too.
+
+**One claim corrected along the way.** The first draft said the loss
+falls along the whole sequence. It does not: the fluctuation maximises a
+Bernoulli likelihood, so the sum of squares can rise slightly after a
+restart. A test caught it; the text and the comment were fixed.
 
 ## Still open
 
-- Collaborative TMLE, as quantified above.
+- Why `ctmle`'s cross-validated losses differ from ours on the same folds.
+- A collaborative estimator for the ATT that is safe when the outcome
+  model misses heterogeneity.
+- The scalable (pre-ordered) and glmnet variants of C-TMLE.
 - The second edition's exercises on estimand-restricted models have no
   counterpart and little practical use, as the book says itself.
 
@@ -250,5 +318,6 @@ cd tests/reference_parity && Rscript _generate_tmle_parameters_R.R   # needs R t
 pytest tests/reference_parity/test_tmle_parameters_R_parity.py \
        tests/test_tmle_targeting_properties.py \
        tests/test_aipw_known_propensity.py tests/test_ipw_known_propensity.py \
+       tests/test_ctmle.py tests/reference_parity/test_ctmle_R_parity.py \
        tests/reference_parity/test_causal_gap_known_values.py -q
 ```

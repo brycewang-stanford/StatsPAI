@@ -4,6 +4,29 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Collaborative TMLE
+
+#### Added
+
+- **`sp.ctmle`: collaborative TMLE** (the greedy C-TMLE of van der Laan
+  and Gruber). The propensity model is built one covariate at a time for
+  the outcome fit, and cross-validation decides how far to go, so a
+  covariate that drives treatment but not the outcome stays out of the
+  weights. Under weak overlap with such a covariate the root mean squared
+  error of the ATE was 27% below `sp.tmle` with the full propensity model.
+  The order in which covariates enter and the estimate at every step of
+  the sequence equal R `ctmle::ctmleDiscrete` to 3e-9 on six fixtures
+  (`tests/reference_parity/test_ctmle_R_parity.py`); the step that
+  cross-validation then selects is computed differently by the two and
+  can differ. `result.detail` lists every step. Three things to know. The
+  influence-function standard error ignores the selection and was 20% to
+  40% too small in simulation, in R as well; `se_method='bootstrap'`
+  reruns the whole procedure and covered 94%. When the outcome model omits
+  a confounder the method brings it into the propensity but is no more
+  accurate than `sp.tmle`. And it is offered for the ATE only: a
+  collaborative ATT was implemented, was biased by 0.17 to 0.20 when the
+  outcome model missed effect heterogeneity, and was withdrawn.
+
 ## [1.39.0] — 2026-10-07
 
 Three days of textbook passes: the code or the syllabus of more than twenty

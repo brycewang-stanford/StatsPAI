@@ -22848,6 +22848,160 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="ctmle",
+            category="causal",
+            description=(
+                "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): "
+                "the propensity model is built covariate by covariate for "
+                "the outcome fit and its size chosen by cross-validation, so "
+                "instruments and covariates the outcome model already "
+                "handles stay out of the weights. For weak overlap. ATE "
+                "only; the greedy sequence equals R ctmle."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "y", "str", True, description="Outcome, binary or continuous"
+                ),
+                ParamSpec("treat", "str", True, description="Binary treatment (0/1)"),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    description="Covariates of the outcome regression and "
+                    "default candidates for the propensity model",
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "Only the ATE; for ATT / ATC use sp.tmle",
+                    ["ATE"],
+                ),
+                ParamSpec(
+                    "outcome_library",
+                    "list",
+                    False,
+                    None,
+                    "sklearn estimators for the Super Learner of Q(A, W); the "
+                    "sp.tmle default library if omitted",
+                ),
+                ParamSpec(
+                    "Q",
+                    "array",
+                    False,
+                    None,
+                    "Initial outcome predictions, shape (n, 2) = [Q(0,W), "
+                    "Q(1,W)], replacing the Super Learner; held fixed in the "
+                    "cross-validation",
+                ),
+                ParamSpec(
+                    "propensity_covariates",
+                    "list",
+                    False,
+                    None,
+                    "Candidates for the propensity model (default: covariates)",
+                ),
+                ParamSpec("cv_folds", "int", False, 5, "Folds that select the step"),
+                ParamSpec(
+                    "fold_indices",
+                    "array",
+                    False,
+                    None,
+                    "One fold label per row, replacing the random assignment",
+                ),
+                ParamSpec(
+                    "penalty",
+                    "str",
+                    False,
+                    "variance+bias",
+                    "Added to the residual sum of squares when candidates are "
+                    "compared: the variance of the influence function "
+                    "('variance', R ctmle's criterion), also n times its "
+                    "squared cross-validated mean ('variance+bias'), or "
+                    "nothing ('none')",
+                    ["variance+bias", "variance", "none"],
+                ),
+                ParamSpec("n_folds", "int", False, 5, "Super Learner folds"),
+                ParamSpec(
+                    "propensity_bounds",
+                    "tuple",
+                    False,
+                    (0.025, 0.975),
+                    "Truncation of every fitted propensity",
+                ),
+                ParamSpec(
+                    "q_bound",
+                    "float",
+                    False,
+                    0.0005,
+                    "Truncation of the initial outcome predictions on the "
+                    "unit scale",
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec("random_state", "int", False, 42),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column: folds of whole clusters, clustered SE",
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "influence",
+                    "'influence' ignores the selection and is 20% to 40% too "
+                    "small in simulation; 'bootstrap' reruns the whole "
+                    "procedure on n_boot resamples and is the one to report. "
+                    "Not with Q.",
+                    ["influence", "bootstrap"],
+                ),
+                ParamSpec("n_boot", "int", False, 200, "Bootstrap resamples (>= 20)"),
+            ],
+            returns="CausalResult",
+            example='sp.ctmle(df, y="y", treat="a", covariates=["x1", "x2", "z"], '
+            'se_method="bootstrap")',
+            tags=["tmle", "ctmle", "collaborative", "weak-overlap", "doubly-robust"],
+            reference="vanderlaan2010collaborative",
+            pre_conditions=[
+                "binary treatment 0/1",
+                "covariates comprise the confounding set",
+            ],
+            assumptions=[
+                "Unconfoundedness given the covariates",
+                "Every confounder the outcome model misses is among the "
+                "propensity candidates",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Interval from se_method='influence' is too narrow",
+                    exception="",
+                    remedy="Use se_method='bootstrap'; the influence-function "
+                    "SE ignores the selection of the propensity model",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Outcome model badly wrong",
+                    exception="",
+                    remedy="No gain over sp.tmle is to be expected; improve "
+                    "the outcome library first",
+                    alternative="tmle",
+                ),
+            ],
+            not_recommended_when=[
+                "Overlap is good: sp.tmle with the full propensity model is "
+                "then at least as precise and its inference is simpler",
+            ],
+            alternatives=["tmle", "hal_tmle", "aipw", "overlap_weights"],
+            typical_n_min=300,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="hal_tmle",
             category="causal",
             description=(

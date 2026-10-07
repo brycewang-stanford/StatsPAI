@@ -20,11 +20,12 @@ van der Laan, M. J., Polley, E. C., & Hubbard, A. E. (2007).
 Super Learner. Statistical Applications in Genetics and Molecular Biology, 6(1). [@vanderlaan2007super]
 """
 
-from .tmle import tmle, TMLE
-from .super_learner import super_learner, SuperLearner
-from .ltmle import ltmle, LTMLEResult
-from .ltmle_survival import ltmle_survival, LTMLESurvivalResult
-from .hal_tmle import hal_tmle, HALRegressor, HALClassifier
+from .ctmle import ctmle
+from .hal_tmle import HALClassifier, HALRegressor, hal_tmle
+from .ltmle import LTMLEResult, ltmle
+from .ltmle_survival import LTMLESurvivalResult, ltmle_survival
+from .super_learner import SuperLearner, super_learner
+from .tmle import TMLE, tmle
 
 __all__ = [
     "tmle",
@@ -36,6 +37,7 @@ __all__ = [
     "ltmle_survival",
     "LTMLESurvivalResult",
     "hal_tmle",
+    "ctmle",
     "HALRegressor",
     "HALClassifier",
 ]

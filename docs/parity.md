@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 432 |
 | | aligned | 53 |
 | | **subtotal** | **485** |
-| **No external software reference** | analytical-only (T1) | 390 |
+| **No external software reference** | analytical-only (T1) | 391 |
 | | external-replication (published numbers) | 62 |
-| | **subtotal** | **452** |
+| | **subtotal** | **453** |
 | No numerical evidence yet | unverified | 624 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 485 | 920 | 939 | 51.7% |
+| estimator callables | 485 | 921 | 940 | 51.6% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
 | result / exception classes | 0 | 4 | 402 | 0.0% |
-| **all registered** | 485 | 937 | 1561 | 31.1% |
+| **all registered** | 485 | 938 | 1562 | 31.0% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 153 | 341 | 346 |
+| causal | 153 | 342 | 347 |
 | regression | 45 | 58 | 59 |
 | timeseries | 24 | 51 | 53 |
 | inference | 28 | 49 | 49 |
@@ -665,7 +665,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 390 functions
+## analytical-only — 391 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -770,6 +770,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `counterfactual_policy_optimization` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `cs_jackknife` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `cs_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
+| `ctmle` | [`test_ctmle_R_parity.py`](../tests/reference_parity/test_ctmle_R_parity.py) |
 | `deepiv` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) (+1) |
 | `demographic_parity` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `design_aberration` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
