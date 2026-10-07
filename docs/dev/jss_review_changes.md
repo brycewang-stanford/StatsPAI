@@ -3263,10 +3263,10 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after the third round of the Wager pass
 
-- **Commits.** `49a013c5` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `d27a8a6b` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and of module 08
   in `tests/orig_parity/results/_implementation_trace.json`. The source
-  that staled them is in `adf32390`: `src/statspai/__init__.py` (new
+  that staled them is in `7510a33d`: `src/statspai/__init__.py` (new
   exports).
 - **Reason.** Third round of the pass recorded in
   `docs/dev/2026-10-07-wager-causal-inference-review.md`
