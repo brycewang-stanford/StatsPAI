@@ -31,6 +31,59 @@ Rules:
 
 ## Entries
 
+### 2026-10-08 — re-anchor checks: Track C re-timed, one Track B row refreshed, everything else re-derived
+
+- **Commits.** `7c3f6d3d` re-timed the four Track C modules and re-recorded
+  `tests/perf/results/_timed_path.json`. `2233e118` regenerated
+  `tests/coverage_monte_carlo/results_b1000/coverage_robustness_b1000.json`.
+- **Reason.** The manuscript is being moved from 1.34.2 to the 1.39 line
+  for submission, so every frozen artifact was re-derived on this tree
+  rather than assumed.
+- **What was re-derived and did not change.** All 89 R modules reproduce
+  their goldens at 1e-9 (`verify_reproduce.py`; module 81 needs
+  `STATSPAI_DIDM_LIB`), all 85 Stata modules (`verify_reproduce_stata.py`),
+  and the Python side of all 89 modules (`verify_reproduce_py.py`). The
+  twelve original-data scripts reproduce to 1.6e-11. The Python side of
+  both forest seed studies is identical except for the recorded version
+  string. Twelve of the thirteen Track B coverage rows, the two other
+  stress rows, the size and power sweep and the four mechanism experiments
+  reproduce to the last printed digit. None of those files was rewritten.
+- **Effect on the paper.**
+  1. Track C, all four rows (`tab:track-c-perf`, the log-log figure and
+     the prose of Section 6). At the largest size, against the 1.34.0
+     archive: HDFE 0.121 against 0.075 seconds becomes 0.118 against 0.075,
+     still `fixest` by 1.6x. Callaway-Sant'Anna 0.028 against 0.457 becomes
+     0.030 against 0.079, so 16.1x becomes 2.6x; the reference side moved,
+     with `did` 2.5.1 in place of 2.3.0. Classical SCM 264 against 4.6
+     becomes 1.3 against 4.6, so `Synth` 58x faster becomes StatsPAI 3.5x
+     faster; this is the exact inner solver of 1.36.0. DML 1.10x becomes
+     1.07x. The package-default SCM call at 100 donors goes from 7.5 to
+     0.04 seconds. The solver-agreement cell of the SCM row prints `3e-06`
+     where it printed `0.000`. Section 6's interpretation paragraph, the
+     sentence in Section 9 about replacing the inner solver, and the cover
+     letter's "61 times faster" all had to be rewritten.
+  2. Track B, one cell of `tab:track-b-monte-carlo`: the
+     heterogeneous-timing Callaway-Sant'Anna stress row, 0.946 to 0.954.
+     The committed value predates 1.31.0. Releases 1.31.0, 1.32.0, 1.33.0,
+     1.34.0, 1.34.2, 1.35.0 and this tree were each run and all give 954 of
+     1,000, with the same point estimates (median absolute bias identical
+     to sixteen digits). So the 1.34.2 manuscript printed a number its own
+     release did not produce. Inside the documented band either way.
+  3. The timed-path record leaves out `src/statspai/__init__.py` from this
+     commit on (reason in `scripts/trace_perf_path.py`). The paper's
+     headline check reads the record and needs no change.
+- **Paths.**
+  - `tests/perf/results/01_hdfe_R.json`
+  - `tests/perf/results/01_hdfe_py.json`
+  - `tests/perf/results/02_csdid_R.json`
+  - `tests/perf/results/02_csdid_py.json`
+  - `tests/perf/results/03_scm_R.json`
+  - `tests/perf/results/03_scm_py.json`
+  - `tests/perf/results/04_dml_doubleml_py.json`
+  - `tests/perf/results/04_dml_py.json`
+  - `tests/perf/results/_timed_path.json`
+  - `tests/coverage_monte_carlo/results_b1000/coverage_robustness_b1000.json`
+
 ### 2026-10-07 — call traces re-recorded after `sp.glmnet`; one original-data result regenerated
 
 - **Commits.** `ccbdb0a9` re-recorded the entries of Track A modules 03 13 15 24
