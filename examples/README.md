@@ -69,9 +69,13 @@ data from DoubleML's public distribution (StatsPAI bundles no copy):
 - `notebooks/reproduce_401k_doubleml.ipynb` - reproduces the DoubleML / `hdm`
   401(k) result with `sp.dml`, side by side with `doubleml-for-py` on the same
   data. The partially linear estimates match to the displayed precision; the
-  committed notebook ships its executed outputs.
+  committed notebook ships its executed outputs. Written as a DML tutorial
+  with prose and code comments in Chinese: a hand-rolled cross-fitted PLR,
+  the choice of controls and learners, IRM / ATTE and overlap, repeated
+  cross-fitting, shared-fold parity with DoubleML, the IIVM LATE of
+  participation, and omitted-variable sensitivity. Runs in about two minutes.
 
 ```bash
-python -m pip install statspai doubleml scikit-learn jupyter
+python -m pip install statspai doubleml scikit-learn matplotlib jupyter
 jupyter nbconvert --to notebook --execute --inplace examples/notebooks/reproduce_401k_doubleml.ipynb
 ```
