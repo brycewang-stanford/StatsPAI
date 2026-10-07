@@ -44,7 +44,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `regression` | 32,423 | 43 | 62 |
 | `timeseries` | 31,180 | 55 | 88 |
 | `synth` | 30,976 | 41 | 56 |
-| `rd` | 23,681 | 35 | 57 |
+| `rd` | 23,794 | 35 | 57 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 16,354 | 18 | 32 |
 | `matching` | 16,017 | 26 | 39 |
@@ -81,12 +81,12 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `postestimation` | 3,280 | 7 | 13 |
 | `bounds` | 3,223 | 6 | 12 |
 | `bartik` | 3,183 | 6 | 9 |
-| `interference` | 3,053 | 11 | 22 |
+| `interference` | 3,223 | 11 | 22 |
 | `causal_llm` | 3,026 | 10 | 15 |
 | `conformal_causal` | 2,929 | 10 | 22 |
 | `rlasso` | 2,840 | 7 | 10 |
 | `crossval` | 2,809 | 7 | 2 |
-| `experimental` | 2,709 | 6 | 16 |
+| `experimental` | 2,947 | 6 | 17 |
 | `epi` | 2,645 | 6 | 21 |
 | `mediation` | 2,603 | 6 | 6 |
 | `datasets` | 2,460 | 4 | 3 |
@@ -112,7 +112,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `dose_response` | 1,038 | 3 | 5 |
 | `imputation` | 1,034 | 3 | 4 |
 | `surrogate` | 1,017 | 2 | 3 |
-| `ope` | 991 | 3 | 5 |
+| `ope` | 1,684 | 4 | 9 |
 | `gformula` | 987 | 3 | 4 |
 | `deepiv` | 882 | 2 | 2 |
 | `transport` | 834 | 5 | 10 |
@@ -129,7 +129,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **631,218** | **1067** | **1554** |
+| **Total** | **632,703** | **1068** | **1559** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

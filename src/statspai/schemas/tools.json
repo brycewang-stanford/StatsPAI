@@ -10915,6 +10915,11 @@
           "description": "Number of actions.",
           "type": "integer"
         },
+        "n_folds": {
+          "default": 1,
+          "description": "Number of cross-fitting or cross-validation folds.",
+          "type": "integer"
+        },
         "pi_behavior": {
           "description": "pi_behavior parameter (Optional[np.ndarray]).",
           "type": "string"
@@ -16779,7 +16784,6 @@
           "type": "string"
         },
         "focal": {
-          "default": 0.5,
           "description": "Share of units drawn at random as focal units, or an array of focal indices chosen without looking at Z",
           "type": "number"
         },
@@ -16790,10 +16794,12 @@
         },
         "null": {
           "default": "no_spillover",
-          "description": "Hypothesis tested",
+          "description": "Hypothesis tested, nested: no effect at all; outcomes depend only on own treatment; only on own treatment and the share of treated neighbours; only on own and neighbours' treatments",
           "enum": [
             "no_spillover",
-            "no_effect"
+            "no_effect",
+            "anonymous",
+            "no_higher_order"
           ],
           "type": "string"
         },
@@ -16807,7 +16813,9 @@
           "enum": [
             "neighbor_share",
             "any_neighbor",
-            "difference_in_means"
+            "difference_in_means",
+            "weighted_share",
+            "second_order_share"
           ],
           "type": "string"
         }
@@ -20365,6 +20373,65 @@
     "name": "manski_bounds"
   },
   {
+    "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors. Assumptions: Treatment depends on the past only through the covariates; A treatment stops affecting outcomes after `horizon` periods. Alternatives: sp.mdp_policy_value, sp.switchback, sp.lp_did.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Observed part of the state",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "hac_lags": {
+          "description": "Bartlett-kernel lags for the SE",
+          "type": "integer"
+        },
+        "horizon": {
+          "description": "Future periods over which a treatment still affects outcomes",
+          "type": "integer"
+        },
+        "propensity": {
+          "description": "Treatment probability: a column or one number; logistic regression if omitted",
+          "type": "string"
+        },
+        "time": {
+          "description": "Time column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trajectory": {
+          "description": "Trajectory id column",
+          "type": "string"
+        },
+        "treat": {
+          "description": "0/1 treatment",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome of the period",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "covariates",
+        "horizon",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "marginal_policy_effect"
+  },
+  {
     "description": "Compute marginal effects from a fitted model. Validation: certified parity evidence. Assumptions: The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity; Marginal effects are averages over the estimation sample unless margins_at fixes covariate values. Pre-conditions: A fitted StatsPAI result object (sp.regress / sp.logit / ...) -- these functions do not take raw data. Failure modes: Margins evaluated at covariate combinations the data do not contain -> Evaluate at observed values or within the observed range and report average marginal effects. Alternatives: sp.sp.test, sp.sp.regress.",
     "input_schema": {
       "properties": {
@@ -21006,6 +21073,71 @@
       "type": "object"
     },
     "name": "mccrary_test"
+  },
+  {
+    "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon. Assumptions: The state is fully observed and Markov: past actions affect the future only through it; Time-homogeneous dynamics observed in their stationary regime; The action depends on the past only through the state, with known or estimable probabilities. Alternatives: sp.marginal_policy_effect, sp.ltmle, sp.switchback, sp.q_learning.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "baseline": {
+          "description": "Second policy; the result is then the difference in value",
+          "type": "string"
+        },
+        "features": {
+          "description": "'tabular' (one indicator per distinct state, the default), numeric state columns for a linear basis, or a callable",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "policy": {
+          "description": "Target policy: function of the state columns, a column of target actions, or one action taken always",
+          "type": "string"
+        },
+        "propensity": {
+          "description": "Probability of the action taken given the state: a column or one number; estimated by state frequencies if omitted",
+          "type": "string"
+        },
+        "state": {
+          "description": "State columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Time column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trajectory": {
+          "description": "Trajectory id column",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Action taken",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome of the period",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "policy",
+        "state",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "mdp_policy_value"
   },
   {
     "description": "Median test (Stata median): classifies every observation as above the pooled median or not and tests independence of that from the group with Pearson's chi-squared; with two groups the continuity-corrected statistic is reported too. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; An outcome that is at least ordinal; observations equal to the pooled median are counted as not above it; Independent samples. Pre-conditions: A numeric or ordinal outcome and a grouping column. Failure modes: Many observations tied at the pooled median -> The split of the ties decides the result; state the rule used or compare distributions another way. Alternatives: sp.ranksum, sp.kwallis, sp.ttest, sp.qreg. Typical minimum N: 20.",
@@ -23202,7 +23334,7 @@
     "name": "negative_control_outcome"
   },
   {
-    "description": "Direct and spillover effects on a known network through an exposure mapping: inverse-probability weighted means of the outcome at each exposure level (exact exposure probabilities under Bernoulli assignment) with standard errors that account for dependence between units sharing a neighbour. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume. Assumptions: The exposure mapping is correctly specified: a unit's outcome depends on the assignment only through its exposure level; Positivity: averages are over units for which every exposure level has positive probability under the design; Network adjacency is fixed / known (measurement error in ties introduces bias). Pre-conditions: adjacency encodes who can affect whom and was fixed before assignment; Y, Z have same length n; treatments were assigned independently with a known probability. Failure modes: Fewer than two units can receive every exposu...",
+    "description": "Direct and spillover effects on a known network through an exposure mapping: inverse-probability weighted means of the outcome at each exposure level (exact exposure probabilities under Bernoulli assignment) with standard errors that account for dependence between units sharing a neighbour. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The exposure mapping is correctly specified: a unit's outcome depends on the assignment only through its exposure level; Positivity: averages are over units for which every exposure level has positive probability under the design; Network adjacency is fixed / known (measurement error in ties introduces bias). Pre-conditions: adjacency encodes who can affect whom and was fixed before assignment; Y, Z have same length n; treatments were assigned independently with a known probability. Failure modes: Fewer than two units can receive every exposure level -> Use a coarser exposure mapping; Some units have exposure probabilities below 0.01 (high degree under 'as4'), so a few units carry huge weights -> Set min_prob= to restrict to units with adequate overlap, or use mapping='fraction'....",
     "input_schema": {
       "properties": {
         "Y": {
@@ -23231,9 +23363,10 @@
         },
         "design": {
           "default": "bernoulli",
-          "description": "Randomisation design",
+          "description": "Randomisation design: independent assignment, or a fixed number treated (exposure probabilities then hypergeometric)",
           "enum": [
-            "bernoulli"
+            "bernoulli",
+            "complete"
           ],
           "type": "string"
         },
@@ -29597,6 +29730,10 @@
           "description": "Upper bound on |E[Y|X]''| on each side of c; if None, the Armstrong-Kolesar rule of thumb",
           "type": "number"
         },
+        "M_fuzzy": {
+          "description": "Curvature bound for the treatment-received regression; default the same rule of thumb as M",
+          "type": "number"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -29614,6 +29751,10 @@
             "mse",
             "flci"
           ],
+          "type": "string"
+        },
+        "fuzzy": {
+          "description": "Column with the treatment received, for a fuzzy design; the estimate is then the ratio of the two jumps with an Anderson-Rubin bias-aware interval",
           "type": "string"
         },
         "h": {

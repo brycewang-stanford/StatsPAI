@@ -23340,7 +23340,7 @@
     }
   },
   {
-    "description": "Direct and spillover effects on a known network through an exposure mapping: inverse-probability weighted means of the outcome at each exposure level (exact exposure probabilities under Bernoulli assignment) with standard errors that account for dependence between units sharing a neighbour. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume.",
+    "description": "Direct and spillover effects on a known network through an exposure mapping: inverse-probability weighted means of the outcome at each exposure level (exact exposure probabilities under Bernoulli assignment) with standard errors that account for dependence between units sharing a neighbour. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "network_exposure",
     "parameters": {
       "properties": {
@@ -23370,9 +23370,10 @@
         },
         "design": {
           "default": "bernoulli",
-          "description": "Randomisation design",
+          "description": "Randomisation design: independent assignment, or a fixed number treated (exposure probabilities then hypergeometric)",
           "enum": [
-            "bernoulli"
+            "bernoulli",
+            "complete"
           ],
           "type": "string"
         },
@@ -23470,7 +23471,6 @@
           "type": "string"
         },
         "focal": {
-          "default": 0.5,
           "description": "Share of units drawn at random as focal units, or an array of focal indices chosen without looking at Z",
           "type": "number"
         },
@@ -23481,10 +23481,12 @@
         },
         "null": {
           "default": "no_spillover",
-          "description": "Hypothesis tested",
+          "description": "Hypothesis tested, nested: no effect at all; outcomes depend only on own treatment; only on own treatment and the share of treated neighbours; only on own and neighbours' treatments",
           "enum": [
             "no_spillover",
-            "no_effect"
+            "no_effect",
+            "anonymous",
+            "no_higher_order"
           ],
           "type": "string"
         },
@@ -23498,7 +23500,9 @@
           "enum": [
             "neighbor_share",
             "any_neighbor",
-            "difference_in_means"
+            "difference_in_means",
+            "weighted_share",
+            "second_order_share"
           ],
           "type": "string"
         }
@@ -23740,6 +23744,220 @@
         "data",
         "y",
         "arm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Run a sequential experiment whose assignment depends on covariates: linear Thompson sampling, LinUCB or epsilon-greedy with a Gaussian linear reward model per arm, recording exact assignment probabilities.",
+    "name": "contextual_bandit",
+    "parameters": {
+      "properties": {
+        "add_intercept": {
+          "default": true,
+          "description": "Add a constant",
+          "type": "boolean"
+        },
+        "algorithm": {
+          "default": "thompson",
+          "description": "Allocation rule",
+          "enum": [
+            "thompson",
+            "ucb",
+            "epsilon_greedy",
+            "uniform"
+          ],
+          "type": "string"
+        },
+        "batch_size": {
+          "default": 1,
+          "description": "Periods between updates",
+          "type": "integer"
+        },
+        "contexts": {
+          "description": "Covariates, shape (T, p)",
+          "type": "string"
+        },
+        "epsilon": {
+          "default": 0.1,
+          "description": "Exploration share",
+          "type": "number"
+        },
+        "mean_reward": {
+          "description": "mean_reward(k, x), to report regret",
+          "type": "string"
+        },
+        "n_arms": {
+          "description": "Number of arms",
+          "type": "integer"
+        },
+        "prior_precision": {
+          "default": 1.0,
+          "description": "Precision of the normal prior on each coefficient",
+          "type": "number"
+        },
+        "prob_floor": {
+          "default": 0.0,
+          "description": "Lower bound on every assignment probability",
+          "type": "number"
+        },
+        "reward": {
+          "description": "reward(k, x, rng) -> float, or a T x K table of potential outcomes",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed",
+          "type": "integer"
+        },
+        "sigma": {
+          "description": "Reward sd",
+          "type": "number"
+        },
+        "ucb_scale": {
+          "default": 2.0,
+          "description": "Width of the bound",
+          "type": "number"
+        }
+      },
+      "required": [
+        "reward",
+        "contexts"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Long-run average outcome under a policy in a Markov decision process, from one long trajectory: doubly robust in the excess-reward function and the stationary state-distribution ratio, with an error that does not grow with the horizon.",
+    "name": "mdp_policy_value",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "baseline": {
+          "description": "Second policy; the result is then the difference in value",
+          "type": "string"
+        },
+        "data": {
+          "description": "One row per period",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "features": {
+          "description": "'tabular' (one indicator per distinct state, the default), numeric state columns for a linear basis, or a callable",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "policy": {
+          "description": "Target policy: function of the state columns, a column of target actions, or one action taken always",
+          "type": "string"
+        },
+        "propensity": {
+          "description": "Probability of the action taken given the state: a column or one number; estimated by state frequencies if omitted",
+          "type": "string"
+        },
+        "state": {
+          "description": "State columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Time column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trajectory": {
+          "description": "Trajectory id column",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Action taken",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome of the period",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "state",
+        "policy"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Effect of removing a small share of the treatments that occur in a dynamic system, on the long-run average outcome. Identified when part of the state is unobserved, provided treatment depends on the past only through observed covariates. Doubly robust with HAC standard errors.",
+    "name": "marginal_policy_effect",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Observed part of the state",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "One row per period",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "hac_lags": {
+          "description": "Bartlett-kernel lags for the SE",
+          "type": "integer"
+        },
+        "horizon": {
+          "description": "Future periods over which a treatment still affects outcomes",
+          "type": "integer"
+        },
+        "propensity": {
+          "description": "Treatment probability: a column or one number; logistic regression if omitted",
+          "type": "string"
+        },
+        "time": {
+          "description": "Time column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trajectory": {
+          "description": "Trajectory id column",
+          "type": "string"
+        },
+        "treat": {
+          "description": "0/1 treatment",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome of the period",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "covariates",
+        "horizon"
       ],
       "type": "object"
     }
@@ -29469,6 +29687,10 @@
           "description": "Upper bound on |E[Y|X]''| on each side of c; if None, the Armstrong-Kolesar rule of thumb",
           "type": "number"
         },
+        "M_fuzzy": {
+          "description": "Curvature bound for the treatment-received regression; default the same rule of thumb as M",
+          "type": "number"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -29492,6 +29714,10 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "fuzzy": {
+          "description": "Column with the treatment received, for a fuzzy design; the estimate is then the ratio of the two jumps with an Anderson-Rubin bias-aware interval",
+          "type": "string"
         },
         "h": {
           "description": "Use only |x - c| <= h; default 2.5 times the optimal local linear bandwidth",
@@ -66804,6 +67030,11 @@
         },
         "n_actions": {
           "description": "Number of actions.",
+          "type": "integer"
+        },
+        "n_folds": {
+          "default": 1,
+          "description": "Number of cross-fitting or cross-validation folds.",
           "type": "integer"
         },
         "pi_behavior": {
