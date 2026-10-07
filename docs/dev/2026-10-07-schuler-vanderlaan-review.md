@@ -196,12 +196,50 @@ Bryce delegated the decisions. What was done with each.
   Against Stata 18 `teffects aipw (y x, probit) (d x)`: 5e-9 at worst in
   the same three designs.
 
+## Collaborative targeting: measured, a shortcut rejected
+
+The question left from the second round was whether a collaborative choice
+of the propensity model would do better than the bootstrap. Same design as
+before (`x2` drives treatment only, so it is an instrument; 9% of true
+propensities outside [0.025, 0.975]; `n = 800`).
+
+| | sd of the ATT | mean se | coverage |
+| --- | --- | --- | --- |
+| `g` on all covariates, influence function | 0.152 | 0.124 | 0.86 |
+| the same, bootstrap percentile (200 resamples) | 0.152 | 0.158 | 0.94 |
+| oracle: `g` without the instrument, influence function | 0.108 | 0.103 | 0.92 |
+
+(120 replications for this table, so coverage has a Monte Carlo standard
+error near 0.02.) Dropping the instrument from `g` cuts the standard
+deviation by 29% (23% for the ATE) and makes the influence-function
+standard error accurate. That is the gain a collaborative TMLE is after,
+and it is real. The bootstrap fixes the interval but not the variance.
+
+A cheap way to get there was tried: fit the propensity on the initial
+outcome predictions `(Q(0,W), Q(1,W))` instead of on the covariates. With
+1,000 replications:
+
+| outcome model | `g` on | bias of the ATE | sd | coverage |
+| --- | --- | --- | --- | --- |
+| correct | covariates | -0.002 | 0.128 | 0.89 |
+| correct | outcome predictions | -0.002 | 0.106 | 0.92 |
+| wrong (omits a confounder) | covariates | -0.081 | 0.193 | 0.83 |
+| wrong (omits a confounder) | outcome predictions | +1.470 | 0.107 | 0.00 |
+
+When the outcome model is right it recovers most of the oracle's gain.
+When it is wrong the estimator loses double robustness entirely, because
+the propensity can no longer correct what the outcome model missed. A
+default-on or lightly documented option with that failure mode has no
+place in the package. It was not added.
+
+The full algorithm (a greedy, cross-validated sequence of propensity
+models, each retargeted) exists to get the gain without that failure. It
+remains unimplemented. The numbers above are the case for doing it: up to
+a 29% smaller standard deviation under weak overlap.
+
 ## Still open
 
-- The bootstrap interval is still a little short of nominal for the ATT
-  under weak overlap (0.90 to 0.92). Collaborative TMLE is the
-  literature's answer. It is a sizeable estimator in its own right, the
-  reference package is not installed here, and it was not attempted.
+- Collaborative TMLE, as quantified above.
 - The second edition's exercises on estimand-restricted models have no
   counterpart and little practical use, as the book says itself.
 
