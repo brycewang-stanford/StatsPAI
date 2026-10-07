@@ -3351,3 +3351,17 @@ only the recorded source hashes move.
   only `exercised_sources` digests and `seconds` differ.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — call trace of original-data module 07 re-recorded after the probit outcome model
+
+- **Commits.** `5a3246a6` re-recorded the entry of original-data module
+  07 in `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled it is in the same commit: `src/statspai/inference/aipw.py`
+  (a probit outcome model; the default linear path is untouched).
+- **Reason.** Fourth round of the audit recorded in
+  `docs/dev/2026-10-07-schuler-vanderlaan-review.md`.
+- **Effect on the paper.** None. The module was rerun and reproduces its
+  committed result; in the trace file only `exercised_sources` digests and
+  `seconds` differ.
+- **Paths.**
+  - `tests/orig_parity/results/_implementation_trace.json`
