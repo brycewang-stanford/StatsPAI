@@ -80,6 +80,11 @@ class _SklearnCompatEstimator:
         items = ", ".join(f"{k}={v!r}" for k, v in self.get_params().items())
         return f"{type(self).__name__}({items})"
 
+    def __sklearn_tags__(self) -> Any:
+        from ..core._sklearn_tags import duck_typed_tags
+
+        return duck_typed_tags(self)
+
 
 def _penalty_dict(self: Any) -> Dict[str, Any]:
     pen: Dict[str, Any] = {

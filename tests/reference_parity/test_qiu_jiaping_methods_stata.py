@@ -433,7 +433,10 @@ def test_heckman_twostep_inside_the_interval_is_untouched():
         res = sp.heckman(frame, y="y", x=["x"], z=["x", "z"])
     info = res.model_info
     assert not info["rho_truncated"]
-    assert info["rho"] == info["rho_two_step"] == pytest.approx(0.5, abs=0.12)
+    # the two are lambda / sigma written two ways and can differ by one ulp
+    # (they do on Linux), so "untouched" is held to 1e-14, not to the bit
+    assert info["rho"] == pytest.approx(info["rho_two_step"], rel=1e-14)
+    assert info["rho_two_step"] == pytest.approx(0.5, abs=0.12)
 
 
 def test_first_stage_summary_after_iv():

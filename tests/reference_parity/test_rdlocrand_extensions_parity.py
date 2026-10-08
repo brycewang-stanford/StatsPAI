@@ -65,7 +65,8 @@ def rjson():
 def senate():
     df = pd.read_csv(_FIX / "rdsenate.csv")
     # The fixture's deterministic take-up rule: every fourth unit defies.
-    took = (df["margin"] >= 0).astype(float).to_numpy()
+    # pandas 3 hands back a read-only view under copy-on-write.
+    took = (df["margin"] >= 0).astype(float).to_numpy(copy=True)
     flip = (np.arange(1, len(df) + 1) % 4) == 0
     took[flip] = 1 - took[flip]
     df["took"] = took

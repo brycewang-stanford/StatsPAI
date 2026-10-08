@@ -117,6 +117,11 @@ class _BaseHAL:
         items = ", ".join(f"{k}={v!r}" for k, v in params.items())
         return f"{type(self).__name__}({items})"
 
+    def __sklearn_tags__(self) -> Any:
+        from ..core._sklearn_tags import duck_typed_tags
+
+        return duck_typed_tags(self)
+
 
 def _hal_basis(
     X: np.ndarray,

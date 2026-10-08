@@ -179,6 +179,21 @@ def _patterns(x: np.ndarray) -> Tuple[np.ndarray, int]:
     return inverse, int(inverse.max()) + 1
 
 
+def _one_value_per_pattern(x: np.ndarray, p: np.ndarray) -> np.ndarray:
+    """``p`` with rows of one covariate pattern sharing one value exactly.
+
+    Two rows with the same regressors have the same fitted probability, but
+    not always the same floating-point number: a vectorised ``exp`` or a
+    BLAS product can round the last bit differently by position in the
+    array, and which positions depends on the CPU. Anything that counts ties
+    among fitted probabilities (Hosmer-Lemeshow groups, the ROC area) then
+    changes with the machine.
+    """
+    pattern, _ = _patterns(x)
+    first = np.unique(pattern, return_index=True)[1]
+    return np.asarray(p[first][pattern], dtype=float)
+
+
 def logit_influence(result: Any) -> pd.DataFrame:
     """Pregibon's (1981) diagnostics after a logistic regression.
 
@@ -320,6 +335,7 @@ def logit_gof(result: Any, groups: Optional[int] = None) -> Dict[str, Any]:
             "sp.logit_gof: the Hosmer-Lemeshow test needs at least 3 groups.",
             recovery_hint="groups=10 is the usual choice.",
         )
+    p = _one_value_per_pattern(x, p)
     ordered = np.sort(p)
     cuts = []
     for q in range(1, groups):

@@ -116,7 +116,8 @@ def test_robvar_and_oneway(df):
     )
     diff = one.estimates["differences"]
     assert diff.loc[3, 1] == pytest.approx(parts[2].mean() - parts[0].mean())
-    assert (one.estimates["pvalues"].stack() <= 1).all()
+    # pandas 3 keeps the empty upper triangle when stacking.
+    assert (one.estimates["pvalues"].stack().dropna() <= 1).all()
 
 
 def test_signrank_counts_zeros_and_ties(df):

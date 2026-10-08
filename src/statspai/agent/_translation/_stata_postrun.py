@@ -459,12 +459,16 @@ def _gof(session: "StataSession", rest: str) -> bool:
 
 
 def _lroc(session: "StataSession") -> bool:
-    from ...diagnostics.influence import roc_area
+    from ...diagnostics.influence import _one_value_per_pattern, roc_area
 
     info = getattr(session.last, "data_info", None) or {}
     if info.get("y") is None or info.get("fitted_values") is None:
         raise StataExprError("lroc follows logit / probit")
-    out = roc_area(info["y"], info["fitted_values"])
+    score = np.asarray(info["fitted_values"], dtype=float)
+    if info.get("X") is not None:
+        # Stata's lroc counts rows of one covariate pattern as tied
+        score = _one_value_per_pattern(np.asarray(info["X"], dtype=float), score)
+    out = roc_area(info["y"], score)
     session.output = {"N": out["n"], "area": out["auc"]}
     session.stored["r"] = {"N": out["n"], "area": out["auc"]}
     return True

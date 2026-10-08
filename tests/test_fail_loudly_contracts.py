@@ -69,8 +69,14 @@ def _xsec() -> pd.DataFrame:
     )
     df["treat"] = (df.z1 + rng.normal(size=n) > 0).astype(int)
     df["grp"] = np.repeat(np.arange(150), 4)
+    # One choice per group, by a noisy utility. Taking the alternative with
+    # the largest x1 outright separates the data perfectly: the coefficient
+    # runs off to infinity, the standard error is ~1e-10, and the interval
+    # width is then lost to cancellation against a coefficient in the
+    # hundreds (5e-5 relative on Linux, where the optimiser stops elsewhere).
+    util = df.x1 + np.random.default_rng(11).gumbel(size=n)
     df["ck"] = 0
-    df.loc[df.groupby("grp").x1.idxmax(), "ck"] = 1
+    df.loc[util.groupby(df["grp"]).idxmax(), "ck"] = 1
     return df
 
 

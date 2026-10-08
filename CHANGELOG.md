@@ -4,6 +4,36 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Newer scikit-learn, pandas and rdrobust
+
+#### Fixed
+
+- **`sp.RlassoRegressor`, `sp.RlassoClassifier`, `sp.RlassologitClassifier`
+  and the HAL learners work as `sp.dml` learners under scikit-learn 1.7 and
+  later.** These classes follow the estimator contract without inheriting
+  `BaseEstimator`, and scikit-learn 1.7 stopped inferring tags for such
+  classes, so cross-fitting raised `AttributeError: ... has no attribute
+  '__sklearn_tags__'`. They now define the tags (scikit-learn is still not
+  imported by `import statspai`). Estimates are unchanged.
+- `sp.logit_gof(groups=)` and `lroc` in `sp.stata` no longer depend on
+  the machine when several rows share a covariate pattern. Rows with the
+  same regressors have the same fitted probability but not always the same
+  floating-point number, and both statistics count ties. On one Apple
+  machine the Hosmer-Lemeshow statistic of the Kohler-Kreuter reference
+  model came out as 4.2335 where Stata and every CI runner give 4.5058.
+  Each pattern now carries one value.
+
+#### Changed
+
+- R `rdrobust` 4.1.1 and the Python port 2.1.1 (both 2026-10-07) changed
+  the bandwidth selector: the stage-1 pilot bandwidth is padded by
+  `1 + sqrt(eps)` and `stdvars` is on by default. The native cascade behind
+  `sp.rdrobust(bwselect='mserd')` still follows releases 3.0.0 to 4.0.0,
+  which the Track A goldens were generated with. With the newer port
+  installed, `bwselect='cct'` therefore reports a bandwidth about 4e-8
+  (relative) away from the native one, where the two used to agree to
+  1e-15. No StatsPAI number changed.
+
 ## [1.39.2] — 2026-10-08
 
 One correctness fix. `sp.mswitch` and `sp.mswitch_lrtest` gave results
