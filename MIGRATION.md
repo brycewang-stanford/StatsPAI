@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.39.1 → next: ⚠️ `sp.mswitch` and `sp.mswitch_lrtest` search on the standardised series
+## 1.39.1 → 1.39.2: ⚠️ `sp.mswitch` and `sp.mswitch_lrtest` search on the standardised series
 
 **What changed.** The multi-start search runs on `y` divided by its
 standard deviation and maps the estimates back. The model and the

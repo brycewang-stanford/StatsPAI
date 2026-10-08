@@ -4,6 +4,13 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.39.2] — 2026-10-08
+
+One correctness fix. `sp.mswitch` and `sp.mswitch_lrtest` gave results
+that could depend on the unit in which the series was measured. Nothing
+else changes. The JSS manuscript stays anchored to 1.39.1: no artifact it
+tabulates is touched by this release.
+
 ### Markov-switching models and the unit of the data
 
 #### ⚠️ Correctness
