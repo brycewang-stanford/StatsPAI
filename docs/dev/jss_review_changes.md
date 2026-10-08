@@ -31,6 +31,22 @@ Rules:
 
 ## Entries
 
+### 2026-10-08 — release 1.39.2: parity tables carry the new version string
+
+- **Commits.** `4e8e561e` (release 1.39.2) regenerated
+  `tests/r_parity/results/parity_table.tex` and
+  `tests/r_parity/results/parity_table_3way.tex` with
+  `python tests/r_parity/compare.py`, and refreshed
+  `tests/r_parity/TIER_A_FIXTURE_LOCK.json`.
+- **Reason.** The tables print the StatsPAI version in their caption.
+  One line changes in each; no row, estimate or standard error moves.
+  The release itself is one fix, to the search of `sp.mswitch` and
+  `sp.mswitch_lrtest` (`35ee2cff`), which no frozen artifact exercises.
+- **Effect on the paper.** None. The manuscript stays anchored to 1.39.1.
+  If it is re-anchored later, the appendix parity tables read "StatsPAI
+  1.39.2" and estimator callables with evidence read 936 of 938 in place
+  of 935 of 938, `sp.mswitch_lrtest` having gained a grade.
+
 ### 2026-10-08 — release 1.39.1: parity tables carry the new version string
 
 - **Commits.** `f775354d` (release 1.39.1) regenerated
