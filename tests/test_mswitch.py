@@ -302,3 +302,25 @@ def test_bad_data(sim: Tuple[pd.DataFrame, np.ndarray]) -> None:
         mswitch(df["y"].to_numpy(), x=np.ones(10))
     with pytest.raises(DataInsufficient):
         mswitch(df["y"].to_numpy()[:15])
+
+
+def test_estimates_follow_the_unit_of_y() -> None:
+    # Dividing y by c divides the constants by c, subtracts log(c) from
+    # lnsigma and leaves the transition parameters alone; the search runs on
+    # the standardised series, so every start ends at the same maximum
+    # whatever the unit. 1e-6 relative: the optimiser's stopping rule.
+    rng = np.random.default_rng(5)
+    state = (np.arange(160) // 40) % 2
+    y = np.where(state == 1, 1.0, -1.0) + rng.normal(size=160)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        base = mswitch(y, states=2, starts=4, seed=1)
+        for c in (1000.0, 0.001):
+            other = mswitch(y / c, states=2, starts=4, seed=1)
+            assert other.loglik == pytest.approx(
+                base.loglik + len(y) * np.log(c), rel=1e-9
+            )
+            b, o = base.theta.to_numpy(), other.theta.to_numpy()
+            assert o[:2] * c == pytest.approx(b[:2], rel=1e-6)
+            assert o[2] + np.log(c) == pytest.approx(b[2], rel=1e-6)
+            assert o[3:] == pytest.approx(b[3:], rel=1e-6)

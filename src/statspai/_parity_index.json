@@ -14372,6 +14372,23 @@
       "tolerance": "log likelihood, filtered and smoothed probabilities at Stata's estimates 1e-11; covariance 5e-6; estimates within 5e-5 standard errors"
     },
     {
+      "function": "mswitch_lrtest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "multi_arm_forest",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."

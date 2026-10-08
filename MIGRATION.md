@@ -5,6 +5,22 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.1 → next: ⚠️ `sp.mswitch` and `sp.mswitch_lrtest` search on the standardised series
+
+**What changed.** The multi-start search runs on `y` divided by its
+standard deviation and maps the estimates back. The model and the
+likelihood are the same; what changes is which local maximum a start
+reaches when the series is far from unit scale. Before, that depended on
+the unit of measurement, and in `sp.mswitch_lrtest` it could move the
+bootstrap p-value (0.20 to 0.15 on one example after multiplying `y` by
+0.01, with `starts=3`).
+
+**What to do.** Nothing for a series of roughly unit scale. For a series
+measured in large or small units (levels of GDP, basis points), refit: the
+reported maximum is now the same whatever the unit, and its likelihood is
+not lower than before. A p-value of `sp.mswitch_lrtest` computed on such a
+series with few starts should be recomputed.
+
 ## 1.38.0 → 1.39.0: `CausalForest.variable_importance()` defaults to grf's measure
 
 **What changed.** Without `method=` the method returns the depth-weighted

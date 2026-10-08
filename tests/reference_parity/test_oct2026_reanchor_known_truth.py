@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import itertools
 import math
+import warnings
 from fractions import Fraction
 
 import numpy as np
@@ -1128,3 +1129,50 @@ def test_kfold_split_is_a_balanced_partition(n, k):
             assert counts.max() - counts.min() <= 1
         total = np.bincount(sfolds, minlength=k)
         assert total.max() - total.min() <= 1
+
+
+def test_mswitch_lrtest_does_not_depend_on_the_unit_of_y():
+    # Truth: the likelihood-ratio statistic of one regime against two is a
+    # function of y that an affine change of units leaves alone, and the
+    # bootstrap series of a + b y are a + b times those of y. So the
+    # statistic, every replicate and the p-value must be the same for y,
+    # 100 y, 0.01 y and -2 + 0.01 y. Before the search was run on the
+    # standardised series, 0.01 y sent 4 of 19 replicates to another local
+    # maximum (largest change 5.16) and moved the p-value from 0.20 to 0.15.
+    # Tolerance 1e-6 on a statistic of order 1 to 10: the stopping rule of
+    # the optimiser (observed 5e-9).
+    y = np.random.default_rng(11).normal(size=80)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        base = sp.mswitch_lrtest(y, states=2, reps=19, starts=3, seed=4)
+        for shift, scale in ((0.0, 100.0), (0.0, 0.01), (-2.0, 0.01), (1000.0, 1.0)):
+            other = sp.mswitch_lrtest(
+                shift + scale * y, states=2, reps=19, starts=3, seed=4
+            )
+            assert other.statistic == pytest.approx(base.statistic, abs=1e-6)
+            assert other.pvalue == base.pvalue
+            np.testing.assert_allclose(
+                other.replicates["lr"].to_numpy(),
+                base.replicates["lr"].to_numpy(),
+                atol=1e-6,
+            )
+
+
+def test_mswitch_lrtest_null_likelihood_and_exact_p_value():
+    # Truth 1 (closed form): with one regime and a constant the Gaussian
+    # maximum likelihood is -n/2 (log(2 pi s2) + 1) with s2 the mean squared
+    # deviation; rtol 1e-12, rounding only.
+    # Truth 2 (exact): two regimes five standard deviations apart give a
+    # statistic above every bootstrap replicate drawn under one regime, so
+    # the p-value is exactly 1 / (reps + 1).
+    rng = np.random.default_rng(3)
+    state = (np.arange(80) // 20) % 2
+    y = np.where(state == 1, 2.5, -2.5) + rng.normal(size=80)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.mswitch_lrtest(y, states=2, reps=9, starts=3, seed=11)
+    s2 = float(np.mean((y - y.mean()) ** 2))
+    closed = -0.5 * len(y) * (math.log(2.0 * math.pi * s2) + 1.0)
+    assert res.loglik_null == pytest.approx(closed, rel=1e-12)
+    assert res.statistic == pytest.approx(2.0 * (res.loglik_alt - closed), rel=1e-12)
+    assert res.pvalue == pytest.approx(1.0 / 10.0, abs=1e-15)

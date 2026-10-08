@@ -598,6 +598,20 @@ def covariance(
     return vcov, notes
 
 
+def rescale(spec: Spec, theta: np.ndarray, scale: float) -> np.ndarray:
+    """Parameters of the same model for the series ``y / scale``.
+
+    Dividing ``y`` by a constant divides the constants and the regression
+    coefficients by it and subtracts its logarithm from every ``lnsigma``;
+    the autoregressive and the transition parameters do not move.
+    """
+    out = np.array(theta, dtype=float, copy=True)
+    n_level = spec.n_mu + spec.nx + spec.k * spec.nz
+    out[..., :n_level] /= scale
+    out[..., spec.n_mean : spec.n_mean + spec.n_sig] -= np.log(scale)
+    return out
+
+
 def fit_starts(
     spec: Spec,
     data: Data,
@@ -613,7 +627,38 @@ def fit_starts(
     first; each vector of ``extra`` (on the scale of ``spec``) goes straight
     to :func:`maximise`. The best end point is the converged one with the
     highest likelihood, or the highest of all when none converged.
+
+    The search runs on ``y`` divided by its standard deviation and the end
+    points are mapped back. The likelihood surface is the same up to a
+    constant, but the quasi-Newton path is not: its stopping rule is
+    absolute in the gradient and its first metric is the identity, so on
+    the raw series which local maximum a start reaches depended on the unit
+    of measurement.
     """
+    scale = float(np.std(data.y))
+    if not np.isfinite(scale) or scale <= 0.0:
+        scale = 1.0
+    unit = Data(data.y / scale, data.x, data.z, data.p)
+    table, fits, best = _fit_starts_unit(
+        spec, unit, starts, rng, maxiter, tol, [rescale(spec, v, scale) for v in extra]
+    )
+    fits = [rescale(spec, th, 1.0 / scale) for th in fits]
+    shift = data.n * float(np.log(scale))
+    table["loglik_em"] = table["loglik_em"] - shift
+    table["loglik"] = table["loglik"] - shift
+    return table, fits, best
+
+
+def _fit_starts_unit(
+    spec: Spec,
+    data: Data,
+    starts: int,
+    rng: np.random.Generator,
+    maxiter: int,
+    tol: float,
+    extra: Sequence[np.ndarray] = (),
+) -> Tuple[pd.DataFrame, List[np.ndarray], int]:
+    """:func:`fit_starts` on the series as given."""
     dr = Spec(
         spec.k, "dr", spec.p, spec.nx, spec.nz, spec.const, spec.sw_ar, spec.sw_var
     )

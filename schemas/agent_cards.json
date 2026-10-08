@@ -40533,17 +40533,21 @@
     ],
     "category": "timeseries",
     "cost_profile": "About 0.5 to 1.5 s per replicate; n_jobs spreads them",
-    "description": "Parametric-bootstrap likelihood-ratio test of the number of regimes in a Markov-switching regression: k0 regimes against k. The chi-squared reference does not apply (the transition probabilities are not identified under the null), so the null distribution is simulated from the fitted null model, with the same search for the maximum on every simulated series. Do NOT use when: switch_variance=True: the likelihood is unbounded and the statistic depends on the variance floor. Cost: About 0.5 to 1.5 s per replicate; n_jobs spreads them",
+    "description": "Parametric-bootstrap likelihood-ratio test of the number of regimes in a Markov-switching regression: k0 regimes against k. The chi-squared reference does not apply (the transition probabilities are not identified under the null), so the null distribution is simulated from the fitted null model, with the same search for the maximum on every simulated series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: switch_variance=True: the likelihood is unbounded and the statistic depends on the variance floor. Cost: About 0.5 to 1.5 s per replicate; n_jobs spreads them",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.mswitch_lrtest(\"growth\", data=df, model=\"ar\", ar=1, seed=1)",
@@ -40602,7 +40606,7 @@
       }
     },
     "signature": {
-      "description": "Parametric-bootstrap likelihood-ratio test of the number of regimes in a Markov-switching regression: k0 regimes against k. The chi-squared reference does not apply (the transition probabilities are not identified under the null), so the null distribution is simulated from the fitted null model, with the same search for the maximum on every simulated series. Do NOT use when: switch_variance=True: the likelihood is unbounded and the statistic depends on the variance floor. Cost: About 0.5 to 1.5 s per replicate; n_jobs spreads them",
+      "description": "Parametric-bootstrap likelihood-ratio test of the number of regimes in a Markov-switching regression: k0 regimes against k. The chi-squared reference does not apply (the transition probabilities are not identified under the null), so the null distribution is simulated from the fitted null model, with the same search for the maximum on every simulated series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: switch_variance=True: the likelihood is unbounded and the statistic depends on the variance floor. Cost: About 0.5 to 1.5 s per replicate; n_jobs spreads them",
       "name": "mswitch_lrtest",
       "parameters": {
         "properties": {
@@ -40720,9 +40724,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_mswitch_lrtest.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

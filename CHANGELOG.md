@@ -4,6 +4,39 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Markov-switching models and the unit of the data
+
+#### ⚠️ Correctness
+
+- **`sp.mswitch` and `sp.mswitch_lrtest` no longer depend on the unit of
+  `y`.** The likelihood of a Markov-switching model changes by a constant
+  when `y` is rescaled, so the maximiser moves with the unit and nothing
+  else should. The search did depend on it: the quasi-Newton step stops
+  on an absolute gradient and starts from the identity metric, so which
+  local maximum a starting value reached varied with the scale of the
+  series. In `sp.mswitch_lrtest` that reached the answer. On white noise
+  with 80 observations, `reps=19` and `starts=3`, multiplying `y` by 0.01
+  sent 4 of the 19 bootstrap replicates to a different local maximum
+  (largest change in a replicate's statistic 5.16) and moved the p-value
+  from 0.20 to 0.15. The search now runs on `y` divided by its standard
+  deviation and the estimates are mapped back. After the change every
+  replicate agrees to 5e-9 across `y`, `100 y`, `0.01 y` and
+  `-2 + 0.01 y`. Estimates on a series whose standard deviation is near
+  one are unchanged to the stopping rule; on a series far from that scale
+  a start can now end at a different, and no lower, local maximum than
+  before. The Stata parity rows of `sp.mswitch` are unchanged. The size
+  and power study of the test was rerun with the new search
+  (`tests/reference_parity/_fixtures/mswitch_lrtest_mc.json`). See
+  `MIGRATION.md`.
+
+#### Added
+
+- `sp.mswitch_lrtest` now carries an evidence grade: its statistic, every
+  bootstrap replicate and its p-value are tested for invariance to the
+  unit of `y`, its null likelihood against the closed form, and its
+  p-value against the exact value under two clearly separated regimes
+  (`tests/reference_parity/test_oct2026_reanchor_known_truth.py`).
+
 ## [1.39.1] — 2026-10-08
 
 The release the JSS manuscript is anchored to. It adds collaborative TMLE
