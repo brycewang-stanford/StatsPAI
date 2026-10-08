@@ -33,13 +33,20 @@ concurrency:
 
 jobs:
   reference-parity:
-    name: Numerical reference parity
+    name: Numerical reference parity (${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
-    # 30 was sized when nine HDFE alignment tests aborted on a missing
-    # pyfixest instead of running. With the `fixest` extra installed the
-    # suite does the real Stata/R comparison work and the run reached 92%
-    # at the old wall (run 32722544873, cancelled with zero failures).
+    # The suite is split by file across six jobs, each run serially. Run
+    # serially in one job it takes 47 minutes on a fast runner and passed
+    # the 60-minute wall on a slow one (runs 37736090228 and 37789661247,
+    # both cancelled at 54% with no failure). pytest-xdist on one runner is
+    # not the answer: the heavy tests are already multi-threaded (numba,
+    # BLAS), four workers on four cores contend, and run 37809360567 was
+    # cancelled at 97% after the same 60 minutes.
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
@@ -67,12 +74,11 @@ jobs:
           pip install -e ".[dev,fixest,rd-cct]"
       - name: Run reference_parity suite
         run: |
-          # In parallel: run serially the suite takes 47 minutes on a fast
-          # runner and passed the 60-minute wall on a slow one (runs
-          # 37736090228 and 37789661247, both cancelled at 54% with no
-          # failure). ``loadfile`` keeps each file's module-scoped fixtures
-          # on one worker.
-          pytest tests/reference_parity/ -q --no-header -n auto --dist loadfile
+          # every sixth test file, in sorted order; the six shards together
+          # are exactly ``pytest tests/reference_parity/``
+          files=$(find tests/reference_parity -name 'test_*.py' | sort \
+            | awk -v k=${{ matrix.shard }} 'NR % 6 == k % 6')
+          pytest $files -q --no-header
 
   registry-drift:
     name: Registry / API surface drift
