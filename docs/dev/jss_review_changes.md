@@ -31,6 +31,61 @@ Rules:
 
 ## Entries
 
+### 2026-10-10 — Track C re-timed after the coverage-pass fixes
+
+- **Commit.** `c9ccbf09`.
+- **Reason.** Four files on the timed paths were edited on 2026-10-10 by
+  fixes found while closing the core coverage gap (`did/_core.py` and
+  `synth/scm.py` in `e631e767`, `did/callaway_santanna.py` in `cdd4f719`,
+  `synth/scm.py` again in `baa34df7`, `dml/_base.py` in `2710b368`), so
+  `python scripts/trace_perf_path.py --check` reported `02_csdid`,
+  `03_scm` and `04_dml` as stale. All four modules were re-timed with
+  `tests/perf/run_when_idle.sh` on `b159761f` (run id `20261010T023643`;
+  every step started under a load of 1.5, peak 1.44, none discarded) and
+  the timed-path record was re-written on the same tree.
+- **Effect on the paper.** The manuscript is anchored to v1.39.1 and is
+  not edited. Against the timings committed for that anchor, no ratio
+  moves by more than run to run noise. Ratio (reference time over
+  StatsPAI time), new against old, at the three sizes of each module:
+  1. **HDFE.** 1.82 / 0.85 / 0.61 against 1.80 / 0.85 / 0.64.
+  2. **CS-DiD.** 1.38 / 2.09 / 2.60 against 1.39 / 1.94 / 2.60.
+  3. **Classical SCM.** 1.04 / 1.07 / 3.49 against 1.02 / 1.08 / 3.48.
+  4. **DML.** 1.17 / 1.10 / 1.07 against 1.17 / 1.11 / 1.07.
+  The package-default SCM timing at 100 donors is 0.044 against 0.043
+  seconds. If the paper is re-anchored to a release that contains these
+  commits, the Track C table takes the new numbers; the text needs no
+  change.
+- **Paths.**
+  - `tests/perf/results/01_hdfe_R.json`
+  - `tests/perf/results/01_hdfe_py.json`
+  - `tests/perf/results/02_csdid_R.json`
+  - `tests/perf/results/02_csdid_py.json`
+  - `tests/perf/results/03_scm_R.json`
+  - `tests/perf/results/03_scm_py.json`
+  - `tests/perf/results/04_dml_doubleml_py.json`
+  - `tests/perf/results/04_dml_py.json`
+  - `tests/perf/results/_timed_path.json`
+
+### 2026-10-10 — call traces re-recorded after the coverage-pass fixes
+
+- **Commits.** `e631e767`, `cdd4f719`, `baa34df7`, `b159761f`.
+- **Reason.** Each commit edited StatsPAI source on the estimation path of
+  some Track A or original-data modules (the fixes are listed in
+  CHANGELOG under "Defects found while closing the core coverage gap" and
+  "Teaching notebooks"), so the call-trace ledgers were re-recorded for
+  the modules that execute an edited file. Before each re-record the
+  affected modules were re-run and compared with the committed
+  `*_py.json`. For `b159761f` (modules 05, 08, 19, 71, 75, 78, 86) all
+  seven reproduce byte for byte. The session that made `e631e767`
+  reported 16 of its 17 modules byte-identical and `73_did2s` at 1.6e-12;
+  the checks behind `cdd4f719` and `baa34df7` were run by their authors
+  and are not re-verified here.
+- **Effect on the paper.** None. No result file changed; the ledgers bind
+  source hashes only.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-08 — release 1.39.2: parity tables carry the new version string
 
 - **Commits.** `4e8e561e` (release 1.39.2) regenerated
