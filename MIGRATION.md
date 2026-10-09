@@ -66,6 +66,29 @@ from a matched frame's `_weight` column, including
 `sp.love_plot(sp.psmatch2(...))`. Tables built from complete weights are
 unchanged.
 
+## Unreleased: ⚠️ `itt_ci` in a fuzzy `sp.rdrandinf`, and inputs that are now refused
+
+**What changed.**
+
+- `model_info['itt_ci']` of a fuzzy `sp.rdrandinf` with a `ci=` grid held
+  the Anderson-Rubin interval of the complier effect. It now holds the
+  large-sample interval of the ITT. The Anderson-Rubin interval is under
+  `model_info['anderson_rubin_ci']`.
+- `sp.rd_optimized(fuzzy=)` raises `DataInsufficient` when the treatment
+  does not jump at the cutoff. It used to return a ratio near 1e16.
+- `sp.twowayfeweights` returns a missing standard error on a saturated
+  design, where it returned one near 1e-15.
+- `sp.dml(fold_indices=...)` raises `MethodIncompatibility` when a row
+  that is otherwise complete has a missing fold label. It used to drop
+  the row.
+- `sp.synth.causal_impact` raises `DataInsufficient` when the outcome is
+  missing in a post-period row. It used to return NaN.
+
+**What to do.** Code that read `itt_ci` as the interval of the complier
+effect should read `anderson_rubin_ci`, or the result's `ci`. For the
+other four, supply the missing piece the message names. No estimate that
+was identified before has changed.
+
 ## 1.39.1 → 1.39.2: ⚠️ `sp.mswitch` and `sp.mswitch_lrtest` search on the standardised series
 
 **What changed.** The multi-start search runs on `y` divided by its

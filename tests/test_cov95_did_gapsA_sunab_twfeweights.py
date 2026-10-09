@@ -103,44 +103,6 @@ def unbalanced():
     return x, u, t, w
 
 
-def test_two_way_demean_is_the_dummy_regression_residual(unbalanced):
-    x, u, t, w = unbalanced
-    out = sa_mod._two_way_demean(
-        x, pd.Categorical(u), pd.Categorical(t), max_iter=500, tol=1e-13
-    )
-    assert np.allclose(out, _dummy_residual(x, u, t), atol=1e-9)
-    # Unit weights take the unweighted path.
-    ones = sa_mod._two_way_demean(
-        x,
-        pd.Categorical(u),
-        pd.Categorical(t),
-        max_iter=500,
-        tol=1e-13,
-        w=np.ones(x.size),
-    )
-    assert np.array_equal(ones, out)
-
-
-def test_two_way_demean_weighted_is_the_wls_residual(unbalanced):
-    x, u, t, w = unbalanced
-    out = sa_mod._two_way_demean(
-        x, pd.Categorical(u), pd.Categorical(t), max_iter=500, tol=1e-13, w=w
-    )
-    assert np.allclose(out, _dummy_residual(x, u, t, w), atol=1e-9)
-    # Orthogonal to the fixed effects in the weighted inner product.
-    assert np.allclose(np.bincount(u, weights=w * out), 0.0, atol=1e-9)
-    assert np.allclose(np.bincount(t, weights=w * out), 0.0, atol=1e-9)
-    assert not np.allclose(out, _dummy_residual(x, u, t), atol=1e-3)
-
-
-def test_two_way_demean_single_unit_is_the_grand_mean_deviation():
-    x = np.array([1.0, 2.0, 6.0])
-    out = sa_mod._two_way_demean(
-        x, pd.Categorical([7, 7, 7]), pd.Categorical([0, 1, 2])
-    )
-    assert np.allclose(out, [-2.0, -1.0, 3.0])
-
-
 # ---------------------------------------------------------------------------
 #  twowayfeweights
 # ---------------------------------------------------------------------------

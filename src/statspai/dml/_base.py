@@ -929,6 +929,16 @@ class _DoubleMLBase:
                 work["__fold__"] = self.data[fi].values
             elif fi is not None:
                 work["__fold__"] = np.asarray(fi)
+            if fi is not None:
+                # a missing label on a usable row is a hole in the supplied
+                # design, not missing data: listwise deletion would hide it
+                usable = work.drop(columns="__fold__").notna().all(axis=1)
+                n_unlabelled = int((work["__fold__"].isna() & usable).sum())
+                if n_unlabelled:
+                    raise MethodIncompatibility(
+                        f"fold_indices contain missing values on {n_unlabelled} "
+                        "row(s) that are otherwise complete."
+                    )
             if self.cluster is not None:
                 work["__cl__"] = self.data[self.cluster].values
             if store_oof:

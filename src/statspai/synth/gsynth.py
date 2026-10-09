@@ -316,22 +316,6 @@ def gsynth(
     J, T0 = Y0_pre.shape
     T1 = len(post_times)
 
-    # --- Handle covariates ---
-    beta_X = None
-    if covariates:
-        Y0_pre, Y1_pre, Y0_post, Y1_post, beta_X = _partial_out_covariates(
-            data,
-            outcome,
-            unit,
-            time,
-            treated_unit,
-            treatment_time,
-            covariates,
-            donors,
-            pre_times,
-            post_times,
-        )
-
     Y0_all = np.concatenate([Y0_pre, Y0_post], axis=1)
     Y1_all = np.concatenate([Y1_pre, Y1_post])
     n_periods = Y0_all.shape[1]
@@ -761,42 +745,6 @@ def _select_factors_cv(
             best_r = r
 
     return best_r
-
-
-def _partial_out_covariates(
-    data: Any,
-    outcome: Any,
-    unit: Any,
-    time: Any,
-    treated_unit: Any,
-    treatment_time: Any,
-    covariates: Any,
-    donors: Any,
-    pre_times: Any,
-    post_times: Any,
-) -> tuple[Any, Any, Any, Any, Any]:
-    """Partial out covariates via OLS, return residualised outcomes."""
-    pre_ctrl = data[(data[unit].isin(donors)) & (data[time].isin(pre_times))].copy()
-
-    X = pre_ctrl[covariates].values
-    y = pre_ctrl[outcome].values
-
-    # OLS: y = X beta + e
-    XtX = X.T @ X + 1e-8 * np.eye(X.shape[1])
-    beta = np.linalg.solve(XtX, X.T @ y)
-
-    # Residualise all data
-    data_res = data.copy()
-    X_all = data_res[covariates].values
-    data_res[outcome] = data_res[outcome] - X_all @ beta
-
-    pivot = data_res.pivot_table(index=unit, columns=time, values=outcome)
-    Y0_pre = pivot.loc[donors, pre_times].values.astype(np.float64)
-    Y0_post = pivot.loc[donors, post_times].values.astype(np.float64)
-    Y1_pre = pivot.loc[treated_unit, pre_times].values.astype(np.float64)
-    Y1_post = pivot.loc[treated_unit, post_times].values.astype(np.float64)
-
-    return Y0_pre, Y1_pre, Y0_post, Y1_post, beta
 
 
 # Citation

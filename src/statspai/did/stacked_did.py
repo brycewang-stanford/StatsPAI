@@ -14,7 +14,7 @@ Cengiz, D., Dube, A., Lindner, A. and Zipperer, B. (2019).
 """
 
 import warnings
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -548,7 +548,10 @@ def stacked_did(
     model_info = {
         "method_full": "Stacked DID (Cengiz, Dube, Lindner & Zipperer, 2019)",
         "n_cohorts": n_cohorts,
-        "cohorts": sorted(cohort_values),
+        "cohorts": sorted(stacked["_cohort"].unique().tolist()),
+        "skipped_cohorts": sorted(
+            set(cohort_values) - set(stacked["_cohort"].unique().tolist())
+        ),
         "n_units": n_units,
         "n_stacked_obs": n_stacked,
         "events": events,
@@ -617,110 +620,6 @@ def stacked_did(
 # ──────────────────────────────────────────────────────────────────── #
 #  Private helpers
 # ──────────────────────────────────────────────────────────────────── #
-
-
-def _twoway_demean(
-    y: np.ndarray,
-    X: np.ndarray,
-    group1: np.ndarray,
-    group2: np.ndarray,
-    max_iter: int = 100,
-    tol: float = 1e-8,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Iterative two-way demeaning (alternating projection) for Y and X.
-
-    Returns demeaned (y_dm, X_dm).
-    """
-    # Build group index arrays for fast lookup
-    g1_map: Dict[object, List[int]] = {}
-    for i, g in enumerate(group1):
-        g1_map.setdefault(g, []).append(i)
-    g2_map: Dict[object, List[int]] = {}
-    for i, g in enumerate(group2):
-        g2_map.setdefault(g, []).append(i)
-
-    # Stack y and X for simultaneous demeaning
-    Z = np.column_stack([y, X])  # (n, 1+k)
-
-    for _ in range(max_iter):
-        Z_old = Z.copy()
-
-        # Demean by group1
-        for indices in g1_map.values():
-            idx = np.array(indices)
-            Z[idx] -= Z[idx].mean(axis=0)
-
-        # Demean by group2
-        for indices in g2_map.values():
-            idx = np.array(indices)
-            Z[idx] -= Z[idx].mean(axis=0)
-
-        # Check convergence
-        if np.max(np.abs(Z - Z_old)) < tol:
-            break
-
-    return Z[:, 0], Z[:, 1:]
-
-
-def _ols(X: np.ndarray, y: np.ndarray) -> tuple:
-    """OLS regression. Returns (coefficients, residuals)."""
-    if X.shape[1] == 0:
-        return np.array([]), y.copy()
-
-    # Use lstsq for numerical stability
-    beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-    residuals = y - X @ beta
-    return beta, residuals
-
-
-def _cluster_robust_vcov(
-    X: np.ndarray,
-    residuals: np.ndarray,
-    cluster_ids: np.ndarray,
-) -> np.ndarray:
-    """
-    Cluster-robust variance-covariance matrix.
-
-    V = c * (X'X)^{-1} B (X'X)^{-1}, B = sum_g (X_g' e_g)(X_g' e_g)',
-    small-sample correction c = (G/(G-1)) * ((n-1)/(n-k)) (G>1 else 1).
-
-    Delegates to the canonical ``core._vcov.cluster_robust_vcov`` (CLAUDE.md
-    §4); keeps the k==0 guard and the inv->pinv bread fallback. Verified
-    byte-identical to the prior hand-rolled implementation (incl. the singular
-    pinv path).
-    """
-    from ..core._vcov import cluster_robust_vcov
-
-    n, k = X.shape
-    if k == 0:
-        return np.empty((0, 0))
-
-    XtX = X.T @ X
-    try:
-        XtX_inv = np.linalg.inv(XtX)
-    except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(XtX)
-
-    return cluster_robust_vcov(
-        X,
-        residuals,
-        cluster_ids,
-        correction="liang_zeger",
-        XtX_inv=XtX_inv,
-    )
-
-
-def _cluster_robust_se(
-    X: np.ndarray,
-    residuals: np.ndarray,
-    cluster_ids: np.ndarray,
-) -> np.ndarray:
-    """Cluster-robust standard errors."""
-    V = _cluster_robust_vcov(X, residuals, cluster_ids)
-    if V.size == 0:
-        return np.array([])
-    return np.asarray(np.sqrt(np.maximum(np.diag(V), 0.0)), dtype=float)
 
 
 def _stack_events(

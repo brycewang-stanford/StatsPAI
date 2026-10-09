@@ -488,11 +488,14 @@ def _fit_model(
     -------
     dict with fitted parameters and smoother output.
     """
-    beta = _estimate_beta_ridge(y_pre, X_pre)
+    # periods with a missing outcome carry no information on the regression
+    # coefficients; the Kalman filter skips their update step
+    seen = ~np.isnan(y_pre)
+    beta = _estimate_beta_ridge(y_pre[seen], X_pre[seen])
 
     # Residual variance as initial guess
     resid = y_pre - X_pre @ beta if len(beta) > 0 else y_pre.copy()
-    resid_std = max(float(np.std(resid)), 1e-6)
+    resid_std = max(float(np.std(resid[seen])), 1e-6)
 
     # MLE for noise variances
     n_hyper = 3 if use_trend else 2
@@ -780,6 +783,21 @@ def causal_impact(
     if np.any(np.isinf(y_pre)) or np.any(np.isinf(y_post)):
         raise DataInsufficient(
             "Outcome column contains non-finite values.",
+            diagnostics={"outcome": outcome},
+        )
+    n_post_missing = int(np.isnan(y_post).sum())
+    if n_post_missing:
+        # a missing pre-period outcome is a skipped filter update; a missing
+        # post-period outcome is an effect that was not observed
+        raise DataInsufficient(
+            f"The outcome is missing in {n_post_missing} post-period row(s), "
+            "so the effect in those periods is not observed. Remove them "
+            "from the post-period or supply the outcome.",
+            diagnostics={"outcome": outcome, "n_post_missing": n_post_missing},
+        )
+    if int((~np.isnan(y_pre)).sum()) < 3:
+        raise DataInsufficient(
+            "Fewer than 3 pre-period rows have an observed outcome.",
             diagnostics={"outcome": outcome},
         )
     if covariates:

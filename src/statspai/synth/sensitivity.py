@@ -813,6 +813,8 @@ def synth_sensitivity(
         * ``'time_placebo'`` — time placebo DataFrame
         * ``'donor_sensitivity'`` — donor bootstrap DataFrame
         * ``'rmspe_filter'`` — RMSPE-filtered p-values DataFrame
+        * ``'original_att'`` — the full-donor-pool estimate the checks are
+          compared with
         * ``'summary'`` — formatted string summary
 
     Examples
@@ -822,8 +824,8 @@ def synth_sensitivity(
     >>> sens = sp.synth_sensitivity(df, outcome='packspercapita',
     ...     unit='state', time='year', treated_unit='California',
     ...     treatment_time=1989, n_donor_samples=50, seed=42)
-    >>> sorted(sens.keys())
-    ['donor_sensitivity', 'loo', 'rmspe_filter', 'summary', 'time_placebo']
+    >>> sorted(k for k in sens if k != 'summary')
+    ['donor_sensitivity', 'loo', 'original_att', 'rmspe_filter', 'time_placebo']
     >>> print(sens['summary'])  # doctest: +SKIP
     """
     # --- Leave-one-out ---
@@ -956,11 +958,24 @@ def synth_sensitivity(
     lines.append("=" * 62)
     summary_str = "\n".join(lines)
 
+    # the estimate every panel of the sensitivity plot is compared with
+    original = _fit_scm_core(
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
+        penalization=penalization,
+        standardize_predictors=standardize_predictors,
+    )
+
     return {
         "loo": loo_df,
         "time_placebo": tp_df,
         "donor_sensitivity": ds_df,
         "rmspe_filter": rp_df,
+        "original_att": float(original["att"]),
         "summary": summary_str,
     }
 

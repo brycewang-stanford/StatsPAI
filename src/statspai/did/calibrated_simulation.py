@@ -144,7 +144,10 @@ def _fit_cs(df: pd.DataFrame, opt: "_Options") -> Tuple[float, float]:
 def _fit_sa(df: pd.DataFrame, opt: "_Options") -> Tuple[float, float]:
     from .sun_abraham import sun_abraham
 
-    r = sun_abraham(df, y=_Y, g=_G, t=_T, i=_ID, control_group=opt.control_group)
+    # Sun-Abraham compares with a cohort, never with not-yet-treated cells;
+    # the calibration keeps at least two never-treated units, so that cohort
+    # is the reference under either setting
+    r = sun_abraham(df, y=_Y, g=_G, t=_T, i=_ID, control_group="nevertreated")
     return (
         float(r.model_info["att_fixest_att"]),
         float(r.model_info["se_fixest_att"]),
@@ -884,7 +887,9 @@ def did_calibrated_simulation(
         unit's residual path by a Rademacher draw; ``'none'`` holds the
         outcome fixed so the only randomness is the assignment.
     control_group : {'nevertreated', 'notyettreated'}
-        Passed through to the estimators that take one.
+        Passed through to the estimators that take one. Sun-Abraham has no
+        not-yet-treated comparison and uses the never-treated cohort under
+        either setting.
     n_sims : int, default 200
         Replications.  Monte Carlo standard errors are reported so this can
         be chosen against the precision actually needed.

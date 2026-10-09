@@ -39,7 +39,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _scpi_solvers as _sv
 from ._scpi_inference import scpi_inference
 
@@ -455,6 +455,16 @@ def scpi(
     sc = scdata(data, outcome, unit, time, treated_unit, treatment_time)
     A, B, P = sc["A"], sc["B"], sc["P"]
     w, spec = _fit_weights(A, B, w_constr, Q=Q, Q2=Q2)
+    lam = spec.get("lambda")
+    if lam is not None and not np.isfinite(lam):
+        # the ridge rule estimates its penalty from the pre-period fit and
+        # the degrees of freedom of the in-sample uncertainty need it
+        raise DataInsufficient(
+            f"scpi: w_constr='{spec['name']}' with {A.shape[0]} pre-treatment "
+            "periods cannot estimate the ridge penalty that the prediction "
+            "intervals use (the rule needs at least 5). Pass the radius "
+            "yourself with Q=, or use sp.scest for the point estimate alone."
+        )
 
     rng = np.random.default_rng(seed)
     inf = scpi_inference(

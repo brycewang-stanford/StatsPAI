@@ -515,6 +515,11 @@ def did_multiplegt_dyn(
         raise ValueError(
             f"aggregation must be 'simple' or 'switchers', got {aggregation!r}"
         )
+    if cluster is not None and cluster not in data.columns:
+        raise MethodIncompatibility(
+            f"cluster column {cluster!r} not in data",
+            diagnostics={"cluster": cluster},
+        )
     se_method = _dc.normalize_se_method(
         se_method,
         supported=("analytic", "bootstrap"),
@@ -546,11 +551,6 @@ def did_multiplegt_dyn(
             )
         df[weights] = wv
     if cluster is not None:
-        if cluster not in df.columns:
-            raise MethodIncompatibility(
-                f"cluster column {cluster!r} not in data",
-                diagnostics={"cluster": cluster},
-            )
         if df[cluster].isna().any():
             raise MethodIncompatibility(
                 f"cluster column {cluster!r} has missing values",
@@ -947,7 +947,7 @@ def did_multiplegt_dyn(
     # SE: cross-horizon bootstrap of the average. A replicate contributes
     # only when at least one dynamic horizon was estimated; a fully-failed
     # draw stays NaN so bootstrap_se can surface the failure rate.
-    if dyn_idx:
+    if dyn_idx and n_boot > 0:
         with warnings.catch_warnings():
             # nanmean of an all-NaN replicate row is an intended NaN.
             warnings.simplefilter("ignore", RuntimeWarning)

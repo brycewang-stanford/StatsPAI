@@ -11,15 +11,9 @@ deliberately avoid the controls-with-post-periods path.
 """
 
 import numpy as np
-import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.did.stacked_did import (
-    _cluster_robust_se,
-    _cluster_robust_vcov,
-    _ols,
-)
 
 
 @pytest.fixture(scope="module")
@@ -132,41 +126,3 @@ def test_stacked_pre_only_window_no_post():
     )
     # window=(-3, 0) still includes rel_time 0 (post). Verify it runs.
     assert np.isfinite(r.estimate)
-
-
-# --- private helpers ---------------------------------------------------
-def test_ols_zero_columns():
-    y = np.array([1.0, 2.0, 3.0])
-    X = np.zeros((3, 0))
-    beta, resid = _ols(X, y)
-    assert beta.size == 0
-    np.testing.assert_array_equal(resid, y)
-
-
-def test_cluster_vcov_zero_columns():
-    X = np.zeros((5, 0))
-    resid = np.array([0.1, -0.2, 0.0, 0.3, -0.1])
-    clusters = np.array([0, 0, 1, 1, 1])
-    V = _cluster_robust_vcov(X, resid, clusters)
-    assert V.shape == (0, 0)
-
-
-def test_cluster_se_zero_columns():
-    X = np.zeros((4, 0))
-    resid = np.array([0.1, -0.1, 0.2, -0.2])
-    clusters = np.array([0, 0, 1, 1])
-    se = _cluster_robust_se(X, resid, clusters)
-    assert se.size == 0
-
-
-def test_cluster_vcov_singular_uses_pinv():
-    # Two perfectly collinear columns force the inv->pinv bread fallback.
-    rng = np.random.default_rng(0)
-    n = 20
-    x = rng.normal(size=n)
-    X = np.column_stack([x, 2.0 * x])  # rank-1
-    resid = rng.normal(size=n) * 0.1
-    clusters = np.repeat(np.arange(5), 4)
-    V = _cluster_robust_vcov(X, resid, clusters)
-    assert V.shape == (2, 2)
-    assert np.all(np.isfinite(V))

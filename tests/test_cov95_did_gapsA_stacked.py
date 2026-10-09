@@ -121,8 +121,9 @@ def test_last_cohort_without_not_yet_treated_rows_is_skipped(panel):
     treated_only = panel[panel["first_treat"].notna()]
     res = sp.stacked_did(treated_only, control_group="notyettreated_rows", **KW)
     # Four cohorts, but nobody is still untreated when the last one adopts.
-    assert len(res.model_info["cohorts"]) == 4
-    assert res.model_info["n_cohorts"] == 3
+    assert len(res.model_info["cohorts"]) == res.model_info["n_cohorts"] == 3
+    last = treated_only["first_treat"].max()
+    assert res.model_info["skipped_cohorts"] == [last]
     assert np.isfinite(res.estimate) and res.se > 0
 
 

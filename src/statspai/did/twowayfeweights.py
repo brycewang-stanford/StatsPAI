@@ -446,7 +446,11 @@ def twowayfeweights(
     n_reg = int(r.sum())
     n_clusters = int(np.unique(gi[r]).size)
     k = 1 + rank_x + int(np.unique(ti[r]).size)
-    if n_clusters > 1 and n_reg > k:
+    # the group effects are nested in the clusters and stay out of the
+    # small-sample factor, but they do use up residual degrees of freedom:
+    # a saturated design has residuals of zero and no standard error
+    k_resid = k + (n_clusters - 1 if type == "feTR" else 0)
+    if n_clusters > 1 and n_reg > k_resid:
         factor = (n_clusters / (n_clusters - 1.0)) * ((n_reg - 1.0) / (n_reg - k))
         se = float(np.sqrt(factor * float(score @ score)) / denom)
     else:

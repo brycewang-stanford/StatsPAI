@@ -170,6 +170,14 @@ def _xx_inv(X: np.ndarray) -> np.ndarray:
     for i in range(p):
         for j in range(p):
             G[i, j] = float(np.sum(X[:, :, i] * X[:, :, j]))
+    # np.linalg.inv raises only on an exactly zero pivot; a Gram matrix that
+    # is singular to rounding would come back as noise of order 1e15
+    scale = np.sqrt(np.clip(np.diag(G), 1e-300, None))
+    if p > 1 and np.linalg.eigvalsh(G / np.outer(scale, scale)).min() < 1e-10:
+        raise MethodIncompatibility(
+            "fect: the covariates are collinear over the panel, so their "
+            "coefficients are not identified. Drop the redundant covariate(s)."
+        )
     return np.linalg.inv(G)
 
 

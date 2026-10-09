@@ -983,62 +983,6 @@ def sun_abraham(
 # ======================================================================
 
 
-def _two_way_demean(
-    x: np.ndarray,
-    unit_idx: pd.Categorical,
-    time_idx: pd.Categorical,
-    max_iter: int = 50,
-    tol: float = 1e-10,
-    w: Optional[np.ndarray] = None,
-) -> np.ndarray:
-    """Iterative within-transformation for unbalanced two-way FE.
-
-    Falls back to the identity transformation on a single-unit / single-period
-    sample.  Converges in a handful of passes on well-behaved panels.
-
-    ``w`` carries observation weights. The weighted projection subtracts
-    the *weighted* group mean at each pass, which is what makes the
-    residual orthogonal to the fixed effects **in the weighted inner
-    product** -- the orthogonality WLS actually needs. Demeaning by the
-    unweighted mean and then running WLS would leave the fixed effects
-    correlated with the regressors and bias the coefficients, so the
-    weight has to enter the projection, not just the final solve.
-    ``w=None`` reproduces the unweighted path exactly.
-    """
-    x = x.astype(float).copy()
-    n_units = len(unit_idx.categories)
-    n_times = len(time_idx.categories)
-    if n_units <= 1 or n_times <= 1:
-        return np.asarray(x - np.nanmean(x), dtype=float)
-
-    u_codes = unit_idx.codes
-    t_codes = time_idx.codes
-    weighted = w is not None and not np.allclose(w, 1.0)
-    if weighted:
-        w = np.asarray(w, dtype=float)
-        u_wsum = np.bincount(u_codes, weights=w, minlength=n_units)
-        u_wsum = np.where(u_wsum > 0, u_wsum, 1.0)
-        t_wsum = np.bincount(t_codes, weights=w, minlength=n_times)
-        t_wsum = np.where(t_wsum > 0, t_wsum, 1.0)
-
-    for _ in range(max_iter):
-        if weighted:
-            u_mean = np.bincount(u_codes, weights=w * x, minlength=n_units) / u_wsum
-            x = x - u_mean[u_codes]
-            t_mean = np.bincount(t_codes, weights=w * x, minlength=n_times) / t_wsum
-            x = x - t_mean[t_codes]
-        else:
-            u_count = np.bincount(u_codes, minlength=n_units).clip(min=1)
-            u_mean = np.bincount(u_codes, weights=x, minlength=n_units) / u_count
-            x = x - u_mean[u_codes]
-            t_count = np.bincount(t_codes, minlength=n_times).clip(min=1)
-            t_mean = np.bincount(t_codes, weights=x, minlength=n_times) / t_count
-            x = x - t_mean[t_codes]
-        if np.nanmax(np.abs(u_mean)) < tol and np.nanmax(np.abs(t_mean)) < tol:
-            break
-    return np.asarray(x, dtype=float)
-
-
 # ----------------------------------------------------------------------
 # Citation (redundant-safe registration)
 # ----------------------------------------------------------------------

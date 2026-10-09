@@ -60,6 +60,26 @@ turned up inputs on which a wrong number came back.
   is centred at zero, as in `HonestDiD`; when it accepts nothing because
   the estimate lies outside it, the grid is now placed around the
   estimate. Results that were not empty are unchanged.
+- **`model_info['itt_ci']` of a fuzzy `sp.rdrandinf` held the interval of
+  another quantity.** With a `ci=` grid the randomization test is run on
+  `y - tau0 * D`, so its inversion is the Anderson-Rubin interval for the
+  complier effect. That interval was stored as `itt_ci`. On a design with
+  an ITT of 1.46 it read (1.78, 2.08). `itt_ci` is now the large-sample
+  interval of the ITT, and the Anderson-Rubin interval is under
+  `anderson_rubin_ci`. The headline `ci` is unchanged.
+- **`sp.rd_optimized(fuzzy=)` refuses a treatment that does not jump at
+  the cutoff.** The check was `first == 0`, and a first stage with no jump
+  is about 1e-17, so the ratio came back near -4e16 (a constant treatment
+  crashed in the root finder instead). It now raises `DataInsufficient`.
+- **`sp.twowayfeweights` reports no standard error on a saturated
+  design.** With as many fixed effects and slopes as observations the
+  residuals are zero, and the function reported a standard error near
+  4e-15 with a p-value of 2e-15. Both are now missing. The estimate is
+  unchanged.
+- **`sp.dml(fold_indices=...)` refuses a missing fold label on a row that
+  is otherwise complete.** Such a row was deleted with the incomplete
+  ones, without a message. It now raises `MethodIncompatibility`. A row
+  that is incomplete anyway is still dropped, whatever its label.
 
 #### Fixed
 
@@ -70,6 +90,30 @@ turned up inputs on which a wrong number came back.
   for the option is `inference`; passing sdid's own name raised
   `TypeError: got multiple values for keyword argument 'se_method'`.
   Passing both with different values raises `MethodIncompatibility`.
+- `sp.scpi(w_constr='ridge')` with fewer than five pre-treatment periods
+  and no `Q=` raises `DataInsufficient` and says to pass `Q=`. The ridge
+  rule cannot estimate its penalty there, and the prediction intervals
+  failed with `SVD did not converge`.
+- `sp.synth.causal_impact` skips a missing pre-period outcome (the Kalman
+  filter already did; the regression fit before it did not, and the call
+  failed with `SVD did not converge`). A missing post-period outcome
+  raises `DataInsufficient`, where it used to return an effect of NaN.
+- `sp.fect` raises `MethodIncompatibility` for collinear covariates, in
+  place of numpy's `Singular matrix`.
+- `sp.synth_sensitivity` returns `original_att`, the full-donor-pool
+  estimate. The sensitivity plot draws its "Original ATT" line from that
+  key, which was never set, so the line was never drawn.
+- `sp.did_multiplegt_dyn(cluster=<a column that is not there>)` raises
+  `MethodIncompatibility` and names the column, in place of a `KeyError`.
+  With `se_method='analytic'` it no longer warns that "0/0 bootstrap
+  replicates succeeded".
+- `sp.did_calibrated_simulation(control_group='notyettreated')` runs
+  Sun-Abraham against the never-treated cohort. It passed the option
+  through, `sp.sun_abraham` does not take that value, and every draw of
+  that estimator was recorded as a failure.
+- `sp.stacked_did` lists in `model_info['cohorts']` the cohorts it
+  stacked, and the ones it could not use in `skipped_cohorts`. The list
+  used to include both while `n_cohorts` counted the first kind only.
 
 #### Known issue
 
@@ -80,6 +124,8 @@ turned up inputs on which a wrong number came back.
   the cohort lookup; the cluster checks run only when a cluster is given;
   the sdid branch is not the timed estimator), so the timings were not
   re-measured. They are due at the next re-anchor of the JSS paper.
+  `04_dml` is stale for the same kind of reason: the fold-label check in
+  `dml/_base.py` runs once per fit, before cross-fitting.
 
 ### Teaching notebooks, and what writing them turned up
 

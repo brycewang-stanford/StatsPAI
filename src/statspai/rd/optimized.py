@@ -594,7 +594,10 @@ def rd_optimized(
             bias_t = (M + abs(t) * M_fuzzy) * unit_bias
             return abs(reduced - t * first) - cv_bias(bias_t / se_t, alpha) * se_t
 
-        if first == 0:
+        # the weights sum to +1 and -1 on the two sides and are orthogonal to
+        # the running variable, so a treatment with no jump leaves rounding
+        # noise of order 1e-17 here, not an exact zero
+        if abs(first) <= 1e-10 * max(float(np.max(np.abs(dd))), 1e-300):
             raise DataInsufficient("the treatment received does not jump at the cutoff")
         ratio = reduced / first
         se_ratio = float(

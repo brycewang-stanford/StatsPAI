@@ -259,51 +259,6 @@ def test_stacked_events_every_event_dropped_for_own_overlap():
     assert kept.model_info["n_cohorts"] == 2
 
 
-def test_stacked_legacy_helpers_reproduce_the_pooled_regression():
-    # The module keeps an alternating-projection demeaner and a small OLS /
-    # cluster-variance pair. On a single-cohort stack they must give the
-    # coefficient of the pooled specification, and the Liang-Zeger formula.
-    df = _staggered(cohorts=(4, 0))
-    ref = sp.stacked_did(
-        df,
-        y="y",
-        group="unit",
-        time="t",
-        first_treat="g",
-        window=(-3, 4),
-        spec="pooled",
-    )
-    y = df["y"].to_numpy()
-    X = df[["d"]].to_numpy()
-    y_dm, X_dm = sd_mod._twoway_demean(y, X, df["unit"].to_numpy(), df["t"].to_numpy())
-    # balanced panel: one sweep is exact, and both margins have mean zero
-    assert abs(pd.Series(y_dm).groupby(df["unit"]).mean()).max() < 1e-10
-    assert abs(pd.Series(y_dm).groupby(df["t"]).mean()).max() < 1e-10
-    beta, resid = sd_mod._ols(X_dm, y_dm)
-    assert beta[0] == pytest.approx(ref.estimate, abs=1e-10)
-
-    cl = df["unit"].to_numpy()
-    se = sd_mod._cluster_robust_se(X_dm, resid, cl)
-    n, k = X_dm.shape
-    G = len(np.unique(cl))
-    scores = pd.Series(X_dm[:, 0] * resid).groupby(cl).sum().to_numpy()
-    manual = np.sqrt((G / (G - 1)) * ((n - 1) / (n - k)) * np.sum(scores**2)) / float(
-        X_dm[:, 0] @ X_dm[:, 0]
-    )
-    assert se[0] == pytest.approx(manual, rel=1e-10)
-
-    # degenerate shapes
-    b0, r0 = sd_mod._ols(np.empty((n, 0)), y_dm)
-    assert b0.size == 0 and np.array_equal(r0, y_dm)
-    assert sd_mod._cluster_robust_se(np.empty((n, 0)), y_dm, cl).size == 0
-    # a duplicated column makes X'X singular: the pseudo-inverse bread still
-    # returns a finite, symmetric matrix
-    X2 = np.column_stack([X_dm[:, 0], X_dm[:, 0]])
-    V = sd_mod._cluster_robust_vcov(X2, resid, cl)
-    assert V.shape == (2, 2) and np.all(np.isfinite(V))
-    np.testing.assert_allclose(V, V.T, atol=1e-12)
-
-
 # ══════════════════════════════════════════════════════════════════════
 #  sp.did_calibrated_simulation
 # ══════════════════════════════════════════════════════════════════════
@@ -340,8 +295,6 @@ def _study(df, estimators, **kw):
 )
 @pytest.mark.parametrize("control_group", ["nevertreated", "notyettreated"])
 def test_adapter_recovers_injected_constant_effect(alias, name, control_group):
-    if alias == "sa" and control_group == "notyettreated":
-        pytest.skip("sp.sun_abraham has no not-yet-treated control group")
     df = _staggered(effect=0.0, noise=0.01, n_units=24, T=6, cohorts=(3, 5, 0))
     study = _study(df, alias, control_group=control_group)
     assert study.model_info["estimators"] == [name]

@@ -904,7 +904,11 @@ def rdrandinf(
                 "first_stage": first_stage,
                 "itt": itt,
                 "itt_se": se_itt,
-                "itt_ci": ci_out if test["ci"] is not None else None,
+                # with a fuzzy design the ci= grid is tested as y - tau0 * D,
+                # so its inversion bounds the complier effect, not the ITT
+                "itt_ci": (itt - z_crit * se_itt, itt + z_crit * se_itt),
+                "itt_ci_method": "large-sample",
+                "anderson_rubin_ci": ci_out if test["ci"] is not None else None,
                 "pvalue_tsls": tsls_p,
             }
         )
