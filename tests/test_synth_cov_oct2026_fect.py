@@ -57,16 +57,6 @@ def _fect(df, **kw):
 # --------------------------------------------------------------------- #
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "fect.py::_inter_fe_core demeans YY by the untreated grand mean and "
-        "then recomputes the mean from the demeaned matrix (about 0), so the "
-        "fitted surface is 0 and the reported ATT is the raw mean outcome of "
-        "the treated cells. Reported in the Oct 2026 coverage round; remove "
-        "this marker when the estimator is fixed."
-    ),
-)
 def test_force_none_att_is_treated_mean_minus_untreated_grand_mean():
     df = _panel()
     res = _fect(df, method="fe", force="none")

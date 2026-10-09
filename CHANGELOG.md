@@ -4,6 +4,55 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Defects found while closing the core coverage gap
+
+Writing tests for the uncovered branches of `did`, `rd`, `synth` and `dml`
+turned up inputs on which a wrong number came back.
+
+#### ⚠️ Correctness
+
+- **`sp.fect(method='fe', force='none')` without covariates returned the
+  mean outcome of the treated cells, not a treatment effect.** The mean of
+  the untreated cells was removed once and then recomputed from the
+  centred matrix, so the fitted counterfactual was zero. On a panel with
+  no unit or period effects and a true effect of 2 it reported 7.31 where
+  R `fect` 2.4.1 gives 2.387824; it now gives 2.387824. `force='unit'`,
+  `'time'` and `'two-way'`, every `method='ife'` and `method='mc'` call,
+  and any call with covariates were already equal to `fect` and are
+  unchanged.
+- **Staggered DiD estimators misread a `Period` cohort column that marks
+  never-treated units with `NaT`.** Some treated units were assigned to
+  the wrong cohort (`sp.sun_abraham` reported cohorts 2, 3, 4, 6 for a
+  design with two cohorts, and 1.9459 where integer coding gives 1.9776).
+  Every estimator that accepts calendar time was exposed. `datetime64`
+  columns, and `Period` columns that mark never-treated units with a date
+  after the sample, were read correctly and are unchanged.
+- **`sp.rdrobust` refuses a running variable with fewer than `p + 1`
+  distinct values on a side.** A local polynomial is not identified
+  there. With one support point a side the bandwidth selector failed, the
+  legacy selector took over with a warning, and the fit returned an
+  arbitrary number (-1.0 with p = 0 on data whose two cell means differ by
+  +1.4). It now raises `DataInsufficient` and points to `sp.rd_discrete`.
+
+#### Fixed
+
+- `sp.rdplot` and `rdplot_numbers` no longer crash when the outcome is
+  constant on one side of the cutoff (`cannot convert float NaN to
+  integer`). That side gets one bin, which is exact.
+- `sp.synth(method='sdid', se_method=...)` works. The dispatcher's name
+  for the option is `inference`; passing sdid's own name raised
+  `TypeError: got multiple values for keyword argument 'se_method'`.
+  Passing both with different values raises `MethodIncompatibility`.
+
+#### Known issue
+
+- `python scripts/trace_perf_path.py --check` now reports the Track C
+  timings of `02_csdid` and `03_scm` as stale, because `did/_core.py` and
+  `synth/scm.py` changed. Neither change is on the code the benchmarks
+  time (integer time returns before the cohort lookup; the sdid branch is
+  not the timed estimator), so the timings were not re-measured. They are
+  due at the next re-anchor of the JSS paper.
+
 ### Newer scikit-learn, pandas and rdrobust
 
 #### Fixed

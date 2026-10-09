@@ -803,6 +803,28 @@ def rdrobust(
             },
         )
 
+    # A degree-p polynomial needs p + 1 distinct values of the running
+    # variable on each side. With fewer the design is singular whatever the
+    # sample size, and the fit below would return an arbitrary number.
+    support_left = int(np.unique(X_c[left]).size)
+    support_right = int(np.unique(X_c[right]).size)
+    if support_left < p + 1 or support_right < p + 1:
+        raise DataInsufficient(
+            "The running variable takes too few distinct values next to the "
+            f"cutoff for a local polynomial of order p={p} "
+            f"(left={support_left}, right={support_right}, need >= {p + 1} "
+            "a side).",
+            recovery_hint=(
+                "With a running variable this coarse use sp.rd_discrete, or "
+                "compare the two cells next to the cutoff directly."
+            ),
+            diagnostics={
+                "support_left": support_left,
+                "support_right": support_right,
+                "minimum_support_per_side": p + 1,
+            },
+        )
+
     # --- Bandwidth selection ---
     #
     # h AND b both come from the CCT three-stage cascade (rd/_cct_bandwidth.py).

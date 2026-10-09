@@ -112,21 +112,18 @@ def test_legacy_selector_pilot_pieces_on_thin_windows():
     assert got == pytest.approx(3.0, abs=1e-8)
 
 
-def test_selector_failure_is_loud_recorded_and_uses_the_legacy_bandwidth():
-    # One support point per side: the CCT selector divides by zero. The fit
-    # that follows is reported in the campaign notes; what this test pins is
-    # only that the fallback is announced, recorded, and is the legacy rule.
+def test_one_support_point_a_side_is_refused_before_bandwidth_selection():
+    # One support point per side: a local line is not identified. This input
+    # used to make the CCT selector divide by zero, fall back to the legacy
+    # bandwidth and return -1.0 (p = 0) where the two cell means differ by +1.
     rng = np.random.default_rng(1)
     x = np.repeat([-1.0, 1.0], 100)
     y = 1.0 * (x >= 0) + rng.normal(0, 0.3, x.size)
     frame = pd.DataFrame({"y": y, "x": x})
-    with pytest.warns(RuntimeWarning, match="rdrobust bandwidth selector failed"):
-        res = sp.rdrobust(
+    with pytest.raises(DataInsufficient, match="too few distinct values"):
+        sp.rdrobust(
             frame, y="y", x="x", warn_mass_points=False, manipulation_test=False
         )
-    assert res.model_info["legacy_fallbacks"] == ["bandwidth_selector"]
-    legacy = rr._select_bandwidth(y, x, x < 0, x >= 0, 1, "triangular", "mserd", x.size)
-    assert res.model_info["bandwidth_h"] == legacy
 
 
 # ------------------------------------------------------------ weights

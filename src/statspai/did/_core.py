@@ -552,8 +552,19 @@ def index_calendar_time(
                     ),
                 )
         else:
-            g_pos = np.searchsorted(periods.values, g_raw.values, side="left") + 1
-            never = g_raw.isna().to_numpy() | (g_pos > len(periods))
+            # Look up only the dated cohorts. numpy carries its search bounds
+            # from one key to the next, and a missing Period compares False
+            # with everything, so a NaT among the keys misplaces later ones.
+            missing = g_raw.isna().to_numpy()
+            g_pos = np.full(len(g_raw), len(periods) + 1, dtype=int)
+            if not missing.all():
+                g_pos[~missing] = (
+                    np.searchsorted(
+                        periods.values, g_raw.to_numpy()[~missing], side="left"
+                    )
+                    + 1
+                )
+            never = missing | (g_pos > len(periods))
             out[cohort] = np.where(never, 0, g_pos).astype(int)
 
     regular = True

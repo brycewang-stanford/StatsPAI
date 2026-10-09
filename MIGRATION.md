@@ -5,6 +5,25 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## Unreleased: ⚠️ three inputs that returned a wrong number
+
+**What changed.**
+
+- `sp.fect(method='fe', force='none')` with no covariates returned the mean
+  outcome of the treated cells. It now returns that mean minus the mean of
+  the untreated cells, as R `fect` does.
+- A `Period` cohort column with `NaT` for never-treated units put some
+  treated units in the wrong cohort, in every staggered DiD estimator that
+  accepts calendar time.
+- `sp.rdrobust` raises `DataInsufficient` when the running variable has
+  fewer than `p + 1` distinct values on a side. It used to warn and return
+  an arbitrary number.
+
+**What to do.** Rerun any of the three. Nothing else is affected: `fect`
+with fixed effects, factors, matrix completion or covariates; DiD with
+integer or `datetime64` time; `rdrobust` on a running variable with enough
+support.
+
 ## 1.39.1 → 1.39.2: ⚠️ `sp.mswitch` and `sp.mswitch_lrtest` search on the standardised series
 
 **What changed.** The multi-start search runs on `y` divided by its

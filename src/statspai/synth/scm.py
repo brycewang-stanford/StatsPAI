@@ -829,9 +829,19 @@ def _dispatch_synth_impl(
     if method == "sdid":
         from .sdid import sdid as _sdid
 
+        # sdid's own name for this option is ``se_method``; accept it here
+        # too rather than passing it down twice.
+        own_se_method = kwargs.pop("se_method", None)
+        if own_se_method and inference and own_se_method != inference:
+            raise MethodIncompatibility(
+                f"sp.synth(method='sdid'): inference={inference!r} and "
+                f"se_method={own_se_method!r} name the same option and "
+                "disagree.",
+                recovery_hint="Pass one of them.",
+            )
         se_method = cast(
             Literal["placebo", "bootstrap", "jackknife"],
-            inference or "placebo",
+            own_se_method or inference or "placebo",
         )
         return _sdid(
             data=data,

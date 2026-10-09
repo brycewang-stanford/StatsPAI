@@ -18,7 +18,7 @@ left-side bin is empty. Here each non-empty bin gets its own edges.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -336,12 +336,21 @@ def rdplot_numbers(
         else:
             J_l, J_r = int(nbins[0]), int(nbins[1])
     else:
-        J_l = int(scale_l * J_orig[0])
-        J_r = int(scale_r * J_orig[1])
+        # A side whose outcome is constant has no variance to trade against
+        # bias, so the selectors above are 0/0 there; one bin is exact.
+        J_l = 1 if var_y_l == 0 else int(scale_l * J_orig[0])
+        J_r = 1 if var_y_r == 0 else int(scale_r * J_orig[1])
     if var_y_l == 0:
         J_l = 1
     if var_y_r == 0:
         J_r = 1
+    constant_side = (var_y_l == 0, var_y_r == 0)
+
+    def _reported_bins(J_sel: np.ndarray) -> Tuple[int, int]:
+        return (
+            1 if constant_side[0] else int(J_sel[0]),
+            1 if constant_side[1] else int(J_sel[1]),
+        )
 
     if meth == "es":
         jumps_l = _r_seq(x_min, c, range_l / J_l)
@@ -432,8 +441,8 @@ def rdplot_numbers(
             "rdplot_y": np.concatenate([y_hat_l, y_hat_r]),
         },
         "J": (J_l, J_r),
-        "J_IMSE": (int(J_IMSE[0]), int(J_IMSE[1])),
-        "J_MV": (int(J_MV[0]), int(J_MV[1])),
+        "J_IMSE": _reported_bins(J_IMSE),
+        "J_MV": _reported_bins(J_MV),
         "binselect": binselect,
         "mass_points_adjusted": mass_adjusted,
         "p": p,

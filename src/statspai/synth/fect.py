@@ -485,7 +485,8 @@ def _inter_fe_core(
                 YY, Y0, II, force, mc, r if mc == 0 else 1, 0, lam, tol, max_iter
             )
         elif force == 0:
-            mu_Y = float(YY.sum() / II.sum())
+            # mu_Y is the untreated grand mean taken above, before YY was
+            # centred; recomputing it here from the centred YY gives zero.
             out = {
                 "mu": mu_Y,
                 "fit": np.full((T, N), mu_Y),
