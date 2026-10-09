@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## Unreleased: ⚠️ three inputs that returned a wrong number
+## Unreleased: ⚠️ inputs that returned a wrong number
 
 **What changed.**
 
@@ -18,11 +18,24 @@ Internal version-to-version migrations are at the top; the long-form
 - `sp.rdrobust` raises `DataInsufficient` when the running variable has
   fewer than `p + 1` distinct values on a side. It used to warn and return
   an arbitrary number.
+- `sp.drdid(id=..., weights=...)` ignored the weights on panel data. It
+  now uses them, as R `DRDID` does.
+- `sp.did_multiplegt` reports a placebo or dynamic effect it cannot
+  estimate as missing, not as 0 with p-value 1.
+- `sp.callaway_santanna` refuses two cluster choices that gave a standard
+  error of zero: a within-unit-varying cluster under
+  `allow_unbalanced_panel=True`, and, with `panel=False`, a cluster that
+  is constant within every cohort-by-period cell.
+- `sp.honest_did` and `sp.breakdown_m` under relative magnitudes no longer
+  return an empty set (and a breakdown value of 0) when the estimate is
+  more than 20 standard errors from zero.
 
-**What to do.** Rerun any of the three. Nothing else is affected: `fect`
+**What to do.** Rerun any of these. Nothing else is affected: `fect`
 with fixed effects, factors, matrix completion or covariates; DiD with
 integer or `datetime64` time; `rdrobust` on a running variable with enough
-support.
+support; unweighted `drdid`; `did_multiplegt` rows that were estimable.
+Code that read a `did_multiplegt` placebo of exactly 0 as "no pre-trend"
+should check for a missing value.
 
 ## 1.39.1 → 1.39.2: ⚠️ `sp.mswitch` and `sp.mswitch_lrtest` search on the standardised series
 

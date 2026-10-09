@@ -168,3 +168,174 @@ class TestSdidSeMethodThroughDispatcher:
                 inference="bootstrap",
                 **self.KW,
             )
+
+
+def _two_period_weighted_panel() -> pd.DataFrame:
+    rng = np.random.default_rng(0)
+    n = 600
+    x = rng.normal(size=n)
+    d = (rng.uniform(size=n) < 1 / (1 + np.exp(-0.5 * x))).astype(int)
+    het = rng.uniform(size=n) < 0.5
+    tau = np.where(het, 1.0, 5.0)
+    y0 = x + rng.normal(size=n)
+    y1 = y0 + 0.5 + 0.3 * x + tau * d + rng.normal(size=n)
+    w = np.where(het, 1.0, 9.0) * rng.uniform(0.5, 1.5, n)
+    pre = pd.DataFrame({"id": np.arange(n), "t": 0, "y": y0, "d": d, "x": x, "w": w})
+    return pd.concat([pre, pre.assign(t=1, y=y1)], ignore_index=True)
+
+
+class TestDrdidPanelWeights:
+    # R DRDID 1.3.0 on this panel with panel = TRUE, weightsname = "w":
+    # drdid(estMethod = "imp"), drdid(estMethod = "trad"), ipwdid, ordid.
+    DRDID = {
+        ("imp", "dr"): (4.673879248465, 0.120516615690),
+        ("trad", "dr"): (4.672770516498, 0.120707052519),
+        ("trad", "ipw"): (4.677827031718, 0.119758102004),
+        ("trad", "reg"): (4.663051889258, 0.121180389065),
+    }
+
+    @pytest.mark.parametrize("key", list(DRDID), ids=lambda k: "-".join(k))
+    def test_weighted_panel_matches_drdid(self, key):
+        method, est_method = key
+        fit = sp.drdid(
+            _two_period_weighted_panel(),
+            y="y",
+            group="d",
+            time="t",
+            covariates=["x"],
+            id="id",
+            weights="w",
+            method=method,
+            est_method=est_method,
+        )
+        att, se = self.DRDID[key]
+        # Reference printed to 12 decimals. The improved estimator's two
+        # nuisance fits are iterative on both sides, hence 1e-7 on its se.
+        assert fit.estimate == pytest.approx(att, abs=1e-9)
+        assert fit.se == pytest.approx(se, abs=1e-7)
+
+    def test_weights_move_the_estimate_toward_the_heavier_units(self):
+        # Half the units have effect 1 and weight about 1, half have effect 5
+        # and weight about 9: the weighted ATT is near 4.6, the unweighted
+        # near 3. The panel path used to return the unweighted number.
+        df = _two_period_weighted_panel()
+        kw = dict(y="y", group="d", time="t", covariates=["x"], id="id")
+        plain = sp.drdid(df, **kw)
+        weighted = sp.drdid(df, weights="w", **kw)
+        assert plain.estimate == pytest.approx(3.1, abs=0.3)
+        assert weighted.estimate == pytest.approx(4.6, abs=0.3)
+
+    def test_negative_weights_are_refused(self):
+        df = _two_period_weighted_panel()
+        df.loc[df["id"] == 0, "w"] = -1.0
+        with pytest.raises(MethodIncompatibility, match="non-negative"):
+            sp.drdid(df, y="y", group="d", time="t", id="id", weights="w")
+
+
+class TestCallawaySantannaDegenerateClusters:
+    @pytest.fixture(scope="class")
+    def panel(self):
+        df = _staggered_panel()
+        df["period_cluster"] = df["t"]
+        df["region"] = df["id"] % 12
+        return df
+
+    def test_time_varying_cluster_is_refused_with_the_unbalanced_flag(self, panel):
+        # The flag used to switch the check off even on a balanced panel,
+        # where the ordinary panel estimator runs; the result was se = 2e-16.
+        with pytest.raises(MethodIncompatibility, match="time-varying within unit"):
+            sp.callaway_santanna(
+                panel,
+                y="y",
+                g="g",
+                t="t",
+                i="id",
+                allow_unbalanced_panel=True,
+                clustervars=["period_cluster"],
+            )
+
+    def test_cluster_made_of_whole_cells_is_refused_in_cross_sections(self, panel):
+        with pytest.raises(MethodIncompatibility, match="identically zero"):
+            sp.callaway_santanna(
+                panel,
+                y="y",
+                g="g",
+                t="t",
+                i="id",
+                panel=False,
+                clustervars=["period_cluster"],
+            )
+
+    def test_a_cluster_that_cuts_across_cells_still_works(self, panel):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fit = sp.callaway_santanna(
+                panel, y="y", g="g", t="t", i="id", panel=False, clustervars=["region"]
+            )
+        assert fit.se > 0.01
+
+
+class TestDidMultiplegtNotEstimable:
+    def test_placebo_and_dynamic_beyond_the_panel_are_missing(self):
+        rng = np.random.default_rng(0)
+        rows = []
+        for unit in range(200):
+            for period in (1, 2):
+                d = int(unit < 80 and period == 2)
+                rows.append((unit, period, d, rng.normal() + 1.5 * d))
+        df = pd.DataFrame(rows, columns=["g", "t", "d", "y"])
+
+        with pytest.warns(UserWarning, match="placebo -1, dynamic 1"):
+            fit = sp.did_multiplegt(
+                df,
+                y="y",
+                group="g",
+                time="t",
+                treatment="d",
+                placebo=1,
+                dynamic=1,
+                n_boot=20,
+                seed=1,
+            )
+
+        es = fit.model_info["event_study"].set_index("relative_time")
+        # Two periods: no period before the switch, none after it.
+        assert es.loc[[-1, 1], ["att", "se", "pvalue"]].isna().all().all()
+        # The instantaneous effect is estimable and unchanged by the request.
+        assert es.loc[0, "att"] == pytest.approx(fit.estimate, abs=1e-12)
+        assert fit.model_info["joint_placebo_test"] is None
+        assert fit.model_info["avg_cumulative_effect"]["n_horizons"] == 1
+
+
+class TestRelativeMagnitudeSetFarFromZero:
+    def test_set_is_found_when_the_estimate_is_outside_the_default_grid(self):
+        from statspai.did._arp import rm_confidence_set
+
+        # t = 5 / sqrt(0.05) = 22.4, beyond the +/-20 sd default grid.
+        sigma = np.diag([1e-4, 1e-4, 0.05])
+        beta = np.array([0.0, 0.0, 5.0])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            lo, hi, grid, _ = rm_confidence_set(
+                beta, sigma, 2, 1, 0.0, method="C-LF", grid_points=400
+            )
+
+        half = 1.959964 * np.sqrt(0.05)
+        step = grid[1] - grid[0]
+        # At Mbar = 0 with flat pre-trends the set is the usual interval,
+        # located to within one grid step.
+        assert lo == pytest.approx(5.0 - half, abs=step)
+        assert hi == pytest.approx(5.0 + half, abs=step)
+
+    def test_default_grid_is_untouched_when_it_contains_the_estimate(self):
+        from statspai.did._arp import rm_confidence_set
+
+        sigma = np.diag([1e-4, 1e-4, 0.05])
+        beta = np.array([0.0, 0.0, 1.0])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            _, _, grid, _ = rm_confidence_set(
+                beta, sigma, 2, 1, 0.0, method="C-LF", grid_points=200
+            )
+        assert grid[0] == pytest.approx(-20 * np.sqrt(0.05))
+        assert grid[-1] == pytest.approx(20 * np.sqrt(0.05))

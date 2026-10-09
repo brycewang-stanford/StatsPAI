@@ -107,6 +107,9 @@ def test_cs_input_validation():
         sp.callaway_santanna(df, y="y", g="g", t="time", i="unit", anticipation=-1)
     # panel=False now supports all three estimators and both control groups;
     # clustervars works under panel=False with the analytic SEs as well.
+    # (The cluster has to cut across cohort x period cells: clustering on
+    # the cohort itself gives cluster sums of zero and is refused.)
+    df["region"] = pd.factorize(df["unit"])[0] % 5
     r = sp.callaway_santanna(
         df,
         y="y",
@@ -115,6 +118,7 @@ def test_cs_input_validation():
         i="unit",
         panel=False,
         estimator="dr",
-        clustervars=["unit", "g"],
+        clustervars=["unit", "region"],
     )
     assert r.model_info["se_method"] == "analytic"
+    assert r.se > 0

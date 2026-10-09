@@ -33,6 +33,33 @@ turned up inputs on which a wrong number came back.
   legacy selector took over with a warning, and the fit returned an
   arbitrary number (-1.0 with p = 0 on data whose two cell means differ by
   +1.4). It now raises `DataInsufficient` and points to `sp.rd_discrete`.
+- **`sp.drdid(id=..., weights=...)` ignored the weights.** On the panel
+  path the weight column was dropped before the fit, so the weighted and
+  unweighted estimates were the same number; without `id=` the weights
+  were used. All four estimators (`method='imp'` and `'trad'`,
+  `est_method='ipw'` and `'reg'`) now agree with R `DRDID` 1.3.0 called
+  with `panel = TRUE, weightsname =` (estimates to 1e-9). Unweighted calls
+  are unchanged.
+- **`sp.did_multiplegt` reported a placebo or dynamic effect that cannot
+  be estimated as 0 with standard error 0 and p-value 1.** On a panel with
+  too few periods before or after the switches there is no cell to
+  compare. Those rows are now missing, with a warning that names them, and
+  the average cumulative effect is taken over the estimable horizons
+  only. Bootstrap replicates in which a lag has no cell no longer enter
+  its standard error as zeros.
+- **`sp.callaway_santanna` returned a standard error of about 1e-16 for
+  two cluster choices.** With `allow_unbalanced_panel=True` on a balanced
+  panel, a cluster that varies within unit was accepted (the same call
+  without the flag was refused). With `panel=False`, a cluster made of
+  whole cohort-by-period cells, the period itself for example, has
+  cluster sums of exactly zero. Both now raise `MethodIncompatibility`.
+- **The relative-magnitudes confidence set of `sp.honest_did` came back
+  empty when the estimate was more than 20 standard errors from zero**,
+  and `sp.breakdown_m(method='relative_magnitude')` then reported a
+  breakdown value of 0 for the most significant effects. The default grid
+  is centred at zero, as in `HonestDiD`; when it accepts nothing because
+  the estimate lies outside it, the grid is now placed around the
+  estimate. Results that were not empty are unchanged.
 
 #### Fixed
 
@@ -47,11 +74,12 @@ turned up inputs on which a wrong number came back.
 #### Known issue
 
 - `python scripts/trace_perf_path.py --check` now reports the Track C
-  timings of `02_csdid` and `03_scm` as stale, because `did/_core.py` and
-  `synth/scm.py` changed. Neither change is on the code the benchmarks
-  time (integer time returns before the cohort lookup; the sdid branch is
-  not the timed estimator), so the timings were not re-measured. They are
-  due at the next re-anchor of the JSS paper.
+  timings of `02_csdid` and `03_scm` as stale, because `did/_core.py`,
+  `did/callaway_santanna.py` and `synth/scm.py` changed. None of the
+  changes is on the code the benchmarks time (integer time returns before
+  the cohort lookup; the cluster checks run only when a cluster is given;
+  the sdid branch is not the timed estimator), so the timings were not
+  re-measured. They are due at the next re-anchor of the JSS paper.
 
 ### Newer scikit-learn, pandas and rdrobust
 

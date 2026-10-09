@@ -2632,7 +2632,12 @@ def drdid(
         if missing:
             raise MethodIncompatibility(f"Missing columns for panel DR-DID: {missing}")
         panel_df = df[needed].dropna().copy()
-        pre_df = panel_df[panel_df[time] == t_vals[0]][[id, y, group] + covariates_list]
+        # The weight is read from the pre-period row, as DRDID does for
+        # panel data (one weight per unit).
+        pre_cols = [id, y, group] + covariates_list
+        if weights is not None:
+            pre_cols.append(weights)
+        pre_df = panel_df[panel_df[time] == t_vals[0]][pre_cols]
         post_df = panel_df[panel_df[time] == t_vals[1]][[id, y, group]]
         if pre_df[id].duplicated().any() or post_df[id].duplicated().any():
             raise MethodIncompatibility(
@@ -2657,15 +2662,36 @@ def drdid(
         else:
             X_panel = np.ones((len(wide), 1))
 
-        w_panel = (
-            wide[weights].astype(float).to_numpy()
-            if weights is not None and weights in wide.columns
-            else np.ones(len(wide), dtype=float)
-        )
+        if weights is not None:
+            w_panel = wide[weights].astype(float).to_numpy()
+            if np.any(w_panel < 0) or not np.any(w_panel > 0):
+                raise MethodIncompatibility(
+                    f"weights column '{weights}' must be non-negative with "
+                    "at least one positive value."
+                )
+        else:
+            w_panel = np.ones(len(wide), dtype=float)
         w_panel = w_panel / w_panel.mean()
 
         z_crit_panel = stats.norm.ppf(1 - alpha / 2)
-        if est_method == "dr" and method == "imp":
+        if est_method == "dr" and method == "imp" and weights is not None:
+            # The weighted improved estimator is the one callaway_santanna
+            # runs per cell (inverse probability tilting and odds-weighted
+            # least squares, both with the unit weights).
+            from .callaway_santanna import _dr_imp_att
+
+            att_hat, att_se, _inf = _dr_imp_att(
+                delta_y,
+                D_panel,
+                X_panel[:, 1:] if X_panel.shape[1] > 1 else None,
+                trim_level,
+                w_panel,
+            )
+            ci = (att_hat - z_crit_panel * att_se, att_hat + z_crit_panel * att_se)
+            ps_fit = _logistic_fit(X_panel, D_panel)
+            ps_flag = 0
+            engine_name = "drdid_imp_panel"
+        elif est_method == "dr" and method == "imp":
             att_hat, att_se, ci, ps_fit, ps_flag = _drdid_imp_panel_core(
                 delta_y,
                 D_panel,
@@ -2817,106 +2843,6 @@ def drdid(
         valid &= np.isfinite(X[:, j])
     G, T, Y, X, w_vec = G[valid], T[valid], Y[valid], X[valid], w_vec[valid]
     n = len(Y)
-
-    def _estimate_att(
-        G_b: np.ndarray,
-        T_b: np.ndarray,
-        Y_b: np.ndarray,
-        X_b: np.ndarray,
-    ) -> float:
-        """Core DR-DID estimator for one sample."""
-        # Share treated
-        p_hat = G_b.mean()
-        if p_hat <= 0 or p_hat >= 1:
-            return np.nan
-
-        # ── Propensity score: P(G=1 | X) via logistic regression ────
-        # Use IRLS for logistic regression (no sklearn dependency)
-        ps = _logistic_fit(X_b, G_b)
-        ps = np.clip(ps, 1e-6, 1 - 1e-6)
-
-        # ── Outcome regression for controls: E[DeltaY | X, G=0] ────
-        # Compute DeltaY for each unit that appears in both periods
-        # In repeated cross-section / 2×2 stacked data, compute change
-        # We treat the data as pooled; for controls in post vs pre:
-        ctrl_post = (G_b == 0) & (T_b == 1)
-        ctrl_pre = (G_b == 0) & (T_b == 0)
-
-        # For the outcome model, regress Y on X separately for
-        # control-post and control-pre
-        if ctrl_post.sum() < X_b.shape[1] or ctrl_pre.sum() < X_b.shape[1]:
-            # Not enough data; fall back to simple DID
-            return float(
-                (
-                    Y_b[(G_b == 1) & (T_b == 1)].mean()
-                    - Y_b[(G_b == 1) & (T_b == 0)].mean()
-                    - Y_b[(G_b == 0) & (T_b == 1)].mean()
-                    + Y_b[(G_b == 0) & (T_b == 0)].mean()
-                )
-            )
-
-        # OLS for E[Y|X, G=0, T=1]
-        try:
-            beta_post = np.linalg.lstsq(X_b[ctrl_post], Y_b[ctrl_post], rcond=None)[0]
-        except np.linalg.LinAlgError:
-            beta_post = np.linalg.pinv(X_b[ctrl_post]) @ Y_b[ctrl_post]
-
-        # OLS for E[Y|X, G=0, T=0]
-        try:
-            beta_pre = np.linalg.lstsq(X_b[ctrl_pre], Y_b[ctrl_pre], rcond=None)[0]
-        except np.linalg.LinAlgError:
-            beta_pre = np.linalg.pinv(X_b[ctrl_pre]) @ Y_b[ctrl_pre]
-
-        m1_x = X_b @ beta_post  # predicted E[Y|X, G=0, T=1]
-        m0_x = X_b @ beta_pre  # predicted E[Y|X, G=0, T=0]
-        # ── DR-DID estimator ────────────────────────────────────────
-        if method == "imp":
-            # Improved (locally efficient) DR-DID
-            # Weight construction
-            w_treat_post = G_b * T_b
-            w_treat_pre = G_b * (1 - T_b)
-            w_ctrl_post = ps / (1 - ps) * (1 - G_b) * T_b
-            w_ctrl_pre = ps / (1 - ps) * (1 - G_b) * (1 - T_b)
-
-            # Normalise weights
-            eta_1 = w_treat_post.mean()
-            eta_0 = w_treat_pre.mean()
-            if eta_1 == 0 or eta_0 == 0:
-                return np.nan
-
-            att = (
-                (w_treat_post * (Y_b - m1_x)).sum() / (w_treat_post.sum() + 1e-10)
-                - (w_treat_pre * (Y_b - m0_x)).sum() / (w_treat_pre.sum() + 1e-10)
-                - (w_ctrl_post * (Y_b - m1_x)).sum() / (w_ctrl_post.sum() + 1e-10)
-                + (w_ctrl_pre * (Y_b - m0_x)).sum() / (w_ctrl_pre.sum() + 1e-10)
-            )
-        else:
-            # Traditional DR-DID (Sant'Anna & Zhao 2020), repeated-cross-
-            # section form. Each of the four cell terms is a *weighted
-            # average* of the outcome-regression residual over the units
-            # selected by its weight, so it must be normalised by that
-            # weight's total mass — NOT by the full sample size ``n_b``.
-            # ⚠️ correctness fix (2026-06-05): the previous code divided
-            # every term by ``n_b``, which multiplied each term by the
-            # cell's sample share (~0.25 per cell on a balanced 2×2) and
-            # so biased the ATT toward zero by roughly 50%. method='imp'
-            # was unaffected (it already normalised by the weight mass).
-            w1 = G_b / p_hat
-            w0 = ps * (1 - G_b) / ((1 - ps) * p_hat)
-
-            w_tp = w1 * T_b  # treated, post
-            w_t0 = w1 * (1 - T_b)  # treated, pre
-            w_cp = w0 * T_b  # control, post (ps-reweighted)
-            w_c0 = w0 * (1 - T_b)  # control, pre  (ps-reweighted)
-
-            att_1 = (w_tp * (Y_b - m1_x)).sum() / (w_tp.sum() + 1e-10)
-            att_0 = (w_t0 * (Y_b - m0_x)).sum() / (w_t0.sum() + 1e-10)
-            ctrl_1 = (w_cp * (Y_b - m1_x)).sum() / (w_cp.sum() + 1e-10)
-            ctrl_0 = (w_c0 * (Y_b - m0_x)).sum() / (w_c0.sum() + 1e-10)
-
-            att = (att_1 - att_0) - (ctrl_1 - ctrl_0)
-
-        return float(att)
 
     # ── Estimation ──────────────────────────────────────────────────
     #

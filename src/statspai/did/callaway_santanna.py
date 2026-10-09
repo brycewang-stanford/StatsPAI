@@ -718,7 +718,7 @@ def callaway_santanna(
     # influence functions live at the unit level, so the cluster must be
     # time-invariant; a repeated cross-section (panel=False) can cluster on
     # any row-level variable, e.g. city x year.
-    if extra_cluster is not None and panel and not allow_unbalanced_panel:
+    if extra_cluster is not None and panel:
         nuniq = data.groupby(i)[extra_cluster].nunique(dropna=False)
         if (nuniq > 1).any():
             bad = nuniq[nuniq > 1].index.tolist()[:5]
@@ -3207,6 +3207,21 @@ def _callaway_santanna_rcs(
             slot[unit_codes] = df[clustervar].to_numpy()
             rc_cluster_ids = slot
         else:
+            # The influence function of every ATT(g,t) sums to zero within a
+            # cohort x period cell. A cluster made of whole cells (the period
+            # itself, say) therefore has cluster sums of zero and a clustered
+            # standard error of zero, whatever the data.
+            if bool((df.groupby([g, t])[clustervar].nunique() <= 1).all()):
+                raise MethodIncompatibility(
+                    f"cluster variable {clustervar!r} is constant within every "
+                    f"cohort x period cell ({g!r} x {t!r}), so the clustered "
+                    "standard error is identically zero.",
+                    recovery_hint=(
+                        "Cluster on a variable that cuts across the cells, "
+                        "such as a region or a region x period identifier."
+                    ),
+                    diagnostics={"clustervar": clustervar},
+                )
             rc_cluster_ids = df[clustervar].to_numpy()
     if not bstrap and rc_cluster_ids is not None and inf_matrix is not None:
         detail = _cluster_detail_se(detail, inf_matrix, n_scale, rc_cluster_ids, alpha)

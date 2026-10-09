@@ -39,6 +39,7 @@ de Chaisemartin, C. and D'Haultfoeuille, X. (2024).
 and average cumulative effect, Section 3.) [@dechaisemartin2024difference]
 """
 
+import warnings
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -304,50 +305,58 @@ def did_multiplegt(
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci_main = (main["did_m"] - z_crit * se_main, main["did_m"] + z_crit * se_main)
 
-    # Placebo SEs
-    placebo_out = []
-    for lag_idx in range(placebo):
-        est = placebo_results[lag_idx]["estimate"]
-        se = (
-            np.nanstd(boot_placebo[:, lag_idx], ddof=1)
-            if boot_placebo is not None
-            else 0.0
-        )
-        z = est / se if se > 0 else 0.0
-        p = 2 * stats.norm.sf(abs(z))
-        ci = (est - z_crit * se, est + z_crit * se)
-        placebo_out.append(
-            {
-                "lag": -(lag_idx + 1),
-                "estimate": est,
-                "se": se,
-                "pvalue": p,
-                "ci_lower": ci[0],
-                "ci_upper": ci[1],
+    def _inference_row(est: float, draws: Optional[np.ndarray]) -> Dict[str, float]:
+        """Bootstrap se, p-value and interval; all missing if not estimable."""
+        nan = float("nan")
+        if not np.isfinite(est):
+            return {
+                "estimate": nan,
+                "se": nan,
+                "pvalue": nan,
+                "ci_lower": nan,
+                "ci_upper": nan,
             }
-        )
+        se = float(np.nanstd(draws, ddof=1)) if draws is not None else 0.0
+        z = est / se if se > 0 else 0.0
+        return {
+            "estimate": est,
+            "se": se,
+            "pvalue": float(2 * stats.norm.sf(abs(z))),
+            "ci_lower": est - z_crit * se,
+            "ci_upper": est + z_crit * se,
+        }
 
-    # Dynamic SEs
-    dynamic_out = []
-    for horizon_idx in range(dynamic + 1):
-        est = dynamic_results[horizon_idx]["estimate"]
-        se = (
-            np.nanstd(boot_dynamic[:, horizon_idx], ddof=1)
-            if boot_dynamic is not None
-            else 0.0
-        )
-        z = est / se if se > 0 else 0.0
-        p = 2 * stats.norm.sf(abs(z))
-        ci = (est - z_crit * se, est + z_crit * se)
-        dynamic_out.append(
-            {
-                "horizon": horizon_idx,
-                "estimate": est,
-                "se": se,
-                "pvalue": p,
-                "ci_lower": ci[0],
-                "ci_upper": ci[1],
-            }
+    placebo_out = [
+        {
+            "lag": -(lag_idx + 1),
+            **_inference_row(
+                placebo_results[lag_idx]["estimate"],
+                boot_placebo[:, lag_idx] if boot_placebo is not None else None,
+            ),
+        }
+        for lag_idx in range(placebo)
+    ]
+    dynamic_out = [
+        {
+            "horizon": horizon_idx,
+            **_inference_row(
+                dynamic_results[horizon_idx]["estimate"],
+                boot_dynamic[:, horizon_idx] if boot_dynamic is not None else None,
+            ),
+        }
+        for horizon_idx in range(dynamic + 1)
+    ]
+    not_estimable = [f"placebo {r['lag']}" for r in placebo_out if np.isnan(r["se"])]
+    not_estimable += [
+        f"dynamic {r['horizon']}" for r in dynamic_out if np.isnan(r["se"])
+    ]
+    if not_estimable:
+        warnings.warn(
+            "did_multiplegt: no switching cell with a comparison cell for "
+            f"{', '.join(not_estimable)}; reported as missing. The panel has "
+            "too few periods before or after the switches for these.",
+            UserWarning,
+            stacklevel=2,
         )
 
     # ── Build detail DataFrame ───────────────────────────────────── #
@@ -685,7 +694,9 @@ def _estimate_placebo(
             weights.append(abs_change)
 
     if not estimates:
-        return {"estimate": 0.0, "n_cells": 0}
+        # No switching cell with a comparison cell: not estimable. Zero
+        # would read as an estimated null effect.
+        return {"estimate": float("nan"), "n_cells": 0}
 
     total_w = sum(weights)
     weighted_est = sum(e * w / total_w for e, w in zip(estimates, weights))
@@ -762,7 +773,9 @@ def _estimate_dynamic(
             weights.append(abs_change)
 
     if not estimates:
-        return {"estimate": 0.0, "n_cells": 0}
+        # No switching cell with a comparison cell: not estimable. Zero
+        # would read as an estimated null effect.
+        return {"estimate": float("nan"), "n_cells": 0}
 
     total_w = sum(weights)
     weighted_est = sum(e * w / total_w for e, w in zip(estimates, weights))
@@ -829,7 +842,9 @@ def _avg_cumulative_effect(
     if not dynamic_results or boot_dynamic is None:
         return None
     est_vec = np.array([r["estimate"] for r in dynamic_results], dtype=float)
-    avg_est = float(np.mean(est_vec))
+    if not np.isfinite(est_vec).any():
+        return None
+    avg_est = float(np.nanmean(est_vec))
 
     boot = np.asarray(boot_dynamic, dtype=float)
     per_draw_avg = np.nanmean(boot, axis=1)
@@ -841,7 +856,7 @@ def _avg_cumulative_effect(
             "ci_lower": np.nan,
             "ci_upper": np.nan,
             "pvalue": np.nan,
-            "n_horizons": len(est_vec),
+            "n_horizons": int(np.isfinite(est_vec).sum()),
         }
     se = float(np.std(per_draw_avg, ddof=1))
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -852,5 +867,5 @@ def _avg_cumulative_effect(
         "ci_lower": avg_est - z_crit * se,
         "ci_upper": avg_est + z_crit * se,
         "pvalue": float(2 * stats.norm.sf(abs(z))),
-        "n_horizons": int(len(est_vec)),
+        "n_horizons": int(np.isfinite(est_vec).sum()),
     }

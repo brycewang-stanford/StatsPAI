@@ -520,6 +520,9 @@ def rm_confidence_set(
     points at the same step (40 sd on the default grid), up to
     ``max_expand`` times, so the reported bound is the set's end point
     rather than the grid's. Only the new points are tested.
+
+    If the default grid accepts nothing because the estimate itself lies
+    outside it, the grid is moved to ``+/-20 sd`` around the estimate.
     """
     betahat = np.asarray(betahat, dtype=float).ravel()
     sigma = np.asarray(sigma, dtype=float)
@@ -583,6 +586,18 @@ def rm_confidence_set(
                 grid = np.concatenate([grid, new])
                 accept = np.concatenate([accept, union_accept(new)])
     hit = grid[accept == 1]
+    if hit.size == 0 and grid_lb is None and grid_ub is None:
+        # HonestDiD centres its default grid at zero. An estimate more than
+        # 20 standard deviations from zero lies outside it, so nothing is
+        # accepted and the set would be reported as empty. Test the same
+        # number of points around the estimate instead.
+        centre = float(l_vec @ betahat[n_pre:])
+        if not lb <= centre <= ub:
+            grid = np.linspace(
+                centre - 20.0 * sd_theta, centre + 20.0 * sd_theta, int(grid_points)
+            )
+            accept = union_accept(grid)
+            hit = grid[accept == 1]
     if hit.size == 0:
         return float("nan"), float("nan"), grid, accept
     return float(hit.min()), float(hit.max()), grid, accept

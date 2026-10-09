@@ -91,6 +91,9 @@ def test_validation_errors_expose_taxonomy_and_scalar_x():
     with pytest.raises(MethodIncompatibility, match="estimator must be"):
         callaway_santanna(df, y="y", g="g", t="t", i="i", estimator="bogus")
     # clustervars under panel=False works with the analytic SEs too.
+    # (The cluster has to cut across cohort x period cells: clustering on
+    # the cohort itself gives cluster sums of zero and is refused.)
+    df["region"] = pd.factorize(df["i"])[0] % 5
     r = callaway_santanna(
         df,
         y="y",
@@ -98,10 +101,11 @@ def test_validation_errors_expose_taxonomy_and_scalar_x():
         t="t",
         i="i",
         panel=False,
-        clustervars=["i", "g"],
+        clustervars=["i", "region"],
         bstrap=False,
     )
     assert r.model_info["se_method"] == "analytic"
+    assert r.se > 0
 
 
 def test_no_cohorts_raises():
