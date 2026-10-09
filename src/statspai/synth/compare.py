@@ -68,7 +68,8 @@ def _extract_pre_rmspe(result: CausalResult) -> float:
     """Extract pre-treatment RMSPE from a CausalResult.
 
     Searches ``model_info`` for common key names used across SCM variants.
-    Falls back to ``np.inf`` if unavailable.
+    Missing when the method reports none (synthetic DID fits an intercept,
+    so it has no level fit to report): ``inf`` would read as "worst fit".
     """
     mi = getattr(result, "model_info", {}) or {}
     # Classic / demeaned / robust store pre_treatment_mspe
@@ -80,21 +81,30 @@ def _extract_pre_rmspe(result: CausalResult) -> float:
         val = mi.get(key)
         if val is not None:
             return float(val)
-    return np.inf
+    return float("nan")
 
 
-def _extract_n_effective_donors(result: CausalResult) -> int:
-    """Count donors with weight > 0.01 (effective donors)."""
+def _extract_n_effective_donors(result: CausalResult) -> float:
+    """Count donors with weight > 0.01 (effective donors).
+
+    Missing when the method exposes no donor weights. The size of the
+    donor pool is not a substitute: classic SCM on 38 donors typically
+    puts weight on a handful.
+    """
     mi = getattr(result, "model_info", {}) or {}
-    weights = mi.get("donor_weights")
-    if weights is not None:
+    for key in ("donor_weights", "weights", "unit_weights"):
+        weights = mi.get(key)
+        if weights is None:
+            continue
+        if isinstance(weights, pd.DataFrame):
+            if "weight" not in weights.columns:
+                continue
+            weights = weights["weight"]
         if isinstance(weights, dict):
-            return int(sum(1 for w in weights.values() if abs(w) > 0.01))
-        if isinstance(weights, (np.ndarray, pd.Series)):
-            return int(np.sum(np.abs(weights) > 0.01))
-    # Fallback: return total donors
-    n = mi.get("n_donors")
-    return int(n) if n is not None else 0
+            weights = list(weights.values())
+        values = np.asarray(weights, dtype=float)
+        return float(np.sum(np.abs(values) > 0.01))
+    return float("nan")
 
 
 # ====================================================================== #
@@ -357,6 +367,7 @@ def synth_compare(
     methods: Optional[List[str]] = None,
     placebo: bool = True,
     alpha: float = 0.05,
+    seed: Optional[int] = None,
     **kwargs: Any,
 ) -> SynthComparison:
     """Run multiple SCM variants and compare them side by side.
@@ -386,6 +397,11 @@ def synth_compare(
         Whether to run placebo inference for each method.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    seed : int, optional
+        Random seed for the methods whose inference resamples (synthetic
+        DID's placebo or bootstrap standard error, for one). It is passed
+        only to the methods that take a ``seed``; the deterministic ones
+        ignore it. Without it those rows change from run to run.
     **kwargs
         Additional keyword arguments forwarded to ``synth()``.
 
@@ -427,10 +443,11 @@ def synth_compare(
     for method_name in methods:
         t0 = _time.time()
         failure: Optional[BaseException] = None
-        try:
+
+        def _fit(extra: Dict[str, Any]) -> CausalResult:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                res = synth(
+                return synth(
                     data=data,
                     outcome=outcome,
                     unit=unit,
@@ -440,8 +457,20 @@ def synth_compare(
                     method=method_name,
                     placebo=placebo,
                     alpha=alpha,
-                    **kwargs,
+                    **extra,
                 )
+
+        try:
+            if seed is None:
+                res = _fit(kwargs)
+            else:
+                try:
+                    res = _fit({**kwargs, "seed": seed})
+                except TypeError as exc:
+                    # A deterministic method has no seed to set.
+                    if "unexpected keyword" not in str(exc) or "seed" not in str(exc):
+                        raise
+                    res = _fit(kwargs)
         except TypeError as exc:
             if "unexpected keyword" in str(exc):
                 # A misspelled option is the caller's error, not this

@@ -1475,6 +1475,10 @@ class MatchEstimator:
         setattr(result, "matched_data", matched_data)
         if matched_data is not None:
             result.model_info["matched_data"] = matched_data
+            # What sp.love_plot / sp.balanceplot need to redo the balance
+            # table on the matched sample.
+            result.model_info["treat"] = self.treat
+            result.model_info["covariates"] = list(self.covariates)
         return result
 
     # ==================================================================

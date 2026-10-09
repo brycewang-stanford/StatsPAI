@@ -29,8 +29,9 @@ High-Dimensional Metrics." *The R Journal*, 8(2), 185-199.
 [@chernozhukov2016hdm] — reference R implementation (``rlassoIV``).
 """
 
+import re
 import warnings
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -39,6 +40,53 @@ from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
+
+
+def _parse_liml_formula(
+    formula: str,
+) -> Tuple[str, List[str], List[str], List[str]]:
+    """Split an IV formula into ``(y, x_exog, x_endog, z)``.
+
+    Two spellings are read: ``"y ~ x_exog | x_endog | z"`` and the
+    parenthesised ``"y ~ x_exog + (x_endog ~ z)"``, where the bracket may
+    sit anywhere among the exogenous terms. Anything else is rejected:
+    a formula that is only half understood would put controls among the
+    instruments without saying so.
+    """
+
+    def _terms(text: str) -> List[str]:
+        return [v.strip() for v in text.split("+") if v.strip() not in ("", "1")]
+
+    if formula.count("~") < 1:
+        raise MethodIncompatibility(
+            f"liml could not read the formula {formula!r}: no '~'.",
+            recovery_hint='Write "y ~ x_exog + (x_endog ~ z)".',
+        )
+    lhs, rhs = formula.split("~", 1)
+    brackets = re.findall(r"\(([^()~]+)~([^()]+)\)", rhs)
+    if brackets:
+        rest = re.sub(r"\(([^()~]+)~([^()]+)\)", "", rhs)
+        if len(brackets) > 1 or "(" in rest or ")" in rest or "~" in rest:
+            raise MethodIncompatibility(
+                f"liml could not read the formula {formula!r}: expected "
+                "exactly one '(x_endog ~ z)' block.",
+                recovery_hint=(
+                    "List every endogenous regressor and every excluded "
+                    'instrument inside one bracket, e.g. "y ~ x + (d1 + d2 ~ '
+                    'z1 + z2 + z3)", or pass y=, x_endog=, x_exog=, z=.'
+                ),
+            )
+        return lhs.strip(), _terms(rest), _terms(brackets[0][0]), _terms(brackets[0][1])
+    parts = rhs.split("|")
+    if len(parts) != 3 or "(" in rhs or ")" in rhs or "~" in rhs:
+        raise MethodIncompatibility(
+            f"liml could not read the formula {formula!r}.",
+            recovery_hint=(
+                'Write "y ~ x_exog + (x_endog ~ z)" or "y ~ x_exog | x_endog '
+                '| z", or pass y=, x_endog=, x_exog=, z=.'
+            ),
+        )
+    return lhs.strip(), _terms(parts[0]), _terms(parts[1]), _terms(parts[2])
 
 
 @accepts_aliases(vce="robust")
@@ -67,6 +115,8 @@ def liml(
     ----------
     formula : str, optional
         Formula: "y ~ x_exog | x_endog | z" or "y ~ x_exog + (x_endog ~ z)".
+        The bracket may sit anywhere among the exogenous terms; a formula
+        in neither form is rejected.
     data : pd.DataFrame
     y : str
         Outcome variable.
@@ -107,13 +157,7 @@ def liml(
     """
     if formula is not None:
         # Parse IV formula
-        parts = formula.replace("(", "|").replace(")", "").replace("~", "|").split("|")
-        if len(parts) >= 3:
-            y = parts[0].strip()
-            x_exog = [v.strip() for v in parts[1].split("+") if v.strip()]
-            x_endog = [v.strip() for v in parts[2].split("+") if v.strip()]
-            if len(parts) >= 4:
-                z = [v.strip() for v in parts[3].split("+") if v.strip()]
+        y, x_exog, x_endog, z = _parse_liml_formula(formula)
 
     if x_exog is None:
         x_exog = []

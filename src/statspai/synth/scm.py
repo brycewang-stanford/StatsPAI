@@ -2059,6 +2059,28 @@ class SyntheticControl:
             ):
                 weight_class_reps.append(candidate)
 
+        if solver_out.get("in_predictor_hull") is True and (
+            self.perfect_fit == "legacy"
+        ):
+            # Documented under ``perfect_fit``, but it used to be silent:
+            # one covariate and 38 donors returned 36 non-zero weights and
+            # a pre-period RMSPE seven times the outcome-only fit.
+            warnings.warn(
+                "The predictors do not pin down the donor weights: the "
+                "treated unit lies inside the convex hull of the donors' "
+                "predictors, so infinitely many weight vectors fit them "
+                "exactly and the minimum-norm one is returned. The "
+                "pre-treatment outcome path was not part of the fit unless "
+                "listed. Add pre-treatment outcomes through "
+                "special_predictors=[(outcome, [periods], 'mean'), ...], or "
+                "pass perfect_fit='exact_balance' to choose, among the "
+                "exactly balancing weights, the ones that track the "
+                "pre-treatment outcome best. See "
+                "model_info['in_predictor_hull'].",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # --- Model info ---
         model_info: Dict[str, Any] = {
             "backend": "native",

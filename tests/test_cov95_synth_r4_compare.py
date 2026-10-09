@@ -153,5 +153,16 @@ def test_extract_n_effective_donors_array():
 
 
 def test_extract_n_effective_donors_fallback():
+    # The size of the donor pool is not a count of donors with weight.
     r = _R({"n_donors": 7})
-    assert _compare._extract_n_effective_donors(r) == 7
+    assert np.isnan(_compare._extract_n_effective_donors(r))
+
+
+def test_extract_n_effective_donors_weight_frames():
+    frame = pd.DataFrame({"unit": list("abc"), "weight": [0.6, 0.4, 0.0]})
+    assert _compare._extract_n_effective_donors(_R({"weights": frame})) == 2
+    assert _compare._extract_n_effective_donors(_R({"unit_weights": frame})) == 2
+    # A frame with no weight column is passed over, not miscounted.
+    assert np.isnan(
+        _compare._extract_n_effective_donors(_R({"weights": frame[["unit"]]}))
+    )

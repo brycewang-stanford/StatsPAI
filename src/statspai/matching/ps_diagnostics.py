@@ -391,9 +391,34 @@ def _smd(
         var_t, var_c = _group_variance(x_t, w_t), _group_variance(x_c, w_c)
 
     denom = np.sqrt((var_t + var_c) / 2.0)
-    if not np.isfinite(denom) or denom < 1e-12:
+    if not np.isfinite(denom) or not np.isfinite(mean_t - mean_c):
+        # An undefined statistic is not a balanced one.
+        return float("nan")
+    if denom < 1e-12:
         return 0.0
     return float((mean_t - mean_c) / denom)
+
+
+def _balance_weights(w: np.ndarray, D: np.ndarray) -> np.ndarray:
+    """Validate balance weights; a missing weight means "not in the sample".
+
+    Matched frames mark the rows that were not matched with a missing
+    ``_weight`` (the ``psmatch2`` convention), so a missing weight is read
+    as zero. Negative or infinite weights, and a treatment arm whose
+    weights sum to zero, are errors: every weighted statistic would be
+    undefined, and an undefined statistic must not be reported as balance.
+    """
+    w = np.asarray(w, dtype=float).copy()
+    w[np.isnan(w)] = 0.0
+    if np.isinf(w).any() or (w < 0).any():
+        raise ValueError("Balance weights must be finite and non-negative.")
+    for arm, label in ((1, "treated"), (0, "control")):
+        if float(w[D == arm].sum()) <= 0:
+            raise ValueError(
+                f"The {label} group has no positive weight, so weighted "
+                "balance is undefined."
+            )
+    return w
 
 
 def _variance_ratio(
@@ -624,6 +649,8 @@ def ps_balance(
     weights : array-like, optional
         IPW or matching weights.  If None, inverse-PS weights are
         computed automatically from estimated propensity scores.
+        A missing weight means the row is outside the weighted sample
+        (unmatched rows of a matched frame) and counts as zero.
     method : str
         PS estimation method ('logit', 'probit', 'gbm').
     sd_denom : {'weighted', 'unweighted'}, default 'weighted'
@@ -671,7 +698,7 @@ def ps_balance(
 
     # Compute IPW weights if not supplied
     if weights is not None:
-        w = np.asarray(weights, dtype=float)
+        w = _balance_weights(np.asarray(weights, dtype=float), D)
     else:
         # ATE weights: 1/e for treated, 1/(1-e) for control
         w = np.where(D == 1, 1.0 / ps_vals, 1.0 / (1.0 - ps_vals))
@@ -814,7 +841,8 @@ def balance_diagnostics(
         w_vals = np.where(D == 1, 1.0 / ps_vals, 1.0 / (1.0 - ps_vals))
         w_series = pd.Series(w_vals, index=df.index, name="weights")
     else:
-        w_vals = w_series.to_numpy(dtype=float)
+        w_vals = _balance_weights(w_series.to_numpy(dtype=float), D)
+        w_series = pd.Series(w_vals, index=df.index, name="weights")
 
     treat_mask = D == 1
     ctrl_mask = D == 0
@@ -1103,6 +1131,7 @@ def love_plot(
         Covariate columns.
     weights : array-like, optional
         IPW or matching weights.  If None, inverse-PS weights are computed.
+        A missing weight counts as zero (an unmatched row).
     threshold : float
         SMD threshold for the vertical dashed line (default 0.1).
     ps_method : str
@@ -1169,8 +1198,13 @@ def _unpack_matching_result(
             )
         return data, treatment, covariates, weights
 
-    res_treat = getattr(data, "treat", None) or getattr(data, "treatment", None)
-    res_covs = getattr(data, "covariates", None)
+    info = getattr(data, "model_info", None) or {}
+    res_treat = (
+        getattr(data, "treat", None)
+        or getattr(data, "treatment", None)
+        or info.get("treat")
+    )
+    res_covs = getattr(data, "covariates", None) or info.get("covariates")
     frame = getattr(data, "matched_data", None)
     if frame is None:
         frame = getattr(data, "data", None)
@@ -1179,8 +1213,10 @@ def _unpack_matching_result(
             f"love_plot() cannot read a balance specification off a "
             f"{type(data).__name__}.",
             recovery_hint=(
-                "Pass a fitted sp.psmatch2 / sp.match result, or the "
-                "explicit love_plot(df, treatment=..., covariates=[...])."
+                "Pass a result that carries a matched sample (sp.psmatch2, "
+                "or sp.match with a nearest-neighbour, stratification or "
+                "CEM method), or the explicit love_plot(df, treatment=..., "
+                "covariates=[...], weights=...)."
             ),
         )
     # Matched samples carry a per-row weight from the matching step;

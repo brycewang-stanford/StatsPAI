@@ -37,6 +37,35 @@ support; unweighted `drdid`; `did_multiplegt` rows that were estimable.
 Code that read a `did_multiplegt` placebo of exactly 0 as "no pre-trend"
 should check for a missing value.
 
+## Unreleased: ⚠️ `sp.liml` formulas with the bracket first
+
+**What changed.** `sp.liml("y ~ (d ~ z1 + z2) + x1 + x2", data=df)` used
+to treat `x1` and `x2` as excluded instruments and leave them out of the
+structural equation. It now reads them as exogenous controls, as
+`sp.ivreg` and `sp.iv(method="liml")` always have. A formula that is in
+neither the bracket form nor `"y ~ x | d | z"` raises
+`MethodIncompatibility`.
+
+**What to do.** Rerun any `sp.liml` call whose formula puts the bracket
+before the controls: the coefficients change, and the old ones were not
+the LIML estimate of the model as written. Formulas written
+`"y ~ x + (d ~ z)"`, calls with `y=, x_endog=, x_exog=, z=`, and
+`sp.iv(method="liml")` give the same numbers as before.
+
+## Unreleased: ⚠️ balance diagnostics with missing weights
+
+**What changed.** `sp.balance_diagnostics`, `sp.ps_balance` and
+`sp.love_plot` read a missing weight as zero. Before, a single missing
+weight (every unmatched row of a matched frame has one) turned each
+weighted standardized difference into 0.0000 and `balanced` into `True`.
+Negative or infinite weights, and a treatment arm with no positive weight,
+now raise `ValueError`.
+
+**What to do.** Recompute any balance table or love plot that was built
+from a matched frame's `_weight` column, including
+`sp.love_plot(sp.psmatch2(...))`. Tables built from complete weights are
+unchanged.
+
 ## 1.39.1 → 1.39.2: ⚠️ `sp.mswitch` and `sp.mswitch_lrtest` search on the standardised series
 
 **What changed.** The multi-start search runs on `y` divided by its

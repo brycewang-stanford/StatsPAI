@@ -316,6 +316,7 @@ def augsynth(
 
     return CausalResult(
         method="Augmented Synthetic Control (ASCM)",
+        _citation_key="augsynth",
         estimand="ATT",
         estimate=att,
         se=se,
@@ -505,6 +506,7 @@ jsonlite::write_json(
 
     return CausalResult(
         method="Augmented Synthetic Control (R augsynth bridge backend)",
+        _citation_key="augsynth",
         estimand="ATT",
         estimate=float(payload["estimate"]),
         se=float("nan"),

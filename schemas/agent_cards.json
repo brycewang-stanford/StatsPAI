@@ -79508,7 +79508,7 @@
             "x-statspai-role": "column"
           },
           "weights": {
-            "description": "IPW or matching weights. If None, inverse-PS weights are computed automatically from estimated propensity scores.",
+            "description": "IPW or matching weights. If None, inverse-PS weights are computed automatically from estimated propensity scores. A missing weight means the row is outside the weighted sample (unmatched rows of a matched frame) and counts as zero.",
             "type": "string"
           }
         },
@@ -120376,6 +120376,10 @@
             "default": true,
             "description": "Whether to run placebo inference for each method.",
             "type": "boolean"
+          },
+          "seed": {
+            "description": "Random seed for the methods whose inference resamples (synthetic DID's placebo or bootstrap standard error, for one). It is passed only to the methods that take a ``seed``; the deterministic ones ignore it. Without it those rows change from run to run.",
+            "type": "integer"
           },
           "time": {
             "description": "Time period column.",
