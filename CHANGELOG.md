@@ -15,6 +15,13 @@ All notable changes to StatsPAI will be documented in this file.
   classes, so cross-fitting raised `AttributeError: ... has no attribute
   '__sklearn_tags__'`. They now define the tags (scikit-learn is still not
   imported by `import statspai`). Estimates are unchanged.
+- `sp.twowayfeweights` raises `DataInsufficient` when the fixed effects
+  absorb the treatment, for example a treatment that never changes within
+  a group. The check compared the residual sum of squares with exactly
+  zero. Rounding leaves about 1e-28 there, so the function returned a
+  coefficient near -4e12 with a standard error near 5e13. The residual
+  variation is now judged against the raw variation of the treatment.
+  Identified designs are unchanged.
 - `sp.logit_gof(groups=)` and `lroc` in `sp.stata` no longer depend on
   the machine when several rows share a covariate pattern. Rows with the
   same regressors have the same fitted probability but not always the same

@@ -426,7 +426,12 @@ def twowayfeweights(
     eps_r, rank_x = _partial_out(res[:, 0], res[:, 2:] if rhs else None, w[r])
     y_r, _ = _partial_out(res[:, 1], res[:, 2:] if rhs else None, w[r])
     denom = float(np.sum(w[r] * eps_r * eps_r))
-    if not denom > 0:
+    # a treatment the fixed effects absorb leaves rounding noise, not an
+    # exact zero, so the residual variation is judged against the raw one
+    d_raw = block[:, 0]
+    d_bar = float(np.sum(w[r] * d_raw) / np.sum(w[r]))
+    total = float(np.sum(w[r] * (d_raw - d_bar) ** 2))
+    if not denom > 1e-12 * total:
         raise DataInsufficient(
             "twowayfeweights: the treatment has no variation left after the "
             "fixed effects"
