@@ -255,7 +255,9 @@ class TestCallawaySantannaDegenerateClusters:
             )
 
     def test_cluster_made_of_whole_cells_is_refused_in_cross_sections(self, panel):
-        with pytest.raises(MethodIncompatibility, match="identically zero"):
+        with pytest.raises(
+            MethodIncompatibility, match="constant within every cohort x period cell"
+        ):
             sp.callaway_santanna(
                 panel,
                 y="y",

@@ -179,14 +179,43 @@ def test_unconditional_reg_rcs_matches_the_panel_simple_att(mpdta):
 
 
 def test_clustervars_under_rcs_give_clustered_analytic_ses(mpdta):
-    """RCS clusters with the analytic SEs too (Stata csdid, cluster())."""
+    """RCS clusters with the analytic SEs too (Stata csdid, cluster()).
+
+    The cluster is the state (the first two digits of the county FIPS
+    code). This test used to cluster on the cohort, which is made of whole
+    cohort x period cells: every clustered SE was about 1e-16, and "differs
+    from the unclustered SE" passed on that. Such a cluster is now refused.
+    """
+    by_state = mpdta.assign(state=mpdta["countyreal"] // 1000)
     r = _rcs_fit(
-        mpdta,
+        by_state,
         "dr",
         "nevertreated",
-        clustervars=["countyreal", "first_treat"],
+        clustervars=["countyreal", "state"],
     )
     plain = _rcs_fit(mpdta, "dr", "nevertreated")
     assert r.model_info["se_method"] == "analytic"
     np.testing.assert_allclose(r.detail["att"], plain.detail["att"])
     assert not np.allclose(r.detail["se"], plain.detail["se"])
+    # mpdta is a balanced panel, so summing the row-level influence
+    # functions within state gives the panel estimator's state-clustered
+    # SEs: the same sums, in another order.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        panel = sp.callaway_santanna(
+            by_state,
+            y="lemp",
+            g="first_treat",
+            t="year",
+            i="countyreal",
+            base_period="varying",
+            estimator="dr",
+            control_group="nevertreated",
+            clustervars=["countyreal", "state"],
+        )
+    np.testing.assert_allclose(r.detail["se"], panel.detail["se"], rtol=1e-8)
+
+    with pytest.raises(
+        MethodIncompatibility, match="constant within every cohort x period cell"
+    ):
+        _rcs_fit(mpdta, "dr", "nevertreated", clustervars=["countyreal", "first_treat"])

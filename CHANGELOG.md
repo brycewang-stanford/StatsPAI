@@ -51,8 +51,10 @@ turned up inputs on which a wrong number came back.
   two cluster choices.** With `allow_unbalanced_panel=True` on a balanced
   panel, a cluster that varies within unit was accepted (the same call
   without the flag was refused). With `panel=False`, a cluster made of
-  whole cohort-by-period cells, the period itself for example, has
-  cluster sums of exactly zero. Both now raise `MethodIncompatibility`.
+  whole cohort-by-period cells (the period, or the cohort itself) gets
+  nothing from the cells that matter: the standard error is exactly zero
+  against never-treated units and a small fraction of the unclustered one
+  otherwise. Both now raise `MethodIncompatibility`.
 - **The relative-magnitudes confidence set of `sp.honest_did` came back
   empty when the estimate was more than 20 standard errors from zero**,
   and `sp.breakdown_m(method='relative_magnitude')` then reported a
