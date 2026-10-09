@@ -115,17 +115,17 @@ turned up inputs on which a wrong number came back.
   stacked, and the ones it could not use in `skipped_cohorts`. The list
   used to include both while `n_cohorts` counted the first kind only.
 
-#### Known issue
+#### Track C re-timed
 
-- `python scripts/trace_perf_path.py --check` now reports the Track C
-  timings of `02_csdid` and `03_scm` as stale, because `did/_core.py`,
-  `did/callaway_santanna.py` and `synth/scm.py` changed. None of the
-  changes is on the code the benchmarks time (integer time returns before
-  the cohort lookup; the cluster checks run only when a cluster is given;
-  the sdid branch is not the timed estimator), so the timings were not
-  re-measured. They are due at the next re-anchor of the JSS paper.
-  `04_dml` is stale for the same kind of reason: the fold-label check in
-  `dml/_base.py` runs once per fit, before cross-fitting.
+- The fixes above touch four files on the paths the Track C benchmarks
+  time (`did/_core.py`, `did/callaway_santanna.py`, `synth/scm.py`,
+  `dml/_base.py`), so `python scripts/trace_perf_path.py --check` reported
+  `02_csdid`, `03_scm` and `04_dml` as stale. All four modules were
+  re-timed on an idle machine on 2026-10-10 (every step under a load of
+  1.5) and the check passes again. No ratio moved by more than its run
+  to run noise: HDFE 1.82 / 0.85 / 0.61 (was 1.80 / 0.85 / 0.64), CS-DiD
+  1.38 / 2.09 / 2.60 (1.39 / 1.94 / 2.60), SCM 1.04 / 1.07 / 3.49
+  (1.02 / 1.08 / 3.48), DML 1.17 / 1.10 / 1.07 (1.17 / 1.11 / 1.07).
 
 ### Teaching notebooks, and what writing them turned up
 
@@ -191,8 +191,8 @@ turned up inputs on which a wrong number came back.
   pre-treatment RMSPE of 11.5 against 1.7 for the outcome-only fit.
   Estimates are unchanged. The check is one dictionary lookup on the
   outcome-only path that Track C times, so `scripts/trace_perf_path.py`
-  lists `03_scm` as stale for this file as well; the timings were not
-  re-measured and are due at the next re-anchor of the JSS paper.
+  listed `03_scm` as stale for this file as well; the module was re-timed
+  on 2026-10-10 with the others (see "Track C re-timed" above).
 - `sp.synth(method="augmented").cite()` returns Ben-Michael, Feller and
   Rothstein (2021), not Abadie, Diamond and Hainmueller (2010).
 
