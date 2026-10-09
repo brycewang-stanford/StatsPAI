@@ -119801,7 +119801,7 @@
     "reference": "",
     "returns": {
       "class": "dict",
-      "description": "dict: Keys: * 'loo' -- leave-one-out DataFrame * 'time_placebo' -- time placebo DataFrame * 'donor_sensitivity' -- donor bootstrap DataFrame * 'rmspe_filter' -- RMSPE-filtered p-values DataFrame * 'summary' -- formatted string summary",
+      "description": "dict: Keys: * 'loo' -- leave-one-out DataFrame * 'time_placebo' -- time placebo DataFrame * 'donor_sensitivity' -- donor bootstrap DataFrame * 'rmspe_filter' -- RMSPE-filtered p-values DataFrame * 'original_att' -- the full-donor-pool estimate t...",
       "fields": {}
     },
     "signature": {
