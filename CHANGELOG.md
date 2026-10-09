@@ -81,6 +81,75 @@ turned up inputs on which a wrong number came back.
   the sdid branch is not the timed estimator), so the timings were not
   re-measured. They are due at the next re-anchor of the JSS paper.
 
+### Teaching notebooks, and what writing them turned up
+
+#### Added
+
+- Ten offline tutorials in `examples/notebooks/`, with prose and code
+  comments in Chinese and their executed outputs committed: staggered
+  DiD, instrumental variables, regression discontinuity, synthetic
+  control, matching and weighting, regression standard errors, panel
+  fixed effects, analysing a randomized experiment, heterogeneous
+  treatment effects, and g-methods. Each works a bundled dataset or a
+  simulation with a known truth and was run against this tree.
+- `sp.synth_compare(seed=)` fixes the random seed of the methods whose
+  inference resamples (synthetic DID's placebo standard error, for one).
+  Those rows used to change from run to run and could not be pinned,
+  because a `seed` forwarded to every method was rejected by the
+  deterministic ones.
+- `sp.love_plot` accepts an `sp.match` result that carries a matched
+  sample (nearest-neighbour, stratification, CEM). It used to refuse one
+  with a message that asked for exactly that.
+
+#### ⚠️ Correctness
+
+- **`sp.liml` read the formula `"y ~ (d ~ z) + x"` wrongly.** With the
+  bracket written first, every control after it was taken for an excluded
+  instrument and dropped from the structural equation, and nothing was
+  said. On the Card (1995) data the return to schooling came out as 0.013
+  where `sp.iv(..., method="liml")` and the explicit
+  `y=, x_endog=, x_exog=, z=` call give 0.175. Only the order documented
+  in the docstring, `"y ~ x + (d ~ z)"`, was read correctly. The bracket
+  may now sit anywhere among the exogenous terms, and a formula in neither
+  the bracket nor the `"y ~ x | d | z"` form is rejected. Calls that
+  passed the variables by name, and `sp.iv(method="liml")`, are unchanged.
+  See MIGRATION.md.
+- **`sp.balance_diagnostics`, `sp.ps_balance` and `sp.love_plot` reported
+  perfect balance when a weight was missing.** A matched frame marks the
+  rows that were not matched with a missing `_weight`. One missing weight
+  made the weighted control mean NaN, the standardized difference was then
+  returned as 0.0000 for every covariate, and `balanced` was `True`. On
+  the Lalonde data after one-to-one propensity matching the true values
+  are 0.20 for age and 0.16 for marital status, both above the 0.1
+  threshold. This also affected `sp.love_plot(sp.psmatch2(...))`, which
+  takes its weights from that column. A missing weight now counts as zero,
+  which is what it means; negative or infinite weights, and an arm whose
+  weights sum to zero, are errors; and a standardized difference that
+  cannot be computed is NaN, not 0.
+
+#### Fixed
+
+- `sp.synth_compare`: the `pre_rmspe` of a method that reports no level
+  fit (synthetic DID) is missing, where it was `inf`, and
+  `n_effective_donors` counts the donors with weight above 0.01 for
+  classic, demeaned, augmented and synthetic DID results. It used to fall
+  back to the size of the donor pool (38 for the Proposition 99 classic
+  fit, which puts weight on 6) or to 0. The column is now a float so that
+  a missing count can be told apart from zero.
+- `sp.synth(method="classic")` warns when the predictors do not determine
+  the donor weights: the treated unit lies inside the convex hull of the
+  donors' predictors, so infinitely many weight vectors fit them exactly.
+  The behaviour was documented under `perfect_fit` and reported in
+  `model_info["in_predictor_hull"]`, but the call was silent. With one
+  covariate and 38 donors it returned 36 non-zero weights and a
+  pre-treatment RMSPE of 11.5 against 1.7 for the outcome-only fit.
+  Estimates are unchanged. The check is one dictionary lookup on the
+  outcome-only path that Track C times, so `scripts/trace_perf_path.py`
+  lists `03_scm` as stale for this file as well; the timings were not
+  re-measured and are due at the next re-anchor of the JSS paper.
+- `sp.synth(method="augmented").cite()` returns Ben-Michael, Feller and
+  Rothstein (2021), not Abadie, Diamond and Hainmueller (2010).
+
 ### Newer scikit-learn, pandas and rdrobust
 
 #### Fixed
