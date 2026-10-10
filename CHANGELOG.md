@@ -144,8 +144,10 @@ turned up inputs on which a wrong number came back.
   to rounding, and whether that is 0 or 1e-17 depends on the estimator
   and on the linear algebra library: on Linux a bootstrap replicate with
   a constant outcome was studentised by 1e-17, and on a noise-free panel
-  the simulation scored every estimator but one as a valid draw. Both
-  compare the standard error with 1e-10 of the outcome's size.
+  the simulation scored every estimator but one as a valid draw. The
+  bootstrap compares the standard error with 1e-10 of the outcome's size
+  and the simulation with 1e-6 (a variance of rounding size, 1e-16, has
+  a square root of 1e-8).
 - `sp.rdplot` and `rdplot_numbers` no longer crash when the outcome is
   constant on one side of the cutoff (`cannot convert float NaN to
   integer`). That side gets one bin, which is exact.

@@ -325,7 +325,9 @@ def test_noise_free_panel_is_recorded_as_unusable_not_scored(name):
     # to rounding. Which estimators return exactly 0 and which return 1e-17
     # depends on the estimator and on the BLAS (etwfe gave exactly 0 on
     # macOS and a rounding-size number on Linux), so the scorer compares
-    # the SE with 1e-10 of the outcome's size, and none of them is scored.
+    # the SE with 1e-6 of the outcome's size, and none of them is scored.
+    # (1e-10 was not enough on Linux: a rounding-size variance of 1e-16
+    # has a square root of 1e-8.)
     assert int(study.table["n_ok"].iloc[0]) == 0
     assert len(study.failures) == 2
     assert study.failures["failure"].str.contains("unusable fit").all()

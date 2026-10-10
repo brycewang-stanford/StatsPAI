@@ -645,11 +645,17 @@ def _fit_one(frame: pd.DataFrame, opt: _Options) -> Dict[str, Dict[str, Any]]:
             warnings.simplefilter("always")
             try:
                 est, se = _ADAPTERS[name](frame, opt)
-                # An exact fit leaves a standard error of zero up to
-                # rounding: exactly 0 from one estimator, 1e-17 from
-                # another, and which one depends on the BLAS. Anything
-                # below 1e-10 of the outcome's size is that.
-                se_floor = 1e-10 * float(np.max(np.abs(frame[_Y].to_numpy())))
+                # An exact fit leaves a VARIANCE of zero up to rounding,
+                # about 1e-16 of the squared outcome scale and of either
+                # sign. An estimator that clips a negative variance reports
+                # se = 0; one that does not reports sqrt(1e-16) = 1e-8 of
+                # the outcome scale, and an iterative within transform
+                # stops at a tolerance of the same order. Which of these
+                # happens depends on the estimator and on the BLAS (etwfe:
+                # exactly 0 on macOS, above 1e-10 of the scale on Linux).
+                # So the floor sits on the standard-error scale, two orders
+                # above sqrt(machine epsilon).
+                se_floor = 1e-6 * float(np.max(np.abs(frame[_Y].to_numpy())))
                 if not np.isfinite(est) or not np.isfinite(se) or se <= se_floor:
                     # Some estimators answer a degenerate design with a
                     # point estimate and no standard error. Scoring that as
