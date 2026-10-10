@@ -45,6 +45,11 @@ Rules:
   modules. All 28 were re-run first and reproduce the committed
   `*_py.json` (fixtures byte-identical, worst relative difference 5e-12);
   all 12 original-data modules reproduce (worst 1.6e-11, LaLonde exact).
+- **Follow-up, same day.** The Linux spot check of these tests failed
+  one case on Python 3.12 and 3.13 (`sp.regress(hac_panel=("g", "g"))`
+  raised pandas' `TypeError`); the fix is in `regression/ols.py`, so
+  modules 01 14 51 53 54 55 56 and the original-data set were re-run
+  (all reproduce) and re-recorded again in the commit after this one.
 - **Effect on the paper.** None. No result file changed and no file on
   the Track C timed path changed. The fixes are to calls the parity
   tables do not make: matching with weights, an ATE or a covariate

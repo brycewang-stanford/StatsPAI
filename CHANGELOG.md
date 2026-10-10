@@ -145,7 +145,9 @@ without the options named below, and every forest average.
 - Several inputs that ended in a `TypeError`, `KeyError` or
   `AttributeError` raise an error that says what is wrong:
   `sp.regress(cluster=[a, b, c])`, `sp.ivreg(vce='cr2', method='liml')`,
-  `sp.zip_model` with `C(g)` in the formula.
+  `sp.zip_model` with `C(g)` in the formula, and `sp.regress(hac_panel=)`
+  given the same column as panel and time (a `TypeError` under pandas
+  2.3 and later).
 
 #### Known issues
 

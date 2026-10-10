@@ -1092,6 +1092,15 @@ class OLSRegression(BaseModel):
             raise MethodIncompatibility(
                 f"regress: hac_panel column(s) {missing} are not in the data."
             )
+        if names[0] == names[1]:
+            # Selecting the same column twice gives a frame with a repeated
+            # label, and what pandas then does with it depends on its version.
+            raise MethodIncompatibility(
+                f"regress: {names[0]!r} is given as both the panel and the "
+                "time column, so they do not identify the rows; a panel "
+                "Newey-West estimator needs one row per unit and period.",
+                recovery_hint="hac_panel=('firm', 'year').",
+            )
         frame = self.data[names]
         if design_index is not None:
             frame = frame.reindex(design_index)
