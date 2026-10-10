@@ -66,6 +66,23 @@ Rules:
   - `tests/perf/results/04_dml_py.json`
   - `tests/perf/results/_timed_path.json`
 
+### 2026-10-10 — call traces re-recorded for the zero-standard-error floor
+
+- **Commit.** `4c54b9c5`.
+- **Reason.** `rd/rdrobust.py` (the rbc bootstrap) and
+  `did/calibrated_simulation.py` compare a standard error with 1e-10 of
+  the outcome's size instead of with exactly zero; the nightly run failed
+  on Linux because the old test was platform-dependent. `rdrobust.py` is
+  on the estimation path of Track A modules 06 and 89 and of the
+  original-data Lee module, so their traces were re-recorded. All three
+  were re-run first and reproduce the committed `*_py.json` byte for
+  byte.
+- **Effect on the paper.** None. No result file changed, and no file on
+  the Track C timed path changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-10 — call traces re-recorded after the coverage-pass fixes
 
 - **Commits.** `e631e767`, `cdd4f719`, `baa34df7`, `b159761f`.
