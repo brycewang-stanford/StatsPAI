@@ -432,12 +432,58 @@ def _coordinate_descent(
     -------
     w : (J,) weight vector.
     """
+    X = np.asarray(X)
+    y = np.asarray(y)
+    # Precompute column norms
+    col_norm_sq = np.sum(X**2, axis=0)  # (J,)
+    compiled = (
+        X.ndim == 2
+        and X.dtype == np.float64
+        and y.dtype == np.float64
+        and y.ndim == 1
+        and y.shape[0] == X.shape[0]
+        and X.shape[0] < 2**31
+        and X.shape[1] > 0  # no donors: the loop below raises, as before
+        # the layouts for which NumPy's own X[:, j] @ r is a BLAS ddot
+        and all(s > 0 and s % 8 == 0 for s in X.strides)
+    )
+    if compiled:
+        try:
+            from ._sparse_kernels import cd_loop, ddot  # numba, on first use
+        except ImportError:  # numba missing or broken: the interpreted loop
+            compiled = False
+    if not compiled:
+        return _coordinate_descent_loop(X, y, col_norm_sq, lambda_pen, max_iter, tol)
+    return np.asarray(
+        cd_loop(
+            ddot,
+            X,
+            np.ascontiguousarray(y),
+            col_norm_sq,
+            float(lambda_pen),
+            int(max_iter),
+            float(tol),
+        )
+    )
+
+
+def _coordinate_descent_loop(
+    X: np.ndarray,
+    y: np.ndarray,
+    col_norm_sq: np.ndarray,
+    lambda_pen: float,
+    max_iter: int,
+    tol: float,
+) -> np.ndarray:
+    """The sweep of ``_coordinate_descent``, interpreted.
+
+    ``_sparse_kernels.cd_loop`` is this loop compiled, operation for
+    operation; this one runs when numba cannot be imported and is the
+    reference the kernel is tested against.
+    """
     T, J = X.shape
     w = np.zeros(J, dtype=np.float64)
     r = y.copy()  # residual
-
-    # Precompute column norms
-    col_norm_sq = np.sum(X**2, axis=0)  # (J,)
 
     for _ in range(max_iter):
         w_old = w.copy()

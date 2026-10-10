@@ -1527,17 +1527,46 @@ def _sc_weight_fw(
     if intercept:
         Y_work = Y_work - Y_work.mean(axis=0, keepdims=True)
 
-    # synthdid:::fw.step + sc.weight.fw, with A x carried incrementally: a
-    # step moves x -> (1 - s) x + s e_i, so A x -> (1 - s) A x + s A[:, i],
-    # and every quantity below is the one fw.step forms, without re-forming
-    # the direction vector or the full residual each iteration.
     A = np.ascontiguousarray(Y_work[:, :n_weights])
     At = np.ascontiguousarray(A.T)
-    b = Y_work[:, n_weights]
+    b = np.ascontiguousarray(Y_work[:, n_weights])
     eta = n_rows * float(zeta) ** 2
     zeta2 = float(zeta) ** 2
     min_dec2 = float(min_decrease) ** 2
     ax = A @ weights
+    try:
+        from ._sdid_kernels import fw_loop  # numba: imported on first use
+    except ImportError:  # numba missing or broken: the interpreted loop
+        return _sc_weight_fw_loop(
+            A, At, b, weights, ax, eta, zeta2, min_dec2, int(max_iter)
+        )
+    return np.asarray(
+        fw_loop(A, At, b, weights, ax, eta, zeta2, min_dec2, int(max_iter))
+    )
+
+
+def _sc_weight_fw_loop(
+    A: np.ndarray,
+    At: np.ndarray,
+    b: np.ndarray,
+    weights: np.ndarray,
+    ax: np.ndarray,
+    eta: float,
+    zeta2: float,
+    min_dec2: float,
+    max_iter: int,
+) -> np.ndarray:
+    """The Frank-Wolfe iteration of ``_sc_weight_fw``, interpreted.
+
+    ``_sdid_kernels.fw_loop`` is this loop compiled, operation for
+    operation; this one runs when numba cannot be imported and is the
+    reference the kernel is tested against.
+    """
+    # synthdid:::fw.step + sc.weight.fw, with A x carried incrementally: a
+    # step moves x -> (1 - s) x + s e_i, so A x -> (1 - s) A x + s A[:, i],
+    # and every quantity below is the one fw.step forms, without re-forming
+    # the direction vector or the full residual each iteration.
+    n_rows = A.shape[0]
     prev = None
     for _ in range(max_iter):
         resid = ax - b

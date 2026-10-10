@@ -43,6 +43,7 @@ change of ``F`` falls below ``tol``.
 
 from __future__ import annotations
 
+import math
 import warnings
 from typing import Any, Dict, Optional
 
@@ -63,14 +64,17 @@ def _check_fixed_effects(fixed_effects: str) -> str:
 
 def _center(Z: np.ndarray, fixed_effects: str) -> np.ndarray:
     """Remove the (unpenalised) fixed-effect part of a complete matrix."""
+    # ``add.reduce(...) / count`` is what ``ndarray.mean`` evaluates, without
+    # its Python-level bookkeeping; the solver calls this once per iteration.
     if fixed_effects == "two-way":
-        return (
-            Z - Z.mean(axis=1, keepdims=True) - Z.mean(axis=0, keepdims=True) + Z.mean()
-        )
+        E = Z - np.add.reduce(Z, axis=1, keepdims=True) / Z.shape[1]
+        E -= np.add.reduce(Z, axis=0, keepdims=True) / Z.shape[0]
+        E += np.add.reduce(Z, axis=None) / Z.size
+        return np.asarray(E)
     if fixed_effects == "unit":
-        return Z - Z.mean(axis=1, keepdims=True)
+        return np.asarray(Z - np.add.reduce(Z, axis=1, keepdims=True) / Z.shape[1])
     if fixed_effects == "time":
-        return Z - Z.mean(axis=0, keepdims=True)
+        return np.asarray(Z - np.add.reduce(Z, axis=0, keepdims=True) / Z.shape[0])
     return Z
 
 
@@ -79,7 +83,14 @@ def _svt(E: np.ndarray, theta: float, max_rank: Optional[int] = None) -> Any:
     s_thr = np.maximum(s - theta, 0.0)
     if max_rank is not None:
         s_thr[max_rank:] = 0.0
-    return (U * s_thr) @ Vt, s_thr
+    U *= s_thr  # U is ours: scale it in place
+    return U @ Vt, s_thr
+
+
+def _fro(x: np.ndarray) -> float:
+    """``np.linalg.norm(x)`` for a real matrix: ``sqrt(x.ravel() . x.ravel())``."""
+    v = x.ravel()
+    return math.sqrt(v.dot(v))
 
 
 def mc_nnm_fit(
@@ -142,16 +153,26 @@ def mc_nnm_fit(
     L = np.zeros_like(F)
     s_thr = np.zeros(min(Y.shape))
     it = 0
+    # Each pass costs one thin SVD plus bookkeeping; the bookkeeping below
+    # is arranged to produce the same floats with fewer temporaries (the
+    # norm of the current fit is carried over from the previous pass).
+    centred = fixed_effects != "none"
+    norm_F = _fro(F)
     for it in range(1, max_iter + 1):
         Z = np.where(obs, Y0, F)
         E = _center(Z, fixed_effects)
         L, s_thr = _svt(E, theta, max_rank)
-        F_new = (Z - E) + L
-        rel = float(np.linalg.norm(F_new - F) / (np.linalg.norm(F) + 1e-300))
+        if centred:  # E is a new array and Z is ours: F_new = (Z - E) + L
+            F_new = np.subtract(Z, E, out=Z)
+            F_new += L
+        else:  # E is Z itself
+            F_new = (Z - E) + L
+        rel = _fro(F_new - F) / (norm_F + 1e-300)
         F = F_new
         if rel < tol:
             converged = True
             break
+        norm_F = _fro(F)
 
     if not converged and warn:
         warnings.warn(
