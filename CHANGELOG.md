@@ -51,6 +51,10 @@ manuscript stays anchored to 1.39.1.
   new option; it used to print that the model "recovers the truth" next
   to 2.77.
 
+- `.github/workflows/linux-spot-check.yml`: a dispatchable workflow that
+  runs chosen tests on Linux (Python 3.10 and 3.13, and pandas 3) in a
+  few minutes. A failure that only shows on Linux could until now be
+  checked only by a full run of two to five hours per cell.
 - `tests/test_example_notebooks.py`: the committed tutorials are checked
   on every run (executed, no error output, standard kernel, no local
   path, listed in the README, references resolvable in `paper.bib`), and

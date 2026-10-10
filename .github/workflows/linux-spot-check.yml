@@ -1,0 +1,74 @@
+name: Linux spot check
+
+# Run a chosen set of tests on Linux in a few minutes.
+#
+# Nobody on the project has a Linux machine, and the full matrix takes two
+# to five hours per cell. A failure that only shows on Linux (a BLAS that
+# rounds the other way, a platform default) could until now be checked only
+# by a full run. Dispatch this with the tests in question:
+#
+#   gh workflow run linux-spot-check.yml \
+#     -f pytest_args="tests/test_did.py::test_name tests/test_rd.py -k bootstrap"
+#
+# It does not replace the full run before a release; it tells you in
+# minutes whether a fix did what it was meant to do.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pytest_args:
+        description: 'Arguments for pytest (test paths, node ids, -k expressions)'
+        required: true
+        type: string
+      pandas3:
+        description: 'Also run a leg on pandas 3'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  STATSPAI_SKIP_RUST: '1'
+  MPLBACKEND: Agg
+
+jobs:
+  spot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.13']
+        pandas: ['default']
+        include:
+          - python-version: '3.12'
+            pandas: '3'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        if: matrix.pandas == 'default' || inputs.pandas3
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,fixest,io]"
+      - name: pandas 3
+        if: matrix.pandas == '3' && inputs.pandas3
+        run: pip install "pandas>=3,<4"
+      - name: Versions
+        if: matrix.pandas == 'default' || inputs.pandas3
+        run: python -c "import numpy, scipy, pandas, sklearn; print(numpy.__version__, scipy.__version__, pandas.__version__, sklearn.__version__); numpy.show_config()"
+      - name: pytest
+        if: matrix.pandas == 'default' || inputs.pandas3
+        env:
+          # Passed through the environment, never interpolated into the
+          # script, so the input cannot inject shell.
+          PYTEST_ARGS: ${{ inputs.pytest_args }}
+        run: |
+          # Word splitting is intended: the input is a list of arguments.
+          # shellcheck disable=SC2086
+          python -m pytest -o addopts='' -p no:cacheprovider -ra $PYTEST_ARGS
