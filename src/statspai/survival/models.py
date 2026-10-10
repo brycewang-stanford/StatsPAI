@@ -18,6 +18,7 @@ from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._cox_core import CoxKernel, harrell_c, km_left_survival
 
 # ---------------------------------------------------------------------------
 # Formula parser (local)
@@ -232,9 +233,8 @@ class CoxResult(EconometricResults):
         names = list(self.params.index)
         p = len(names)
 
-        times, U_k, V_k, resid_t, resid = _ph_score_pieces(
-            beta, X, T, E, np.asarray(strata), breslow
-        )
+        kern = CoxKernel(X, T, E, np.asarray(strata), breslow=breslow)
+        ev, times, U_k, resid_group, resid = kern.event_time_scores(beta)
         if len(times) < 2:
             raise DataInsufficient(
                 "ph_test needs at least two distinct event times.",
@@ -247,18 +247,25 @@ class CoxResult(EconometricResults):
             )
         ev_only = method == "approx"
         g_k = _ph_time_transform(transform, T, E, times, ev_only)
-        g_event = _ph_time_transform(transform, T, E, resid_t, ev_only)
         if not np.all(np.isfinite(g_k)):
             raise DataInsufficient(
                 f"ph_test: transform={transform!r} is not finite at every "
                 "event time (the log needs positive times).",
                 recovery_hint="Use transform='km' or 'rank'.",
             )
+        # g at each death is g at its event time
+        g_group = np.zeros(kern.rs.n_groups)
+        g_group[ev] = g_k
+        g_event = g_group[resid_group]
 
+        # The information of each event time enters only through three
+        # weighted sums, which need no per-time matrix.
+        is_event = np.zeros(kern.rs.n_groups)
+        is_event[ev] = 1.0
         U = np.einsum("k,kj->j", g_k, U_k)
-        I_bb = V_k.sum(axis=0)
-        I_bg = np.einsum("k,kij->ij", g_k, V_k)
-        I_gg = np.einsum("k,kij->ij", g_k**2, V_k)
+        I_bb = kern.information(beta, is_event)
+        I_bg = kern.information(beta, g_group)
+        I_gg = kern.information(beta, g_group**2)
         try:
             I_bb_inv = np.linalg.inv(I_bb)
         except np.linalg.LinAlgError:
@@ -525,52 +532,65 @@ def _km_table(
     events = np.asarray(events, dtype=float)
     n_total = len(durations)
 
-    unique_times = np.sort(np.unique(durations[events == 1]))
-    rows = []
-    survival = 1.0
-    var_sum = 0.0
     z = stats.norm.ppf(1 - alpha / 2)
 
-    for t in unique_times:
-        n_risk = np.sum(durations >= t)
-        n_event = np.sum((durations == t) & (events == 1))
-        n_censor = np.sum((durations == t) & (events == 0))
+    # One pass over the distinct times: the risk set at a time is everyone
+    # not yet counted out, so the counts are running totals.
+    all_times, inv, counts = np.unique(
+        durations, return_inverse=True, return_counts=True
+    )
+    dead_at = np.bincount(inv, weights=(events == 1), minlength=len(all_times))
+    cens_at = np.bincount(inv, weights=(events == 0), minlength=len(all_times))
+    risk_at = n_total - (np.cumsum(counts) - counts)
+    keep = dead_at > 0
+    unique_times = all_times[keep]
+    n_risk = risk_at[keep].astype(float)
+    n_event = dead_at[keep]
+    n_censor = cens_at[keep]
 
-        if n_risk > 0:
-            survival *= 1 - n_event / n_risk
-            # Greenwood variance
-            if n_risk > n_event:
-                var_sum += n_event / (n_risk * (n_risk - n_event))
+    survival = np.cumprod(1 - n_event / n_risk)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        # Greenwood variance; a time that empties the risk set adds nothing
+        inc = np.where(n_risk > n_event, n_event / (n_risk * (n_risk - n_event)), 0.0)
+    var_sum = np.cumsum(inc)
+    se = survival * np.sqrt(var_sum)
 
-        se = survival * np.sqrt(var_sum) if var_sum >= 0 else 0.0
-        if conf_type == "plain" or var_sum <= 0 or not 0.0 < survival < 1.0:
-            ci_lo = max(0.0, survival - z * se)
-            ci_hi = min(1.0, survival + z * se)
-            if conf_type != "plain" and survival <= 0.0:
-                ci_lo = ci_hi = np.nan  # undefined on the log scales
-        elif conf_type == "log":
-            # symmetric for log S(t): R survival::survfit's default
-            half = z * np.sqrt(var_sum)
-            ci_lo = survival * np.exp(-half)
-            ci_hi = min(1.0, survival * np.exp(half))
-        else:
-            # symmetric for log(-log S(t)): Stata sts list's default
-            half = z * np.sqrt(var_sum) / abs(np.log(survival))
-            ci_lo = survival ** np.exp(half)
-            ci_hi = survival ** np.exp(-half)
+    plain = (
+        (conf_type == "plain") | (var_sum <= 0) | ~((survival > 0.0) & (survival < 1.0))
+    )
+    ci_lo = np.maximum(0.0, survival - z * se)
+    ci_hi = np.minimum(1.0, survival + z * se)
+    if conf_type != "plain":
+        undefined = plain & (survival <= 0.0)  # undefined on the log scales
+        ci_lo[undefined] = np.nan
+        ci_hi[undefined] = np.nan
+        ok = ~plain
+        with np.errstate(divide="ignore", invalid="ignore"):
+            if conf_type == "log":
+                # symmetric for log S(t): R survival::survfit's default
+                half = z * np.sqrt(var_sum)
+                lo = survival * np.exp(-half)
+                hi = np.minimum(1.0, survival * np.exp(half))
+            else:
+                # symmetric for log(-log S(t)): Stata sts list's default
+                half = z * np.sqrt(var_sum) / np.abs(np.log(survival))
+                lo = survival ** np.exp(half)
+                hi = survival ** np.exp(-half)
+        ci_lo[ok] = lo[ok]
+        ci_hi[ok] = hi[ok]
 
-        rows.append(
-            {
-                "time": t,
-                "n_risk": int(n_risk),
-                "n_event": int(n_event),
-                "n_censor": int(n_censor),
-                "survival": survival,
-                "std_err": se,
-                "ci_lower": ci_lo,
-                "ci_upper": ci_hi,
-            }
-        )
+    body = pd.DataFrame(
+        {
+            "time": unique_times,
+            "n_risk": n_risk.astype(int),
+            "n_event": n_event.astype(int),
+            "n_censor": n_censor.astype(int),
+            "survival": survival,
+            "std_err": se,
+            "ci_lower": ci_lo,
+            "ci_upper": ci_hi,
+        }
+    )
 
     # Prepend time=0 row
     t0 = {
@@ -583,7 +603,9 @@ def _km_table(
         "ci_lower": 1.0,
         "ci_upper": 1.0,
     }
-    return pd.DataFrame([t0] + rows)
+    if not len(body):
+        return pd.DataFrame([t0])
+    return pd.concat([pd.DataFrame([t0]), body], ignore_index=True)
 
 
 # ===================================================================
@@ -762,49 +784,35 @@ def logrank_test(
     E = data[event].values.astype(float)
     G = data[group].values
 
-    event_times = np.sort(np.unique(T[E == 1]))
+    # Counts by (distinct time, group); the number at risk is everyone not
+    # yet counted out, a running total down the time axis.
+    times, t_idx = np.unique(T, return_inverse=True)
+    g_idx = pd.Series(G).map({g: k for k, g in enumerate(groups)}).to_numpy()
+    n_t = len(times)
+    flat = t_idx * K + g_idx
+    count = np.bincount(flat, minlength=n_t * K).reshape(n_t, K).astype(float)
+    dead = np.bincount(flat, weights=(E == 1), minlength=n_t * K).reshape(n_t, K)
+    risk = count[::-1].cumsum(axis=0)[::-1]
+    d_tot = dead.sum(axis=1)
+    keep = d_tot > 0
+    risk, dead, d_tot = risk[keep], dead[keep], d_tot[keep]
+    n_tot = risk.sum(axis=1)
 
-    observed = {g: 0.0 for g in groups}
-    expected = {g: 0.0 for g in groups}
-    var_mat = np.zeros((K - 1, K - 1))
+    obs_k = dead.sum(axis=0)
+    exp_k = (risk * (d_tot / n_tot)[:, None]).sum(axis=0)
+    observed = {g: float(obs_k[k]) for k, g in enumerate(groups)}
+    expected = {g: float(exp_k[k]) for k, g in enumerate(groups)}
 
-    for t in event_times:
-        at_risk_total = np.sum(T >= t)
-        events_total = np.sum((T == t) & (E == 1))
-
-        if at_risk_total == 0:
-            continue
-
-        for g in groups:
-            mask_g = G == g
-            n_g = np.sum(mask_g & (T >= t))
-            d_g = np.sum(mask_g & (T == t) & (E == 1))
-            observed[g] += d_g
-            e_g = n_g * events_total / at_risk_total
-            expected[g] += e_g
-
-        # Variance (hypergeometric)
-        if at_risk_total > 1:
-            for i in range(K - 1):
-                gi = groups[i]
-                ni = np.sum((G == gi) & (T >= t))
-                for j in range(i, K - 1):
-                    gj = groups[j]
-                    nj = np.sum((G == gj) & (T >= t))
-                    if i == j:
-                        v = (
-                            ni
-                            * (at_risk_total - ni)
-                            * events_total
-                            * (at_risk_total - events_total)
-                        ) / (at_risk_total**2 * (at_risk_total - 1))
-                    else:
-                        v = -(
-                            ni * nj * events_total * (at_risk_total - events_total)
-                        ) / (at_risk_total**2 * (at_risk_total - 1))
-                    var_mat[i, j] += v
-                    if i != j:
-                        var_mat[j, i] += v
+    # Variance (hypergeometric); a risk set of one contributes nothing
+    with np.errstate(divide="ignore", invalid="ignore"):
+        factor = np.where(
+            n_tot > 1, d_tot * (n_tot - d_tot) / (n_tot**2 * (n_tot - 1)), 0.0
+        )
+    r = risk[:, : K - 1]
+    var_mat = (
+        np.diag((r * (factor * n_tot)[:, None]).sum(axis=0))
+        - (r * factor[:, None]).T @ r
+    )
 
     # Test statistic
     O_E = np.array([observed[groups[i]] - expected[groups[i]] for i in range(K - 1)])
@@ -840,37 +848,7 @@ def _cox_neg_logpl_efron(
     breslow: bool = False,
 ) -> float:
     """Negative log partial likelihood (Efron, or Breslow, for ties)."""
-    n, p = X.shape
-    xb = X @ beta
-    nll = 0.0
-
-    if strata_arr is None:
-        strata_arr = np.zeros(n, dtype=int)
-
-    for s in np.unique(strata_arr):
-        mask = strata_arr == s
-        Ts, Es, xbs = T[mask], E[mask], xb[mask]
-        order = np.argsort(-Ts)  # descending
-        Ts, Es, xbs = Ts[order], Es[order], xbs[order]
-
-        event_times = np.unique(Ts[Es == 1])
-
-        for t in event_times:
-            at_risk = Ts >= t
-            events_at_t = (Ts == t) & (Es == 1)
-            d = events_at_t.sum()
-
-            risk_sum = np.exp(xbs[at_risk]).sum()
-            event_exp = np.exp(xbs[events_at_t])
-            event_xb_sum = xbs[events_at_t].sum()
-
-            nll -= event_xb_sum
-            event_exp_sum = event_exp.sum()
-            for ell in range(d):
-                c = 0.0 if breslow else ell / d
-                nll += np.log(risk_sum - c * event_exp_sum)
-
-    return float(nll)
+    return CoxKernel(X, T, E, strata_arr, breslow=breslow).neg_loglik(beta)
 
 
 def _cox_score_hessian_efron(
@@ -883,49 +861,7 @@ def _cox_score_hessian_efron(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Score vector and Hessian of Cox log partial likelihood (Efron or
     Breslow ties)."""
-    n, p = X.shape
-    xb = X @ beta
-    score = np.zeros(p)
-    hessian = np.zeros((p, p))
-
-    if strata_arr is None:
-        strata_arr = np.zeros(n, dtype=int)
-
-    for s in np.unique(strata_arr):
-        mask = strata_arr == s
-        Ts, Es, xbs, Xs = T[mask], E[mask], xb[mask], X[mask]
-        order = np.argsort(-Ts)
-        Ts, Es, xbs, Xs = Ts[order], Es[order], xbs[order], Xs[order]
-
-        event_times = np.unique(Ts[Es == 1])
-
-        for t in event_times:
-            at_risk = Ts >= t
-            events_at_t = (Ts == t) & (Es == 1)
-            d = events_at_t.sum()
-
-            w_r = np.exp(xbs[at_risk])
-            S0 = w_r.sum()
-            S1 = (Xs[at_risk] * w_r[:, None]).sum(axis=0)
-            S2 = (Xs[at_risk].T * w_r[None, :]) @ Xs[at_risk]
-
-            w_d = np.exp(xbs[events_at_t])
-            D0 = w_d.sum()
-            D1 = (Xs[events_at_t] * w_d[:, None]).sum(axis=0)
-            D2 = (Xs[events_at_t].T * w_d[None, :]) @ Xs[events_at_t]
-
-            score += Xs[events_at_t].sum(axis=0)
-
-            for ell in range(d):
-                c = 0.0 if breslow else ell / d
-                denom = S0 - c * D0
-                if denom <= 0:
-                    continue
-                weighted_x = (S1 - c * D1) / denom
-                score -= weighted_x
-                hessian -= (S2 - c * D2) / denom - np.outer(weighted_x, weighted_x)
-
-    return score, hessian
+    return CoxKernel(X, T, E, strata_arr, breslow=breslow).score_hessian(beta)
 
 
 def _cox_score_individual(
@@ -958,40 +894,7 @@ def _cox_score_individual(
     ``ties='efron'`` fit were off wherever event times were tied (2% on
     daily relapse data); with no ties the two coincide.
     """
-    n, p = X.shape
-    xb = X @ beta
-    scores = np.zeros((n, p))
-
-    if strata_arr is None:
-        strata_arr = np.zeros(n, dtype=int)
-
-    for s in pd.unique(strata_arr):
-        idx_s = np.where(strata_arr == s)[0]
-        Ts = T[idx_s]
-        Es = E[idx_s]
-        rs = np.exp(xb[idx_s])
-        Xs = X[idx_s]
-
-        for t in np.unique(Ts[Es == 1]):
-            at_risk = np.where(Ts >= t)[0]
-            dead = np.where((Ts == t) & (Es == 1))[0]
-            d = len(dead)
-            r_risk = rs[at_risk]
-            X_risk = Xs[at_risk]
-            S0 = r_risk.sum()
-            S1 = X_risk.T @ r_risk
-            D0 = rs[dead].sum()
-            D1 = Xs[dead].T @ rs[dead]
-            is_dead = np.isin(at_risk, dead)
-            for ell in range(d):
-                c = 0.0 if breslow else ell / d
-                denom = S0 - c * D0
-                xbar = (S1 - c * D1) / denom
-                w = np.where(is_dead, 1.0 - c, 1.0) * r_risk / denom
-                scores[idx_s[at_risk]] -= w[:, None] * (X_risk - xbar)
-                scores[idx_s[dead]] += (Xs[dead] - xbar) / d
-
-    return scores
+    return CoxKernel(X, T, E, strata_arr, breslow=breslow).score_residuals(beta)
 
 
 def _breslow_baseline_hazard(
@@ -1000,38 +903,25 @@ def _breslow_baseline_hazard(
     T: np.ndarray,
     E: np.ndarray,
     strata_arr: Optional[np.ndarray] = None,
+    _kernel: Optional[CoxKernel] = None,
 ) -> pd.DataFrame:
     """Breslow estimator of baseline cumulative hazard."""
-    n = X.shape[0]
-    xb = X @ beta
-
-    if strata_arr is None:
-        strata_arr = np.zeros(n, dtype=int)
-
-    rows = []
-    for s in np.unique(strata_arr):
-        mask = strata_arr == s
-        Ts, Es, xbs = T[mask], E[mask], xb[mask]
-        event_times = np.sort(np.unique(Ts[Es == 1]))
-        cumhaz = 0.0
-        for t in event_times:
-            at_risk = Ts >= t
-            d = ((Ts == t) & (Es == 1)).sum()
-            risk_sum = np.exp(xbs[at_risk]).sum()
-            cumhaz += d / risk_sum
-            rows.append(
-                {
-                    "time": t,
-                    "baseline_cumhaz": cumhaz,
-                    "baseline_survival": np.exp(-cumhaz),
-                }
-            )
-
-    # Prepend t=0
-    df = pd.DataFrame(
-        [{"time": 0.0, "baseline_cumhaz": 0.0, "baseline_survival": 1.0}] + rows
+    kern = _kernel if _kernel is not None else CoxKernel(X, T, E, strata_arr)
+    code, time, inc = kern.breslow_increments(beta)
+    # cumulate within stratum: the running total less its value at the
+    # start of the stratum
+    total = np.cumsum(inc)
+    first = np.ones(len(code), dtype=bool)
+    first[1:] = code[1:] != code[:-1]
+    offset = np.where(first, total - inc, 0.0)
+    cumhaz = total - np.maximum.accumulate(offset)
+    return pd.DataFrame(
+        {
+            "time": np.concatenate([[0.0], time]),
+            "baseline_cumhaz": np.concatenate([[0.0], cumhaz]),
+            "baseline_survival": np.concatenate([[1.0], np.exp(-cumhaz)]),
+        }
     )
-    return df
 
 
 def _concordance_index(
@@ -1041,88 +931,7 @@ def _concordance_index(
     E: np.ndarray,
 ) -> float:
     """Harrell's C-statistic for Cox model."""
-    risk_scores = X @ beta
-    concordant = 0
-    discordant = 0
-    tied_risk = 0
-
-    # Only consider pairs where at least one had the event
-    event_idx = np.where(E == 1)[0]
-    for i in event_idx:
-        # Compare with subjects who survived longer
-        later = (T > T[i]) | ((T == T[i]) & (E == 0))
-        for j in np.where(later)[0]:
-            if risk_scores[i] > risk_scores[j]:
-                concordant += 1
-            elif risk_scores[i] < risk_scores[j]:
-                discordant += 1
-            else:
-                tied_risk += 1
-
-    total = concordant + discordant + tied_risk
-    if total == 0:
-        return 0.5
-    return (concordant + 0.5 * tied_risk) / total
-
-
-def _ph_score_pieces(
-    beta: np.ndarray,
-    X: np.ndarray,
-    T: np.ndarray,
-    E: np.ndarray,
-    strata_arr: np.ndarray,
-    breslow: bool,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Score and information of the partial likelihood, event time by time.
-
-    For each stratum and distinct event time returns the time, the score
-    contribution (sum over the deaths of ``x - xbar``) and the information
-    contribution (the weighted covariance of ``x`` over the risk set, once
-    per death), under the same tie rule as the fit. Also returns one
-    Schoenfeld residual per death, with its time; under Efron's rule a tied
-    death is compared with the average of the ``d`` risk-set means.
-    """
-    n, p = X.shape
-    r = np.exp(X @ beta)
-    times: List[float] = []
-    scores: List[np.ndarray] = []
-    infos: List[np.ndarray] = []
-    resid_t: List[float] = []
-    resid: List[np.ndarray] = []
-    for s in pd.unique(strata_arr):
-        idx = np.where(strata_arr == s)[0]
-        Ts, Es, rs, Xs = T[idx], E[idx], r[idx], X[idx]
-        for t in np.unique(Ts[Es == 1]):
-            risk = Ts >= t
-            dead = (Ts == t) & (Es == 1)
-            d = int(dead.sum())
-            S0 = rs[risk].sum()
-            S1 = Xs[risk].T @ rs[risk]
-            S2 = (Xs[risk].T * rs[risk]) @ Xs[risk]
-            D0 = rs[dead].sum()
-            D1 = Xs[dead].T @ rs[dead]
-            D2 = (Xs[dead].T * rs[dead]) @ Xs[dead]
-            xbar_sum = np.zeros(p)
-            V = np.zeros((p, p))
-            for ell in range(d):
-                c = 0.0 if breslow else ell / d
-                denom = S0 - c * D0
-                xbar = (S1 - c * D1) / denom
-                xbar_sum += xbar
-                V += (S2 - c * D2) / denom - np.outer(xbar, xbar)
-            times.append(float(t))
-            scores.append(Xs[dead].sum(axis=0) - xbar_sum)
-            infos.append(V)
-            for row in Xs[dead]:
-                resid_t.append(float(t))
-                resid.append(row - xbar_sum / d)
-    return (
-        np.asarray(times),
-        np.asarray(scores).reshape(len(times), p),
-        np.asarray(infos).reshape(len(times), p, p),
-        np.asarray(resid_t),
-        np.asarray(resid).reshape(len(resid_t), p),
-    )
+    return harrell_c(X @ beta, T, E)
 
 
 def _ph_time_transform(
@@ -1152,14 +961,8 @@ def _ph_time_transform(
     if name == "km":
         # 1 - S(t-): the Kaplan-Meier estimate of the pooled sample just
         # before each time.
-        left: Dict[float, float] = {}
-        surv = 1.0
-        for t in np.unique(T):
-            left[float(t)] = surv
-            n_risk = int(np.sum(T >= t))
-            n_dead = int(np.sum((T == t) & (E == 1)))
-            surv *= 1.0 - n_dead / n_risk
-        return np.asarray([1.0 - left[t] for t in at.tolist()], dtype=float)
+        times, left = km_left_survival(T, E)
+        return np.asarray(1.0 - left[np.searchsorted(times, at)], dtype=float)
     raise MethodIncompatibility(
         "ph_test: transform must be 'km', 'rank', 'identity', 'log' or a "
         f"callable, got {transform!r}",
@@ -1173,37 +976,19 @@ def _schoenfeld_residuals(
     T: np.ndarray,
     E: np.ndarray,
     strata_arr: Optional[np.ndarray] = None,
+    _kernel: Optional[CoxKernel] = None,
 ) -> np.ndarray:
     """Schoenfeld residuals for PH test."""
-    n, p = X.shape
-    xb = X @ beta
-
-    if strata_arr is None:
-        strata_arr = np.zeros(n, dtype=int)
-
-    resid_list = []
-
-    for s in np.unique(strata_arr):
-        mask = strata_arr == s
-        Ts, Es, xbs, Xs = T[mask], E[mask], xb[mask], X[mask]
-        order = np.argsort(Ts)
-        Ts, Es, xbs, Xs = Ts[order], Es[order], xbs[order], Xs[order]
-
-        event_times = np.sort(np.unique(Ts[Es == 1]))
-
-        for t in event_times:
-            at_risk = Ts >= t
-            events_at_t = (Ts == t) & (Es == 1)
-
-            w = np.exp(xbs[at_risk])
-            w /= w.sum()
-            expected_x = (Xs[at_risk] * w[:, None]).sum(axis=0)
-
-            # One residual per event at this time
-            for idx_e in np.where(events_at_t)[0]:
-                resid_list.append(Xs[idx_e] - expected_x)
-
-    return np.array(resid_list) if resid_list else np.empty((0, p))
+    p = X.shape[1]
+    kern = _kernel if _kernel is not None else CoxKernel(X, T, E, strata_arr)
+    rs = kern.rs
+    if not rs.dead.any():
+        return np.empty((0, p))
+    expected = kern.breslow_expected_x(beta)
+    # stratum, ascending time, data order among deaths tied on a time
+    rows = np.flatnonzero(rs.dead)
+    rows = rows[np.lexsort((rs.order[rows], rs.T[rows], rs.codes[rows]))]
+    return np.asarray(kern.X_raw[rows] - expected[rs.group[rows]])
 
 
 # ===================================================================
@@ -1319,16 +1104,15 @@ def cox(
 
     breslow = ties == "breslow"
 
-    def neg_logpl(b: np.ndarray) -> float:
-        return _cox_neg_logpl_efron(b, X, T, E, strata_arr, breslow=breslow)
+    # The risk sets are sorted once and shared by every evaluation below.
+    kern = CoxKernel(X, T, E, strata_arr, breslow=breslow)
+    neg_logpl = kern.neg_loglik
 
     # Newton-Raphson with fallback to L-BFGS-B
     beta = beta0.copy()
     converged = False
     for iteration in range(50):
-        score, hessian = _cox_score_hessian_efron(
-            beta, X, T, E, strata_arr, breslow=breslow
-        )
+        score, hessian = kern.score_hessian(beta)
         neg_H = -hessian
         # Check if Hessian is positive definite
         try:
@@ -1362,7 +1146,7 @@ def cox(
         beta = result.x
 
     # ---- Variance estimation ------------------------------------------
-    _, hessian = _cox_score_hessian_efron(beta, X, T, E, strata_arr, breslow=breslow)
+    _, hessian = kern.score_hessian(beta)
     neg_H = -hessian
     try:
         info_inv = np.linalg.inv(neg_H)
@@ -1370,10 +1154,10 @@ def cox(
         info_inv = np.linalg.pinv(neg_H)
 
     if cluster is not None:
-        score_i = _cox_score_individual(beta, X, T, E, strata_arr, breslow=breslow)
+        score_i = kern.score_residuals(beta)
         var_beta = _cluster_variance(X, info_inv, score_i, cluster_arr)
     elif robust in ("hc0", "HC0", "robust"):
-        score_i = _cox_score_individual(beta, X, T, E, strata_arr, breslow=breslow)
+        score_i = kern.score_residuals(beta)
         var_beta = _sandwich_variance(X, info_inv, score_i)
     else:
         var_beta = info_inv
@@ -1383,9 +1167,9 @@ def cox(
     # ---- Derived quantities -------------------------------------------
     loglik = -neg_logpl(beta)
     loglik0 = -neg_logpl(np.zeros(p))
-    bh_df = _breslow_baseline_hazard(beta, X, T, E, strata_arr)
+    bh_df = _breslow_baseline_hazard(beta, X, T, E, strata_arr, _kernel=kern)
     c_index = _concordance_index(beta, X, T, E)
-    schoenfeld = _schoenfeld_residuals(beta, X, T, E, strata_arr)
+    schoenfeld = _schoenfeld_residuals(beta, X, T, E, strata_arr, _kernel=kern)
 
     # Hazard ratios
     hr = np.exp(beta)
@@ -1421,9 +1205,7 @@ def cox(
         wald = float(beta @ np.linalg.solve(var_beta, beta))
     except np.linalg.LinAlgError:
         wald = float("nan")
-    score0, hess0 = _cox_score_hessian_efron(
-        np.zeros(p), X, T, E, strata_arr, breslow=breslow
-    )
+    score0, hess0 = kern.score_hessian(np.zeros(p))
     try:
         score_stat = float(score0 @ np.linalg.solve(-hess0, score0))
     except np.linalg.LinAlgError:
