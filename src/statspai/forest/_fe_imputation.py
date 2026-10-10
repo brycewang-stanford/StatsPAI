@@ -1199,11 +1199,11 @@ def rate_fe(
             "imputation score carries -gamma_hat_t, estimated from the very "
             "periods the forest was trained on, so the ranking and the scores "
             "are correlated even though no unit predicts itself. Measured on "
-            "a design with no heterogeneity at all (200 replications, N = 150 "
-            "units, T = 8), AUTOC averaged -0.025 instead of 0 and a nominal "
-            "5% test rejected 17.5% of the time (QINI 13.5%); sp.rate_split(), "
+            "a design with no heterogeneity at all (400 replications, N = 150 "
+            "units, T = 8), AUTOC averaged -0.028 instead of 0 and a nominal "
+            "5% test rejected 16.0% of the time (QINI 12.2%); sp.rate_split(), "
             "which fits the ranking and the scores on disjoint units, averaged "
-            "+0.0008 and rejected 7.5% (QINI 4.0%). Report this as a "
+            "-0.0002 and rejected 0.5% (QINI 0.0%). Report this as a "
             "diagnostic and sp.rate_split() as the test.",
             AssumptionWarning,
             stacklevel=3,

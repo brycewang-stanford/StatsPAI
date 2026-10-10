@@ -449,3 +449,31 @@ This complements the Track B mechanism experiment
 (`tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py`), on which
 the note in `sp.dml`'s result rests; that note is unchanged. Rerun with
 `python tests/reliability/dml_learners.py` (about an hour and a half).
+
+## Split-sample evaluation of fixed-effects forests (`forest_split_evaluation.py`)
+
+Share of 95% intervals that exclude zero, 400 replications per cell
+(Monte Carlo standard error 0.011 at 5%). A staggered panel, 8 periods,
+adoption selected on the unit effect, `tau = 0.3 + b z`; the population
+AUTOC of the ideal ranking is `0.9032 b` and QINI `0.2821 b`.
+
+| quantity | `b` | method | mean | excludes zero |
+| --- | ---: | --- | ---: | ---: |
+| AUTOC | 0 | `sp.rate`, forest's own ranking | -0.028 | 0.160 |
+| AUTOC | 0 | `sp.rate_split` | -0.000 | 0.005 |
+| QINI | 0 | `sp.rate`, forest's own ranking | -0.006 | 0.122 |
+| QINI | 0 | `sp.rate_split` | +0.000 | 0.000 |
+| AUTOC (ideal 0.452) | 0.5 | `sp.rate_split` | 0.383 | 1.000 |
+| QINI (ideal 0.141) | 0.5 | `sp.rate_split` | 0.128 | 1.000 |
+| policy gain | 0 | `sp.forest_policy_tree` | +0.008 | 0.000 |
+| policy gain (oracle 0.319) | 0.8 | `sp.forest_policy_tree` | 0.307 | 1.000 |
+
+What the table says:
+
+- Ranking the cells with the forest that was grown on them rejects a true
+  null three times too often and reports a negative AUTOC where the truth
+  is zero.
+- Splitting the units removes that. With the default 21 splits the test is
+  conservative (the aggregation over splits is built to be), not exact.
+- Under real heterogeneity the split estimate is below the ideal ranking's
+  value because it measures the rule that was fitted on half the units.

@@ -1183,10 +1183,10 @@ def rate_split(
     out-of-bag: every imputation score carries :math:`-\hat\gamma_t`,
     estimated from the same periods the forest was trained on, so the
     ranking and the scores stay correlated. Measured on a design with **no
-    heterogeneity whatsoever** (200 replications, N = 150 units, T = 8,
+    heterogeneity whatsoever** (400 replications, N = 150 units, T = 8,
     staggered adoption selected on the unit effect, ``tau = 0.3``): AUTOC
-    averaged **-0.025** instead of 0 and a nominal 5% test rejected
-    **17.5%** of the time; QINI averaged -0.006 and rejected 13.5%.
+    averaged **-0.028** instead of 0 and a nominal 5% test rejected
+    **16.0%** of the time; QINI averaged -0.006 and rejected 12.2%.
 
     This function removes the overlap. The units (or, with ``members=``, the
     nodes of a dyadic panel) are split in two; a forest with the same
@@ -1194,12 +1194,20 @@ def rate_split(
     ranks the evaluation half's treated cells, whose imputation scores come
     from an untreated two-way model fitted on the evaluation half alone.
     Nothing the rule saw enters the score it is graded on. On the same null
-    design AUTOC then averaged **+0.0008** and rejected **7.5%** of the time
-    (QINI +0.0004 and 4.0%); against ``tau = 0.3 + 0.5 z`` it kept 99.5% and
-    100% power. ``variance='forest'`` rejected 5.0% and 4.0% under the null
-    but understates the spread under the alternative (mean standard error
-    0.060 against a Monte Carlo 0.083), which is why ``'bjs'`` is the
-    default here.
+    design, with the default 21 splits, AUTOC then averaged **-0.0002** and
+    rejected **0.5%** of the time (QINI +0.0004 and 0.0%): the aggregation
+    over splits is conservative by construction, so the test errs on the
+    side of not rejecting. Against ``tau = 0.3 + 0.5 z`` it rejected in
+    every replication. There the estimate averaged 0.383 for AUTOC where
+    the ideal ranking has 0.452, because a forest grown on half the units
+    ranks imperfectly: the quantity estimated is the RATE of the rule that
+    was fitted, not of the best rule. ``variance='forest'`` gives the same
+    rejection rates under the null but narrower intervals under the
+    alternative (they covered the ideal ranking's AUTOC 89.5% of the time
+    against 94.5%), which is why ``'bjs'`` is the default here. The study
+    is ``tests/reliability/forest_split_evaluation.py``; single-split
+    figures quoted through 1.39.3 (7.5% and 4.0%) came from
+    halves that were not refitted the way the forest was.
 
     The price is sample: each forest sees half the units, so the rule is
     noisier than the one fitted on everything and the RATE it earns is a
@@ -1686,12 +1694,13 @@ def forest_policy_tree(
     (200 replications, N = 200 units, T = 8) -- the same-sample gain
     averaged **+0.048**, larger than its own standard error of 0.037, and
     **13.0%** of runs reported a significant benefit from targeting where
-    none existed. Fitted and priced on disjoint halves: **+0.005** and
-    **3.5%**. The split costs almost nothing when the heterogeneity is
-    real: with ``tau = 0.3 + 0.8 z`` and ``cost = 0.3`` the oracle gain is
-    ``0.8 * phi(0) = 0.3191``, and the split-sample estimate averaged
-    **0.3189** at 99.5% power, against a same-sample **0.3316** that
-    overshoots by 0.012. The split is therefore not optional here;
+    none existed. Fitted and priced on disjoint halves, with the default
+    21 splits (400 replications): **+0.008** and **0.0%**. The split costs
+    little when the heterogeneity is real: with ``tau = 0.3 + 0.8 z`` and
+    ``cost = 0.3`` the oracle gain is ``0.8 * phi(0) = 0.3192``, and the
+    split-sample estimate averaged **0.307** and was significant in every
+    replication; the same-sample estimate overshoots the oracle (0.3316 in
+    the earlier study). The split is therefore not optional here;
     ``train_frac`` moves it, nothing switches it off.
 
     Parameters

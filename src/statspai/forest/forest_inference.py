@@ -1040,12 +1040,14 @@ def rate(
     **Do not read the default ranking as a test.** With the forest's own
     out-of-bag predictions the ranking and the scores share
     ``gamma_hat_t``, so they stay correlated even though no unit predicts
-    itself.  On the null design above (200 replications, no heterogeneity
-    at all) AUTOC averaged -0.025 rather than 0 and a nominal 5% test
-    rejected 17.5% of the time, QINI 13.5%.  :func:`statspai.rate_split`,
+    itself.  On the null design above (400 replications, no heterogeneity
+    at all) AUTOC averaged -0.028 rather than 0 and a nominal 5% test
+    rejected 16.0% of the time, QINI 12.2%.  :func:`statspai.rate_split`,
     which refits the rule on one half of the units and scores it on the
-    other, averaged +0.0008 and rejected 7.5% and 4.0% with 99.5% and 100%
-    power against ``tau = 0.3 + 0.5 z``.  A warning fires on this path;
+    other, averaged -0.0002 and rejected 0.5% and 0.0%, with 100% power
+    against ``tau = 0.3 + 0.5 z``
+    (``tests/reliability/forest_split_evaluation.py``).  A warning fires on
+    this path;
     passing ``priorities=`` from a rule fitted elsewhere also silences it.
 
     .. versionchanged:: 1.31.0

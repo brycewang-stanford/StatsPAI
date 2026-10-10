@@ -460,6 +460,19 @@ def match(
         whatever ``se_method`` said, and it changed when the arms were
         relabelled.
 
+        The default treats the matching variable as given. When that
+        variable is a propensity score estimated on the same data, this is
+        conservative for the ATE: in one simulated design the default
+        standard error averaged 1.3 times the sampling standard deviation
+        (95% intervals covered 99%), while ``'abadie_imbens_2016'``, which
+        adds the correction for the estimated score and is what Stata
+        ``teffects psmatch`` reports, averaged 1.02 times (coverage
+        94.7%). Pass ``se_method='abadie_imbens_2016'`` for propensity
+        score matching with replacement when its conditions hold
+        (``ties='all'``, no bias correction, no user-supplied ``pscore``,
+        no binding caliper). The default is kept the same for the ATT and
+        the ATE, and for every distance, so that one rule applies.
+
         .. versionchanged:: 1.22
            ``'auto'`` resolved to ``'ai'`` before 1.22, so **default
            nearest-neighbour standard errors change** (they get larger, by

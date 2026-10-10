@@ -4065,8 +4065,8 @@ def _build_registry() -> None:
                 "because a rule maximised on the scores it is then priced "
                 "against is priced on its own noise -- where the true gain "
                 "was exactly 0, the same-sample version averaged +0.048 and "
-                "called it significant 13% of the time, against +0.005 and "
-                "3.5% split. Value, treat-all value and the gain between "
+                "called it significant 13% of the time, against +0.008 and "
+                "0.0% split. Value, treat-all value and the gain between "
                 "them share one exact, cluster- or dyad-robust covariance. "
                 "Aggregates n_splits draws by VEIN."
             ),
@@ -5276,10 +5276,10 @@ def _build_registry() -> None:
                 "disjoint units. sp.rate ranks the rows it also scores, which "
                 "for a fe= forest is not a valid test -- every imputation "
                 "score carries -gamma_hat_t from the periods the forest saw, "
-                "so a nominal 5% test rejected 17.5% of the time under no "
-                "heterogeneity at all (AUTOC averaged -0.025, not 0). "
-                "Splitting units (or dyadic members) brings that to 7.5% "
-                "and +0.0008, at 99.5% power."
+                "so a nominal 5% test rejected 16.0% of the time under no "
+                "heterogeneity at all (AUTOC averaged -0.028, not 0). "
+                "Splitting units (or dyadic members) brings that to 0.5% "
+                "and -0.0002, with full power in the same study."
             ),
             params=[
                 ParamSpec(

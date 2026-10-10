@@ -428,23 +428,31 @@ destroyed the whole call), and seven had a non-positive dyadic variance and
 so contributed an estimate but no interval. Both are the estimator saying
 fifteen countries is not enough, which is the honest reading.
 
-Monte Carlo evidence (200 replications; N = 150 units, T = 8, staggered
+Monte Carlo evidence (400 replications,
+`tests/reliability/forest_split_evaluation.py`; N = 150 units, T = 8, staggered
 adoption selected on the unit effect, 250 trees; `tau = 0.3 + b z` with `z`
 standard normal and independent of adoption, so the population AUTOC is
 `0.9032 b` and QINI `0.2821 b` exactly):
 
 | `b = 0` (no heterogeneity: true RATE is 0 for *every* rule) | AUTOC | QINI |
 | --- | --- | --- |
-| `sp.rate`, ranked by the forest's own OOB predictions | **-0.0246**, rejects **17.5%** | -0.0055, rejects 13.5% |
-| `sp.rate_split` | **+0.0008**, rejects **7.5%** | +0.0004, rejects 4.0% |
-| `sp.rate_split`, `variance="forest"` | +0.0008, rejects 5.0% | +0.0004, rejects 4.0% |
+| `sp.rate`, ranked by the forest's own OOB predictions | **-0.0282**, rejects **16.0%** | -0.0061, rejects 12.2% |
+| `sp.rate_split` (21 splits) | **-0.0002**, rejects **0.5%** | +0.0004, rejects 0.0% |
+| `sp.rate_split`, `variance="forest"` | -0.0002, rejects 0.5% | +0.0004, rejects 0.0% |
 
 | `b = 0.5` (population AUTOC 0.4516, QINI 0.1410) | AUTOC | QINI |
 | --- | --- | --- |
-| held-out ranking, bias | -0.006 | -0.0002 |
-| held-out ranking, coverage `"bjs"` / `"forest"` | 97.5% / 90.8% | 97.5% / 89.2% |
-| coverage of the *realised sample's* RATE, `"bjs"` / `"forest"` | 99.2% / 95.8% | 99.2% / 96.7% |
-| `sp.rate_split` power at 5% | 99.5% | 100% |
+| `sp.rate_split`, mean estimate | 0.383 | 0.128 |
+| `sp.rate_split`, coverage of the ideal ranking's value, `"bjs"` / `"forest"` | 94.5% / 89.5% | 99.0% / 97.5% |
+| `sp.rate_split` power at 5% | 100% | 100% |
+
+The split estimate sits below the population value because that value
+belongs to the ideal ranking, and a forest grown on half the units ranks
+imperfectly: `sp.rate_split` estimates the RATE of the rule it fitted. The
+rejection rate under the null is far below 5% because the aggregation over
+21 splits is conservative by construction. Figures quoted for releases
+through 1.39.3 (7.5% and 4.0% under the null) came from halves that were not
+refitted the way the forest was, and are superseded by this table.
 
 Read the first table as the reason `sp.rate_split` exists: on a design with
 no heterogeneity whatsoever the reused ranking rejected the null more than
@@ -518,11 +526,12 @@ replications, N = 200 units, T = 8):
 | | mean gain | claims a significant gain |
 | --- | --- | --- |
 | fitted and priced on the same cells | **+0.048** (own se 0.037) | **13.0%** |
-| fitted and priced on disjoint halves | **+0.005** | **3.5%** |
+| fitted and priced on disjoint halves (21 splits, 400 replications) | **+0.008** | **0.0%** |
 
 and the split costs almost nothing when the heterogeneity is real: with
 `tau = 0.3 + 0.8 z` and `cost = 0.3` the oracle gain is `0.8 phi(0) =
-0.3191`, the split-sample estimate averaged **0.3189** at 99.5% power, and
+0.3192`, the split-sample estimate averaged **0.307** and was significant
+in every one of 400 replications, and
 the same-sample one **0.3316**. There is no flag to turn the split off.
 
 **Aggregated over splits, like everything else here.** `n_splits` defaults
