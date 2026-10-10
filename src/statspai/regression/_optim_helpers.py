@@ -26,6 +26,35 @@ from __future__ import annotations
 from typing import Any, Callable, Tuple
 
 import numpy as np
+import pandas as pd
+
+from ..exceptions import DataInsufficient
+
+
+def require_two_clusters(clusters: Any, function: str) -> int:
+    """Refuse a cluster-robust variance with fewer than two clusters.
+
+    At the MLE the scores sum to zero over the sample, so with a single
+    cluster the clustered meat ``sum_g s_g s_g'`` is zero up to rounding and
+    ``G/(G-1)`` is undefined: the variance is not estimable. ``sp.regress``,
+    ``sp.glm`` and ``sp.iv`` refuse this input; the likelihood estimators
+    used to report standard errors of order 1e-16 (or a 1e-10 floor).
+    Returns the number of clusters.
+    """
+    n_clusters = int(len(pd.unique(np.asarray(clusters).ravel())))
+    if n_clusters < 2:
+        raise DataInsufficient(
+            f"{function}: cluster-robust standard errors need at least two "
+            f"clusters; the cluster variable has {n_clusters} distinct value"
+            f"{'' if n_clusters == 1 else 's'} in the estimation sample.",
+            recovery_hint=(
+                "Cluster on a variable with several groups, or use "
+                "robust='robust' for heteroskedasticity-robust standard "
+                "errors."
+            ),
+            diagnostics={"n_clusters": n_clusters},
+        )
+    return n_clusters
 
 
 def robust_convergence(opt_result: Any, grad_tol: float = 1e-3) -> Tuple[bool, float]:

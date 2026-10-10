@@ -1205,6 +1205,40 @@ class OLSRegression(BaseModel):
 
         # Handle clustering
         cluster_var: Optional[pd.Series] = None
+        if isinstance(cluster, (list, tuple)):
+            # sp.regress handles cluster=[a, b] (two-way) before it gets
+            # here; anything longer used to end in "unhashable type: 'list'".
+            if len(cluster) == 1:
+                cluster = cluster[0]
+            else:
+                raise MethodIncompatibility(
+                    f"regress: cluster= takes one column, or two through "
+                    f"sp.regress(cluster=[a, b]) for two-way clustering; got "
+                    f"{len(cluster)} ({list(cluster)!r}).",
+                    recovery_hint=(
+                        "Cluster on one or two dimensions, or on their "
+                        "interaction built as a single column."
+                    ),
+                    diagnostics={"cluster": list(cluster)},
+                )
+        if self.data is None and (
+            cluster is not None or kwargs.get("hac_panel", None) is not None
+        ):
+            # The array interface has no frame to look a column name up in:
+            # cluster= was dropped (classical standard errors came back) and
+            # hac_panel= died on ``None.columns``.
+            raise MethodIncompatibility(
+                "OLSRegression(y=, X=).fit: cluster= and hac_panel= name "
+                "columns of a DataFrame, and this model was built from arrays.",
+                recovery_hint=(
+                    "Build the model from a formula and data "
+                    "(sp.regress('y ~ x', data, cluster='g'))."
+                ),
+                diagnostics={
+                    "cluster": repr(cluster),
+                    "hac_panel": repr(kwargs.get("hac_panel", None)),
+                },
+            )
         if cluster and self.data is not None:
             if cluster not in self.data.columns:
                 raise MethodIncompatibility(

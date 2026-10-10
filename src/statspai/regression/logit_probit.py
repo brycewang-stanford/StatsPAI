@@ -34,7 +34,7 @@ from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
 
 LinkFunc = Callable[[np.ndarray], np.ndarray]
@@ -398,6 +398,7 @@ def _marginal_effects(
     var_names: List[str],
     kind: str = "average",
     at_values: Optional[Dict[str, float]] = None,
+    weights: Optional[np.ndarray] = None,
 ) -> pd.DataFrame:
     """
     Compute marginal effects ∂P/∂x_j = f(X'β) β_j.
@@ -406,15 +407,25 @@ def _marginal_effects(
     ----------
     kind : 'average' (AME), 'mean' (MEM), 'at' (MER)
     at_values : dict of variable -> value (for kind='at')
+    weights : the estimation weights. Averages over the sample (of the
+        density for the AME, of the regressors for MEM / MER) are weighted,
+        sum_i w_i a_i / sum_i w_i, as Stata's ``margins`` does after a
+        weighted fit; frequency weights then reproduce the expanded data.
     """
+
+    def _avg(a: np.ndarray) -> np.ndarray:
+        if weights is None:
+            return np.asarray(a.mean(axis=0))
+        return np.asarray(np.average(a, axis=0, weights=weights))
+
     if kind == "average":
         # AME: average of f(x_i'β) across all obs
         z = X @ beta
         f = pdf_func(z)
-        me = np.mean(f) * beta
+        me = _avg(f) * beta
     elif kind == "mean":
         # MEM: f evaluated at sample means
-        x_bar = X.mean(axis=0)
+        x_bar = _avg(X)
         z_bar = x_bar @ beta
         f_bar = pdf_func(np.array([z_bar]))[0]
         me = f_bar * beta
@@ -422,9 +433,17 @@ def _marginal_effects(
         # MER: at representative values
         if at_values is None:
             # Default to means
-            x_rep = X.mean(axis=0)
+            x_rep = _avg(X)
         else:
-            x_rep = X.mean(axis=0).copy()
+            x_rep = _avg(X).copy()
+            unknown = [v for v in at_values if v not in var_names]
+            if unknown:
+                raise MethodIncompatibility(
+                    f"at_values names {unknown} that are not regressors of "
+                    f"the model; the regressors are {list(var_names)}.",
+                    recovery_hint="Use the coefficient names of the fit as keys.",
+                    diagnostics={"unknown": unknown, "valid": list(var_names)},
+                )
             for vname, val in at_values.items():
                 if vname in var_names:
                     idx = var_names.index(vname)
@@ -486,6 +505,10 @@ def _roc_auc(y: np.ndarray, p_hat: np.ndarray) -> float:
     pos = p_hat[y == 1]
     neg = p_hat[y == 0]
     if len(pos) == 0 or len(neg) == 0:
+        return np.nan
+    # NaN never equals itself, so the tie loop below would not advance on a
+    # NaN score; a rank is not defined for one either.
+    if not (np.isfinite(pos).all() and np.isfinite(neg).all()):
         return np.nan
     # Efficient computation via rank sums
     n1 = len(pos)
@@ -645,6 +668,21 @@ def _fit_binary(
     """
     Internal workhorse for logit / probit / cloglog estimation.
     """
+    if marginal_effects is not None and marginal_effects not in (
+        "average",
+        "mean",
+        "at",
+    ):
+        raise MethodIncompatibility(
+            f"Unknown marginal_effects={marginal_effects!r}. Choose "
+            "'average' (AME), 'mean' (at the means) or 'at' (with at_values=).",
+            recovery_hint="Use marginal_effects='average', 'mean' or 'at'.",
+            diagnostics={
+                "marginal_effects": marginal_effects,
+                "valid": ["average", "mean", "at"],
+            },
+        )
+
     # ── Prepare data ────────────────────────────────────────────────────
     if formula is not None and data is not None:
         y_df, X_df = create_design_matrices(formula, data)
@@ -711,7 +749,20 @@ def _fit_binary(
     unique_vals = np.unique(y_vec)
     if not np.array_equal(np.sort(unique_vals), np.array([0.0, 1.0])):
         if set(unique_vals).issubset({0, 1, 0.0, 1.0}):
-            pass  # only one category present — unusual but proceed
+            # Stata r(2000) "outcome does not vary": the MLE does not exist
+            # (the intercept diverges). This used to run on and end in a
+            # ZeroDivisionError from the null log-likelihood of zero.
+            only = "empty" if len(unique_vals) == 0 else f"all {unique_vals[0]:g}"
+            raise DataInsufficient(
+                f"{link}: the outcome '{dep_var}' does not vary in the "
+                f"estimation sample ({only}); a binary response model needs "
+                "both zeros and ones.",
+                recovery_hint=(
+                    "Check the outcome coding and any sample restriction; "
+                    "rows dropped for perfect prediction also leave the sample."
+                ),
+                diagnostics={"n_obs": int(len(y_vec))},
+            )
         else:
             raise ValueError(
                 f"Dependent variable must be binary (0/1). "
@@ -724,6 +775,23 @@ def _fit_binary(
     w = None
     if weights is not None and data is not None:
         w = data.loc[row_index, weights].values.astype(float)
+        # Same rules as sp.glm / sp.regress: a missing weight is refused
+        # (it made every fitted probability NaN), and so are negative or
+        # all-zero weights (the fit returned its starting values).
+        if not np.isfinite(w).all():
+            raise DataInsufficient(
+                f"{link}: weights column '{weights}' contains NaN or "
+                "infinite values in the estimation sample.",
+                recovery_hint="Drop or impute the rows with a missing weight.",
+                diagnostics={"n_bad": int((~np.isfinite(w)).sum())},
+            )
+        if (w < 0).any() or not (w > 0).any():
+            raise MethodIncompatibility(
+                f"{link}: weights must be non-negative with at least one "
+                "positive value.",
+                recovery_hint="Pass a column of non-negative weights.",
+                diagnostics={"n_negative": int((w < 0).sum())},
+            )
 
     # Standard-error request (Stata grammar: vce='robust', 'cluster firm', ...)
     from ..core._vcov import ml_vcov
@@ -743,6 +811,9 @@ def _fit_binary(
         if data is None:
             raise ValueError("`data` must be provided for clustered SEs.")
         cluster_arr = data.loc[row_index, cluster].values
+        from ._optim_helpers import require_two_clusters
+
+        require_two_clusters(cluster_arr, link)
 
     cdf_func, pdf_func, pdf_deriv_func = _LINKS[link]
 
@@ -784,9 +855,9 @@ def _fit_binary(
     # ── Marginal effects ────────────────────────────────────────────────
     me_df = None
     if marginal_effects is not None:
-        kind_map = {"average": "average", "mean": "mean", "at": "at"}
-        kind = kind_map.get(marginal_effects, "average")
-        me_df = _marginal_effects(beta, X_mat, pdf_func, var_names, kind, at_values)
+        me_df = _marginal_effects(
+            beta, X_mat, pdf_func, var_names, marginal_effects, at_values, w
+        )
 
     # ── Odds ratios (logit only) ────────────────────────────────────────
     or_series = None

@@ -104,8 +104,6 @@ def _k_class_fit(
     m = Z.shape[1]
 
     if m < k2:
-        from statspai.exceptions import MethodIncompatibility
-
         raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
             f"variables. Need at least {k2} instruments.",
@@ -415,8 +413,6 @@ def _gmm_fit(
     m = Z.shape[1]
 
     if m < k2:
-        from statspai.exceptions import MethodIncompatibility
-
         raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
             f"variables. Need at least {k2} instruments.",
@@ -575,7 +571,8 @@ def _jive_fit(
     Jackknife IV Estimator (JIVE1).
 
     For each observation i, the first-stage fitted value uses
-    leave-one-out: X_hat_i = P_{W,-i} X_i. This removes the
+    leave-one-out: X_hat_i = P_{W,-i} X_i, and the fitted values serve as
+    instruments: beta = (X_hat'X)^-1 X_hat'y. This removes the
     own-observation bias that plagues 2SLS with many instruments.
 
     Reference: Angrist, Imbens & Krueger (1999).
@@ -585,8 +582,6 @@ def _jive_fit(
     m = Z.shape[1]
 
     if m < k2:
-        from statspai.exceptions import MethodIncompatibility
-
         raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
             f"variables. Need at least {k2} instruments.",
@@ -619,22 +614,44 @@ def _jive_fit(
     for j in range(k2):
         X_endog_jive[:, j] = (X_endog_hat_full[:, j] - h * X_endog[:, j]) / (1 - h)
 
-    # Second stage with JIVE fitted values
+    # JIVE1 (Angrist, Imbens & Krueger 1999, eq. for "JIVE1"; Stata
+    # ``jive, ujive1``): the leave-one-out fitted values are the
+    # *instruments* of a just-identified IV step,
+    #     beta = (Xh'X)^-1 Xh'y,   Xh = [X_exog, X_endog_loo].
+    # Through 1.39.1 this was (Xh'Xh)^-1 Xh'y, OLS of y on the leave-one-out
+    # fitted values, which is attenuated like OLS on a noisy regressor.
     X_hat_jive = np.column_stack([X_exog, X_endog_jive])
-    XhXh_inv = np.linalg.inv(X_hat_jive.T @ X_hat_jive)
-    params = XhXh_inv @ X_hat_jive.T @ y
+    A_inv = np.linalg.inv(X_hat_jive.T @ X_actual)
+    params = A_inv @ (X_hat_jive.T @ y)
 
     fitted_values = X_actual @ params
     residuals = y - fitted_values
 
-    # Standard errors (HC1-style with JIVE bread)
+    # Variance: the IV sandwich with Xh as the instrument,
+    #     V = (Xh'X)^-1 M (X'Xh)^-1,
+    # M = s^2 Xh'Xh with s^2 = e'e / (n - k) (classical; Stata ``jive``),
+    # M = sum_i e_i^2 xh_i xh_i' (hc0; times n / (n - k) for hc1), or the
+    # cluster / multiway sum of within-cluster score outer products with the
+    # same finite-sample factor as the k-class path. ``_robust_cov`` and
+    # ``_cluster_cov`` return ``bread @ meat @ bread``; called with an
+    # identity bread they return the (scaled) meat M.
+    eye_k = np.eye(k)
     if cluster is not None:
-        var_cov = _cluster_cov(X_hat_jive, None, residuals, XhXh_inv, cluster)
+        meat = _cluster_cov(X_hat_jive, None, residuals, eye_k, cluster)
+    elif robust in ("hc2", "hc3"):
+        raise MethodIncompatibility(
+            f"robust={robust!r} is not available with method='jive': the "
+            "leverage corrections are defined for a symmetric projection, "
+            "and the jackknife IV step is not one.",
+            recovery_hint="Use robust='hc0' or 'hc1' (or cluster=) with JIVE.",
+            diagnostics={"robust": robust, "method": "jive"},
+        )
     elif robust != "nonrobust":
-        var_cov = _robust_cov(X_hat_jive, None, residuals, XhXh_inv, robust, n, k)
+        meat = _robust_cov(X_hat_jive, None, residuals, eye_k, robust, n, k)
     else:
         sigma2 = np.sum(residuals**2) / (n - k)
-        var_cov = sigma2 * XhXh_inv
+        meat = sigma2 * (X_hat_jive.T @ X_hat_jive)
+    var_cov = _as_float_array(A_inv @ meat @ A_inv.T)
 
     std_errors = np.sqrt(np.maximum(np.diag(var_cov), 0))
 
@@ -855,6 +872,21 @@ def _as_cluster_frame(cluster: Any) -> pd.DataFrame:
 def _cluster_codes(frame: pd.DataFrame, cols: Tuple[int, ...]) -> np.ndarray:
     """Integer group codes for the intersection of ``cols`` in ``frame``."""
     sub = frame.iloc[:, list(cols)]
+    if bool(sub.isna().any().any()):
+        # factorize codes a missing label -1, and index -1 is the last
+        # cluster: the row's score would be added to an unrelated cluster.
+        # Named cluster columns have such rows dropped before the fit; an
+        # array of labels cannot be realigned here, so it is refused.
+        raise DataInsufficient(
+            "Clustered IV inference needs a cluster label for every "
+            "observation in the estimation sample; "
+            f"{int(sub.isna().any(axis=1).sum())} are missing.",
+            recovery_hint=(
+                "Drop those rows before fitting, or pass the cluster "
+                "variable by column name so they are excluded for you."
+            ),
+            diagnostics={"n_missing": int(sub.isna().any(axis=1).sum())},
+        )
     if len(cols) == 1:
         return pd.factorize(sub.iloc[:, 0], sort=False)[0]
     keys = pd.MultiIndex.from_frame(sub.astype(object))
@@ -1449,6 +1481,15 @@ class IVRegression(BaseModel):
         weights = kwargs.pop("weights", None)
         alpha = _validate_iv_alpha(kwargs.pop("alpha", 0.05))
         gmm_vcov = str(kwargs.pop("gmm_vcov", "sandwich")).lower()
+        if gmm_vcov not in ("sandwich", "efficient"):
+            raise MethodIncompatibility(
+                f"Unknown gmm_vcov={gmm_vcov!r}. Choose 'sandwich' or " "'efficient'.",
+                recovery_hint="Use gmm_vcov='sandwich' (default) or 'efficient'.",
+                diagnostics={
+                    "gmm_vcov": gmm_vcov,
+                    "valid": ["sandwich", "efficient"],
+                },
+            )
         reject_unknown_kwargs(kwargs, function="iv")
 
         # Normalise the SE-type vocabulary through the shared Stata grammar
@@ -1477,8 +1518,37 @@ class IVRegression(BaseModel):
             robust = "nonrobust" if _se.kind == "cluster" else _se.kind
         robust = _normalize_robust(robust)
 
+        n_missing_cluster = 0
         if self.formula is not None and self.data is not None:
-            self._prepare_from_formula()
+            # Rows whose cluster label is missing leave the estimation
+            # sample, as Stata's vce(cluster) does and as sp.ivreg /
+            # sp.regress do through ``markout_clusters``. They used to stay
+            # in the fit with factorize code -1, which added their scores
+            # to the last cluster's sum.
+            _full_data = self.data
+            _cl_names = [
+                c
+                for c in (_normalise_cluster(cluster) or ())
+                if c in getattr(_full_data, "columns", ())
+            ]
+            if _cl_names:
+                _miss = _full_data[_cl_names].isna().any(axis=1)
+                n_missing_cluster = int(_miss.sum())
+                if n_missing_cluster == len(_full_data):
+                    n_missing_cluster = 0
+            if n_missing_cluster:
+                warnings.warn(
+                    f"iv: {n_missing_cluster} observation(s) with a missing "
+                    f"cluster variable ({', '.join(_cl_names)}) excluded from "
+                    "the estimation sample, as Stata's vce(cluster) does.",
+                    StatsPAIWarning,
+                    stacklevel=3,
+                )
+                self.data = _full_data.loc[~_miss]
+            try:
+                self._prepare_from_formula()
+            finally:
+                self.data = _full_data
         elif not (
             self.y is not None
             and self.X_exog is not None
@@ -1765,6 +1835,9 @@ class IVRegression(BaseModel):
                 pass
         if results.get("kappa") is not None:
             model_info["kappa"] = results["kappa"]
+        if n_missing_cluster:
+            model_info["n_missing_cluster_dropped"] = n_missing_cluster
+            model_info["n_input_rows"] = int(len(self.data))
         if omitted_instruments:
             model_info["omitted_instruments"] = omitted_instruments
 
@@ -2946,7 +3019,8 @@ def iv(
     - ``'gmm'``  — Efficient two-step GMM. More efficient than 2SLS under
       heteroskedasticity when over-identified.
     - ``'jive'`` — Jackknife IV (Angrist, Imbens & Krueger 1999). Reduces
-      many-instrument bias by using leave-one-out fitted values.
+      many-instrument bias by using leave-one-out first-stage fitted
+      values as the instruments (JIVE1, ``(Xh'X)^-1 Xh'y``).
 
     For DeepIV (neural network IV) use ``sp.deepiv()``.
     For Bartik shift-share IV use ``sp.bartik()``.
@@ -3258,14 +3332,32 @@ def ivreg(
 
     # Resolve the canonical `vce` alias; intercept the wild sentinel.
     se_kw = vce if vce is not None else robust
+
+    def _two_sls_only(what: str) -> None:
+        # The wild / CR2 / CR3 / Conley / two-way variances below are
+        # derived for 2SLS; ``method=`` used to be forwarded next to the
+        # hard-coded method="2sls" and died with a duplicate-keyword
+        # TypeError.
+        chosen = str(kwargs.pop("method", "2sls")).lower()
+        if chosen != "2sls":
+            raise MethodIncompatibility(
+                f"ivreg: {what} is implemented for 2SLS only; got "
+                f"method={chosen!r}.",
+                recovery_hint=(
+                    "Drop method= (2SLS), or use sp.iv(method=..., "
+                    "cluster=...) for the CR1 cluster variance of "
+                    "LIML / Fuller / GMM / JIVE."
+                ),
+                diagnostics={"method": chosen},
+            )
+
     if isinstance(se_kw, str) and se_kw.lower() in _IV_WILD_VCOV:
         if cluster is None:
-            from statspai.exceptions import MethodIncompatibility
-
             raise MethodIncompatibility(
                 "ivreg(vce='wild') requires cluster=... — the wild *cluster* "
                 "bootstrap resamples residuals within clusters."
             )
+        _two_sls_only("vce='wild'")
         base = iv(
             formula=formula,
             data=data,
@@ -3323,12 +3415,11 @@ def ivreg(
     # (jackknife-type), matching R clubSandwich for 2SLS.
     if isinstance(se_kw, str) and se_kw.lower() in ("cr2", "cr3", "jackknife"):
         if cluster is None:
-            from statspai.exceptions import MethodIncompatibility
-
             raise MethodIncompatibility(
                 f"ivreg(vce={se_kw!r}) requires cluster=... (a cluster-robust "
                 "small-sample correction)."
             )
+        _two_sls_only(f"vce={se_kw!r}")
         kind = "CR3" if se_kw.lower() in ("cr3", "jackknife") else "CR2"
         base = iv(
             formula=formula,
@@ -3359,12 +3450,11 @@ def ivreg(
     # Conley spatial HAC: ``vce="conley"`` with coordinates + a distance cutoff.
     if isinstance(se_kw, str) and se_kw.lower() == "conley":
         if conley_lat is None or conley_lon is None or conley_cutoff is None:
-            from statspai.exceptions import MethodIncompatibility
-
             raise MethodIncompatibility(
                 "ivreg(vce='conley') requires conley_lat=, conley_lon=, and "
                 "conley_cutoff= (planar distance cutoff in km)."
             )
+        _two_sls_only("vce='conley'")
         base = iv(
             formula=formula,
             data=data,
@@ -3399,6 +3489,7 @@ def ivreg(
     # variance with the two-way IV sandwich (matches Stata `ivreg2, cluster(a b)
     # small`).
     if isinstance(cluster, (list, tuple)) and len(cluster) == 2:
+        _two_sls_only("two-way clustering")
         c1, c2 = cluster
         base = iv(
             formula=formula,

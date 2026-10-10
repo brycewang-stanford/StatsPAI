@@ -43,9 +43,11 @@ from ..core._vcov import ml_vcov
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._optim_helpers import (
     inverse_information,
     ml_newton_polish,
+    require_two_clusters,
     robust_convergence,
     se_from_vcov,
 )
@@ -181,18 +183,51 @@ def _log_nb2_pmf(y: np.ndarray, mu: np.ndarray, alpha: float) -> np.ndarray:
     return _as_float_array(log_p)
 
 
+def _require_plain_columns(data: pd.DataFrame, names: List[str], function: str) -> None:
+    """Every regressor of this family is a column of ``data``.
+
+    The zero-inflated / hurdle estimators read names as columns; a patsy
+    term (``C(g)``, ``x1:x2``) or a misspelled ``inflate=`` name used to end
+    in a bare pandas ``KeyError``.
+    """
+    missing = [str(v) for v in names if v not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"{function}: {missing} not found among the columns of data. "
+            "This estimator takes column names only; formula terms such as "
+            "C(g), I(x**2) or x1:x2 are not expanded.",
+            recovery_hint=(
+                "Check the spelling, or build the term as a column first "
+                "(pd.get_dummies for a factor, a product for an interaction)."
+            ),
+            diagnostics={"missing": missing},
+        )
+
+
+def _omit_collinear(
+    X: np.ndarray, names: List[str], function: str
+) -> Tuple[np.ndarray, List[str], List[Dict[str, str]]]:
+    """Drop dependent columns with a note, as the other ML estimators do."""
+    from ..core._collinear import drop_collinear
+
+    X, names, omitted, _ = drop_collinear(X, names, function, stacklevel=5)
+    return X, names, omitted
+
+
 def _build_matrices(
     data: Optional[pd.DataFrame],
     formula: Optional[str],
     y: Optional[str],
     x: Optional[List[str]],
     inflate: Optional[List[str]],
+    function: str = "zip_model",
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str], List[str], str, pd.DataFrame]:
     """
     Parse inputs and return
-    (Y, X_count, X_inflate, count_names, inflate_names, dep_var).
+    (Y, X_count, X_inflate, count_names, inflate_names, dep_var, df).
 
-    X matrices include a constant column.
+    X matrices include a constant column. Collinear regressors are omitted
+    from each equation; the records are left in ``df.attrs['omitted']``.
     """
     if data is None:
         raise ValueError("`data` must be provided.")
@@ -212,6 +247,7 @@ def _build_matrices(
         inflate_vars = list(inflate)
 
     all_vars = list(set([dep_var] + x_vars + inflate_vars))
+    _require_plain_columns(data, [dep_var] + x_vars + inflate_vars, function)
     df = data[all_vars].dropna()
 
     Y = df[dep_var].values.astype(float)
@@ -230,6 +266,12 @@ def _build_matrices(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in inflate_vars]
     )
     inflate_names = ["inflate_const"] + [f"inflate_{v}" for v in inflate_vars]
+
+    # A dependent regressor leaves the likelihood flat in one direction
+    # (a constant column gave offsetting coefficients of order 1e4).
+    X_count, count_names, om_c = _omit_collinear(X_count, count_names, function)
+    X_inflate, inflate_names, om_i = _omit_collinear(X_inflate, inflate_names, function)
+    df.attrs["omitted"] = om_c + om_i
 
     return Y, X_count, X_inflate, count_names, inflate_names, dep_var, df
 
@@ -386,7 +428,7 @@ def zip_model(
     """
     robust, cluster = _parse_se(robust, cluster, "zip_model")
     Y, X_count, X_inflate, count_names, inflate_names, dep_var, df = _build_matrices(
-        data, formula, y, x, inflate
+        data, formula, y, x, inflate, "zip_model"
     )
     n = len(Y)
     k_count = X_count.shape[1]
@@ -479,6 +521,7 @@ def zip_model(
             if cluster in df.columns
             else data.loc[df.index, cluster].values
         )
+        require_two_clusters(clusters, "zip_model / zinb / hurdle")
     se = se_from_vcov(
         ml_vcov(inverse_information(H), score_obs, kind=robust, clusters=clusters)
     )
@@ -522,6 +565,7 @@ def zip_model(
         "robust": robust if cluster is None else f"cluster({cluster})",
         "n_zeros": int((Y == 0).sum()),
         "pct_zeros": float((Y == 0).mean() * 100),
+        "omitted": list(df.attrs.get("omitted", [])),
     }
 
     data_info = {
@@ -721,7 +765,7 @@ def zinb(
     """
     robust, cluster = _parse_se(robust, cluster, "zinb")
     Y, X_count, X_inflate, count_names, inflate_names, dep_var, df = _build_matrices(
-        data, formula, y, x, inflate
+        data, formula, y, x, inflate, "zinb"
     )
     n = len(Y)
     k_count = X_count.shape[1]
@@ -821,6 +865,7 @@ def zinb(
             if cluster in df.columns
             else data.loc[df.index, cluster].values
         )
+        require_two_clusters(clusters, "zip_model / zinb / hurdle")
     se = se_from_vcov(
         ml_vcov(inverse_information(H), score_obs, kind=robust, clusters=clusters)
     )
@@ -864,6 +909,7 @@ def zinb(
         "robust": robust if cluster is None else f"cluster({cluster})",
         "n_zeros": int((Y == 0).sum()),
         "pct_zeros": float((Y == 0).mean() * 100),
+        "omitted": list(df.attrs.get("omitted", [])),
     }
 
     data_info = {
@@ -1035,7 +1081,15 @@ def hurdle(
         dep_var = y
         x_vars = list(x)
 
+    if str(count_model).lower() not in ("poisson", "negbin", "nb", "nbreg"):
+        raise MethodIncompatibility(
+            f"hurdle: unknown count_model={count_model!r}. Choose 'poisson' "
+            "or 'negbin'.",
+            recovery_hint="Use count_model='poisson' or count_model='negbin'.",
+            diagnostics={"count_model": count_model, "valid": ["poisson", "negbin"]},
+        )
     all_vars = list(set([dep_var] + x_vars))
+    _require_plain_columns(data, [dep_var] + x_vars, "hurdle")
     df = data[all_vars].dropna()
 
     Y = df[dep_var].values.astype(float)
@@ -1047,13 +1101,46 @@ def hurdle(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in x_vars]
     )
     var_names = ["const"] + x_vars
-    hurdle_names = ["hurdle_const"] + [f"hurdle_{v}" for v in x_vars]
+    X, var_names, collinear_omitted = _omit_collinear(X, var_names, "hurdle")
+    hurdle_names = ["hurdle_const"] + [f"hurdle_{v}" for v in var_names[1:]]
     n, k = X.shape
 
     zero_mask = Y == 0
     pos_mask = ~zero_mask
     Y_pos = Y[pos_mask]
     X_pos = X[pos_mask]
+    # The count equation is a zero-truncated model on the positive
+    # outcomes only. With none of them it has no data (it used to be
+    # reported as coefficients 0 with standard errors 0), and a regressor
+    # that does not vary independently among them has no coefficient there.
+    if not pos_mask.any():
+        raise DataInsufficient(
+            f"hurdle: the outcome '{dep_var}' has no positive counts, so the "
+            "count equation is not estimable.",
+            recovery_hint=(
+                "Check the outcome; with zeros only there is nothing above "
+                "the hurdle to model."
+            ),
+            diagnostics={"n_obs": int(n), "n_positive": 0},
+        )
+    from ..core._collinear import independent_columns
+
+    _, _pos_dependent = independent_columns(X_pos, var_names)
+    if _pos_dependent:
+        raise DataInsufficient(
+            "hurdle: among the positive outcomes the regressor(s) "
+            f"{[o['variable'] for o in _pos_dependent]} are collinear with "
+            "the others, so their count-equation coefficients are not "
+            "identified.",
+            recovery_hint=(
+                "Drop those regressors, or check that there are more "
+                "positive outcomes than count-equation coefficients."
+            ),
+            diagnostics={
+                "n_positive": int(pos_mask.sum()),
+                "dependent": _pos_dependent,
+            },
+        )
 
     use_negbin = count_model.lower() in ("negbin", "nb", "nbreg")
     # k_hurdle params + k_count params (+ 1 if negbin for log_alpha)
@@ -1164,6 +1251,7 @@ def hurdle(
             if cluster in df.columns
             else data.loc[df.index, cluster].values
         )
+        require_two_clusters(clusters, "zip_model / zinb / hurdle")
     se = se_from_vcov(
         ml_vcov(inverse_information(H), score_obs, kind=robust, clusters=clusters)
     )
@@ -1203,6 +1291,7 @@ def hurdle(
         "robust": robust if cluster is None else f"cluster({cluster})",
         "n_zeros": int(zero_mask.sum()),
         "pct_zeros": float(zero_mask.mean() * 100),
+        "omitted": collinear_omitted,
     }
     if use_negbin:
         assert alpha_hat is not None

@@ -108,15 +108,16 @@ def jive(
     h_ii = np.clip(h_ii, a_max=0.999, a_min=None)
     D_jack = (D_hat - h_ii * D) / (1 - h_ii)
 
-    # Second stage: regress Y on (D_jack, 1, X)
+    # Second stage: D_jack is the instrument for D, not its replacement.
+    # beta = (X2'X)^{-1} X2'Y with X = (D, 1, X) (Angrist-Imbens-Krueger
+    # 1999); residuals are taken at the observed D. Regressing Y on D_jack
+    # is attenuated toward zero under many instruments.
     X2 = np.column_stack([D_jack, np.ones(n), Xc])
-    beta = np.linalg.pinv(X2.T @ X2) @ X2.T @ Y
-    resid = Y - X2 @ beta
-    vcov = (
-        np.linalg.pinv(X2.T @ X2)
-        @ ((X2 * (resid**2)[:, None]).T @ X2)
-        @ np.linalg.pinv(X2.T @ X2).T
-    )
+    X_obs = np.column_stack([D, np.ones(n), Xc])
+    bread = np.linalg.pinv(X2.T @ X_obs)
+    beta = bread @ X2.T @ Y
+    resid = Y - X_obs @ beta
+    vcov = bread @ ((X2 * (resid**2)[:, None]).T @ X2) @ bread.T
     se = np.sqrt(np.diag(vcov))
     estimate = float(beta[0])
     se_est = float(se[0])

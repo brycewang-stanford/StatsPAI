@@ -139,6 +139,64 @@ def _positive_exposure(data: pd.DataFrame, exposure: str) -> np.ndarray:
     return values
 
 
+def _validate_count_inputs(
+    y: np.ndarray,
+    w: Optional[np.ndarray],
+    offset: np.ndarray,
+    function: str,
+    dep_var: str,
+    weights_name: Any,
+    offset_name: Any,
+) -> None:
+    """Refuse an outcome, weights or offset a count likelihood cannot use.
+
+    Negative counts, negative / missing weights, a missing offset and an
+    outcome that is zero everywhere used to end in NaN coefficients, a
+    ``ZeroDivisionError`` or ``LinAlgError: SVD did not converge``. Missing
+    weights and offsets are refused, as ``sp.glm`` and ``sp.regress`` do.
+    Non-integer outcomes are allowed (Poisson pseudo-likelihood).
+    """
+    if not np.isfinite(offset).all():
+        raise DataInsufficient(
+            f"{function}: offset column {offset_name!r} has missing or "
+            "infinite values in the estimation sample.",
+            recovery_hint="Drop or impute those rows before fitting.",
+            diagnostics={"n_bad": int((~np.isfinite(offset)).sum())},
+        )
+    if w is not None:
+        if not np.isfinite(w).all():
+            raise DataInsufficient(
+                f"{function}: weights column {weights_name!r} has missing or "
+                "infinite values in the estimation sample.",
+                recovery_hint="Drop or impute those rows before fitting.",
+                diagnostics={"n_bad": int((~np.isfinite(w)).sum())},
+            )
+        if (w < 0).any() or not (w > 0).any():
+            raise MethodIncompatibility(
+                f"{function}: weights must be non-negative with at least one "
+                "positive value.",
+                recovery_hint="Pass a column of non-negative weights.",
+                diagnostics={"n_negative": int((w < 0).sum())},
+            )
+    if (y < 0).any():
+        raise MethodIncompatibility(
+            f"{function}: the outcome '{dep_var}' has {int((y < 0).sum())} "
+            "negative value(s); a count model needs a non-negative outcome.",
+            recovery_hint="Check the outcome coding, or use sp.regress.",
+            diagnostics={"n_negative": int((y < 0).sum()), "y_min": float(y.min())},
+            alternative_functions=_COUNT_ALTERNATIVES,
+        )
+    used = y if w is None else y[w > 0]
+    if not (used > 0).any():
+        raise DataInsufficient(
+            f"{function}: the outcome '{dep_var}' is zero in every "
+            "observation; the log-mean has no finite maximum-likelihood "
+            "estimate.",
+            recovery_hint="Check the outcome and any sample restriction.",
+            diagnostics={"n_obs": int(len(y))},
+        )
+
+
 _PATSY_TOKENS = ("(", ":", "*", "**", "/")
 
 
@@ -378,7 +436,9 @@ def _cluster_vcov(
 ) -> np.ndarray:
     """Clustered sandwich variance-covariance."""
     from ..core._vcov import sandwich_vcov
+    from ._optim_helpers import require_two_clusters
 
+    require_two_clusters(cluster_arr, "poisson / ppmlhdfe")
     W = _obs_weighted(mu, weights)
     residuals = _obs_weighted(residuals, weights)
     XtWX = X.T @ (X * W[:, None])
@@ -428,6 +488,10 @@ def _twoway_cluster_vcov(
             m += np.outer(s, s)
         return m
 
+    from ._optim_helpers import require_two_clusters
+
+    require_two_clusters(c1_arr, "ppmlhdfe")
+    require_two_clusters(c2_arr, "ppmlhdfe")
     a_codes = pd.factorize(c1_arr)[0]
     b_codes = pd.factorize(c2_arr)[0]
     c12 = a_codes * (int(b_codes.max()) + 1) + b_codes
@@ -1384,12 +1448,17 @@ def poisson(
     if offset is not None:
         offset_arr = data[offset].values.astype(np.float64)
     if exposure is not None:
-        offset_arr = np.log(_positive_exposure(data, exposure))
+        # offset + ln(exposure), as sp.glm; exposure= used to overwrite
+        # offset= when both were given.
+        offset_arr = offset_arr + np.log(_positive_exposure(data, exposure))
 
     # Weights
     w_arr = None
     if weights is not None:
         w_arr = data[weights].values.astype(np.float64)
+    _validate_count_inputs(
+        y_arr, w_arr, offset_arr, "poisson", dep_var, weights, offset
+    )
 
     # Standard-error request (Stata grammar)
     from ..core._vcov_spec import parse_se_request
@@ -1622,7 +1691,8 @@ def nbreg(
     offset : str, optional
         Offset variable (log of exposure).
     exposure : str, optional
-        Exposure variable (will be logged).
+        Exposure variable (will be logged). With ``offset=`` as well the
+        linear predictor carries ``offset + log(exposure)``.
     irr : bool, default False
         Report Incidence Rate Ratios.
     dispersion : str, default "mean"
@@ -1673,11 +1743,14 @@ def nbreg(
     if offset is not None:
         offset_arr = data[offset].values.astype(np.float64)
     if exposure is not None:
-        offset_arr = np.log(_positive_exposure(data, exposure))
+        # offset + ln(exposure), as sp.glm; exposure= used to overwrite
+        # offset= when both were given.
+        offset_arr = offset_arr + np.log(_positive_exposure(data, exposure))
 
     w_arr = None
     if weights is not None:
         w_arr = data[weights].values.astype(np.float64)
+    _validate_count_inputs(y_arr, w_arr, offset_arr, "nbreg", dep_var, weights, offset)
 
     cluster_arr = None
     # Standard-error request (Stata grammar)
@@ -1692,8 +1765,18 @@ def nbreg(
     robust, cluster = _se.kind, _se.cluster
     if cluster is not None:
         cluster_arr = data[cluster].values
+        from ._optim_helpers import require_two_clusters
+
+        require_two_clusters(cluster_arr, "nbreg")
 
     # Fit
+    if str(dispersion).lower() not in ("mean", "constant"):
+        raise MethodIncompatibility(
+            f"nbreg: unknown dispersion={dispersion!r}. Choose 'mean' (NB2, "
+            "Var = mu + alpha mu^2) or 'constant' (NB1, Var = mu (1 + delta)).",
+            recovery_hint="Use dispersion='mean' or dispersion='constant'.",
+            diagnostics={"dispersion": dispersion, "valid": ["mean", "constant"]},
+        )
     is_nb2 = dispersion.lower() == "mean"
     if is_nb2:
         beta, mu, disp_param, converged, n_iter = _nb2_fit(

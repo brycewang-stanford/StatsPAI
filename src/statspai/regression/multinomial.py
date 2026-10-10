@@ -348,7 +348,10 @@ def _compute_vcov(
     it (``data_info['var_cov']``) so that joint tests and linear
     combinations work after the fit."""
     from ..core._vcov import ml_vcov
+    from ._optim_helpers import require_two_clusters
 
+    if cluster_vals is not None:
+        require_two_clusters(cluster_vals, "mlogit / ologit / oprobit / clogit")
     return _as_float_array(ml_vcov(H_inv, score_i, kind=kind, clusters=cluster_vals))
 
 

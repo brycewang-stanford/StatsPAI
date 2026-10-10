@@ -215,18 +215,23 @@ def _jive_estimate(
     else:
         raise ValueError(f"Unknown JIVE method: {method}")  # pragma: no cover
 
+    # The leave-one-out fitted values are the INSTRUMENT, not the regressor:
+    # beta = (X_hat'X)^{-1} X_hat'Y (Angrist-Imbens-Krueger 1999, eq. 9).
+    # Regressing Y on X_hat instead -- (X_hat'X_hat)^{-1} X_hat'Y -- is OLS
+    # on a noisy proxy and is attenuated toward zero under many instruments.
     X_hat = np.column_stack([D_hat, W]) if W.size else D_hat
-    XhXh_inv = np.linalg.inv(X_hat.T @ X_hat)
-    params = XhXh_inv @ X_hat.T @ Y
+    XhX_inv = np.linalg.inv(X_hat.T @ X)
+    params = XhX_inv @ X_hat.T @ Y
 
     fitted = X @ params
     resid = Y - fitted
     sigma2 = float(resid @ resid) / max(n - X.shape[1], 1)
 
-    # HC1 robust standard errors (default — many-IV literature convention)
+    # HC1 sandwich of the just-identified IV estimator with instrument X_hat:
+    # (X_hat'X)^{-1} [sum e_i^2 xh_i xh_i'] (X'X_hat)^{-1}.
     n_over = n / max(n - X.shape[1], 1)
     meat = (X_hat * (resid**2 * n_over)[:, None]).T @ X_hat
-    var_cov = XhXh_inv @ meat @ XhXh_inv
+    var_cov = XhX_inv @ meat @ XhX_inv.T
     se = np.sqrt(np.maximum(np.diag(var_cov), 0))
 
     return dict(

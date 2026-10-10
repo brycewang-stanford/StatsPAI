@@ -1275,15 +1275,24 @@ class GLMEstimator(BaseEstimator):
         k: int,
         lags: Optional[int] = None,
     ) -> np.ndarray:
-        """Newey-West HAC covariance."""
+        """Newey-West HAC covariance.
+
+        ``V = B [G_0 + sum_{j=1..L} (1 - j/(L+1)) (G_j + G_j')] B`` with
+        ``G_j = sum_t s_t s_{t-j}'`` the *unnormalised* score autocovariance
+        sums and ``B`` the unnormalised inverse information passed in as
+        ``bread`` (Newey & West 1987; ``sandwich::NeweyWest(adjust=FALSE,
+        prewhite=FALSE)``, statsmodels ``cov_type='HAC'``). No small-sample
+        factor, the ``hac_small=False`` default of ``sp.regress``. Through
+        1.39.1 each ``G_j`` was divided by ``n`` while ``B`` was not, which
+        made every standard error too small by ``sqrt(n)``.
+        """
         S = self._score_obs(X, y, mu, V, g_prime, weights)
         if lags is None:
             lags = int(np.floor(4 * (n / 100) ** (2 / 9)))
 
-        gamma_0 = S.T @ S / n
-        gamma_sum = gamma_0.copy()
+        gamma_sum = S.T @ S
         for j in range(1, lags + 1):
-            gamma_j = S[j:].T @ S[:-j] / n
+            gamma_j = S[j:].T @ S[:-j]
             w = 1 - j / (lags + 1)
             gamma_sum += w * (gamma_j + gamma_j.T)
 
@@ -1498,6 +1507,37 @@ class GLMRegression(BaseModel):
                 "No rows remain for GLM estimation.",
                 recovery_hint="Provide at least one complete estimation row.",
                 diagnostics={"nobs": 0},
+            )
+
+        # The outcome must lie in the support of the family: IRLS on a
+        # negative count or on a "proportion" of 2 does not fail, it returns
+        # coefficients of order 1e15. Non-integer counts are allowed (PPML),
+        # and so are proportions in [0, 1] (fractional / grouped binomial).
+        _y = np.asarray(self.y, dtype=float)
+        if isinstance(self.family, (Poisson, NegativeBinomial)):
+            _n_bad = int(np.sum(_y < 0))
+            _support = "non-negative"
+        elif isinstance(self.family, Binomial):
+            _n_bad = int(np.sum((_y < 0) | (_y > 1)))
+            _support = "in [0, 1] (a 0/1 outcome or a proportion)"
+        else:
+            _n_bad = 0
+        if _n_bad:
+            raise MethodIncompatibility(
+                f"glm: the outcome '{self.dependent_var}' has {_n_bad} "
+                f"value(s) outside the support of the {self.family.name} "
+                f"family; it must be {_support}.",
+                recovery_hint=(
+                    "Check the outcome coding. For counts of successes out "
+                    "of several trials use cbind(successes, failures) ~ x, "
+                    "or the share with weights= set to the number of trials."
+                ),
+                diagnostics={
+                    "family": self.family.name,
+                    "n_out_of_support": _n_bad,
+                    "y_min": float(np.min(_y)),
+                    "y_max": float(np.max(_y)),
+                },
             )
 
         def _aligned_numeric_column(column: str, role: str) -> np.ndarray:
