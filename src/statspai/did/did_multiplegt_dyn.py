@@ -188,9 +188,19 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
 from . import _core as _dc
 from . import _dcdh_arrays as _arr
+
+# What a resampled panel can raise when an event has no comparison cell or
+# a cell is empty; the replicate is then recorded as missing.
+_REPLICATE_ERRORS = (
+    StatsPAIError,
+    ArithmeticError,
+    LookupError,
+    ValueError,
+    np.linalg.LinAlgError,
+)
 
 
 @accepts_aliases(
@@ -745,7 +755,7 @@ def did_multiplegt_dyn(
                 )["delta"]
                 if deltas is not None:
                     boot_hist[b, :] = deltas
-            except Exception:
+            except _REPLICATE_ERRORS:
                 continue  # replicate stays NaN; bootstrap_se tracks the failure
     # the same replicates on resampled frames, for layouts without matrices
     for b in range(n_boot if boot_panel is None else 0):

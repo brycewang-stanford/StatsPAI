@@ -2915,7 +2915,7 @@
    "result_sha256": "76f4bb098eb07f7c7d0e691262c1e7e158a620700ffe692e9963fa421e76b5fa"
   },
   "78_multiplegt_dyn": {
-   "seconds": 0.75,
+   "seconds": 0.74,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2927,7 +2927,7 @@
     "src/statspai/core/results.py": "5268c0274ace6b4aeb7ab94c6975f9933132efee67598af7f0be8ba07eacdffc",
     "src/statspai/did/_core.py": "60bd5e257b3f76bba6a23fa3465daf46988c9409df1aa4c55d9a587230c037b7",
     "src/statspai/did/_dcdh_arrays.py": "dfccea591c33f461a1c47de7a473a00df00f03357fc04b77fbc4cdb527c3748a",
-    "src/statspai/did/did_multiplegt_dyn.py": "5f1feae5bfa00e5223e6d199167964dae1a96e1cfac3e8fe05945c99748cb51c",
+    "src/statspai/did/did_multiplegt_dyn.py": "e9805ee7cea9e0925c8351baa7c336017deb53c4ca8732e1d16d13e70e27d801",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
    "dependency_versions": {
