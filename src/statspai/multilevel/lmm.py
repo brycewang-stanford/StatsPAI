@@ -40,7 +40,7 @@ Compared with the previous pared-down implementation, this file adds:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -55,14 +55,14 @@ from ._core import (
     _group_blocks,
     _GroupBlock,
     _initial_theta,
+    _lmm_reduce,
+    _lmm_reduce_blocks,
+    _lmm_solve,
+    _LMMReduced,
     _n_cov_params,
     _prepare_frame,
-    _solve_V,
     _unpack_G,
 )
-
-ThreeLevelBlock = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-
 
 # ---------------------------------------------------------------------------
 # Result container
@@ -725,9 +725,105 @@ def _compose_group_key(data: pd.DataFrame, group_cols: Sequence[str]) -> List[An
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class _ThreeLevelReduced:
+    """
+    Data summaries for the nested random-intercept likelihood.
+
+    Within an outer cluster ``V = sigma2_e I + sigma2_c (+) 11' +
+    sigma2_s 11'``.  Centring each inner cluster removes both random
+    intercepts, leaving ``sigma2_e I`` on ``n - (number of inner
+    clusters)`` contrasts (``U``).  What remains is one row per inner
+    cluster, ``C_c = sqrt(n_c) * mean_c([X, e])``, with variance
+    ``lambda_c = sigma2_e + n_c sigma2_c`` and a rank-one outer term
+    ``sigma2_s a a'``, ``a_c = sqrt(n_c)``, handled in closed form by
+    centring the rows at their ``1/lambda``-weighted outer mean.
+    ``e = y - X beta0`` plays the role of ``y`` as in the two-level case.
+    """
+
+    C: np.ndarray  # (n_inner, p + 1)
+    n_c: np.ndarray  # (n_inner,) inner-cluster sizes
+    outer_start: np.ndarray  # (n_outer,) first inner cluster of each outer one
+    outer_of: np.ndarray  # (n_inner,) outer index of each inner cluster
+    U: np.ndarray  # (k, p + 1)
+    beta0: np.ndarray
+    n_total: int
+    p: int
+
+
+def _three_level_reduce(
+    y: np.ndarray,
+    X: np.ndarray,
+    inner_code: np.ndarray,
+    outer_of: np.ndarray,
+    beta0: np.ndarray,
+) -> _ThreeLevelReduced:
+    """``inner_code`` labels rows 0..n_inner-1, ordered outer cluster first."""
+    n, p = X.shape
+    D = np.column_stack([X, y - X @ beta0])
+    order = np.argsort(inner_code, kind="stable")
+    D = D[order]
+    n_c = np.bincount(inner_code)
+    starts = np.concatenate([[0], np.cumsum(n_c)[:-1]])
+    means = np.add.reduceat(D, starts, axis=0) / n_c[:, None]
+    D_perp = D - np.repeat(means, n_c, axis=0)
+    outer_start = np.flatnonzero(np.diff(outer_of, prepend=-1))
+    return _ThreeLevelReduced(
+        C=np.sqrt(n_c)[:, None] * means,
+        n_c=n_c.astype(float),
+        outer_start=outer_start,
+        outer_of=outer_of,
+        U=np.asarray(np.linalg.qr(D_perp, mode="r")),
+        beta0=np.asarray(beta0, dtype=float),
+        n_total=int(n),
+        p=int(p),
+    )
+
+
+def _three_level_solve(
+    red: _ThreeLevelReduced, sigma2_s: float, sigma2_c: float, sigma2_e: float
+) -> Dict[str, Any]:
+    """GLS pieces of the nested model at one set of variances."""
+    p = red.p
+    a = np.sqrt(red.n_c)
+    w = 1.0 / (sigma2_e + red.n_c * sigma2_c)
+    h = np.add.reduceat(w * red.n_c, red.outer_start)
+    M = np.add.reduceat((w * a)[:, None] * red.C, red.outer_start, axis=0)
+    M /= h[:, None]
+    shrink = h / (1.0 + sigma2_s * h)
+    # (Lambda + sigma2_s a a')^{-1} as a sum of two non-negative forms.
+    T = np.vstack(
+        [
+            np.sqrt(w)[:, None] * (red.C - a[:, None] * M[red.outer_of]),
+            np.sqrt(shrink)[:, None] * M,
+            red.U / np.sqrt(sigma2_e),
+        ]
+    )
+    F = T.T @ T
+    XtVinvX = F[:p, :p]
+    delta = np.linalg.solve(XtVinvX, F[:p, p])
+    r = T[:, p] - T[:, :p] @ delta
+    logdet_V = float(
+        (red.n_total - len(red.n_c)) * np.log(sigma2_e)
+        - np.sum(np.log(w))
+        + np.sum(np.log1p(sigma2_s * h))
+    )
+    return {
+        "XtVinvX": XtVinvX,
+        "delta": delta,
+        "quad": float(r @ r),
+        "logdet_V": logdet_V,
+        "a": a,
+        "w": w,
+        "h": h,
+        "M": M,
+        "shrink": shrink,
+    }
+
+
 def _three_level_nll(
     theta: np.ndarray,
-    blocks_outer: Sequence[ThreeLevelBlock],
+    red: _ThreeLevelReduced,
     p_fixed: int,
     n_total: int,
     reml: bool,
@@ -736,65 +832,26 @@ def _three_level_nll(
     Negative (RE)ML for a 3-level nested random-intercept model.
 
     theta layout = [log σ²_outer, log σ²_inner, log σ²_resid].
-    Blocks are outer-level (school-level) clusters — each carries the
-    within-block assignment of observations to inner (class-level)
-    subclusters.
     """
     sigma2_s = float(np.exp(theta[0]))
     sigma2_c = float(np.exp(theta[1]))
     sigma2_e = float(np.exp(theta[2]))
 
-    XtVinvX = np.zeros((p_fixed, p_fixed))
-    XtVinvy = np.zeros(p_fixed)
-    logdet_sum = 0.0
-
-    for y_s, X_s, inner_ids, inner_unique, _row_idx in blocks_outer:
-        n_s = len(y_s)
-        V = sigma2_e * np.eye(n_s) + sigma2_s * np.ones((n_s, n_s))
-        # Add block-diagonal contribution from inner clusters.
-        for c in inner_unique:
-            mask = inner_ids == c
-            V[np.ix_(mask, mask)] += sigma2_c
-        try:
-            L = np.linalg.cholesky(V)
-        except np.linalg.LinAlgError:
-            return 1e12
-        logdet_sum += 2.0 * np.sum(np.log(np.diag(L)))
-        z = np.linalg.solve(L, X_s)
-        VinvX = np.linalg.solve(L.T, z)
-        z = np.linalg.solve(L, y_s)
-        Vinvy = np.linalg.solve(L.T, z)
-        XtVinvX += X_s.T @ VinvX
-        XtVinvy += X_s.T @ Vinvy
-
     try:
-        beta = np.linalg.solve(XtVinvX, XtVinvy)
+        with np.errstate(all="ignore"):
+            sol = _three_level_solve(red, sigma2_s, sigma2_c, sigma2_e)
     except np.linalg.LinAlgError:
         return 1e12
 
-    quad = 0.0
-    for y_s, X_s, inner_ids, inner_unique, _row_idx in blocks_outer:
-        n_s = len(y_s)
-        V = sigma2_e * np.eye(n_s) + sigma2_s * np.ones((n_s, n_s))
-        for c in inner_unique:
-            mask = inner_ids == c
-            V[np.ix_(mask, mask)] += sigma2_c
-        r = y_s - X_s @ beta
-        try:
-            L = np.linalg.cholesky(V)
-        except np.linalg.LinAlgError:
-            return 1e12
-        z = np.linalg.solve(L, r)
-        quad += float(z @ z)
-
-    nll = 0.5 * (logdet_sum + quad + n_total * np.log(2 * np.pi))
+    nll = 0.5 * (sol["logdet_V"] + sol["quad"] + n_total * np.log(2 * np.pi))
     if reml:
-        sign, logdet_xtvinvx = np.linalg.slogdet(XtVinvX)
+        sign, logdet_xtvinvx = np.linalg.slogdet(sol["XtVinvX"])
         if sign <= 0:
             return 1e12
         nll += 0.5 * logdet_xtvinvx
         nll -= 0.5 * p_fixed * np.log(2 * np.pi)
-    return float(nll)
+    # A variance that under- or overflows leaves V singular or infinite.
+    return float(nll) if np.isfinite(nll) else 1e12
 
 
 def _fit_three_level_intercept(
@@ -817,23 +874,36 @@ def _fit_three_level_intercept(
     p_fixed = len(fixed_names)
     reml = method == "reml"
 
-    # Build outer blocks.
-    blocks_outer: List[ThreeLevelBlock] = []
-    singleton_outers = 0
-    positions = np.arange(len(df))
-    for _key, sub in df.groupby(outer_col, sort=False):
-        row_idx = positions[df.index.get_indexer(sub.index)]
-        y_s = sub[y].to_numpy(dtype=float)
-        X_s = sub[["__intercept__"] + list(x_fixed)].to_numpy(dtype=float)
-        inner_ids = sub[inner_col].to_numpy()
-        inner_unique = np.unique(inner_ids)
-        if len(inner_unique) < 2:
-            singleton_outers += 1
-        blocks_outer.append((y_s, X_s, inner_ids, inner_unique, row_idx))
+    # Rows grouped by outer cluster (first appearance, original row order);
+    # inner clusters are numbered outer cluster first, sorted within it.
+    y_raw = df[y].to_numpy(dtype=float)
+    X_raw = df[["__intercept__"] + list(x_fixed)].to_numpy(dtype=float)
+    outer_grouped = df.groupby(outer_col, sort=False)
+    outer_code = outer_grouped.ngroup().to_numpy()
+    n_outer = int(outer_grouped.ngroups)
+    inner_raw = df[inner_col].to_numpy()
+    try:
+        inner_levels, inner_rank = np.unique(inner_raw, return_inverse=True)
+    except TypeError:  # labels that do not sort against one another
+        inner_rank, inner_levels = pd.factorize(inner_raw)
+    pair = outer_code.astype(np.int64) * max(len(inner_levels), 1) + inner_rank
+    pair_levels, inner_code = np.unique(pair, return_inverse=True)
+    outer_of = (pair_levels // max(len(inner_levels), 1)).astype(np.intp)
+    inner_label = inner_levels[pair_levels % max(len(inner_levels), 1)]
+    n_inner_per_outer = np.bincount(outer_of, minlength=n_outer)
+    singleton_outers = int(np.sum(n_inner_per_outer < 2))
+    # An outer category with no rows (categorical key) has no inner cluster.
+    outer_seen, outer_dense = np.unique(outer_of, return_inverse=True)
+
+    order = np.argsort(outer_code, kind="stable")
+    outer_sizes = np.bincount(outer_code, minlength=n_outer)
+    bounds = np.concatenate([[0], np.cumsum(outer_sizes)])
+    X_all = X_raw[order]
+    y_all = y_raw[order]
 
     if singleton_outers > 0:
         _warnings.warn(
-            f"three-level fit: {singleton_outers}/{len(blocks_outer)} "
+            f"three-level fit: {singleton_outers}/{n_outer} "
             f"outer groups ({outer_col!r}) contain only one inner group "
             f"({inner_col!r}); the within-outer / between-inner variance "
             "is not identified for those outer groups and may bias the "
@@ -844,8 +914,6 @@ def _fit_three_level_intercept(
 
     n_obs = len(df)
     # Starting values from OLS
-    X_all = np.vstack([b[1] for b in blocks_outer])
-    y_all = np.concatenate([b[0] for b in blocks_outer])
     ols_beta, *_ = np.linalg.lstsq(X_all, y_all, rcond=None)
     resid = y_all - X_all @ ols_beta
     s2_ols = float(np.var(resid, ddof=p_fixed))
@@ -853,10 +921,12 @@ def _fit_three_level_intercept(
         [np.log(0.1 * s2_ols), np.log(0.1 * s2_ols), np.log(0.8 * s2_ols)]
     )
 
+    red = _three_level_reduce(y_raw, X_raw, inner_code, outer_dense, ols_beta)
+
     res = minimize(
         _three_level_nll,
         theta0,
-        args=(blocks_outer, p_fixed, n_obs, reml),
+        args=(red, p_fixed, n_obs, reml),
         method="L-BFGS-B",
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
@@ -865,38 +935,28 @@ def _fit_three_level_intercept(
     sigma2_e = float(np.exp(res.x[2]))
 
     # Recompute GLS β and Cov(β) at the MLE, plus BLUPs.
-    XtVinvX = np.zeros((p_fixed, p_fixed))
-    XtVinvy = np.zeros(p_fixed)
-    V_list: List[np.ndarray] = []
-    for y_s, X_s, inner_ids, inner_unique, _row_idx in blocks_outer:
-        n_s = len(y_s)
-        V = sigma2_e * np.eye(n_s) + sigma2_s * np.ones((n_s, n_s))
-        for c in inner_unique:
-            mask = inner_ids == c
-            V[np.ix_(mask, mask)] += sigma2_c
-        V_list.append(V)
-        XtVinvX += X_s.T @ np.linalg.solve(V, X_s)
-        XtVinvy += X_s.T @ np.linalg.solve(V, y_s)
-    beta_hat = np.linalg.solve(XtVinvX, XtVinvy)
-    cov_beta = np.linalg.inv(XtVinvX)
+    sol = _three_level_solve(red, sigma2_s, sigma2_c, sigma2_e)
+    beta_hat = red.beta0 + sol["delta"]
+    cov_beta = np.linalg.inv(sol["XtVinvX"])
 
     # BLUPs --------------------------------------------------------------
     # For random-intercept-only 3-level LMM the BLUPs are:
     #   û_school = σ²_s · 1' V_s⁻¹ r_s
     #   û_class  = σ²_c · 1' V_s⁻¹ r_s  (restricted to class indicator)
-    school_blups: List[float] = []
-    class_blups: List[float] = []
-    class_blup_keys: List[Any] = []
-    for (y_s, X_s, inner_ids, inner_unique, _rix), V in zip(blocks_outer, V_list):
-        r = y_s - X_s @ beta_hat
-        Vinv_r = np.linalg.solve(V, r)
-        u_school = sigma2_s * float(np.sum(Vinv_r))
-        school_blups.append(u_school)
-        for c in inner_unique:
-            mask = inner_ids == c
-            u_class = sigma2_c * float(np.sum(Vinv_r[mask]))
-            class_blups.append(u_class)
-            class_blup_keys.append(c)
+    # and 1_c' V_s⁻¹ r_s follows from the same centred / shrunk split of
+    # the inner-cluster rows that the likelihood uses.
+    a_c, w_c = sol["a"], sol["w"]
+    v_c = red.C[:, p_fixed] - red.C[:, :p_fixed] @ sol["delta"]
+    m_s = sol["M"][:, p_fixed] - sol["M"][:, :p_fixed] @ sol["delta"]
+    outer_sum = m_s * sol["shrink"]
+    inner_sum = a_c * w_c * (v_c - a_c * m_s[outer_dense]) + (
+        red.n_c * w_c * (m_s / (1.0 + sigma2_s * sol["h"]))[outer_dense]
+    )
+    school_u = np.zeros(n_outer)
+    school_u[outer_seen] = sigma2_s * outer_sum
+    school_blups: List[float] = [float(v) for v in school_u]
+    class_blups: List[float] = [float(v) for v in sigma2_c * inner_sum]
+    class_blup_keys: List[Any] = list(inner_label)
 
     # Build composed BLUP dict: keys are innermost (class) labels mapping
     # to their random intercept (total = school + class).
@@ -941,10 +1001,17 @@ def _fit_three_level_intercept(
     # three-level path we store a marker NaN matrix so downstream code
     # doesn't mistake it for a genuine single-level G.
     blocks_proxy: List[_GroupBlock] = []
-    for y_s, X_s, inner_ids, inner_unique, row_idx in blocks_outer:
-        Z_s = np.ones((len(y_s), 1))
+    for j in range(n_outer):
+        lo, hi = int(bounds[j]), int(bounds[j + 1])
         blocks_proxy.append(
-            _GroupBlock(key=None, y=y_s, X=X_s, Z=Z_s, n=len(y_s), row_idx=row_idx)
+            _GroupBlock(
+                key=None,
+                y=y_all[lo:hi],
+                X=np.asfortranarray(X_all[lo:hi]),
+                Z=np.ones((hi - lo, 1)),
+                n=hi - lo,
+                row_idx=order[lo:hi],
+            )
         )
 
     return MixedResult(
@@ -988,61 +1055,44 @@ def _fit_three_level_intercept(
 
 def _profiled_nll(
     theta: np.ndarray,
-    blocks: List[_GroupBlock],
+    blocks: "Sequence[_GroupBlock] | _LMMReduced",
     p_fixed: int,
     q_random: int,
     n_total: int,
     reml: bool,
     cov_type: str,
 ) -> float:
-    """Negative (RE)ML log-likelihood profiled over β."""
+    """
+    Negative (RE)ML log-likelihood profiled over β.
+
+    ``blocks`` is either the per-group blocks or their reduced form
+    (:func:`_lmm_reduce_blocks`).  Callers that evaluate the criterion
+    repeatedly should reduce once and pass the result: each evaluation is
+    then a batched q×q factorisation per group instead of an n_j×n_j one.
+    """
+    red = blocks if isinstance(blocks, _LMMReduced) else _lmm_reduce_blocks(blocks)
     n_cov_pars = _n_cov_params(q_random, cov_type)
     G = _unpack_G(theta[:n_cov_pars], q_random, cov_type)
     sigma2 = float(np.exp(theta[n_cov_pars]))
 
-    XtVinvX = np.zeros((p_fixed, p_fixed))
-    XtVinvy = np.zeros(p_fixed)
-    logdet_sum = 0.0
-
-    # Pass 1: build XtVinvX / XtVinvy & accumulate log|V_j|.
-    for idx, b in enumerate(blocks):
-        V = b.V(G, sigma2)
-        try:
-            VinvX, logdet = _solve_V(V, b.X)
-            Vinvy, _ = _solve_V(V, b.y)
-        except np.linalg.LinAlgError:
-            return 1e12
-        XtVinvX += b.X.T @ VinvX
-        XtVinvy += b.X.T @ Vinvy
-        logdet_sum += logdet
-
-    # GLS β̂(θ)
+    # GLS β̂(θ), log|V| and the residual quadratic form in one pass.
     try:
-        beta = np.linalg.solve(XtVinvX, XtVinvy)
+        with np.errstate(all="ignore"):
+            sol = _lmm_solve(red, G, sigma2)
     except np.linalg.LinAlgError:
         return 1e12
 
-    # Pass 2: quadratic form with profiled β
-    quad_sum = 0.0
-    for idx, b in enumerate(blocks):
-        r = b.y - b.X @ beta
-        V = b.V(G, sigma2)
-        try:
-            Vinvr, _ = _solve_V(V, r)
-        except np.linalg.LinAlgError:
-            return 1e12
-        quad_sum += r @ Vinvr
-
-    nll = 0.5 * (logdet_sum + quad_sum + n_total * np.log(2 * np.pi))
+    nll = 0.5 * (sol.logdet_V + sol.quad + n_total * np.log(2 * np.pi))
 
     if reml:
-        sign, logdet_xtvinvx = np.linalg.slogdet(XtVinvX)
+        sign, logdet_xtvinvx = np.linalg.slogdet(sol.XtVinvX)
         if sign <= 0:
             return 1e12
         nll += 0.5 * logdet_xtvinvx
         nll -= 0.5 * p_fixed * np.log(2 * np.pi)
 
-    return float(nll)
+    # A variance that under- or overflows leaves V singular or infinite.
+    return float(nll) if np.isfinite(nll) else 1e12
 
 
 # ---------------------------------------------------------------------------
@@ -1184,10 +1234,20 @@ def mixed(
 
     reml = method == "reml"
 
+    # The criterion depends on the data only through per-group
+    # cross-products; form them once.
+    red = _lmm_reduce(
+        y_all,
+        X_all,
+        np.vstack([b.Z for b in blocks]),
+        np.array([b.n for b in blocks], dtype=np.intp),
+        ols_beta,
+    )
+
     res = minimize(
         _profiled_nll,
         theta0,
-        args=(blocks, p_fixed, q_random, n_obs, reml, cov_type),
+        args=(red, p_fixed, q_random, n_obs, reml, cov_type),
         method="L-BFGS-B",
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
@@ -1201,7 +1261,7 @@ def mixed(
     from .glmm import _newton_polish
 
     def _crit(th: np.ndarray) -> float:
-        return _profiled_nll(th, blocks, p_fixed, q_random, n_obs, reml, cov_type)
+        return _profiled_nll(th, red, p_fixed, q_random, n_obs, reml, cov_type)
 
     x_pol, polish_ok = _newton_polish(_crit, res.x)
     f_pol = float(_crit(x_pol))
@@ -1215,17 +1275,9 @@ def mixed(
     sigma2_hat = float(np.exp(res.x[n_cov_pars]))
 
     # GLS β and Cov(β) at the MLE
-    XtVinvX = np.zeros((p_fixed, p_fixed))
-    XtVinvy = np.zeros(p_fixed)
-    Vinv_cache: List[np.ndarray] = []
-    for b in blocks:
-        V = b.V(G_hat, sigma2_hat)
-        VinvX, _ = _solve_V(V, b.X)
-        Vinvy, _ = _solve_V(V, b.y)
-        XtVinvX += b.X.T @ VinvX
-        XtVinvy += b.X.T @ Vinvy
-        Vinv_cache.append(np.linalg.solve(V, np.eye(V.shape[0])))
-    beta_hat = np.linalg.solve(XtVinvX, XtVinvy)
+    sol = _lmm_solve(red, G_hat, sigma2_hat)
+    XtVinvX = sol.XtVinvX
+    beta_hat = red.beta0 + sol.delta
     cov_beta = np.linalg.inv(XtVinvX)
     se_beta = np.sqrt(np.diag(cov_beta))
 
@@ -1233,28 +1285,35 @@ def mixed(
     se_fixed = pd.Series(se_beta, index=fixed_names)
 
     # BLUPs and posterior SEs -----------------------------------------------
-    blup_rows: List[Dict[str, float]] = []
-    blup_dict: Dict[Any, np.ndarray] = {}
-    ranef_se_rows: List[Dict[str, float]] = []
-    keys: List[Any] = []
+    # In the rotated coordinates Z_j' V_j^{-1} = R_j' W_j^{-1} Q_j', so with
+    # B_j = L_j^{-1} R_j and T_j = L_j^{-1} Q_j' [X_j, e_j]:
+    #   Z'V^{-1}r = B' (T_e - T_X delta),  Z'V^{-1}Z = B'B,  Z'V^{-1}X = B'T_X.
+    B = np.linalg.solve(sol.L, red.R)
+    Bt = np.swapaxes(B, 1, 2)
+    T_X = sol.T[:, :, :p_fixed]
+    resid_rot = sol.T[:, :, p_fixed] - T_X @ sol.delta
+    u_all = (Bt @ resid_rot[:, :, None])[:, :, 0] @ G_hat.T
+    # Conditional variance:
+    #   Var(u|y) = G - G Z' V^{-1} Z G + G Z' V^{-1} X Cov(β) X' V^{-1} Z G
+    ZtVinvX = Bt @ T_X
+    cond_var = (
+        G_hat
+        - G_hat @ (Bt @ B) @ G_hat
+        + G_hat @ (ZtVinvX @ cov_beta @ np.swapaxes(ZtVinvX, 1, 2)) @ G_hat
+    )
+    # Numerical PSD cleanup.
+    cond_var = 0.5 * (cond_var + np.swapaxes(cond_var, 1, 2))
+    diag_q = np.arange(q_random)
+    ranef_sd = np.sqrt(np.clip(cond_var[:, diag_q, diag_q], 0.0, None))
 
-    for b, Vinv in zip(blocks, Vinv_cache):
-        r = b.y - b.X @ beta_hat
-        u_hat = G_hat @ b.Z.T @ Vinv @ r
-        # Conditional variance:
-        #   Var(u|y) = G - G Z' V^{-1} Z G + G Z' V^{-1} X Cov(β) X' V^{-1} Z G
-        ZtVinvZ = b.Z.T @ Vinv @ b.Z
-        cond_var = G_hat - G_hat @ ZtVinvZ @ G_hat
-        inflate = G_hat @ b.Z.T @ Vinv @ b.X @ cov_beta @ b.X.T @ Vinv @ b.Z @ G_hat
-        cond_var = cond_var + inflate
-        # Numerical PSD cleanup.
-        cond_var = 0.5 * (cond_var + cond_var.T)
-        diag = np.clip(np.diag(cond_var), 0.0, None)
-
-        blup_dict[b.key] = u_hat
-        blup_rows.append(dict(zip(random_names, u_hat)))
-        ranef_se_rows.append(dict(zip(random_names, np.sqrt(diag))))
-        keys.append(b.key)
+    keys: List[Any] = [b.key for b in blocks]
+    blup_dict: Dict[Any, np.ndarray] = {
+        key: u_all[j].copy() for j, key in enumerate(keys)
+    }
+    # Row dicts keyed by name, as before, so a repeated random-effect name
+    # collapses the same way.
+    blup_rows = [dict(zip(random_names, u)) for u in u_all]
+    ranef_se_rows = [dict(zip(random_names, sd)) for sd in ranef_sd]
 
     random_effects_df = pd.DataFrame(blup_rows, index=keys)
     random_effects_df.index.name = group_fit_col

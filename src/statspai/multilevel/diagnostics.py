@@ -62,6 +62,7 @@ def _mixed_vc_cov(result: Any) -> Optional[np.ndarray]:
     full inverse information, for REML the inverse REML Hessian, i.e. what
     Stata ``mixed`` reports in ``e(V)`` for its log-sd parameters.
     """
+    from ._core import _lmm_reduce_blocks
     from .glmm import _numerical_oim_cov
     from .lmm import _profiled_nll
 
@@ -76,10 +77,12 @@ def _mixed_vc_cov(result: Any) -> Optional[np.ndarray]:
         ]
     )
     reml = str(result._method).lower() == "reml"
+    # Reduce the blocks once; the Hessian evaluates the criterion many times.
+    reduced = _lmm_reduce_blocks(blocks)
     return _numerical_oim_cov(
         lambda th: _profiled_nll(
             th,
-            blocks,
+            reduced,
             len(result.fixed_effects),
             1,
             int(result.n_obs),

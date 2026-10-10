@@ -177,20 +177,44 @@ def _group_blocks(
     fixed_names = ["_cons"] + list(x_fixed)
     random_names = ["_cons"] + list(x_random)
 
-    blocks: List[_GroupBlock] = []
-    # Positional row indices relative to the cleaned (post-dropna) frame.
-    positions = np.arange(len(df))
-    for key, sub in df.groupby(group_col_name, sort=False):
-        idx = positions[df.index.get_indexer(sub.index)]
-        y_j = sub[y].to_numpy(dtype=float)
-        X_j = sub[["__intercept__"] + list(x_fixed)].to_numpy(dtype=float)
-        if x_random:
-            Z_j = sub[["__intercept__"] + list(x_random)].to_numpy(dtype=float)
-        else:
-            Z_j = sub[["__intercept__"]].to_numpy(dtype=float)
-        blocks.append(
-            _GroupBlock(key=key, y=y_j, X=X_j, Z=Z_j, n=len(sub), row_idx=idx)
+    y_all = df[y].to_numpy(dtype=float)
+    X_all = df[["__intercept__"] + list(x_fixed)].to_numpy(dtype=float)
+    Z_all = df[["__intercept__"] + list(x_random)].to_numpy(dtype=float)
+
+    grouped = df.groupby(group_col_name, sort=False)
+    if isinstance(df[group_col_name].dtype, pd.CategoricalDtype):
+        # A categorical key can yield groups with no rows (unobserved
+        # categories); let pandas decide which, and in what order.
+        positions = np.arange(len(df))
+        parts = [
+            (key, positions[df.index.get_indexer(sub.index)]) for key, sub in grouped
+        ]
+        keys: List[object] = [key for key, _ in parts]
+        row_sets = [idx for _, idx in parts]
+    else:
+        # One stable sort instead of one pandas slice per group: groups in
+        # order of first appearance, rows in their original order.
+        codes = grouped.ngroup().to_numpy()
+        order = np.argsort(codes, kind="stable")
+        sizes = np.bincount(codes, minlength=int(grouped.ngroups))
+        bounds = np.concatenate([[0], np.cumsum(sizes)])
+        keys = df[group_col_name].iloc[order[bounds[:-1]]].tolist()
+        row_sets = [order[bounds[j] : bounds[j + 1]] for j in range(len(sizes))]
+
+    # Column-major blocks, as a per-group ``DataFrame.to_numpy()`` returns
+    # them: BLAS rounds a product differently for the two layouts, and the
+    # GLMM optimisers downstream are compared with Stata at 1e-6.
+    blocks: List[_GroupBlock] = [
+        _GroupBlock(
+            key=key,
+            y=y_all[idx],
+            X=np.asfortranarray(X_all[idx]),
+            Z=np.asfortranarray(Z_all[idx]),
+            n=len(idx),
+            row_idx=idx,
         )
+        for key, idx in zip(keys, row_sets)
+    ]
     return blocks, fixed_names, random_names
 
 
@@ -211,6 +235,147 @@ def _solve_V(V: np.ndarray, B: np.ndarray) -> Tuple[np.ndarray, float]:
     z = np.linalg.solve(L, B)
     x = np.linalg.solve(L.T, z)
     return x, logdet
+
+
+# ---------------------------------------------------------------------------
+# Reduced (cross-product) form of the Gaussian likelihood
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _LMMReduced:
+    """
+    Everything the profiled (RE)ML criterion needs from the data.
+
+    With the thin QR ``Z_j = Q_j R_j``, rotating group *j* by an orthogonal
+    matrix whose first columns are ``Q_j`` turns ``V_j`` into
+    ``blockdiag(R_j G R_j' + sigma2 I_q, sigma2 I)``.  The likelihood then
+    depends on the data only through ``R_j``, ``C_j = Q_j' [X_j, e_j]`` and
+    the pooled cross-product of the part of ``[X, e]`` orthogonal to every
+    ``Z_j``.  Nothing here requires ``G`` to be invertible, and no term is
+    formed as a difference of large numbers.
+
+    ``e = y - X beta0`` (pooled OLS) stands in for ``y``: the criterion is
+    unchanged, and the GLS step then solves for a small correction, so the
+    residual quadratic form carries no cancellation from the level of
+    ``X beta``.  Groups with fewer than ``q`` rows are zero-padded; the
+    padding contributes ``log sigma2`` per row to ``log|W_j|``, which the
+    ``(n_j - q) log sigma2`` term takes back.
+    """
+
+    R: np.ndarray  # (J, q, q)
+    C: np.ndarray  # (J, q, p + 1)
+    U: np.ndarray  # (k, p + 1) triangular factor of the orthogonal part
+    beta0: np.ndarray  # (p,)
+    n_total: int
+    p: int
+    q: int
+
+    @property
+    def n_groups(self) -> int:
+        return int(self.R.shape[0])
+
+
+def _lmm_reduce(
+    y: np.ndarray,
+    X: np.ndarray,
+    Z: np.ndarray,
+    sizes: np.ndarray,
+    beta0: Optional[np.ndarray] = None,
+) -> _LMMReduced:
+    """
+    Build :class:`_LMMReduced` from rows stored group after group.
+
+    ``sizes[j]`` is the number of consecutive rows belonging to group *j*.
+    Groups of equal size are factorised together, so the work is a handful
+    of batched QR calls rather than one per group.
+    """
+    y = np.asarray(y, dtype=float)
+    X = np.asarray(X, dtype=float)
+    Z = np.asarray(Z, dtype=float)
+    sizes = np.asarray(sizes, dtype=np.intp)
+    n, p = X.shape
+    q = Z.shape[1]
+    J = len(sizes)
+    if beta0 is None:
+        beta0 = np.linalg.lstsq(X, y, rcond=None)[0]
+    D = np.column_stack([X, y - X @ beta0])
+
+    R = np.zeros((J, q, q))
+    C = np.zeros((J, q, p + 1))
+    D_perp = np.zeros((n, p + 1))
+    starts = np.concatenate([[0], np.cumsum(sizes)[:-1]]).astype(np.intp)
+    for m in np.unique(sizes):
+        if m == 0:
+            continue
+        idx = np.flatnonzero(sizes == m)
+        rows = starts[idx][:, None] + np.arange(m)[None, :]
+        Q, R_m = np.linalg.qr(Z[rows])
+        D_m = D[rows]
+        C_m = np.swapaxes(Q, 1, 2) @ D_m
+        k = R_m.shape[1]  # min(m, q)
+        R[idx, :k, :] = R_m
+        C[idx, :k, :] = C_m
+        D_perp[rows] = D_m - Q @ C_m
+    # Only D_perp' D_perp matters; keep its triangular factor so the
+    # residual sum of squares is formed as a norm, not as a difference.
+    U = np.asarray(np.linalg.qr(D_perp, mode="r"))
+    return _LMMReduced(R=R, C=C, U=U, beta0=np.asarray(beta0), n_total=int(n), p=p, q=q)
+
+
+def _lmm_reduce_blocks(
+    blocks: Sequence[_GroupBlock], beta0: Optional[np.ndarray] = None
+) -> _LMMReduced:
+    """:func:`_lmm_reduce` for a list of per-group blocks."""
+    return _lmm_reduce(
+        np.concatenate([b.y for b in blocks]),
+        np.vstack([b.X for b in blocks]),
+        np.vstack([b.Z for b in blocks]),
+        np.array([b.n for b in blocks], dtype=np.intp),
+        beta0,
+    )
+
+
+@dataclass
+class _LMMSolve:
+    """GLS quantities at one value of (G, sigma2); see :func:`_lmm_solve`."""
+
+    L: np.ndarray  # (J, q, q) Cholesky factors of W_j = R_j G R_j' + sigma2 I
+    T: np.ndarray  # (J, q, p + 1)  L_j^{-1} C_j
+    XtVinvX: np.ndarray  # (p, p)
+    delta: np.ndarray  # (p,)  beta_hat - beta0
+    logdet_V: float  # sum_j log|V_j|
+    quad: float  # sum_j r_j' V_j^{-1} r_j at beta_hat
+
+
+def _lmm_solve(red: _LMMReduced, G: np.ndarray, sigma2: float) -> _LMMSolve:
+    """
+    Profile the fixed effects out at (G, sigma2).
+
+    Raises ``np.linalg.LinAlgError`` when some ``W_j`` is not positive
+    definite or the GLS normal equations are singular.
+    """
+    p = red.p
+    W = (red.R @ G) @ np.swapaxes(red.R, 1, 2)
+    diag = np.arange(red.q)
+    W[:, diag, diag] += sigma2
+    L = np.linalg.cholesky(W)
+    T = np.linalg.solve(L, red.C)
+    Tm = T.reshape(-1, p + 1)
+    Us = red.U / np.sqrt(sigma2)
+    F = Tm.T @ Tm + Us.T @ Us
+    XtVinvX = F[:p, :p]
+    delta = np.linalg.solve(XtVinvX, F[:p, p])
+    r_par = Tm[:, p] - Tm[:, :p] @ delta
+    r_perp = Us[:, p] - Us[:, :p] @ delta
+    quad = float(r_par @ r_par + r_perp @ r_perp)
+    logdet_V = float(
+        (red.n_total - red.n_groups * red.q) * np.log(sigma2)
+        + 2.0 * np.sum(np.log(L[:, diag, diag]))
+    )
+    return _LMMSolve(
+        L=L, T=T, XtVinvX=XtVinvX, delta=delta, logdet_V=logdet_V, quad=quad
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -275,5 +440,10 @@ __all__ = [
     "_GroupBlock",
     "_group_blocks",
     "_solve_V",
+    "_LMMReduced",
+    "_LMMSolve",
+    "_lmm_reduce",
+    "_lmm_reduce_blocks",
+    "_lmm_solve",
     "_prepare_frame",
 ]
