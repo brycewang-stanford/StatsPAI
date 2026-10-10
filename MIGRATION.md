@@ -37,6 +37,20 @@ support; unweighted `drdid`; `did_multiplegt` rows that were estimable.
 Code that read a `did_multiplegt` placebo of exactly 0 as "no pre-trend"
 should check for a missing value.
 
+## Unreleased: ⚠️ `sp.msm` with an end-of-follow-up outcome
+
+**What changed.** When the outcome is constant within every unit (one
+measurement, repeated on each row of the long panel), `sp.msm` fits the
+outcome model on each unit's last row. It used to fit it on every row, so
+the final outcome was also regressed on the exposure accumulated at
+earlier visits, and the slope was biased towards zero (2.7 against a true
+3.0 per visit in a two-visit design). `model_info['outcome_rows']` is
+`'last_per_unit'` in that case and `'all'` otherwise.
+
+**What to do.** Rerun `sp.msm` calls whose outcome is measured once per
+unit; the coefficient and its standard error change. Panels with a
+time-varying outcome give the same numbers as before.
+
 ## Unreleased: ⚠️ `sp.liml` formulas with the bracket first
 
 **What changed.** `sp.liml("y ~ (d ~ z1 + z2) + x1 + x2", data=df)` used

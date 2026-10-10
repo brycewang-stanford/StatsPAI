@@ -102,7 +102,12 @@ def msm(
         Long-format panel data, one row per (unit, period).
     y : str
         Outcome column. Can be constant within unit (end-of-follow-up
-        outcome repeated) or time-varying.
+        outcome repeated) or time-varying. An outcome that is constant
+        within every unit is treated as measured once: the outcome model
+        is fitted on each unit's last row, where the cumulative weight and
+        the exposure summary cover the whole follow-up
+        (``model_info['outcome_rows'] == 'last_per_unit'``). A time-varying
+        outcome uses every row.
     treat : str
         Treatment column. Binary (0/1) or continuous.
     id : str
@@ -248,11 +253,28 @@ def msm(
         df["_exposure"] = (grouped.cummax() > 0).astype(float).values
         exposure_label = f"ever_{treat}"
 
+    # An outcome measured once, at the end of follow-up, arrives repeated
+    # on every row of its unit. Only the last row pairs it with the whole
+    # treatment history and the whole weight; an earlier row would pair the
+    # final outcome with the exposure received so far, and the pooled slope
+    # is then not the effect of a unit of exposure (2.7 against a true 3.0
+    # per period in the two-visit design of examples/gmethods_timevarying.py).
+    n_periods_max = int(df.groupby(id, sort=False)[time].size().max())
+    end_of_follow_up = bool(
+        n_periods_max > 1
+        and int(df.groupby(id, sort=False)[y].nunique(dropna=False).max()) == 1
+    )
+    if end_of_follow_up:
+        rows = (~df.duplicated(subset=[id], keep="last")).to_numpy()
+    else:
+        rows = np.ones(len(df), dtype=bool)
+
     # Pooled weighted regression of Y on exposure + baseline
     feat = ["_exposure"] + baseline
-    X_mat = np.column_stack([np.ones(len(df)), df[feat].values.astype(float)])
-    y_vec = df[y].values.astype(float)
-    cluster_ids = df[id].values
+    X_mat = np.column_stack([np.ones(len(df)), df[feat].values.astype(float)])[rows]
+    y_vec = df[y].values.astype(float)[rows]
+    cluster_ids = df[id].values[rows]
+    w = w[rows]
 
     if family == "gaussian":
         beta, se = _wls_cluster(X_mat, y_vec, w, cluster_ids)
@@ -293,6 +315,8 @@ def msm(
         "trim_per_period": bool(trim_per_period),
         "coef_table": detail.copy(),
         "cluster_var": id,
+        "outcome_rows": "last_per_unit" if end_of_follow_up else "all",
+        "n_outcome_rows": int(rows.sum()),
     }
 
     _result = CausalResult(

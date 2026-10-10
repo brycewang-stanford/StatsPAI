@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._cite import bib_citation
 
 # sklearn is imported lazily inside the helpers that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -283,6 +284,7 @@ def cluster_synth(
 
     return CausalResult(
         method="Cluster Synthetic Control",
+        _citation_key=bib_citation("rho2025clustersc", "synth"),
         estimand="ATT",
         estimate=att,
         se=se,

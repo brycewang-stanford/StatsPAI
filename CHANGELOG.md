@@ -4,6 +4,48 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Follow-ups from the teaching notebooks
+
+#### ⚠️ Correctness
+
+- **`sp.msm` with an outcome measured once, at the end of follow-up.** Such
+  an outcome arrives repeated on every row of its unit, and the outcome
+  model was fitted on all of them: the first-visit row paired the final
+  outcome with the exposure received so far. In the two-visit design of
+  `examples/gmethods_timevarying.py`, where each visit adds 3, the
+  cumulative-exposure slope came out between 2.6 and 2.75 across seeds
+  with a standard error of 0.06. An outcome that is constant within every
+  unit is now fitted on each unit's last row, where the cumulative weight
+  and the exposure summary cover the whole follow-up; the same designs
+  give 2.97 to 3.04 without trimming. `model_info['outcome_rows']` says which rows were
+  used. Time-varying outcomes use every row and are unchanged. The
+  example printed that the model "recovers the truth" next to 2.77; it
+  now prints the contrast as well. See MIGRATION.md.
+
+#### Fixed
+
+- Four synthetic-control methods cite their own papers, taken verbatim
+  from `paper.bib`. `sp.synth(method="penscm")` and `method="fdid"` returned
+  "No citation registered"; `method="sparse"` and `method="cluster"` fell
+  through a substring match to Abadie, Diamond and Hainmueller (2010).
+  They now cite Abadie and L'Hour (2021), Li (2024), Doudchenko and Imbens
+  (2016) and Rho et al. (2025), the keys their module docstrings already
+  carried. `method="kernel"` still resolves to the 2010 paper: its module
+  names no verified reference.
+- The docstring of `sp.wild_cluster_bootstrap` says what `ci_boot` is. It
+  is a percentile-t interval and covers at the nominal rate (0.96 with 8
+  clusters and 0.95 with 20, 200 replications each), but it is not dual
+  to `p_boot` and with few clusters can contain values the test rejects.
+  `sp.wild_cluster_ci_inv` is the interval that is. No number changes.
+
+#### Added
+
+- `tests/test_example_notebooks.py`: the committed tutorials are checked
+  on every run (executed, no error output, standard kernel, no local
+  path, listed in the README, references resolvable in `paper.bib`), and
+  `pytest -m slow tests/test_example_notebooks.py` executes all ten
+  against the tree.
+
 ### Defects found while closing the core coverage gap
 
 Writing tests for the uncovered branches of `did`, `rd`, `synth` and `dml`

@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..core.results import CausalResult
+from ._cite import bib_citation
 from ._core import placebo_rank_pvalue
 
 # ---------------------------------------------------------------------------
@@ -393,7 +394,7 @@ def sparse_synth(
         n_obs=len(data),
         detail=weight_df,
         model_info=model_info,
-        _citation_key="sparse_synth",
+        _citation_key=bib_citation("doudchenko2016balancing", "sparse_synth"),
     )
 
 

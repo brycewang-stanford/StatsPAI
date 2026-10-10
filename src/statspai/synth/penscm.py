@@ -32,6 +32,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..core.results import CausalResult
+from ._cite import bib_citation
 from ._core import placebo_rank_pvalue
 
 # ---------------------------------------------------------------------------
@@ -294,7 +295,7 @@ def penalized_synth(
         n_obs=len(data),
         detail=effects_df,
         model_info=model_info,
-        _citation_key="penscm",
+        _citation_key=bib_citation("abadie2021penalized", "penscm"),
     )
 
 

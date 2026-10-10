@@ -115,7 +115,7 @@ def main() -> None:
     )
     print(
         f"[MSM via IPTW]                  per-dose  = {msm.estimate:.3f}  "
-        f"(cumulative-exposure slope)"
+        f"(true 3 per visit), contrast = {2 * msm.estimate:.3f}  (≈ 6)"
     )
 
     print("\nThe g-formula and MSM recover the truth; the naive OLS does not.")

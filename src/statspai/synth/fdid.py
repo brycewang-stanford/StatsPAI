@@ -37,6 +37,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._cite import bib_citation
 
 # ======================================================================
 # Internal helpers
@@ -659,6 +660,7 @@ def fdid(
     # ------------------------------------------------------------------
     return CausalResult(
         method="Forward Difference-in-Differences (FDID)",
+        _citation_key=bib_citation("li2024forward", "fdid"),
         estimand="ATT",
         estimate=float(att),
         se=se,

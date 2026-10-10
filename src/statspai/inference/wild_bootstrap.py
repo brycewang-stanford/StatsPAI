@@ -97,9 +97,15 @@ def wild_cluster_bootstrap(
         - ``t_stat``: t-statistic under H0
         - ``p_boot``: symmetric two-sided bootstrap p-value,
           ``#{|t*| > |t|} / B`` (strict inequality, as in ``boottest``)
-        - ``ci_boot``: bootstrap percentile-t confidence interval (for the
-          test-inversion interval ``boottest`` reports use
-          :func:`sp.wild_cluster_ci_inv`)
+        - ``ci_boot``: bootstrap percentile-t confidence interval,
+          ``beta_hat`` minus the quantiles of ``t*`` times ``se_cluster``.
+          It is a valid interval (95% coverage in simulations with 8 and
+          with 20 clusters), but it is not the set of null values the test
+          does not reject: the ``t*`` distribution is drawn once, under
+          ``h0``, so with few clusters it can contain values at which
+          ``p_boot`` would be below ``alpha``. For the interval that is
+          dual to the test, the one ``boottest`` reports, use
+          :func:`sp.wild_cluster_ci_inv`.
         - ``n_clusters``: number of clusters
         - ``n_boot``: number of replications used (``2**G`` if enumerated)
         - ``n_boot_requested``: the ``n_boot`` argument

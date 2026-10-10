@@ -224,3 +224,96 @@ def test_classic_scm_says_when_the_predictors_do_not_determine_the_weights(
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         sp.synth(small_panel, placebo=False, **SYNTH)
+
+
+# --------------------------------------------------------------------- #
+#  Citations resolved from paper.bib
+# --------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "method, key",
+    [
+        ("penscm", "abadie2021penalized"),
+        ("fdid", "li2024forward"),
+        ("sparse", "doudchenko2016balancing"),
+        ("cluster", "rho2025clustersc"),
+        ("classic", "abadie2010synthetic"),
+    ],
+)
+def test_synth_methods_cite_the_paper_their_module_names(small_panel, method, key):
+    # penscm and fdid used to return "No citation registered"; sparse and
+    # cluster fell through a substring match to Abadie et al. (2010).
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.synth(small_panel, method=method, placebo=False, **SYNTH)
+    assert res.cite().startswith("@")
+    assert key in res.cite()
+    assert res.cite(format="json")["key"] == key
+    if method != "classic":  # classic is served from the curated table
+        assert res.cite() == sp.bibtex(key)
+
+
+def test_an_unknown_bib_key_falls_back_and_registers_nothing():
+    from statspai.core.results import CausalResult
+    from statspai.synth._cite import bib_citation
+
+    assert bib_citation("definitely_not_a_bib_key_2026", "penscm") == "penscm"
+    assert "definitely_not_a_bib_key_2026" not in CausalResult._CITATIONS
+
+
+# --------------------------------------------------------------------- #
+#  sp.msm: an outcome measured once
+# --------------------------------------------------------------------- #
+
+
+def _two_visit_panel(seed: int, n: int = 4000) -> pd.DataFrame:
+    """L1 is a confounder of A1 and a mediator of A0; each visit adds 3."""
+    rng = np.random.default_rng(seed)
+    l0 = rng.normal(size=n)
+    a0 = rng.binomial(1, 1 / (1 + np.exp(-0.5 * l0)))
+    l1 = l0 + 0.5 * a0 + rng.normal(scale=0.5, size=n)
+    a1 = rng.binomial(1, 1 / (1 + np.exp(-(0.3 * l1 + 0.5 * a0))))
+    y = 2 * a0 + 3 * a1 + l0 + 2 * l1 + rng.normal(scale=0.5, size=n)
+    return pd.DataFrame(
+        {
+            "id": np.repeat(np.arange(n), 2),
+            "time": np.tile([0, 1], n),
+            "A": np.column_stack([a0, a1]).ravel().astype(float),
+            "L": np.column_stack([l0, l1]).ravel(),
+            "Y": np.repeat(y, 2),
+        }
+    )
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_msm_end_of_follow_up_outcome_uses_the_last_row(seed):
+    # The final outcome repeated on the first-visit row was regressed on
+    # the exposure received so far: the slope was 2.6 to 2.75 with a
+    # standard error of 0.06, against a true 3.
+    panel = _two_visit_panel(seed)
+    res = sp.msm(
+        panel, y="Y", treat="A", id="id", time="time", time_varying=["L"], trim=0.0
+    )
+    assert res.model_info["outcome_rows"] == "last_per_unit"
+    assert res.model_info["n_outcome_rows"] == panel["id"].nunique()
+    assert abs(res.estimate - 3.0) < 3 * res.se
+    assert abs(res.estimate - 3.0) < 0.2
+
+
+def test_msm_time_varying_outcome_still_uses_every_row():
+    rng = np.random.default_rng(0)
+    rows = []
+    for i in range(300):
+        a_prev, cum = 0.0, 0.0
+        for t in range(4):
+            lv = rng.normal() + 0.4 * a_prev
+            a = float(rng.binomial(1, 1 / (1 + np.exp(-(0.4 * lv - 0.3)))))
+            cum += a
+            rows.append((i, t, a, lv, 1.5 * cum + rng.normal()))
+            a_prev = a
+    panel = pd.DataFrame(rows, columns=["id", "t", "a", "l", "y"])
+    res = sp.msm(panel, y="y", treat="a", id="id", time="t", time_varying=["l"])
+    assert res.model_info["outcome_rows"] == "all"
+    assert res.model_info["n_outcome_rows"] == len(panel)
+    assert abs(res.estimate - 1.5) < 4 * res.se
