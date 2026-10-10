@@ -29,7 +29,7 @@
 
 ```text
 StatsPAI/
-├── src/statspai/          # 主包：87 子模块 / 1,167 函数（实时数 `python scripts/registry_stats.py`）
+├── src/statspai/          # 主包：90 子模块 / 1,562 个注册符号，其中约 400 个是结果类与异常类（实时数 `python scripts/registry_stats.py`；此行 2026-10-10 核对）
 │   ├── __init__.py          # 对外 API 入口
 │   ├── registry.py          # 函数注册表（sp.help / sp.list_functions 依赖）
 │   ├── help.py              # sp.help / sp.describe_function / sp.function_schema
@@ -114,6 +114,11 @@ python tests/stata_parity/verify_reproduce_stata.py   # Stata 侧 golden 重推�
 - 新估计器：**有参考实现走对齐，没有走解析/仿真**，容差 `atol` / `rtol` 就地标注并说明理由。
 - 核心估计器（`did iv rd synth dml panel`）目标覆盖率 **≥ 95%**；整仓目标 **≥ 85%**。
 - **Windows CI 注意**：`Path.read_text()` 必须传 `encoding="utf-8"`（cp1252 默认会挂，见 commit `8755996`）。
+- **核心覆盖率棘轮只在 nightly 全量里跑**（`scripts/coverage_campaign.py report --check --min 95`），push 触发的 CI 不跑。2026-09-27 到 10-09 它连续失败而无人察觉（did 93.1 / rd 92.0 / synth 93.6 / dml 93.7）。给核心模块加代码后看一眼次日的 nightly；缺口用 nightly 日志里的逐文件 missing 行号定位，`python scripts/coverage_campaign.py gaps <模块>` 亦可。
+- **未覆盖的分支就是 bug 藏身的地方。** 2026-10-10 给上述四个模块的 734 行未覆盖代码补测试，查出约二十个缺陷，其中七个静默返回错数或零标准误（`sp.fect(force='none')` 返回处理格原始均值、`Period` + `NaT` 的 cohort 列分错队列、`sp.drdid(id=, weights=)` 忽略权重、`did_multiplegt` 把不可估的安慰剂报成 0 / p=1 等，见 CHANGELOG）。补覆盖率时每条测试要断言一个真命题（已知真值、恒等式、参考实现的数），不要为了行数写冒烟测试。
+- **「与另一个数不同」不是断言。** `test_cs_rcs_parity.py` 里一条测试只断言聚类标准误「不等于」不聚类的，而它的聚类标准误一直是 1e-16。能写恒等式就写恒等式（那条测试现在断言：平衡面板上按行求聚类和等于面板估计量的同一聚类标准误）。
+- **判断退化不要和 0 比。** 精确拟合留下的标准误是「舍入意义上的零」：同一个设计，这个估计器给 0.0，那个给 1e-17，macOS 与 Linux 的 BLAS 也不同。`se <= 0` 这类判据在一个平台上拦得住、另一个平台上放行（2026-10-10 nightly 在 ubuntu / 3.13 上因此红了三条，macOS 全绿）。用相对阈值，如 `se <= 1e-10 * max|y|`。
+- **改了行为之后，按「谁会调用它」找测试，不要按文件名挑。** `grep -rlE '<参数名>|<函数名>' tests` 得到的清单才是该跑的；2026-10-10 给 `callaway_santanna` 加聚类检查后跑了凭文件名挑的 188 个 DiD 文件，漏掉 `tests/reference_parity/test_cs_rcs_parity.py`，CI 的 Parity guards 红了一轮。推送后看一眼 Parity guards，它按六个 shard 跑全部 `reference_parity`，本地很少全跑。
 
 ### 5.1 Parity 规则（JSS 论文的核心断言，改动前必读）
 
@@ -344,6 +349,10 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
 - **`matching/`**：`sp.match` 有放回匹配默认 `ties='all'`（1.39 起；Stata `teffects`、R `Matching::Match` 的做法，估计不依赖行序，Lalonde 上与 `teffects psmatch` 逐位一致）。`ties='first'` 是 `psmatch2` 不带 `ties` 选项时的规则，`sp.psmatch2` 显式传它；新写的内部调用要想清楚自己要哪一个，不要依赖默认。
 - **`callaway_santanna(notyet_cutoff=)`**：默认 `'period'` 跟 R `did`（`G > max(t, base) + anticipation`）；`'asinr'` 是 Stata `csdid, asinr`（`G > t`），`'cohort'` 是 csdid 默认。三者只在 universal 基期的前期格或 `anticipation > 0` 时分歧，不要再把 asinr 写成"R 约定"。
 - **`did/es_inference.py`**：`sp.event_study_vcov` 是**所有**事件研究估计量联合协方差的单一入口（CS/aggte、event_study、SA、Gardner、BJS、stacked、LP-DiD、dCDH、ETWFE），`sp.uniform_bands` 在其上做 sup-t 同时置信带，`honest_did` 的 FLCI 也走它。新增事件研究估计器时把联合协方差放进 `model_info['event_study_vcov']`（DataFrame，index/columns = 相对时间；若前后期分属不同回归则设 `attrs['block_diagonal']=True`），抽取器会自动接上。**不要**再各自重建协方差：main 上曾用固定份额重建，非对角块与 R `did` 差 8%，FLCI 因此偏窄。
+- **CS 的聚类变量**：面板上必须在单位内不变（`allow_unbalanced_panel=True` 也一样，2026-10-10 前这个开关会跳过检查，平衡面板上返回 1e-16 的标准误）。`panel=False` 时拒绝「在每个 cohort × 时期格内恒定」的聚类变量（时期本身、cohort 本身）：ATT(g,t) 的影响函数在处理组的格内求和为零，对 never-treated 比较组聚类标准误恰为零，对 not-yet-treated 是不聚类时的约 2%。源码里的报错信息仍写 "identically zero"，对后一种情况不准确；该文件在 Track C 计时路径上，下次因别的原因改它时顺手改掉。
+- **`did/_arp.py::rm_confidence_set`**：默认网格跟 `HonestDiD`，以 0 为中心、±20 个标准误。估计值 |t| > 20 时整个网格不含它，旧代码返回空集，`breakdown_m(method='relative_magnitude')` 于是对最显著的效应报 0。现在只在「什么都没接受且估计值在网格外」时把网格移到估计值两侧，其余结果不变。**不要**把默认网格改成以估计值为中心：那会改掉所有与 R 对齐的数。
+- **`sp.drdid` 的面板路径**：权重取自处理前那一行（每单位一个，`DRDID` 的约定）。带权重的 `method='imp'` 复用 `callaway_santanna._dr_imp_att`，不带权重的仍走 `_drdid_imp_panel_core`（两者在无权重时是同一个估计量，保留后者是为了不动已提交的数）。四种估计方法与 `DRDID` 1.3.0 `weightsname=` 对到 1e-9。
+- **`sp.did_multiplegt`**：没有可比格的安慰剂 / 动态效应是 NaN 并告警，不是 0；bootstrap 里没有可比格的重复不计入标准误。
 - **`did/few_treated.py`**：处理组极少时（1 个或几个簇）簇稳健 SE 会大幅过度拒绝（实测 30 簇 AR(1) 设计上名义 5% 实际 74%）。`sp.did_few_treated` 用对照组构造安慰剂分布并反演，`method='ferman_pinto'` 额外按 `Var(W)=A+B/M` 校正组规模异方差（拟合为负时退 NNLS 并警告）。点估计仍是 TWFE 系数，**不声称一致**。
 - **dCDH 家族（`did/did_multiplegt.py` / `did_multiplegt_dyn.py` / `twowayfeweights.py`）**：处理变量可以是离散非二值的（报纸数、税率档），三者都按**期初处理水平**匹配对照。`sp.did_multiplegt` 的 DID_M 是每单位处理的效应：每个切换者带自己变化的符号，除以总绝对变化量（2026-10 前把基线非 0 的切换者一律当 switch-off、不除变化量，在 Gentzkow 报纸面板上给出 −0.00082，`did_multiplegt_old` 是 0.0057791）。`sp.did_multiplegt_dyn` 内部把时期换成**秩**（`_tidx`，四年一期的面板等同年度面板）、丢掉已同时高于和低于期初水平的 (g,t)（Design Restriction 2）、事件按 (F, 方向, 期初水平) 划分、切换者方差单元按 (期初水平, F, F 期处理值) 中心化；`se_method='analytic'` 时联合检验直接用解析协方差做 Wald，不再跑 bootstrap；`aggregation='switchers'` 是 `Av_tot_eff`（Σ N_l δ_l / Σ N_l δ^D_l）；`same_switchers` 要求每个 horizon 的效应都**可估计**（有对照），不只是被观测到。**与 Stata 的一处有意不同**：非平衡面板上参考实现会因中间某期缺对照而把一个尚未切换的组整个删掉（它切换后的处理均值恰好回到期初水平时），我们保留它作对照；把该组从输入里删掉即可逐位复现 Stata（模块 docstring 与 `docs/dev/2026-10-05-dcdh-did-textbook-review.md`），不要为了对上而复制这个行为。`controls=` 的回归按期初水平（及 `trends_nonparam` 单元）在尚未切换的 (g,t) 上加权拟合，调整后的结果变量以**水平**形式写出（`Y − Xθ_d − Σλ`，面板有缺口也成立），解析方差带斜率估计项（`_residualise_on_controls` 返回的 `b`，事件上累加的 `m_x`），六种设定与 Stata 对到 5e-7。`placebo_sign='r'` 才是不带 `robust_dynamic` 的 `did_multiplegt_old` 的符号，默认 `'stata'` 是带 `robust_dynamic` 的。证据在 `tests/reference_parity/test_dcdh_textbook_stata_parity.py`（合成面板 + 162 个 Stata 数）。
 - **`selection/elastic_net.py`（`sp.glmnet`，1.39 起）**：glmnet 口径的 lasso / ridge / elastic net（gaussian、binomial），与 R `glmnet` 4.1-10 的路径对到 1e-10、系数 1e-6、`lambda.min` / `lambda.1se` 同一格点。glmnet 是 GPL，**只当黑盒，不读源码**；文档没写明、靠输出反推并各有一条测试的四个约定，改之前先看 `test_glmnet_r_parity.py`：(1) gaussian 的 y 先标准化到单位方差，所以原尺度下岭惩罚是 `lambda / sd(y)`；(2) 自动路径的首点是无穷大惩罚下的拟合（岭回归时系数约 1e-36，不是标签上那个 λ 的解）；(3) 自动路径提前停止，gaussian 按相对增益、binomial 按绝对增益，阈值 1e-5；(4) `cv.glmnet` 的每个训练折**自建路径**，再按 λ 线性插值到全样本的 λ 上（给定 `lambda_` 时才在这些 λ 上直接拟合）。收敛阈值比 glmnet 默认严得多；p > n 且 λ 接近 0 时 glmnet 自己没收敛（差 1e-3），那里的证据是次梯度条件，不是对 R。与 `sp.shrinkage` 并存：后者的惩罚写在 RSS 上、用 n−1 标准差，换算式在指南里。坐标下降是纯 NumPy，**不要**为提速引入 numba 的非惰性 import。
@@ -430,7 +439,7 @@ python scripts/registry_stats.py --table        # 重生 docs/stats.md 的按模
 
 ---
 
-*最后更新：2026-10-07。过期信息会蔓延到每一次 agent 会话——持续维护本文件。*
+*最后更新：2026-10-10。过期信息会蔓延到每一次 agent 会话——持续维护本文件。*
 
 ## 其它关键事项
 - **论文的版本锚定（2026-10-02 起，所有会话遵守）。** StatsPAI 一天可能发几个版本，论文不追版本。**只在三个时点改锚：投稿、返修、接收后定稿。** 平时发新版时论文一个字都不改，只回答"新版本还能不能复现论文的数字"：
