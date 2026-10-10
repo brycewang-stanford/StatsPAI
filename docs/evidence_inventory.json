@@ -10829,6 +10829,104 @@
         ]
       },
       {
+        "study": "forest_split_evaluation",
+        "source": "tests/reliability/forest_split_evaluation_results.json",
+        "script": "tests/reliability/forest_split_evaluation.py",
+        "rows": [
+          {
+            "study": "forest_split_evaluation",
+            "block": "cells",
+            "design": "model=tau = 0.3 + 0.0 z, N=150",
+            "method": "own/AUTOC",
+            "quantity": "rejection",
+            "B": 400,
+            "refused": 0,
+            "rate": 0.16,
+            "mc_se": 0.0183,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          },
+          {
+            "study": "forest_split_evaluation",
+            "block": "cells",
+            "design": "model=tau = 0.3 + 0.0 z, N=150",
+            "method": "split_bjs/AUTOC",
+            "quantity": "rejection",
+            "B": 400,
+            "refused": 0,
+            "rate": 0.005,
+            "mc_se": 0.0035,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          },
+          {
+            "study": "forest_split_evaluation",
+            "block": "cells",
+            "design": "model=tau = 0.3 + 0.0 z, N=150",
+            "method": "split_forest/AUTOC",
+            "quantity": "rejection",
+            "B": 400,
+            "refused": 0,
+            "rate": 0.005,
+            "mc_se": 0.0035,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          },
+          {
+            "study": "forest_split_evaluation",
+            "block": "cells",
+            "design": "model=tau = 0.3 + 0.0 z, N=150",
+            "method": "own/QINI",
+            "quantity": "rejection",
+            "B": 400,
+            "refused": 0,
+            "rate": 0.1225,
+            "mc_se": 0.0164,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          },
+          {
+            "study": "forest_split_evaluation",
+            "block": "cells",
+            "design": "model=tau = 0.3 + 0.0 z, N=150",
+            "method": "split_bjs/QINI",
+            "quantity": "rejection",
+            "B": 400,
+            "refused": 0,
+            "rate": 0.0,
+            "mc_se": 0.0,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          },
+          {
+            "study": "forest_split_evaluation",
+            "block": "cells",
+            "design": "model=tau = 0.3 + 0.0 z, N=150",
+            "method": "split_forest/QINI",
+            "quantity": "rejection",
+            "B": 400,
+            "refused": 0,
+            "rate": 0.0,
+            "mc_se": 0.0,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          },
+          {
+            "study": "forest_split_evaluation",
+            "block": "cells",
+            "design": "model=tau = 0.3 + 0.0 z, N=200",
+            "method": "split/gain",
+            "quantity": "rejection",
+            "B": 400,
+            "refused": 0,
+            "rate": 0.0,
+            "mc_se": 0.0,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          }
+        ]
+      },
+      {
         "study": "rd_mass_points",
         "source": "tests/reliability/rd_mass_points_results.json",
         "script": "tests/reliability/rd_mass_points.py",

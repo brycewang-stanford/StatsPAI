@@ -33,8 +33,9 @@ Cells:
 
 Reported per cell and method: the mean estimate, the share of 95%
 intervals that exclude zero (size when the truth is 0, power otherwise),
-and the share that cover the population value. With ``B = 400`` a correct
-5% test lands in 0.050 +/- 0.011.
+and the share that cover the population value. The first is stored as
+``rejection_rate`` when the truth is 0 and as ``power`` otherwise. With
+``B = 400`` a correct 5% test lands in 0.050 +/- 0.011.
 
 The halves are refitted exactly as the forest was (same controls, same
 nuisance estimates); through 1.39.3 they were not, so figures from those
@@ -130,20 +131,27 @@ def one_policy(args: Tuple[int, float]) -> Dict[str, Tuple[float, float, float]]
 
 
 def summarise(
-    draws: List[Dict[str, Tuple[float, float, float]]], truth: Dict[str, float]
-) -> Dict[str, Dict[str, float]]:
-    table: Dict[str, Dict[str, float]] = {}
+    draws: List[Dict[str, Tuple[float, float, float]]],
+    truth: Dict[str, float],
+    B: int,
+) -> Dict[str, Dict[str, Any]]:
+    """One entry per method. The share of intervals excluding zero is stored
+    as ``rejection_rate`` when the truth is zero (a size) and as ``power``
+    otherwise, the layout ``scripts/build_evidence_inventory.py`` reads."""
+    table: Dict[str, Dict[str, Any]] = {}
     for key in draws[0]:
         arr = np.array([d[key] for d in draws], dtype=float)
         ok = np.isfinite(arr).all(axis=1)
         est, lo, hi = arr[ok].T
         target = truth[key.split("/")[1]]
+        share = float(np.mean((lo > 0) | (hi < 0)))
         table[key] = {
-            "n": int(ok.sum()),
+            "n_fitted": int(ok.sum()),
+            "refused": {"non-finite interval": int(B - ok.sum())},
             "truth": target,
             "mean": float(est.mean()),
             "sd": float(est.std(ddof=1)),
-            "excludes_zero": float(np.mean((lo > 0) | (hi < 0))),
+            ("rejection_rate" if target == 0 else "power"): share,
             "covers_truth": float(np.mean((lo <= target) & (target <= hi))),
             "prefix": [[float(v) for v in row] for row in arr[:PREFIX]],
         }
@@ -160,27 +168,21 @@ def main() -> None:
         for het in (0.0, 0.5):
             draws = pool.map(one_rate, [(s, het) for s in range(B)])
             truth = {"AUTOC": AUTOC_PER_B * het, "QINI": QINI_PER_B * het}
-            cell = {
-                "study": "rate",
-                "b": het,
-                "N": 150,
-                "table": summarise(draws, truth),
-            }
+            cell = {"quantity": "rate", "b": het, "model": f"tau = 0.3 + {het} z"}
+            cell.update({"N": 150, "B": B})
+            cell.update(summarise(draws, truth, B))
             cells.append(cell)
-            for key, row in cell["table"].items():
-                print(f"rate b={het} {key:22s} {row}", flush=True)
         for het in (0.0, 0.8):
             draws = pool.map(one_policy, [(s, het) for s in range(B)])
             truth = {"gain": ORACLE_GAIN_PER_B * het}
-            cell = {
-                "study": "policy",
-                "b": het,
-                "N": 200,
-                "table": summarise(draws, truth),
-            }
+            cell = {"quantity": "policy", "b": het, "model": f"tau = 0.3 + {het} z"}
+            cell.update({"N": 200, "B": B})
+            cell.update(summarise(draws, truth, B))
             cells.append(cell)
-            for key, row in cell["table"].items():
-                print(f"policy b={het} {key:22s} {row}", flush=True)
+    for cell in cells:
+        for key, row in cell.items():
+            if isinstance(row, dict):
+                print(f"{cell['quantity']} b={cell['b']} {key:22s} {row}", flush=True)
     payload = {
         "study": "forest_split_evaluation",
         "level": 0.95,

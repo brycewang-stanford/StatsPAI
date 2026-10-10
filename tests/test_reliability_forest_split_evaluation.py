@@ -35,8 +35,8 @@ def results():
 
 
 def _table(results, name, b):
-    (cell,) = [c for c in results["cells"] if (c["study"], c["b"]) == (name, b)]
-    return cell["table"]
+    (cell,) = [c for c in results["cells"] if (c["quantity"], c["b"]) == (name, b)]
+    return cell
 
 
 def test_stored_prefix_is_reproduced_by_the_code(study, results):
@@ -71,18 +71,18 @@ def test_reusing_the_forest_ranking_over_rejects_and_splitting_does_not(results)
     B = results["B"]
     # A correct 5% test lands within three binomial standard errors of 0.05.
     band = 3 * np.sqrt(0.05 * 0.95 / B)
-    assert null["own/AUTOC"]["excludes_zero"] > 0.05 + band
+    assert null["own/AUTOC"]["rejection_rate"] > 0.05 + band
     for key in ("split_bjs/AUTOC", "split_bjs/QINI"):
-        assert null[key]["excludes_zero"] < 0.05 + band
+        assert null[key]["rejection_rate"] < 0.05 + band
         # and the split estimate is centred on the truth, 0
-        se_of_mean = null[key]["sd"] / np.sqrt(null[key]["n"])
+        se_of_mean = null[key]["sd"] / np.sqrt(null[key]["n_fitted"])
         assert abs(null[key]["mean"]) < 3 * se_of_mean + 1e-3
 
 
 def test_splitting_keeps_power_and_coverage_when_heterogeneity_is_real(results):
     alt = _table(results, "rate", 0.5)
     for key in ("split_bjs/AUTOC", "split_bjs/QINI"):
-        assert alt[key]["excludes_zero"] > 0.9
+        assert alt[key]["power"] > 0.9
         # The estimand is the RATE of the fitted rule, which cannot exceed
         # that of the ideal ranking ("truth") and, with a forest grown on
         # half the units, sits somewhat below it.
@@ -93,8 +93,8 @@ def test_policy_tree_gain_has_size_under_no_heterogeneity_and_power_under_it(res
     B = results["B"]
     band = 3 * np.sqrt(0.05 * 0.95 / B)
     null = _table(results, "policy", 0.0)["split/gain"]
-    assert null["excludes_zero"] < 0.05 + band
+    assert null["rejection_rate"] < 0.05 + band
     alt = _table(results, "policy", 0.8)["split/gain"]
-    assert alt["excludes_zero"] > 0.9
+    assert alt["power"] > 0.9
     # within 10% of the oracle gain 0.8 * phi(0)
     assert alt["mean"] == pytest.approx(alt["truth"], rel=0.1)

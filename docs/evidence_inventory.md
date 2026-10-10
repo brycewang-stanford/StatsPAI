@@ -540,6 +540,13 @@ Simulation studies under `tests/reliability/`, each with its design fixed in the
 | `few_clusters` | cr3 | rejection | 2000 | 22 | 12 | 0.170 (treated=two, sizes=balanced, G=40) |
 | `few_clusters` | wild | rejection | 2000 | 16 | 3 | 0.126 (treated=half, sizes=unbalanced, G=40) |
 | `few_clusters` | placebo | rejection | 2000 | 5 | 0 | 0.139 (treated=10, G=40) |
+| `forest_split_evaluation` | own/AUTOC | rejection | 400 | 1 | 0 | 0.160 (model=tau = 0.3 + 0.0 z, N=150) |
+| `forest_split_evaluation` | split_bjs/AUTOC | rejection | 400 | 1 | 0 | 0.005 (model=tau = 0.3 + 0.0 z, N=150) |
+| `forest_split_evaluation` | split_forest/AUTOC | rejection | 400 | 1 | 0 | 0.005 (model=tau = 0.3 + 0.0 z, N=150) |
+| `forest_split_evaluation` | own/QINI | rejection | 400 | 1 | 0 | 0.122 (model=tau = 0.3 + 0.0 z, N=150) |
+| `forest_split_evaluation` | split_bjs/QINI | rejection | 400 | 1 | 0 | 0.000 (model=tau = 0.3 + 0.0 z, N=150) |
+| `forest_split_evaluation` | split_forest/QINI | rejection | 400 | 1 | 0 | 0.000 (model=tau = 0.3 + 0.0 z, N=150) |
+| `forest_split_evaluation` | split/gain | rejection | 400 | 1 | 0 | 0.000 (model=tau = 0.3 + 0.0 z, N=200) |
 | `rd_mass_points` | adjust | coverage | 1000 | 10 | 6 | 0.689 (n=4000, support_per_side=10) |
 | `rd_mass_points` | off | coverage | 1000 | 10 | 6 | 0.214 (n=1000, support_per_side=5, 708 refused) |
 | `rd_mass_points` | cluster | coverage | 1000 | 8 | 0 | 0.224 (n=4000, support_per_side=5) |
