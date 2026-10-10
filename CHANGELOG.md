@@ -6,6 +6,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### The Stata comparison notebook
 
+#### Added
+
+- `examples/notebooks/statspai_vs_stata_live.ipynb` runs Stata and StatsPAI
+  in the same notebook. Stata is driven through its own `pystata` from the
+  Python kernel, the estimates are read back from `e()` / `r()` and
+  subtracted from StatsPAI's, and a final cell asserts a relative
+  difference below 1e-6 on all thirteen numbers (the largest is 3.7e-10 on
+  Stata 18 MP: OLS, `reghdfe`, 2SLS, `csdid`, `rdrobust`, and a do-file
+  snippet run through `sp.stata`). It needs a local Stata; the committed
+  file carries its outputs.
+
 #### Changed
 
 - `examples/notebooks/statspai_vs_stata_5min.ipynb` gains a `summarize`

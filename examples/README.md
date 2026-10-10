@@ -63,6 +63,19 @@ python -m pip install "statspai[plotting]" jupyter
 jupyter notebook examples/notebooks/statspai_vs_stata_5min.ipynb
 ```
 
+## Live comparison with Stata (requires a local Stata 17+)
+
+- `notebooks/statspai_vs_stata_live.ipynb` - runs Stata and StatsPAI side by
+  side in one Python-kernel notebook. `%%stata` cells (Stata's own `pystata`)
+  execute `regress`, `reghdfe`, `ivregress 2sls`, `csdid`, `rdrobust` and a
+  do-file snippet on the bundled data; the results are read back from
+  Stata's `e()` / `r()` and subtracted from StatsPAI's. Thirteen numbers,
+  largest relative difference 3.7e-10 on Stata 18 MP, with an assertion at
+  1e-6. Running it needs Stata plus `reghdfe`, `csdid`, `drdid` and
+  `rdrobust`; the committed file ships its executed outputs, so it can be
+  read without Stata. Set `STATA_HOME` / `STATA_EDITION` if Stata is not in
+  the default location. Prose is in Chinese.
+
 ## Method tutorials (offline, in Chinese)
 
 Ten teaching notebooks, one per topic. Each one states the assumption the
