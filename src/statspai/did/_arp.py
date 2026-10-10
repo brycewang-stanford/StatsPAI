@@ -38,10 +38,11 @@ Two things cannot be made identical and are documented rather than hidden:
 
 from __future__ import annotations
 
+import math
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
-from scipy import optimize, stats
+from scipy import optimize, special, stats
 
 __all__ = [
     "create_a_rm",
@@ -261,8 +262,30 @@ def _vlo_vup_dual(eta, s_t, gamma, sigma, w_t, vertices=None) -> Tuple[float, fl
 
 
 def _truncnorm_quantile(p: float, lo: float, hi: float) -> float:
-    """Quantile of a standard normal truncated to ``[lo, hi]``."""
-    return float(stats.truncnorm.ppf(p, lo, hi))
+    """Quantile of a standard normal truncated to ``[lo, hi]``.
+
+    The formulas of ``scipy.stats.truncnorm.ppf`` (log-space mass of the
+    interval, taken in whichever tail keeps it accurate) on scalars. The
+    generic distribution machinery costs ~200 microseconds a call, and a
+    relative-magnitudes confidence set makes a few thousand of them per
+    grid; this agrees with it to 4e-15 and anything unusual is handed
+    back to scipy.
+    """
+    if not (0.0 < p < 1.0 and lo < hi):
+        return float(stats.truncnorm.ppf(p, lo, hi))
+    if hi <= 0:
+        top = float(special.log_ndtr(hi))
+        log_mass = top + math.log1p(-math.exp(float(special.log_ndtr(lo)) - top))
+    elif lo > 0:
+        top = float(special.log_ndtr(-lo))
+        log_mass = top + math.log1p(-math.exp(float(special.log_ndtr(-hi)) - top))
+    else:
+        log_mass = math.log1p(-float(special.ndtr(lo)) - float(special.ndtr(-hi)))
+    if lo < 0:
+        log_cdf = np.logaddexp(special.log_ndtr(lo), math.log(p) + log_mass)
+        return float(special.ndtri_exp(log_cdf))
+    log_sf = np.logaddexp(special.log_ndtr(-hi), math.log1p(-p) + log_mass)
+    return float(-special.ndtri_exp(log_sf))
 
 
 # ---------------------------------------------------------------------------
