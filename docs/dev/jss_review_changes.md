@@ -31,6 +31,33 @@ Rules:
 
 ## Entries
 
+### 2026-10-11 — call traces re-recorded after the efficiency pass
+
+- **Commits.** `339ce542` (the two trace files). The source changes
+  behind it are `3fc4b846` (survival), `da110778` (quantile regression),
+  `68ec0a88` (count and binary models, `survival/competing_risks.py`),
+  `5a5e770e` (`did/_arp.py`), `5735df1e` (matching), `25bde4f3`
+  (`event_study`, `lp_did`, `did_multiplegt_dyn`), `a9266495` (SDID) and
+  `3190108b` (mixed models).
+- **Reason.** A pass for speed (CHANGELOG, "Speed: estimators whose cost
+  grew faster than the data") rewrote loops and allocations without
+  changing an algorithm. The edited files are on the estimation path of
+  21 Track A modules (11 12 21 24 25 26 27 37 40 42 47 48 57 58 61 63 64
+  78 83 85 89) and of original-data modules 04 and 04b. The 21 were
+  re-run first with `verify_reproduce_py.py`: every fixture is
+  byte-identical and every statistic reproduces the committed
+  `*_py.json`: 1.8e-15 at worst for 20 of them, and 3.3e-10 for
+  `25_lmm` (the intercept standard error; 1.3e-10 on the estimates),
+  inside the 1e-9 reproducibility tolerance. The mixed-model likelihood
+  is now evaluated from per-group summaries, which rounds differently.
+  The two original-data modules left their result files unchanged.
+- **Effect on the paper.** None. No result file changed.
+  `trace_perf_path.py --check` reports all four Track C modules current:
+  no file on a timed path was edited.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-11 — call traces re-recorded for the GLM dispersion and documentation edits
 
 - **Commits.** `5b4c3f6c` (`regression/glm.py`), `68442541` (docstrings

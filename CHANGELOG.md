@@ -4,6 +4,108 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Speed: estimators whose cost grew faster than the data
+
+Every public estimator was timed at three sample sizes
+(`benchmarks/bench_scaling.py`, 124 cases). Those whose time grew like
+`n^1.5` or more, or that took seconds on two thousand rows, were profiled
+and rewritten. No algorithm changed. Each rewrite was compared with the
+code it replaces on hundreds to thousands of designs, and results are
+bit-identical unless a line below says otherwise.
+
+#### Changed
+
+| Call | Size | Before | After |
+| --- | --- | --- | --- |
+| `sp.cox` | n = 20,000 | 113 s | 0.07 s |
+| `sp.kaplan_meier` | n = 200,000 | 22 s | 0.06 s |
+| `sp.qreg` | n = 200,000 | 30 s | 0.7 s |
+| `sp.match`, `sp.psmatch2` | n = 200,000 | 51 s | 0.5 s |
+| `sp.mixed` | n = 200,000, 4,000 groups | 112 s | 0.12 s |
+| `sp.event_study` | 20,000 units x 10 periods | 14 s | 0.12 s |
+| `sp.lp_did` | 20,000 units x 10 periods | 74 s | 1.3 s |
+| `sp.did_multiplegt_dyn` | 200 units, 500 bootstrap draws | 26 s | 0.4 s |
+| `sp.sdid` | 20 donors, 200 placebo refits | 17 s | 0.5 s |
+| `sp.synth(method='sparse')` | 20 donors | 54 s | 0.4 s |
+| `sp.logit`, `sp.probit` | n = 200,000 | 0.55 s | 0.35 s |
+
+Timings are from one laptop under load and are meant as orders of
+magnitude.
+
+- **`sp.cox`, `sp.kaplan_meier`, `sp.logrank_test`.** Every risk-set sum
+  is a running total over rows sorted by stratum and descending time
+  (`survival/_cox_core.py`); the previous code rebuilt each risk set from
+  the data at every event time. Harrell's C is counted by sorting, not by
+  a Python loop over pairs. Agreement with the previous code on 216
+  designs (ties, strata, both tie rules, three variance estimators) is
+  1e-12 or better. Inside the kernel the regressors are centred and the
+  linear index is scaled within stratum, which the partial likelihood
+  does not see; a regressor with a large mean (a calendar year) used to
+  overflow the first Newton step and raise `LinAlgError`, and now fits.
+- **`sp.qreg`** from 5,000 rows solves the dual linear programme by a
+  primal-dual interior point (Portnoy and Koenker 1997) and then solves
+  exactly for the `k` observations the solution interpolates. That point
+  is returned only if it passes the subgradient condition strictly, which
+  proves it is the unique minimiser; otherwise HiGHS runs as before.
+  Agreement with the HiGHS vertex on 118 designs: 5e-13 at worst.
+  `sp.sqreg`, `sp.machado_mata` and `sp.ivqreg` use the same solver.
+- **`sp.match`, `sp.psmatch2`.** Propensity-score matching sorts the
+  control scores once and searches the neighbourhood of each treated
+  unit. Mahalanobis and Euclidean matching are processed in blocks and
+  remain quadratic, because the time is in the distance matrix.
+- **`sp.mixed`** takes a thin QR of each group's random-effect design
+  once and evaluates the likelihood from those summaries, a batched
+  `q x q` Cholesky instead of a dense `n_j x n_j` one per group. The
+  likelihood equals the previous one to 2e-11, except where the residual
+  variance is far below the random-effect variance; there the old value
+  was off by up to 1e-7 and the new one is accurate to 3e-13 (checked
+  against 40-digit arithmetic). **Fitted values move below 1e-6 for
+  interior fits.** Where the optimum is on the boundary (a variance at
+  zero, a correlation at one) and in the three-level model, which has no
+  Newton polish, the two versions stop at slightly different points of a
+  flat likelihood: variance components differ by up to 2e-4 relative,
+  fixed-effect standard errors by up to 8e-5. The Track A mixed-model
+  module reproduces its committed numbers to 3e-10.
+- **`sp.event_study`, `sp.lp_did`, `sp.did_multiplegt_dyn`.** Group sums
+  replace per-unit and per-cluster loops; `did_multiplegt_dyn` converts
+  the panel to unit-by-period matrices once and draws each bootstrap
+  replicate as repeated rows of them, consuming the random generator in
+  the same order. The frame code remains as the fallback for panels the
+  matrices cannot represent (duplicate cells, missing group labels).
+- **`sp.sdid`, `sp.synth(method='sparse')`.** The Frank-Wolfe loop and
+  the coordinate descent are numba kernels, imported on first use, that
+  perform the same operations in the same order. The first call in a
+  fresh environment compiles for one to two seconds; the compiled code is
+  cached on disk.
+- **`sp.honest_did(method='relative_magnitude')`** evaluates the
+  truncated-normal quantile of the conditional test on scalars rather
+  than through `scipy.stats.truncnorm` (5 against 200 microseconds, a few
+  thousand calls per grid). Output is unchanged on 72 calls.
+- **`sp.kdensity`** (Gaussian kernel), the ROC area of **`sp.logit`** /
+  **`sp.probit`**, and the Kaplan-Meier steps of **`sp.cuminc`** /
+  **`sp.fine_gray`** are vectorised.
+
+#### Fixed
+
+- **Seven functions allocated a dense `n x n` matrix** and could not run
+  on large samples: `sp.fracreg`, `sp.ivqreg`, `sp.rdit`, `sp.rdmc`,
+  `sp.rd_distributional_design`, `sp.qte(method='conditional_qr')` and
+  `sp.robreg(method='m', init='lad')`. At n = 200,000 that is 320 GB.
+  The weights of a weighted fit were written as `np.diag(w)`, a
+  projection was formed instead of applied, and the identity blocks of a
+  linear programme were stored dense. Results are unchanged (`ivqreg`:
+  2e-16).
+- **`sp.nbreg` on data without overdispersion ran its 100 outer
+  iterations and warned "did not converge".** The profile likelihood is
+  flat in the dispersion there and the bounded search returns a slightly
+  different point each round, so the dispersion never settled to the
+  tolerance. The loop now also stops when the likelihood stops moving
+  (relative change below 1e-8). On 160 Poisson and underdispersed samples
+  it stops within 9 rounds where 42 used to exhaust the budget. Fits with
+  real overdispersion are unchanged (1e-14). On samples at the boundary
+  the coefficients move by 1e-7 or less; the standard error of the log
+  dispersion, which is not identified there, can differ.
+
 ### The Stata comparison notebook
 
 #### Added
