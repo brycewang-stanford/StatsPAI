@@ -31,6 +31,29 @@ Rules:
 
 ## Entries
 
+### 2026-10-10 — call traces re-recorded after the matching / regression / forest fixes
+
+- **Commits.** `54ec5feb` (forest), `769abd08` (matching), `228cc5fe`
+  (regression and the JIVE variants in `iv/`), `54fcef66` (ledgers).
+- **Reason.** A second pass over options and degenerate inputs off the
+  main path (CHANGELOG, "Options and inputs off the main path") edited
+  `regression/ols.py`, `regression/iv.py`, `regression/glm.py`,
+  `regression/count.py`, `regression/logit_probit.py`, `matching/match.py`,
+  `matching/ps_diagnostics.py` and others, which are on the estimation
+  path of 28 Track A modules (01 02 11 13 14 24 35 37 41 42 44 45 46 47
+  48 49 51 53 54 55 56 57 58 59 61 62 63 64) and of the original-data
+  modules. All 28 were re-run first and reproduce the committed
+  `*_py.json` (fixtures byte-identical, worst relative difference 5e-12);
+  all 12 original-data modules reproduce (worst 1.6e-11, LaLonde exact).
+- **Effect on the paper.** None. No result file changed and no file on
+  the Track C timed path changed. The fixes are to calls the parity
+  tables do not make: matching with weights, an ATE or a covariate
+  distance; JIVE; a GLM with HAC errors; a single cluster; split-sample
+  forest evaluation.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-10 — release 1.39.3: parity tables carry the new version string
 
 - **Commits.** `51b857b4` (release 1.39.3) regenerated
