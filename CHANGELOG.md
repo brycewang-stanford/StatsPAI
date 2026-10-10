@@ -2,6 +2,170 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Options and inputs off the main path: matching, regression, forests
+
+The main path of each estimator is tied to a reference implementation or
+a known truth. A second pass wrote tests for the combinations around it
+(weights with an ATE, a cluster with a likelihood estimator, HAC with a
+GLM) and for degenerate inputs. About forty defects came out; the ones
+that returned a wrong number are listed first. Results on the main paths
+are unchanged, bit for bit: every propensity-score-distance ATT of
+`sp.match`, `sp.regress`, 2SLS / LIML / GMM, the binary and count models
+without the options named below, and every forest average.
+
+#### ⚠️ Correctness
+
+- **`sp.iv(method='jive')`, `'jive1'`, `'ujive'`, `'ijive'`, `'rjive'` and
+  `sp.iv.jive_mw` were not JIVE.** They regressed the outcome on the
+  leave-one-out first-stage fit, `(Xh'Xh)^-1 Xh'y`, where Angrist, Imbens
+  and Krueger (1999) use that fit as the instrument, `(Xh'X)^-1 Xh'y`.
+  With 30 weak instruments and a true coefficient of 1 the median over
+  simulated samples was 0.59 (2SLS: 1.27); it is now 0.98, and the 95%
+  interval of `jive_mw` covers the truth 96% of the time where it covered
+  5%. Standard errors are the sandwich of the IV estimator with `Xh` as
+  instrument. `sp.jive` was already correct and is unchanged; `sp.iv(
+  method='jive')` now equals it. `robust='hc2' | 'hc3'` with
+  `method='jive'` is refused.
+- **`sp.glm(robust='hac')` standard errors were too small by a factor of
+  `sqrt(n)`.** The score autocovariances were divided by `n` while the
+  bread was not. They now equal statsmodels' HAC at the same lag count
+  (no small-sample factor, the `hac_small=False` convention of
+  `sp.regress`).
+- **`sp.match(weights=)` returned a standard error of 0 and a p-value
+  of 1.** Frequency weights are applied by replicating rows, so each
+  unit's nearest neighbour in its own arm was its own copy and the
+  Abadie-Imbens conditional variance vanished. The neighbour is now taken
+  among other original observations; doubling every weight divides the
+  standard error by exactly `sqrt(2)`.
+- **`sp.match(estimand='ATE')` with nearest-neighbour matching reported
+  the standard error of the ATT and ignored `se_method`.** Relabelling
+  the arms left |ATE| unchanged and moved the standard error (0.206
+  against 0.234). The default is now the Abadie-Imbens (2006) conditional
+  variance of the ATE, which equals `Matching::Match(estimand = "ATE",
+  sample = TRUE, Var.calc = 1, distance.tolerance = 0)` to 12 digits and
+  does not depend on the labelling; `'abadie_imbens_pop'`, `'ai'` and
+  `'bootstrap'` are honoured, and `model_info['se_method']` records which
+  one was used. The point estimate is unchanged.
+- **`sp.match` with `distance='mahalanobis'` or `'euclidean'`: the default
+  ATT standard error looked for same-arm neighbours on the propensity
+  score, not in the matching metric.** It was too large by a quarter to
+  two fifths (0.2197 where `Matching::Match(estimand = "ATT")` gives
+  0.1678). Sixteen standard errors now agree with `Matching` to 12
+  digits. Estimates are unchanged, and so is everything with
+  `distance='propensity'`.
+- **`sp.match(method='cem', estimand='ATE')` returned the ATT** under the
+  ATE label. It is now the cell-size-weighted average with the Neyman
+  stratified variance.
+- **`sp.match` and `sp.psmatch2` reported an effect of 0 with p = 1 when
+  no unit found a match** (a caliper nobody meets, or every treated unit
+  off common support). They raise `DataInsufficient`. Bootstrap
+  replicates in which nobody matches count as failed instead of entering
+  the standard error as zeros.
+- **`sp.propensity_score` gave scores off by up to 0.79 when a covariate
+  was repeated**, without a warning; the balance tables and plots built
+  on it inherited that. The fit goes through the package's one logit
+  routine, which drops redundant covariates. One missing covariate value
+  no longer turns every score into NaN.
+- **Mahalanobis matching inverted a numerically singular covariance
+  matrix**, so adding a covariate that is a linear combination of the
+  others changed the estimate (2.2485 to 2.2395). A rank-deficient
+  covariance uses the pseudo-inverse; a full-rank one is treated as
+  before.
+- **A covariate that separates the arms was reported as balanced**
+  (standardised difference 0). It is reported as infinite and not
+  balanced.
+- **A single cluster gave standard errors of about 1e-16** in `sp.logit`,
+  `sp.probit`, `sp.cloglog`, `sp.poisson`, `sp.nbreg`, `sp.ppmlhdfe`,
+  `sp.zip_model`, `sp.zinb`, `sp.hurdle`, `sp.mlogit`, `sp.ologit`,
+  `sp.oprobit` and `sp.clogit`. They raise `DataInsufficient`, as
+  `sp.regress`, `sp.glm` and `sp.iv` already did.
+- **`sp.iv(cluster=)` merged rows with a missing cluster label into
+  another cluster.** Those rows are dropped with a note, as `sp.regress`
+  and `sp.ivreg` do.
+- **`sp.poisson` and `sp.nbreg` dropped `offset=` when `exposure=` was
+  also given.** The linear predictor now carries their sum, as in
+  `sp.glm`.
+- **Marginal effects of `sp.logit`, `sp.probit` and `sp.cloglog` ignored
+  `weights=`.** They are weighted averages now; frequency weights
+  reproduce the expanded data.
+- **`sp.rate_split` and `sp.forest_policy_tree` did not refit the forest
+  they were given on each half.** The refits dropped the forest's
+  controls and any `Y_hat` / `W_hat` the caller supplied, and estimated
+  the nuisance functions by another method (for `fe=` forests the
+  treatment "propensity" was a 0/1 class label). With confounding that
+  runs through the controls and a true ATE of 1, the halves estimated 5.2
+  where the forest estimated 1.0. Each half is now fitted as the forest
+  was. Numbers from both functions change for every forest except one
+  with user-supplied nuisance models and no controls.
+- **`sp.rate` ignored the forest's observation weights**
+  (`equalize_cluster_weights=True` with clusters of unequal size: AUTOC
+  0.731 where the weighted value is 0.615). The weighted TOC, AUTOC and
+  QINI agree with `grf::rank_average_treatment_effect.fit(sample.weights
+  =)` to 1e-14.
+- **A two-way fixed effects forest accepted a treatment that the period
+  effects absorb** (everyone treated from the same date) and returned
+  CATEs for an effect that is not identified. It raises
+  `DataInsufficient`.
+
+#### Fixed
+
+- `sp.match`: an undefined standard error (one matched unit, strata of
+  one treated and one control unit) is NaN with a warning, not 0, and a
+  NaN standard error gives a NaN p-value, not 1. `se_method` is honoured
+  or refused by `method='stratify'`, `'cem'` and `distance='exact'`. A
+  nearest-neighbour ATE says how many units of each arm a caliper left
+  unmatched. `caliper_scale='sd'` with a covariate distance, and an ATE
+  with `common_support='minmax'`, are refused. Mahalanobis matching no
+  longer crashes on a missing covariate value. The local linear matching
+  guard against donors with identical scores is relative to the scores.
+  `replace=` must be a boolean.
+- `sp.cbps` refuses a redundant covariate (its rank check could not
+  fail). `sp.overlap_plot` accepts Crump-trimmed scores.
+- `sp.glm` refuses a Poisson or negative binomial outcome below zero and
+  a binomial outcome outside [0, 1]; it used to return coefficients of
+  order 1e15.
+- `sp.logit`, `sp.probit` and `sp.cloglog` refuse missing, negative or
+  all-zero weights (a missing weight made the fit hang; negative weights
+  returned the starting values) and a constant outcome. `sp.poisson` and
+  `sp.nbreg` validate the outcome, weights and offset. `sp.hurdle`
+  refuses data with no positive counts.
+- `sp.zip_model`, `sp.zinb` and `sp.hurdle` omit collinear regressors
+  with a note, in both equations.
+- Unknown values of `dispersion=` (`sp.nbreg`), `count_model=`
+  (`sp.hurdle`), `marginal_effects=` and `gmm_vcov=` are refused; each
+  used to select a default silently.
+- `average_treatment_effect(subset=)` inside a single cluster raises
+  `DataInsufficient` (it returned an infinite standard error).
+  `predict(newdata, estimate_variance=True)` of the forest family is
+  refused when `ci_group_size=1` (it returned a NaN column). The column
+  interface of the forests accepts `C(col)`. `sp.cate_pretrend_test`
+  validates `alpha`.
+- Several inputs that ended in a `TypeError`, `KeyError` or
+  `AttributeError` raise an error that says what is wrong:
+  `sp.regress(cluster=[a, b, c])`, `sp.ivreg(vce='cr2', method='liml')`,
+  `sp.zip_model` with `C(g)` in the formula.
+
+#### Known issues
+
+- The default standard error of a nearest-neighbour ATE conditions on the
+  fitted propensity score and is conservative when matching on it (mean
+  1.3 times the sampling standard deviation in one design);
+  `se_method='abadie_imbens_2016'` is correctly sized there.
+- `sp.match(weights=, se_method='abadie_imbens_2016')` still counts a
+  row's own copies among its neighbours.
+- With heavily tied priorities the influence-function standard error of
+  `sp.rate` is too small (0.074 against a bootstrap 0.135 on a 12-level
+  priority); forest predictions are essentially never tied.
+- `sp.glm` for gamma and inverse-Gaussian families estimates the
+  dispersion by deviance / df and uses the observed information, where R
+  `summary.glm` uses the Pearson statistic and the expected information;
+  `scale='x2', information='expected'` reproduces R.
+- The size and power figures quoted for `sp.rate_split` and
+  `sp.forest_policy_tree` in the documentation were measured before the
+  refit was corrected and have not been re-measured.
+
 ## [1.39.3] — 2026-10-10
 
 Correctness fixes found by three passes over the package: writing ten

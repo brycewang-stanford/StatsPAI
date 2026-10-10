@@ -79221,7 +79221,7 @@
     "reference": "",
     "returns": {
       "class": "Series",
-      "description": "pd.Series: Propensity scores indexed like *data*.",
+      "description": "pd.Series: Propensity scores indexed like *data*. A row with a missing treatment or covariate value is left out of the fit and has a NaN score (with a warning that says how many).",
       "fields": {}
     },
     "signature": {

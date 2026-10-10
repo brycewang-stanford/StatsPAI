@@ -5,6 +5,53 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## Unreleased: ⚠️ options off the main path in matching, regression and forests
+
+**What changed.** These calls returned a different number before; the
+list is by what to recompute.
+
+- **JIVE.** `sp.iv(method='jive' | 'jive1' | 'ujive' | 'ijive' | 'rjive')`
+  and `sp.iv.jive_mw` regressed the outcome on the leave-one-out
+  first-stage fit instead of using it as an instrument. Point estimates
+  and standard errors change, typically away from zero. `sp.jive` is
+  unchanged.
+- **`sp.glm(robust='hac')`.** Standard errors were too small by
+  `sqrt(n)`.
+- **`sp.match`.** Standard errors change, estimates do not, for
+  `weights=` (was 0), for `estimand='ATE'` with nearest-neighbour
+  matching (was the ATT's), and for the ATT with `distance='mahalanobis'`
+  or `'euclidean'` (was 25 to 40% too large). `method='cem',
+  estimand='ATE'` returned the ATT and now returns the ATE. The ATT with
+  `distance='propensity'`, the default, is unchanged.
+- **`sp.propensity_score`** with a repeated or redundant covariate, and
+  the balance tables and plots computed from it.
+- **`sp.poisson` / `sp.nbreg`** called with both `offset=` and
+  `exposure=` (the offset was dropped).
+- **Marginal effects of `sp.logit` / `sp.probit` / `sp.cloglog`** fitted
+  with `weights=`.
+- **`sp.iv(cluster=)`** on data with missing cluster labels.
+- **`sp.rate_split` and `sp.forest_policy_tree`** for any forest except
+  one with user-supplied nuisance models and no controls; **`sp.rate`**
+  for a forest fitted with `equalize_cluster_weights=True` on clusters of
+  unequal size.
+
+**What is now an error.** A single cluster in the binary, count, ordered
+and multinomial models (the standard errors were about 1e-16);
+`sp.match` / `sp.psmatch2` when no unit finds a match (the effect was
+reported as 0 with p = 1); `sp.glm` with an outcome outside the family's
+support; a two-way fixed effects forest whose treatment the period
+effects absorb; `sp.cbps` with a redundant covariate; unknown values of
+`dispersion=`, `count_model=`, `marginal_effects=` and `gmm_vcov=`;
+`sp.match(estimand='ATE', common_support='minmax')` and
+`caliper_scale='sd'` with a covariate distance.
+
+**What to do.** Recompute anything on the first list. Code that read a
+standard error of 0, a p-value of 1 or an estimate of exactly 0 from the
+calls on the second list as a result should treat the new error as the
+answer: the quantity was never estimated. A forest fitted with controls
+by an earlier release has to be refitted before `sp.rate_split` or
+`sp.forest_policy_tree` will accept it.
+
 ## 1.39.2 → 1.39.3: ⚠️ inputs that returned a wrong number
 
 **What changed.**
