@@ -234,17 +234,19 @@ def _column_block(
         )
     ):
         cols = [spec] if isinstance(spec, str) else list(spec)
-        missing = [c for c in cols if c not in data.columns]
-        if missing:
-            raise MethodIncompatibility(
-                f"{context}: Missing columns: {missing}",
-                recovery_hint="Pass column names present in the input DataFrame.",
-                diagnostics={"missing_columns": missing},
-            )
-        block = data[cols]
         if name == "covariates":
-            # Covariates may be categorical; outcomes and treatments may not.
+            # Covariates may be categorical (a text / category column, or an
+            # entry written C(col)); outcomes and treatments may not.
             block, cols = one_hot_covariates(data, cols, context)
+        else:
+            missing = [c for c in cols if c not in data.columns]
+            if missing:
+                raise MethodIncompatibility(
+                    f"{context}: Missing columns: {missing}",
+                    recovery_hint=("Pass column names present in the input DataFrame."),
+                    diagnostics={"missing_columns": missing},
+                )
+            block = data[cols]
         try:
             arr = block.to_numpy(dtype=float)
         except (TypeError, ValueError) as exc:
@@ -661,6 +663,19 @@ class GRFFamilyForest(ResultProtocolMixin):
                 recovery_hint="Drop or impute missing covariates first.",
             )
         return np.ascontiguousarray(arr)
+
+    def _require_little_bags(self) -> None:
+        """Refuse a variance request the forest cannot answer.
+
+        Variance estimates compare little bags of trees; with
+        ``ci_group_size=1`` there are none and the engine returns NaN for
+        new rows, which is not an estimate.
+        """
+        if int(self._engine.ci_group_size) < 2:
+            raise MethodIncompatibility(
+                f"{self._context}: variance estimates need ci_group_size >= 2.",
+                recovery_hint="Refit with ci_group_size=2.",
+            )
 
     def split_frequencies(self, max_depth: int = 4) -> pd.DataFrame:
         """Number of splits on each covariate at each depth."""

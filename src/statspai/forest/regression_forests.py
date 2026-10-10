@@ -102,6 +102,8 @@ class PredictionForest(GRFFamilyForest):
         if newdata is None:
             pred, var = self.predictions, self.variance
         else:
+            if estimate_variance:
+                self._require_little_bags()
             pred, var = self._engine.predict(
                 self._new_X(newdata), estimate_variance=bool(estimate_variance)
             )

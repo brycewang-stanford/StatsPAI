@@ -129,6 +129,8 @@ class MultiArmForestResult(GRFFamilyForest):
                 else np.column_stack([self.cate_variance[a] for a in self.contrasts])
             )
         else:
+            if estimate_variance:
+                self._require_little_bags()
             p, v = self._engine.predict(
                 self._new_X(newdata), estimate_variance=bool(estimate_variance)
             )

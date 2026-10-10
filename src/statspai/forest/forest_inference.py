@@ -694,6 +694,156 @@ def rate_from_scores(
     return {"estimate": estimate, "toc_q": q_arr, "toc": toc_grid, "n": n}
 
 
+def _validated_rate_weights(weights: np.ndarray, n: int) -> np.ndarray:
+    w = np.asarray(weights, dtype=np.float64).ravel()
+    if len(w) != n:
+        raise MethodIncompatibility(
+            "rate(): weights must have one entry per unit.",
+            recovery_hint="Pass one weight per score.",
+            diagnostics={"n_scores": int(n), "n_weights": int(len(w))},
+        )
+    if not np.isfinite(w).all() or np.any(w <= 0.0):
+        raise MethodIncompatibility(
+            "rate(): observation weights must be finite and strictly "
+            "positive (a unit of zero weight has no place in the ranking).",
+            recovery_hint="Drop zero-weight rows before evaluating RATE.",
+        )
+    return w
+
+
+def _weighted_sorted(
+    scores: np.ndarray, priorities: np.ndarray, weights: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Tie-averaged scores and weights in descending priority order.
+
+    Within a tie group the score is the *weighted* mean of the group, so
+    the group's weighted total is unchanged. Returns ``(scores, weights,
+    order)``; rows of equal priority keep their input order.
+    """
+    order, codes = _priority_order(priorities)
+    avg = np.bincount(codes, weights=weights * scores) / np.bincount(
+        codes, weights=weights
+    )
+    return avg[codes[order]], weights[order], order
+
+
+def _weighted_rate_from_scores(
+    scores: np.ndarray,
+    priorities: np.ndarray,
+    weights: np.ndarray,
+    target: str,
+    q: np.ndarray,
+) -> Dict[str, Any]:
+    r"""RATE and TOC curve with observation weights.
+
+    :func:`rate_from_scores` with every count replaced by a weight total.
+    With units in descending priority order, :math:`w_k` their weights,
+    :math:`C_k = \sum_{j \le k} w_j`, :math:`S_k = \sum_{j \le k} w_j
+    \Gamma_{(j)}` and :math:`W = C_n`,
+
+    .. math::
+        \mathrm{TOC}_k = S_k / C_k - S_n / W, \qquad
+        \mathrm{AUTOC} = \tfrac1W \sum_k w_k \mathrm{TOC}_k, \qquad
+        \mathrm{QINI} = \tfrac1W \sum_k w_k \tfrac{C_k}{W} \mathrm{TOC}_k ,
+
+    which is the unweighted estimator when the weights are equal. The curve
+    at ``q`` is the weighted mean score of the top ``q`` *share of weight*
+    (the unit straddling the cut enters fractionally) minus the overall
+    weighted mean. Agrees with ``grf::rank_average_treatment_effect.fit(
+    ..., sample.weights=)`` run on the same inputs to 1e-14 (committed
+    fixture ``grf_rate_weighted_R.json``).
+
+    With unequal weights *and* tied priorities AUTOC depends, in the fifth
+    digit on the fixture, on the order of the rows inside a tie group (the
+    partial sums :math:`C_k` inside the group do); rows keep their input
+    order, as the reference does. QINI does not depend on it.
+    """
+    s = np.asarray(scores, dtype=np.float64).ravel()
+    pr = np.asarray(priorities, dtype=np.float64).ravel()
+    n = len(s)
+    if n < 2 or len(pr) != n or not (np.isfinite(s).all() and np.isfinite(pr).all()):
+        raise DataInsufficient(
+            "rate(): need at least two units with finite scores and priorities.",
+            recovery_hint="Drop non-finite rows before evaluating RATE.",
+        )
+    w = _validated_rate_weights(weights, n)
+    s_sorted, w_sorted, _ = _weighted_sorted(s, pr, w)
+    cum_w = np.cumsum(w_sorted)
+    cum_s = np.cumsum(w_sorted * s_sorted)
+    total = float(cum_w[-1])
+    ate = float(cum_s[-1] / total)
+    toc = cum_s / cum_w - ate
+    if target == "AUTOC":
+        estimate = float(np.sum(w_sorted * toc) / total)
+    else:
+        estimate = float(np.sum(w_sorted * (cum_w / total) * toc) / total)
+
+    q_arr = np.asarray(q, dtype=np.float64).ravel()
+    mass = q_arr * total
+    k = np.minimum(np.searchsorted(cum_w, mass, side="right"), n)  # C_k <= mass
+    k_eff = np.maximum(k, 1)
+    nxt = np.minimum(k, n - 1)  # 0-based index of the unit straddling the cut
+    partial = (mass - cum_w[k_eff - 1]) * s_sorted[nxt]
+    toc_grid = (cum_s[k_eff - 1] + partial) / mass - ate
+    return {"estimate": estimate, "toc_q": q_arr, "toc": toc_grid, "n": n}
+
+
+def _weighted_rate_influence_se(
+    scores: np.ndarray,
+    priorities: np.ndarray,
+    weights: np.ndarray,
+    target: str,
+    clusters: Optional[np.ndarray] = None,
+) -> float:
+    r"""Weighted counterpart of :func:`_rate_influence_se`.
+
+    With :math:`p_k = w_k / W` and :math:`u_k = C_k / W` the weight share
+    ranked at or above unit :math:`k`, the weighted estimator is exactly
+    :math:`\hat\theta = \sum_k p_k \Gamma_{(k)} (\omega_k - c)` with
+
+    - AUTOC: :math:`\omega_k = \sum_{j \ge k} p_j / u_j`, :math:`c = 1`;
+    - QINI: :math:`\omega_k = 1 - u_k + p_k`, :math:`c = \sum_j p_j u_j`.
+
+    Its influence value adds the term from estimating the ranks, as in
+    :func:`_rate_influence_phi` with weighted expectations:
+    :math:`\phi_k = \Gamma_{(k)}(\omega_k - c) + \sum_j p_j a_j
+    (\mathbf 1\{j \le k\} - F_j)`, :math:`F_j = 1 - u_j + p_j` the weight
+    share at or below :math:`j` and :math:`a_j = \Gamma_{(j)} / u_j` (AUTOC)
+    or :math:`\Gamma_{(j)}` (QINI). The variance is that of the weighted
+    mean :math:`\sum_k p_k \phi_k` with the weights held fixed:
+    :math:`\sum_k p_k^2 (\phi_k - \hat\theta)^2 \, n / (n - 1)`, or, with
+    clusters, the squared cluster sums of :math:`p_k (\phi_k -
+    \hat\theta)` times :math:`G / (G - 1)`. Equal weights give
+    :func:`_rate_influence_se`.
+    """
+    s = np.asarray(scores, dtype=np.float64).ravel()
+    w = _validated_rate_weights(weights, len(s))
+    s_sorted, w_sorted, order = _weighted_sorted(
+        s, np.asarray(priorities, dtype=np.float64).ravel(), w
+    )
+    n = len(s_sorted)
+    p = w_sorted / w_sorted.sum()
+    u = np.cumsum(p)
+    if target == "AUTOC":
+        omega = np.cumsum((p / u)[::-1])[::-1]
+        c = 1.0
+        a = s_sorted / u
+    else:
+        omega = 1.0 - u + p
+        c = float(np.sum(p * u))
+        a = s_sorted.copy()
+    share_at_or_below = 1.0 - u + p
+    rank_term = np.cumsum(p * a) - float(np.sum(p * a * share_at_or_below))
+    phi = s_sorted * (omega - c) + rank_term
+    centred = p * (phi - float(np.sum(p * phi)))
+    if clusters is None:
+        return float(np.sqrt(np.sum(centred**2) * n / (n - 1)))
+    codes = np.asarray(clusters, dtype=np.int64)[order]
+    n_groups = int(codes.max()) + 1
+    summed = np.bincount(codes, weights=centred, minlength=n_groups)
+    return float(np.sqrt(float(summed @ summed) * n_groups / (n_groups - 1)))
+
+
 def _rate_influence_phi(
     scores: np.ndarray, priorities: np.ndarray, target: str
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -767,29 +917,37 @@ def _rate_half_sample_se(
     R: int,
     seed: Optional[int],
     clusters: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
 ) -> float:
     """``grf``'s half-sample bootstrap SE (``boot_grf(half.sample=TRUE)``).
 
-    With ``clusters`` whole clusters are drawn, as ``grf`` does.
+    With ``clusters`` whole clusters are drawn, as ``grf`` does. With
+    ``weights`` every draw is the weighted estimator on its rows.
     """
     rng = np.random.default_rng(seed)
     n = len(scores)
     draws = np.empty(R)
+
+    def _estimate(idx: np.ndarray) -> float:
+        if weights is None:
+            core = rate_from_scores(scores[idx], priorities[idx], target, q)
+        else:
+            core = _weighted_rate_from_scores(
+                scores[idx], priorities[idx], weights[idx], target, q
+            )
+        return float(core["estimate"])
+
     if clusters is None:
         for b in range(R):
             idx = rng.choice(n, size=n // 2, replace=False)
-            draws[b] = rate_from_scores(scores[idx], priorities[idx], target, q)[
-                "estimate"
-            ]
+            draws[b] = _estimate(idx)
     else:
         codes = np.asarray(clusters, dtype=np.int64)
         n_groups = int(codes.max()) + 1
         for b in range(R):
             chosen = rng.choice(n_groups, size=n_groups // 2, replace=False)
             idx = np.flatnonzero(np.isin(codes, chosen))
-            draws[b] = rate_from_scores(scores[idx], priorities[idx], target, q)[
-                "estimate"
-            ]
+            draws[b] = _estimate(idx)
     return float(np.std(draws, ddof=1))
 
 
@@ -1090,10 +1248,26 @@ def rate(
 
     q_targets = np.linspace(1.0 / q_grid_value, 1.0, q_grid_value)
     q_targets[-1] = 1.0
-    core = rate_from_scores(psi, prio, target_key, q_targets)
+    # The forest's observation weights (unequal only with
+    # equalize_cluster_weights=True and clusters of different sizes), the
+    # ones its ATE, best linear projection and calibration test use.
+    obs_w: Optional[np.ndarray] = None
+    if grf_forest:
+        w_all = _gi._weights(forest, n)
+        if float(np.ptp(w_all)) > 0.0:
+            obs_w = w_all
+    if obs_w is None:
+        core = rate_from_scores(psi, prio, target_key, q_targets)
+    else:
+        core = _weighted_rate_from_scores(psi, prio, obs_w, target_key, q_targets)
     estimate = core["estimate"]
     if se_method == "influence":
-        se = _rate_influence_se(psi, prio, target_key, clusters=cluster_codes)
+        if obs_w is None:
+            se = _rate_influence_se(psi, prio, target_key, clusters=cluster_codes)
+        else:
+            se = _weighted_rate_influence_se(
+                psi, prio, obs_w, target_key, clusters=cluster_codes
+            )
         method = "Rank-corrected influence-function SE"
     else:
         R = int(n_bootstrap)
@@ -1103,7 +1277,14 @@ def rate(
                 recovery_hint="Use grf's default of 200.",
             )
         se = _rate_half_sample_se(
-            psi, prio, target_key, q_targets, R, seed, clusters=cluster_codes
+            psi,
+            prio,
+            target_key,
+            q_targets,
+            R,
+            seed,
+            clusters=cluster_codes,
+            weights=obs_w,
         )
         method = f"Half-sample bootstrap SE (grf), R={R}"
     if cluster_codes is not None:

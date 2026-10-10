@@ -512,6 +512,9 @@ def cate_pretrend_test(
     """
     context = "cate_pretrend_test()"
     _require_grf(forest, context)
+    from ._grf_family import validate_alpha
+
+    alpha = validate_alpha(alpha, context)
     if not gi.is_fe_forest(forest):
         raise MethodIncompatibility(
             f"{context} needs a causal forest with fixed effects (fe=...).",
@@ -981,9 +984,41 @@ def _refit_halves(
     n_rows = int(len(forest._Y_original))
     dropped = int(n_rows - in_train.sum() - in_eval.sum())
     params = {p: getattr(forest, p) for p in _CTOR_PARAMS}
+    # The constructor fills model_y / model_t with scikit-learn defaults that
+    # the GRF path never uses; handing those back would make them count as
+    # user models and switch the halves to cross-fitted scikit-learn
+    # nuisances (class labels as W_hat under fe=). Only models the caller
+    # actually supplied are carried.
+    if not getattr(forest, "_user_model_y", False):
+        params["model_y"] = None
+    if not getattr(forest, "_user_model_t", False):
+        params["model_t"] = None
     Y = np.asarray(forest._Y_original, dtype=float)
     T = np.asarray(forest._T_original, dtype=float)
     X = np.asarray(forest._X_original, dtype=float)
+    # Controls of the forest being split (they enter the nuisance models and,
+    # under fe=, the imputation design).
+    controls = getattr(forest, "_W_original", None)
+    if controls is None:
+        controls = getattr(forest, "_fe_W", None)
+    if (
+        controls is None
+        and int(getattr(forest, "data_info", {}).get("n_controls", 0)) > 0
+    ):
+        raise MethodIncompatibility(
+            f"{context}: this forest was fitted with controls but does not "
+            "carry them (it was fitted by an older release), so the halves "
+            "cannot be refitted the way it was.",
+            recovery_hint="Refit the forest with this release and call again.",
+        )
+    # Nuisances the caller supplied are data, not estimates: each half keeps
+    # its own rows of them instead of re-estimating.
+    source = getattr(forest, "diagnostics", {}).get("nuisance_source", {}) or {}
+    supplied = {
+        name: np.asarray(getattr(forest, attr), dtype=float)
+        for name, attr in (("Y_hat", "_m_insample"), ("W_hat", "_e_insample"))
+        if source.get(name) == "user-supplied"
+    }
     unit = getattr(forest, "_fe_unit", None)
     time = getattr(forest, "_fe_time", None)
     clusters = getattr(forest, "_clusters", None)
@@ -1005,6 +1040,9 @@ def _refit_halves(
                 Y=Y[mask],
                 T=T[mask],
                 X=X[mask],
+                W=None if controls is None else np.asarray(controls)[mask],
+                Y_hat=supplied["Y_hat"][mask] if "Y_hat" in supplied else None,
+                W_hat=supplied["W_hat"][mask] if "W_hat" in supplied else None,
                 clusters=None if clusters is None else np.asarray(clusters)[mask],
                 id=None if unit is None else np.asarray(unit)[mask],
                 time=None if time is None else np.asarray(time)[mask],

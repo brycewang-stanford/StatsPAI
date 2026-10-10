@@ -525,6 +525,16 @@ def average_effect(
                 "treatment.",
                 recovery_hint="Use target_sample='all' or 'overlap'.",
             )
+        if clusters is not None and int(clusters.max()) + 1 < 2:
+            # The cluster-robust variance carries G / (G - 1): with the rows
+            # of a single cluster it is undefined, not infinite.
+            raise DataInsufficient(
+                "average_treatment_effect(): at least two clusters are "
+                "required for a cluster-robust standard error; the selected "
+                "rows lie in one.",
+                recovery_hint="Select rows from more than one cluster.",
+                diagnostics={"n_clusters": int(clusters.max()) + 1, "n": n},
+            )
         scores, e, m, _ = dr_scores(
             forest, np.asarray(forest._oob_tau, dtype=float), clip
         )

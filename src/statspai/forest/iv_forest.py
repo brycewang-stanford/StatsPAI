@@ -124,6 +124,8 @@ class IVForestResult(GRFFamilyForest):
         if newdata is None:
             pred, var = self.cate, self.cate_variance
         else:
+            if estimate_variance:
+                self._require_little_bags()
             p, v = self._engine.predict(
                 self._new_X(newdata), estimate_variance=bool(estimate_variance)
             )

@@ -111,7 +111,10 @@ def variable_importance(
     Returns
     -------
     pd.Series
-        Importance per covariate (sums to one), in covariate order.
+        Importance per covariate, in covariate order. The importances sum
+        to one when every counted depth has at least one split, and to less
+        otherwise (a depth without splits contributes zero while its weight
+        stays in the normaliser, grf's convention).
 
     Examples
     --------

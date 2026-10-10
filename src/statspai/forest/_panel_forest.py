@@ -85,6 +85,33 @@ def _within_sum_of_squares(values: np.ndarray, groups: np.ndarray) -> float:
     return float(resid @ resid)
 
 
+def _twoway_within_share(
+    values: np.ndarray, unit: np.ndarray, time: np.ndarray
+) -> float:
+    """Share of the variation in ``values`` left by unit and period effects.
+
+    Residual sum of squares of the least-squares projection on unit and
+    period dummies (exact on unbalanced panels too), over the centred total
+    sum of squares.
+    """
+    from scipy import sparse
+    from scipy.sparse.linalg import lsqr
+
+    n = values.size
+    centred = values - values.mean()
+    total = float(centred @ centred)
+    if total <= 0.0:
+        return 0.0
+    n_units = int(unit.max()) + 1
+    rows = np.concatenate([np.arange(n), np.arange(n)])
+    cols = np.concatenate([unit, n_units + time])
+    dummies = sparse.csr_matrix(
+        (np.ones(2 * n), (rows, cols)), shape=(n, n_units + int(time.max()) + 1)
+    )
+    resid = centred - dummies @ lsqr(dummies, centred, atol=1e-14, btol=1e-14)[0]
+    return float(resid @ resid) / total
+
+
 def fit_fe(
     cf: Any,
     Y: np.ndarray,
@@ -169,6 +196,30 @@ def fit_fe(
                 "units switch treatment status."
             ),
         )
+    if cf.fe == "twoway":
+        # Net of unit *and* period effects. A treatment that is a function
+        # of the period alone (every unit adopts at the same date) varies
+        # within units but is absorbed by the period effects, and the forest
+        # would be fitted to rounding noise. The test is relative to the
+        # treatment's own variation: an absorbed treatment leaves a share at
+        # rounding level (1e-20 and below), while one cell out of line in a
+        # panel of n rows leaves about 1 / (n var(T)), so 1e-10 separates
+        # the two for any panel that fits in memory.
+        share = _twoway_within_share(T.astype(float), unit_codes, time_codes)
+        if share <= 1e-10:
+            raise DataInsufficient(
+                "CausalForest(fe='twoway'): the treatment does not vary net "
+                "of unit and period effects (it is a function of the period "
+                "within every unit, e.g. all units adopt at the same date), "
+                "so the fixed effects absorb it entirely and the effect is "
+                "not identified.",
+                recovery_hint=(
+                    "Use a design in which units are treated at different "
+                    "dates or some are never treated; fe='unit' identifies "
+                    "the effect only by assuming there are no period effects."
+                ),
+                diagnostics={"twoway_within_share_of_variation": share},
+            )
     unit_has_variation = np.zeros(n_units, dtype=bool)
     t_by_unit_min = np.full(n_units, np.inf)
     t_by_unit_max = np.full(n_units, -np.inf)

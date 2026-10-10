@@ -470,6 +470,8 @@ class CausalForest(BaseModel):
         self._X_original = X.copy()
         self._T_original = T.copy()
         self._Y_original = Y.copy()
+        # Kept so that sample-splitting diagnostics can refit the same forest.
+        self._W_original = None if W is None else W.copy()
 
         # Validate treatment
         if self.discrete_treatment:
@@ -989,10 +991,7 @@ class CausalForest(BaseModel):
         # Effect modifiers may be categorical: one 0/1 column per level.
         from ._grf_family import one_hot_covariates
 
-        try:
-            x_block, x_names = one_hot_covariates(data, x_names, "CausalForest.fit()")
-        except MethodIncompatibility as e:
-            raise ValueError(f"Variable {e} not found in data") from e
+        x_block, x_names = one_hot_covariates(data, x_names, "CausalForest.fit()")
         X = x_block.values
 
         # Store feature names for later use
@@ -1690,7 +1689,10 @@ class CausalForest(BaseModel):
             "Causal Forest Results",
             "=" * 60,
             "Method:                   Causal Forest",
-            f"Number of trees:          {self.n_estimators}",
+            # The trees actually grown (the engine rounds the request to a
+            # multiple of ci_group_size).
+            "Number of trees:          "
+            f"{self.diagnostics.get('n_estimators', self.n_estimators)}",
             f"Min samples per leaf:     {self.min_samples_leaf}",
             f"Max depth:                {self.max_depth or 'None'}",
             f"Max samples per tree:     {self.max_samples}",
@@ -1759,7 +1761,11 @@ class CausalForest(BaseModel):
         Returns
         -------
         pandas.Series
-            Normalised importance, indexed by covariate (sums to 1).
+            Normalised importance, indexed by covariate. The permutation
+            measure sums to 1; the split measure sums to 1 when every
+            counted depth has at least one split, and to less otherwise (a
+            depth without splits contributes zero while its weight stays in
+            the normaliser, grf's convention).
         """
         if not self.fitted_:
             raise MethodIncompatibility(
@@ -2369,7 +2375,15 @@ def causal_forest(
             )
         x_cols = [x] if isinstance(x, str) else list(x)
         w_cols = [] if w is None else ([w] if isinstance(w, str) else list(w))
-        missing = [c for c in [y, d, *x_cols, *w_cols] if c not in data.columns]
+        from ..core._covariates import _factor_column
+
+        # An effect modifier may be written C(col), as in a formula: the
+        # column that has to exist is col.
+        missing = [c for c in [y, d, *w_cols] if c not in data.columns] + [
+            c
+            for c in x_cols
+            if c not in data.columns and _factor_column(c) not in data.columns
+        ]
         if missing:
             raise MethodIncompatibility(
                 f"causal_forest(): column(s) not in data: {missing}.",
