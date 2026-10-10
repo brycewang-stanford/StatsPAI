@@ -92,6 +92,7 @@ def msm(
     alpha: float = 0.05,
     family: str = "gaussian",
     density_sd: str = "unbiased",
+    outcome_rows: str = "all",
 ) -> CausalResult:
     """
     Estimate a Marginal Structural Model via stabilized IPTW.
@@ -102,12 +103,8 @@ def msm(
         Long-format panel data, one row per (unit, period).
     y : str
         Outcome column. Can be constant within unit (end-of-follow-up
-        outcome repeated) or time-varying. An outcome that is constant
-        within every unit is treated as measured once: the outcome model
-        is fitted on each unit's last row, where the cumulative weight and
-        the exposure summary cover the whole follow-up
-        (``model_info['outcome_rows'] == 'last_per_unit'``). A time-varying
-        outcome uses every row.
+        outcome repeated) or time-varying; see ``outcome_rows`` for the
+        first case.
     treat : str
         Treatment column. Binary (0/1) or continuous.
     id : str
@@ -147,6 +144,19 @@ def msm(
     density_sd : {'unbiased', 'ml'}, default 'unbiased'
         Residual-SD convention for continuous-treatment density weights;
         see :func:`stabilized_weights`.
+    outcome_rows : {'all', 'last'}, default 'all'
+        Rows the outcome model is fitted on. ``'all'`` pools every
+        unit-period row, which is right for an outcome measured each
+        period and is what a weighted ``lm`` / ``regress`` on the long
+        panel does (the R ``ipw`` and Stata references are pinned in this
+        form). ``'last'`` uses each unit's last row, where the cumulative
+        weight and the exposure summary cover the whole follow-up. Use it
+        for an outcome measured once, at the end: such an outcome arrives
+        repeated on every row, and pooling pairs it with the exposure
+        received so far, so the slope is not the effect of a unit of
+        exposure (2.6 to 2.75 against a true 3.0 per visit in a two-visit
+        design, 2.97 to 3.04 with ``'last'``). The default warns when the
+        outcome is constant within every unit.
 
     Returns
     -------
@@ -253,21 +263,35 @@ def msm(
         df["_exposure"] = (grouped.cummax() > 0).astype(float).values
         exposure_label = f"ever_{treat}"
 
-    # An outcome measured once, at the end of follow-up, arrives repeated
-    # on every row of its unit. Only the last row pairs it with the whole
-    # treatment history and the whole weight; an earlier row would pair the
-    # final outcome with the exposure received so far, and the pooled slope
-    # is then not the effect of a unit of exposure (2.7 against a true 3.0
-    # per period in the two-visit design of examples/gmethods_timevarying.py).
+    if outcome_rows not in ("all", "last"):
+        raise MethodIncompatibility(
+            f"outcome_rows must be 'all' or 'last', got {outcome_rows!r}"
+        )
     n_periods_max = int(df.groupby(id, sort=False)[time].size().max())
     end_of_follow_up = bool(
         n_periods_max > 1
         and int(df.groupby(id, sort=False)[y].nunique(dropna=False).max()) == 1
     )
-    if end_of_follow_up:
+    if outcome_rows == "last":
         rows = (~df.duplicated(subset=[id], keep="last")).to_numpy()
     else:
         rows = np.ones(len(df), dtype=bool)
+        if end_of_follow_up:
+            from ..exceptions import AssumptionWarning
+
+            warnings.warn(
+                f"sp.msm: {y!r} is constant within every unit, so it looks "
+                "like an outcome measured once at the end of follow-up, and "
+                "it is being fitted on every unit-period row. The earlier "
+                "rows pair the final outcome with the exposure received so "
+                "far, and the pooled coefficient is then not the effect of "
+                "a unit of exposure. Pass outcome_rows='last' to fit the "
+                "outcome model on each unit's last row; pass "
+                "outcome_rows='all' with a time-varying outcome to keep "
+                "pooling.",
+                AssumptionWarning,
+                stacklevel=2,
+            )
 
     # Pooled weighted regression of Y on exposure + baseline
     feat = ["_exposure"] + baseline
@@ -315,7 +339,8 @@ def msm(
         "trim_per_period": bool(trim_per_period),
         "coef_table": detail.copy(),
         "cluster_var": id,
-        "outcome_rows": "last_per_unit" if end_of_follow_up else "all",
+        "outcome_rows": outcome_rows,
+        "outcome_constant_within_unit": end_of_follow_up,
         "n_outcome_rows": int(rows.sum()),
     }
 
@@ -352,6 +377,7 @@ def msm(
                 "alpha": alpha,
                 "family": family,
                 "density_sd": density_sd,
+                "outcome_rows": outcome_rows,
             },
             data=data,
             overwrite=False,

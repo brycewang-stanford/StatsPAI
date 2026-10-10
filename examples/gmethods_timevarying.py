@@ -112,6 +112,8 @@ def main() -> None:
         time="time",
         time_varying=["L"],
         exposure="cumulative",
+        # Y is measured once, at the end: fit it on each unit's last row.
+        outcome_rows="last",
     )
     print(
         f"[MSM via IPTW]                  per-dose  = {msm.estimate:.3f}  "

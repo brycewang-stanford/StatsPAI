@@ -14269,6 +14269,19 @@ def _build_registry() -> None:
                     "weights; see :func:`stabilized_weights`.",
                     enum=["unbiased", "ml"],
                 ),
+                ParamSpec(
+                    "outcome_rows",
+                    "str",
+                    False,
+                    "all",
+                    "Rows the outcome model is fitted on. 'all' pools every "
+                    "unit-period row (an outcome measured each period). "
+                    "'last' uses each unit's last row: required for an "
+                    "outcome measured once at the end of follow-up, which "
+                    "otherwise is paired with partial exposure on the "
+                    "earlier rows and biases the slope.",
+                    enum=["all", "last"],
+                ),
             ],
             returns="CausalResult",
             example=(

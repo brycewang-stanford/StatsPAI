@@ -288,21 +288,29 @@ def _two_visit_panel(seed: int, n: int = 4000) -> pd.DataFrame:
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])
-def test_msm_end_of_follow_up_outcome_uses_the_last_row(seed):
-    # The final outcome repeated on the first-visit row was regressed on
-    # the exposure received so far: the slope was 2.6 to 2.75 with a
-    # standard error of 0.06, against a true 3.
+def test_msm_outcome_rows_last_recovers_an_end_of_follow_up_effect(seed):
+    # Pooled over every row, the final outcome is also regressed on the
+    # exposure received so far: 2.6 to 2.75 with a standard error of 0.06,
+    # against a true 3.
     panel = _two_visit_panel(seed)
-    res = sp.msm(
-        panel, y="Y", treat="A", id="id", time="time", time_varying=["L"], trim=0.0
-    )
-    assert res.model_info["outcome_rows"] == "last_per_unit"
+    kw = dict(y="Y", treat="A", id="id", time="time", time_varying=["L"], trim=0.0)
+    res = sp.msm(panel, outcome_rows="last", **kw)
+    assert res.model_info["outcome_rows"] == "last"
     assert res.model_info["n_outcome_rows"] == panel["id"].nunique()
     assert abs(res.estimate - 3.0) < 3 * res.se
     assert abs(res.estimate - 3.0) < 0.2
 
+    from statspai.exceptions import AssumptionWarning
 
-def test_msm_time_varying_outcome_still_uses_every_row():
+    with pytest.warns(AssumptionWarning, match="outcome_rows='last'"):
+        pooled = sp.msm(panel, **kw)
+    assert pooled.model_info["outcome_rows"] == "all"
+    assert pooled.model_info["outcome_constant_within_unit"] is True
+    assert pooled.model_info["n_outcome_rows"] == len(panel)
+    assert pooled.estimate < 3.0 - 3 * pooled.se
+
+
+def test_msm_time_varying_outcome_pools_every_row_without_warning():
     rng = np.random.default_rng(0)
     rows = []
     for i in range(300):
@@ -314,7 +322,25 @@ def test_msm_time_varying_outcome_still_uses_every_row():
             rows.append((i, t, a, lv, 1.5 * cum + rng.normal()))
             a_prev = a
     panel = pd.DataFrame(rows, columns=["id", "t", "a", "l", "y"])
-    res = sp.msm(panel, y="y", treat="a", id="id", time="t", time_varying=["l"])
+    from statspai.exceptions import AssumptionWarning
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AssumptionWarning)
+        res = sp.msm(panel, y="y", treat="a", id="id", time="t", time_varying=["l"])
     assert res.model_info["outcome_rows"] == "all"
+    assert res.model_info["outcome_constant_within_unit"] is False
     assert res.model_info["n_outcome_rows"] == len(panel)
     assert abs(res.estimate - 1.5) < 4 * res.se
+
+
+def test_msm_rejects_an_unknown_outcome_rows():
+    with pytest.raises(MethodIncompatibility):
+        sp.msm(
+            _two_visit_panel(0, n=50),
+            y="Y",
+            treat="A",
+            id="id",
+            time="time",
+            time_varying=["L"],
+            outcome_rows="first",
+        )
