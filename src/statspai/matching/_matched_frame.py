@@ -56,7 +56,7 @@ Rosenbaum, P.R. and Rubin, D.B. (1983). Biometrika, 70(1), 41-55.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -282,6 +282,33 @@ def _within_group_self_outcome(
         grp_of = np.cumsum(is_new) - 1
         n_grp = len(starts)
         take = min(j, m - 1)
+
+        if take == 1 and bool(np.all(np.isfinite(s_ps))):
+            # One neighbour needs no walk: it is the first other unit of the
+            # unit's own score group or, for a unit alone at its score, the
+            # first unit of the nearer adjacent group -- of the two, the one
+            # earlier in the data when they are equally far.
+            g_of = grp_of
+            own = starts[g_of]
+            rank = np.arange(m)
+            in_group = np.where(rank != own, own, np.minimum(own + 1, m - 1))
+            g_left = np.maximum(g_of - 1, 0)
+            g_right = np.minimum(g_of + 1, n_grp - 1)
+            gap_l = np.where(g_of > 0, vals[g_of] - vals[g_left], np.inf)
+            gap_r = np.where(g_of < n_grp - 1, vals[g_right] - vals[g_of], np.inf)
+            first_l, first_r = starts[g_left], starts[g_right]
+            beside = np.where(
+                gap_l < gap_r,
+                first_l,
+                np.where(
+                    gap_r < gap_l,
+                    first_r,
+                    np.where(s_idx[first_l] < s_idx[first_r], first_l, first_r),
+                ),
+            )
+            pick = np.where((ends - starts)[g_of] > 1, in_group, beside)
+            self_y[s_idx] = s_y[pick]
+            continue
 
         for r in range(m):
             gi = int(grp_of[r])
@@ -630,7 +657,53 @@ def build_matched_frame(
     k = max(int(n_matches), 1)
     neighbor = np.full((n, k), np.nan, dtype=float)
 
-    for i, (m, w) in enumerate(zip(matches, weights)):
+    # Targets with a single match, and the weight every pool unit collects,
+    # need no per-target work when no position is both a target and a
+    # match: the loop then visits only the targets with several matches.
+    n_rows = min(len(matches), len(weights))
+    size = np.fromiter((len(matches[i]) for i in range(n_rows)), dtype=np.intp)
+    idx_t = np.asarray(idx_t)
+    idx_c = np.asarray(idx_c)
+    flat_pos = np.zeros(0, dtype=np.intp)
+    flat_w = np.zeros(0, dtype=float)
+    batched = len(matches) == len(weights) == len(idx_t) and bool(np.any(size > 0))
+    if batched:
+        flat_pos = idx_c[np.concatenate([np.asarray(m, dtype=int) for m in matches])]
+        flat_w = np.concatenate([np.asarray(w, dtype=float) for w in weights])
+        is_target = np.zeros(n, dtype=bool)
+        is_target[idx_t] = True
+        batched = (
+            len(flat_w) == len(flat_pos)
+            and len(np.unique(idx_t)) == len(idx_t)
+            and bool(np.all(np.isfinite(flat_w)))
+            and not bool(np.any(is_target[flat_pos]))
+        )
+    if batched:
+        share_sum = np.zeros(n, dtype=float)
+        # unbuffered, so each unit's shares are added in the order met
+        np.add.at(share_sum, flat_pos, flat_w)
+        batched = not bool(np.any(np.isnan(share_sum)))
+    if batched:
+        got = np.zeros(n, dtype=bool)
+        got[flat_pos] = True
+        weight[got] = share_sum[got]
+        weight[idx_t[size > 0]] = 1.0
+        one = np.flatnonzero(size == 1)
+        at = (np.cumsum(size) - size)[one]
+        t_one, c_one, w_one = idx_t[one], flat_pos[at], flat_w[at]
+        if neighbors:
+            nn[t_one] = 1.0
+            neighbor[t_one, 0] = obs_id[c_one]
+            pdif[t_one] = np.abs(pscore[t_one] - pscore[c_one])
+        if outcome_arr is not None:
+            ok = np.abs(w_one) > 1e-12 * np.maximum(1.0, np.abs(w_one))
+            matched_y[t_one[ok]] = (outcome_arr[c_one[ok]] * w_one[ok]) / w_one[ok]
+        rows: Any = np.flatnonzero(size > 1).tolist()
+    else:
+        rows = range(n_rows)
+
+    for i in rows:
+        m, w = matches[i], weights[i]
         t_pos = int(idx_t[i])
         if len(m) == 0:
             # Treated unit found no match (caliper bound, or trimmed off
@@ -661,6 +734,8 @@ def build_matched_frame(
             if abs(total) > 1e-12 * max(1.0, float(np.abs(w_arr).sum())):
                 matched_y[t_pos] = float(np.dot(outcome_arr[ctrl_pos], w_arr) / total)
 
+        if batched:
+            continue
         # Accumulate each matched control's frequency weight.
         for pos, share in zip(ctrl_pos, w_arr):
             pos = int(pos)

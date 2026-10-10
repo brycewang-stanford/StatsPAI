@@ -34,7 +34,7 @@ Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
 
 import operator
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -675,6 +675,12 @@ class _LazyDistance:
         row: np.ndarray = self._rows[i - self._start]
         return row
 
+    def blocks(self) -> Iterator[np.ndarray]:
+        """The matrix as consecutive row blocks, none of them cached."""
+        for start in range(0, self.shape[0], self._BLOCK):
+            stop = min(start + self._BLOCK, self.shape[0])
+            yield self._compute(np.arange(start, stop))
+
 
 def _match_frequency_weighted(
     data: pd.DataFrame, weights: str, **kwargs: Any
@@ -775,6 +781,17 @@ def _standardized_difference(mean_t: float, mean_c: float, sd_pool: float) -> fl
     if abs(mean_t - mean_c) <= 1e-12 * size:
         return 0.0
     return float(np.copysign(np.inf, mean_t - mean_c))
+
+
+def _score_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Distance between scalar scores as ``cdist(..., 'euclidean')`` forms it.
+
+    The root of the squared difference, not ``abs``: the two agree except
+    where the square under- or overflows, and matches found on the score
+    directly must carry the distances a distance matrix would.
+    """
+    with np.errstate(over="ignore", under="ignore"):
+        return np.asarray(np.sqrt((a - b) ** 2), dtype=float)
 
 
 def _index_by_row(X_aug: np.ndarray, beta: np.ndarray) -> np.ndarray:
@@ -1852,6 +1869,7 @@ class MatchEstimator:
                 target_order=row_order[t_use],
                 pool_order=row_order[idx_c],
                 pscore_target=None if pscore is None else pscore[t_use],
+                pscore_pool=None if pscore is None else pscore[idx_c],
             )
             att = self._compute_effect(Y_eff, t_use, idx_c, X, matches, weights)
             se = self._ai_se(Y, X, T, t_use, idx_c, matches, weights)
@@ -1866,6 +1884,7 @@ class MatchEstimator:
                 target_order=row_order[t_use],
                 pool_order=row_order[idx_c],
                 pscore_target=None if pscore is None else pscore[t_use],
+                pscore_pool=None if pscore is None else pscore[idx_c],
             )
             m_ct, w_ct = self._nn_match_from_dist(
                 dist_ct,
@@ -1873,6 +1892,7 @@ class MatchEstimator:
                 target_order=row_order[idx_c],
                 pool_order=row_order[idx_t],
                 pscore_target=None if pscore is None else pscore[idx_c],
+                pscore_pool=None if pscore is None else pscore[idx_t],
             )
             att_part = self._compute_effect(Y, t_use, idx_c, X, m_tc, w_tc)
             atc_part = self._compute_effect(Y, idx_c, idx_t, X, m_ct, w_ct)
@@ -3267,6 +3287,7 @@ class MatchEstimator:
         target_order: Optional[np.ndarray] = None,
         pool_order: Optional[np.ndarray] = None,
         pscore_target: Optional[np.ndarray] = None,
+        pscore_pool: Optional[np.ndarray] = None,
     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         k-NN matching from a precomputed distance matrix.
@@ -3315,7 +3336,7 @@ class MatchEstimator:
         # so (see the `m_order` documentation on `sp.match`). The order is
         # a user choice, not an implementation detail.
         if not self.replace:
-            used: set[int] = set()
+            used = np.zeros(dist.shape[1], dtype=bool)
             static_order = self._target_processing_order(
                 dist, target_order, pscore_target
             )
@@ -3324,8 +3345,7 @@ class MatchEstimator:
                 d = dist[i].copy()
                 if caliper is not None:
                     d[d > caliper] = np.inf
-                for u in used:
-                    d[u] = np.inf
+                d[used] = np.inf
                 k = min(self.n_matches, int(np.sum(np.isfinite(d))))
                 if k == 0:
                     matches[i] = np.array([], dtype=int)
@@ -3334,7 +3354,7 @@ class MatchEstimator:
                 idx = _nearest_indices(d, k)
                 matches[i] = idx
                 weights[i] = np.ones(k, dtype=float) / k
-                used.update(idx.tolist())
+                used[idx] = True
 
             if static_order is not None:
                 for i in static_order:
@@ -3353,8 +3373,7 @@ class MatchEstimator:
                     d = dist[i].copy()
                     if caliper is not None:
                         d[d > caliper] = np.inf
-                    for u in used:
-                        d[u] = np.inf
+                    d[used] = np.inf
                     if not np.any(np.isfinite(d)):
                         continue
                     dv = float(np.min(d))
@@ -3370,32 +3389,297 @@ class MatchEstimator:
 
             return matches, weights
 
-        # With replacement (default): simple k-NN per target
-        for i in range(n_target):
-            d = dist[i].copy()
-            if caliper is not None:
-                d[d > caliper] = np.inf
+        # With replacement (default): every target is matched on its own,
+        # so the search runs over all of them at once.
+        return self._nn_match_replace(
+            dist, caliper, pool_order, pscore_target, pscore_pool
+        )
 
-            k = min(self.n_matches, int(np.sum(np.isfinite(d))))
-            if k == 0:
-                matches[i] = np.array([], dtype=int)
-                weights[i] = np.array([], dtype=float)
+    def _nn_match_row(
+        self, d: np.ndarray, caliper: Optional[float], pool_order: np.ndarray
+    ) -> np.ndarray:
+        """Matches of one target from its full distance row: the definition.
+
+        The vectorised search in :meth:`_nn_match_replace` reproduces this
+        rule; it is what runs when a block of distances is not finite.
+        """
+        d = d.copy()
+        if caliper is not None:
+            d[d > caliper] = np.inf
+        candidates = np.flatnonzero(np.isfinite(d))
+        k = min(self.n_matches, int(candidates.size))
+        if k == 0:
+            return np.array([], dtype=int)
+        if k < candidates.size:
+            dc = d[candidates]
+            kth = np.partition(dc, k - 1)[k - 1]
+            candidates = candidates[dc <= kth]
+        order = np.lexsort((pool_order[candidates], d[candidates]))
+        idx = np.asarray(candidates[order[:k]], dtype=int)
+        with_ties = self._extend_with_ties(d, idx)
+        if with_ties.size > idx.size:
+            self._tie_stats["targets"] += 1
+            if self.ties == "all":
+                idx = with_ties
+            else:
+                # ties='first' kept the lowest-index unit(s) and left
+                # out others at exactly the same distance.
+                self._tie_stats["left_out"] += int(with_ties.size - idx.size)
+        return idx
+
+    def _nn_match_replace(
+        self,
+        dist: Any,
+        caliper: Optional[float],
+        pool_order: np.ndarray,
+        pscore_target: Optional[np.ndarray],
+        pscore_pool: Optional[np.ndarray],
+    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        """With-replacement matches of every target, without a row loop.
+
+        Both searches first collect, per target, a superset of the pool
+        units that can enter its match set, then apply the rule of
+        :meth:`_nn_match_row` to those candidates only. The candidates'
+        distances are the values the row would hold (same expression, same
+        bits), so which units count as tied is decided exactly as before.
+        """
+        n_target, n_pool = dist.shape
+        scale = self._tie_scale()
+        flat: List[np.ndarray] = []
+        counts: List[np.ndarray] = []
+        on_score = (
+            self.distance == "propensity"
+            and pscore_target is not None
+            and pscore_pool is not None
+            and n_pool > 0
+            and bool(np.all(np.isfinite(pscore_target)))
+            and bool(np.all(np.isfinite(pscore_pool)))
+        )
+        if on_score:
+            chunks = self._score_candidates(
+                np.asarray(pscore_target, dtype=float),
+                np.asarray(pscore_pool, dtype=float),
+                caliper,
+                scale,
+            )
+        else:
+            chunks = self._block_candidates(dist, caliper, scale)
+        for n_rows, rows, cols, dv, kth, k, block in chunks:
+            if block is not None:
+                # a non-finite distance: the row-by-row definition
+                found = [self._nn_match_row(row, caliper, pool_order) for row in block]
+                flat.extend(found)
+                counts.append(np.array([len(m) for m in found], dtype=np.intp))
                 continue
+            out, cnt = self._select_matches(
+                n_rows, rows, cols, dv, kth, k, pool_order, scale, not on_score
+            )
+            flat.append(out)
+            counts.append(cnt)
 
-            idx = _nearest_indices(d, k)
-            with_ties = self._extend_with_ties(d, idx)
-            if with_ties.size > idx.size:
-                self._tie_stats["targets"] += 1
-                if self.ties == "all":
-                    idx = with_ties
-                else:
-                    # ties='first' kept the lowest-index unit(s) and left
-                    # out others at exactly the same distance.
-                    self._tie_stats["left_out"] += int(with_ties.size - idx.size)
-            matches[i] = idx
-            weights[i] = np.ones(len(idx), dtype=float) / len(idx)
-
+        size = (
+            np.concatenate(counts).astype(np.intp)
+            if counts
+            else np.zeros(0, dtype=np.intp)
+        )
+        cols_all = (
+            np.concatenate(flat).astype(int, copy=False)
+            if flat
+            else np.zeros(0, dtype=int)
+        )
+        w_all = np.repeat(1.0 / np.maximum(size, 1), size)
+        stop = np.cumsum(size)
+        bounds = list(zip((stop - size).tolist(), stop.tolist()))
+        # Each target gets arrays of its own, not views into the long ones:
+        # a BLAS dot product rounds differently on memory that is not
+        # aligned as a fresh allocation is.
+        matches = [cols_all[a:b].copy() for a, b in bounds]
+        weights = [w_all[a:b].copy() for a, b in bounds]
         return matches, weights
+
+    #: Flat candidate entries handled at a time by the score search.
+    _CANDIDATE_CHUNK = 1 << 21
+
+    def _candidate_radius(
+        self, kth: np.ndarray, caliper: Optional[float], scale: float
+    ) -> np.ndarray:
+        """Distance no unit tied with the k-th nearest can exceed.
+
+        The tie test compares rounded squared distances, so the bound is
+        loosened by far more than that rounding (and by an absolute amount
+        covering squares that underflow); the test itself is then applied
+        to the candidates unchanged.
+        """
+        with np.errstate(over="ignore", invalid="ignore"):
+            radius = np.sqrt(kth * kth + self.tie_tolerance * scale)
+            radius = radius * (1.0 + 1e-9) + 1e-140
+        radius = np.where(np.isnan(radius), np.inf, radius)
+        if caliper is not None:
+            radius = np.minimum(radius, caliper)
+        return np.asarray(radius, dtype=float)
+
+    def _block_candidates(
+        self, dist: Any, caliper: Optional[float], scale: float
+    ) -> Iterator[Tuple[Any, ...]]:
+        """Candidates read off blocks of the distance matrix."""
+        n_pool = dist.shape[1]
+        kk = min(self.n_matches, n_pool)
+        if isinstance(dist, _LazyDistance):
+            blocks = dist.blocks()
+        else:
+            step = max(1, _LazyDistance._CELLS // max(n_pool, 1))
+            blocks = (
+                np.asarray(dist[a : a + step]) for a in range(0, dist.shape[0], step)
+            )
+        for block in blocks:
+            n_rows = block.shape[0]
+            if kk == 0:
+                yield n_rows, None, None, None, None, None, block
+                continue
+            with np.errstate(over="ignore", invalid="ignore"):
+                all_finite = bool(np.isfinite(block.sum()))
+            if not all_finite:
+                yield n_rows, None, None, None, None, None, block
+                continue
+            if kk == 1:
+                nearest = block.min(axis=1)[:, None]
+            else:
+                nearest = np.sort(np.partition(block, kk - 1, axis=1)[:, :kk], axis=1)
+            k, kth = self._kth_distance(nearest, caliper)
+            radius = self._candidate_radius(kth, caliper, scale)
+            radius[k == 0] = -1.0
+            rows, cols = np.nonzero(block <= radius[:, None])
+            yield n_rows, rows, cols, block[rows, cols], kth, k, None
+
+    @staticmethod
+    def _kth_distance(
+        nearest: np.ndarray, caliper: Optional[float]
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Matches available to each target and the distance of the last.
+
+        ``nearest`` holds each target's smallest distances in ascending
+        order (``inf`` where the pool has no further unit).
+        """
+        if caliper is None:
+            k = np.sum(np.isfinite(nearest), axis=1)
+        else:
+            k = np.sum(nearest <= caliper, axis=1)
+        kth = np.zeros(len(nearest))
+        has = k > 0
+        kth[has] = nearest[has, k[has] - 1]
+        return k.astype(np.intp), kth
+
+    def _score_candidates(
+        self,
+        target: np.ndarray,
+        pool: np.ndarray,
+        caliper: Optional[float],
+        scale: float,
+    ) -> Iterator[Tuple[Any, ...]]:
+        """Candidates on a scalar score: a sort and a neighbourhood search.
+
+        In one dimension the units nearest a target are next to it in the
+        sorted pool, so the k-th smallest distance is found among the ``k``
+        pool scores on either side and the candidates are a contiguous run.
+        """
+        n_pool = len(pool)
+        kk = min(self.n_matches, n_pool)
+        order = np.argsort(pool, kind="stable")
+        ps = pool[order]
+        window = np.arange(-kk, kk)
+        step = max(1, (1 << 20) // (2 * kk))
+        for start in range(0, len(target), step):
+            pt = target[start : start + step]
+            pos = np.searchsorted(ps, pt, side="left")
+            j = pos[:, None] + window[None, :]
+            inside = (j >= 0) & (j < n_pool)
+            near = _score_distance(pt[:, None], ps[np.clip(j, 0, n_pool - 1)])
+            near[~inside] = np.inf
+            near.sort(axis=1)
+            k, kth = self._kth_distance(near[:, :kk], caliper)
+            radius = self._candidate_radius(kth, caliper, scale)
+            # the run is located by adding to and subtracting from the
+            # score, which rounds at the size of the score
+            reach = radius + 1e-15 * (np.abs(pt) + radius)
+            lo = np.searchsorted(ps, pt - reach, side="left")
+            hi = np.searchsorted(ps, pt + reach, side="right")
+            hi[k == 0] = lo[k == 0]
+            width = hi - lo
+            done = np.cumsum(width)
+            a = 0
+            while a < len(pt):
+                base = int(done[a - 1]) if a else 0
+                b = int(np.searchsorted(done, base + self._CANDIDATE_CHUNK, "right"))
+                b = min(max(b, a + 1), len(pt))
+                w = width[a:b]
+                rows = np.repeat(np.arange(b - a), w)
+                first = np.cumsum(w) - w
+                jj = lo[a:b][rows] + (np.arange(int(w.sum())) - first[rows])
+                dv = _score_distance(pt[a:b][rows], ps[jj])
+                cols = order[jj]
+                if caliper is not None:
+                    ok = dv <= caliper
+                    rows, cols, dv = rows[ok], cols[ok], dv[ok]
+                yield b - a, rows, cols, dv, kth[a:b], k[a:b], None
+                a = b
+
+    def _select_matches(
+        self,
+        n_rows: int,
+        rows: np.ndarray,
+        cols: np.ndarray,
+        dv: np.ndarray,
+        kth: np.ndarray,
+        k: np.ndarray,
+        pool_order: np.ndarray,
+        scale: float,
+        cols_ascending: bool,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Apply the matching rule to candidate (target, pool) pairs.
+
+        ``rows`` is non-decreasing. Returns the matched pool positions of
+        all targets end to end and the number each target received, in the
+        order :meth:`_nn_match_row` returns them: by (distance, pool order)
+        when the nearest ``k`` are kept as they are, ascending position
+        when tied units were added.
+        """
+        with np.errstate(over="ignore"):
+            d2 = (dv**2) / scale
+            d2_kth = (kth**2) / scale
+            tied = d2 <= d2_kth[rows] + self.tie_tolerance
+        rows, cols, dv = rows[tied], cols[tied], dv[tied]
+        cnt = np.bincount(rows, minlength=n_rows).astype(np.intp)
+        extended = cnt > k
+        by_distance = ~extended if self.ties == "all" else np.ones(n_rows, dtype=bool)
+        if np.any(extended):
+            self._tie_stats["targets"] += int(np.sum(extended))
+            if self.ties != "all":
+                # ties='first' keeps the lowest-index unit(s) and leaves
+                # out others at exactly the same distance.
+                self._tie_stats["left_out"] += int(np.sum((cnt - k)[extended]))
+
+        perm = np.arange(len(rows))
+        kept: Optional[np.ndarray] = None
+        sub = np.flatnonzero(by_distance[rows] & (cnt[rows] > 1))
+        if sub.size:
+            c = cols[sub]
+            perm[sub] = sub[np.lexsort((c, pool_order[c], dv[sub], rows[sub]))]
+            if self.ties != "all":
+                r = rows[sub]
+                new = np.flatnonzero(np.concatenate(([True], r[1:] != r[:-1])))
+                run = np.diff(np.concatenate((new, [len(r)])))
+                rank = np.arange(len(r)) - np.repeat(new, run)
+                kept = np.ones(len(rows), dtype=bool)
+                kept[sub] = rank < k[r]
+        if not cols_ascending:
+            sub = np.flatnonzero(~by_distance[rows])
+            if sub.size:
+                perm[sub] = sub[np.lexsort((cols[sub], rows[sub]))]
+        out = cols[perm]
+        if kept is not None:
+            out = out[kept]
+            cnt = np.minimum(cnt, k)
+        return out, cnt
 
     def _extend_with_ties(self, d: np.ndarray, idx: np.ndarray) -> np.ndarray:
         """Add every control tied with the k-th nearest already selected.
@@ -3428,6 +3712,44 @@ class MatchEstimator:
     # Effect computation (with optional bias correction)
     # ==================================================================
 
+    @staticmethod
+    def _matched_effects(
+        Y: np.ndarray,
+        idx_target: np.ndarray,
+        idx_pool: np.ndarray,
+        matches: List[np.ndarray],
+        weights: List[np.ndarray],
+    ) -> np.ndarray:
+        """Own outcome less the weighted mean of the matches, per target.
+
+        Targets without a match are left out. A target with one match is
+        the common case and is computed for all such targets at once, with
+        the arithmetic ``np.average`` performs on a single value.
+        """
+        Y = np.asarray(Y)
+        size = np.fromiter((len(m) for m in matches), dtype=np.intp, count=len(matches))
+        has = np.flatnonzero(size > 0)
+        effects = np.empty(len(has), dtype=float)
+        one = size[has] == 1
+        if np.any(one):
+            rows = has[one]
+            m_one = np.fromiter(
+                (matches[i][0] for i in rows), dtype=np.intp, count=len(rows)
+            )
+            w_one = np.fromiter(
+                (weights[i][0] for i in rows), dtype=float, count=len(rows)
+            )
+            if np.all(w_one != 0.0):
+                y_one = (Y[idx_pool[m_one]] * w_one) / w_one
+                effects[one] = Y[idx_target[rows]] - y_one
+            else:
+                one = np.zeros(len(has), dtype=bool)
+        for at in np.flatnonzero(~one):
+            i = has[at]
+            y_matched = Y[idx_pool[matches[i]]]
+            effects[at] = Y[idx_target[i]] - np.average(y_matched, weights=weights[i])
+        return effects
+
     def _compute_effect(
         self,
         Y: np.ndarray,
@@ -3445,13 +3767,7 @@ class MatchEstimator:
         group, then adjusts each matched pair:
             tau_i^BC = (Y_i - Y_j) - (mu_hat(X_i) - mu_hat(X_j))
         """
-        effects: List[float] = []
-        for i, (m, w) in enumerate(zip(matches, weights)):
-            if len(m) == 0:
-                continue
-            y_target = Y[idx_target[i]]
-            y_matched = Y[idx_pool[m]]
-            effects.append(y_target - np.average(y_matched, weights=w))
+        effects = self._matched_effects(Y, idx_target, idx_pool, matches, weights)
 
         if len(effects) == 0:
             # an average over no pairs is not an effect of zero
@@ -3535,13 +3851,7 @@ class MatchEstimator:
         standard error pass ``se_method='abadie_imbens'`` (implemented in
         ``matching/_matched_frame.py``).
         """
-        effects = []
-        for i, (m, w) in enumerate(zip(matches, weights)):
-            if len(m) == 0:
-                continue
-            y_t = Y[idx_t[i]]
-            y_c = Y[idx_c[m]]
-            effects.append(float(y_t - np.average(y_c, weights=w)))
+        effects = self._matched_effects(Y, idx_t, idx_c, matches, weights)
 
         if len(effects) < 2:
             # one matched unit: the spread of the effects is undefined
