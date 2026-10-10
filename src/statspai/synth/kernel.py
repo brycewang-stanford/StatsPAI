@@ -24,7 +24,12 @@ no principal-component truncation of the kernel matrix is used.
 
 References
 ----------
-[@hazlett2018trajectory] [@scholkopf2002learning] [@kloft2011local]
+Trajectory balancing, including kernel balancing of pre-treatment
+outcomes. [@hazlett2018trajectory]
+
+Kernels and reproducing kernel Hilbert spaces. [@scholkopf2002learning]
+
+Multiple kernel learning. [@kloft2011local]
 """
 
 from __future__ import annotations
@@ -451,7 +456,10 @@ def kernel_synth(
 
     References
     ----------
-    [@hazlett2018trajectory] [@scholkopf2002learning]
+    Trajectory balancing, including kernel balancing of pre-treatment
+    outcomes. [@hazlett2018trajectory]
+
+    Kernels and reproducing kernel Hilbert spaces. [@scholkopf2002learning]
     """
     if kernel not in _KERNEL_DISPATCH:
         raise ValueError(
