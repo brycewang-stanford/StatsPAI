@@ -49,9 +49,11 @@ The scripts cover canonical causal-inference designs:
 ## 5-minute tutorial for Stata users (offline, in Chinese)
 
 - `notebooks/statspai_vs_stata_5min.ipynb` - a first-contact tutorial that puts
-  each Stata command (`regress`, `reghdfe`, `ivregress 2sls`, `esttab`,
-  `csdid`, `rdrobust`) next to its one-line StatsPAI equivalent on the bundled
-  datasets, and ends with `sp.from_stata`. The Stata output shown in the
+  each Stata command (`summarize`, `regress`, `reghdfe`, `ivregress 2sls`,
+  `esttab`, `csdid`, `rdrobust`) next to its one-line StatsPAI equivalent on
+  the bundled datasets, and ends with `sp.from_stata` (translate one command)
+  and `sp.stata` (run a do-file snippet). It runs on the Python kernel and
+  points to the method tutorials below. The Stata output shown in the
   notebook was produced by Stata 18 on the same data; running the notebook
   needs no Stata. Prose and code comments are in Chinese. Uses only core
   StatsPAI plus matplotlib for the two figures.

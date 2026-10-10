@@ -4,6 +4,16 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### The Stata comparison notebook
+
+#### Changed
+
+- `examples/notebooks/statspai_vs_stata_5min.ipynb` gains a `summarize`
+  section and a section that runs a do-file snippet through `sp.stata`,
+  both next to Stata 18 output on the same data, and ends with pointers to
+  the ten method tutorials. It was re-executed on 1.39.3 and stays on the
+  Python kernel, so it runs without Stata.
+
 ### Options and inputs off the main path: matching, regression, forests
 
 The main path of each estimator is tied to a reference implementation or
