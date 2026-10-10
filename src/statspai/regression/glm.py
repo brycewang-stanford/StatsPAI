@@ -1008,6 +1008,14 @@ class GLMEstimator(BaseEstimator):
         # Scale (dispersion)
         df_resid = n - k
         phi = family.dispersion(y, mu, weights, df_resid)
+        # The likelihood below keeps the deviance-based scale it has always
+        # been evaluated at; the reported dispersion and the covariance of
+        # the gamma and inverse-Gaussian families use the Pearson statistic,
+        # as R ``summary.glm`` and Stata ``glm`` both do (a gamma fit with a
+        # log link, n = 40: 0.3624 in both, deviance / df is 0.4470).
+        phi_likelihood = phi
+        if family.name in ("gamma", "inverse_gaussian"):
+            phi = float(np.sum(weights * pearson_resid**2) / df_resid)
 
         # Bread: the observed information, Stata ``glm``'s default vce(oim)
         # and the bread of its vce(robust) / vce(cluster). It equals the
@@ -1102,12 +1110,12 @@ class GLMEstimator(BaseEstimator):
 
         # Deviance, log-likelihood, information criteria
         deviance = family.deviance(y, mu, weights)
-        ll = family.log_likelihood(y, mu, weights, phi)
+        ll = family.log_likelihood(y, mu, weights, phi_likelihood)
         null_mu = np.full(n, np.average(y, weights=weights))
         if isinstance(family, Binomial):
             null_mu = np.clip(null_mu, 1e-15, 1 - 1e-15)
         null_dev = family.deviance(y, null_mu, weights)
-        ll_null = family.log_likelihood(y, null_mu, weights, phi)
+        ll_null = family.log_likelihood(y, null_mu, weights, phi_likelihood)
 
         aic = -2 * ll + 2 * k
         bic = -2 * ll + np.log(n) * k
@@ -2084,7 +2092,15 @@ def glm(
     scale : {'x2', 'dev'} or float, optional
         Factor on the model-based covariance matrix. By default the
         binomial and Poisson families use 1, the variance their likelihood
-        implies. ``'x2'`` estimates it by the Pearson chi-squared over the
+        implies, and the Gaussian, gamma and inverse-Gaussian families use
+        the Pearson chi-squared over the residual degrees of freedom, as R
+        ``summary.glm`` and Stata ``glm`` do (through 1.39.3 the gamma and
+        inverse-Gaussian families used the deviance; ``scale='dev'`` gives
+        that back). Stata's default standard errors are these with the
+        observed information, which is the default here; R's use the
+        expected information, ``information='expected'``. The two differ
+        only for a non-canonical link.
+        ``'x2'`` estimates it by the Pearson chi-squared over the
         residual degrees of freedom and ``'dev'`` by the deviance over
         them (Stata ``glm, scale(x2)`` / ``scale(dev)``). With
         ``family='poisson'``, ``scale='x2'`` is the quasi-Poisson

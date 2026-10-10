@@ -563,13 +563,6 @@ def test_glm_refuses_an_outcome_outside_the_support(family, shift, scale):
         _quiet(sp.glm, "yy ~ x1", df.assign(yy=base * scale + shift), family=family)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the default dispersion of the gamma / inverse-gaussian families "
-    "is deviance / df; Stata's glm (scale(x2) for continuous families) and "
-    "R's summary.glm both use the Pearson statistic, so default standard "
-    "errors differ from both references (4% on this sample).",
-)
 def test_glm_gamma_default_dispersion_is_pearson():
     df = _data()
     n, X, y = len(df), _X(df), df.pos.to_numpy()
