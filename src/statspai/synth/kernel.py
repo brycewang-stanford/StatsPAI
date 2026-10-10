@@ -15,15 +15,16 @@ Two estimators are provided:
 
 Supported kernels: RBF (Gaussian), polynomial, Laplacian.
 
+The constrained estimator follows the kernel-balancing idea of Hazlett
+and Xu's trajectory balancing: reweight the controls so that a kernel
+feature expansion of the pre-treatment outcome trajectory is balanced.
+It is not a port of their ``tjbal``: here there is one treated unit, the
+weights minimise the feature-space distance on the simplex directly, and
+no principal-component truncation of the kernel matrix is used.
+
 References
 ----------
-Scholkopf, B. and Smola, A.J. (2002).
-"Learning with Kernels: Support Vector Machines, Regularization,
-Optimization, and Beyond." MIT Press.
-
-Kloft, M. and Blanchard, G. (2011).
-"The Local Rademacher Complexity of Lp-Norm Multiple Kernel Learning."
-*Advances in Neural Information Processing Systems (NeurIPS)*.
+[@hazlett2018trajectory] [@scholkopf2002learning] [@kloft2011local]
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from scipy import optimize
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ._cite import bib_citation
 from ._core import placebo_rank_pvalue
 
 # ====================================================================== #
@@ -449,7 +451,7 @@ def kernel_synth(
 
     References
     ----------
-    Scholkopf, B. and Smola, A.J. (2002). "Learning with Kernels."
+    [@hazlett2018trajectory] [@scholkopf2002learning]
     """
     if kernel not in _KERNEL_DISPATCH:
         raise ValueError(
@@ -527,6 +529,7 @@ def kernel_synth(
 
     return CausalResult(
         method="Kernel Synthetic Control",
+        _citation_key=bib_citation("hazlett2018trajectory", "synth"),
         estimand="ATT",
         estimate=att,
         se=se,

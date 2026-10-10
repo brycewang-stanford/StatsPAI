@@ -30,8 +30,12 @@ All notable changes to StatsPAI will be documented in this file.
   through a substring match to Abadie, Diamond and Hainmueller (2010).
   They now cite Abadie and L'Hour (2021), Li (2024), Doudchenko and Imbens
   (2016) and Rho et al. (2025), the keys their module docstrings already
-  carried. `method="kernel"` still resolves to the 2010 paper: its module
-  names no verified reference.
+  carried. `method="kernel"` cites Hazlett and Xu (2018), "Trajectory
+  Balancing", whose kernel balancing of pre-treatment trajectories is the
+  idea the estimator follows; the module docstring says where the
+  implementation differs from their `tjbal`. The entry is new in
+  `paper.bib` (refs verified via Crossref, OpenAlex and the authors'
+  package page). `method="kernel_ridge"` is unchanged.
 - The docstring of `sp.wild_cluster_bootstrap` says what `ci_boot` is. It
   is a percentile-t interval and covers at the nominal rate (0.96 with 8
   clusters and 0.95 with 20, 200 replications each), but it is not dual

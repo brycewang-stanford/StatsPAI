@@ -238,6 +238,7 @@ def test_classic_scm_says_when_the_predictors_do_not_determine_the_weights(
         ("fdid", "li2024forward"),
         ("sparse", "doudchenko2016balancing"),
         ("cluster", "rho2025clustersc"),
+        ("kernel", "hazlett2018trajectory"),
         ("classic", "abadie2010synthetic"),
     ],
 )
