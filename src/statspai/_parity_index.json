@@ -8778,6 +8778,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_gelman_ros_examples.py",
+        "tests/reference_parity/test_glm_dispersion_stata_r_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_regression_stories_r_parity.py",

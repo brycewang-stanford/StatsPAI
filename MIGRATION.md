@@ -23,6 +23,10 @@ list is by what to recompute.
   or `'euclidean'` (was 25 to 40% too large). `method='cem',
   estimand='ATE'` returned the ATT and now returns the ATE. The ATT with
   `distance='propensity'`, the default, is unchanged.
+- **`sp.glm(family='gamma' | 'inverse_gaussian')`.** Default standard
+  errors change (the dispersion is the Pearson estimate, as in R and
+  Stata, where it was deviance / df); `scale='dev'` gives the old ones.
+  Coefficients do not change.
 - **`sp.propensity_score`** with a repeated or redundant covariate, and
   the balance tables and plots computed from it.
 - **`sp.poisson` / `sp.nbreg`** called with both `offset=` and

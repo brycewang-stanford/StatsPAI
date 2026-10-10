@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-11 — call traces re-recorded for the GLM dispersion and documentation edits
+
+- **Commits.** `7771632e` (`regression/glm.py`), `432c0264` (docstrings
+  in `forest/` and `matching/match.py`), and the commit after them
+  (ledgers).
+- **Reason.** `sp.glm` now estimates the dispersion of gamma and
+  inverse-Gaussian fits by the Pearson statistic, as R and Stata do; the
+  other two files changed in documentation only. They are on the
+  estimation path of Track A modules 11, 13 and 24 and of the
+  original-data modules, which were re-run first: all three reproduce
+  the committed `*_py.json`, and all 12 original-data modules reproduce
+  (worst relative difference 1.6e-11).
+- **Effect on the paper.** None. No Track A module fits a gamma or
+  inverse-Gaussian GLM, no result file changed, and no file on the Track
+  C timed path changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-10 — call traces re-recorded after the matching / regression / forest fixes
 
 - **Commits.** `54ec5feb` (forest), `769abd08` (matching), `228cc5fe`

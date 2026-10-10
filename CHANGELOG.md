@@ -125,6 +125,16 @@ without the options named below, and every forest average.
   0.731 where the weighted value is 0.615). The weighted TOC, AUTOC and
   QINI agree with `grf::rank_average_treatment_effect.fit(sample.weights
   =)` to 1e-14.
+- **`sp.glm` scaled the covariance of gamma and inverse-Gaussian fits by
+  the deviance over the residual degrees of freedom.** R `summary.glm` and
+  Stata `glm` both use the Pearson chi-squared. On a gamma fit with a log
+  link (n = 40) the dispersion was 0.4470 where both report 0.3624, and
+  the standard errors were 11% larger than Stata's. The default is now the
+  Pearson estimate: default standard errors equal Stata's (observed
+  information) to 1e-8, and `information='expected'` gives R's.
+  `scale='dev'` returns the former numbers. Coefficients, the deviance and
+  the log-likelihood are unchanged; the Gaussian, binomial, Poisson and
+  negative binomial families are unchanged.
 - **A two-way fixed effects forest accepted a treatment that the period
   effects absorb** (everyone treated from the same date) and returned
   CATEs for an effect that is not identified. It raises
@@ -170,24 +180,32 @@ without the options named below, and every forest average.
   given the same column as panel and time (a `TypeError` under pandas
   2.3 and later).
 
+#### Changed
+
+- The size and power figures quoted for `sp.rate_split` and
+  `sp.forest_policy_tree` were re-measured after the refit fix, and the
+  study is now in the repository (`tests/reliability/
+  forest_split_evaluation.py`, 400 replications). With no heterogeneity,
+  `sp.rate` on the forest's own ranking rejects a true null 16.0% of the
+  time at a nominal 5% (AUTOC; 12.2% for QINI); `sp.rate_split` with its
+  default 21 splits rejects 0.5% and 0.0%, and the policy tree's gain
+  0.0%. With real heterogeneity all three reject in every replication.
+  The figures in earlier documentation (7.5% and 3.5%) are superseded.
+
 #### Known issues
 
 - The default standard error of a nearest-neighbour ATE conditions on the
   fitted propensity score and is conservative when matching on it (mean
   1.3 times the sampling standard deviation in one design);
-  `se_method='abadie_imbens_2016'` is correctly sized there.
+  `se_method='abadie_imbens_2016'` is correctly sized there. The default
+  is deliberately the same rule for the ATT and the ATE and for every
+  distance; the docstring of `sp.match` says when to ask for the 2016
+  variance.
 - `sp.match(weights=, se_method='abadie_imbens_2016')` still counts a
   row's own copies among its neighbours.
 - With heavily tied priorities the influence-function standard error of
   `sp.rate` is too small (0.074 against a bootstrap 0.135 on a 12-level
   priority); forest predictions are essentially never tied.
-- `sp.glm` for gamma and inverse-Gaussian families estimates the
-  dispersion by deviance / df and uses the observed information, where R
-  `summary.glm` uses the Pearson statistic and the expected information;
-  `scale='x2', information='expected'` reproduces R.
-- The size and power figures quoted for `sp.rate_split` and
-  `sp.forest_policy_tree` in the documentation were measured before the
-  refit was corrected and have not been re-measured.
 
 ## [1.39.3] — 2026-10-10
 
