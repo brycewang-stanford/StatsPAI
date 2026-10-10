@@ -33,7 +33,9 @@ Rules:
 
 ### 2026-10-11 — call traces re-recorded after the efficiency pass
 
-- **Commits.** `339ce542` (the two trace files). The source changes
+- **Commits.** `339ce542` (the two trace files) and `a65007f4` (module 78
+  again, after a handler in `did_multiplegt_dyn.py` was narrowed; the
+  module reproduces exactly). The source changes
   behind it are `3fc4b846` (survival), `da110778` (quantile regression),
   `68ec0a88` (count and binary models, `survival/competing_risks.py`),
   `5a5e770e` (`did/_arp.py`), `5735df1e` (matching), `25bde4f3`
