@@ -20,7 +20,7 @@ Chernozhukov, V. and Hansen, C. (2005).
 """
 
 import warnings
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -483,6 +483,10 @@ def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
     ``qreg`` SE refits at ``tau +/- h``. The primal LP is the fallback.
     """
     n, k = X.shape
+    if n >= _FN_MIN_N:
+        beta_fn = _qreg_frisch_newton(Y, X, tau)
+        if beta_fn is not None:
+            return beta_fn
     try:
         dual = linprog(
             -Y,
@@ -546,6 +550,130 @@ def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
         stacklevel=2,
     )
     return _qreg_irls(Y, X, tau)
+
+
+# Below this many rows HiGHS answers in milliseconds and the interior
+# point has nothing to add.
+_FN_MIN_N = 5000
+
+
+def _qreg_frisch_newton(
+    Y: np.ndarray, X: np.ndarray, tau: float, max_iter: int = 80
+) -> Optional[np.ndarray]:
+    """Quantile regression by an interior point, finished at the vertex.
+
+    The same dual LP as :func:`_qreg_fit`, solved by the primal-dual
+    log-barrier method with Mehrotra's predictor-corrector
+    [@portnoy1997gaussian]: every iteration is one weighted cross-product
+    ``X' diag(q) X``, so the cost is linear in ``n`` (HiGHS grows like
+    ``n^1.6`` here: 10 s per fit at n = 200,000).
+
+    An interior point stops near the solution, not on it. The exact
+    solution interpolates ``k`` observations, so the ``k`` rows the iterate
+    all but fits are solved for exactly, and the result is returned only
+    if it passes the subgradient condition strictly -- which proves it is
+    the unique minimiser, the vertex HiGHS returns. Otherwise (ties in the
+    data, a flat objective, a rank-deficient basis) ``None`` sends the
+    caller to HiGHS.
+    """
+    n, k = X.shape
+    if not 0.0 < tau < 1.0 or n <= k:
+        return None
+    try:
+        beta0 = np.linalg.lstsq(X, Y, rcond=None)[0]
+    except np.linalg.LinAlgError:
+        return None
+    r = Y - X @ beta0
+    scale = float(np.abs(r).mean())
+    if not np.isfinite(scale) or scale <= 0.0:
+        return None
+    # dual variables: a in (0, 1) with slack s = 1 - a; r = w - z
+    x = np.full(n, 1.0 - tau)
+    s = np.full(n, tau)
+    floor = 1e-3 * scale
+    w = np.maximum(r, 0.0) + floor
+    z = np.maximum(-r, 0.0) + floor
+    yd = -beta0
+    b = (1.0 - tau) * X.sum(axis=0)
+    c = -Y
+
+    def _step(v: np.ndarray, dv: np.ndarray) -> float:
+        neg = dv < 0
+        if not neg.any():
+            return 1.0
+        return float(min(1.0, 0.99995 * np.min(-v[neg] / dv[neg])))
+
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        for _ in range(max_iter):
+            gap = float(x @ z + s @ w)
+            if gap <= 1e-13 * n * scale:
+                break
+            mu = gap / (2 * n)
+            rp = b - X.T @ x
+            rd = c - X @ yd - z + w
+            q = 1.0 / (z / x + w / s)
+            XtQ = X.T * q
+            M = XtQ @ X
+            try:
+                chol = np.linalg.cholesky(M)
+            except np.linalg.LinAlgError:
+                return None
+
+            def _solve(xi1: np.ndarray, xi2: np.ndarray) -> Tuple[Any, ...]:
+                t = xi1 / x - xi2 / s - rd
+                rhs = rp - XtQ @ t
+                dy = np.linalg.solve(chol.T, np.linalg.solve(chol, rhs))
+                dx = q * (X @ dy + t)
+                dz = (xi1 - z * dx) / x
+                dw = (xi2 + w * dx) / s
+                return dy, dx, dz, dw
+
+            dy, dx, dz, dw = _solve(-x * z, -s * w)
+            ap = min(_step(x, dx), _step(s, -dx))
+            ad = min(_step(z, dz), _step(w, dw))
+            mu_aff = float(
+                (x + ap * dx) @ (z + ad * dz) + (s - ap * dx) @ (w + ad * dw)
+            ) / (2 * n)
+            sigma = (mu_aff / mu) ** 3
+            dy, dx, dz, dw = _solve(
+                sigma * mu - x * z - dx * dz, sigma * mu - s * w + dx * dw
+            )
+            ap = min(_step(x, dx), _step(s, -dx))
+            ad = min(_step(z, dz), _step(w, dw))
+            x = x + ap * dx
+            s = s - ap * dx
+            yd = yd + ad * dy
+            z = z + ad * dz
+            w = w + ad * dw
+            if not (np.all(np.isfinite(yd)) and np.all(x > 0) and np.all(s > 0)):
+                return None
+
+    # the k rows the iterate interpolates, then the exact vertex
+    res = np.abs(Y - X @ (-yd))
+    h = np.argpartition(res, k - 1)[:k]
+    Xh = X[h]
+    try:
+        beta = np.linalg.solve(Xh, Y[h])
+    except np.linalg.LinAlgError:
+        return None
+    if not np.all(np.isfinite(beta)):
+        return None
+    r = Y - X @ beta
+    out = np.ones(n, dtype=bool)
+    out[h] = False
+    # every other residual must have a definite sign ...
+    if np.min(np.abs(r[out])) <= 1e-9 * scale:
+        return None
+    # ... and the subgradient must lie strictly inside its box
+    psi = tau - (r[out] < 0)
+    try:
+        g = np.linalg.solve(Xh.T, X[out].T @ psi)
+    except np.linalg.LinAlgError:
+        return None
+    margin = 1e-9
+    if not (np.all(g > -tau + margin) and np.all(g < 1.0 - tau - margin)):
+        return None
+    return _as_float_array(beta)
 
 
 def _qreg_irls(
