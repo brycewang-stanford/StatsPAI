@@ -190,6 +190,7 @@ from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _core as _dc
+from . import _dcdh_arrays as _arr
 
 
 @accepts_aliases(
@@ -581,9 +582,7 @@ def did_multiplegt_dyn(
     n_bidirectional = 0
     if continuous is None:
         d_num = df[treatment].astype(float)
-        first_d = d_num.groupby(df[group]).transform(
-            lambda v: v.dropna().iloc[0] if v.notna().any() else np.nan
-        )
+        first_d = d_num.groupby(df[group]).transform("first")
         above = (d_num > first_d).groupby(df[group]).cummax()
         below = (d_num < first_d).groupby(df[group]).cummax()
         both = (above & below).to_numpy()
@@ -709,7 +708,47 @@ def did_multiplegt_dyn(
         n_boot = 0
     rng = np.random.default_rng(seed)
     boot_hist = np.full((n_boot, len(horizons)), np.nan)
-    for b in range(n_boot):
+    # A replicate copies whole groups, so it is the main panel's matrices with
+    # rows repeated: nothing has to be rebuilt from a resampled frame.
+    boot_panel = None
+    if n_boot > 0:
+        boot_panel = _arr.build_panel(
+            df,
+            y=y_work,
+            group=group,
+            time=time,
+            treatment=treatment,
+            weights=weights,
+            cluster=cluster_var,
+        )
+    if boot_panel is not None:
+        resampler = _arr.Resampler(boot_panel, df, cluster_var)
+        for b in range(n_boot):
+            try:
+                draw = resampler.draw(rng)
+                directions = _switch_directions(switchers)
+                if same_switchers and len(horizons) > 1:
+                    draw = _arr.common_switchers(
+                        draw,
+                        horizons=horizons,
+                        control=control,
+                        directions=directions,
+                        match_baseline=continuous is None,
+                    )
+                deltas = _arr.point_estimates(
+                    draw,
+                    horizons=horizons,
+                    control=control,
+                    directions=directions,
+                    normalized=normalized,
+                    match_baseline=continuous is None,
+                )["delta"]
+                if deltas is not None:
+                    boot_hist[b, :] = deltas
+            except Exception:
+                continue  # replicate stays NaN; bootstrap_se tracks the failure
+    # the same replicates on resampled frames, for layouts without matrices
+    for b in range(n_boot if boot_panel is None else 0):
         try:
             bdf = _dc.cluster_bootstrap_draw(
                 df,
@@ -1163,6 +1202,46 @@ def _first_switch(
     the never-treated as its control group compares two different
     counterfactuals and does not give the reference's answer.
     """
+    ordered = df.sort_values([group, time])
+    labels = ordered[group]
+    n = len(ordered)
+    codes = pd.factorize(labels)[0] if n else np.zeros(0, dtype=np.int64)
+    new_unit = np.r_[True, codes[1:] != codes[:-1]] if n else np.zeros(0, dtype=bool)
+    if (
+        isinstance(labels.dtype, pd.CategoricalDtype)
+        or bool(labels.isna().any())
+        or int(new_unit.sum()) != len(np.unique(codes))
+    ):
+        return _first_switch_by_unit(df, group=group, time=time, treatment=treatment)
+    vals = ordered[treatment].to_numpy()
+    times = ordered[time].to_numpy()
+    changed = np.zeros(n, dtype=bool)
+    if n > 1:
+        changed[1:] = (np.diff(vals) != 0) & ~new_unit[1:]
+    rows = np.flatnonzero(changed)
+    # factorize numbers the units in the order the sorted frame meets them,
+    # which is the order the per-unit loop visits them in
+    k = rows[np.unique(codes[rows], return_index=True)[1]]
+    idx = pd.Index(list(labels.iloc[k]), name=group)
+    return (
+        pd.Series(list(times[k]), index=idx, name="_F").reset_index(),
+        pd.Series(
+            np.where(vals[k] > vals[k - 1], 1, -1).tolist(), index=idx, name="_dir"
+        ).reset_index(),
+        pd.Series(
+            vals[k - 1].astype(float).tolist(), index=idx, name="_base"
+        ).reset_index(),
+    )
+
+
+def _first_switch_by_unit(
+    df: pd.DataFrame,
+    *,
+    group: str,
+    time: str,
+    treatment: str,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """:func:`_first_switch`, one unit at a time (its definition)."""
     F: Dict[Any, Any] = {}
     direction: Dict[Any, int] = {}
     base: Dict[Any, float] = {}
@@ -1447,10 +1526,7 @@ def _residualise_on_controls(
     # groups that switch, and the never-switchers are the bulk of the
     # control (g, t)s the regression is fitted on.
     base_all = (
-        work[treatment]
-        .astype(float)
-        .groupby(work[group])
-        .transform(lambda v: v.dropna().iloc[0] if v.notna().any() else np.nan)
+        work[treatment].astype(float).groupby(work[group]).transform("first")
     ).to_numpy()
     for base in sorted(pd.unique(base_all[np.isfinite(base_all)])):
         in_base = base_all == base
@@ -1531,6 +1607,14 @@ def _residualise_on_controls(
     return work, "_yadj", info
 
 
+def _switch_directions(switchers: Optional[str]) -> Tuple[int, ...]:
+    if switchers == "in":
+        return (1,)
+    if switchers == "out":
+        return (-1,)
+    return (1, -1)
+
+
 def _estimate_all_horizons(
     *,
     df: pd.DataFrame,
@@ -1550,7 +1634,196 @@ def _estimate_all_horizons(
     controls: Optional[List[str]] = None,
     controls_info: Optional[Dict[float, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
+    """δ_l, its influence function and its pieces at every horizon.
+
+    Evaluates the events of :func:`_estimate_all_horizons_frame` on unit x
+    period matrices (``_dcdh_arrays``); frames those matrices cannot
+    represent go to the frame code.
+    """
+    panel = _arr.build_panel(
+        df,
+        y=y,
+        group=group,
+        time=time,
+        treatment=treatment,
+        weights=weights,
+        cluster=cluster,
+        controls=controls if controls_info else None,
+    )
+    if panel is None:
+        return _estimate_all_horizons_frame(
+            df=df,
+            y=y,
+            group=group,
+            time=time,
+            treatment=treatment,
+            horizons=horizons,
+            control=control,
+            switchers=switchers,
+            same_switchers=same_switchers,
+            weights=weights,
+            cluster=cluster,
+            normalized=normalized,
+            match_baseline=match_baseline,
+            eligible=eligible,
+            controls=controls,
+            controls_info=controls_info,
+        )
+    assert panel.units is not None and panel.labels is not None
+    assert panel.cluster_codes is not None
+    all_units = panel.units
+    labels = panel.labels
+    n_panel = panel.n
+    cluster_codes = panel.cluster_codes
+    directions = _switch_directions(switchers)
+
+    if same_switchers and len(horizons) > 1:
+        panel = _arr.common_switchers(
+            panel,
+            horizons=horizons,
+            control=control,
+            directions=directions,
+            match_baseline=match_baseline,
+        )
+    if eligible is not None:
+        keep = panel.never | labels.isin(list(eligible))
+        panel = _arr.replace(
+            panel, elig=keep if panel.elig is None else panel.elig & keep
+        )
+
+    grid = _arr._event_grid(panel, directions, match_baseline)
+    if grid is None:
+        return {
+            "cell_estimates": [],
+            "cluster_codes": cluster_codes,
+            "n_groups": n_panel,
+        }
+
+    cells: List[Dict[str, Any]] = []
+    group_effects: Dict[int, pd.Series] = {}
+    for h in horizons:
+        per_group: List[pd.Series] = []
+        sum_wdelta = 0.0
+        sum_wdose = 0.0
+        sum_wdose_now = 0.0
+        lag_dose = np.zeros(max(h, 0) + 1)
+        slope_grad: Dict[float, np.ndarray] = {}
+        w_total = 0.0
+        n_sw = 0
+        n_events = 0
+        psi: np.ndarray = np.zeros(n_panel, dtype=float)
+
+        for F, direction, base, tcode in grid:
+            _cell = _arr.one_event(
+                panel,
+                F=F,
+                h=h,
+                direction=direction,
+                base=base,
+                tcode=tcode,
+                control=control,
+                match_baseline=match_baseline,
+                full=True,
+                need_dose=True,
+            )
+            if _cell is None:
+                continue
+            sum_wdelta += _cell["delta"] * _cell["w_sw"]
+            sum_wdose += _cell["dose"] * _cell["w_sw"]
+            lag_dose += _cell["lag_dose"]
+            if controls_info and base is not None:
+                d_info = controls_info.get(float(base))
+                ell = h + 1 if h >= 0 else -h
+                if d_info is not None and ell <= d_info["T"] - 2:
+                    slope_grad[float(base)] = (
+                        slope_grad.get(float(base), 0.0) + _cell["m_x"]
+                    )
+            if np.isfinite(_cell["dose_now"]):
+                sum_wdose_now += _cell["dose_now"] * _cell["w_sw"]
+            w_total += _cell["w_sw"]
+            n_sw += _cell["n_sw"]
+            n_events += 1
+            # an event touches each unit once, as a switcher or as a control
+            psi[_cell["sw"]] += _cell["psi_sw"]
+            psi[_cell["c"]] += _cell["psi_c"]
+            per_group.append(
+                pd.Series(_cell["effects"], index=labels.take(_cell["sw"]))
+            )
+
+        delta_raw = np.nan
+        psi_raw = psi
+        if w_total > 0:
+            delta_l = sum_wdelta / w_total
+            delta_raw = delta_l
+            psi = np.asarray(psi * (n_panel / w_total), dtype=float)
+            if controls_info:
+                for d_key, grad in slope_grad.items():
+                    b = controls_info[d_key]["b"].reindex(all_units).to_numpy()
+                    psi = psi - b @ (np.asarray(grad, dtype=float) / w_total)
+            psi_raw = psi
+            if normalized:
+                dose = sum_wdose / w_total
+                if np.isfinite(dose) and dose != 0:
+                    delta_l = delta_l / dose
+                    psi = psi / dose
+                else:
+                    delta_l = np.nan
+                    psi = np.full(n_panel, np.nan)
+            se_analytic = _clustered_if_se(psi, cluster_codes, n_panel)
+        else:
+            delta_l = np.nan
+            se_analytic = np.nan
+
+        group_effects[int(h)] = (
+            pd.concat(per_group) if per_group else pd.Series(dtype=float)
+        )
+        cells.append(
+            {
+                "horizon": h,
+                "delta_l": float(delta_l) if np.isfinite(delta_l) else np.nan,
+                "n_switchers": n_sw,
+                "w_switchers": float(w_total),
+                "n_events": n_events,
+                "_influence": psi,
+                "_se_analytic": se_analytic,
+                "_delta_raw": float(delta_raw) if np.isfinite(delta_raw) else np.nan,
+                "_influence_raw": psi_raw,
+                "dose_now": (sum_wdose_now / w_total) if w_total > 0 else np.nan,
+                "_lag_dose": lag_dose,
+            }
+        )
+
+    return {
+        "cell_estimates": cells,
+        "cluster_codes": cluster_codes,
+        "n_groups": n_panel,
+        "group_effects": group_effects,
+    }
+
+
+def _estimate_all_horizons_frame(
+    *,
+    df: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    treatment: str,
+    horizons: List[int],
+    control: str,
+    switchers: Optional[str] = None,
+    same_switchers: bool = False,
+    weights: Optional[str] = None,
+    cluster: Optional[str] = None,
+    normalized: bool = False,
+    match_baseline: bool = True,
+    eligible: Optional[set] = None,
+    controls: Optional[List[str]] = None,
+    controls_info: Optional[Dict[float, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     """Compute δ_l for each horizon h using long-difference event-study.
+
+    The definition on the long frame; :func:`_estimate_all_horizons` runs the
+    same arithmetic on matrices whenever the frame allows it.
 
     For each unique first-treatment period F in the sample:
       switchers at F = units with _F == F.
@@ -1582,12 +1855,7 @@ def _estimate_all_horizons(
     # switchers=: estimate switch-in and switch-out events separately.
     # dCDH recommend running the command twice rather than pooling, because
     # the two need not measure the same effect per unit of treatment.
-    if switchers == "in":
-        directions: Tuple[int, ...] = (1,)
-    elif switchers == "out":
-        directions = (-1,)
-    else:
-        directions = (1, -1)
+    directions = _switch_directions(switchers)
 
     # same_switchers=: hold the switcher composition fixed across horizons.
     # Without it, a longer horizon is estimated on a shrinking, differently
@@ -1606,7 +1874,7 @@ def _estimate_all_horizons(
         # do not depend on who is eligible, so one pass settles it.
         effect_h = [h for h in horizons if h >= 0]
         if len(effect_h) > 1:
-            first = _estimate_all_horizons(
+            first = _estimate_all_horizons_frame(
                 df=df,
                 y=y,
                 group=group,

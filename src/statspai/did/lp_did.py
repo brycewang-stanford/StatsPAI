@@ -61,6 +61,7 @@ from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from . import _core as _dc
+from .event_study import _outer_sum, _unsortable
 
 
 @accepts_aliases(_strict=True, id="unit", treat="treatment", covariates="controls")
@@ -502,20 +503,9 @@ def _build_lp_did_sample(
     window_start_offset = min(-1, h)
     window_end_offset = max(0, h)
 
-    # Build a per-unit forward/backward rolling check.
-    # For efficiency, iterate per-unit once.
-    is_stable_zero = np.zeros(len(df_local), dtype=bool)
-    for uid, idx in df_local.groupby(unit).groups.items():
-        u_df = df_local.loc[idx].sort_values(time)
-        treat_vals = u_df[treatment].values
-        n = len(treat_vals)
-        for k in range(n):
-            w_lo = k + window_start_offset
-            w_hi = k + window_end_offset
-            if w_lo < 0 or w_hi >= n:
-                continue
-            if np.all(treat_vals[w_lo : w_hi + 1] == 0):
-                is_stable_zero[u_df.index[k]] = True
+    is_stable_zero = _stable_zero_window(
+        df_local, unit, time, treatment, window_start_offset, window_end_offset
+    )
 
     df_local["_stable_zero_window"] = is_stable_zero
 
@@ -541,6 +531,61 @@ def _build_lp_did_sample(
     # Ensure delta_d is coded 0/1 for the regression (treated = 1).
     sample["_delta_d"] = sample["_delta_d"].clip(lower=0).astype(float)
     return sample
+
+
+def _stable_zero_window(
+    df: pd.DataFrame, unit: str, time: str, treatment: str, lo: int, hi: int
+) -> np.ndarray:
+    """Rows whose unit has treatment 0 at every row position in ``[k+lo, k+hi]``.
+
+    The window is counted in **rows of the unit**, not calendar periods, and
+    must lie entirely inside the unit's rows. ``df`` is sorted by
+    ``[unit, time]`` with a default index.
+    """
+    codes = df.groupby(unit).ngroup().to_numpy()
+    n = len(codes)
+    if n == 0:
+        return np.zeros(0, dtype=bool)
+    new_run = np.r_[True, codes[1:] != codes[:-1]]
+    times = df[time]
+    tied = (
+        bool(times.isna().any())
+        or bool(df.duplicated([unit, time]).any())
+        or int(new_run.sum()) != len(np.unique(codes))
+    )
+    if tied:
+        # Ties in (unit, time) leave the within-unit order to the sort; only
+        # the per-unit definition reproduces it.
+        return _stable_zero_window_by_unit(df, unit, time, treatment, lo, hi)
+    starts = np.flatnonzero(new_run)
+    run_id = np.cumsum(new_run) - 1
+    sizes = np.diff(np.r_[starts, n])
+    pos = np.arange(n) - starts[run_id]
+    inside = (pos + lo >= 0) & (pos + hi < sizes[run_id]) & (codes >= 0)
+    not_zero = np.r_[0, np.cumsum(~(df[treatment].to_numpy() == 0))]
+    rows = np.flatnonzero(inside)
+    out = np.zeros(n, dtype=bool)
+    out[rows] = not_zero[rows + hi + 1] == not_zero[rows + lo]
+    return out
+
+
+def _stable_zero_window_by_unit(
+    df: pd.DataFrame, unit: str, time: str, treatment: str, lo: int, hi: int
+) -> np.ndarray:
+    """Per-unit definition of :func:`_stable_zero_window` (tied rows)."""
+    out = np.zeros(len(df), dtype=bool)
+    for _uid, idx in df.groupby(unit).groups.items():
+        u_df = df.loc[idx].sort_values(time)
+        treat_vals = u_df[treatment].values
+        n = len(treat_vals)
+        for k in range(n):
+            w_lo = k + lo
+            w_hi = k + hi
+            if w_lo < 0 or w_hi >= n:
+                continue
+            if np.all(treat_vals[w_lo : w_hi + 1] == 0):
+                out[u_df.index[k]] = True
+    return out
 
 
 def _ols_with_cluster_se(
@@ -595,21 +640,38 @@ def _ols_with_cluster_se(
         if valid.sum() == len(sample)
         else sample[cluster_col].values[valid]
     )
-    unique_clusters = np.unique(clusters)
-    meat = np.zeros((k, k))
-    for c in unique_clusters:
-        mask = clusters == c
-        score = X[mask].T @ resid[mask]
-        meat += np.outer(score, score)
-    n_cl = len(unique_clusters)
+    if _unsortable(np.asarray(clusters)):
+        unique_clusters = np.unique(clusters)
+        n_cl = len(unique_clusters)
+        cluster_scores = np.vstack(
+            [X[clusters == c].T @ resid[clusters == c] for c in unique_clusters]
+        )
+    else:
+        # Rows are gathered cluster by cluster (stable, so in their original
+        # order) and each score is the same BLAS product the masked loop
+        # formed. The operands are copied out of the sorted arrays because a
+        # BLAS kernel can round differently on an unaligned view.
+        unique_clusters, codes = np.unique(clusters, return_inverse=True)
+        codes = np.asarray(codes).reshape(-1)
+        n_cl = len(unique_clusters)
+        order = np.argsort(codes, kind="stable")
+        bounds = np.r_[0, np.cumsum(np.bincount(codes, minlength=n_cl))]
+        # ``clusters == nan`` never matched: a missing cluster is counted but
+        # carries a zero score.
+        matched = ~pd.isna(unique_clusters)
+        Xs, rs = X[order], resid[order]
+        cluster_scores = np.zeros((n_cl, k))
+        for g in np.flatnonzero(matched):
+            lo, hi = bounds[g], bounds[g + 1]
+            cluster_scores[g] = Xs[lo:hi].copy().T @ rs[lo:hi].copy()
+    meat = _outer_sum(cluster_scores)
     correction = (n_cl / max(n_cl - 1, 1)) * ((n - 1) / max(n - k, 1))
     var_cov = correction * (XtX_inv @ meat @ XtX_inv)
     if scores_out is not None:
         row0 = XtX_inv[0]
         root_c = float(np.sqrt(correction))
-        for c in unique_clusters:
-            mask = clusters == c
-            scores_out[c] = root_c * float(row0 @ (X[mask].T @ resid[mask]))
+        for g, c in enumerate(unique_clusters):
+            scores_out[c] = root_c * float(row0 @ cluster_scores[g].copy())
 
     beta_first = float(beta[0])
     se_first = float(np.sqrt(max(var_cov[0, 0], 0.0)))

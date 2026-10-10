@@ -859,6 +859,105 @@ def _hdfe_event_fit(
 # ====================================================================== #
 
 
+# The group helpers below add in the order the per-group loops they replace
+# did, so results are unchanged to the last bit: ``np.bincount`` accumulates
+# sequentially like ``arr[mask].sum(axis=0)``, and a row sum of a 2-D array
+# uses the pairwise scheme of ``vec[mask].sum()``. Rank-deficient designs
+# amplify rounding in the scores without bound, so "equal to 1e-15" in the
+# sums is not enough to keep their reported numbers.
+
+
+def _group_codes(ids: np.ndarray) -> Tuple[np.ndarray, int, Optional[np.ndarray]]:
+    """Integer codes for ``ids`` with ``np.unique`` semantics.
+
+    Returns ``(codes, n_groups, missing)``. ``missing`` flags the groups whose
+    label is a missing value, when there are any: ``np.unique`` counts them as
+    groups, but no row ever compares equal to one, so they contribute nothing
+    to a group sum.
+    """
+    uniq, codes = np.unique(ids, return_inverse=True)
+    codes = np.asarray(codes).reshape(-1)
+    missing: Optional[np.ndarray] = None
+    if uniq.dtype.kind in "fc":
+        flags = np.isnan(uniq)
+        if flags.any():
+            missing = flags
+    return codes, len(uniq), missing
+
+
+def _unsortable(labels: np.ndarray) -> bool:
+    """Object labels with a missing value: ``np.unique`` cannot order them,
+    so what it returns is not a partition of the rows."""
+    return labels.dtype.kind == "O" and bool(pd.isna(labels).any())
+
+
+def _sums_by_code(mat: np.ndarray, codes: np.ndarray, n_groups: int) -> np.ndarray:
+    out = np.empty((n_groups, mat.shape[1]))
+    for j in range(mat.shape[1]):
+        out[:, j] = np.bincount(codes, weights=mat[:, j], minlength=n_groups)
+    return out
+
+
+def _group_sums(mat: np.ndarray, ids: np.ndarray) -> np.ndarray:
+    """Column sums of ``mat`` within each distinct value of ``ids``."""
+    ids = np.asarray(ids)
+    if _unsortable(ids):
+        return np.vstack([mat[ids == c].sum(axis=0) for c in np.unique(ids)])
+    codes, n_groups, missing = _group_codes(ids)
+    out = _sums_by_code(mat, codes, n_groups)
+    if missing is not None:
+        out[missing] = 0.0
+    return out
+
+
+def _pairwise_totals(vec: np.ndarray, codes: np.ndarray, n_groups: int) -> np.ndarray:
+    """``vec[codes == g].sum()`` for every group, in numpy's pairwise order."""
+    order = np.argsort(codes, kind="stable")
+    sizes = np.bincount(codes, minlength=n_groups)
+    starts = np.cumsum(sizes) - sizes
+    out = np.zeros(n_groups)
+    for m in np.unique(sizes):
+        if m == 0:
+            continue
+        groups = np.flatnonzero(sizes == m)
+        rows = order[starts[groups][:, None] + np.arange(m)[None, :]]
+        out[groups] = vec[rows].sum(axis=1)
+    return out
+
+
+def _outer_sum(scores: np.ndarray) -> np.ndarray:
+    """``sum_g outer(scores[g], scores[g])``, accumulated in row order."""
+    k = scores.shape[1]
+    total = np.zeros(k * k)
+    step = max(1, 2_000_000 // max(k * k, 1))
+    for a in range(0, scores.shape[0], step):
+        blk = scores[a : a + step]
+        prod = (blk[:, :, None] * blk[:, None, :]).reshape(len(blk), k * k)
+        total = np.vstack([total, prod]).sum(axis=0)
+    return total.reshape(k, k)
+
+
+def _group_means(
+    mat: np.ndarray, ids: np.ndarray, w: Optional[np.ndarray] = None
+) -> np.ndarray:
+    """Row-aligned (weighted) group means of every column of ``mat``.
+
+    A group whose weights sum to zero falls back to its unweighted mean.
+    """
+    codes, n_groups, missing = _group_codes(ids)
+    counts = np.bincount(codes, minlength=n_groups)
+    means = _sums_by_code(mat, codes, n_groups) / counts[:, None]
+    if w is not None:
+        ws = _pairwise_totals(w, codes, n_groups)
+        pos = ws > 0
+        wsum = _sums_by_code(w[:, np.newaxis] * mat, codes, n_groups)
+        means[pos] = wsum[pos] / ws[pos, None]
+    out: np.ndarray = means[codes]
+    if missing is not None:
+        out[missing[codes]] = 0.0
+    return out
+
+
 def _demean_twfe(
     df: pd.DataFrame,
     y_col: str,
@@ -874,37 +973,10 @@ def _demean_twfe(
     cols = [y_col] + x_cols
     data_mat = df[cols].values.astype(np.float64)
 
-    # Entity means
-    unit_ids = df[unit_col].values
-    unique_units = np.unique(unit_ids)
-    for u in unique_units:
-        mask = unit_ids == u
-        if w is not None:
-            wm = w[mask]
-            ws = wm.sum()
-            if ws > 0:
-                wmean = (wm[:, np.newaxis] * data_mat[mask]).sum(axis=0) / ws
-            else:
-                wmean = data_mat[mask].mean(axis=0)
-            data_mat[mask] -= wmean
-        else:
-            data_mat[mask] -= data_mat[mask].mean(axis=0)
-
-    # Time means (on already entity-demeaned data)
-    time_ids = df[time_col].values
-    unique_times = np.unique(time_ids)
-    for t in unique_times:
-        mask = time_ids == t
-        if w is not None:
-            wm = w[mask]
-            ws = wm.sum()
-            if ws > 0:
-                wmean = (wm[:, np.newaxis] * data_mat[mask]).sum(axis=0) / ws
-            else:
-                wmean = data_mat[mask].mean(axis=0)
-            data_mat[mask] -= wmean
-        else:
-            data_mat[mask] -= data_mat[mask].mean(axis=0)
+    # Entity means, then time means on the entity-demeaned data: one sweep
+    # each, in that order (the historical definition of this path).
+    for ids in (df[unit_col].values, df[time_col].values):
+        data_mat -= _group_means(data_mat, ids, w)
 
     Y = data_mat[:, 0]
     X = data_mat[:, 1:]
@@ -940,17 +1012,10 @@ def _cluster_se(
         effects, so the off-diagonal terms are large).
     """
     n, k = X.shape
-    unique_clusters = np.unique(cluster_ids)
-    G = len(unique_clusters)
-
-    meat = np.zeros((k, k))
-    for c in unique_clusters:
-        mask = cluster_ids == c
-        if w is not None:
-            score_c = (X[mask] * (np.sqrt(w[mask]) * resid[mask])[:, None]).sum(axis=0)
-        else:
-            score_c = (X[mask] * resid[mask, None]).sum(axis=0)
-        meat += np.outer(score_c, score_c)
+    scores = X * ((np.sqrt(w) * resid) if w is not None else resid)[:, None]
+    cluster_scores = _group_sums(scores, cluster_ids)
+    G = cluster_scores.shape[0]
+    meat = _outer_sum(cluster_scores)
 
     correction = (G / (G - 1)) * ((n - 1) / max(n - k - k_fe, 1))
     vcov = correction * XtX_inv @ meat @ XtX_inv
