@@ -33,8 +33,8 @@ Rules:
 
 ### 2026-10-11 — call traces re-recorded for the GLM dispersion and documentation edits
 
-- **Commits.** `58b0dc93` (`regression/glm.py`), `bb47ddfd` (docstrings
-  in `forest/` and `matching/match.py`), `607dd3bb` (ledgers).
+- **Commits.** `5b4c3f6c` (`regression/glm.py`), `68442541` (docstrings
+  in `forest/` and `matching/match.py`), `0198e449` (ledgers).
 - **Reason.** `sp.glm` now estimates the dispersion of gamma and
   inverse-Gaussian fits by the Pearson statistic, as R and Stata do; the
   other two files changed in documentation only. They are on the
