@@ -341,6 +341,66 @@ def _within_group_self_outcome(
     return self_y
 
 
+def _self_outcome_distinct_origin(
+    outcome: np.ndarray,
+    treated: np.ndarray,
+    pscore: np.ndarray,
+    n_ai_matches: int,
+    origin: np.ndarray,
+) -> np.ndarray:
+    """``_self_y`` when rows are replicas of fewer original observations.
+
+    Frequency weights are computed by repeating rows. A replica of a row
+    has the same score and the same outcome, so the nearest same-arm
+    "neighbour" of every row would be its own copy and the squared gap that
+    estimates :math:`\\sigma^2(X)` would be zero. The neighbours are
+    therefore taken among the rows that stem from a *different* original
+    observation (``origin`` labels the observation each row is a copy of),
+    in the order of :func:`_within_group_self_outcome`: distance ascending,
+    then position ascending, a replica counting as one neighbour. With one
+    row per observation the two functions select the same neighbours.
+    """
+    y = np.asarray(outcome, dtype=float)
+    t = np.asarray(treated)
+    ps = np.asarray(pscore, dtype=float)
+    origin = np.asarray(origin)
+    self_y = np.full(len(y), np.nan)
+    j = max(int(n_ai_matches), 1)
+
+    for g in (0, 1):
+        idx = np.where(t == g)[0]
+        if len(idx) == 0:
+            continue
+        # one entry per original observation, in order of first appearance
+        _, first, inverse, freq = np.unique(
+            origin[idx], return_index=True, return_inverse=True, return_counts=True
+        )
+        order = np.argsort(first, kind="stable")
+        rank = np.empty(len(order), dtype=int)
+        rank[order] = np.arange(len(order))
+        u_ps, u_y = ps[idx[first[order]]], y[idx[first[order]]]
+        u_freq = freq[order].astype(float)
+        m = len(order)
+        if m < 2:
+            continue
+        u_self = np.full(m, np.nan)
+        for r in range(m):
+            d = np.abs(u_ps - u_ps[r])
+            d[r] = np.inf
+            take = min(j, m - 1)
+            kth = np.partition(d, take - 1)[take - 1]
+            cand = np.flatnonzero(d <= kth)
+            cand = cand[np.argsort(d[cand], kind="stable")]
+            need = float(min(j, u_freq.sum() - u_freq[r]))
+            got = np.minimum(
+                u_freq[cand],
+                np.maximum(need - np.cumsum(u_freq[cand]) + u_freq[cand], 0.0),
+            )
+            u_self[r] = float(np.sum(got * u_y[cand]) / need)
+        self_y[idx] = u_self[rank[np.ravel(inverse)]]
+    return self_y
+
+
 def abadie_imbens_se(
     outcome: np.ndarray,
     treated: np.ndarray,
@@ -348,6 +408,8 @@ def abadie_imbens_se(
     support: np.ndarray,
     weight: np.ndarray,
     n_ai_matches: int = 1,
+    origin: Optional[np.ndarray] = None,
+    self_outcome: Optional[np.ndarray] = None,
 ) -> float:
     """Abadie-Imbens (2006) heteroskedasticity-robust ATT standard error.
 
@@ -373,11 +435,23 @@ def abadie_imbens_se(
         ``_weight`` column (``NaN`` outside the matched sample).
     n_ai_matches : int, default 1
         Number of within-arm matches ``J`` (Stata's ``ai(J)``).
+    origin : ndarray, optional
+        The original observation each row is a replica of (frequency
+        weights computed by repeating rows). The within-arm neighbours are
+        then rows of other observations; see
+        :func:`_self_outcome_distinct_origin`.
+    self_outcome : ndarray, optional
+        The mean outcome of each unit's ``J`` nearest same-arm units, found
+        by the caller in the metric the matching ran on (a Mahalanobis or
+        Euclidean distance). Omitted, they are found on ``pscore``, which
+        is the matching metric of ``psmatch2 , ai(J)``.
 
     Returns
     -------
     float
-        The robust SE, or ``nan`` if it cannot be formed.
+        The robust SE, or ``nan`` if it cannot be formed: no treated unit
+        on support, or a unit that enters the estimate has no other unit in
+        its arm to estimate its outcome variance from.
 
     References
     ----------
@@ -396,14 +470,84 @@ def abadie_imbens_se(
     if n1 < 1:
         return float("nan")
 
-    self_y = _within_group_self_outcome(y, t, pscore, j)
-    shat = (j / (j + 1.0)) * (y - self_y) ** 2
+    if self_outcome is None:
+        shat = _conditional_variance(y, t, pscore, j, origin)
+    else:
+        shat = (j / (j + 1.0)) * (y - np.asarray(self_outcome, dtype=float)) ** 2
     w_pos = np.where(np.isfinite(w), np.maximum(w, 0.0), 0.0)
-    vhat = shat * (t - (1 - t) * w_pos) ** 2
+    coef = t - (1 - t) * w_pos
+    # A unit that enters the estimate but is alone in its arm has no
+    # same-arm neighbour, so its sigma^2(X) is not estimable; summing the
+    # other terms would report the variance without it.
+    if np.any(~np.isfinite(shat[s]) & (coef[s] != 0)):
+        return float("nan")
+    vhat = shat * coef**2
     total = float(np.nansum(vhat[s]))
     if not np.isfinite(total) or total < 0:
         return float("nan")
     return float(np.sqrt(total) / n1)
+
+
+def _conditional_variance(
+    y: np.ndarray,
+    t: np.ndarray,
+    pscore: np.ndarray,
+    j: int,
+    origin: Optional[np.ndarray],
+) -> np.ndarray:
+    """``J/(J+1) (Y_i - mean of the J nearest same-arm outcomes)^2``.
+
+    The Abadie-Imbens (2006, eq. 14) estimate of :math:`\\sigma^2(X_i)`.
+    """
+    if origin is None:
+        self_y = _within_group_self_outcome(y, t, pscore, j)
+    else:
+        self_y = _self_outcome_distinct_origin(y, t, pscore, j, origin)
+    return np.asarray((j / (j + 1.0)) * (y - self_y) ** 2, dtype=float)
+
+
+def abadie_imbens_linear_se(
+    outcome: np.ndarray,
+    treated: np.ndarray,
+    pscore: np.ndarray,
+    coef: np.ndarray,
+    n_ai_matches: int = 1,
+    origin: Optional[np.ndarray] = None,
+    self_outcome: Optional[np.ndarray] = None,
+) -> float:
+    """Abadie-Imbens (2006) conditional standard error of ``sum_i c_i Y_i``.
+
+    A matching estimator is linear in the outcomes given the matches,
+    ``tau = sum_i c_i Y_i``, and its variance given the covariates and the
+    treatment is ``sum_i c_i^2 sigma^2(X_i, W_i)`` (Abadie & Imbens 2006,
+    Theorem 6 and eq. 14, where ``c_i = (2 W_i - 1)(1 + K_M(i)) / N`` for
+    the average treatment effect). ``sigma^2`` is estimated from the ``J``
+    nearest same-arm units as in :func:`abadie_imbens_se`, which is this
+    function with the ATT's ``c_i``. The two arms enter symmetrically, so
+    the result does not depend on which arm is labelled treated.
+
+    ``self_outcome``, when given, is the mean outcome of each unit's ``J``
+    nearest same-arm units found by the caller (in the metric the matching
+    ran on); otherwise they are found on ``pscore``.
+
+    Returns ``nan`` when a unit with ``c_i != 0`` is alone in its arm.
+
+    References
+    ----------
+    abadie2006large
+    """
+    y = np.asarray(outcome, dtype=float)
+    t = np.asarray(treated)
+    c = np.asarray(coef, dtype=float)
+    j = max(int(n_ai_matches), 1)
+    if self_outcome is None:
+        shat = _conditional_variance(y, t, pscore, j, origin)
+    else:
+        shat = (j / (j + 1.0)) * (y - np.asarray(self_outcome, dtype=float)) ** 2
+    used = c != 0
+    if not np.any(used) or np.any(~np.isfinite(shat[used])):
+        return float("nan")
+    return float(np.sqrt(np.sum(shat[used] * c[used] ** 2)))
 
 
 def build_matched_frame(

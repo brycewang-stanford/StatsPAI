@@ -22,6 +22,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.exceptions import DataInsufficient
 
 _WARNS = "on-support treated units found no match"
 
@@ -108,14 +109,20 @@ class TestExhaustedControlPool:
 class TestCaliperDrops:
     def test_caliper_drops_are_also_reported(self):
         # A caliper this tight admits almost no donor.
-        res, msgs = _fit(_make(40, 200), caliper=1e-6, replace=True)
+        res, msgs = _fit(_make(40, 200), caliper=1e-4, replace=True)
         hits = [m for m in msgs if _WARNS in m]
         assert hits
         assert "caliper" in hits[0]
         assert res.model_info["n_treated_unmatched"] > 0
 
+    def test_a_caliper_nobody_meets_is_an_error_not_a_zero_effect(self):
+        # With no matched pair at all there is nothing to average; that
+        # used to come back as an ATT of 0.0.
+        with pytest.raises(DataInsufficient, match="no unit found a match"):
+            _fit(_make(40, 200), caliper=1e-6, replace=True)
+
     def test_caliper_message_does_not_blame_the_pool(self):
-        _, msgs = _fit(_make(40, 200), caliper=1e-6, replace=True)
+        _, msgs = _fit(_make(40, 200), caliper=1e-4, replace=True)
         hit = next(m for m in msgs if _WARNS in m)
         assert "replace=False needs" not in hit
 

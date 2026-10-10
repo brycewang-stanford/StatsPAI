@@ -437,6 +437,13 @@ class PSMatch2Result(ResultProtocolMixin):
         from ._pstest import pstest_table
 
         covs = list(covariates) if covariates is not None else self.covariates
+        if not covs:
+            # an empty table has no 'variable' column to index on
+            raise MethodIncompatibility(
+                "pstest: no covariates to test (the match was run with "
+                "covariates=[]).",
+                recovery_hint="Pass pstest(covariates=[...]).",
+            )
         table, summary = pstest_table(
             self.matched_data,
             treat=self.treat,
@@ -812,8 +819,22 @@ class PSMatch2Result(ResultProtocolMixin):
         from scipy import stats as _stats
 
         z = _stats.norm.ppf(1 - alpha / 2)
-        tstat = beta / se if se > 0 else 0.0
-        pval = float(2 * _stats.norm.sf(abs(tstat)))
+        # An undefined standard error has no test (it used to be given
+        # p = 1). One that is zero up to rounding is exactly 0 or 1e-17
+        # depending on the BLAS, so it is judged against the size of the
+        # outcome; the statistic is undefined there too.
+        se_floor = 1e-10 * float(np.max(np.abs(fit_frame[y].to_numpy(dtype=float))))
+        if np.isfinite(se) and se > se_floor:
+            pval = float(2 * _stats.norm.sf(abs(beta / se)))
+        else:
+            warnings.warn(
+                "psm_did: the standard error of the DiD term is "
+                + ("undefined" if not np.isfinite(se) else "zero up to rounding")
+                + "; reporting the p-value as NaN.",
+                UserWarning,
+                stacklevel=2,
+            )
+            pval = float("nan")
         ci = (beta - z * se, beta + z * se)
 
         out = CausalResult(
@@ -1409,6 +1430,14 @@ def psmatch2(
         warnings.filterwarnings(
             "ignore", message="PSM can increase imbalance", category=UserWarning
         )
+        if out_var is None:
+            # the synthetic constant outcome has no variation by design,
+            # and its "estimate" is replaced by NaN below
+            warnings.filterwarnings(
+                "ignore",
+                message="sp.match: the standard error is zero up to rounding",
+                category=UserWarning,
+            )
         result = _match(
             data=fit_data,
             y=fit_y,

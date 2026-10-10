@@ -389,8 +389,19 @@ def _fit_cbps(
     X_std = X_raw.copy()
     X_std[:, 1:] = (X_raw[:, 1:] - x_mean) / x_sd
     U, d_sv, Vt = np.linalg.svd(X_std, full_matrices=False)
-    if np.linalg.matrix_rank(U) < U.shape[1]:
-        raise ValueError("CBPS design matrix is not full rank.")
+    # Rank is read from the singular values. The factor U is orthonormal
+    # whatever the rank of X, so testing it (as this did) never fired, and
+    # with a redundant covariate the fit balanced an arbitrary null-space
+    # direction: the estimate moved and converged=True. The columns are
+    # standardised, so a relative tolerance on the singular values does
+    # not depend on the units of the covariates.
+    if d_sv[-1] <= 1e-9 * d_sv[0]:
+        raise ValueError(
+            "CBPS design matrix is not full rank: a covariate is a linear "
+            "combination of the others (singular values from "
+            f"{d_sv[0]:.3g} down to {d_sv[-1]:.3g}). Drop the redundant "
+            "covariate; the balancing conditions cannot tell it apart."
+        )
     Xs = U  # solve in the orthonormal basis, as CBPS does
     XpX_inv = np.linalg.pinv(Xs.T @ Xs)
 

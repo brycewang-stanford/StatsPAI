@@ -26,16 +26,19 @@ Rosenbaum, P.R. and Rubin, D.B. (1983). Biometrika, 70(1), 41-55.
 Austin, P.C. (2011). Multivariate Behavioral Research, 46(3), 399-424. [@crump2009dealing]
 """
 
+import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import optimize, stats
+from scipy.special import expit
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import MethodIncompatibility
+from ._binary_fit import fit_binary_index
 
 # ======================================================================
 # Propensity score estimation
@@ -72,7 +75,9 @@ def propensity_score(
     Returns
     -------
     pd.Series
-        Propensity scores indexed like *data*.
+        Propensity scores indexed like *data*. A row with a missing
+        treatment or covariate value is left out of the fit and has a
+        ``NaN`` score (with a warning that says how many).
 
     Examples
     --------
@@ -96,20 +101,35 @@ def propensity_score(
     weights) to :func:`sp.overlap_plot`, :func:`sp.ps_balance`, or
     :func:`sp.balance_diagnostics`.
     """
-    D = data[treatment].values.astype(float)
-    X = data[covariates].values.astype(float)
+    D_all = data[treatment].values.astype(float)
+    X_all = data[covariates].values.astype(float)
+    # One missing value would enter the fit and turn every score into NaN;
+    # the model is fitted on the complete rows and only the others are NaN.
+    complete = np.isfinite(D_all) & np.all(np.isfinite(X_all), axis=1)
+    if not complete.all():
+        warnings.warn(
+            f"propensity_score: {int((~complete).sum())} of {len(D_all)} rows "
+            "have a missing treatment or covariate value; they are left out "
+            "of the fit and their score is NaN.",
+            UserWarning,
+            stacklevel=2,
+        )
+        D, X = D_all[complete], X_all[complete]
+    else:
+        D, X = D_all, X_all
 
     if method == "logit":
-        ps = _logit_irls(X, D)
+        fitted = _logit_fit(X, D)
     elif method == "probit":
-        ps = _probit_mle(X, D)
+        fitted = _probit_mle(X, D)
     elif method == "gbm":
-        ps = _gbm_ps(X, D)
+        fitted = _gbm_ps(X, D)
     else:
         raise ValueError(f"method must be 'logit', 'probit', or 'gbm', got '{method}'")
 
     # Clip to avoid exact 0/1
-    ps = np.clip(ps, 1e-8, 1 - 1e-8)
+    ps = np.full(len(D_all), np.nan)
+    ps[complete] = np.clip(fitted, 1e-8, 1 - 1e-8)
     ps_series = pd.Series(ps, index=data.index, name="propensity_score")
 
     if trimming == "crump":
@@ -120,35 +140,19 @@ def propensity_score(
     return ps_series
 
 
-def _logit_irls(
-    X: np.ndarray, D: np.ndarray, max_iter: int = 50, tol: float = 1e-8
-) -> np.ndarray:
-    """Logistic regression via iteratively reweighted least squares."""
-    n, k = X.shape
-    Xa = np.column_stack([np.ones(n), X])
-    beta = np.zeros(Xa.shape[1])
+def _logit_fit(X: np.ndarray, D: np.ndarray) -> np.ndarray:
+    """Logit scores from the shared fit of :mod:`._binary_fit`.
 
-    for _ in range(max_iter):
-        eta = Xa @ beta
-        eta = np.clip(eta, -30, 30)
-        mu = 1.0 / (1.0 + np.exp(-eta))
-        W = mu * (1 - mu)
-        W = np.maximum(W, 1e-12)
-        z = eta + (D - mu) / W
-        # Weighted least squares step
-        XtW = Xa.T * W
-        try:
-            beta_new = np.linalg.solve(XtW @ Xa, XtW @ z)
-        except np.linalg.LinAlgError:
-            beta_new = np.linalg.lstsq(XtW @ Xa, XtW @ z, rcond=None)[0]
-        if np.max(np.abs(beta_new - beta)) < tol:
-            beta = beta_new
-            break
-        beta = beta_new
-
-    eta = Xa @ beta
-    eta = np.clip(eta, -30, 30)
-    return 1.0 / (1.0 + np.exp(-eta))
+    The Newton steps used to be solved here on the columns as given. With
+    a repeated or otherwise redundant covariate that system is singular,
+    ``numpy.linalg.solve`` answers anyway, and the scores were wrong by up
+    to 0.8. The shared fit works on the standardised design and leaves a
+    redundant covariate out (coefficient zero), so the scores are those of
+    the model without it.
+    """
+    beta = fit_binary_index(X, D, "logit")["beta"]
+    eta = np.column_stack([np.ones(len(D)), X]) @ beta
+    return np.asarray(expit(eta), dtype=float)
 
 
 def _probit_mle(X: np.ndarray, D: np.ndarray) -> np.ndarray:
@@ -213,7 +217,7 @@ def _gbm_ps(X: np.ndarray, D: np.ndarray) -> np.ndarray:
             X_aug = np.column_stack([X] + interactions)
         else:
             X_aug = X
-        return _logit_irls(X_aug, D)
+        return _logit_fit(X_aug, D)
 
 
 # ======================================================================
@@ -394,8 +398,16 @@ def _smd(
     if not np.isfinite(denom) or not np.isfinite(mean_t - mean_c):
         # An undefined statistic is not a balanced one.
         return float("nan")
-    if denom < 1e-12:
-        return 0.0
+    # A covariate that is constant within both groups has a pooled standard
+    # deviation of zero up to rounding (exactly 0, or 1e-16 of its size),
+    # so "zero" is judged against the size of the means. Two equal
+    # constants do not differ; two different ones separate the groups
+    # completely, which is an infinite standardized difference, not 0.
+    size = max(abs(float(mean_t)), abs(float(mean_c)))
+    if denom <= 1e-12 * size:
+        if abs(float(mean_t - mean_c)) <= 1e-12 * size:
+            return 0.0
+        return float(np.copysign(np.inf, mean_t - mean_c))
     return float((mean_t - mean_c) / denom)
 
 
@@ -692,6 +704,22 @@ def ps_balance(
     >>> fig, ax = bal.love_plot()  # doctest: +SKIP
     """
     _check_sd_denom(sd_denom)
+    # Rows with a missing treatment or covariate value are left out, as the
+    # estimators leave them out: a matched frame carries the rows sp.match
+    # dropped, and one NaN would make the covariate's statistics NaN.
+    full_index = data.index
+    complete = data[[treatment] + list(covariates)].notna().all(axis=1).to_numpy()
+    if not complete.all():
+        warnings.warn(
+            f"ps_balance: {int((~complete).sum())} of {len(complete)} rows have "
+            "a missing treatment or covariate value and are left out of the "
+            "balance table.",
+            UserWarning,
+            stacklevel=2,
+        )
+        if weights is not None:
+            weights = np.asarray(weights, dtype=float)[complete]
+        data = data.loc[complete]
     D = data[treatment].values.astype(float)
     ps = propensity_score(data, treatment, covariates, method=method)
     ps_vals = ps.values
@@ -734,6 +762,8 @@ def ps_balance(
         )
 
     table = pd.DataFrame(rows).set_index("variable")
+    if not complete.all():
+        ps = ps.reindex(full_index)
     return PSBalanceResult(table=table, ps=ps)
 
 
@@ -1043,10 +1073,13 @@ def overlap_plot(
         ps = propensity_score(data, treatment, covariates, method=method)
 
     D = data[treatment].values.astype(float)
-    ps_vals = ps.values
+    ps_vals = np.asarray(ps, dtype=float)
 
-    ps_treat = ps_vals[D == 1]
-    ps_ctrl = ps_vals[D == 0]
+    # trimmed rows (trimming='crump') and rows with a missing covariate
+    # carry a NaN score and are not part of the plotted sample
+    scored = np.isfinite(ps_vals)
+    ps_treat = ps_vals[scored & (D == 1)]
+    ps_ctrl = ps_vals[scored & (D == 0)]
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
