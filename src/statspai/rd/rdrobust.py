@@ -2617,6 +2617,7 @@ def _rbc_bootstrap(
     delivers shorter intervals than the analytic robust CI without
     sacrificing coverage.
     """
+    se_floor = 1e-10 * float(np.max(np.abs(Y))) if len(Y) else 0.0
     if isinstance(h, tuple):
         h_l, h_r = h
     else:
@@ -2734,7 +2735,10 @@ def _rbc_bootstrap(
         except Exception:
             continue
 
-        if not np.isfinite(sb_bc) or sb_bc <= 0:
+        # A replicate with no residual variation has a standard error of
+        # zero up to rounding (exactly 0 or about 1e-17, depending on the
+        # BLAS); studentising by it gives a meaningless statistic.
+        if not np.isfinite(sb_bc) or sb_bc <= se_floor:
             continue
         t_star[n_ok] = (tb_bc - tau_bc) / sb_bc
         n_ok += 1

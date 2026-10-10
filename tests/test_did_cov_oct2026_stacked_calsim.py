@@ -317,10 +317,15 @@ def test_sun_abraham_and_etwfe_adapters_coincide_on_a_balanced_panel():
     np.testing.assert_allclose(wide["sun_abraham"], wide["etwfe"], atol=1e-8)
 
 
-def test_noise_free_panel_is_recorded_as_unusable_not_scored():
+@pytest.mark.parametrize("name", ["etwfe", "twfe", "bjs", "did2s", "sa"])
+def test_noise_free_panel_is_recorded_as_unusable_not_scored(name):
     df = _staggered(effect=0.0, noise=0.0, n_units=12, T=5, cohorts=(3, 0))
-    study = _study(df, ["etwfe"])
-    # exact fit: the estimate is the injected effect but the SE is zero
+    study = _study(df, [name])
+    # Exact fit: the estimate is the injected effect and the SE is zero up
+    # to rounding. Which estimators return exactly 0 and which return 1e-17
+    # depends on the estimator and on the BLAS (etwfe gave exactly 0 on
+    # macOS and a rounding-size number on Linux), so the scorer compares
+    # the SE with 1e-10 of the outcome's size, and none of them is scored.
     assert int(study.table["n_ok"].iloc[0]) == 0
     assert len(study.failures) == 2
     assert study.failures["failure"].str.contains("unusable fit").all()

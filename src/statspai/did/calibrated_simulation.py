@@ -645,7 +645,12 @@ def _fit_one(frame: pd.DataFrame, opt: _Options) -> Dict[str, Dict[str, Any]]:
             warnings.simplefilter("always")
             try:
                 est, se = _ADAPTERS[name](frame, opt)
-                if not np.isfinite(est) or not np.isfinite(se) or se <= 0:
+                # An exact fit leaves a standard error of zero up to
+                # rounding: exactly 0 from one estimator, 1e-17 from
+                # another, and which one depends on the BLAS. Anything
+                # below 1e-10 of the outcome's size is that.
+                se_floor = 1e-10 * float(np.max(np.abs(frame[_Y].to_numpy())))
+                if not np.isfinite(est) or not np.isfinite(se) or se <= se_floor:
                     # Some estimators answer a degenerate design with a
                     # point estimate and no standard error. Scoring that as
                     # a draw would credit the estimator with a number it

@@ -85,6 +85,14 @@ turned up inputs on which a wrong number came back.
 
 #### Fixed
 
+- `sp.rdrobust(bootstrap='rbc')` and `sp.did_calibrated_simulation`
+  no longer decide whether a fit is degenerate by asking if its standard
+  error is exactly zero. An exact fit leaves a standard error of zero up
+  to rounding, and whether that is 0 or 1e-17 depends on the estimator
+  and on the linear algebra library: on Linux a bootstrap replicate with
+  a constant outcome was studentised by 1e-17, and on a noise-free panel
+  the simulation scored every estimator but one as a valid draw. Both
+  compare the standard error with 1e-10 of the outcome's size.
 - `sp.rdplot` and `rdplot_numbers` no longer crash when the outcome is
   constant on one side of the cutoff (`cannot convert float NaN to
   integer`). That side gets one bin, which is exact.
