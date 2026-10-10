@@ -31,6 +31,12 @@ Results are written to ``benchmarks/RESULTS.md`` and
 | ``bench_rd.py`` | ``sp.rdrobust`` | (StatsPAI only) |
 | ``bench_matching.py`` | ``sp.ebalance``, ``sp.cbps`` | (StatsPAI only) |
 
+``bench_scaling.py`` is separate from the table above: it times about
+120 estimators at three sample sizes and prints the growth exponent of
+each (``python benchmarks/bench_scaling.py --only did``). Use it to look
+for a method whose cost grows faster than it should; it is not part of
+``run_all.py``.
+
 Comparison libraries are imported lazily; if absent, the benchmark
 falls back to showing only StatsPAI's numbers and notes the missing
 comparator.
