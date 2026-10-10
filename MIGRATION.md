@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## Unreleased: ⚠️ inputs that returned a wrong number
+## 1.39.2 → 1.39.3: ⚠️ inputs that returned a wrong number
 
 **What changed.**
 
@@ -37,21 +37,7 @@ support; unweighted `drdid`; `did_multiplegt` rows that were estimable.
 Code that read a `did_multiplegt` placebo of exactly 0 as "no pre-trend"
 should check for a missing value.
 
-## Unreleased: ⚠️ `sp.msm` with an end-of-follow-up outcome
-
-**What changed.** When the outcome is constant within every unit (one
-measurement, repeated on each row of the long panel), `sp.msm` fits the
-outcome model on each unit's last row. It used to fit it on every row, so
-the final outcome was also regressed on the exposure accumulated at
-earlier visits, and the slope was biased towards zero (2.7 against a true
-3.0 per visit in a two-visit design). `model_info['outcome_rows']` is
-`'last_per_unit'` in that case and `'all'` otherwise.
-
-**What to do.** Rerun `sp.msm` calls whose outcome is measured once per
-unit; the coefficient and its standard error change. Panels with a
-time-varying outcome give the same numbers as before.
-
-## Unreleased: ⚠️ `sp.liml` formulas with the bracket first
+## 1.39.2 → 1.39.3: ⚠️ `sp.liml` formulas with the bracket first
 
 **What changed.** `sp.liml("y ~ (d ~ z1 + z2) + x1 + x2", data=df)` used
 to treat `x1` and `x2` as excluded instruments and leave them out of the
@@ -66,7 +52,7 @@ the LIML estimate of the model as written. Formulas written
 `"y ~ x + (d ~ z)"`, calls with `y=, x_endog=, x_exog=, z=`, and
 `sp.iv(method="liml")` give the same numbers as before.
 
-## Unreleased: ⚠️ balance diagnostics with missing weights
+## 1.39.2 → 1.39.3: ⚠️ balance diagnostics with missing weights
 
 **What changed.** `sp.balance_diagnostics`, `sp.ps_balance` and
 `sp.love_plot` read a missing weight as zero. Before, a single missing
@@ -80,7 +66,7 @@ from a matched frame's `_weight` column, including
 `sp.love_plot(sp.psmatch2(...))`. Tables built from complete weights are
 unchanged.
 
-## Unreleased: ⚠️ `itt_ci` in a fuzzy `sp.rdrandinf`, and inputs that are now refused
+## 1.39.2 → 1.39.3: ⚠️ `itt_ci` in a fuzzy `sp.rdrandinf`, and inputs that are now refused
 
 **What changed.**
 

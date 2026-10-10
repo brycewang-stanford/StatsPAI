@@ -2,25 +2,18 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.39.3] — 2026-10-10
+
+Correctness fixes found by three passes over the package: writing ten
+teaching notebooks, closing the core coverage gap, and working through
+reported defects in the DiD estimators. Several calls returned a wrong
+number without saying so (`sp.liml` with the bracket first in the formula,
+balance diagnostics with a missing matching weight, and the inputs listed
+below under the DiD and core sections); MIGRATION.md says which results to recompute. The release also
+adds ten offline tutorials in Chinese under `examples/notebooks/`. The JSS
+manuscript stays anchored to 1.39.1.
 
 ### Follow-ups from the teaching notebooks
-
-#### ⚠️ Correctness
-
-- **`sp.msm` with an outcome measured once, at the end of follow-up.** Such
-  an outcome arrives repeated on every row of its unit, and the outcome
-  model was fitted on all of them: the first-visit row paired the final
-  outcome with the exposure received so far. In the two-visit design of
-  `examples/gmethods_timevarying.py`, where each visit adds 3, the
-  cumulative-exposure slope came out between 2.6 and 2.75 across seeds
-  with a standard error of 0.06. An outcome that is constant within every
-  unit is now fitted on each unit's last row, where the cumulative weight
-  and the exposure summary cover the whole follow-up; the same designs
-  give 2.97 to 3.04 without trimming. `model_info['outcome_rows']` says which rows were
-  used. Time-varying outcomes use every row and are unchanged. The
-  example printed that the model "recovers the truth" next to 2.77; it
-  now prints the contrast as well. See MIGRATION.md.
 
 #### Fixed
 
@@ -43,6 +36,20 @@ All notable changes to StatsPAI will be documented in this file.
   `sp.wild_cluster_ci_inv` is the interval that is. No number changes.
 
 #### Added
+
+- `sp.msm(outcome_rows='last')` fits the outcome model on each unit's
+  last row, for an outcome measured once at the end of follow-up. Such an
+  outcome arrives repeated on every row of its unit, and the default
+  pooled fit pairs it on the earlier rows with the exposure received so
+  far. In the two-visit design of `examples/gmethods_timevarying.py`,
+  where each visit adds 3, the pooled cumulative-exposure slope is
+  between 2.6 and 2.75 across seeds with a standard error of 0.06; with
+  `outcome_rows='last'` it is 2.97 to 3.04 without trimming. The default
+  stays `'all'`, the form in which the R `ipw` and Stata references are
+  matched, and no number changes; it now raises an `AssumptionWarning`
+  when the outcome is constant within every unit. The example passes the
+  new option; it used to print that the model "recovers the truth" next
+  to 2.77.
 
 - `tests/test_example_notebooks.py`: the committed tutorials are checked
   on every run (executed, no error output, standard kernel, no local

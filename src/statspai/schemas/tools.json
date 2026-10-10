@@ -22757,6 +22757,15 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "outcome_rows": {
+          "default": "all",
+          "description": "Rows the outcome model is fitted on. 'all' pools every unit-period row (an outcome measured each period). 'last' uses each unit's last row: required for an outcome measured once at the end of follow-up, which otherwise is paired with partial exposure on the earlier rows and biases the slope.",
+          "enum": [
+            "all",
+            "last"
+          ],
+          "type": "string"
+        },
         "time": {
           "description": "Period identifier",
           "type": "string",
