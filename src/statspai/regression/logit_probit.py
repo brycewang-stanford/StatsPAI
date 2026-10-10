@@ -506,8 +506,7 @@ def _roc_auc(y: np.ndarray, p_hat: np.ndarray) -> float:
     neg = p_hat[y == 0]
     if len(pos) == 0 or len(neg) == 0:
         return np.nan
-    # NaN never equals itself, so the tie loop below would not advance on a
-    # NaN score; a rank is not defined for one either.
+    # a rank is not defined for a NaN score
     if not (np.isfinite(pos).all() and np.isfinite(neg).all()):
         return np.nan
     # Efficient computation via rank sums
@@ -515,20 +514,8 @@ def _roc_auc(y: np.ndarray, p_hat: np.ndarray) -> float:
     n0 = len(neg)
     all_scores = np.concatenate([pos, neg])
     labels = np.concatenate([np.ones(n1), np.zeros(n0)])
-    order = np.argsort(all_scores)
-    ranks = np.empty_like(order, dtype=float)
-    ranks[order] = np.arange(1, len(all_scores) + 1, dtype=float)
-
-    # Handle ties
-    sorted_scores = all_scores[order]
-    i = 0
-    while i < len(sorted_scores):
-        j = i
-        while j < len(sorted_scores) and sorted_scores[j] == sorted_scores[i]:
-            j += 1
-        avg_rank = (ranks[order[i:j]].sum()) / (j - i)
-        ranks[order[i:j]] = avg_rank
-        i = j
+    # mid-ranks: tied scores share the mean of the ranks they span
+    ranks = stats.rankdata(all_scores, method="average")
 
     rank_sum = ranks[labels == 1].sum()
     u = rank_sum - n1 * (n1 + 1) / 2

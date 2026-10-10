@@ -19,8 +19,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from ._core import _kernel_fn
 from .._result_serialize import ResultProtocolMixin
+from ._core import _kernel_fn
 
 
 @dataclass
@@ -145,9 +145,11 @@ def rd_distributional_design(
                 treat_m * R_m,
             ]
         )
-        Wd = np.diag(w_m)
+        # X'W without the n x n diagonal; row-major, as X.T @ diag(w) returns it,
+        # so the products below round the same way
+        XtW = np.ascontiguousarray(Xb.T * w_m)
         try:
-            beta = np.linalg.solve(Xb.T @ Wd @ Xb, Xb.T @ Wd @ ind)
+            beta = np.linalg.solve(XtW @ Xb, XtW @ ind)
             rdd[j] = float(beta[2])  # level-jump
             rkd[j] = float(beta[3])  # slope-jump
         except np.linalg.LinAlgError:  # pragma: no cover

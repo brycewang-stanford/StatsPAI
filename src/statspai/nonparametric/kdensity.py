@@ -17,7 +17,6 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
@@ -120,10 +119,16 @@ class KDensityResult(ResultProtocolMixin):
         return ax
 
 
+_SQRT_2PI = np.sqrt(2 * np.pi)
+
+
 def _kernel_fn(u: np.ndarray, kernel: str = "gaussian") -> np.ndarray:
     """Evaluate kernel function at u."""
     if kernel == "gaussian":
-        return np.asarray(stats.norm.pdf(u), dtype=float)
+        # the standard normal density, without the per-call argument
+        # checking of scipy.stats (half the run time on a 512-point grid)
+        u = np.asarray(u, dtype=float)
+        return np.asarray(np.exp(-(u**2) / 2.0) / _SQRT_2PI, dtype=float)
     elif kernel == "epanechnikov":
         return np.where(np.abs(u) <= 1, 0.75 * (1 - u**2), 0.0)
     elif kernel == "uniform":

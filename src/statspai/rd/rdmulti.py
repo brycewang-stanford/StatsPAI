@@ -231,11 +231,13 @@ def _local_linear_rd(
 
     # Local linear: y = a + b*x + tau*D + delta*D*x
     X = np.column_stack([np.ones(len(x_m)), x_m, D_m, D_m * x_m])
-    W = np.diag(w_m)
+    # X'W without the n x n diagonal; row-major, as X.T @ diag(w) returns it,
+    # so the products below round the same way
+    XtW = np.ascontiguousarray(X.T * w_m)
 
     try:
-        XtWX = X.T @ W @ X
-        XtWy = X.T @ W @ y_m
+        XtWX = XtW @ X
+        XtWy = XtW @ y_m
         beta = np.linalg.solve(XtWX, XtWy)
         resid = y_m - X @ beta
         sigma2 = np.sum(w_m * resid**2) / max(mask.sum() - 4, 1)

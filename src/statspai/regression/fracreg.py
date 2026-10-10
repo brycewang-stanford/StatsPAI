@@ -148,10 +148,12 @@ def fracreg(
         z = xb + (y_data - mu) / dmu
 
         # WLS
-        W = np.diag(w)
+        # weights applied column-wise: an n x n diagonal matrix is 320 GB
+        # at n = 200,000
+        XtW = np.ascontiguousarray(X_data.T * w)
         try:
-            XtWX = X_data.T @ W @ X_data
-            XtWz = X_data.T @ W @ z
+            XtWX = XtW @ X_data
+            XtWz = XtW @ z
             beta_new = np.linalg.solve(XtWX, XtWz)
         except np.linalg.LinAlgError:
             break

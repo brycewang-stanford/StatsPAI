@@ -326,16 +326,15 @@ def _km_survival_steps(
     survival in the Aalen-Johansen estimator and for the censoring survival
     Ĝ in Fine-Gray weights.
     """
-    times = np.sort(np.unique(time[indicator == 1]))
-    s_left = np.empty(len(times), dtype=float)
-    surv = 1.0
-    for i, t in enumerate(times):
-        n_risk = np.sum(time >= t)
-        d = np.sum((time == t) & (indicator == 1))
-        s_left[i] = surv
-        if n_risk > 0:
-            surv *= 1.0 - d / n_risk
-    return times, s_left
+    # One pass over the distinct times; the risk set is a running count.
+    all_times, inv, counts = np.unique(time, return_inverse=True, return_counts=True)
+    d = np.bincount(inv, weights=(indicator == 1), minlength=len(all_times))
+    n_risk = len(time) - (np.cumsum(counts) - counts)
+    keep = d > 0
+    surv = np.cumprod(1.0 - d[keep] / n_risk[keep])
+    s_left = np.ones(int(keep.sum()), dtype=float)
+    s_left[1:] = surv[:-1]
+    return all_times[keep], s_left
 
 
 def _aalen_johansen(

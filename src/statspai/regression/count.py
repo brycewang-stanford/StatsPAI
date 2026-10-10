@@ -746,6 +746,7 @@ def _nb2_fit(
     alpha = max((pearson - 1) / (np.mean(mu)), 0.01)
 
     converged = False
+    ll_prev = -np.inf
     for outer in range(maxiter):
         # Given alpha, IRLS for beta with NB2 weights
         for inner in range(maxiter):
@@ -784,7 +785,14 @@ def _nb2_fit(
         )
         alpha_new = np.exp(res.x)
 
-        if abs(alpha_new - alpha) / (alpha + 1e-12) < tol:
+        # Where the likelihood is flat in the dispersion (data that are not
+        # overdispersed) the bounded search lands on a slightly different
+        # point each round and the dispersion never settles to ``tol``,
+        # though nothing is being gained: stop when the likelihood stops.
+        ll_new = -float(res.fun)
+        stalled = abs(ll_new - ll_prev) <= 1e-8 * (1.0 + abs(ll_new))
+        ll_prev = ll_new
+        if stalled or abs(alpha_new - alpha) / (alpha + 1e-12) < tol:
             converged = True
             alpha = alpha_new
             break
@@ -816,6 +824,7 @@ def _nb1_fit(
     delta = max(pearson - 1, 0.01)
 
     converged = False
+    ll_prev = -np.inf
     for outer in range(maxiter):
         for inner in range(maxiter):
             eta = X @ beta + offset
@@ -851,7 +860,10 @@ def _nb1_fit(
         )
         delta_new = np.exp(res.x)
 
-        if abs(delta_new - delta) / (delta + 1e-12) < tol:
+        ll_new = -float(res.fun)
+        stalled = abs(ll_new - ll_prev) <= 1e-8 * (1.0 + abs(ll_new))
+        ll_prev = ll_new
+        if stalled or abs(delta_new - delta) / (delta + 1e-12) < tol:
             converged = True
             delta = delta_new
             break

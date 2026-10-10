@@ -368,9 +368,11 @@ def _fit_ivqreg_one(
         try:
             # Coefficient on D proxy: regress Y on D with X,Z partialled out
             X_all = np.column_stack([X, Z])
-            P = X_all @ np.linalg.pinv(X_all.T @ X_all) @ X_all.T
-            Y_p = Y - P @ Y
-            D_p = D[:, 0] - P @ D[:, 0]
+            # residual maker applied to the two vectors, never formed: the
+            # n x n projection is 320 GB at n = 200,000
+            XtX_inv = np.linalg.pinv(X_all.T @ X_all)
+            Y_p = Y - X_all @ (XtX_inv @ (X_all.T @ Y))
+            D_p = D[:, 0] - X_all @ (XtX_inv @ (X_all.T @ D[:, 0]))
             slope = float(D_p @ Y_p / (D_p @ D_p + 1e-12))
         except Exception as exc:
             from ..core._fallback import warn_fallback

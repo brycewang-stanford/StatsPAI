@@ -37,8 +37,9 @@ def _newey_west_se(
 ) -> np.ndarray:
     """Compute HAC (Newey-West) covariance matrix and return SEs."""
     n, k = X.shape
-    W = np.diag(weights)
-    XtWX = X.T @ W @ X
+    # X'W without the n x n diagonal; row-major, as X.T @ diag(w) returns it,
+    # so the products below round the same way
+    XtWX = np.ascontiguousarray(X.T * weights) @ X
     try:
         XtWX_inv = np.linalg.inv(XtWX)
     except np.linalg.LinAlgError:  # pragma: no cover

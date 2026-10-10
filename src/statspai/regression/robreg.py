@@ -345,11 +345,14 @@ def _s_estimate(
 
 def _lad(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Least absolute deviations by linear programming."""
+    from scipy import sparse
     from scipy.optimize import linprog
 
     n, p = X.shape
     cost = np.concatenate([np.zeros(p), np.ones(2 * n)])
-    A_eq = np.hstack([X, np.eye(n), -np.eye(n)])
+    # the two identity blocks stored sparse: 2n nonzeros, not 2n^2 entries
+    eye = sparse.identity(n, format="csc")
+    A_eq = sparse.hstack([sparse.csc_matrix(X), eye, -eye], format="csc")
     bounds = [(None, None)] * p + [(0, None)] * (2 * n)
     res = linprog(cost, A_eq=A_eq, b_eq=y, bounds=bounds, method="highs")
     if not res.success:

@@ -537,9 +537,11 @@ def _qreg_coef(
         resid = y - X @ beta
         # Weights: avoid division by zero
         w = np.where(resid > 0, tau, 1 - tau) / np.maximum(np.abs(resid), 1e-8)
-        W = np.diag(w)
+        # X'W without the n x n diagonal; row-major, as X.T @ diag(w) returns it,
+        # so the products below round the same way
+        XtW = np.ascontiguousarray(X.T * w)
         try:
-            beta_new = np.linalg.solve(X.T @ W @ X, X.T @ W @ y)
+            beta_new = np.linalg.solve(XtW @ X, XtW @ y)
         except np.linalg.LinAlgError:
             break
         if np.max(np.abs(beta_new - beta)) < tol:
