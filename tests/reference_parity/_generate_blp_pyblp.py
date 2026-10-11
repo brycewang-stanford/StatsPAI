@@ -30,6 +30,12 @@ Conventions pinned
 * pyblp's objective is ``N * gbar' W gbar``; StatsPAI's ``gmm_objective`` is
   ``(Z'xi)' W (Z'xi) = N^2 gbar' W gbar`` -- the test compares
   ``gmm_objective / N``.
+* diversion ratios and markups: pyblp puts the diversion to the outside good
+  on the diagonal of ``compute_diversion_ratios()``; markups are
+  ``prices - compute_costs()`` with two firms per market (``firm_ids``
+  below: products alternate), multi-product Bertrand pricing.
+* a second estimation puts random coefficients on the constant and ``x1``
+  (``est_const_x1``), nodes column 0 for the constant.
 * elasticities at FIXED parameters (``sigma = diag(1.0, 0.3)`` on
   ``[x1, prices]``, ``beta = (1, 1, -2)``; ``optimization='return'`` with
   beta pinned by equal bounds): the price random coefficient enters every
@@ -55,12 +61,35 @@ R_DRAWS, SEED = 100, 7
 pyblp.options.verbose = False
 
 
+def firm_ids(d: pd.DataFrame) -> np.ndarray:
+    """Two firms per market: products alternate between them."""
+    return (d["product_id"].to_numpy() % 2).astype(int)
+
+
+def _stacked(M: np.ndarray, d: pd.DataFrame, market: int) -> np.ndarray:
+    """One market's block of a pyblp ``(N, max J)`` stacked matrix."""
+    rows = np.where(d["market_id"].to_numpy() == market)[0]
+    return M[rows][:, : len(rows)]
+
+
+def _post(res: "pyblp.ProblemResults", d: pd.DataFrame) -> dict:
+    """Diversion ratios (outside good on the diagonal) and Bertrand markups."""
+    div = res.compute_diversion_ratios()
+    costs = res.compute_costs()
+    return {
+        "diversion_market0": _stacked(div, d, 0).tolist(),
+        "diversion_market3": _stacked(div, d, 3).tolist(),
+        "markups": (d["price"].to_numpy() - costs.ravel()).tolist(),
+    }
+
+
 def _problem(d: pd.DataFrame, rc: list, draws: np.ndarray) -> pyblp.Problem:
     pdd = d.rename(
         columns={"market_id": "market_ids", "share": "shares", "price": "prices"}
     )
     for k, c in enumerate(IV):
         pdd[f"demand_instruments{k}"] = d[c]
+    pdd["firm_ids"] = firm_ids(d)
     mk = np.unique(d["market_id"])
     agent = pd.DataFrame(
         {"market_ids": np.repeat(mk, len(draws)), "weights": 1.0 / len(draws)}
@@ -70,7 +99,7 @@ def _problem(d: pd.DataFrame, rc: list, draws: np.ndarray) -> pyblp.Problem:
     return pyblp.Problem(
         (
             pyblp.Formulation("1 + x1 + prices"),
-            pyblp.Formulation("0 + " + " + ".join(rc)),
+            pyblp.Formulation(" + ".join(rc) if "1" in rc else "0 + " + " + ".join(rc)),
         ),
         pdd,
         agent_data=agent,
@@ -121,6 +150,28 @@ def main() -> None:
         "delta": res.delta.ravel().tolist(),
         "own_elasticities": own,
         "elasticities_market0": E[rows0][:, : len(rows0)].tolist(),
+        **_post(res, d),
+    }
+
+    # ---- estimation, random coefficients on the constant and x1 -------------
+    draws_c = _halton_sequence(R_DRAWS, 2, seed=SEED)
+    res_c = _problem(d, ["1", "x1"], draws_c).solve(
+        sigma=0.5 * np.eye(2),
+        method="2s",
+        center_moments=False,
+        W_type="robust",
+        se_type="robust",
+        optimization=pyblp.Optimization("l-bfgs-b", {"gtol": 1e-12, "ftol": 0}),
+        iteration=pyblp.Iteration("squarem", {"atol": 1e-14}),
+    )
+    out["est_const_x1"] = {
+        "beta": res_c.beta.ravel().tolist(),
+        "beta_se": res_c.beta_se.ravel().tolist(),
+        "sigma": np.diag(res_c.sigma).tolist(),
+        "sigma_se": np.diag(res_c.sigma_se).tolist(),
+        "objective": float(np.squeeze(res_c.objective)),
+        "converged": bool(res_c.converged),
+        **_post(res_c, d),
     }
 
     # ---- elasticities at fixed parameters, random coefficient on price -------
@@ -147,6 +198,7 @@ def main() -> None:
         "delta": res2.delta.ravel().tolist(),
         "own_elasticities": own2,
         "elasticities_market0": E2[rows0][:, : len(rows0)].tolist(),
+        **_post(res2, d),
     }
 
     (FIX / "blp_pyblp.json").write_text(

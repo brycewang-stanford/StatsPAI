@@ -5,6 +5,36 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## After 1.39.4: ⚠️ `sp.blp` diversion ratios, standard errors and outer loop
+
+**What changed.**
+
+- **`result.diversion_ratios()` returned wrong numbers.** It divided
+  elasticities where it should divide share derivatives, so every entry
+  was off by the factor `s_j / s_k`. Recompute any diversion ratio taken
+  from this method. Ratios computed by hand from
+  `result.elasticity_matrix()` are unaffected.
+- **Standard errors change when a standard deviation is estimated at
+  zero.** That parameter now has a NaN standard error and is held fixed
+  for the others, which get smaller. Fits with every standard deviation
+  away from zero keep their standard errors.
+- **Point estimates can change.** The default outer loop is L-BFGS-B
+  from four starting points. Where Nelder-Mead had converged to the
+  lowest minimum the estimates agree to the tolerance it was run at (on
+  the automobile data the largest standard deviation is 3.833, against
+  3.841 after 3,000 Nelder-Mead iterations). Where it had stopped early
+  or in a higher local minimum, the new fit has a lower objective and
+  different estimates.
+
+The logit and nested logit (`x_random=[]`) have no outer loop and are
+unchanged.
+
+**What to do.** Refit. To reproduce an earlier fit pass
+`optimizer='nelder-mead'` with the `maxiter` used then; the standard
+errors at a zero bound and the diversion ratios will still be the new
+ones. Compare `model_info['starts']` to see whether the starting point
+mattered for your data.
+
 ## 1.39.4 → next: ⚠️ `rho` of the production-function estimators
 
 **What changed.** `result.productivity_process["rho"]` and

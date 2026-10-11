@@ -78,6 +78,63 @@ panel are unchanged to seven digits.
   assumptions the moment conditions do not pin the capital and materials
   coefficients down (estimates between -42 and 34 for truths 0.2 and 0.5).
 
+### `sp.blp` with random coefficients, after a replication of BLP (1995)
+
+A replication of the demand side of Berry, Levinsohn and Pakes (1995) on
+the public automobile data took 44 minutes to fit and had to compute its
+own diversion ratios and markups. The logit side of that work is the
+section below.
+
+#### ⚠️ Correctness
+
+- **`BLPResult.diversion_ratios()`** divided cross-price by own-price
+  elasticities, which leaves out the share ratio `s_k / s_j`. Rows summed
+  to as much as 3.4 on the automobile data. It now divides share
+  derivatives, `(ds_k/dp_j) / (-ds_j/dp_j)`, and agrees with pyblp to
+  1e-7. `include_outside=True` adds the fraction that leaves the market.
+  A product whose demand slopes up gets NaN and a warning.
+- **Standard errors with a standard deviation estimated at zero.** At
+  zero the derivative of mean utility in that parameter vanishes, and the
+  sandwich divided by it. On the automobile data three such parameters
+  had standard errors from 1.7 to 35 and inflated every other standard
+  error (the mean price coefficient 0.156, now 0.054). The parameter is
+  now held at its bound: its standard error is NaN, the others are those
+  of the model without that random coefficient, and
+  `model_info['sigma_at_bound']` names it.
+
+#### Changed
+
+- **Outer loop.** L-BFGS-B with the analytic gradient and `sigma >= 0`
+  replaces Nelder-Mead, and the share inversion is accelerated market by
+  market. The main specification of the replication (five random
+  coefficients, 500 draws, 2,217 products) takes 20 seconds, down from 44
+  minutes. Against pyblp on shared integration nodes the estimates now
+  agree to 1e-12 (1e-8 before). `optimizer='nelder-mead'` keeps the old
+  search.
+- **Several starting points.** The first GMM step runs from four starts
+  (`n_starts=4`) and keeps the lowest objective. On the automobile data
+  the single start at 0.5 ends in a local minimum 7% above the best one.
+  `sigma0=` sets the first start.
+- `result.model_info` reports the starts and the objective each reached,
+  the projected gradient and the number of objective evaluations. With a
+  random coefficient on price it also reports the share of simulated
+  consumers with a positive price coefficient, and the fit warns when
+  products have a positive own-price elasticity. A fit whose outer loop
+  did not converge raises a `ConvergenceWarning`.
+
+#### Added
+
+- `x_random` accepts `"const"`, a random coefficient on the intercept.
+  It governs substitution to the outside good. Checked against pyblp
+  (`X2 = 1 + x1`) to 1e-5.
+- `BLPResult.markups()` and `.marginal_costs()` solve the multi-product
+  Bertrand first-order conditions, with firms from `firm_id=` or
+  `firm_ids=`. They work for the logit and nested logit as well. Checked
+  against pyblp to 1e-6.
+
+Not done: consumer demographics (the income term of the paper), a jointly
+estimated supply side, lognormal coefficients.
+
 ### Demand estimation: the logit and nested logit of Berry (1994)
 
 #### Added

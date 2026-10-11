@@ -23,9 +23,12 @@ Conventions each number depends on
   steps); ``sp.blp().gmm_objective`` is ``N^2 gbar'W gbar``. Compared as
   ``gmm_objective / N``.
 * Tolerance 1e-6 rel on beta, sigma, their SEs, the objective and own-price
-  elasticities (observed ~1e-8): both sides stop an optimiser (StatsPAI
-  Nelder-Mead at ``tol_outer=1e-10``, pyblp L-BFGS-B at projected-gradient
-  ~1e-10); mean utilities 1e-6 absolute.
+  elasticities (observed ~1e-12): both sides stop an optimiser (L-BFGS-B
+  with the analytic gradient on both; ``optimizer='nelder-mead'``, the
+  outer loop before October 2026, reaches ~1e-8); mean utilities 1e-6
+  absolute.
+* Diversion ratios and markups (two firms per market, multi-product
+  Bertrand): 1e-7 / 1e-6 at the estimates, 1e-8 at fixed parameters.
 * Elasticities with a random PRICE coefficient are checked at fixed
   parameters (sigma = (1.0, 0.3) on (x1, price), beta = (1, 1, -2)), through
   StatsPAI's own contraction and elasticity routine: 1e-8.
@@ -76,7 +79,6 @@ def fit(data):
             instruments=IV,
             n_draws=REF["n_draws"],
             seed=REF["seed"],
-            maxiter=3000,
             tol_outer=1e-10,
         )
 
@@ -170,3 +172,108 @@ def test_elasticity_identity_plain_logit(data):
     i0 = np.where(mk == 0)[0]
     expect = -2.0 * (np.diag(p[i0]) - np.outer(np.ones(len(i0)), p[i0] * s[i0]))
     np.testing.assert_allclose(E[0], expect, rtol=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# Diversion ratios, markups, a random coefficient on the constant
+# ---------------------------------------------------------------------------
+
+
+def _firms(data):
+    """Same rule as ``_generate_blp_pyblp.firm_ids``."""
+    return (data["product_id"].to_numpy() % 2).astype(int)
+
+
+def _check_diversion(D, ref_block, tol):
+    """pyblp keeps the diversion to the outside good on the diagonal."""
+    ref_block = np.array(ref_block)
+    inside = ref_block.copy()
+    np.fill_diagonal(inside, 0.0)
+    assert np.max(np.abs(D.drop(columns="outside").to_numpy() - inside)) < tol
+    assert np.max(np.abs(D["outside"].to_numpy() - np.diag(ref_block))) < tol
+
+
+def test_diversion_ratios(fit):
+    """Regression: the method divided elasticities, dropping ``s_k / s_j``."""
+    ref = REF["est_x1"]
+    for m in (0, 3):
+        D = fit.diversion_ratios(m, include_outside=True)
+        _check_diversion(D, ref[f"diversion_market{m}"], 1e-7)
+        np.testing.assert_allclose(D.sum(axis=1), 1.0, rtol=0, atol=1e-12)
+
+
+def test_markups(fit, data):
+    ref = REF["est_x1"]
+    mk = fit.markups(firm_ids=_firms(data))
+    assert _rel(mk.to_numpy(), ref["markups"]) < 1e-6
+    mc = fit.marginal_costs(firm_ids=_firms(data))
+    np.testing.assert_allclose(
+        mc.to_numpy(), data["price"].to_numpy() - mk.to_numpy(), rtol=0, atol=1e-12
+    )
+
+
+def test_diversion_and_markups_with_random_price_coefficient(data):
+    """Fixed parameters, random coefficient on price: 1e-8."""
+    from statspai.structural._blp_post import diversion_matrix, firm_markups
+
+    ref = REF["elast_fixed"]
+    draws = np.array(ref["nodes"])
+    sigma = np.array(ref["sigma"])
+    alpha = ref["beta"][2]
+    mk_ids = data["market_id"].to_numpy()
+    s = data["share"].to_numpy()
+    Xr = np.column_stack([data["x1"].to_numpy(), data["price"].to_numpy()])
+    mu = _blp._compute_mu(Xr, sigma, draws)
+    jac = _blp._share_jacobians(
+        np.array(ref["delta"]), mu, alpha, sigma[1], draws, mk_ids, price_draw_col=1
+    )
+    firms = _firms(data)
+    markups = np.empty(len(s))
+    for m in np.unique(mk_ids):
+        i = mk_ids == m
+        markups[i] = firm_markups(jac[m], s[i], firms[i])
+    assert _rel(markups, ref["markups"]) < 1e-8
+    for m in (0, 3):
+        D, outside, undefined = diversion_matrix(jac[m])
+        assert not undefined.any()
+        block = np.array(ref[f"diversion_market{m}"])
+        assert np.max(np.abs(outside - np.diag(block))) < 1e-8
+        np.fill_diagonal(block, 0.0)
+        assert np.max(np.abs(D - block)) < 1e-8
+
+
+def test_random_coefficient_on_the_constant(data):
+    """``x_random=['const', 'x1']`` against pyblp ``X2 = 1 + x1``.
+
+    The standard deviation on the constant is weakly identified here (pyblp
+    SE 2.5 on an estimate of 0.13), so the objective is flat in it: the two
+    optimisers stop 2e-7 apart on that parameter (1e-9 on the others), and
+    the standard errors, which are functions of it, 1.4e-6 apart. Hence
+    1e-5 on everything that depends on that parameter, 1e-6 on the rest.
+    """
+    ref = REF["est_const_x1"]
+    assert ref["converged"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit_c = sp.blp(
+            data,
+            shares="share",
+            prices="price",
+            x_linear=["x1"],
+            x_random=["const", "x1"],
+            instruments=IV,
+            n_draws=REF["n_draws"],
+            seed=REF["seed"],
+            tol_outer=1e-11,
+        )
+    assert list(fit_c.nonlinear_params.index) == ["sigma_const", "sigma_x1"]
+    sig = fit_c.nonlinear_params.to_numpy()
+    assert abs(sig[0] - ref["sigma"][0]) < 1e-5
+    assert abs(sig[1] - ref["sigma"][1]) < 1e-6 * ref["sigma"][1]
+    assert _rel(fit_c.linear_params.to_numpy(), ref["beta"]) < 1e-6
+    assert _rel(fit_c.gmm_objective / REF["est_x1"]["N"], ref["objective"]) < 1e-6
+    assert _rel(fit_c.se_linear.to_numpy(), ref["beta_se"]) < 1e-5
+    assert _rel(fit_c.se_nonlinear.to_numpy(), ref["sigma_se"]) < 1e-5
+    D = fit_c.diversion_ratios(0, include_outside=True)
+    _check_diversion(D, ref["diversion_market0"], 1e-5)
+    assert _rel(fit_c.markups(firm_ids=_firms(data)).to_numpy(), ref["markups"]) < 1e-5

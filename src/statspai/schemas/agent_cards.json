@@ -113772,7 +113772,7 @@
     "reference": "@berry1995automobile; @berry1994estimating; @nevo2000practitioner",
     "returns": {
       "class": "BLPResult",
-      "description": "BLPResult: Estimation results including parameters, standard errors, mean utilities, and elasticities.",
+      "description": "BLPResult: Estimation results including parameters, standard errors, mean utilities, and elasticities; diversion_ratios(), markups() and marginal_costs() are computed from them.",
       "fields": {
         "alpha": "float",
         "converged": "bool",
@@ -113785,6 +113785,7 @@
         "linear_params": "pd.Series",
         "mean_utility": "pd.Series",
         "model": "str",
+        "model_info": "Optional[dict]",
         "n_markets": "int",
         "n_products": "int",
         "nonlinear_params": "pd.Series",
@@ -113811,7 +113812,7 @@
             "x-statspai-role": "dataframe"
           },
           "firm_id": {
-            "description": "Column identifying the firm selling each product. Only used to build the default instruments, which then separate the firm's own other products from its rivals' (BLP 1995, section 5.1).",
+            "description": "Column identifying the firm selling each product. Used to build the default instruments, which then separate the firm's own other products from its rivals' (BLP 1995, section 5.1), and by ``result.markups()``.",
             "type": "string"
           },
           "gmm_steps": {
@@ -113847,8 +113848,22 @@
             "description": "Number of quasi-Monte Carlo draws for integration.",
             "type": "integer"
           },
+          "n_starts": {
+            "default": 4,
+            "description": "Number of starting points for the first GMM step. The objective can have several local minima, so the step is run from ``sigma0`` and from ``c / sd(x_k)`` for ``c = 0.05, 0.25, 1, 2`` (as many as ``n_starts - 1``; beyond those, uniform draws on ``[0, 2 / sd(x_k)]`` fixed by ``seed``), and the lowest objective is kept. The second step starts from it. Every start and the objective it reached are in ``model_info['starts']``. Ignored with ``optimizer='nelder-mead'``.",
+            "type": "integer"
+          },
           "nest": {
             "description": "Column identifying the nest of each product. Requires ``x_random=[]``: the nested logit is estimated, the log within-nest share is treated as endogenous, and its coefficient is reported as ``rho`` (0 is the plain logit; towards 1 products of a nest become perfect substitutes).",
+            "type": "string"
+          },
+          "optimizer": {
+            "default": "l-bfgs-b",
+            "description": "Outer-loop optimizer. ``'l-bfgs-b'`` uses the analytic gradient with ``sigma >= 0``. ``'nelder-mead'`` is the derivative-free search used before it, kept to reproduce earlier results; it needs a much larger ``maxiter`` and many more objective evaluations.",
+            "enum": [
+              "l-bfgs-b",
+              "nelder-mead"
+            ],
             "type": "string"
           },
           "prices": {
@@ -113868,6 +113883,13 @@
             "description": "Column name for observed market shares (0 < s < 1).",
             "type": "string"
           },
+          "sigma0": {
+            "description": "Starting values for the random-coefficient standard deviations, in the order of ``x_random`` or keyed by variable name. Default 0.5 each.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "tol_inner": {
             "default": 1e-12,
             "description": "Contraction mapping tolerance.",
@@ -113875,7 +113897,7 @@
           },
           "tol_outer": {
             "default": 1e-06,
-            "description": "Outer-loop GMM tolerance.",
+            "description": "Outer-loop tolerance: with ``optimizer='l-bfgs-b'``, on the projected gradient of the objective divided by ``N``; with ``'nelder-mead'``, on the simplex and the objective.",
             "type": "number"
           },
           "x_linear": {
@@ -113886,7 +113908,7 @@
             "type": "array"
           },
           "x_random": {
-            "description": "Subset of x_linear that also have random coefficients. If None, defaults to all of x_linear. An empty list gives the logit (or, with ``nest``, the nested logit) of Berry (1994).",
+            "description": "Variables with a normally distributed random coefficient: any of ``x_linear``, the price column, and ``\"const\"`` for the intercept (a random taste for the inside goods as a whole, which governs substitution to the outside good). If None, defaults to all of x_linear. An empty list gives the logit (or, with ``nest``, the nested logit) of Berry (1994).",
             "items": {
               "type": "string"
             },
