@@ -5,7 +5,38 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## Unreleased: ⚠️ options off the main path in matching, regression and forests
+## 1.39.3 → 1.39.4: `sp.mixed` and `sp.nbreg` after the speed rewrite
+
+**What changed.** No argument, default or return type changed, and no
+other estimator touched by the speed work returns a different number.
+Two do, by small amounts.
+
+- **`sp.mixed`.** The likelihood is evaluated from per-group summaries
+  and rounds differently. When every variance component is away from
+  zero and every correlation away from one, fixed effects, standard
+  errors, variance components and BLUPs move by less than 1e-6 relative.
+  When the optimum is on the boundary (a variance at zero, a correlation
+  at one), and in the three-level model, the likelihood is flat and the
+  optimiser stops at a slightly different point: variance components
+  can differ by up to 2e-4 relative, fixed-effect standard errors by up
+  to 8e-5, BLUPs by up to 9e-5. Where the residual variance is far below
+  the random-effect variance the old likelihood was itself off by up to
+  1e-7; the new one is accurate to 3e-13.
+- **`sp.nbreg`.** Fits with overdispersion are unchanged (1e-14). On
+  data with no overdispersion the outer loop used to run its 100 rounds
+  and warn "did not converge"; it now stops when the likelihood stops
+  moving, `model_info['converged']` is `True` and the warning is gone.
+  Coefficients on such data move by 1e-7 or less. The standard error of
+  the log dispersion can differ, because the dispersion is not
+  identified at its lower bound.
+
+**What to do.** Nothing for results reported to four or five digits. A
+test that pins `sp.mixed` output of a boundary fit or of a three-level
+model tighter than 1e-3 may need its reference value refreshed. Code
+that treated the `sp.nbreg` non-convergence warning as a sign of
+Poisson-like data should test the fitted dispersion instead.
+
+## 1.39.3 → 1.39.4: ⚠️ options off the main path in matching, regression and forests
 
 **What changed.** These calls returned a different number before; the
 list is by what to recompute.

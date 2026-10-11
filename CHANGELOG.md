@@ -2,7 +2,19 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.39.4] — 2026-10-11
+
+Two passes over the package. The first wrote tests for the options and
+inputs around each estimator's main path in matching, regression and the
+forests, and found about forty defects. Several returned a wrong number
+without saying so: the JIVE methods of `sp.iv`, `sp.glm(robust='hac')`,
+standard errors of `sp.match` off the propensity-score ATT path, and the
+default dispersion of gamma and inverse-Gaussian GLMs. MIGRATION.md says
+which results to recompute. The second timed every public estimator at
+three sample sizes and rewrote the ones whose cost grew faster than the
+data; those results are bit-identical unless the entry says otherwise.
+Results on the main paths are unchanged. The JSS manuscript stays
+anchored to 1.39.1.
 
 ### Speed: estimators whose cost grew faster than the data
 

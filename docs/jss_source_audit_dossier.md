@@ -49,9 +49,9 @@ reference parity harness.
 
 The source-snapshot evidence audit checks that all 951 certified/validated symbols
 have registry-attached evidence notes and that those notes resolve to source
-files included in the JSS package. The current archive includes 689
+files included in the JSS package. The current archive includes 690
 registry-evidence source files.
-The current source snapshot also tracks 689 registry-evidence source files
+The current source snapshot also tracks 690 registry-evidence source files
 in the live validation-note inventory.
 
 ## Reproducible Audit Artifacts
