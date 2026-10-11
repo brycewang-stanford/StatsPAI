@@ -31,6 +31,27 @@ Rules:
 
 ## Entries
 
+### 2026-10-12 — call traces re-recorded after `sp.ctree` was exported
+
+- **Commits.** `d24210d5` re-recorded the entries of Track A modules 03, 13,
+  15, 24, 25, 26, 27, 53, 65 and 66 in
+  `tests/r_parity/results/_implementation_trace.json` and of
+  original-data module 08 in
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in the same commit: `src/statspai/__init__.py` (two new
+  exported names, `ctree` and `CTreeResult`).
+- **Reason.** Conditional inference trees, and the per-fold refit in the
+  cross-validation of `sp.lasso_select` (CHANGELOG, Unreleased).
+- **Effect on the paper.** None. The ten Track A modules were re-run first
+  and reproduce their committed results exactly; the original-data module
+  is byte-identical. In both trace files only the digest of
+  `src/statspai/__init__.py` and `seconds` differ. `sp.lasso_select` is
+  not on the estimation path of any parity module. The registry census
+  moves to 1,566 registered functions across 90 submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-12 — call traces re-recorded after `sp.blp_instruments` was exported
 
 - **Commits.** `1cf8f5af` re-recorded the entries of Track A modules 03, 13,
