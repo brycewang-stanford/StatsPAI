@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-12 — call traces re-recorded after `sp.blp_instruments` was exported
+
+- **Commits.** `1cf8f5af` re-recorded the entries of Track A modules 03, 13,
+  15, 24, 25, 26, 27, 53, 65 and 66 in
+  `tests/r_parity/results/_implementation_trace.json` and of
+  original-data module 08 in
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in the same commit: `src/statspai/__init__.py` (one new
+  exported name).
+- **Reason.** The logit and nested logit of Berry (1994) in `sp.blp`, and
+  `sp.blp_instruments` (CHANGELOG, Unreleased).
+- **Effect on the paper.** None. No estimation path of a Track A or
+  original-data module changed; in both trace files only the digest of
+  `src/statspai/__init__.py` and `seconds` differ. The registry census
+  moves to 1,564 registered functions across 90 submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-11 — release 1.39.4: parity tables carry the new version string
 
 - **Commits.** `f3cefc88` (release 1.39.4) regenerated
