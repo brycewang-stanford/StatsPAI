@@ -117,7 +117,9 @@ def test_twfe_demeaning_is_one_unit_sweep_then_one_period_sweep(weighted):
         w[d["id"].to_numpy() == 3] = 0.0  # zero-weight unit: plain mean
     cols = ["y", "x1", "treated"]
 
-    want = d[cols].to_numpy(dtype=float)
+    # a copy: under copy-on-write (pandas 3) to_numpy can hand back a
+    # read-only view of the frame, and the loop below demeans in place
+    want = d[cols].to_numpy(dtype=float).copy()
     for ids in (d["id"].to_numpy(), d["t"].to_numpy()):
         for g in np.unique(ids):
             m = ids == g
