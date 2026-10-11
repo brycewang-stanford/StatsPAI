@@ -68,7 +68,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `metalearners` | 5,242 | 10 | 25 |
 | `mendelian` | 5,187 | 13 | 41 |
 | `frontier` | 4,986 | 8 | 12 |
-| `structural` | 4,974 | 12 | 14 |
+| `structural` | 5,488 | 12 | 15 |
 | `utils` | 4,868 | 11 | 35 |
 | `survival` | 4,531 | 6 | 15 |
 | `workflow` | 4,512 | 5 | 3 |

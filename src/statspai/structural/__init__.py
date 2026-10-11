@@ -1,6 +1,6 @@
 """Structural estimation methods."""
 
-from .blp import BLPResult, blp
+from .blp import BLPResult, blp, blp_instruments
 from .path_analysis import PathAnalysisResult, path_analysis
 from .production import (
     ProductionResult,
@@ -19,6 +19,7 @@ __all__ = [
     "path_analysis",
     "PathAnalysisResult",
     "blp",
+    "blp_instruments",
     "BLPResult",
     "prod_fn",
     "olley_pakes",

@@ -18,10 +18,22 @@ Estimation proceeds in two nested loops:
 1. Inner loop: BLP contraction mapping to recover mean utilities δ
 2. Outer loop: GMM over nonlinear parameters σ (random coefficient std devs)
 
+Without random coefficients the inversion has the closed form of Berry
+(1994) and the model is a linear IV regression:
+
+    ln s_j - ln s_0 = x_j'β + α p_j + ξ_j                      (logit)
+    ln s_j - ln s_0 = x_j'β + α p_j + ρ ln s_{j|g} + ξ_j       (nested logit)
+
+``sp.blp(..., x_random=[])`` estimates the first and ``nest=`` the second.
+
 References
 ----------
 Berry, S., Levinsohn, J., & Pakes, A. (1995). Automobile Prices in Market
 Equilibrium. Econometrica, 63(4), 841-890. [@berry1995automobile]
+
+Berry, S. T. (1994). Estimating Discrete-Choice Models of Product
+Differentiation. RAND Journal of Economics, 25(2), 242-262.
+[@berry1994estimating]
 
 Nevo, A. (2000). A Practitioner's Guide to Estimation of Random-Coefficients
 Logit Models of Demand. Journal of Economics & Management Strategy, 9(4), 513-548. [@nevo2000practitioner]
@@ -37,7 +49,9 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._collinear import independent_columns
 from ..core.results import EconometricResults
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # ---------------------------------------------------------------------------
 # Halton sequence generator for quasi-Monte Carlo integration
@@ -80,6 +94,8 @@ def _halton_sequence(n: int, dim: int, seed: int | None = None) -> np.ndarray:
             seq[i] = r
         return seq
 
+    if dim == 0:
+        return np.zeros((n, 0))
     rng = np.random.default_rng(seed)
     draws = np.column_stack([_halton_1d(n, primes[d]) for d in range(dim)])
 
@@ -98,47 +114,121 @@ def _halton_sequence(n: int, dim: int, seed: int | None = None) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-def _build_blp_instruments(
-    data: pd.DataFrame, x_cols: list, market_id: str, product_id: str
-) -> np.ndarray:
+def _group_sum(values: np.ndarray, *keys: np.ndarray) -> np.ndarray:
+    """Sum of each column of ``values`` within the cells of ``keys``."""
+    frame = pd.DataFrame(values)
+    by = [pd.Series(k).reset_index(drop=True) for k in keys]
+    return np.asarray(frame.groupby(by, sort=False).transform("sum"), dtype=float)
+
+
+def blp_instruments(
+    data: pd.DataFrame,
+    x: list,
+    market_id: str = "market_id",
+    firm_id: Optional[str] = None,
+    nest: Optional[str] = None,
+    count: bool = True,
+) -> pd.DataFrame:
     """
-    Construct standard BLP instruments: for each product j in market t,
-    instruments are (1) own characteristics, (2) sum of rival characteristics
-    in the same market.
+    Characteristics-based instruments for differentiated-products demand.
+
+    For every characteristic in ``x`` (and the product count), the sums over
+    the *other* products a product competes with in its market: the firm's
+    own other products and its rivals' products when ``firm_id`` is given
+    (Berry, Levinsohn & Pakes 1995, section 5.1), all other products in the
+    market otherwise. With ``nest`` the sums over the other products of the
+    same nest are added; they move the within-nest share of a nested logit.
 
     Parameters
     ----------
     data : pd.DataFrame
-    x_cols : list of str
-        Characteristic columns (excluding price).
-    market_id : str
-    product_id : str
+        One row per product and market.
+    x : list of str
+        Exogenous product characteristics (not the price).
+    market_id : str, default 'market_id'
+        Column identifying markets.
+    firm_id : str, optional
+        Column identifying the firm that sells each product. With it the
+        market sum is split into ``own_<x>`` (the firm's other products) and
+        ``rival_<x>`` (other firms' products).
+    nest : str, optional
+        Column identifying the nest of each product; adds ``nest_<x>``, the
+        sum over the other products of the same nest and market.
+    count : bool, default True
+        Also build the sums of a constant, i.e. the number of other
+        products (``own_count``, ``rival_count``, ``nest_count``).
 
     Returns
     -------
-    np.ndarray
-        Instrument matrix (N, 2*K) where K = len(x_cols).
+    pd.DataFrame
+        One column per instrument, indexed like ``data``. The columns can be
+        passed to ``sp.blp(instruments=...)`` or written into an ``sp.iv``
+        formula. A column that does not vary within the data (a rival count
+        when every market has the same number of products, say) is still
+        returned; ``sp.blp`` drops redundant instruments itself.
+
+    Notes
+    -----
+    The instruments are valid when a product's unobserved quality is mean
+    independent of the observed characteristics of all products in its
+    market. They say nothing about whether that holds; an overidentification
+    test after estimation is the usual check.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import pandas as pd
+    >>> df = pd.DataFrame({
+    ...     "market_id": [1, 1, 1, 2, 2],
+    ...     "firm": ["a", "a", "b", "a", "b"],
+    ...     "size": [1.0, 2.0, 4.0, 3.0, 5.0],
+    ... })
+    >>> z = sp.blp_instruments(df, ["size"], firm_id="firm")
+    >>> z["own_size"].tolist()
+    [2.0, 1.0, 0.0, 0.0, 0.0]
+    >>> z["rival_size"].tolist()
+    [4.0, 4.0, 3.0, 5.0, 3.0]
+    >>> z["rival_count"].tolist()
+    [1.0, 1.0, 2.0, 1.0, 1.0]
+
+    References
+    ----------
+    [@berry1995automobile]
     """
-    N = len(data)
-    K = len(x_cols)
-    X = data[x_cols].values
-    markets = data[market_id].values
-
-    # Sum of all characteristics in market (including own)
-    market_sums = np.zeros((N, K))
-    unique_markets = np.unique(markets)
-    market_indices = {m: np.where(markets == m)[0] for m in unique_markets}
-
-    for m, idx in market_indices.items():
-        market_sum = X[idx].sum(axis=0)
-        market_sums[idx] = market_sum
-
-    # Rival sum = market sum - own
-    rival_sums = market_sums - X
-
-    # Instruments: own X and rival sums
-    instruments = np.column_stack([X, rival_sums])
-    return instruments
+    x = list(x)
+    needed = [market_id] + x + [c for c in (firm_id, nest) if c is not None]
+    missing = [c for c in needed if c not in data.columns]
+    if missing:
+        raise ValueError(f"Columns not found in data: {missing}")
+    names = (["count"] if count else []) + [str(c) for c in x]
+    if not names:
+        raise MethodIncompatibility(
+            "blp_instruments needs at least one characteristic in x."
+        )
+    X = data[x].to_numpy(dtype=float).reshape(len(data), len(x))
+    if count:
+        X = np.column_stack([np.ones(len(data)), X])
+    if not np.all(np.isfinite(X)):
+        raise DataInsufficient(
+            "blp_instruments: the characteristics contain missing values."
+        )
+    market = data[market_id].to_numpy()
+    market_sum = _group_sum(X, market)
+    out = {}
+    if firm_id is None:
+        for k, name in enumerate(names):
+            out[f"rival_{name}"] = market_sum[:, k] - X[:, k]
+    else:
+        firm_sum = _group_sum(X, market, data[firm_id].to_numpy())
+        for k, name in enumerate(names):
+            out[f"own_{name}"] = firm_sum[:, k] - X[:, k]
+        for k, name in enumerate(names):
+            out[f"rival_{name}"] = market_sum[:, k] - firm_sum[:, k]
+    if nest is not None:
+        nest_sum = _group_sum(X, market, data[nest].to_numpy())
+        for k, name in enumerate(names):
+            out[f"nest_{name}"] = nest_sum[:, k] - X[:, k]
+    return pd.DataFrame(out, index=data.index)
 
 
 # ---------------------------------------------------------------------------
@@ -403,9 +493,49 @@ def _compute_elasticities(
     return elasticities
 
 
+def _nested_logit_elasticities(
+    shares: np.ndarray,
+    within: np.ndarray,
+    prices: np.ndarray,
+    alpha: float,
+    rho: float,
+    market_ids: np.ndarray,
+    nests: np.ndarray,
+) -> dict:
+    """
+    Price elasticities of the one-level nested logit (Berry 1994).
+
+    With ``alpha`` the coefficient on price, ``s_{j|g}`` the within-nest
+    share and ``rho`` the nesting parameter,
+
+        E_jj = alpha p_j [1/(1-rho) - rho/(1-rho) s_{j|g} - s_j]
+        E_jk = -alpha p_k [rho/(1-rho) s_{k|g} + s_k]     (k in the nest of j)
+        E_jk = -alpha p_k s_k                             (other nests)
+
+    ``rho = 0`` gives the plain logit.
+    """
+    out = {}
+    r = rho / (1.0 - rho)
+    for m in np.unique(market_ids):
+        idx = np.where(market_ids == m)[0]
+        s, w, p = shares[idx], within[idx], prices[idx]
+        same = nests[idx][:, None] == nests[idx][None, :]
+        E = -alpha * p[None, :] * (s[None, :] + r * w[None, :] * same)
+        E[np.diag_indices(len(idx))] = alpha * p * (1.0 / (1.0 - rho) - r * w - s)
+        out[m] = E
+    return out
+
+
 # ---------------------------------------------------------------------------
 # BLPResult
 # ---------------------------------------------------------------------------
+
+
+_MODEL_TITLES = {
+    "random_coefficients": "BLP Random-Coefficients Logit",
+    "logit": "Logit (Berry 1994)",
+    "nested_logit": "Nested Logit (Berry 1994)",
+}
 
 
 class BLPResult(ResultProtocolMixin):
@@ -436,6 +566,19 @@ class BLPResult(ResultProtocolMixin):
         ``N * gbar' W gbar`` (the value pyblp reports).
     converged : bool
         Whether the outer-loop optimization converged.
+    model : str
+        ``'random_coefficients'``, ``'logit'`` or ``'nested_logit'``.
+    rho : float or None
+        Nesting parameter of the nested logit (also in ``nonlinear_params``).
+    instruments : list of str
+        Excluded instruments the moments were built from.
+    omitted_instruments : list of dict
+        Instruments dropped as redundant, ``{'variable', 'reason'}`` each.
+    gmm_steps : int
+        1 (weighting matrix ``(Z'Z)^{-1}``, the 2SLS weighting) or 2.
+    hansen_j, hansen_df, hansen_p : float, int, float
+        Hansen's test of the overidentifying restrictions after two-step
+        GMM; ``None`` after one step or when the model is just identified.
 
     Examples
     --------
@@ -483,6 +626,14 @@ class BLPResult(ResultProtocolMixin):
         _product_ids: np.ndarray,
         _data_index: pd.Index,
         alpha: float,
+        model: str = "random_coefficients",
+        rho: Optional[float] = None,
+        instruments: Optional[list] = None,
+        omitted_instruments: Optional[list] = None,
+        gmm_steps: int = 2,
+        hansen_j: Optional[float] = None,
+        hansen_df: Optional[int] = None,
+        hansen_p: Optional[float] = None,
     ):
         self.linear_params = linear_params
         self.nonlinear_params = nonlinear_params
@@ -499,6 +650,14 @@ class BLPResult(ResultProtocolMixin):
         self._product_ids = _product_ids
         self._data_index = _data_index
         self._alpha = alpha
+        self.model = model
+        self.rho = rho
+        self.instruments = list(instruments or [])
+        self.omitted_instruments = list(omitted_instruments or [])
+        self.gmm_steps = gmm_steps
+        self.hansen_j = hansen_j
+        self.hansen_df = hansen_df
+        self.hansen_p = hansen_p
 
     # ---- Summary ----------------------------------------------------------
 
@@ -507,7 +666,7 @@ class BLPResult(ResultProtocolMixin):
         width = 72
         lines = []
         lines.append("=" * width)
-        lines.append("BLP Random-Coefficients Logit Demand Estimation".center(width))
+        lines.append(f"{_MODEL_TITLES[self.model]} Demand Estimation".center(width))
         lines.append("=" * width)
         lines.append(
             f"  Markets: {self.n_markets:<10}  Products (total obs): {self.n_products}"
@@ -516,6 +675,15 @@ class BLPResult(ResultProtocolMixin):
             f"  GMM Objective: {self.gmm_objective:.6f}"
             f"    Converged: {self.converged}"
         )
+        lines.append(
+            f"  GMM steps: {self.gmm_steps:<8}  "
+            f"Excluded instruments: {len(self.instruments)}"
+        )
+        if self.hansen_j is not None:
+            lines.append(
+                f"  Hansen J: {self.hansen_j:.3f}  (df {self.hansen_df}, "
+                f"p = {self.hansen_p:.4f})"
+            )
         lines.append("-" * width)
 
         # Linear parameters table
@@ -541,9 +709,13 @@ class BLPResult(ResultProtocolMixin):
 
         # Nonlinear parameters table
         if len(self.nonlinear_params) > 0:
-            lines.append("Nonlinear Parameters (Random Coefficient Std. Devs.)")
             lines.append(
-                f"  {'Variable':<20} {'Sigma':>10} {'Std.Err':>10} "
+                "Nesting Parameter"
+                if self.model == "nested_logit"
+                else "Nonlinear Parameters (Random Coefficient Std. Devs.)"
+            )
+            lines.append(
+                f"  {'Variable':<20} {'Estimate':>10} {'Std.Err':>10} "
                 f"{'z':>8} {'P>|z|':>8}"
             )
             lines.append("  " + "-" * 50)
@@ -644,20 +816,32 @@ class BLPResult(ResultProtocolMixin):
         all_params = pd.concat([self.linear_params, self.nonlinear_params])
         all_se = pd.concat([self.se_linear, self.se_nonlinear])
         model_info = {
-            "model_type": "BLP Random Coefficients Logit",
-            "estimation_method": "GMM (two-step)",
+            "model_type": _MODEL_TITLES[self.model],
+            "estimation_method": (
+                "GMM (two-step)" if self.gmm_steps == 2 else "GMM (one-step, 2SLS)"
+            ),
             "gmm_objective": self.gmm_objective,
             "converged": self.converged,
+            "instruments": list(self.instruments),
+            "omitted_instruments": list(self.omitted_instruments),
         }
         data_info = {
             "n_obs": self.n_products,
             "n_markets": self.n_markets,
             "df_resid": self.n_products - len(all_params),
         }
-        diagnostics = {
+        diagnostics: dict[str, Any] = {
             "mean_own_elasticity": float(self.own_elasticities.mean()),
             "median_own_elasticity": float(self.own_elasticities.median()),
         }
+        if self.hansen_j is not None:
+            diagnostics.update(
+                {
+                    "Hansen J": self.hansen_j,
+                    "Hansen J df": self.hansen_df,
+                    "Hansen J p-value": self.hansen_p,
+                }
+            )
         return EconometricResults(
             params=all_params,
             std_errors=all_se,
@@ -788,9 +972,17 @@ def blp(
     tol_outer: float = 1e-6,
     alpha: float = 0.05,
     seed: int | None = None,
+    firm_id: str | None = None,
+    nest: str | None = None,
+    gmm_steps: int = 2,
 ) -> BLPResult:
     """
     Estimate a BLP random-coefficients logit demand model.
+
+    With ``x_random=[]`` the model is the logit of Berry (1994), a linear
+    IV regression of ``ln s_j - ln s_0`` on characteristics and price; with
+    ``nest=`` as well it is his nested logit, which adds the log within-nest
+    share with coefficient ``rho``.
 
     Parameters
     ----------
@@ -805,10 +997,14 @@ def blp(
         These will be included alongside price in the linear part.
     x_random : list of str, optional
         Subset of x_linear that also have random coefficients.
-        If None, defaults to all of x_linear.
+        If None, defaults to all of x_linear. An empty list gives the
+        logit (or, with ``nest``, the nested logit) of Berry (1994).
     instruments : list of str, optional
-        Excluded instrument columns. If None, standard BLP instruments
-        (functions of own and rival characteristics) are constructed.
+        Excluded instrument columns. If None, the instruments of
+        ``sp.blp_instruments(data, x_linear, market_id, firm_id, nest)``
+        are used: sums of the characteristics (and the count) of the other
+        products in the market. Redundant instruments are dropped, with a
+        warning when they were supplied by the caller.
     market_id : str, default 'market_id'
         Column identifying markets.
     product_id : str, default 'product_id'
@@ -827,12 +1023,38 @@ def blp(
         Significance level (used in summary output).
     seed : int, optional
         Random seed for reproducibility of Monte Carlo draws.
+    firm_id : str, optional
+        Column identifying the firm selling each product. Only used to
+        build the default instruments, which then separate the firm's own
+        other products from its rivals' (BLP 1995, section 5.1).
+    nest : str, optional
+        Column identifying the nest of each product. Requires
+        ``x_random=[]``: the nested logit is estimated, the log within-nest
+        share is treated as endogenous, and its coefficient is reported as
+        ``rho`` (0 is the plain logit; towards 1 products of a nest become
+        perfect substitutes).
+    gmm_steps : int, default 2
+        2 for two-step efficient GMM. 1 stops at the weighting matrix
+        ``(Z'Z)^{-1}``; without random coefficients the estimates are then
+        exactly two-stage least squares, with heteroskedasticity-robust
+        (HC0) standard errors.
 
     Returns
     -------
     BLPResult
         Estimation results including parameters, standard errors,
         mean utilities, and elasticities.
+
+    Notes
+    -----
+    The logit restricts substitution to be proportional to market shares,
+    and the nested logit relaxes that only across the chosen nests; random
+    coefficients are what lets similar products be closer substitutes.
+
+    The default instruments rest on the characteristics of all products in
+    a market being unrelated to a product's unobserved quality. ``hansen_p``
+    on the result tests the overidentifying restrictions; on the automobile
+    data of BLP (1995) the logit specification rejects them.
 
     Examples
     --------
@@ -861,17 +1083,48 @@ def blp(
     ... )
     >>> _ = result.summary()
     >>> elas = result.elasticity_matrix(market_id=1)
+
+    Berry (1994) logit on the same data, as two-stage least squares:
+
+    >>> logit = sp.blp(
+    ...     df, shares='share', prices='price', x_linear=['x1'],
+    ...     x_random=[], instruments=['cost', 'z2'], gmm_steps=1,
+    ... )
+    >>> logit.model
+    'logit'
+    >>> bool(logit.linear_params['price'] < 0)
+    True
+
+    References
+    ----------
+    [@berry1995automobile] [@berry1994estimating] [@nevo2000practitioner]
     """
     # ---- Validate inputs --------------------------------------------------
+    x_linear = list(x_linear)
     required_cols = [shares, prices, market_id, product_id] + x_linear
     if instruments is not None:
+        instruments = list(instruments)
         required_cols += instruments
+    required_cols += [c for c in (firm_id, nest) if c is not None]
     missing = [c for c in required_cols if c not in data.columns]
     if missing:
         raise ValueError(f"Columns not found in data: {missing}")
 
     if x_random is None:
         x_random = list(x_linear)
+    x_random = list(x_random)
+    if gmm_steps not in (1, 2):
+        raise MethodIncompatibility(f"gmm_steps must be 1 or 2, got {gmm_steps!r}.")
+    if nest is not None and x_random:
+        raise MethodIncompatibility(
+            "nest= estimates the nested logit of Berry (1994) and needs "
+            "x_random=[]; a nested logit with random coefficients is not "
+            "implemented.",
+            recovery_hint="Pass x_random=[] or drop nest=.",
+        )
+    model = "random_coefficients" if x_random else "logit"
+    if nest is not None:
+        model = "nested_logit"
 
     for col in x_random:
         if col not in x_linear and col != prices:
@@ -890,6 +1143,12 @@ def blp(
     market_ids = data[market_id].values
     product_ids = data[product_id].values
     n_markets = len(np.unique(market_ids))
+    inside = _group_sum(s_obs[:, None], market_ids)[:, 0]
+    if np.any(inside >= 1.0):
+        raise DataInsufficient(
+            "Market shares sum to 1 or more in at least one market; the "
+            "model needs an outside good with a positive share."
+        )
 
     # ---- Construct matrices -----------------------------------------------
     # Linear regressors: constant, x_linear, price
@@ -901,6 +1160,23 @@ def blp(
         ]
     )
     linear_names = ["const"] + list(x_linear) + [prices]
+    n_endog = 1
+    within = np.ones(N)
+    if nest is not None:
+        nest_ids = data[nest].values
+        if pd.isna(nest_ids).any():
+            raise DataInsufficient(f"nest column '{nest}' contains missing values.")
+        within = s_obs / _group_sum(s_obs[:, None], market_ids, nest_ids)[:, 0]
+        if np.all(within > 1.0 - 1e-12):
+            raise MethodIncompatibility(
+                f"blp: every product is alone in its nest ('{nest}'), so the "
+                "within-nest share is 1 throughout and the nesting parameter "
+                "is not identified.",
+                recovery_hint="Use coarser nests, or drop nest= for the logit.",
+            )
+        X_linear = np.column_stack([X_linear, np.log(within)])
+        linear_names = linear_names + ["rho"]
+        n_endog = 2
 
     # Random coefficient characteristics
     # Determine which columns in X_random correspond to x_random vars
@@ -919,27 +1195,64 @@ def blp(
 
     # ---- Instruments ------------------------------------------------------
     if instruments is not None:
-        Z_excluded = data[instruments].values.astype(float)
+        Z_excluded = data[instruments].values.astype(float).reshape(N, -1)
+        z_names = [str(c) for c in instruments]
     else:
-        # Construct BLP instruments from non-price characteristics
-        iv_chars = [c for c in x_linear]
-        Z_excluded = _build_blp_instruments(data, iv_chars, market_id, product_id)
+        built = blp_instruments(
+            data, x_linear, market_id=market_id, firm_id=firm_id, nest=nest
+        )
+        Z_excluded = built.to_numpy(dtype=float)
+        z_names = list(built.columns)
 
-    # Full instrument matrix: exogenous regressors + excluded instruments
+    # Full instrument matrix: exogenous regressors + excluded instruments.
+    # Redundant instruments go (the count of rival products is the constant
+    # when every market has the same number of products, say): a singular
+    # Z'Z has no inverse to weight the moments with.
     X_exog = np.column_stack([np.ones(N), data[x_linear].values.astype(float)])
+    n_exog = X_exog.shape[1]
     Z = np.column_stack([X_exog, Z_excluded])
+    keep, omitted = independent_columns(Z, ["const"] + x_linear + z_names)
+    if any(j not in keep for j in range(n_exog)):
+        raise MethodIncompatibility(
+            "blp: the characteristics in x_linear are collinear ("
+            + "; ".join(f"{o['variable']}: {o['reason']}" for o in omitted)
+            + ").",
+            recovery_hint="Drop the redundant characteristic from x_linear.",
+        )
+    if omitted and instruments is not None:
+        warnings.warn(
+            "blp: "
+            + "; ".join(
+                f"instrument {o['variable']} omitted ({o['reason']})" for o in omitted
+            )
+            + ".",
+            UserWarning,
+            stacklevel=2,
+        )
+    Z = Z[:, keep]
+    z_names = [z_names[j - n_exog] for j in keep if j >= n_exog]
+    n_needed = n_endog + len(x_random)
+    if len(z_names) < n_needed:
+        raise DataInsufficient(
+            f"blp: {len(z_names)} independent excluded instrument(s) for "
+            f"{n_needed} parameter(s) that need one (price"
+            + (", the within-nest share" if nest is not None else "")
+            + (f", {len(x_random)} random coefficient(s)" if x_random else "")
+            + ").",
+            recovery_hint=(
+                "Pass more instruments=, or firm_id= so the default "
+                "instruments separate own from rival products."
+            ),
+        )
 
     # ---- Monte Carlo draws ------------------------------------------------
-    draws = _halton_sequence(n_draws, K_sigma, seed=seed)
+    # without random coefficients there is nothing to integrate over
+    n_nodes = n_draws if K_sigma > 0 else 1
+    draws = _halton_sequence(n_nodes, K_sigma, seed=seed)
 
     # ---- Initial values ---------------------------------------------------
     # Starting delta from logit: ln(s) - ln(s0) where s0 = 1 - sum(s) per market
-    delta_init = np.zeros(N)
-    for m in np.unique(market_ids):
-        idx = np.where(market_ids == m)[0]
-        s0 = 1.0 - s_obs[idx].sum()
-        s0 = max(s0, 1e-6)
-        delta_init[idx] = np.log(s_obs[idx]) - np.log(s0)
+    delta_init = np.log(s_obs) - np.log(1.0 - inside)
 
     sigma_init = np.ones(K_sigma) * 0.5
 
@@ -985,7 +1298,7 @@ def blp(
     mu_hat = (
         _compute_mu(X_random_mat, sigma_hat, draws)
         if K_sigma > 0
-        else np.zeros((N, n_draws))
+        else np.zeros((N, n_nodes))
     )
     delta_hat, inner_converged = _contraction_mapping(
         s_obs,
@@ -1000,10 +1313,13 @@ def blp(
     # Optimal weighting matrix: W* = (Z' Omega Z / N)^{-1}
     # Omega = diag(xi^2) for heteroskedasticity-robust
     Omega = (Z * xi_hat[:, np.newaxis]).T @ (Z * xi_hat[:, np.newaxis]) / N
-    try:
-        W_opt = np.linalg.inv(Omega)
-    except np.linalg.LinAlgError:
-        W_opt = np.linalg.pinv(Omega)
+    if gmm_steps == 1:
+        W_opt = W
+    else:
+        try:
+            W_opt = np.linalg.inv(Omega)
+        except np.linalg.LinAlgError:
+            W_opt = np.linalg.pinv(Omega)
 
     # Re-estimate with optimal W
     best_delta_2 = delta_hat.copy()
@@ -1026,7 +1342,9 @@ def blp(
         best_delta_2 = delta.copy()
         return float(obj)
 
-    if K_sigma > 0:
+    if K_sigma > 0 and gmm_steps == 1:
+        sigma_final = sigma_hat
+    elif K_sigma > 0:
         opt_result_2 = optimize.minimize(
             _obj_wrapper_2,
             sigma_hat,
@@ -1042,7 +1360,7 @@ def blp(
     mu_final = (
         _compute_mu(X_random_mat, sigma_final, draws)
         if K_sigma > 0
-        else np.zeros((N, n_draws))
+        else np.zeros((N, n_nodes))
     )
     delta_final, _ = _contraction_mapping(
         s_obs,
@@ -1055,6 +1373,12 @@ def blp(
     theta_final, xi_final = _iv_regression(delta_final, X_linear, Z, W_opt)
     Zxi = Z.T @ xi_final
     gmm_obj = float(Zxi.T @ W_opt @ Zxi)
+    hansen_j = hansen_df = hansen_p = None
+    n_overid = Z.shape[1] - X_linear.shape[1] - K_sigma
+    if gmm_steps == 2 and n_overid > 0:
+        hansen_j = gmm_obj / N
+        hansen_df = int(n_overid)
+        hansen_p = float(stats.chi2.sf(hansen_j, hansen_df))
 
     # ---- Standard errors --------------------------------------------------
     se_linear, se_nonlinear = _compute_standard_errors(
@@ -1084,16 +1408,36 @@ def blp(
         price_draw_col = x_random.index(prices)
         sigma_price = float(sigma_final[price_draw_col]) if K_sigma > 0 else 0.0
 
-    elasticity_matrices = _compute_elasticities(
-        delta_final,
-        mu_final,
-        price_vals,
-        alpha_hat,
-        sigma_price,
-        draws,
-        market_ids,
-        price_draw_col=price_draw_col,
-    )
+    rho_hat = None
+    if nest is not None:
+        rho_hat = float(theta_final[-1])
+        if not 0.0 <= rho_hat < 1.0:
+            warnings.warn(
+                f"blp: the nesting parameter is {rho_hat:.4f}, outside [0, 1); "
+                "the nested logit is then not consistent with utility "
+                "maximisation and the elasticities are not meaningful. The "
+                "nests or the instruments for the within-nest share are the "
+                "usual cause.",
+                UserWarning,
+                stacklevel=2,
+            )
+        # Berry's mean utility: what is left of ln s_j - ln s_0 once the
+        # within-nest term is taken out
+        delta_final = delta_final - rho_hat * np.log(within)
+        elasticity_matrices = _nested_logit_elasticities(
+            s_obs, within, price_vals, alpha_hat, rho_hat, market_ids, nest_ids
+        )
+    else:
+        elasticity_matrices = _compute_elasticities(
+            delta_final,
+            mu_final,
+            price_vals,
+            alpha_hat,
+            sigma_price,
+            draws,
+            market_ids,
+            price_draw_col=price_draw_col,
+        )
 
     # Own-price elasticities
     own_elast = np.zeros(N)
@@ -1105,6 +1449,13 @@ def blp(
             own_elast[j] = E[i, i]
 
     # ---- Package results --------------------------------------------------
+    if nest is not None:
+        # rho is estimated in the linear step; it is reported with the
+        # nonlinear parameters, which is where a reader looks for it
+        rc_names = ["rho"]
+        sigma_final, se_nonlinear = theta_final[-1:], se_linear[-1:]
+        theta_final, se_linear = theta_final[:-1], se_linear[:-1]
+        linear_names = linear_names[:-1]
     linear_params = pd.Series(theta_final, index=linear_names, name="coef")
     nonlinear_params = pd.Series(sigma_final, index=rc_names, name="sigma")
     se_lin = pd.Series(se_linear, index=linear_names, name="se")
@@ -1128,4 +1479,12 @@ def blp(
         _product_ids=product_ids,
         _data_index=data.index,
         alpha=alpha_hat,
+        model=model,
+        rho=rho_hat,
+        instruments=z_names,
+        omitted_instruments=omitted,
+        gmm_steps=gmm_steps,
+        hansen_j=hansen_j,
+        hansen_df=hansen_df,
+        hansen_p=hansen_p,
     )

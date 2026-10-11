@@ -2379,6 +2379,7 @@ __all__ = [
     "DTEResult",
     # Structural Estimation
     "blp",
+    "blp_instruments",
     "BLPResult",
     "path_analysis",
     "PathAnalysisResult",
@@ -3836,6 +3837,7 @@ _register_lazy(
 _register_lazy(
     "structural",
     "blp",
+    "blp_instruments",
     "BLPResult",
     "path_analysis",
     "PathAnalysisResult",

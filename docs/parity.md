@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 433 |
 | | aligned | 53 |
 | | **subtotal** | **486** |
-| **No external software reference** | analytical-only (T1) | 406 |
+| **No external software reference** | analytical-only (T1) | 407 |
 | | external-replication (published numbers) | 62 |
-| | **subtotal** | **468** |
+| | **subtotal** | **469** |
 | No numerical evidence yet | unverified | 609 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 486 | 937 | 939 | 51.8% |
+| estimator callables | 486 | 938 | 940 | 51.7% |
 | infrastructure (parity N/A) | 0 | 13 | 222 | 0.0% |
 | result / exception classes | 0 | 4 | 402 | 0.0% |
-| **all registered** | 486 | 954 | 1563 | 31.1% |
+| **all registered** | 486 | 955 | 1564 | 31.1% |
 
 ### Coverage by estimator family
 
@@ -66,7 +66,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | mendelian | 18 | 20 | 20 |
 | epi | 16 | 17 | 17 |
 | power | 8 | 13 | 13 |
-| structural | 6 | 11 | 11 |
+| structural | 6 | 12 | 12 |
 | nonparametric | 2 | 9 | 9 |
 | robustness | 4 | 9 | 9 |
 | dag | 2 | 9 | 9 |
@@ -666,7 +666,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 406 functions
+## analytical-only — 407 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -718,6 +718,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `beyond_average_late` | [`test_beyond_average_late_parity.py`](../tests/reference_parity/test_beyond_average_late_parity.py) (+2) |
 | `bidirectional_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `bjs_pretrend_joint` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
+| `blp_instruments` | [`test_berry_logit_pyblp_parity.py`](../tests/reference_parity/test_berry_logit_pyblp_parity.py) |
 | `bootstrap` | [`test_bootstrap_parity.py`](../tests/reference_parity/test_bootstrap_parity.py) |
 | `bootstrap_edges` | [`test_hill_climb_bnlearn_parity.py`](../tests/reference_parity/test_hill_climb_bnlearn_parity.py) |
 | `bootstrap_series` | [`test_forecasting_toolkit.py`](../tests/test_forecasting_toolkit.py) |

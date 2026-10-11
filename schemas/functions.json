@@ -52818,8 +52818,17 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "firm_id": {
+          "description": "Column identifying the firm selling each product. Only used to build the default instruments, which then separate the firm's own other products from its rivals' (BLP 1995, section 5.1).",
+          "type": "string"
+        },
+        "gmm_steps": {
+          "default": 2,
+          "description": "2 for two-step efficient GMM. 1 stops at the weighting matrix ``(Z'Z)^{-1}``; without random coefficients the estimates are then exactly two-stage least squares, with heteroskedasticity-robust (HC0) standard errors.",
+          "type": "integer"
+        },
         "instruments": {
-          "description": "Excluded instrument columns. If None, standard BLP instruments (functions of own and rival characteristics) are constructed.",
+          "description": "Excluded instrument columns. If None, the instruments of ``sp.blp_instruments(data, x_linear, market_id, firm_id, nest)`` are used: sums of the characteristics (and the count) of the other products in the market. Redundant instruments are dropped, with a warning when they were supplied by the caller.",
           "items": {
             "type": "string"
           },
@@ -52845,6 +52854,10 @@
           "default": 200,
           "description": "Number of quasi-Monte Carlo draws for integration.",
           "type": "integer"
+        },
+        "nest": {
+          "description": "Column identifying the nest of each product. Requires ``x_random=[]``: the nested logit is estimated, the log within-nest share is treated as endogenous, and its coefficient is reported as ``rho`` (0 is the plain logit; towards 1 products of a nest become perfect substitutes).",
+          "type": "string"
         },
         "prices": {
           "description": "Column name for product prices.",
@@ -52881,7 +52894,7 @@
           "type": "array"
         },
         "x_random": {
-          "description": "Subset of x_linear that also have random coefficients. If None, defaults to all of x_linear.",
+          "description": "Subset of x_linear that also have random coefficients. If None, defaults to all of x_linear. An empty list gives the logit (or, with ``nest``, the nested logit) of Berry (1994).",
           "items": {
             "type": "string"
           },
@@ -52893,6 +52906,49 @@
         "shares",
         "prices",
         "x_linear"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Characteristics-based instruments for differentiated-products demand. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "blp_instruments",
+    "parameters": {
+      "properties": {
+        "count": {
+          "default": true,
+          "description": "Also build the sums of a constant, i.e. the number of other products (``own_count``, ``rival_count``, ``nest_count``).",
+          "type": "boolean"
+        },
+        "data": {
+          "description": "One row per product and market.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "firm_id": {
+          "description": "Column identifying the firm that sells each product. With it the market sum is split into ``own_<x>`` (the firm's other products) and ``rival_<x>`` (other firms' products).",
+          "type": "string"
+        },
+        "market_id": {
+          "default": "market_id",
+          "description": "Column identifying markets.",
+          "type": "string"
+        },
+        "nest": {
+          "description": "Column identifying the nest of each product; adds ``nest_<x>``, the sum over the other products of the same nest and market.",
+          "type": "string"
+        },
+        "x": {
+          "description": "Exogenous product characteristics (not the price).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data",
+        "x"
       ],
       "type": "object"
     }

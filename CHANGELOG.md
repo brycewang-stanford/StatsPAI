@@ -78,6 +78,52 @@ panel are unchanged to seven digits.
   assumptions the moment conditions do not pin the capital and materials
   coefficients down (estimates between -42 and 34 for truths 0.2 and 0.5).
 
+### Demand estimation: the logit and nested logit of Berry (1994)
+
+#### Added
+
+- **Berry (1994) logit and nested logit in `sp.blp`.** `x_random=[]` is the
+  logit, a linear IV regression of `ln s_j - ln s_0` on characteristics and
+  price; `nest=` adds the log within-nest share, treats it as endogenous and
+  reports its coefficient as `rho`, with the closed-form nested-logit
+  elasticities. `gmm_steps=1` stops at the weighting matrix `(Z'Z)^{-1}`, so
+  the estimates are exactly two-stage least squares with HC0 standard errors
+  (identical to `sp.iv(..., robust='hc0')` to 1e-9); the default stays
+  two-step GMM. The result carries `model`, `rho`, the `instruments` used,
+  and Hansen's J (`hansen_j`, `hansen_df`, `hansen_p`). Coefficients,
+  standard errors, objective and elasticities match pyblp 1.2.0 to 1e-7
+  (observed 1e-9) in all four combinations
+  (`tests/reference_parity/test_berry_logit_pyblp_parity.py`). A nested
+  logit with random coefficients is refused.
+- **`sp.blp_instruments`**: sums of the characteristics, and the count, of
+  the other products in a market; split into the firm's own other products
+  and rival products with `firm_id=` (Berry, Levinsohn & Pakes 1995, section
+  5.1), plus same-nest sums with `nest=`. Equal to
+  `pyblp.build_blp_instruments` column by column. The frame can go into
+  `sp.blp(instruments=...)` or an `sp.iv` formula (for LIML and the
+  first-stage diagnostics).
+- `sp.blp(firm_id=)` builds the default instruments with that split.
+
+#### Fixed
+
+- **`sp.blp` with its default instruments (`instruments=None`) could not
+  run.** The excluded instruments repeated `x_linear`, which is already in
+  the instrument matrix, so the first weighting matrix was the inverse of a
+  singular `Z'Z`: `LinAlgError: Singular matrix`, or an inverse of order
+  1e16 when the pivots were not exactly zero. The default is now the rival
+  sums of `sp.blp_instruments`, and redundant instruments are dropped before
+  the moments are formed (silently when StatsPAI built them, with a warning
+  naming them when the caller supplied them; both are listed in
+  `omitted_instruments`). Calls that pass `instruments=` with a full-rank
+  set are unchanged.
+- `sp.blp(x_random=[])` raised numpy's `need at least one array to
+  concatenate`.
+- `sp.blp` now refuses, with a message, three inputs that used to end in a
+  numpy error or a silently wrong inversion: collinear `x_linear`, fewer
+  independent excluded instruments than parameters that need one, and
+  inside shares that sum to one or more in a market (the outside share used
+  to be floored at 1e-6).
+
 ## [1.39.4] — 2026-10-11
 
 Two passes over the package. The first wrote tests for the options and

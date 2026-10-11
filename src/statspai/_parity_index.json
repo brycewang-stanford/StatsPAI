@@ -2061,6 +2061,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_berry_logit_pyblp_parity.py",
         "tests/reference_parity/test_structural_parity.py"
       ],
       "also_verified_by": [
@@ -2086,6 +2087,23 @@
         "tests/reference_parity/_fixtures/blp_pyblp.json"
       ],
       "tolerance": "beta, sigma, SEs, objective/N, own elasticities 1e-6 rel (observed <= 1.6e-8)"
+    },
+    {
+      "function": "blp_instruments",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_berry_logit_pyblp_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [

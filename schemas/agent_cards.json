@@ -113715,7 +113715,7 @@
       ],
       "tolerance": "beta, sigma, SEs, objective/N, own elasticities 1e-6 rel (observed <= 1.6e-8)"
     },
-    "example": "result = sp.blp(\n df, shares='share', prices='price', x_linear=['x1'],\n x_random=['x1'], instruments=['cost', 'z2'], n_draws=30, seed=0,\n)",
+    "example": "logit = sp.blp(\n df, shares='share', prices='price', x_linear=['x1'],\n x_random=[], instruments=['cost', 'z2'], gmm_steps=1,\n)",
     "failure_modes": [
       {
         "alternative": "sp.average_treatment_effect",
@@ -113765,10 +113765,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "@berry1995automobile; @berry1994estimating; @nevo2000practitioner",
     "returns": {
       "class": "BLPResult",
       "description": "BLPResult: Estimation results including parameters, standard errors, mean utilities, and elasticities.",
@@ -113776,12 +113777,20 @@
         "alpha": "float",
         "converged": "bool",
         "gmm_objective": "float",
+        "gmm_steps": "int",
+        "hansen_df": "Optional[int]",
+        "hansen_j": "Optional[float]",
+        "hansen_p": "Optional[float]",
+        "instruments": "Optional[list]",
         "linear_params": "pd.Series",
         "mean_utility": "pd.Series",
+        "model": "str",
         "n_markets": "int",
         "n_products": "int",
         "nonlinear_params": "pd.Series",
+        "omitted_instruments": "Optional[list]",
         "own_elasticities": "pd.Series",
+        "rho": "Optional[float]",
         "se_linear": "pd.Series",
         "se_nonlinear": "pd.Series"
       }
@@ -113801,8 +113810,17 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "firm_id": {
+            "description": "Column identifying the firm selling each product. Only used to build the default instruments, which then separate the firm's own other products from its rivals' (BLP 1995, section 5.1).",
+            "type": "string"
+          },
+          "gmm_steps": {
+            "default": 2,
+            "description": "2 for two-step efficient GMM. 1 stops at the weighting matrix ``(Z'Z)^{-1}``; without random coefficients the estimates are then exactly two-stage least squares, with heteroskedasticity-robust (HC0) standard errors.",
+            "type": "integer"
+          },
           "instruments": {
-            "description": "Excluded instrument columns. If None, standard BLP instruments (functions of own and rival characteristics) are constructed.",
+            "description": "Excluded instrument columns. If None, the instruments of ``sp.blp_instruments(data, x_linear, market_id, firm_id, nest)`` are used: sums of the characteristics (and the count) of the other products in the market. Redundant instruments are dropped, with a warning when they were supplied by the caller.",
             "items": {
               "type": "string"
             },
@@ -113828,6 +113846,10 @@
             "default": 200,
             "description": "Number of quasi-Monte Carlo draws for integration.",
             "type": "integer"
+          },
+          "nest": {
+            "description": "Column identifying the nest of each product. Requires ``x_random=[]``: the nested logit is estimated, the log within-nest share is treated as endogenous, and its coefficient is reported as ``rho`` (0 is the plain logit; towards 1 products of a nest become perfect substitutes).",
+            "type": "string"
           },
           "prices": {
             "description": "Column name for product prices.",
@@ -113864,7 +113886,7 @@
             "type": "array"
           },
           "x_random": {
-            "description": "Subset of x_linear that also have random coefficients. If None, defaults to all of x_linear.",
+            "description": "Subset of x_linear that also have random coefficients. If None, defaults to all of x_linear. An empty list gives the logit (or, with ``nest``, the nested logit) of Berry (1994).",
             "items": {
               "type": "string"
             },
@@ -113884,6 +113906,7 @@
     "typical_n_min": 1000,
     "validation_notes": [
       "Cross-language parity (aligned) vs pyblp 1.2.0 (Conlon & Gortmaker), identical Halton nodes via agent_data [numpy 2.2.6, pyblp 1.2.0, python 3.10.20]; tolerance beta, sigma, SEs, objective/N, own elasticities 1e-6 rel (observed <= 1.6e-8) -- tests/reference_parity/test_blp_pyblp_parity.py",
+      "tests/reference_parity/test_berry_logit_pyblp_parity.py",
       "tests/reference_parity/test_structural_parity.py"
     ],
     "validation_status": "certified"
