@@ -151,7 +151,10 @@ def test_acf_r_stops_next_to_the_same_root(panel):
     r, stage = _acf(panel, 2)
     beta = np.array([r.coef["l"], r.coef["k"]])
     ref = np.array(R["acf"]["pars"])
-    np.testing.assert_allclose(stage.crit(ref), R["acf"]["opt_value"], rtol=1e-8)
+    # The criterion here is 9e-16: the square of moments near 3e-8, each a sum
+    # of O(1) terms and so known to about 1e-8 of itself. 1e-6 is that
+    # rounding, not a difference in the criterion (observed 2e-8).
+    np.testing.assert_allclose(stage.crit(ref), R["acf"]["opt_value"], rtol=1e-6)
     assert stage.crit(ref) < 1e-12
     np.testing.assert_allclose(beta, ref, rtol=1e-5)  # observed 5e-7 / 2.4e-6
 

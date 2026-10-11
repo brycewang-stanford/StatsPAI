@@ -22,6 +22,62 @@ All notable changes to StatsPAI will be documented in this file.
   accepted. Replicating that paper on its ACIC 2018 data showed the gap:
   the fold-out test had to be written by hand with `sp.regress`.
 
+### Production functions: units of output, persistence, and what the bootstrap says
+
+Found by running `sp.olley_pakes`, `sp.levinsohn_petrin` and `sp.acf` on
+the Chilean panel shipped with R `prodest`. Input coefficients on that
+panel are unchanged to seven digits.
+
+#### ⚠️ Correctness
+
+- **`sp.olley_pakes` / `sp.levinsohn_petrin` / `sp.acf`: log output in
+  other units.** Adding a constant to log output is a change of units and
+  can only move productivity by that constant. Stage 2 carried the level
+  through an uncentred cubic in lagged productivity, whose condition
+  number was near 1e6 on real data. With 200 added to log output on a
+  simulated panel, the LP capital coefficient moved by 1e-5 and the fit
+  was reported as unconverged. Stage 2 now runs on output less its mean
+  and builds the Markov basis on standardised lagged productivity. The
+  coefficients, the convergence flag and `rho` no longer depend on the
+  constant.
+- **`productivity_process["rho"]` and `diagnostics["ar_rho"]`** were the
+  linear coefficient of the Markov polynomial, which is its slope at
+  lagged productivity zero. Productivity carries the constant of the
+  production function, so the data need not come near zero. On the
+  Chilean panel this gave -5.79 for LP and -0.63 for ACF. They are now
+  the slope of the linear projection of productivity on its lag (0.98 and
+  0.75 there), which equals the old value when `productivity_degree=1`.
+  The polynomial is still in `diagnostics["markov_coef"]`.
+
+#### Fixed
+
+- **`stage2_converged` for OP and LP** was False on the Chilean panel at
+  the default degrees although the estimate was the minimiser to 1e-9;
+  rounding left the first-order condition at 1.01e-8 against a tolerance
+  of 1e-8. A fit that does stop short now raises a `ConvergenceWarning`.
+  It was silent before.
+- **A fit without `boot_reps`** drew "Standard errors are not finite:
+  the variance matrix is singular". No variance was computed.
+  `diagnostics["se_source"]` now says `"none (pass boot_reps > 0)"` and
+  the warning is kept for standard errors that were requested.
+
+#### Added
+
+- **Bootstrap diagnostics** for OP, LP and ACF: `boot_se_iqr` (the
+  interquartile range over 1.349) and `boot_ci_percentile`. A standard
+  error more than three times `boot_se_iqr` draws a warning. On the
+  Chilean panel the ACF moment conditions change root in a few
+  resamples; one of 176 replications put the two labour coefficients at
+  -82 and 112, and the reported standard errors were 6.3 and 8.5 against
+  0.12 and 0.15 for the bulk. The standard errors are not changed.
+- **`sp.olley_pakes`** records the rows removed by `drop_zero_proxy` in
+  `diagnostics["n_dropped_nonpositive_proxy"]` and warns when some of
+  them are negative, which means the proxy is in logs.
+- A gross-output call with the proxy among the inputs is still refused;
+  the message now says why. In panels simulated under the Levinsohn-Petrin
+  assumptions the moment conditions do not pin the capital and materials
+  coefficients down (estimates between -42 and 34 for truths 0.2 and 0.5).
+
 ## [1.39.4] — 2026-10-11
 
 Two passes over the package. The first wrote tests for the options and

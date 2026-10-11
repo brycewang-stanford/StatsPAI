@@ -48,7 +48,7 @@ import pandas as pd
 from scipy import optimize
 
 from ..._aliases import accepts_aliases
-from ...exceptions import ConvergenceFailure
+from ...exceptions import ConvergenceFailure, ConvergenceWarning
 from ._core import elasticities_at, expand_inputs, panel_lag, polynomial_basis
 from ._result import ProductionResult
 
@@ -132,21 +132,67 @@ def _markov_residual(
     G'omega`` and ``dG_j`` the derivative of ``G``,
 
         dr_j = (I - H)(d_omega_j - dG_j gamma) - G (G'G)^{-1} dG_j' r.
+
+    The basis is built on ``z = (u - c) / s`` with ``c``, ``s`` the mean and
+    standard deviation of ``u`` at this evaluation. The span, and so ``H``
+    and its derivative, do not depend on ``(c, s)``; the raw powers of an
+    uncentred ``u`` have a condition number near 1e6 on real data, which
+    left the first-order condition short of its tolerance. ``gamma`` is
+    returned in the raw powers of ``u``.
     """
-    G, _ = polynomial_basis(omega_lag.reshape(-1, 1), degree=degree)
+    centre = float(np.mean(omega_lag))
+    scale = float(np.std(omega_lag))
+    if not np.isfinite(scale) or scale <= 1e-12 * max(1.0, abs(centre)):
+        scale = 1.0
+    z = (omega_lag - centre) / scale
+    G, _ = polynomial_basis(z.reshape(-1, 1), degree=degree)
     Q, R = np.linalg.qr(G)
-    gamma = np.linalg.solve(R, Q.T @ omega)
+    gamma_z = np.linalg.solve(R, Q.T @ omega)
     r = omega - Q @ (Q.T @ omega)
     dG_du = np.column_stack(
-        [np.zeros_like(omega_lag)]
-        + [q * omega_lag ** (q - 1) for q in range(1, degree + 1)]
+        [np.zeros_like(z)] + [q * z ** (q - 1) / scale for q in range(1, degree + 1)]
     )
     J = np.empty_like(d_omega)
     for j in range(d_omega.shape[1]):
         dG = dG_du * d_omega_lag[:, [j]]
-        a = d_omega[:, j] - dG @ gamma
+        a = d_omega[:, j] - dG @ gamma_z
         J[:, j] = a - Q @ (Q.T @ a) - Q @ np.linalg.solve(R.T, dG.T @ r)
+    raw = np.polynomial.Polynomial(gamma_z)(
+        np.polynomial.Polynomial([-centre / scale, 1.0 / scale])
+    )
+    gamma = np.zeros(degree + 1)
+    gamma[: raw.coef.size] = raw.coef
     return r, gamma, J
+
+
+def _persistence(omega: np.ndarray, omega_lag: np.ndarray) -> float:
+    """Slope of the linear projection of ``omega`` on its lag.
+
+    Equal to the Markov coefficient when ``g`` is linear. For a higher-order
+    ``g`` the linear coefficient of the polynomial is its slope at
+    ``omega_lag = 0``, a point the data need not come near (``omega`` carries
+    the constant of the production function), so it is not a persistence.
+    """
+    u = omega_lag - omega_lag.mean()
+    denom = float(u @ u)
+    return float(u @ (omega - omega.mean()) / denom) if denom > 0 else float("nan")
+
+
+def _uncentre(
+    omega: np.ndarray, gamma: np.ndarray, level: float
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Put the level of output back into ``omega`` and the Markov polynomial.
+
+    Stage 2 runs on output less its mean (``level``): the level only moves
+    ``omega`` by a constant, and carrying it through the sums costs digits
+    (log output measured in other units is the same data plus a constant).
+    With ``g_c`` fitted on the centred values, ``g(u) = level + g_c(u - level)``.
+    """
+    shifted = np.polynomial.Polynomial(gamma)(np.polynomial.Polynomial([-level, 1.0]))
+    out = np.zeros(gamma.size)
+    out[: shifted.coef.size] = shifted.coef
+    out[0] += level
+    return omega + level, out
 
 
 def _min_obs(n: int) -> None:
@@ -163,11 +209,18 @@ def _firm_bootstrap(
     reps: int,
     seed: Optional[int],
     label: str,
+    info: Optional[Dict[str, Any]] = None,
 ) -> Tuple[np.ndarray, Optional[np.ndarray], int]:
     """Resample whole firms with replacement, refit, return (se, cov, n_ok).
 
     Each draw of a firm becomes its own panel, so a firm drawn twice does not
     collide with itself in the lag operator.
+
+    ``info``, when given, receives ``boot_se_iqr`` (interquartile range over
+    1.349, the standard deviation of a normal with that range) and
+    ``boot_ci_percentile`` (2.5% and 97.5% quantiles), one entry per
+    parameter. A standard error more than three times ``boot_se_iqr`` is the
+    work of a few replications far from the rest and draws a warning.
     """
     rng = np.random.default_rng(seed)
     groups = df.groupby(_PID, sort=False).indices
@@ -202,7 +255,26 @@ def _firm_bootstrap(
         )
         return np.full(0, np.nan), None, n_ok
     B = np.vstack(draws)
-    return B.std(axis=0, ddof=1), np.atleast_2d(np.cov(B.T, ddof=1)), n_ok
+    se = B.std(axis=0, ddof=1)
+    q = np.percentile(B, [2.5, 25.0, 75.0, 97.5], axis=0)
+    se_iqr = (q[2] - q[1]) / 1.349
+    if info is not None:
+        info["boot_se_iqr"] = [float(v) for v in se_iqr]
+        info["boot_ci_percentile"] = [[float(a), float(b)] for a, b in zip(q[0], q[3])]
+    heavy = np.flatnonzero(se > 3.0 * se_iqr)
+    if heavy.size and n_ok >= 20:
+        ratio = float(np.max(se[heavy] / np.where(se_iqr[heavy] > 0, se_iqr[heavy], 1)))
+        warnings.warn(
+            f"{label} bootstrap: for {heavy.size} of {se.size} parameters the "
+            f"standard error is up to {ratio:.0f} times the spread of the "
+            "central half of the replications (IQR / 1.349). A few "
+            "replications lie far from the rest, which is what weak "
+            "identification looks like; diagnostics['boot_se_iqr'] and "
+            "['boot_ci_percentile'] describe the bulk of the distribution.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return se, np.atleast_2d(np.cov(B.T, ddof=1)), n_ok
 
 
 def _pack(
@@ -215,6 +287,7 @@ def _pack(
     omega: np.ndarray,
     eta: np.ndarray,
     gamma: np.ndarray,
+    rho: float,
     xi: np.ndarray,
     sample: pd.DataFrame,
     raw_input_names: List[str],
@@ -227,7 +300,6 @@ def _pack(
     if se.size != beta.size:
         se = np.full(beta.size, np.nan)
     coef = {name: float(beta[i]) for i, name in enumerate(names)}
-    rho = float(gamma[1]) if gamma.size > 1 else float("nan")
     sigma_xi = float(np.std(xi, ddof=1))
     sample = sample.copy()
     sample["omega"] = omega
@@ -240,6 +312,11 @@ def _pack(
     )
     diagnostics = {
         **diagnostics,
+        "se_source": (
+            "firm bootstrap"
+            if diagnostics.get("boot_reps_effective", 0) >= 2
+            else "none (pass boot_reps > 0)"
+        ),
         "ar_rho": rho,
         "ar_sigma_xi": sigma_xi,
         "markov_coef": [float(g) for g in gamma],
@@ -285,6 +362,8 @@ class _OPLPStage2:
         productivity_degree: int,
     ) -> None:
         y = df[output].to_numpy(dtype=float)
+        self.level = float(np.mean(y))
+        y = y - self.level
         F = df[free].to_numpy(dtype=float)
         S = df[state].to_numpy(dtype=float)
         P, _ = polynomial_basis(
@@ -296,10 +375,11 @@ class _OPLPStage2:
         b1, *_ = np.linalg.lstsq(X1, y, rcond=None)
         nf = len(free)
         self.fitted = X1 @ b1
+        self.eta = y - self.fitted
         self.beta_free = b1[1 : 1 + nf]
         # Linear state terms lead the degree-1 block of the polynomial.
         self.theta0 = b1[1 + nf : 1 + nf + len(state)].copy()
-        self.stage1_r2 = float(1.0 - np.var(y - self.fitted) / np.var(y))
+        self.stage1_r2 = float(1.0 - np.var(self.eta) / np.var(y))
         phi = self.fitted - F @ self.beta_free
         work = df[[_PID, _TIME]].copy()
         work["__phi__"] = phi
@@ -308,12 +388,11 @@ class _OPLPStage2:
         self.valid = np.isfinite(lag_phi) & np.isfinite(lag_S).all(axis=1)
         _min_obs(int(self.valid.sum()))
         v = self.valid
-        self.y = y[v]
         self.phi = phi[v]
         self.lag_phi = lag_phi[v]
         self.S = S[v]
         self.lag_S = lag_S[v]
-        self.res = (y - F @ self.beta_free)[v]
+        self.eta_valid = self.eta[v]
         self.degree = productivity_degree
 
     def _residual(
@@ -328,11 +407,14 @@ class _OPLPStage2:
             self.degree,
         )
         # xi = (y - free'b) - state'theta - g = (y - fitted) + (I - H) omega
-        return (self.res - self.phi) + r, omega, gamma, J
+        return self.eta_valid + r, omega, gamma, J
 
     def xi(self, theta: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         xi, omega, gamma, _ = self._residual(theta)
         return xi, omega, gamma
+
+    def omega_lag(self, theta: np.ndarray) -> np.ndarray:
+        return np.asarray(self.lag_phi - self.lag_S @ theta, dtype=float)
 
     def solve(self) -> optimize.OptimizeResult:
         fit = optimize.least_squares(
@@ -357,7 +439,11 @@ class _OPLPStage2:
 
         polish = optimize.root(gradient, fit.x, method="hybr", options={"xtol": 1e-15})
         sse = lambda th: float(np.sum(self._residual(th)[0] ** 2))  # noqa: E731
-        if np.all(np.isfinite(polish.x)) and sse(polish.x) <= sse(fit.x):
+        # The two sums of squares agree to rounding at a stationary point, so
+        # the comparison carries a relative slack of that size.
+        if np.all(np.isfinite(polish.x)) and sse(polish.x) <= sse(fit.x) * (
+            1.0 + 1e-12
+        ):
             fit.x = polish.x
         # Converged when xi is orthogonal to every Jacobian column (cosine).
         xi, _, _, J = self._residual(fit.x)
@@ -391,7 +477,12 @@ def _estimate_oplp(
     if clash:
         raise ValueError(
             f"{clash} appear among the free inputs and the state/proxy "
-            "variables; OP and LP need them to be distinct."
+            "variables; OP and LP need them to be distinct. A gross-output "
+            "function with the proxy as an input is not estimated: the "
+            "proxy is a function of the state and productivity, so once "
+            "both are controlled for its lag carries no information about "
+            "it and the moment conditions do not pin its coefficient down. "
+            "Use value added as the output."
         )
 
     def build(frame: pd.DataFrame) -> _OPLPStage2:
@@ -403,22 +494,40 @@ def _estimate_oplp(
     fit = st.solve()
     theta = fit.x
     xi, omega, gamma = st.xi(theta)
+    rho = _persistence(omega, st.omega_lag(theta))
+    omega, gamma = _uncentre(omega, gamma, st.level)
     beta = np.concatenate([st.beta_free, theta])
+    if fit.status <= 0:
+        warnings.warn(
+            ConvergenceWarning(
+                f"{method.upper()} stage 2 stopped where the sum of squared "
+                "productivity innovations is not stationary in the state "
+                f"coefficient(s) {dict(zip(state, map(float, theta)))}.",
+                recovery_hint=(
+                    "Try a lower polynomial_degree or productivity_degree, "
+                    "and check that the state inputs vary within firms."
+                ),
+                diagnostics={"state": state},
+            ),
+            stacklevel=3,
+        )
 
     se = np.full(0, np.nan)
     cov = None
     n_boot = 0
+    boot_info: Dict[str, Any] = {}
     if boot_reps and boot_reps > 0:
 
         def refit(frame: pd.DataFrame) -> np.ndarray:
             b = build(frame)
             return np.concatenate([b.beta_free, b.solve().x])
 
-        se, cov, n_boot = _firm_bootstrap(df, refit, boot_reps, seed, method.upper())
+        se, cov, n_boot = _firm_bootstrap(
+            df, refit, boot_reps, seed, method.upper(), boot_info
+        )
 
     sample = df.loc[st.valid].reset_index(drop=True)
-    y_all = df[output].to_numpy(dtype=float)
-    eta = (y_all - st.fitted)[st.valid]
+    eta = st.eta[st.valid]
     return _pack(
         method=method,
         names=[*free, *state],
@@ -428,6 +537,7 @@ def _estimate_oplp(
         omega=omega,
         eta=eta,
         gamma=gamma,
+        rho=rho,
         xi=xi,
         sample=sample,
         raw_input_names=[*free, *state],
@@ -440,6 +550,7 @@ def _estimate_oplp(
             "stage2_objective": float(xi @ xi),
             "stage2_converged": bool(fit.status > 0),
             "boot_reps_effective": n_boot,
+            **boot_info,
             "polynomial_degree": int(polynomial_degree),
             "productivity_degree": int(productivity_degree),
             "n_calendar_gaps": _n_gaps(df),
@@ -467,6 +578,8 @@ class _ACFStage2:
         functional_form: str,
     ) -> None:
         y = df[output].to_numpy(dtype=float)
+        self.level = float(np.mean(y))
+        y = y - self.level
         poly_vars = list(dict.fromkeys([*free, *state, proxy]))
         P, _ = polynomial_basis(
             df[poly_vars].to_numpy(dtype=float),
@@ -476,7 +589,8 @@ class _ACFStage2:
         X1 = np.column_stack([np.ones(len(y)), P])
         b1, *_ = np.linalg.lstsq(X1, y, rcond=None)
         self.fitted = X1 @ b1
-        self.stage1_r2 = float(1.0 - np.var(y - self.fitted) / np.var(y))
+        self.eta = y - self.fitted
+        self.stage1_r2 = float(1.0 - np.var(self.eta) / np.var(y))
         inputs = [*free, *state]
         X, names = expand_inputs(
             df[inputs].to_numpy(dtype=float), inputs, functional_form
@@ -641,10 +755,13 @@ def _estimate_acf(
             stacklevel=3,
         )
     xi, omega, gamma = st.parts(beta)
+    rho = _persistence(omega, st.lag_phi - st.LX @ beta)
+    omega, gamma = _uncentre(omega, gamma, st.level)
 
     se = np.full(0, np.nan)
     cov = None
     n_boot = 0
+    boot_info: Dict[str, Any] = {}
     if boot_reps and boot_reps > 0:
 
         def refit(frame: pd.DataFrame) -> np.ndarray:
@@ -655,12 +772,11 @@ def _estimate_acf(
                 raise ConvergenceFailure("no ACF root near the full-sample estimate")
             return est
 
-        se, cov, n_boot = _firm_bootstrap(df, refit, boot_reps, seed, "ACF")
+        se, cov, n_boot = _firm_bootstrap(df, refit, boot_reps, seed, "ACF", boot_info)
 
     inputs = [*free, *state]
     sample = df.loc[st.valid].reset_index(drop=True)
-    y_all = df[output].to_numpy(dtype=float)
-    eta = (y_all - st.fitted)[st.valid]
+    eta = st.eta[st.valid]
     return _pack(
         method="acf",
         names=st.names,
@@ -670,6 +786,7 @@ def _estimate_acf(
         omega=omega,
         eta=eta,
         gamma=gamma,
+        rho=rho,
         xi=xi,
         sample=sample,
         raw_input_names=inputs,
@@ -683,6 +800,7 @@ def _estimate_acf(
             "stage2_converged": bool(rooted),
             "acf_roots": [[float(v) for v in r] for r in roots],
             "boot_reps_effective": n_boot,
+            **boot_info,
             "polynomial_degree": int(polynomial_degree),
             "productivity_degree": int(productivity_degree),
             "n_calendar_gaps": _n_gaps(df),
@@ -771,7 +889,9 @@ def olley_pakes(
         Drop rows with non-positive proxy (the OP inversion needs strictly
         positive investment in levels). Pass ``False`` when the proxy is in
         logs. Dropping period ``t`` for a firm also removes period ``t+1``
-        from stage 2, whose lag is then missing.
+        from stage 2, whose lag is then missing. The number of rows dropped
+        is in ``diagnostics["n_dropped_nonpositive_proxy"]``; negative
+        values among them draw a warning.
 
     Returns
     -------
@@ -813,8 +933,19 @@ def olley_pakes(
     if missing:
         raise ValueError(f"Missing columns in data: {missing}")
     frame = data.loc[data[proxy] > 0] if drop_zero_proxy else data
+    n_dropped = int(len(data) - len(frame)) if drop_zero_proxy else 0
+    n_negative = int((data[proxy] < 0).sum()) if drop_zero_proxy else 0
+    if n_negative:
+        warnings.warn(
+            f"olley_pakes: {n_negative} rows have a negative proxy "
+            f"{proxy!r} and were dropped along with the zeros "
+            f"({n_dropped} rows in all). Investment in levels is not "
+            "negative; if the column is in logs pass drop_zero_proxy=False.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     df = _prepare_panel(frame, output, free, state, proxy, panel_id, time)
-    return _estimate_oplp(
+    res = _estimate_oplp(
         df,
         method="op",
         output=output,
@@ -827,6 +958,8 @@ def olley_pakes(
         boot_reps=boot_reps,
         seed=seed,
     )
+    res.diagnostics["n_dropped_nonpositive_proxy"] = n_dropped
+    return res
 
 
 @accepts_aliases(id="panel_id")
@@ -879,6 +1012,18 @@ def levinsohn_petrin(
     Returns
     -------
     ProductionResult
+
+    Notes
+    -----
+    The output is value added: the proxy does not enter the production
+    function. The gross-output specification of the original paper, where
+    materials are both the proxy and an input, is refused. In data simulated
+    under the paper's own assumptions its capital and materials coefficients
+    are not pinned down by the moment conditions.
+
+    ``productivity_process["rho"]`` is the slope of the linear projection of
+    productivity on its lag; the coefficients of the Markov polynomial are in
+    ``diagnostics["markov_coef"]``.
 
     Examples
     --------

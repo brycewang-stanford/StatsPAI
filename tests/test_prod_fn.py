@@ -19,6 +19,8 @@ basic edge cases.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -705,3 +707,170 @@ def test_calendar_gaps_drop_the_period_after_the_gap():
     assert res.diagnostics["n_calendar_gaps"] == 50
     assert sorted(res.sample["year"].unique()) == [1, 2, 3, 4, 7, 8, 9, 10]
     assert len(res.sample) == 50 * 8
+
+
+# ---------------------------------------------------------------------------
+# Units of output, the persistence diagnostic, and what the bootstrap reports
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["op", "lp", "acf"])
+def test_adding_a_constant_to_log_output_changes_nothing_but_the_level(panel, method):
+    # y + c is the same output in other units. The input coefficients, the
+    # convergence flag and the persistence of productivity cannot depend on c;
+    # omega shifts by exactly c. Before the Markov basis was centred, c = 200
+    # moved the LP capital coefficient by 1e-5, reported the stage-2 fit as
+    # unconverged and gave rho = -32,396.
+    df, _ = panel
+    proxy = "i" if method == "op" else "m"
+    fits = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        for c in (0.0, 200.0):
+            fits[c] = sp.prod_fn(
+                df.assign(y=df["y"] + c),
+                output="y",
+                free="l",
+                state="k",
+                proxy=proxy,
+                panel_id="id",
+                time="year",
+                method=method,
+            )
+    a, b = fits[0.0], fits[200.0]
+    # 1e-6: the stage-2 criterion is flat to rounding over about 1e-8.
+    np.testing.assert_allclose(b.params.to_numpy(), a.params.to_numpy(), atol=1e-6)
+    assert a.diagnostics["stage2_converged"] and b.diagnostics["stage2_converged"]
+    assert b.productivity_process["rho"] == pytest.approx(
+        a.productivity_process["rho"], abs=1e-5
+    )
+    np.testing.assert_allclose(b.tfp - a.tfp, 200.0, atol=1e-4)
+
+
+@pytest.mark.parametrize("method", ["op", "lp", "acf"])
+def test_rho_is_the_markov_slope_when_g_is_linear(panel, method):
+    df, _ = panel
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        res = sp.prod_fn(
+            df,
+            output="y",
+            free="l",
+            state="k",
+            proxy="i" if method == "op" else "m",
+            panel_id="id",
+            time="year",
+            method=method,
+            productivity_degree=1,
+        )
+    assert res.productivity_process["rho"] == pytest.approx(
+        res.diagnostics["markov_coef"][1], abs=1e-9
+    )
+    assert res.diagnostics["ar_rho"] == res.productivity_process["rho"]
+
+
+def test_no_standard_errors_requested_is_not_a_singular_variance(panel):
+    df, _ = panel
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        res = sp.levinsohn_petrin(
+            df, output="y", free="l", state="k", proxy="m", panel_id="id", time="year"
+        )
+    assert not [w for w in caught if issubclass(w.category, sp.ConvergenceWarning)]
+    assert res.diagnostics["se_source"].startswith("none")
+    assert np.all(np.isnan(res.std_errors))
+    boot = sp.levinsohn_petrin(
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        boot_reps=20,
+        seed=1,
+    )
+    assert boot.diagnostics["se_source"] == "firm bootstrap"
+    lo, hi = np.array(boot.diagnostics["boot_ci_percentile"]).T
+    assert np.all(lo < hi) and len(boot.diagnostics["boot_se_iqr"]) == 2
+
+
+def test_bootstrap_flags_a_standard_error_made_by_a_few_replications():
+    from statspai.structural.production import op_lp_acf as mod
+
+    frame = pd.DataFrame({mod._PID: np.repeat(np.arange(40), 2), "x": 0.0})
+    rng = np.random.default_rng(0)
+
+    def run(outlier):
+        calls = iter(range(10**6))
+
+        def fit(_):
+            i = next(calls)
+            return np.array(
+                [rng.normal(), 500.0 if outlier and i == 7 else rng.normal()]
+            )
+
+        info = {}
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            se, _, n_ok = mod._firm_bootstrap(frame, fit, 100, 0, "T", info)
+        return se, info, [str(w.message) for w in caught]
+
+    se, info, msgs = run(outlier=False)
+    assert not msgs
+    # Normal draws: the two scales estimate the same standard deviation.
+    np.testing.assert_allclose(se, info["boot_se_iqr"], rtol=0.35)
+    se, info, msgs = run(outlier=True)
+    assert len(msgs) == 1 and "1 of 2 parameters" in msgs[0]
+    assert se[1] > 40 and info["boot_se_iqr"][1] < 1.5
+
+
+def test_stage2_that_does_not_converge_says_so(panel, monkeypatch):
+    from statspai.structural.production import op_lp_acf as mod
+
+    df, _ = panel
+    solve = mod._OPLPStage2.solve
+
+    def unconverged(self):
+        fit = solve(self)
+        fit.status = 0
+        return fit
+
+    monkeypatch.setattr(mod._OPLPStage2, "solve", unconverged)
+    with pytest.warns(sp.ConvergenceWarning, match="stage 2"):
+        res = sp.levinsohn_petrin(
+            df, output="y", free="l", state="k", proxy="m", panel_id="id", time="year"
+        )
+    assert res.diagnostics["stage2_converged"] is False
+
+
+def test_op_reports_what_drop_zero_proxy_removed(panel):
+    df, _ = panel
+    kw = dict(output="y", free="l", state="k", proxy="i", panel_id="id", time="year")
+    zeros = df.copy()
+    zeros.loc[zeros.index[::7], "i"] = 0.0
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        res = sp.olley_pakes(zeros, **kw)
+    assert res.diagnostics["n_dropped_nonpositive_proxy"] == len(zeros.index[::7])
+    # A column in logs has negative values; dropping them is not what the
+    # caller of an estimator for log inputs meant.
+    logs = df.assign(i=np.log(df["i"]) - np.log(df["i"]).median())
+    with pytest.warns(RuntimeWarning, match="drop_zero_proxy=False"):
+        sp.olley_pakes(logs, **kw)
+    kept = sp.olley_pakes(logs, drop_zero_proxy=False, **kw)
+    assert kept.diagnostics["n_dropped_nonpositive_proxy"] == 0
+
+
+def test_gross_output_with_the_proxy_as_an_input_is_refused(panel):
+    df, _ = panel
+    with pytest.raises(ValueError, match="gross-output"):
+        sp.levinsohn_petrin(
+            df,
+            output="y",
+            free=["l", "m"],
+            state="k",
+            proxy="m",
+            panel_id="id",
+            time="year",
+        )

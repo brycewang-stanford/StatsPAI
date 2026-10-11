@@ -27387,7 +27387,7 @@
         },
         "drop_zero_proxy": {
           "default": true,
-          "description": "Drop rows with non-positive proxy (the OP inversion needs strictly positive investment in levels). Pass ``False`` when the proxy is in logs. Dropping period ``t`` for a firm also removes period ``t+1`` from stage 2, whose lag is then missing.",
+          "description": "Drop rows with non-positive proxy (the OP inversion needs strictly positive investment in levels). Pass ``False`` when the proxy is in logs. Dropping period ``t`` for a firm also removes period ``t+1`` from stage 2, whose lag is then missing. The number of rows dropped is in ``diagnostics[\"n_dropped_nonpositive_proxy\"]``; negative values among them draw a warning.",
           "type": "boolean"
         },
         "free": {
@@ -27832,7 +27832,7 @@
         },
         "drop_zero_proxy": {
           "default": true,
-          "description": "Drop rows with non-positive proxy (the OP inversion needs strictly positive investment in levels). Pass ``False`` when the proxy is in logs. Dropping period ``t`` for a firm also removes period ``t+1`` from stage 2, whose lag is then missing.",
+          "description": "Drop rows with non-positive proxy (the OP inversion needs strictly positive investment in levels). Pass ``False`` when the proxy is in logs. Dropping period ``t`` for a firm also removes period ``t+1`` from stage 2, whose lag is then missing. The number of rows dropped is in ``diagnostics[\"n_dropped_nonpositive_proxy\"]``; negative values among them draw a warning.",
           "type": "boolean"
         },
         "free": {

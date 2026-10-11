@@ -30,8 +30,10 @@ class ProductionResult(EconometricResults):
     * ``tfp`` — firm-time TFP estimates ``omega_it`` (in logs); same length
       as the post-stage-2 working sample
     * ``residuals`` — i.i.d. shock ``eta_it`` from stage 1
-    * ``productivity_process`` — ``{"rho": float, "sigma": float}`` from the
-      AR fit on omega
+    * ``productivity_process`` — ``{"rho": float, "sigma": float}``: the
+      slope of the linear projection of omega on its lag, and the standard
+      deviation of the innovation. The coefficients of the Markov
+      polynomial itself are in ``diagnostics["markov_coef"]``
     * ``markup`` — placeholder; populated by :func:`statspai.markup`
 
     Use ``.summary()`` for a Stata-style table or ``.coef`` for the raw dict.
@@ -112,6 +114,13 @@ class ProductionResult(EconometricResults):
         self._cov = cov
         setattr(self, "cov", cov)
         self.markup: Optional[np.ndarray] = None
+
+    def _flag_nonfinite_se(self) -> None:
+        # Standard errors that were never requested are not a singular
+        # variance matrix.
+        if str(self.diagnostics.get("se_source", "")).startswith("none"):
+            return
+        super()._flag_nonfinite_se()
 
     # ------------------------------------------------------------------ #
     #  Public surface

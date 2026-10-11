@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.4 → next: ⚠️ `rho` of the production-function estimators
+
+**What changed.** `result.productivity_process["rho"]` and
+`result.diagnostics["ar_rho"]` from `sp.olley_pakes`,
+`sp.levinsohn_petrin`, `sp.acf` and `sp.prod_fn(method='op' | 'lp' |
+'acf')` are now the slope of the linear projection of productivity on its
+lag. They were the linear coefficient of the Markov polynomial, which is
+a persistence only when `productivity_degree=1` or productivity is
+centred at zero. `sp.wooldridge_prod` is unchanged.
+
+Input coefficients change only where stage 2 had lost digits to the
+level of log output: by 1e-5 in the capital coefficient when log output
+was near 200, by less than 1e-9 on data near zero.
+
+**What to do.** Recompute any reported `rho` that came from the default
+`productivity_degree=3` on real data. The polynomial coefficients are in
+`diagnostics["markov_coef"]` as before. A fit without `boot_reps` no
+longer warns about a singular variance matrix; code that filtered that
+warning can drop the filter.
+
 ## 1.39.3 → 1.39.4: `sp.mixed` and `sp.nbreg` after the speed rewrite
 
 **What changed.** No argument, default or return type changed, and no
