@@ -91,7 +91,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mediation` | 2,603 | 6 | 6 |
 | `datasets` | 2,460 | 4 | 3 |
 | `selection` | 2,460 | 5 | 8 |
-| `nonparametric` | 2,297 | 5 | 12 |
+| `nonparametric` | 3,108 | 6 | 14 |
 | `fixest` | 2,272 | 3 | 4 |
 | `policy_learning` | 2,109 | 5 | 8 |
 | `question` | 2,102 | 3 | 6 |

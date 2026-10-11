@@ -714,6 +714,14 @@ def lasso_select(
     Solves  min (1/2n)||y - Xβ||² + λ||β||₁  via coordinate descent.
     Selects λ by K-fold cross-validation, BIC, or AIC.
 
+    With ``method="cv"`` every training fold is centred and scaled on its
+    own rows and the error is pooled over observations. On the same folds
+    and penalties this is the cross-validated error of ``sp.glmnet``
+    (``lasso_path["cv_mse"]``). In a small sample that error curve can be
+    nearly flat, and the selected λ then changes with the fold assignment;
+    compare a few values of ``seed`` before reading much into the list of
+    selected variables. ``sp.glmnet`` also reports ``lambda.1se``.
+
     Parameters
     ----------
     data : DataFrame
@@ -779,15 +787,27 @@ def lasso_select(
 
     # Select best lambda
     if method == "cv":
-        # K-fold CV
-        mse_cv = np.zeros(n_lambda)
+        # K-fold CV. Each training fold is centred and scaled on its own
+        # rows and predicts the held-out rows with its own intercept, so
+        # nothing about the held-out fold enters its fit. The error is
+        # pooled over observations (the fold-size-weighted mean of the
+        # fold errors), as in cv.glmnet.
+        sse_cv = np.zeros(n_lambda)
         for train_idx, test_idx in _kfold_indices(n, n_folds, seed):
-            X_tr, y_tr = X_sc[train_idx], y_c[train_idx]
-            X_te, y_te = X_sc[test_idx], y_c[test_idx]
-            fold_coefs = _lasso_path(X_tr, y_tr, lambdas, max_iter, tol)
-            preds = X_te @ fold_coefs.T  # (n_test, n_lambda)
-            mse_cv += np.mean((preds - y_te[:, None]) ** 2, axis=0)
-        mse_cv /= n_folds
+            mu_tr = X_raw[train_idx].mean(axis=0)
+            sd_tr = X_raw[train_idx].std(axis=0, ddof=0)
+            sd_tr[sd_tr == 0] = 1.0
+            ybar_tr = y_raw[train_idx].mean()
+            fold_coefs = _lasso_path(
+                (X_raw[train_idx] - mu_tr) / sd_tr,
+                y_raw[train_idx] - ybar_tr,
+                lambdas,
+                max_iter,
+                tol,
+            )
+            preds = ((X_raw[test_idx] - mu_tr) / sd_tr) @ fold_coefs.T + ybar_tr
+            sse_cv += np.sum((preds - y_raw[test_idx][:, None]) ** 2, axis=0)
+        mse_cv = sse_cv / n
         best_idx = int(np.argmin(mse_cv))
     else:
         # Information criterion
@@ -883,6 +903,7 @@ def lasso_select(
             "lambdas": lambdas,
             "coef_paths": path_dict,
             "lambda_best": best_lambda,
+            "cv_mse": mse_cv if method == "cv" else None,
         },
     )
     try:

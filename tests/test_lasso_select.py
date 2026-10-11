@@ -64,3 +64,45 @@ def test_lasso_select_is_seed_reproducible():
     a = sp.lasso_select(df, y="y", x=x, method="cv", verbose=False, seed=42)
     b = sp.lasso_select(df, y="y", x=x, method="cv", verbose=False, seed=42)
     assert a.selected == b.selected
+
+
+def test_cv_error_curve_is_the_one_of_glmnet_on_the_same_folds():
+    # Each training fold is centred and scaled on its own rows and the
+    # error is pooled over observations: on the same folds and penalties
+    # that is the cross-validated error of sp.glmnet (itself pinned to
+    # cv.glmnet). Up to 1.39.4 the folds reused the full-sample centring
+    # and scaling and had no intercept of their own; on this design the
+    # two curves then differed by several percent.
+    import importlib
+
+    sw = importlib.import_module("statspai.selection.stepwise")
+    rng = np.random.default_rng(3)
+    n, p = 45, 12
+    X = rng.normal(size=(n, p)) * rng.uniform(0.5, 4.0, size=p) + rng.normal(size=p)
+    df = pd.DataFrame(X, columns=[f"x{j}" for j in range(p)])
+    df["y"] = 5.0 + X[:, 0] - 0.5 * X[:, 3] + rng.normal(size=n)
+    x = list(df.columns[:-1])
+    res = sp.lasso_select(
+        df,
+        y="y",
+        x=x,
+        method="cv",
+        n_folds=5,
+        n_lambda=25,
+        eps=0.01,
+        max_iter=20000,
+        tol=1e-10,
+        seed=7,
+        verbose=False,
+    )
+    folds = np.empty(n, dtype=int)
+    for k, (_, test_idx) in enumerate(sw._kfold_indices(n, 5, 7)):
+        folds[test_idx] = k + 1
+    ref = sp.glmnet(
+        df, y="y", x=x, lambda_=list(res.lasso_path["lambdas"]), foldid=folds
+    )
+    np.testing.assert_allclose(
+        res.lasso_path["cv_mse"], ref.cv["cvm"].to_numpy(), rtol=1e-6
+    )
+    assert res.lasso_path["lambda_best"] == pytest.approx(ref.lambda_min, rel=1e-12)
+    assert sorted(res.selected) == sorted(ref.params.index[ref.params != 0])

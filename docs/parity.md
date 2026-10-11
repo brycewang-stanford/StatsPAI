@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 433 |
+| **Compared against R/Stata** (T2) | bit-exact | 434 |
 | | aligned | 53 |
-| | **subtotal** | **486** |
+| | **subtotal** | **487** |
 | **No external software reference** | analytical-only (T1) | 407 |
 | | external-replication (published numbers) | 62 |
 | | **subtotal** | **469** |
-| No numerical evidence yet | unverified | 609 |
+| No numerical evidence yet | unverified | 610 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 486 | 938 | 940 | 51.7% |
+| estimator callables | 487 | 939 | 941 | 51.8% |
 | infrastructure (parity N/A) | 0 | 13 | 222 | 0.0% |
-| result / exception classes | 0 | 4 | 402 | 0.0% |
-| **all registered** | 486 | 955 | 1564 | 31.1% |
+| result / exception classes | 0 | 4 | 403 | 0.0% |
+| **all registered** | 487 | 956 | 1566 | 31.1% |
 
 ### Coverage by estimator family
 
@@ -67,7 +67,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | epi | 16 | 17 | 17 |
 | power | 8 | 13 | 13 |
 | structural | 6 | 12 | 12 |
-| nonparametric | 2 | 9 | 9 |
+| nonparametric | 3 | 10 | 10 |
 | robustness | 4 | 9 | 9 |
 | dag | 2 | 9 | 9 |
 | conformal_causal | 0 | 9 | 9 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 433 functions
+## bit-exact — 434 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -156,6 +156,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `cox` | survival::coxph | R 4.5.2; survival 3.8.3 | rel_est<=1e-06, rel_se<=1e-06 | 8.4e-16 / 2.1e-10 | [`24_coxph.py`](../tests/r_parity/24_coxph.py) (+2) |
 | `cr2_se` | clubSandwich::vcovCR(type="CR2"/"CR3") | R 4.5.2; clubSandwich 0.6.2 | rel_est<=1e-06, rel_se<=1e-06 | 1.8e-08 / 2.2e-08 | [`53_cr2.py`](../tests/r_parity/53_cr2.py) (+2) |
 | `cr3_jackknife_vcov` | R sandwich::vcovJK(center='estimate'), summclust (CV3); Stata regress, vce(jackknife, cluster() mse double) | R 4.5.2; sandwich 3.1.1; summclust 0.7.0; Stata 18 | vcov 1e-10 rel (observed 6.5e-14 R, SE 4.3e-15 Stata) | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+3) |
+| `ctree` | partykit::ctree (quadratic test statistic, Bonferroni and univariate tests) | R 4.5.2; partykit 1.3.0 | tree shape, split variables, cut points and level sets, terminal node and prediction of every row exact; test statistics 1e-9 relative; adjusted p-values 1e-7 relative | — / — | [`test_ctree_partykit_parity.py`](../tests/reference_parity/test_ctree_partykit_parity.py) (+1) |
 | `cuminc` | R cmprsk::cuminc (estimate, var, Tests); Stata stcompet (ci, se, hi, lo) | R 4.5.2; cmprsk 2.2.12; Stata 18 MP; stcompet 1.0.7 (06nov2012) | 1e-10 rel (observed: CIF 6e-16, Gray variance 3e-13, delta SE 2e-16, Gray test 9e-15) | — / — | [`test_survival_epi_R_parity.py`](../tests/reference_parity/test_survival_epi_R_parity.py) (+2) |
 | `cumulative_periodogram_test` | Stata 18 wntestb | Stata 18 | statistic 1e-12 rel; p-value 2e-8 abs | — / — | [`test_spectral_parity.py`](../tests/reference_parity/test_spectral_parity.py) (+1) |
 | `cusum_test` | strucchange::efp(type = 'Rec-CUSUM') + sctest 1.5.4; Stata 18 estat sbcusum | R 4.5.2; strucchange 1.5.4; Stata 18 | process, statistic and p-value 1e-10 rel (observed 7.1e-14); Stata boundary constants 3e-6 | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
@@ -1080,6 +1081,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 609 functions
+## unverified — 610 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

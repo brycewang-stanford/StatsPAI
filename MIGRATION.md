@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.4 → next: ⚠️ `sp.lasso_select(method="cv")`
+
+**What changed.** The cross-validation refits the centring and scaling
+inside each training fold and gives each fold its own intercept. Before,
+the folds were cut from data standardised on the full sample and the
+held-out rows were predicted without an intercept, so the held-out fold
+had already entered its own fit. The error is now pooled over
+observations instead of averaged over folds. `method="bic"` and
+`method="aic"` are unchanged, and so is the coefficient path.
+
+**Who is affected.** Anyone who used `method="cv"`. With hundreds of
+observations per candidate variable the selected penalty is usually the
+same grid point. In small samples the list of selected variables can
+change. Recompute, and compare a few values of `seed`: when the selection
+changes with the folds, the data do not pin it down.
+
+**What to do.** Nothing in the call. `sp.glmnet` gives the same
+cross-validated error on the same folds and also reports `lambda.1se`.
+
+---
+
 ## After 1.39.4: ⚠️ `sp.blp` diversion ratios, standard errors and outer loop
 
 **What changed.**

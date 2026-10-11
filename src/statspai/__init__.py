@@ -2217,6 +2217,8 @@ __all__ = [
     # Nonparametric
     "lpoly",
     "LPolyResult",
+    "ctree",
+    "CTreeResult",
     "kdensity",
     "KDensityResult",
     "lprobust_at_point",
@@ -3819,6 +3821,8 @@ _register_lazy(
     "lpbwselect_imse_dpi",
     "lpbwselect_imse_rot",
     "lpbwselect_ce_rot",
+    "ctree",
+    "CTreeResult",
 )
 _register_lazy(
     "multilevel",

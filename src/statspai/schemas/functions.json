@@ -49855,6 +49855,90 @@
     }
   },
   {
+    "description": "Conditional inference tree (Hothorn, Hornik and Zeileis 2006). Validation: certified parity evidence.",
+    "name": "ctree",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level a split must reach (``1 - mincriterion`` in ``party``).",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Numeric, boolean and ordered-categorical columns are split at a cut point. String and unordered-categorical columns are split into two sets of levels (at most 12 levels).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "max_depth": {
+          "description": "Depth at which growth stops; the root has depth 0.",
+          "type": "integer"
+        },
+        "min_bucket": {
+          "default": 7,
+          "description": "min_bucket parameter (int).",
+          "type": "integer"
+        },
+        "min_prob": {
+          "default": 0.01,
+          "description": "A child must hold at least ``max(min_bucket, min_prob * n)`` observations, ``n`` being the size of the node.",
+          "type": "number"
+        },
+        "min_split": {
+          "default": 20,
+          "description": "A node with fewer observations is not split.",
+          "type": "integer"
+        },
+        "split_stat": {
+          "default": "quadratic",
+          "description": "Statistic that ranks cut points: the quadratic form (the default of ``partykit``) or the largest standardised component (the paper). They coincide for a numeric or a two-class outcome.",
+          "enum": [
+            "quadratic",
+            "maximum"
+          ],
+          "type": "string"
+        },
+        "task": {
+          "default": "auto",
+          "description": "``'auto'``: classification for a string, categorical or boolean outcome, regression for a numeric one. A numeric 0/1 outcome gives the same tree either way; classification predicts the majority class, regression the share.",
+          "enum": [
+            "auto",
+            "classification",
+            "regression"
+          ],
+          "type": "string"
+        },
+        "test": {
+          "default": "bonferroni",
+          "description": "``'bonferroni'``: the p-value is adjusted to ``1 - (1 - p)^m`` for the ``m`` covariates that vary in the node. ``'univariate'``: no adjustment.",
+          "enum": [
+            "bonferroni",
+            "univariate"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Kernel density estimation. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "kdensity",
     "parameters": {

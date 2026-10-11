@@ -181,6 +181,48 @@ estimated supply side, lognormal coefficients.
   inside shares that sum to one or more in a market (the outside share used
   to be floored at 1e-6).
 
+### Conditional inference trees, and the cross-validated lasso
+
+Prompted by a replication of Varian (2014), "Big Data: New Tricks for
+Econometrics". The paper's classification tree is a conditional inference
+tree, which had no Python implementation, and its cross-validated lasso
+could not be reproduced with `sp.lasso_select`.
+
+#### Added
+
+- **`sp.ctree`**: conditional inference trees (Hothorn, Hornik and Zeileis
+  2006; `party::ctree` and `partykit::ctree` in R). Each node tests every
+  covariate against the outcome with a permutation test in its asymptotic
+  form, splits on the covariate with the smallest p-value, and stops when
+  no Bonferroni-adjusted p-value is below `alpha`. Numeric, two-class and
+  multi-class outcomes; numeric, ordered and unordered covariates.
+  Written from the paper; the R packages are GPL and were used as black
+  boxes. On twelve settings the tree, the cut points and the leaf of
+  every row are identical to `partykit::ctree` 1.3.0, test statistics
+  agree to 1e-9 and adjusted p-values to 1e-7
+  (`tests/reference_parity/test_ctree_partykit_parity.py`). On the Boston
+  mortgage data of the paper it returns the published tree: 11 leaves,
+  228 of 2,380 applications misclassified, predictions unchanged when
+  race is removed. Not implemented: the maximum-type test statistic,
+  Monte Carlo p-values, surrogate splits, case weights. Guide:
+  `docs/guides/conditional_inference_trees.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.lasso_select(method="cv")` cross-validated on leaked folds.**
+  The folds were cut from data already centred and scaled on the full
+  sample, and a training fold predicted the held-out rows without an
+  intercept of its own. Each training fold is now centred and scaled on
+  its own rows, and the error is pooled over observations. On the same
+  folds and penalties the error curve is that of `sp.glmnet` (new
+  `lasso_path["cv_mse"]`, tested to 1e-6). The solver and the BIC / AIC
+  paths are unchanged. In large samples the selected penalty rarely
+  moves. In small ones it can: on the 72-country growth data of
+  Fernandez, Ley and Steel with 41 candidates and `seed=0`, the old code
+  chose a penalty of 0.007 and kept 36 variables, the new code chooses
+  0.152 and keeps 14, which is what `sp.glmnet` and Varian's `cv.glmnet`
+  run select. See MIGRATION.md.
+
 ## [1.39.4] — 2026-10-11
 
 Two passes over the package. The first wrote tests for the options and

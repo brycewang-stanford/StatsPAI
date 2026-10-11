@@ -274,6 +274,32 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "subgradient conditions instead."
         ),
     },
+    "ctree": {
+        "status": "bit-exact",
+        "reference": "partykit::ctree (quadratic test statistic, Bonferroni and univariate tests)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "partykit": "1.3.0",
+        },
+        "tolerance": (
+            "tree shape, split variables, cut points and level sets, "
+            "terminal node and prediction of every row exact; test "
+            "statistics 1e-9 relative; adjusted p-values 1e-7 relative"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_ctree_partykit_parity.py",
+            "tests/reference_parity/_fixtures/ctree_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: twelve settings on three synthetic data "
+            "sets (numeric, three-class and binary outcomes; numeric, "
+            "ordered and unordered covariates; significance level, "
+            "univariate test, depth and node-size limits, maximum-type "
+            "split statistic). The maximum-type test statistic and Monte "
+            "Carlo p-values of the R packages are not implemented."
+        ),
+    },
     "full_match": {
         "status": "aligned",
         "reference": "MatchIt::matchit(method = 'full') 4.7.2, optmatch 0.10.8; lm + sandwich::vcovCL",

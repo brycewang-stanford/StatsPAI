@@ -2,9 +2,10 @@
 Nonparametric estimation methods.
 
 Provides local polynomial regression (lpoly), kernel density estimation (kdensity),
-and nonparametric regression (npregress).
+nonparametric regression (npregress), and conditional inference trees (ctree).
 """
 
+from .conditional_tree import CTreeResult, ctree
 from .kdensity import KDensityResult, kdensity
 from .lpoly import LPolyResult, lpoly
 from .lprobust import (
@@ -18,6 +19,8 @@ from .lprobust import (
 )
 
 __all__ = [
+    "ctree",
+    "CTreeResult",
     "lpoly",
     "LPolyResult",
     "kdensity",
