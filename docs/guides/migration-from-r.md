@@ -130,6 +130,7 @@ report = sp.cs_report(data, y="y", t="t", g="g", i="id",
 | `grf::causal_forest(X, Y, W, clusters = g)`  | `sp.causal_forest(Y=Y, T=W, X=X, clusters=g)`       |
 | `predict(cf, X.new)` / `predict(cf)`         | `forest.effect(X_new)` / `forest.predict()` (OOB)   |
 | `grf::test_calibration(cf)`                  | `sp.calibration_test(forest)`                       |
+| `cf$predictions = tau.cv; cf$clusters = g; test_calibration(cf)` | `sp.grf_calibration(Y=Y, W=W, Y_hat=Y_hat, W_hat=W_hat, tau_hat=tau_cv, clusters=g)` |
 | `grf::instrumental_forest(X, Y, W, Z)`       | `sp.iv_forest(y=Y, treat=W, instrument=Z, covariates=X)`|
 | `grf::multi_arm_causal_forest(X, Y, W)`      | `sp.multi_arm_forest(y=Y, treat=W, covariates=X)`   |
 | `grf::lm_forest(X, Y, W)`                    | `sp.lm_forest(y=Y, regressors=W, covariates=X)`     |

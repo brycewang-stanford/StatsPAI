@@ -177,6 +177,24 @@ def test_calibration_test_matches_grf(ref, forest, vcov):
     assert alias.equals(out)
 
 
+@pytest.mark.parametrize("vcov", ["HC3", "HC1"])
+def test_grf_calibration_matches_grf(ref, data, vcov):
+    """The public operator, handed grf's own vectors rather than a forest."""
+    r = ref["calibration"][vcov]
+    out = sp.grf_calibration(
+        Y=data["y"],
+        W=data["w"],
+        Y_hat=ref["y_hat"],
+        W_hat=ref["w_hat"],
+        tau_hat=ref["tau_hat"],
+        vce=vcov,
+    )
+    assert _rel(out["coef"], r["coef"]) < REL
+    assert _rel(out["se"], r["se"]) < REL
+    assert _rel(out["t"], r["t"]) < REL
+    assert _rel(out["p"], r["p_one_sided"]) < 1e-8  # as above
+
+
 def test_calibration_default_is_grf_hc3(ref, forest):
     out = sp.calibration_test(forest)
     assert _rel(out["se"], ref["calibration"]["HC3"]["se"]) < REL

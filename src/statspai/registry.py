@@ -5156,6 +5156,108 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="grf_calibration",
+            category="causal",
+            description=(
+                "Calibration test (grf::test_calibration) of CATE predictions made "
+                "anywhere: a forest fitted on other folds, a meta-learner, or "
+                "predictions whose clustering is imposed after the fact. Regresses "
+                "Y - Y_hat on (W - W_hat) * mean(tau_hat) and (W - W_hat) * "
+                "(tau_hat - mean(tau_hat)); a significantly positive differential "
+                "coefficient is evidence of heterogeneity. sp.calibration_test runs "
+                "the same regression on a fitted forest's own out-of-bag "
+                "predictions. Matches grf to 1e-14 given the same inputs."
+            ),
+            params=[
+                ParamSpec("Y", "array", True, None, "Outcome, one value per row."),
+                ParamSpec("W", "array", True, None, "Treatment, one value per row."),
+                ParamSpec(
+                    "Y_hat",
+                    "array",
+                    True,
+                    None,
+                    "Out-of-sample predictions of E[Y | X].",
+                ),
+                ParamSpec(
+                    "W_hat",
+                    "array",
+                    True,
+                    None,
+                    "Out-of-sample predictions of E[W | X].",
+                ),
+                ParamSpec(
+                    "tau_hat",
+                    "array",
+                    True,
+                    None,
+                    "Out-of-sample CATE predictions to grade. A prediction for a "
+                    "row must not come from a model fitted on that row or, with "
+                    "clustered data, on any row of its cluster.",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "HC3",
+                    "Sandwich covariance type (grf's vcov.type), clustered when "
+                    "clusters is given.",
+                    enum=["HC3", "HC2", "HC1", "HC0"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level for ci_low / ci_high."),
+                ParamSpec(
+                    "weights",
+                    "array",
+                    False,
+                    None,
+                    "Non-negative observation weights. 1 / (cluster size) gives "
+                    "every cluster the same total weight "
+                    "(grf's equalize.cluster.weights).",
+                ),
+                ParamSpec(
+                    "clusters",
+                    "array",
+                    False,
+                    None,
+                    "Cluster labels for the covariance.",
+                ),
+            ],
+            returns=(
+                "pd.DataFrame indexed mean_forest_prediction / "
+                "differential_forest_prediction with coef, se, t, p (one-sided, "
+                "against 0), ci_low, ci_high."
+            ),
+            example=(
+                "sp.grf_calibration(Y=Y, W=W, Y_hat=Y_hat, W_hat=W_hat, "
+                "tau_hat=tau_out_of_fold, clusters=school)"
+            ),
+            tags=["forest", "calibration", "heterogeneity", "cate", "grf"],
+            reference="[@chernozhukov2025generic]",
+            pre_conditions=[
+                "Y_hat, W_hat and tau_hat are out-of-sample for every row",
+                "tau_hat is not constant",
+            ],
+            assumptions=[],
+            failure_modes=[
+                FailureMode(
+                    symptom="DataInsufficient: calibration design is rank deficient",
+                    exception="statspai.DataInsufficient",
+                    remedy="Constant predictions carry no heterogeneity to test.",
+                ),
+                FailureMode(
+                    symptom="A large t on in-sample predictions",
+                    exception="",
+                    remedy=(
+                        "Predictions fitted on the same rows (or clusters) have "
+                        "learned the noise; use out-of-bag or out-of-fold ones."
+                    ),
+                ),
+            ],
+            alternatives=["calibration_test", "rate_split", "best_linear_projection"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="best_linear_projection",
             category="causal",
             description=(

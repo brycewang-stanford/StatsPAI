@@ -3192,6 +3192,69 @@
     }
   },
   {
+    "description": "Calibration test (grf::test_calibration) of CATE predictions made anywhere: a forest fitted on other folds, a meta-learner, or predictions whose clustering is imposed after the fact. Regresses Y - Y_hat on (W - W_hat) * mean(tau_hat) and (W - W_hat) * (tau_hat - mean(tau_hat)); a significantly positive differential coefficient is evidence of heterogeneity. sp.calibration_test runs the same regression on a fitted forest's own out-of-bag predictions. Matches grf to 1e-14 given the same inputs. Validation: certified parity evidence.",
+    "name": "grf_calibration",
+    "parameters": {
+      "properties": {
+        "W": {
+          "description": "Treatment, one value per row.",
+          "type": "string"
+        },
+        "W_hat": {
+          "description": "Out-of-sample predictions of E[W | X].",
+          "type": "string"
+        },
+        "Y": {
+          "description": "Outcome, one value per row.",
+          "type": "string"
+        },
+        "Y_hat": {
+          "description": "Out-of-sample predictions of E[Y | X].",
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Level for ci_low / ci_high.",
+          "type": "number"
+        },
+        "clusters": {
+          "description": "Cluster labels for the covariance.",
+          "type": "string"
+        },
+        "tau_hat": {
+          "description": "Out-of-sample CATE predictions to grade. A prediction for a row must not come from a model fitted on that row or, with clustered data, on any row of its cluster.",
+          "type": "string"
+        },
+        "vce": {
+          "default": "HC3",
+          "description": "Sandwich covariance type (grf's vcov.type), clustered when clusters is given.",
+          "enum": [
+            "HC3",
+            "HC2",
+            "HC1",
+            "HC0"
+          ],
+          "type": "string",
+          "x-aliases": [
+            "vcov_type"
+          ]
+        },
+        "weights": {
+          "description": "Non-negative observation weights. 1 / (cluster size) gives every cluster the same total weight (grf's equalize.cluster.weights).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "Y",
+        "W",
+        "Y_hat",
+        "W_hat",
+        "tau_hat"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Best linear projection of a forest's conditional effect on covariates (grf::best_linear_projection): OLS of the doubly-robust scores on (1, A) with HC0-HC3 (cluster-robust when the forest has clusters) standard errors -- valid inference on a low-dimensional summary of tau(x) (Semenova and Chernozhukov 2021). Works for causal, instrumental, multi-arm and causal-survival forests; matches grf to 1e-15 given the scores. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "best_linear_projection",
     "parameters": {

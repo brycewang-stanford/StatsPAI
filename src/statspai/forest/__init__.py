@@ -21,6 +21,7 @@ companions:
   scores for ``fe=`` forests), support of counterfactual predictions, and
   pre-trends by predicted-effect group.
 - :func:`calibration_test` / :func:`test_calibration` /
+  :func:`grf_calibration` (the same test on predictions made elsewhere) /
   :func:`rate` / :func:`honest_variance` — post-fit honesty &
   calibration diagnostics.
 
@@ -42,6 +43,7 @@ from .forest_inference import (
     calibrate_cate,
     calibration_test,
     forest_diagnostics,
+    grf_calibration,
     honest_variance,
     rate,
     test_calibration,
@@ -66,6 +68,7 @@ __all__ = [
     "causal_forest",
     "calibrate_cate",
     "calibration_test",
+    "grf_calibration",
     "test_calibration",
     "rate",
     "honest_variance",

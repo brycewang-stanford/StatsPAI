@@ -234,6 +234,7 @@ def _stored_training_nuisances(
 # ======================================================================
 
 
+@accepts_aliases(vcov_type="vce")
 def grf_calibration(
     *,
     Y: np.ndarray,
@@ -241,14 +242,16 @@ def grf_calibration(
     Y_hat: np.ndarray,
     W_hat: np.ndarray,
     tau_hat: np.ndarray,
-    vcov_type: str = "HC3",
+    vce: str = "HC3",
     alpha: float = 0.05,
     weights: Optional[np.ndarray] = None,
     clusters: Optional[np.ndarray] = None,
 ) -> pd.DataFrame:
-    r"""The ``grf::test_calibration`` regression, given forest outputs.
+    r"""Calibration test of any CATE predictions [@chernozhukov2025generic].
 
-    Fits, by (weighted) least squares without an intercept,
+    The ``grf::test_calibration`` regression, given its inputs rather than
+    a fitted forest. Fits, by (weighted) least squares without an
+    intercept,
 
     .. math::
         Y_i - \hat m(X_i) = \beta_1\,(W_i - \hat e(X_i))\,\bar\tau
@@ -258,12 +261,21 @@ def grf_calibration(
     with :math:`\bar\tau` the (observation-weighted) mean CATE prediction.
     ``beta_1 = 1`` says the mean prediction is calibrated; ``beta_2 = 1``
     says the heterogeneity is calibrated, and ``beta_2 > 0`` significantly
-    is evidence that the forest found heterogeneity at all.
+    is evidence that the predictions order units by their effect at all.
+
+    :func:`calibration_test` runs this regression on a fitted forest's own
+    out-of-bag predictions. Call this function when the predictions come
+    from somewhere else: a forest fitted on other folds, a meta-learner, or
+    a forest whose clustering should be imposed after the fact. The test
+    is only valid if ``tau_hat[i]`` (and ``Y_hat[i]``, ``W_hat[i]``) was
+    not fitted on row ``i`` -- or, with clustered data, on any row of
+    ``i``'s cluster. In-sample predictions have learned the noise in
+    ``Y`` and make ``beta_2`` look significant.
 
     ``t`` tests each coefficient against **0** and ``p`` is the
     **one-sided** p-value for the alternative ``beta > 0`` from Student's
     t with ``n - 2`` degrees of freedom -- ``grf``'s reporting rule
-    (``lmtest::coeftest`` then halving). ``vcov_type`` is ``grf``'s
+    (``lmtest::coeftest`` then halving). ``vce`` is ``grf``'s
     ``vcov.type`` (default ``"HC3"``); ``grf`` passes it to
     ``sandwich::vcovCL`` with ``clusters`` (one cluster per observation
     when there are none), which is what the covariance here reproduces
@@ -271,20 +283,73 @@ def grf_calibration(
     ``ci_low`` / ``ci_high`` use the same t quantile. ``t_vs_zero`` and
     ``p_one_sided`` repeat ``t`` and ``p`` under their earlier names.
 
+    Parameters
+    ----------
+    Y, W : array-like of shape (n,)
+        Outcome and treatment.
+    Y_hat, W_hat : array-like of shape (n,)
+        Out-of-sample predictions of ``E[Y | X]`` and ``E[W | X]``.
+    tau_hat : array-like of shape (n,)
+        Out-of-sample CATE predictions to grade.
+    vce : {'HC3', 'HC2', 'HC1', 'HC0'}
+        Sandwich covariance type, clustered when ``clusters`` is given.
+    alpha : float
+        Level for ``ci_low`` / ``ci_high``.
+    weights : array-like of shape (n,), optional
+        Non-negative observation weights; rows with weight 0 are left out.
+        ``1 / (size of the row's cluster)`` gives every cluster the same
+        total weight (``grf``'s ``equalize.cluster.weights``).
+    clusters : array-like of shape (n,), optional
+        Cluster labels for the covariance.
+
     Returns
     -------
     DataFrame
         Index ``mean_forest_prediction`` / ``differential_forest_prediction``;
         columns ``coef``, ``se``, ``t``, ``p``, ``ci_low``, ``ci_high``,
         ``t_vs_zero``, ``p_one_sided``.
+
+    Examples
+    --------
+    Grade forests that did not see a school when predicting for it: fit on
+    four folds of schools, predict the fifth, then test with a covariance
+    clustered by school.
+
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n, n_schools = 600, 30
+    >>> school = rng.integers(0, n_schools, size=n)
+    >>> X = rng.normal(size=(n, 3))
+    >>> W = rng.binomial(1, 0.5, size=n).astype(float)
+    >>> Y = X[:, 1] + (1.0 + X[:, 0]) * W + rng.normal(size=n)
+    >>> kw = dict(n_estimators=100, random_state=0)
+    >>> fold = school % 5
+    >>> Y_hat, W_hat, tau_hat = np.empty(n), np.empty(n), np.empty(n)
+    >>> for k in range(5):
+    ...     tr, te = fold != k, fold == k
+    ...     my = sp.regression_forest(y=Y[tr], covariates=X[tr], **kw)
+    ...     mw = sp.regression_forest(y=W[tr], covariates=X[tr], **kw)
+    ...     Y_hat[te] = np.ravel(my.predict(X[te]))
+    ...     W_hat[te] = np.ravel(mw.predict(X[te]))
+    ...     cf = sp.causal_forest(Y=Y[tr], T=W[tr], X=X[tr], **kw)
+    ...     tau_hat[te] = cf.effect(X[te])
+    >>> out = sp.grf_calibration(Y=Y, W=W, Y_hat=Y_hat, W_hat=W_hat,
+    ...                          tau_hat=tau_hat, clusters=school)
+    >>> out.index.tolist()
+    ['mean_forest_prediction', 'differential_forest_prediction']
+
+    References
+    ----------
+    [@chernozhukov2025generic], [@athey2019generalized]
     """
     from ._grf_inference import cluster_robust_vcov
 
-    vcov_key = str(vcov_type).upper()
+    alpha = _validate_alpha(alpha, "calibration_test()")
+    vcov_key = str(vce).upper()
     if vcov_key not in ("HC0", "HC1", "HC2", "HC3"):
         raise MethodIncompatibility(
-            f"calibration_test(): vce must be HC0, HC1, HC2 or HC3; "
-            f"got {vcov_type!r}.",
+            f"calibration_test(): vce must be HC0, HC1, HC2 or HC3; " f"got {vce!r}.",
             recovery_hint="Use grf's default vce='HC3'.",
         )
     arrs = [
@@ -302,6 +367,21 @@ def grf_calibration(
         raise MethodIncompatibility(
             "calibration_test(): weights must have one entry per observation.",
             recovery_hint="Pass aligned per-observation weights.",
+        )
+    if not all(np.all(np.isfinite(a)) for a in arrs):
+        raise MethodIncompatibility(
+            "calibration_test(): Y, W, Y_hat, W_hat and tau_hat must be " "finite.",
+            recovery_hint="Drop rows without a prediction before the test.",
+        )
+    if not np.all(np.isfinite(w)) or np.any(w < 0):
+        raise MethodIncompatibility(
+            "calibration_test(): weights must be finite and non-negative.",
+            recovery_hint="Pass non-negative per-observation weights.",
+        )
+    if clusters is not None and len(np.asarray(clusters).ravel()) != n:
+        raise MethodIncompatibility(
+            "calibration_test(): clusters must have one label per observation.",
+            recovery_hint="Pass aligned per-observation cluster labels.",
         )
     n_pos = int(np.sum(w > 0))
     if n_pos < 3:
@@ -535,7 +615,7 @@ def calibration_test(
         Y_hat=Y_hat,
         W_hat=W_hat,
         tau_hat=tau_hat,
-        vcov_type=vce,
+        vce=vce,
         alpha=alpha_value,
     )
 

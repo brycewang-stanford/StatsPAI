@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import statspai as sp
 from statspai.forest import _grf_inference as gi
 from statspai.forest._grf_fit import observation_weights
 
@@ -92,6 +93,28 @@ def test_calibration_matches_grf(data, ref, key, equalize):
     np.testing.assert_allclose(
         table["p_one_sided"].to_numpy(), r["p_one_sided"], atol=1e-3
     )
+
+
+@pytest.mark.parametrize(
+    "key,equalize", [("clusters", False), ("clusters_equalized", True)]
+)
+def test_grf_calibration_matches_grf(data, ref, key, equalize):
+    """The public operator on the same vectors: ``clusters=`` for the
+    covariance, ``1 / cluster size`` for equalized cluster weights."""
+    size = data["cluster"].map(data["cluster"].value_counts()).to_numpy()
+    table = sp.grf_calibration(
+        Y=data["Y"],
+        W=data["W"],
+        Y_hat=data["Y_hat"],
+        W_hat=data["W_hat"],
+        tau_hat=data["tau_oob"],
+        clusters=data["cluster"],
+        weights=1.0 / size if equalize else None,
+    )
+    r = ref[key]["calibration"]
+    np.testing.assert_allclose(table["coef"].to_numpy(), r["coef"], rtol=RTOL)
+    np.testing.assert_allclose(table["se"].to_numpy(), r["se"], rtol=RTOL)
+    np.testing.assert_allclose(table["t"].to_numpy(), r["t"], rtol=RTOL)
 
 
 @pytest.mark.parametrize(

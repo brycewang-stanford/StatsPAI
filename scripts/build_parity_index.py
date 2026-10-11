@@ -6792,6 +6792,29 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "propensity and baseline proxy (identical inputs on both sides); the "
         "default out-of-fold proxy refit is StatsPAI's own.",
     },
+    "grf_calibration": {
+        "status": "bit-exact",
+        "reference": "grf::test_calibration 2.6.1 (vcov.type HC3 default and HC1; "
+        "with clusters, with and without equalize.cluster.weights), forest "
+        "outputs held fixed",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "grf": "2.6.1",
+            "sandwich": "3.1.1",
+        },
+        "tolerance": "coef, se, t 1e-10 rel without clusters, 1e-9 rel with; "
+        "one-sided p-value 1e-8 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_ml_causal_R_parity.py",
+            "tests/reference_parity/_fixtures/ml_causal_R.json",
+        ],
+        "note": "The regression given its inputs: grf's OOB tau.hat, Y.hat and "
+        "W.hat are frozen in the fixtures and passed in directly. The grade "
+        "says nothing about predictions the caller makes; those must be "
+        "out-of-sample for the test to be valid. Clustered rows are in "
+        "tests/reference_parity/test_grf_cluster_operator_parity.py.",
+    },
     "calibration_test": {
         "status": "bit-exact",
         "reference": "grf::test_calibration 2.6.1 (vcov.type HC3 default and HC1), "

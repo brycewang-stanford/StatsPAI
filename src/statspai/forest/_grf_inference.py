@@ -286,7 +286,7 @@ def calibration_blp(
         Y_hat=zeros,
         W_hat=zeros,
         tau_hat=tau,
-        vcov_type=vcov_type,
+        vce=vcov_type,
         alpha=alpha,
         weights=w,
         clusters=clusters if getattr(forest, "_clusters", None) is not None else None,

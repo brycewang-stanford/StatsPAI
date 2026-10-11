@@ -29,7 +29,7 @@
 
 ```text
 StatsPAI/
-├── src/statspai/          # 主包：90 子模块 / 1,562 个注册符号，其中约 400 个是结果类与异常类（实时数 `python scripts/registry_stats.py`；此行 2026-10-10 核对）
+├── src/statspai/          # 主包：90 子模块 / 1,563 个注册符号，其中约 400 个是结果类与异常类（实时数 `python scripts/registry_stats.py`；此行 2026-10-12 核对）
 │   ├── __init__.py          # 对外 API 入口
 │   ├── registry.py          # 函数注册表（sp.help / sp.list_functions 依赖）
 │   ├── help.py              # sp.help / sp.describe_function / sp.function_schema

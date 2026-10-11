@@ -2,6 +2,26 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### The calibration test on predictions made elsewhere
+
+#### Added
+
+- `sp.grf_calibration(Y=, W=, Y_hat=, W_hat=, tau_hat=, weights=, clusters=)`
+  is the regression behind `sp.calibration_test`, taking its inputs
+  directly. It grades CATE predictions that did not come from the forest's
+  own out-of-bag pass: forests fitted on other folds of clusters, a
+  meta-learner, or predictions whose clustering is imposed afterwards
+  (section 3.1 of Athey and Wager's 2019 application does this by
+  overwriting fields of a fitted `grf` forest). The function existed as an
+  internal operator and was already tied to `grf::test_calibration` at
+  1e-14; it is now exported, registered, and checks its inputs (lengths,
+  missing predictions, negative weights, the level). Its covariance
+  keyword is `vce`, as in `sp.calibration_test`; `vcov_type` is still
+  accepted. Replicating that paper on its ACIC 2018 data showed the gap:
+  the fold-out test had to be written by hand with `sp.regress`.
+
 ## [1.39.4] — 2026-10-11
 
 Two passes over the package. The first wrote tests for the options and

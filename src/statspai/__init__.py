@@ -1599,6 +1599,7 @@ __all__ = [
     "calibrate_cate",
     "calibration_test",
     "test_calibration",  # GRF-compatible alias of calibration_test
+    "grf_calibration",
     "rate",
     "rate_split",
     "forest_policy_tree",
@@ -3525,6 +3526,7 @@ _register_lazy(
     "calibrate_cate",
     "calibration_test",
     ("test_calibration", "calibration_test"),
+    "grf_calibration",
     "rate",
     "honest_variance",
     "average_treatment_effect",

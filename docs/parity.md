@@ -27,9 +27,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 432 |
+| **Compared against R/Stata** (T2) | bit-exact | 433 |
 | | aligned | 53 |
-| | **subtotal** | **485** |
+| | **subtotal** | **486** |
 | **No external software reference** | analytical-only (T1) | 406 |
 | | external-replication (published numbers) | 62 |
 | | **subtotal** | **468** |
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 485 | 936 | 938 | 51.7% |
+| estimator callables | 486 | 937 | 939 | 51.8% |
 | infrastructure (parity N/A) | 0 | 13 | 222 | 0.0% |
 | result / exception classes | 0 | 4 | 402 | 0.0% |
-| **all registered** | 485 | 953 | 1562 | 31.0% |
+| **all registered** | 486 | 954 | 1563 | 31.1% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 153 | 346 | 346 |
+| causal | 154 | 347 | 347 |
 | regression | 45 | 59 | 59 |
 | timeseries | 24 | 52 | 53 |
 | inference | 28 | 49 | 49 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 432 functions
+## bit-exact — 433 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -237,6 +237,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `glmnet` | glmnet::glmnet and glmnet::cv.glmnet (gaussian, binomial; thresh = 1e-14) | R 4.5.2; glmnet 4.1.10 | penalty path 1e-10 and equal length; coefficients 1e-6 absolute (5e-5 with more predictors than rows); deviance explained 1e-7; cross-validated error and its standard error 1e-4; lambda.min and lambda.1se the same grid point | — / — | [`test_glmnet_r_parity.py`](../tests/reference_parity/test_glmnet_r_parity.py) (+1) |
 | `gmm` | Stata 18 gmm (linear and exponential-mean IV; twostep, igmm, onestep); R gmm::gmm | Stata 18 MP; R 4.5.2; gmm 1.9.1 | vs Stata estimates rtol 1e-10 (observed 1.2e-12), SEs 1e-9 linear / 1e-6 nonlinear (Stata's numerical Jacobian; observed 2.5e-7), J rtol 1e-10; vs R rtol 1e-6 (observed 1.8e-7) | — / — | [`test_panel_gmm_stata_parity.py`](../tests/reference_parity/test_panel_gmm_stata_parity.py) (+1) |
 | `granger_causality` | Stata 18 vargranger; vars::causality 1.6.1 | R 4.5.2; vars 1.6.1; Stata 18 | chi2 and F 1e-10 rel (observed 4.1e-15), p-values 1e-8 | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
+| `grf_calibration` | grf::test_calibration 2.6.1 (vcov.type HC3 default and HC1; with clusters, with and without equalize.cluster.weights), forest outputs held fixed | R 4.5.2; grf 2.6.1; sandwich 3.1.1 | coef, se, t 1e-10 rel without clusters, 1e-9 rel with; one-sided p-value 1e-8 rel | — / — | [`test_ml_causal_R_parity.py`](../tests/reference_parity/test_ml_causal_R_parity.py) (+1) |
 | `gsynth` | gsynth::gsynth | R 4.5.2; gsynth 1.4.0 | rel_est<=1e-06, rel_se<=1e-06 | 7.7e-14 / 2.2e-15 | [`19_gsynth.py`](../tests/r_parity/19_gsynth.py) (+2) |
 | `gwr` | GWmodel::gwr.basic 2.4.1 | R 4.5.2; GWmodel 2.4.1 | local betas and SEs 1e-9 rel (observed 1.3e-11 / 3.5e-14); RSS, AIC, AICc, BIC, enp, edf 1e-10 rel | — / — | [`test_spatial_survey_R_parity.py`](../tests/reference_parity/test_spatial_survey_R_parity.py) (+1) |
 | `gwr_bandwidth` | GWmodel::bw.gwr 2.4.1 (golden section gold(); gwr.aic / gwr.cv) | R 4.5.2; GWmodel 2.4.1 | selected bandwidth 1e-10 rel (observed 0 on 8 configurations); criterion values 1e-11 rel (observed 7.0e-15) | — / — | [`test_spatial_survey_R_parity.py`](../tests/reference_parity/test_spatial_survey_R_parity.py) (+1) |

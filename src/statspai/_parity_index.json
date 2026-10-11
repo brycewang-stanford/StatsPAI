@@ -8958,6 +8958,35 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_grf_cluster_operator_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "grf_calibration",
+      "notes": [
+        "The regression given its inputs: grf's OOB tau.hat, Y.hat and W.hat are frozen in the fixtures and passed in directly. The grade says nothing about predictions the caller makes; those must be out-of-sample for the test to be valid. Clustered rows are in tests/reference_parity/test_grf_cluster_operator_parity.py."
+      ],
+      "reference": "grf::test_calibration 2.6.1 (vcov.type HC3 default and HC1; with clusters, with and without equalize.cluster.weights), forest outputs held fixed",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "grf": "2.6.1",
+        "sandwich": "3.1.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ml_causal_R_parity.py",
+        "tests/reference_parity/_fixtures/ml_causal_R.json"
+      ],
+      "tolerance": "coef, se, t 1e-10 rel without clusters, 1e-9 rel with; one-sided p-value 1e-8 rel"
+    },
+    {
+      "additional_tests": [
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
