@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.39.4 → next: ⚠️ `sp.lasso_select(method="cv")`
+## 1.39.4 → 1.39.5: ⚠️ `sp.lasso_select(method="cv")`
 
 **What changed.** The cross-validation refits the centring and scaling
 inside each training fold and gives each fold its own intercept. Before,
@@ -26,7 +26,7 @@ cross-validated error on the same folds and also reports `lambda.1se`.
 
 ---
 
-## After 1.39.4: ⚠️ `sp.blp` diversion ratios, standard errors and outer loop
+## 1.39.4 → 1.39.5: ⚠️ `sp.blp` diversion ratios, standard errors and outer loop
 
 **What changed.**
 
@@ -56,7 +56,7 @@ errors at a zero bound and the diversion ratios will still be the new
 ones. Compare `model_info['starts']` to see whether the starting point
 mattered for your data.
 
-## 1.39.4 → next: ⚠️ `rho` of the production-function estimators
+## 1.39.4 → 1.39.5: ⚠️ `rho` of the production-function estimators
 
 **What changed.** `result.productivity_process["rho"]` and
 `result.diagnostics["ar_rho"]` from `sp.olley_pakes`,

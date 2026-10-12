@@ -2,7 +2,19 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.39.5] — 2026-10-12
+
+Five replications of published papers, and what each one turned up.
+Three results change and should be recomputed: `diversion_ratios()` of
+`sp.blp` was wrong by a share ratio, `sp.lasso_select(method="cv")`
+cross-validated on leaked folds, and the `rho` reported by the
+production-function estimators was not a persistence at the default
+polynomial degree. Standard errors of `sp.blp` change when a random
+coefficient is estimated at zero, and its outer loop is now gradient
+based (20 seconds where it took 44 minutes). New: `sp.ctree`, the logit
+and nested logit of Berry (1994) in `sp.blp`, `sp.blp_instruments`, and
+`sp.grf_calibration`. MIGRATION.md has the details. The JSS manuscript
+stays anchored to 1.39.1.
 
 ### The calibration test on predictions made elsewhere
 
