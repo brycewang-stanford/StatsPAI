@@ -31,6 +31,24 @@ Rules:
 
 ## Entries
 
+### 2026-10-13 — call traces re-recorded after the sample-size alias in the base result class
+
+- **Commits.** `3d5dfe37` re-recorded all 89 Track A modules in
+  `tests/r_parity/results/_implementation_trace.json` and all 12
+  original-data modules in
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in the same commit: `src/statspai/core/results.py`.
+- **Reason.** `EconometricResults` now fills `data_info["nobs"]` from
+  `data_info["n_obs"]` when an estimator recorded only the latter
+  (CHANGELOG, Unreleased).
+- **Effect on the paper.** None. No estimate or standard error is
+  computed differently; in both trace files only the digest of
+  `src/statspai/core/results.py` and `seconds` differ, and no committed
+  result file changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-12 — release 1.39.5: parity tables carry the new version string
 
 - **Commits.** `d6b412a3` (release 1.39.5) regenerated
