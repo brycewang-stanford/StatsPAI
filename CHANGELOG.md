@@ -2,6 +2,24 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Sample size on results that recorded it as `n_obs`
+
+#### Fixed
+
+- **`result.nobs` was None and `result.n_obs` raised `AttributeError`**
+  on results whose estimator records the sample size under
+  `data_info["n_obs"]`. Confirmed on `sp.levinsohn_petrin` (and with it
+  `sp.olley_pakes` and `sp.acf`, which share the result class),
+  `sp.liml` and `sp.truncreg`; a scan of the source finds twenty-five
+  constructors that record it this way, in the gmm, panel, frontier,
+  structural and regression modules. The base result class reads
+  `data_info["nobs"]`, so `to_dict()["n_obs"]` was None as well. It now
+  fills `nobs` from `n_obs` when only the latter is recorded.
+  `data_info["n_obs"]` is still there. No estimate changes. Reported
+  from a replication of Levinsohn and Petrin (2003).
+
 ## [1.39.5] — 2026-10-12
 
 Five replications of published papers, and what each one turned up.

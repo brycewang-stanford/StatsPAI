@@ -478,6 +478,14 @@ class EconometricResults:
         self.std_errors = std_errors
         self.model_info = model_info
         self.data_info = data_info or {}
+        # Some estimators record the sample size as ``n_obs``. Everything
+        # on this class reads ``nobs`` (the property, the summary footer,
+        # ``to_dict``), so those fits reported no sample size at all.
+        if (
+            self.data_info.get("nobs") is None
+            and self.data_info.get("n_obs") is not None
+        ):
+            self.data_info["nobs"] = self.data_info["n_obs"]
         self.diagnostics = diagnostics or {}
         # The significance level requested at fit time (``sp.logit(...,
         # alpha=0.1)``) is the default for every interval this object
