@@ -100,6 +100,25 @@ StatsPAI 只有一个 `weights=`。用户只传这一个参数时，回归类入
 ## 决定（2026-10-05）
 
 1. **A 现在做。** 先补一项仿真（`tests/reliability/extreme_weights_binary_iv.py`，覆盖 `sp.logit` / `sp.probit` / `sp.glm` / `sp.iv`），再给这四个入口接同一套诊断和警告。
-2. **B 做，放在 JSS 投稿之后。** 稿件锚定的版本里 12 个入口的签名保持不变。
+2. **B 做。** 原定放在 JSS 投稿之后；Bryce 当天指示现在就做（JSS 仍未投稿），已实现，见下节。
 3. **B 的参数名用 `weights_as`**，取值 `'analytic'` / `'frequency'` / `'sampling'`。`weight_type` 已被 wild bootstrap 的四个函数用于另一个含义。
 4. **C 不做。** B 上线后若误用仍然普遍再议。
+
+## B 的实现（2026-10-05）
+
+`weights_as=` 加在 13 个入口上。每个入口接受自己原生的那一种基于模型的读法，加上 `'sampling'`。
+
+| 原生读法 | 入口 | 判据 |
+| --- | --- | --- |
+| `'analytic'` | `sp.regress`、`sp.panel`、`sp.hdfe_ols`、`sp.feols`、`sp.fast.feols`、`sp.iv` / `sp.ivreg`、高斯族 `sp.glm` | 权重整体乘以常数，标准误不变 |
+| `'frequency'` | `sp.logit`、`sp.probit`、`sp.cloglog`、`sp.poisson`、`sp.nbreg`、`sp.fast.fepois`、非高斯 `sp.glm` | 权重乘以 4，标准误减半 |
+
+行为：
+
+- `'sampling'` 且用户没有另选方差时，换成稳健方差。与手动指定逐位一致，所以沿用那些选项已有的 Stata `[pw=]` 参考证据。用户已经选了方差（`cluster=`、`vce='hc3'` 等）时不覆盖。
+- 声明原生读法不改变任何数字，只是不再发“默认方差假设了什么”的警告。
+- 另一种基于模型的读法被拒绝并说明原因。Stata 的 `[fw=]` 会改变线性回归的 N 和自由度，`[aw=]` 会把似然模型的权重缩放到和为 N，这些入口都没有实现，不假装支持。
+- `sp.hdfe_ols` 的加权拟合没有异方差稳健方差，所以 `'sampling'` 必须同时给 `cluster=`，否则拒绝并指向 `sp.feols`。
+- `sp.ppmlhdfe` 和 `sp.tobit` 默认已经是稳健方差，没有加这个参数。
+
+测试在 `tests/test_weights_as.py`（97 条）。小样本警告和按权重算的有效簇数警告不受声明影响：声明解决的是读法，不是有效样本太小。

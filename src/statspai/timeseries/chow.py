@@ -15,6 +15,8 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .ardl import _check_alpha
+from .structural_break import _refuse_exact_split
 
 __all__ = ["chow_test"]
 
@@ -113,7 +115,8 @@ def chow_test(
         regime (Stata ``estat sbknown, break()``). A list tests several
         breaks jointly.
     time : str, optional
-        Column that dates the observations.
+        Column that dates the observations. The rows are sorted by it
+        before the regimes are formed.
     break_vars : sequence of str, optional
         Coefficients allowed to change, as names from ``x`` plus
         ``"const"``. Default: all of them.
@@ -169,6 +172,7 @@ def chow_test(
         raise MethodIncompatibility(
             f"chow_test: vce must be 'nonrobust', 'hc0' or 'hc1', got {vce!r}."
         )
+    _check_alpha(alpha, "chow_test")
     x_names = [x] if isinstance(x, str) else list(x or [])
     missing = [c for c in [y] + x_names if c not in data.columns]
     if missing:
@@ -176,6 +180,18 @@ def chow_test(
             f"chow_test: column(s) {missing} not found in data.",
             recovery_hint="Check the column names.",
         )
+    if time is not None and time in data.columns:
+        # The regimes are the rows before and after the break in TIME, so
+        # the rows are put in the order of the time column (stable for
+        # ties); a frame already in that order is used as it is.
+        if data[time].isna().any():
+            raise MethodIncompatibility(
+                f"chow_test: missing values in the time column {time!r}.",
+                recovery_hint="Every observation needs a date to be placed "
+                "in a regime.",
+            )
+        if not data[time].is_monotonic_increasing:
+            data = data.sort_values(time, kind="stable")
     frame = data[[y] + x_names]
     if frame.isna().to_numpy().any():
         raise MethodIncompatibility(
@@ -240,6 +256,7 @@ def chow_test(
     beta = WtW_inv @ (W.T @ yv)
     e = yv - W @ beta
     rss_u = float(e @ e)
+    _refuse_exact_split(yv, rss_u, sizes[0], "chow_test")
     b0 = np.linalg.lstsq(X, yv, rcond=None)[0]
     rss_r = float(np.sum((yv - X @ b0) ** 2))
 

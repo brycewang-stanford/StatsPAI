@@ -224,6 +224,7 @@ def feols(
     drop_singletons: bool = True,
     fe_tol: float = 1e-10,
     fe_maxiter: int = 1_000,
+    weights_as: Optional[str] = None,
 ) -> FeolsResult:
     """OLS / WLS with high-dimensional fixed effects.
 
@@ -254,7 +255,15 @@ def feols(
         ``vcov="cr1"``; rejected otherwise. NaN cluster values raise.
     weights : str, optional
         Column name of observation weights. Each obs's contribution to
-        the objective is scaled by ``w_i`` (frequency / survey weights).
+        the objective is scaled by ``w_i``. With ``vcov='iid'`` they are
+        analytic weights (Stata ``[aw=]``, R ``fixest`` ``weights=``).
+    weights_as : {'analytic', 'sampling'}, optional
+        What the weights are. ``'analytic'`` is what ``weights=`` alone
+        already means. ``'sampling'`` (Stata ``[pw=]``) gives the same
+        coefficients with ``vcov='hc1'``, unless ``vcov=`` or
+        ``cluster=`` asks for another. Saying which also silences the
+        warning about dispersed weights under the classical variance.
+        ``'frequency'`` is refused.
     ssc : {"fixest", "statspai"}, default "fixest"
         Small-sample correction convention for residual degrees of
         freedom and CR1 scaling.
@@ -309,6 +318,18 @@ def feols(
         raise MethodIncompatibility(
             f"feols: ssc={ssc!r}; supported: 'statspai' or 'fixest'"
         )
+    # weights_as=: what the weights are; sampling weights take hc1 unless
+    # another variance was asked for.
+    from ..core._agent_summary import resolve_weights_as
+
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native="analytic",
+        entry="sp.fast.feols",
+    )
+    if weights_as == "sampling" and cluster is None and vcov == "iid":
+        vcov = "hc1"
     if vcov == "cr1" and cluster is None:
         raise MethodIncompatibility("feols: vcov='cr1' requires cluster=<column name>")
     if cluster is not None and vcov in ("iid", "hc1"):
@@ -586,6 +607,7 @@ def feols(
             classical_reading="analytic weights (Stata [aw=])",
             cluster_keys=cluster_arr_kept if vcov == "cr1" else None,
             cluster=cluster,
+            weights_as=weights_as,
         )
 
     return FeolsResult(

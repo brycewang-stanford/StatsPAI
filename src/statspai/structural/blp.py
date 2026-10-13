@@ -56,6 +56,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..core._collinear import independent_columns
+from ..core._validate import require_numeric_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ._blp_core import (  # noqa: F401  (private names tests reach through here)
     _choice_probabilities,
@@ -157,11 +158,24 @@ def blp_instruments(
     ----------
     [@berry1995automobile]
     """
-    x = list(x)
+    x = [x] if isinstance(x, str) else list(x)
+    groups = [market_id] + [c for c in (firm_id, nest) if c is not None]
     needed = [market_id] + x + [c for c in (firm_id, nest) if c is not None]
     missing = [c for c in needed if c not in data.columns]
     if missing:
         raise ValueError(f"Columns not found in data: {missing}")
+    require_numeric_columns(data, x, function="blp_instruments", argument="x")
+    unlabelled = {c: int(data[c].isna().sum()) for c in groups}
+    unlabelled = {c: m for c, m in unlabelled.items() if m}
+    if unlabelled:
+        # a missing market or firm belongs to no group: its sums are not
+        # defined, and the rows of its market would be short of a product
+        raise DataInsufficient(
+            "blp_instruments: missing values in the grouping column(s) "
+            f"{unlabelled} (column: number of rows).",
+            recovery_hint="Drop those rows, or fill in the identifiers.",
+            diagnostics={"n_missing": unlabelled},
+        )
     names = (["count"] if count else []) + [str(c) for c in x]
     if not names:
         raise MethodIncompatibility(

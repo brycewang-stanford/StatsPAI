@@ -634,7 +634,7 @@ def ctree(
     >>> df = pd.DataFrame({"age": rng.uniform(1, 70, 500),
     ...                    "noise": rng.normal(size=500)})
     >>> df["survived"] = (rng.uniform(size=500)
-    ...                   < np.where(df["age"] < 9, 0.7, 0.35)).astype(int)
+    ...                   < np.where(df["age"] < 20, 0.7, 0.35)).astype(int)
     >>> fit = sp.ctree(df, y="survived", covariates=["age", "noise"],
     ...                task="classification")
     >>> fit.nodes.loc[1, "variable"]

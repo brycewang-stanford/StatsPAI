@@ -222,7 +222,16 @@ def _column(data: pd.DataFrame, name: str) -> pd.Series:
             recovery_hint="Encode it as a number first, or use sp.tab for "
             "categorical variables.",
         )
-    return col.astype(float)
+    out = col.astype(float)
+    n_inf = int(np.isinf(out.to_numpy()).sum())
+    if n_inf:
+        raise MethodIncompatibility(
+            f"ttest: column {name!r} holds {n_inf} infinite value(s); a mean "
+            "and a variance are not defined with them.",
+            recovery_hint="Set them to missing (they are then dropped) or "
+            "remove those rows.",
+        )
+    return out
 
 
 def ttest(
@@ -362,6 +371,10 @@ def ttest(
             recovery_hint="Check the sample and the grouping column.",
         )
 
+    # largest magnitude among the values tested: a standard error is "zero"
+    # relative to it (a constant difference of two varying columns leaves
+    # rounding error of that order, not an exact 0)
+    scale = 0.0
     # ---------------------------------------------- one sample / paired
     if summary and len(samples) == 1:
         ((label, base),) = samples.items()
@@ -382,6 +395,7 @@ def ttest(
             labels = {y: yv[keep].to_numpy(), other: ov[keep].to_numpy(), "diff": x}
         if x.size < 2:
             raise too_small(y)
+        scale = max(float(np.max(np.abs(v))) for v in labels.values())
         rows = {k: _row(v, alpha) for k, v in labels.items()}
         base = rows["diff"] if other is not None else rows[y]
         est, se, dof = base["mean"], base["se"], float(x.size - 1)
@@ -418,6 +432,7 @@ def ttest(
             if b.size < 2:
                 raise too_small(names[1])
             ra, rb = _row(a, alpha), _row(b, alpha)
+            scale = float(max(np.max(np.abs(a)), np.max(np.abs(b))))
         na, nb = int(ra["n"]), int(rb["n"])
         va, vb = ra["sd"] ** 2, rb["sd"] ** 2
         est = ra["mean"] - rb["mean"]
@@ -443,7 +458,7 @@ def ttest(
         groups = pd.DataFrame.from_dict(table, orient="index")
 
     groups["n"] = groups["n"].astype(int)
-    if not se > 0:
+    if not se > 1e-10 * scale:
         raise MethodIncompatibility(
             "ttest: the standard error is zero (no variation in the sample), "
             "so the t statistic is not defined.",

@@ -11,12 +11,15 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._collinear import independent_columns
+from ..core._validate import require_numeric_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["xtsum", "xtserial", "xtoverid", "xt_statistics"]
@@ -103,6 +106,7 @@ def xtsum(
             c for c in data.select_dtypes(include=[np.number]).columns if c != id
         ]
     names = _columns(data, variables, "sp.xtsum")
+    require_numeric_columns(data, names, function="sp.xtsum", argument="variables")
     rows: Dict[Any, Dict[str, float]] = {}
     for name in names:
         frame = data[[id, name]].dropna()
@@ -217,6 +221,7 @@ def xtserial(
     """
     xs = _columns(data, x, "sp.xtserial")
     _columns(data, [y, id, time], "sp.xtserial")
+    require_numeric_columns(data, [y] + xs, function="sp.xtserial", argument="y / x")
     frame = data[[id, time, y] + xs].dropna().sort_values([id, time], kind="stable")
     t = frame[time].to_numpy(dtype=float)
     if not np.all(t == np.round(t)):
@@ -239,6 +244,45 @@ def xtserial(
             "per panel.",
         )
     dy, dX = d[:, 0], d[:, 1:]
+    # A regressor that never changes within a panel differences to a column
+    # of exact zeros: it has no coefficient in the first-difference
+    # regression and no effect on its residuals, so it is omitted (inverting
+    # D.X'D.X with it raised LinAlgError).
+    moving = np.any(dX != 0.0, axis=0)
+    omitted = [v for v, keep in zip(xs, moving) if not keep]
+    if omitted:
+        warnings.warn(
+            f"sp.xtserial: {omitted} omitted from the first-difference "
+            "regression (no change within any panel).",
+            UserWarning,
+            stacklevel=2,
+        )
+        xs = [v for v, keep in zip(xs, moving) if keep]
+        dX = dX[:, moving]
+    # Likewise a regressor whose first difference is a linear combination
+    # of the others': the residuals, and so the test, do not depend on it.
+    kept, dependent = independent_columns(dX, xs)
+    if dependent:
+        warnings.warn(
+            "sp.xtserial: "
+            + "; ".join(
+                f"note: {o['variable']} omitted because of collinearity "
+                f"({o['reason']})"
+                for o in dependent
+            )
+            + " in the first-difference regression. The test is the one "
+            "without the omitted regressor(s).",
+            UserWarning,
+            stacklevel=2,
+        )
+        xs = [xs[j] for j in kept]
+        dX = dX[:, kept]
+    if not xs:
+        raise MethodIncompatibility(
+            "sp.xtserial: no regressor changes within panels.",
+            recovery_hint="The first-difference regression needs at least "
+            "one time-varying regressor.",
+        )
     beta = np.linalg.lstsq(dX, dy, rcond=None)[0]
     resid = dy - dX @ beta
     # lag of the differenced residual, within panel and at consecutive periods
@@ -510,9 +554,23 @@ def xtoverid(
     xs = _columns(data, x, "sp.xtoverid")
     cols = [id, y] + xs + ([cluster] if cluster and cluster != id else [])
     _columns(data, cols, "sp.xtoverid")
+    require_numeric_columns(data, [y] + xs, function="sp.xtoverid", argument="y / x")
     frame = data[cols].dropna()
     yv = frame[y].to_numpy(dtype=float)
     X = frame[xs].to_numpy(dtype=float)
+    if len(frame) == 0:
+        raise DataInsufficient("sp.xtoverid: no complete rows.")
+    _, dependent = independent_columns(
+        np.column_stack([np.ones(len(X)), X]), ["_cons"] + xs
+    )
+    if dependent:
+        raise MethodIncompatibility(
+            "sp.xtoverid: the regressors are linearly dependent: "
+            + "; ".join(f"{o['variable']} ({o['reason']})" for o in dependent)
+            + ". The random-effects fit the test starts from is not unique.",
+            recovery_hint="Drop the redundant regressor(s) from x.",
+            diagnostics={"omitted": dependent},
+        )
     codes, _ = pd.factorize(frame[id], sort=True)
     n = int(codes.max()) + 1
     parts = _swamy_arora(yv, X, codes, n)
@@ -534,6 +592,15 @@ def xtoverid(
     if cluster and cluster != id:
         g_codes, _ = pd.factorize(frame[cluster], sort=True)
     G = int(g_codes.max()) + 1
+    if G - 1 < len(varying):
+        raise DataInsufficient(
+            f"sp.xtoverid: {G} cluster(s) cannot test {len(varying)} "
+            "restriction(s): the cluster-robust covariance has rank at most "
+            f"{G - 1}, so the statistic would divide by zero.",
+            recovery_hint="Cluster on a finer level (the default is the "
+            "panel identifier), or test fewer regressors.",
+            diagnostics={"n_clusters": G, "df": len(varying)},
+        )
     scores = np.zeros((G, Z.shape[1]))
     np.add.at(scores, g_codes, Z * resid[:, None])
     n_obs, n_coef = Z.shape

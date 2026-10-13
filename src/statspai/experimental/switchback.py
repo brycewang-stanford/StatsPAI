@@ -386,6 +386,10 @@ def switchback(
         raise MethodIncompatibility("m must be non-negative.")
     if not 0.0 < p < 1.0:
         raise MethodIncompatibility(f"p must lie strictly between 0 and 1; got {p}.")
+    if not 0.0 < alpha < 1.0:
+        raise MethodIncompatibility(
+            f"alpha must lie strictly between 0 and 1; got {alpha}."
+        )
     missing = [c for c in (y, treat, time) if c is not None and c not in data.columns]
     if missing:
         raise MethodIncompatibility(

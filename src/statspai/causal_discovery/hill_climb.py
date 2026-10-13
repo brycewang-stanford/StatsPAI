@@ -284,6 +284,15 @@ def hill_climb(
                 f"hill_climb: data_type='gaussian' needs numeric columns; {bad} "
                 "are not."
             )
+        # every value identical, so the range is exactly zero
+        flat = [c for c in cols if float(np.ptp(frame[c].to_numpy(float))) == 0.0]
+        if flat:
+            raise DataInsufficient(
+                f"hill_climb: column(s) {flat} are constant, so the Gaussian "
+                "score of a node with zero variance is not defined.",
+                recovery_hint="Drop the constant column(s).",
+                diagnostics={"constant_columns": flat},
+            )
         score: Callable[[int, FrozenSet[int]], float] = _GaussianScore(frame)
     else:
         score = _DiscreteScore(frame)
@@ -490,7 +499,7 @@ def _directed_and_undirected(result: Any, names: List[str]) -> Tuple[set, set]:
         directed = {tuple(e) for e in result["edges"]}
         undirected = {frozenset(e) for e in result["undirected_edges"]}
         return directed, undirected
-    if isinstance(result, dict) and "dag" in result:
+    if isinstance(result, dict) and "dag" in result and "cpdag" in result:
         # read the equivalence class: an arc the score cannot orient is
         # counted half each way, not as whichever way the search left it
         g = result["cpdag"]
@@ -514,7 +523,12 @@ def _directed_and_undirected(result: Any, names: List[str]) -> Tuple[set, set]:
         )
     for e in edges:
         if len(e) == 3 and isinstance(e[1], str) and not _is_number(e[2]):
-            a, mark, b = e  # a PAG edge such as ("X", "o->", "Y")
+            # a PAG edge such as ("X", "o->", "Y"); GES writes the mark
+            # last, ("X", "Y", "-->")
+            if _is_mark(e[2]) and not _is_mark(e[1]):
+                a, b, mark = e
+            else:
+                a, mark, b = e
             if mark == "-->":
                 directed.add((a, b))
             elif mark == "<--":
@@ -524,6 +538,11 @@ def _directed_and_undirected(result: Any, names: List[str]) -> Tuple[set, set]:
         else:
             directed.add((e[0], e[1]))
     return directed, undirected
+
+
+def _is_mark(x: Any) -> bool:
+    """Whether ``x`` is an edge mark such as ``-->``, ``---`` or ``o->``."""
+    return isinstance(x, str) and len(x) >= 2 and set(x) <= set("-<>o*")
 
 
 def _is_number(x: Any) -> bool:

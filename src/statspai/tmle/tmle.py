@@ -660,7 +660,23 @@ class TMLE:
             g_hat_raw = np.asarray(self.g1W_init, dtype=np.float64).ravel()
             if g_hat_raw.shape[0] == 1:
                 # One number: a trial randomised with that probability.
+                if not 0.0 < float(g_hat_raw[0]) < 1.0:
+                    raise MethodIncompatibility(
+                        "tmle: a known treatment probability g1W must lie "
+                        f"strictly between 0 and 1, got {float(g_hat_raw[0])!r}.",
+                        recovery_hint=(
+                            "Pass the randomisation probability of the trial; "
+                            "with probability 0 or 1 one arm is never observed."
+                        ),
+                    )
                 g_hat_raw = np.full(n, float(g_hat_raw[0]))
+            elif not bool(
+                np.all(np.isfinite(g_hat_raw) & (g_hat_raw >= 0) & (g_hat_raw <= 1))
+            ):
+                raise MethodIncompatibility(
+                    "tmle: g1W holds values that are missing or outside "
+                    "[0, 1], so they are not treatment probabilities.",
+                )
             if g_hat_raw.shape[0] != n:
                 raise ValueError(
                     f"tmle: g1W must have length n = {n}; " f"got {g_hat_raw.shape[0]}."

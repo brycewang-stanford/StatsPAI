@@ -173,6 +173,14 @@
             "description": "Weight column (or an array). Alone it is an analytic weight (Stata [aw=]): weighted least squares with the classical variance, right when the weights are precisions. For sampling or inverse-probability weights add robust='hc1' (Stata [pw=]), or vce='hc3' when the effective sample is small; the default interval is far too short there. model_info['n_effective_weights'] is the Kish effective sample size",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the HC1 variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+            "enum": [
+              "analytic",
+              "sampling"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -378,6 +386,14 @@
             "default": true,
             "description": "Small-sample statistics as Stata ivregress, small (N-K divisor, HC1, G/(G-1)(N-1)/(N-K) cluster factor, t/F); False gives ivregress' default large-sample statistics (N divisor, HC0, no cluster factor, z/chi2). 2SLS/LIML",
             "type": "boolean"
+          },
+          "weights_as": {
+            "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the HC1 variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+            "enum": [
+              "analytic",
+              "sampling"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -554,6 +570,14 @@
           },
           "vcov": {
             "description": "pyfixest/fixest-style variance specification, accepted so one spelling works across sp.regress, sp.ivreg and sp.feols: 'iid' / 'hetero' / 'HC0'-'HC3', or a cluster dict such as {'CRV1': 'firm'} (CRV2 / CRV3 select the matching small-sample correction). Mutually exclusive with robust=/cluster=.",
+            "type": "string"
+          },
+          "weights_as": {
+            "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the HC1 variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+            "enum": [
+              "analytic",
+              "sampling"
+            ],
             "type": "string"
           }
         },
@@ -2312,6 +2336,14 @@
             "description": "Observation weight column. Alone it is a frequency weight (Stata [fw=] / [iw=]): the model-based variance scales with the weights. For sampling weights add robust='robust' (Stata [pw=]); the default interval is far too short there",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. 'frequency' (Stata [fw=] / [iw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the robust variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'analytic' is refused",
+            "enum": [
+              "frequency",
+              "sampling"
+            ],
+            "type": "string"
           },
           "x": {
             "description": "Regressors (alternative to formula)",
@@ -8207,8 +8239,10 @@
         "loglik": "float",
         "n_blocks": "int",
         "n_obs": "int",
+        "n_tested_blocks": "Optional[int]",
         "ps_model": "str",
         "pscore": "pd.Series",
+        "separated": "bool",
         "support": "pd.Series",
         "support_range": "Tuple[float, float]",
         "treat": "str",
@@ -8910,6 +8944,14 @@
             "default": false,
             "description": "Two-step GMM",
             "type": "boolean"
+          },
+          "weights_as": {
+            "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the heteroskedasticity-robust variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+            "enum": [
+              "analytic",
+              "sampling"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -10553,14 +10595,14 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Pass one row per period; for a panel, fit each unit separately.",
-        "symptom": "ardl: the time index has repeated values."
+        "remedy": "Name each regressor once and leave the outcome out of x=.",
+        "symptom": "ardl: x=<xs> repeats a column or lists the outcome <y>. The lags of the outcome enter through lags=, not x=."
       },
       {
         "alternative": "",
-        "exception": "statspai.DataInsufficient",
-        "remedy": "Check the columns.",
-        "symptom": "ardl: no row has all of the series observed."
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass one row per period; for a panel, fit each unit separately.",
+        "symptom": "ardl: the time index has repeated values."
       }
     ],
     "inherits_from": null,
@@ -10585,6 +10627,7 @@
         "ic_table": "Optional[pd.DataFrame]",
         "lags": "int",
         "model": "Any",
+        "omitted": "Optional[List[str]]",
         "regressors": "List[str]",
         "sample_index": "pd.Index",
         "trend": "str",
@@ -11033,9 +11076,9 @@
       },
       {
         "alternative": "",
-        "exception": "statspai.DataInsufficient",
-        "remedy": "Move the break, or let fewer coefficients change.",
-        "symptom": "chow_test: a regime of <b - a> observations cannot identify <q> coefficients."
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Every observation needs a date to be placed in a regime.",
+        "symptom": "chow_test: missing values in the time column <time>."
       }
     ],
     "inherits_from": null,
@@ -12797,6 +12840,12 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the number of components to keep, e.g. 2.",
+        "symptom": "sp.pca: n_components must be a whole number, got <n_components>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
         "remedy": "Ask for at most as many components as variables.",
         "symptom": "sp.pca: n_components=<n_components> is not between 1 and <p>."
       }
@@ -14369,6 +14418,18 @@
         "exception": "statspai.DataInsufficient",
         "remedy": "Provide a longer series.",
         "symptom": "boxcox_lambda: <n> observations give fewer than two cycles of length <m>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use lower < upper, e.g. lower=-1, upper=2.",
+        "symptom": "boxcox_lambda: lower=<lower> and upper=<upper> do not bracket an interval to search."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "No transformation is needed for such a series.",
+        "symptom": "boxcox_lambda: the series does not vary within its cycles (it is constant), so there is no spread to stabilise."
       }
     ],
     "inherits_from": null,
@@ -14828,15 +14889,21 @@
     "failure_modes": [
       {
         "alternative": "",
-        "exception": "statspai.DataInsufficient",
-        "remedy": "At least 12 observations are needed.",
-        "symptom": "ts_features: <values.shape[0]> observations are too few."
-      },
-      {
-        "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Use scale=True.",
         "symptom": "ts_features: scale must be True or False."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "At least 12 observations are needed.",
+        "symptom": "ts_features: <values.shape[0]> observations<label> are too few."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "A constant series has no features to compute.",
+        "symptom": "ts_features: the series<label> is constant."
       }
     ],
     "inherits_from": null,
@@ -15635,6 +15702,12 @@
       },
       {
         "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "The first-difference regression needs at least one time-varying regressor.",
+        "symptom": "sp.xtserial: no regressor changes within panels."
+      },
+      {
+        "alternative": "",
         "exception": "statspai.DataInsufficient",
         "remedy": "The test cannot be computed on this panel.",
         "symptom": "sp.xtserial: no panel has three consecutive periods."
@@ -15747,6 +15820,12 @@
         "exception": "statspai.MethodIncompatibility",
         "remedy": "The test compares within and between variation.",
         "symptom": "sp.xtoverid: no regressor varies within panels."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Cluster on a finer level (the default is the panel identifier), or test fewer regressors.",
+        "symptom": "sp.xtoverid: <G> cluster(s) cannot test <len(varying)> restriction(s): the cluster-robust covariance has rank at most <G - 1>, so the statistic would divide by zero."
       }
     ],
     "inherits_from": null,
@@ -17905,6 +17984,12 @@
     "failure_modes": [
       {
         "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Drop the constant column(s).",
+        "symptom": "hill_climb: column(s) <flat> are constant, so the Gaussian score of a node with zero variance is not defined."
+      },
+      {
+        "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass data_type='discrete' to treat every column as categorical, or encode / drop the categorical ones and pass data_type='gaussian'.",
         "symptom": "hill_climb: the columns mix categorical and numeric types (categorical: <[c for (c, f) in zip(cols, flags) if f]>)."
@@ -19214,6 +19299,12 @@
         "exception": "statspai.DataInsufficient",
         "remedy": "Drop or merge the small group.",
         "symptom": "robvar: a group has fewer than two observations."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check that the outcome is not constant.",
+        "symptom": "robvar: <y> takes a single value within every group, so there are no deviations whose spread could be compared."
       }
     ],
     "inherits_from": null,
@@ -19321,6 +19412,12 @@
         "exception": "statspai.DataInsufficient",
         "remedy": "Each group needs more than one observation overall.",
         "symptom": "loneway: at least two groups and one within-group degree of freedom are needed."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check that the outcome is not constant.",
+        "symptom": "loneway: <y> takes a single value, so there is no variation to split between and within groups."
       },
       {
         "alternative": "",
@@ -21243,6 +21340,12 @@
       {
         "alternative": "",
         "exception": "statspai.DataInsufficient",
+        "remedy": "Set them to missing (they are then dropped) or remove those rows.",
+        "symptom": "swilk: <name> holds infinite values, for which the statistic is not defined."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
         "remedy": "For a larger sample use sp.sktest.",
         "symptom": "swilk: <name> has <n> usable observations; the test covers 4 to 5,000 observations that are not all equal."
       }
@@ -21725,6 +21828,7 @@
         "gcv": "float",
         "lambdas": "Any",
         "link": "str",
+        "model_info": "Dict[str, Any]",
         "n_obs": "int",
         "params": "pd.Series",
         "residuals": "Any",
@@ -22861,7 +22965,7 @@
             "x-statspai-role": "formula"
           },
           "lambda_": {
-            "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted",
+            "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted. 'gcv', 'hkb' or 'lw' is the default grid with that selection rule",
             "items": {
               "type": "number"
             },
@@ -23091,6 +23195,12 @@
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Screen first with sp.lasso_select or sp.stepwise.",
         "symptom": "best_subset: <p> candidates; the exact search is limited to <_MAX_CANDIDATES>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Omit max_vars to search every size.",
+        "symptom": "best_subset: max_vars=<max_vars> must be at least 1."
       },
       {
         "alternative": "",
@@ -38838,7 +38948,14 @@
       "tolerance": ""
     },
     "example": "sp.support_points(draws, 50, seed=1).points",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Ask for fewer points, or use sp.split_data(method='twinning') to pick representative rows of discrete data.",
+        "symptom": "support_points: the iteration broke down because several points fell on the same location. The sample has too few distinct values for <n> points."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "support_points",
@@ -38847,6 +38964,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -40164,6 +40282,12 @@
     "failure_modes": [
       {
         "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "The long-run variance needs variation.",
+        "symptom": "sp.lrvar: a series is constant."
+      },
+      {
+        "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Use 'bartlett', 'parzen', 'qs', 'tukey-hanning' or 'truncated'.",
         "symptom": "sp.lrvar: kernel=<kernel> is not known."
@@ -40179,12 +40303,6 @@
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Drop adjust=True or set demean=True.",
         "symptom": "sp.lrvar: adjust=True corrects for the estimated mean and needs demean=True."
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.DataInsufficient",
-        "remedy": "Use a longer series.",
-        "symptom": "sp.lrvar: <n> observations are too few."
       }
     ],
     "inherits_from": null,
@@ -41170,6 +41288,12 @@
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Choose the rank with sp.johansen first.",
         "symptom": "johansen_lrtest: rank must be between 1 and <K - 1>, got <rank>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use fewer lags or a longer sample.",
+        "symptom": "johansen_lrtest: <Y.shape[0]> observations are too few for <lags> lagged difference(s) of <K> series."
       }
     ],
     "inherits_from": null,
@@ -85378,13 +85502,7 @@
             "type": "integer"
           },
           "se_type": {
-            "description": "Override automatic inference of SE type. Usually inferred from ``cluster`` / ``wild``.",
-            "enum": [
-              "iid",
-              "cluster",
-              "multiway_cluster",
-              "wild_cluster"
-            ],
+            "description": "A label, not a switch: it never changes the variance, which is chosen by ``cluster=`` / ``wild=`` / ``vce=``. When given it must agree with what those options select, and a disagreeing value is",
             "type": "string"
           },
           "tol": {
@@ -85396,9 +85514,17 @@
             "type": "string"
           },
           "weights": {
-            "description": "Observation weights. Column name or raw array.",
+            "description": "Observation weights. Column name or raw array. Alone they are analytic weights (Stata ``[aw=]``).",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. ``'analytic'`` is what ``weights=`` alone already means, and saying so silences the warning about dispersed weights under the classical variance. ``'sampling'`` (Stata ``[pw=]``) needs ``cluster=``: this function has no heteroskedasticity-robust variance for a weighted fit, and refuses rather than report the classical one (``sp.feols(..., weights_as='sampling')`` has it). ``'frequency'`` is refused.",
+            "enum": [
+              "analytic",
+              "sampling"
+            ],
+            "type": "string"
           },
           "wild": {
             "default": false,
@@ -88224,9 +88350,17 @@
             "type": "number"
           },
           "weights": {
-            "description": "Column name for frequency/analytic weights.",
+            "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+            "enum": [
+              "frequency",
+              "sampling"
+            ],
+            "type": "string"
           },
           "x": {
             "description": "Regressor names (alternative to formula).",
@@ -88407,9 +88541,17 @@
             "type": "number"
           },
           "weights": {
-            "description": "Column name for frequency/analytic weights.",
+            "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+            "enum": [
+              "frequency",
+              "sampling"
+            ],
+            "type": "string"
           },
           "x": {
             "description": "Regressor names (alternative to formula).",
@@ -88587,9 +88729,17 @@
             "type": "number"
           },
           "weights": {
-            "description": "Column name for frequency/analytic weights.",
+            "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+            "enum": [
+              "frequency",
+              "sampling"
+            ],
+            "type": "string"
           },
           "x": {
             "description": "Regressor names (alternative to formula).",
@@ -88794,9 +88944,18 @@
             "type": "number"
           },
           "weights": {
-            "description": "Variable name for observation weights.",
+            "description": "Variable name for observation weights. Alone they are frequency weights (Stata ``[fw=]`` / ``[iw=]``), or analytic weights (``[aw=]``) for the gaussian family; for sampling weights say so with ``weights_as='sampling'``.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. The model-based reading is ``'analytic'`` for ``family='gaussian'`` and ``'frequency'`` for every other family; the other of the two is refused. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance.",
+            "enum": [
+              "analytic",
+              "frequency",
+              "sampling"
+            ],
+            "type": "string"
           },
           "x": {
             "description": "Names of independent variables (alternative to formula).",
@@ -88975,6 +89134,14 @@
             "description": "Observation weight column. Read as Stata reads a weight for the variance requested: alone it is ``[iw=w]`` (``[fw=w]`` for integer weights), a model-based variance that scales with the weights; with ``robust=`` it is ``[pw=w]``; with ``cluster=`` it is ``[pw=w], vce(cluster)``. The reported log-likelihood is the weighted sum.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused.",
+            "enum": [
+              "frequency",
+              "sampling"
+            ],
+            "type": "string"
           },
           "x": {
             "description": "Independent variable names (alternative to formula).",
@@ -108014,9 +108181,17 @@
             "x-canonical": "vce"
           },
           "weights": {
-            "description": "Column name for regression weights.",
+            "description": "Column name for regression weights. Alone they are analytic weights (Stata ``[aw=]``, R ``fixest`` ``weights=``).",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "What the weights are. ``'analytic'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with ``vcov='hetero'``, unless ``vcov=``, ``vce=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the classical variance. ``'frequency'`` is refused.",
+            "enum": [
+              "analytic",
+              "sampling"
+            ],
+            "type": "string"
           },
           "wild_reps": {
             "default": 999,
@@ -115513,7 +115688,7 @@
           },
           "time": {
             "default": "time",
-            "description": "Time identifier.",
+            "description": "Time identifier. Each unit's observations must be consecutive periods of the panel: a unit that, between its first and last observed period, lacks a period present in the data (for another unit, or as its own row with a missing value) is refused. Periods are compared by their rank among the periods in the data, so any coding passes (years, every fourth year, months as 200012 / 200101, dates). A period absent from every unit cannot be told from a coding jump and is not detected; units may start late or end early.",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -116886,6 +117061,105 @@
       "tests/reference_parity/test_structural_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "structural",
+    "cost_profile": "",
+    "description": "Characteristics-based instruments for differentiated-products demand. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_berry_logit_pyblp_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "z = sp.blp_instruments(df, [\"size\"], firm_id=\"firm\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Drop those rows, or fill in the identifiers.",
+        "symptom": "blp_instruments: missing values in the grouping column(s) <unlabelled> (column: number of rows)."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "blp_instruments",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "reference": "docstring",
+      "returns": "docstring"
+    },
+    "reference": "@berry1995automobile",
+    "returns": {
+      "class": "DataFrame",
+      "description": "pd.DataFrame: One column per instrument, indexed like data. The columns can be passed to sp.blp(instruments=...) or written into an sp.iv formula.",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Characteristics-based instruments for differentiated-products demand. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "blp_instruments",
+      "parameters": {
+        "properties": {
+          "count": {
+            "default": true,
+            "description": "Also build the sums of a constant, i.e. the number of other products (``own_count``, ``rival_count``, ``nest_count``).",
+            "type": "boolean"
+          },
+          "data": {
+            "description": "One row per product and market.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "firm_id": {
+            "description": "Column identifying the firm that sells each product. With it the market sum is split into ``own_<x>`` (the firm's other products) and ``rival_<x>`` (other firms' products).",
+            "type": "string"
+          },
+          "market_id": {
+            "default": "market_id",
+            "description": "Column identifying markets.",
+            "type": "string"
+          },
+          "nest": {
+            "description": "Column identifying the nest of each product; adds ``nest_<x>``, the sum over the other products of the same nest and market.",
+            "type": "string"
+          },
+          "x": {
+            "description": "Exogenous product characteristics (not the price).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_berry_logit_pyblp_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -132375,7 +132649,7 @@
           },
           "cumulative": {
             "default": false,
-            "description": "If ``True``, return the cumulative response ``y_{t+h} - y_{t-1}``. Default (False) returns ``y_{t+h}`` directly.",
+            "description": "If ``True``, return the cumulative response ``y_{t+h} - y_{t-1}``. Default (False) returns ``y_{t+h}`` directly. With ``auto_lag=True`` the regression already holds ``y_{t-1}`` fixed, so the two give the same response and the same standard error; they differ only with ``auto_lag=False``.",
             "type": "boolean"
           },
           "data": {
@@ -132405,7 +132679,7 @@
             "type": "string"
           },
           "nw_lags": {
-            "description": "Newey-West truncation lag. Defaults to ``round(1.5 * horizons)`` per Kilian & Kim (2011) recommendation.",
+            "description": "Newey-West truncation lag, used at every horizon (for ``identification='direct'``). Defaults to ``round(1.5 * horizons)`` per Kilian & Kim (2011) recommendation.",
             "type": "integer"
           },
           "outcome": {
@@ -132766,6 +133040,12 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use alpha=0.05 for a 95% interval.",
+        "symptom": "full_match: alpha must lie strictly between 0 and 1, got <alpha>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
         "remedy": "Use estimand='ATT'.",
         "symptom": "full_match: estimand must be ATT, ATC or ATE, got <estimand>."
       },
@@ -132774,12 +133054,6 @@
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Use 'propensity', 'logit', 'mahalanobis' or 'euclidean'.",
         "symptom": "full_match: unknown distance <distance>."
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use caliper_scale='sd'.",
-        "symptom": "full_match: caliper_scale must be 'sd' or 'raw'."
       }
     ],
     "inherits_from": null,
@@ -133876,6 +134150,7 @@
         "exog_names": "Tuple[str, ...]",
         "fitted_values": "np.ndarray",
         "log_likelihood": "float",
+        "model_info": "Dict[str, Any]",
         "n": "int",
         "order": "Tuple[int, int, int]",
         "params": "pd.Series",
@@ -142174,6 +142449,150 @@
       "tests/reference_parity/test_ml_causal_recovery_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "good = sp.cate_gain_curve(df, cate=\"x\", y=\"y\", treat=\"dose\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Give the Series the index of data, or pass cate.to_numpy() if the values are already in row order.",
+        "symptom": "cate_gain_curve: the index of the cate Series does not match the index of data, so the predictions cannot be paired with rows."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Code the column as numbers: 0/1 for a two-arm treatment, or the dose.",
+        "symptom": "cate_gain_curve: the <role> column <col> is not numeric (dtype <data[col].dtype>)."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "cate_gain_curve",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "CATEGainCurveResult",
+      "description": "CATEGainCurveResult",
+      "fields": {
+        "ate": "float",
+        "auc": "float",
+        "auc_ci": "Optional[Tuple[float, float]]",
+        "auc_se": "Optional[float]",
+        "by_quantile": "pd.DataFrame",
+        "curve": "pd.DataFrame",
+        "diagnostics": "Dict[str, Any]",
+        "n_obs": "int",
+        "normalize": "bool"
+      }
+    },
+    "signature": {
+      "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "cate_gain_curve",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the bootstrap interval.",
+            "type": "number"
+          },
+          "ascending": {
+            "default": false,
+            "description": "Rank the smallest predictions first (for an effect where lower is better).",
+            "type": "boolean"
+          },
+          "cate": {
+            "description": "Predicted effects (or any score that ranks units by effect): a column name or one value per row of ``data``.",
+            "type": "string"
+          },
+          "cluster": {
+            "description": "Column whose groups are resampled whole (repeated days of one store, say). Default: rows are resampled.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "Evaluation data in which ``treat`` was randomized. It should not be the data the predictions were fitted on.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "n_boot": {
+            "default": 0,
+            "description": "Bootstrap replications for the standard error and the percentile interval of the area. ``0`` computes neither.",
+            "type": "integer"
+          },
+          "n_quantiles": {
+            "default": 10,
+            "description": "Number of groups in the effect-by-quantile table.",
+            "type": "integer"
+          },
+          "n_steps": {
+            "default": 100,
+            "description": "Number of points on the curve.",
+            "type": "integer"
+          },
+          "normalize": {
+            "default": true,
+            "description": "Subtract the random-ranking line from the gain curve.",
+            "type": "boolean"
+          },
+          "seed": {
+            "description": "Seed for the bootstrap.",
+            "type": "integer"
+          },
+          "treat": {
+            "description": "Treatment column, binary or continuous.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "cate",
+          "y",
+          "treat"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_facure_causal_inference_in_python.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

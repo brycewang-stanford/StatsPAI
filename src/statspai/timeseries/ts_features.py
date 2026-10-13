@@ -237,21 +237,32 @@ def ts_features(
     wang2006characteristic, hyndman2026fpppy
     """
     m = check_period(period, fn="ts_features")
-    if isinstance(y, pd.DataFrame) and data is None and y.shape[1] != 1:
-        rows = {}
-        for col in y.columns:
-            values, _, _ = read_series(y[col], None, fn="ts_features")
-            rows[col] = _one(values, m, scale)
-        return pd.DataFrame.from_dict(rows, orient="index")
-    values, _, name = read_series(y, data, fn="ts_features")
-    if values.shape[0] < 12:
-        raise DataInsufficient(
-            f"ts_features: {values.shape[0]} observations are too few.",
-            recovery_hint="At least 12 observations are needed.",
-        )
     if scale not in (True, False):
         raise MethodIncompatibility(
             "ts_features: scale must be True or False.",
             recovery_hint="Use scale=True.",
         )
-    return pd.Series(_one(values, m, bool(scale)), name=name)
+
+    def checked(values: np.ndarray, label: str) -> np.ndarray:
+        if values.shape[0] < 12:
+            raise DataInsufficient(
+                f"ts_features: {values.shape[0]} observations{label} are too few.",
+                recovery_hint="At least 12 observations are needed.",
+            )
+        # constant to rounding, relative to the size of the values: the
+        # autocorrelations divide by the variance
+        if np.ptp(values) <= 1e-12 * np.max(np.abs(values)):
+            raise DataInsufficient(
+                f"ts_features: the series{label} is constant.",
+                recovery_hint="A constant series has no features to compute.",
+            )
+        return values
+
+    if isinstance(y, pd.DataFrame) and data is None and y.shape[1] != 1:
+        rows = {}
+        for col in y.columns:
+            values, _, _ = read_series(y[col], None, fn="ts_features")
+            rows[col] = _one(checked(values, f" in column {col!r}"), m, bool(scale))
+        return pd.DataFrame.from_dict(rows, orient="index")
+    values, _, name = read_series(y, data, fn="ts_features")
+    return pd.Series(_one(checked(values, ""), m, bool(scale)), name=name)

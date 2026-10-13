@@ -339,6 +339,12 @@ def factorial_effects(
             f"{n} runs (rank {rank}); the design is not a regular two-level "
             "fraction. Lower order=, or fit the model you want with sp.regress."
         )
+    size = float(np.max(np.abs(yy)))
+    if not float(np.ptp(yy)) > 1e-12 * size:
+        raise MethodIncompatibility(
+            f"The outcome {y!r} does not vary over the runs: there is no "
+            "effect to estimate."
+        )
     beta, *_ = np.linalg.lstsq(X, yy, rcond=None)
     resid = yy - X @ beta
     df = n - X.shape[1]
@@ -351,7 +357,9 @@ def factorial_effects(
     tab["half_normal_score"] = stats.norm.ppf(0.5 + 0.5 * (rank_abs - 0.5) / m)
     pse = lenth_pse(eff) if m >= 3 else float("nan")
     dfl = m / 3.0
-    if np.isfinite(pse) and pse > 0:
+    # a pseudo standard error that is zero up to rounding (most effects
+    # exactly null) leaves ratios of rounding errors, not test statistics
+    if np.isfinite(pse) and pse > 1e-12 * size:
         ratio = np.abs(eff) / pse
         tab["lenth_t"] = eff / pse
         if ref == "t":

@@ -30,8 +30,10 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import SummaryText
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import warn as _sp_warn
 from ._binary_fit import fit_binary_index
 from .match import _index_by_row
 
@@ -81,7 +83,15 @@ class PScoreResult(ResultProtocolMixin):
         The final number of blocks.
     balanced : bool
         Whether no covariate differs between treated and controls in any
-        block at ``level``.
+        block at ``level``. ``False`` when no block holds both treated
+        and control units, since nothing could then be tested
+        (``n_tested_blocks`` is zero).
+    n_tested_blocks : int
+        Blocks holding both treated and control units.
+    separated : bool
+        The covariates separate treated from controls, so the treatment
+        model has no maximum-likelihood fit and the scores pile up at 0
+        and 1.
     unbalanced : pandas.DataFrame
         The rejections: ``variable``, ``block`` and ``pvalue``.
     blocks : pandas.DataFrame
@@ -126,6 +136,8 @@ class PScoreResult(ResultProtocolMixin):
         ps_model: str,
         common_support: bool,
         level: float,
+        n_tested_blocks: Optional[int] = None,
+        separated: bool = False,
     ) -> None:
         self.pscore = pscore
         self.block = block
@@ -133,7 +145,13 @@ class PScoreResult(ResultProtocolMixin):
         self.support_range = support_range
         self.n_blocks = int(n_blocks)
         self.unbalanced = unbalanced
-        self.balanced = bool(unbalanced.empty)
+        self.n_tested_blocks = (
+            int((blocks[["n_control", "n_treated"]] > 0).all(axis=1).sum())
+            if n_tested_blocks is None
+            else int(n_tested_blocks)
+        )
+        self.separated = bool(separated)
+        self.balanced = bool(unbalanced.empty) and self.n_tested_blocks > 0
         self.blocks = blocks
         self.coefficients = coefficients
         self.loglik = float(loglik)
@@ -182,7 +200,17 @@ class PScoreResult(ResultProtocolMixin):
             self.blocks.to_string(index=False),
             "",
         ]
-        if self.balanced:
+        if self.separated:
+            lines.append(
+                "The covariates separate treated from controls: the scores "
+                "are not maximum-likelihood estimates."
+            )
+        if self.n_tested_blocks == 0:
+            lines.append(
+                "The balancing property could not be tested: no block holds "
+                "both treated and control units."
+            )
+        elif self.balanced:
             lines.append(f"The balancing property is satisfied (level {self.level:g}).")
         else:
             lines.append("The balancing property is not satisfied:")
@@ -197,6 +225,7 @@ class PScoreResult(ResultProtocolMixin):
         return str(self.summary())
 
 
+@_expands_categorical("covariates")
 def pscore(
     data: pd.DataFrame,
     treat: str,
@@ -221,7 +250,10 @@ def pscore(
         The 0/1 treatment.
     covariates : list of str
         The covariates of the treatment model. Powers and interactions
-        are columns of ``data``.
+        are columns of ``data``. Categorical columns (``category`` dtype,
+        strings, ``C(col)``) are expanded into indicators, the first
+        level as the base, and each indicator is tested for balance;
+        integer columns are taken as numeric.
     ps_model : {'logit', 'probit'}, default 'logit'
         The treatment model. Stata's ``pscore`` fits a probit unless it is
         given ``logit``.
@@ -247,7 +279,15 @@ def pscore(
     Notes
     -----
     The tests are two-sample t tests with a pooled variance. A block with
-    only treated or only control units is not split and not tested.
+    only treated or only control units is not split and not tested. When
+    no block holds both groups nothing is tested: ``balanced`` is then
+    ``False`` and a warning says so. The top block includes a score of
+    exactly one.
+
+    When the covariates separate treated from controls the treatment
+    model has no maximum-likelihood fit. A ``ConvergenceWarning`` is
+    issued and ``separated`` is set; the scores, which sit at 0 and 1,
+    are of no use for matching or weighting.
 
     The fitted score is the maximum-likelihood one. With covariates that
     predict treatment almost perfectly Stata stops its iterations earlier,
@@ -321,6 +361,22 @@ def pscore(
             recovery_hint="Check the treatment column.",
             diagnostics={"n_treated": int(treated.sum()), "n": int(treated.size)},
         )
+    text = [
+        c
+        for c in covariates
+        if isinstance(clean[c].dtype, pd.CategoricalDtype)
+        or not (
+            pd.api.types.is_numeric_dtype(clean[c])
+            or pd.api.types.is_bool_dtype(clean[c])
+        )
+    ]
+    if text:
+        raise MethodIncompatibility(
+            f"pscore: covariates {text} are not numeric.",
+            recovery_hint="Pass covariates as a list so that categorical "
+            "columns are expanded into indicators.",
+            diagnostics={"columns": text},
+        )
     X = clean[covariates].to_numpy(dtype=float)
     fit = fit_binary_index(X, t_raw, ps_model)
     beta = fit["beta"]
@@ -330,7 +386,8 @@ def pscore(
     if ps_model == "probit":
         score = stats.norm.cdf(index)
     else:
-        score = 1.0 / (1.0 + np.exp(-index))
+        with np.errstate(over="ignore"):
+            score = 1.0 / (1.0 + np.exp(-index))
 
     se = np.sqrt(np.clip(np.diag(fit["vcov"]), 0.0, None))
     omitted = set(fit["omitted"])
@@ -362,7 +419,9 @@ def pscore(
     upper = np.zeros(score.size)
     width = 1.0 / n_blocks
     for i in range(1, n_blocks + 1):
-        inside = use & (score >= (i - 1) * width) & (score < i * width)
+        # the top block is closed above: a score of exactly one is in it
+        below = (score < i * width) if i < n_blocks else (score <= 1.0)
+        inside = use & (score >= (i - 1) * width) & below
         block[inside] = i
         lower[inside], upper[inside] = _single((i - 1) * width), _single(i * width)
     total = n_blocks
@@ -413,6 +472,17 @@ def pscore(
         rows, columns=["block", "lower", "upper", "n_control", "n_treated"]
     )
 
+    n_tested = int(((blocks["n_control"] > 0) & (blocks["n_treated"] > 0)).sum())
+    if n_tested == 0:
+        _sp_warn(
+            AssumptionWarning,
+            "pscore: no block holds both treated and control units, so the "
+            "balancing property could not be tested and balanced is False. "
+            "The scores of the two groups do not overlap.",
+            recovery_hint="Drop the covariate that predicts treatment "
+            "perfectly, or restrict the sample to where both groups occur.",
+            stacklevel=3,
+        )
     block_out = np.where(use, block.astype(float), np.nan)
     return PScoreResult(
         pscore=pd.Series(score, index=clean.index, name="pscore").reindex(data.index),
@@ -434,4 +504,6 @@ def pscore(
         ps_model=ps_model,
         common_support=common_support,
         level=level,
+        n_tested_blocks=n_tested,
+        separated=bool(fit.get("separated", False)),
     )

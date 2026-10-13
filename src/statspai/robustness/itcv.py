@@ -30,10 +30,11 @@ import pandas as pd
 from ..exceptions import MethodIncompatibility
 
 
-def _partial_with_first(M: np.ndarray) -> np.ndarray:
+def _partial_with_first(M: np.ndarray, weights: Any = None) -> np.ndarray:
     """Partial correlation of column 0 with each other column, given the
-    remaining ones (and a constant)."""
-    P = np.linalg.pinv(np.cov(M, rowvar=False))
+    remaining ones (and a constant). With ``weights`` the moments are the
+    weighted ones, the ones a weighted least-squares fit uses."""
+    P = np.linalg.pinv(np.cov(M, rowvar=False, aweights=weights))
     d = np.sqrt(np.diag(P))
     return np.asarray(-P[0, 1:] / (d[0] * d[1:]), dtype=float)
 
@@ -77,7 +78,9 @@ def itcv(
         results that keep their design matrix, as ``sp.regress`` does),
         its partial correlations with the outcome (``r_yz``) and with the
         regressor (``r_xz``), and ``impact``, sorted by impact in the
-        direction that threatens the inference;
+        direction that threatens the inference. For a weighted fit they
+        are the weighted partial correlations, the ones the weighted
+        regression (and so ``r_obs``) is built on;
         ``benchmark`` is the largest of them.
 
     Notes
@@ -124,7 +127,24 @@ def itcv(
         )
     if not 0.0 < alpha < 1.0:
         raise MethodIncompatibility(f"itcv: alpha must lie in (0, 1), got {alpha!r}.")
+    if str(variable) in ("Intercept", "_cons", "const", "(Intercept)"):
+        raise MethodIncompatibility(
+            "itcv: the threshold is a statement about a regressor's partial "
+            "correlation with the outcome; the constant has none.",
+            recovery_hint="Pass the name of a regressor.",
+        )
     model_info = getattr(result, "model_info", {}) or {}
+    if "iv" in (getattr(result, "data_info", {}) or {}) or str(
+        model_info.get("model_type", "")
+    ).upper().startswith("IV"):
+        raise MethodIncompatibility(
+            "itcv: the threshold is derived for least squares; this result "
+            f"is a {model_info.get('model_type', 'instrumental-variables')} "
+            "fit, whose t statistic is not a partial correlation of the "
+            "outcome and the regressor.",
+            recovery_hint="Fit the reduced form or the OLS regression with "
+            "sp.regress.",
+        )
     family = model_info.get("family")
     if family and str(family).lower() not in ("gaussian", "normal"):
         raise MethodIncompatibility(
@@ -197,8 +217,17 @@ def itcv(
         Z = X_df[controls].to_numpy(dtype=float)
         y = np.asarray(y_df, dtype=float).reshape(len(X_df), -1)[:, 0]
         x = X_df[variable].to_numpy(dtype=float)
-        r_yz = _partial_with_first(np.column_stack([y, Z]))
-        r_xz = _partial_with_first(np.column_stack([x, Z]))
+        # a weighted fit: the same weights in the moments, so that the
+        # impacts are on the scale of the (weighted) t statistic above
+        w = data_info.get("analytic_weights")
+        if w is not None:
+            w = np.asarray(w, dtype=float).ravel()
+            if w.shape[0] != len(X_df):
+                raise MethodIncompatibility(
+                    "itcv: the stored weights do not match the stored design."
+                )
+        r_yz = _partial_with_first(np.column_stack([y, Z]), w)
+        r_xz = _partial_with_first(np.column_stack([x, Z]), w)
         impacts = pd.DataFrame(
             {"r_yz": r_yz, "r_xz": r_xz, "impact": r_yz * r_xz},
             index=pd.Index([str(c) for c in controls], name="control"),

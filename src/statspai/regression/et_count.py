@@ -22,6 +22,7 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from ..core._validate import require_numeric_columns
 from ..core._vcov import ml_vcov
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -145,6 +146,9 @@ def etpoisson(
             f"etpoisson: columns not found in data: {missing}",
             diagnostics={"missing": missing},
         )
+    require_numeric_columns(
+        data, [y, treatment] + xs + zs, function="etpoisson", argument="y / x / z"
+    )
     df = data[list(dict.fromkeys(cols))].dropna()
     n = len(df)
     Y = df[y].to_numpy(dtype=float)

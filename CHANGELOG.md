@@ -167,6 +167,237 @@ does. No estimate changes.
 - The binding check follows `sp.decompose(method, ...)` to the function
   the method name reaches, as it already did for `sp.route` and
   `sp.power`.
+### A review of October: options off the main path, and the month's new functions
+
+Three pieces of work land together. The first is the third round of the
+option scan (inference, the rest of `iv/`, panel, time series), which
+wrote tests for branches no test reached and fixed what they found. The
+second is a behavioural review of the roughly 210 functions added this
+month: each was called on degenerate, mis-typed and reordered input and
+checked against identities that must hold. The third is `weights_as=`,
+finished on 5 October and never merged. Results of default calls on
+valid data are unchanged except where an entry below says a number was
+wrong. MIGRATION.md lists the calls whose numbers change and the calls
+that now raise.
+
+#### ⚠️ Correctness
+
+- **`sp.sun_abraham` and `sp.stacked_did` on integer time with gaps.**
+  Both omitted relative time −1 as the reference period. On a panel
+  observed every second year that period never occurs, nothing was
+  omitted, and `sp.sun_abraham` returned 1.011 with a standard error of
+  0 where the same panel coded with consecutive years gives 2.023
+  (0.066); `sp.stacked_did` returned NaN. Observed periods are now
+  numbered by rank, as the date path already did, and the gapped coding
+  equals the consecutive one exactly. An unevenly spaced grid is
+  renumbered with a warning that event time counts observed periods.
+- **`sp.gardner_did` without a comparison for some treated cells.** When
+  a period has no untreated observation its time effect is not
+  identified, and the first stage filled it with a minimum-norm
+  solution: 2.537 on noiseless data whose identified cells average
+  1.8525. Those cells, and units treated in every row, are now dropped
+  with a warning that names the periods, and the estimand is the ATT
+  over the remaining cells. A cohort recorded as NaN is never treated,
+  as in the other staggered estimators; it used to delete those rows.
+  On `sp.dgp_did(staggered=True)` data, which codes never-treated units
+  that way, the estimate moves from 0.374 to 0.407, the value
+  `sp.did_imputation` gives.
+- **`sp.etwfe`** reads a cohort of `inf`, or one later than the last
+  period, as never treated. The first raised `OverflowError`; the second
+  returned a standard error of 9958.
+- **`sp.did_multiplegt`** removes rows with a missing outcome or
+  treatment before differencing (a few of them used to turn the whole
+  result into NaN), and reports NaN, not 0 with p = 1, when no group
+  switches.
+- **`sp.cate_gain_curve` broke ties in the score by row order.** A
+  constant prediction on data sorted by the true effect scored the AUC
+  of the true ranking, outside its own bootstrap interval. Tied units
+  now enter together; a constant score has an AUC of exactly 0.
+- **`sp.iv.kleibergen_paap_rk` and `sp.iv.sanderson_windmeijer` with two
+  or more endogenous regressors.** The rk statistics were the Wald test
+  of a zero first stage, and the conditional F partialled the other
+  endogenous regressors out by OLS. Both now match Stata 18 `ivreg2`
+  (`widstat`, `idstat`, the Sanderson-Windmeijer F) on three
+  specifications under three covariance estimators. The `KP rk` and
+  `SW conditional F` entries of `sp.iv(...).diagnostics` change with
+  them. One endogenous regressor is unchanged.
+- **`sp.iv.iv_diag`**: a cluster passed as an array now reaches the
+  Anderson-Rubin test and the effective F (it clustered only the
+  standard errors), is aligned by position, and with `absorb=` the CLR
+  and K sets are computed on the demeaned variables.
+- **`anderson_rubin_ci`, `conditional_lr_ci`, `k_test_ci`** sort the
+  grid; an unsorted `beta_grid` returned wrong endpoints.
+- **`sp.panel(method='fd')`** differences consecutive periods of a unit
+  whatever the row order. Unsorted rows, and a sorted panel whose first
+  unit starts late, gave other estimates.
+- **`sp.panel_logit(method='fe')`** omits a regressor with no
+  within-unit variation (its coefficient was 4.7e6).
+- **`sp.fisher_exact(cluster=, stratify=)`** permutes clusters within
+  strata; `stratify` was ignored whenever `cluster` was given.
+- **`sp.bootstrap(ci_method='bca', block=)`** computes the acceleration
+  from a delete-one-block jackknife, and by position when index labels
+  repeat.
+- **`sp.jackknife_se`** refits on the design the fit stored. Interaction
+  and factor terms got NaN, weighted fits were refitted unweighted, and
+  fits without an intercept were refitted with one.
+- **`sp.ipw` and `sp.g_computation`** leave a bootstrap resample that
+  holds one arm out of the standard error and count it. **`sp.aipw`**
+  builds the training and prediction designs together, so a covariate
+  constant within a fold no longer shifts the cross-fitted estimate.
+- **`sp.local_projections`**: `cumulative=True` now regresses
+  `y[t+h] − y[t−1]` (it used the one-period change), a user-supplied
+  `nw_lags` is the truncation lag at every horizon, and the Cholesky
+  band is ordered when a weight is negative.
+- **`sp.garch(model='egarch', dist='t')`** forecasts beyond one step
+  with the expected absolute value of the unit-variance t; the term was
+  taken as zero, 13% at ten steps in the test design.
+- **`sp.dlm`** carries a coefficient with zero state variance back
+  exactly in the smoother and holds it fixed within a Gibbs draw.
+- **`sp.arima`** omits regressors that repeat each other, the constant
+  or the drift, and reports them in `model_info['omitted']`; the
+  coefficient used to be split between them.
+- **`sp.structural_break` and `sp.cusum_test`** omit a redundant
+  regressor (it moved the break date). **`sp.chow_test(time=)`** and
+  **`sp.zivot_andrews(time=)`** sort by the time column.
+- **`sp.tscv` and `DecompositionResult.forecast`** pass `boxcox=` and
+  `biasadj=` on to the benchmark methods; they were dropped.
+- **`sp.forecast_accuracy`** reports MAPE and MPE as missing when an
+  actual value is zero. It averaged over the other periods, so a
+  forecast that missed a zero by 1 scored 0%.
+- **`sp.factor_importance` on numerically coded discrete factors**, the
+  ±1 columns `sp.factorial_design` produces, returned shares of 0 and 1
+  that changed with row order. The neighbourhood now takes every point
+  tied with the k-th nearest, as the categorical case did.
+- **`sp.mdp_policy_value`** raises when the target policy takes an
+  action that never occurs in a state it reaches (it returned 0.351
+  with an interval of (0.26, 0.45) where the value is 1.075). Its
+  standard error no longer depends on how the states are labelled or on
+  where the features are centred; the value itself was always invariant.
+  With a linear basis the standard error moves by about 2% on a feature
+  centred near zero. With the same feature shifted by 10 it used to
+  average four times the Monte Carlo standard deviation, with 89%
+  coverage of a 95% interval over 200 replications; it is now the same
+  at both origins (92%, the standard error treating the nuisances as
+  known).
+- **Categorical covariates** are expanded to indicators by `sp.pscore`,
+  `sp.marginal_policy_effect` and `sp.implied_weights`, which read a
+  `category` column as one number.
+- **`sp.interference_test(focal=<boolean mask>)`** read the mask as the
+  indices 0 and 1.
+- **`predict()` on a factor level the fit never saw** returned the
+  prediction for the reference level, in `sp.regress`, `sp.logit`,
+  `sp.probit`, `sp.glm`, `sp.poisson` and `sp.nbreg`, and so in
+  `sp.poststratify`. It now raises and names the level.
+- **`sp.write_data(df, 'x.dta')`** keeps the text of a Categorical
+  column as value labels; only the codes were written. `.feather` keeps
+  labels with integer keys, and `sp.read_data` reads `.tsv` by tabs.
+- **`sp.influence_measures`** refuses a weighted fit (it mixed the
+  unweighted hat matrix with weighted residuals). **`sp.itcv`** uses the
+  weights of a weighted fit throughout. **`sp.cor_test`** counts the
+  rank of the covariates in its degrees of freedom.
+- **`sp.standardize(formula=)`** leaves a variable inside `log()`,
+  `I()`, `C()` or `factor()` alone, as its docstring says.
+- **`sp.gee`, `sp.gam`, `sp.mswitch`, `sp.dlm`** omit redundant
+  regressors with the usual note; they returned standard errors between
+  1e5 and 1e14. `sp.gam` also omits a parametric term its own smooths
+  reproduce (`y ~ x + s(x)`, or `d` next to `s(x, by=d)`).
+- **`sp.bootstrap_edges(algorithm='ges')`** read the edge mark as a
+  node name.
+
+#### Fixed
+
+- **The default prior of `sp.bayes_ivreg`, `sp.bayes_sur`,
+  `sp.bayes_mixed`, the probit systems and `sp.bayes_arima` is checked
+  after the fit**, as `sp.bayes_regress` already did. With a regressor
+  in thousands the N(0, 1000) prior pulled an IV coefficient to 244
+  where two-stage least squares gives 1437, without a word.
+- `sp.bayes_mixed` computed its multi-chain R-hat on copies of the last
+  chain; `sp.bayes_sur` reported none. `sp.gelman_rubin(fit)` reads the
+  chains of a multi-chain fit.
+- `sp.bma` refuses a constant outcome and warns on separation;
+  predictions from `sp.bart` and `sp.gp_regress` refuse missing
+  regressors; a DataFrame with repeated index labels no longer doubles
+  rows in `sp.bayes_regress`.
+- Complete separation in the shared propensity fit was reported as
+  converged. `sp.pscore`, `sp.full_match`, `sp.match` and `sp.psmatch2`
+  now warn, and `sp.pscore` no longer reports a block 0 or
+  `balanced=True` when no block holds both arms.
+- `sp.bandit_allocate` applies `prob_floor` while topping arms up to
+  `min_pulls`, and warns when it has to assume `sigma=1`.
+- `sp.space_filling(qualitative=)` balances each factor's levels when
+  the run count is not a multiple of the level combinations.
+- `sp.split_data` falls back to twinning on data with few distinct rows.
+- `sp.nlcom` parses `_b[C(race)[T.2]]`. `sp.ttest` and others judge a
+  zero standard error relative to the scale of the data.
+- `sp.ridge(lambda_=0)` on a rank-deficient design returns the
+  minimum-norm solution with a warning, and its constant-column guard
+  is relative. `NLSResult.predict` and the result of `sp.threshold`
+  predict on new data. `sp.nls` detects an unidentified additive pair.
+- A DataFrame whose index labels repeat no longer breaks `sp.gam`,
+  `sp.gee`, `sp.threshold`, `sp.series`, `sp.xthtaylor`,
+  `sp.abnormal_returns` or `sp.dlm`.
+- `sp.gee` and `sp.gam` check the outcome against the family.
+- `sp.unitroot`, `sp.arima`, `sp.garch`, `sp.var`, `sp.vec`,
+  `sp.varsoc`, `sp.johansen`, `sp.johansen_lrtest`, `sp.engle_granger`,
+  `sp.tvp_var`, `sp.structural_break`, `sp.chow_test`, `sp.ardl` and
+  `sp.abnormal_returns` refuse constant, exactly fitted, collinear or
+  too-short input with a named error. Several returned a statistic
+  computed from rounding noise.
+- The forecasting functions refuse a date index that is not increasing
+  instead of fitting the rows in file order.
+- `sp.hdfe_ols` refuses contradictory variance options (`vce='robust'`
+  with `cluster=` reported the HC variance; `se_type='iid'` with
+  `cluster=` labelled cluster errors as iid).
+- `sp.panel` names a missing entity, time or cluster id, and a
+  one-unit panel, instead of failing inside the linear algebra.
+  `sp.panel_unitroot` refuses interior gaps and caps its default lag on
+  short panels.
+- Many smaller cases across these modules where bad input
+  met a raw NumPy or pandas error, or `alpha`, `trim`, a lag or a level
+  outside its range was accepted, now raise an error that names the
+  argument.
+
+#### Added
+
+- **`weights_as=`: say what the weights are.** `sp.regress`, `sp.panel`,
+  `sp.hdfe_ols`, `sp.feols`, `sp.fast.feols`, `sp.iv` / `sp.ivreg`,
+  `sp.glm`, `sp.logit`, `sp.probit`, `sp.cloglog`, `sp.poisson`,
+  `sp.nbreg` and `sp.fast.fepois` report a model-based variance when
+  `weights=` is passed alone, which is right for analytic or frequency
+  weights and far too small for sampling weights (14% to 81% coverage of
+  a 95% interval in `tests/reliability/extreme_weights*.py`). Stata
+  settles this with `[aw=]`, `[fw=]` and `[pw=]`; until now the only way
+  here was to remember to add a robust option.
+  `weights_as='sampling'` gives the same coefficients with the robust
+  variance, bit for bit what the robust option gives by hand, and never
+  overrides a variance the call asks for. Each function also accepts
+  its own model-based reading, `'analytic'` for the linear estimators
+  and `'frequency'` for the likelihood ones, which changes no number
+  and silences the warning about dispersed weights. The other
+  model-based reading is refused with the reason, and
+  `sp.hdfe_ols(weights_as='sampling')` asks for `cluster=` because its
+  weighted fit has no heteroskedasticity-robust variance. The argument
+  is optional and calls without it behave as before.
+- `sp.ipw(n_bootstrap=0)` returns the point estimate alone, with the
+  standard error, interval and p-value missing.
+- `UnitRootResult.rho_level` and `.rho_diff`; `model_info['omitted']`
+  on `sp.arima`, `sp.gam`, `sp.gee`, `sp.mswitch`, `sp.dlm` and
+  `sp.panel_logit`; `converged` and `n_iter` on `sp.factor`;
+  `sp.ridge(lambda_='gcv' | 'hkb' | 'lw')`.
+
+#### Known and not changed
+
+- The standard error of `sp.match(ties='all')` depends on row order when
+  the matching variable has ties (1174 to 1182 over four orderings of
+  the Lalonde data; the estimate does not move). The conditional
+  variance takes exactly J same-arm neighbours and breaks ties by row,
+  which is `psmatch2`'s rule. Taking every tied neighbour removes the
+  dependence and moves the default Lalonde standard error from 1181.665
+  to 1186.871. Left for a decision.
+- The p-value of `sp.weighted_rank` with `phi='quade'` or `'u868'` moves
+  in the third digit with the unit of measurement on rounded data,
+  because block ranges that are equal in exact arithmetic are ranked
+  after floating-point subtraction.
 
 ### Sample size on results that recorded it as `n_obs`
 

@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._validate import require_numeric_columns
 from ..exceptions import MethodIncompatibility
 
 _METHODS = ("ols", "ridge", "lasso", "pcr")
@@ -373,6 +374,7 @@ def shrinkage(
             "shrinkage: penalty applies to method='ridge' / 'lasso' only."
         )
 
+    require_numeric_columns(data, [y] + x, function="shrinkage", argument="y / x")
     frame = data[[y] + x].apply(pd.to_numeric, errors="coerce").dropna()
     yv = frame[y].to_numpy(dtype=float)
     X = frame[x].to_numpy(dtype=float)
@@ -381,7 +383,9 @@ def shrinkage(
         raise MethodIncompatibility(
             f"shrinkage: {n} complete rows are too few to fit a model."
         )
-    constant = [c for c, s in zip(x, X.std(axis=0)) if s == 0]
+    # relative: a constant such as 1/3 has a float std of order 1e-17
+    floor = 1e-10 * np.sqrt(np.mean(X**2, axis=0))
+    constant = [c for c, s, f in zip(x, X.std(axis=0), floor) if s <= f]
     if constant:
         raise MethodIncompatibility(
             f"shrinkage: predictors {constant} do not vary.",

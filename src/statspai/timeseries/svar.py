@@ -431,9 +431,17 @@ class SVARResult(ResultProtocolMixin):
 def _pattern(value: Optional[_Matrix], k: int, name: str) -> Optional[np.ndarray]:
     if value is None:
         return None
-    arr = np.asarray(
-        value.to_numpy() if isinstance(value, pd.DataFrame) else value, dtype=float
-    )
+    try:
+        arr = np.asarray(
+            value.to_numpy() if isinstance(value, pd.DataFrame) else value,
+            dtype=float,
+        )
+    except (TypeError, ValueError):
+        raise MethodIncompatibility(
+            f"svar: {name}={value!r} is not a numeric {k} x {k} matrix.",
+            recovery_hint="Pass the pattern itself; a recursive (Cholesky) "
+            "ordering is B=np.tril(np.full((K, K), np.nan)).",
+        ) from None
     if arr.shape != (k, k):
         raise MethodIncompatibility(
             f"svar: {name} must be a {k} x {k} matrix, got shape {arr.shape}.",

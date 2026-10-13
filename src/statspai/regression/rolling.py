@@ -92,7 +92,9 @@ def rolling(
         observation), ``nobs``, one column per coefficient under its name,
         one per standard error under ``se_<name>``, then ``r2`` and
         ``rmse``. ``attrs`` records ``window``, ``step``, ``recursive``,
-        ``vce``, ``formula`` and ``params`` (the coefficient names).
+        ``vce``, ``formula``, ``params`` (the coefficient names) and
+        ``omitted``: regressors collinear in the full sample, which are
+        left out of the output with a warning.
 
     Notes
     -----
@@ -146,6 +148,26 @@ def rolling(
         warnings.simplefilter("ignore")
         full = regress(formula, data)
     info = full.data_info
+    omitted = list(full.model_info.get("omitted") or [])
+    if omitted:
+        # the full-sample fit left them out, and with them their columns
+        # of the output: say so, the fit's own note was silenced above
+        warnings.warn(
+            "rolling: "
+            + "; ".join(
+                (
+                    f"note: {o['variable']} omitted because of collinearity "
+                    f"({o['reason']})"
+                    if isinstance(o, dict)
+                    else f"note: {o} omitted because of collinearity"
+                )
+                for o in omitted
+            )
+            + " in the full sample. The paths are those of the remaining "
+            "regressors.",
+            UserWarning,
+            stacklevel=2,
+        )
     X = np.asarray(info["X"], dtype=float)
     y = np.asarray(info["y"], dtype=float).ravel()
     names: List[str] = [str(c) for c in full.params.index]
@@ -204,6 +226,7 @@ def rolling(
             "vce": vce,
             "formula": formula,
             "params": names,
+            "omitted": omitted,
         }
     )
     return out

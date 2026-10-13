@@ -103,6 +103,9 @@ def _prep(
         if Wmat.ndim == 1:
             Wmat = Wmat.reshape(-1, 1)
         W = np.column_stack([np.ones(n), Wmat]) if add_const else Wmat
+    from .weak_iv_ci import _refuse_missing
+
+    _refuse_missing("plausibly exogenous bounds", y=Y, endog=D, instruments=Z, exog=W)
     return Y, D, Z, W
 
 
@@ -158,6 +161,9 @@ def plausibly_exogenous_uci(
     -------
     PlausiblyExogenousResult
     """
+    from .weak_iv_ci import _check_level
+
+    _check_level(ci_level, "ci_level")
     Y, D, Z, W = _prep(y, endog, instruments, exog, data, add_const)
     p_endog = D.shape[1]
 
@@ -240,6 +246,10 @@ def plausibly_exogenous_ltz(
     -------
     PlausiblyExogenousResult
     """
+    from ..exceptions import MethodIncompatibility
+    from .weak_iv_ci import _check_level
+
+    _check_level(ci_level, "ci_level")
     Y, D, Z, W = _prep(y, endog, instruments, exog, data, add_const)
     k = Z.shape[1]
     p_endog = D.shape[1]
@@ -262,6 +272,18 @@ def plausibly_exogenous_ltz(
         if gv.shape != (k, k):
             raise ValueError("gamma_var must be (k, k) if matrix")
         Omega = gv
+    # a prior variance: no negative variance, and no direction a'Omega a < 0
+    # (the square root below used to clip it to a zero-width interval)
+    eig_min = float(np.linalg.eigvalsh((Omega + Omega.T) / 2.0).min())
+    if not np.isfinite(Omega).all() or eig_min < -1e-12 * max(
+        1.0, float(np.abs(Omega).max())
+    ):
+        raise MethodIncompatibility(
+            "gamma_var must be a variance: non-negative (scalar or vector) "
+            "or a positive semi-definite matrix.",
+            recovery_hint="Pass the prior variance of gamma, e.g. "
+            "gamma_var=0.05**2 for a prior standard deviation of 0.05.",
+        )
 
     beta_hat, _, var0 = _tsls(Y, D, Z, W)
     se0 = float(np.sqrt(max(var0[target_col, target_col], 0)))

@@ -174,9 +174,10 @@ class DecompositionResult(ResultProtocolMixin):
             kw.setdefault("model", "ZZN")
             fc = ets(sa, **kw).forecast(h, levels)
         elif key in ("naive", "drift"):
-            from .simple_forecast import simple_forecast
+            from .simple_forecast import _benchmark_options, simple_forecast
 
-            fc = simple_forecast(sa, key).forecast(h, levels)
+            kw = _benchmark_options(kwargs, "forecast")
+            fc = simple_forecast(sa, key, **kw).forecast(h, levels)
         elif key == "arima":
             from .arima import arima
 
@@ -270,9 +271,23 @@ def _stl_once(
     t_win = (
         int(trend) if trend is not None else _next_odd(1.5 * m / (1.0 - 1.5 / s_win))
     )
-    l_win = int(low_pass) if low_pass is not None else _next_odd(m)
-    if l_win <= m:
-        l_win = _next_odd(m + 1)
+    # the engine (statsmodels) needs an odd low-pass window above the
+    # period. For an even period that is R's default, period + 1; for an
+    # odd period R takes the period itself and the nearest window the
+    # engine accepts is period + 2.
+    l_min = _next_odd(m + 1)
+    if low_pass is None:
+        l_win = l_min
+    else:
+        l_win = int(low_pass)
+        if l_win != low_pass or l_win < l_min or l_win % 2 == 0:
+            raise MethodIncompatibility(
+                f"stl: low_pass={low_pass!r} is not an odd integer above the "
+                f"period ({m}); the smallest window available is {l_min}.",
+                recovery_hint=f"Use low_pass={l_min} or leave it unset. R's "
+                "stats::stl takes the period itself when it is odd; that "
+                "window is not available here.",
+            )
     if t_win % 2 == 0 or t_win < 3:
         raise MethodIncompatibility(
             f"stl: trend={trend!r} must be an odd integer of at least 3.",
@@ -357,8 +372,10 @@ def stl(
         Trend smoothing window (odd). Default: the smallest odd integer
         of at least ``1.5 * period / (1 - 1.5 / seasonal)``.
     low_pass : int, optional
-        Low-pass filter window; default the smallest odd integer above
-        ``period``.
+        Low-pass filter window: an odd integer above ``period``. Default
+        the smallest one, ``period + 1`` for an even period (R's default)
+        and ``period + 2`` for an odd period, where R takes ``period``
+        itself (see Notes). Any other value is refused.
     seasonal_deg, trend_deg, low_pass_deg : {0, 1}
         Degree of the local polynomials; defaults 0, 1, 1.
     robust : bool, default False
@@ -387,7 +404,15 @@ def stl(
     The defaults are those of R: ``stats::stl`` for everything but the
     seasonal window, which that function leaves to the user and which is
     set to 11 as in ``forecast::mstl`` and ``feasts::STL``. With the same
-    arguments the components equal R's to rounding error.
+    arguments and an even period the components equal R's to rounding
+    error.
+
+    For an **odd** period the low-pass window differs from R's: R uses
+    the period itself, the smoother behind this function needs a window
+    above the period and gets ``period + 2``. The components then agree
+    with R's only approximately: on a series of 84 observations with
+    period 7 and values around 20 the seasonal component differs by up
+    to 2e-5 and the trend by up to 2.5e-4.
 
     ``statsmodels.tsa.seasonal.STL`` runs the same algorithm with other
     defaults; ``sp.stl(y, period, seasonal=7, seasonal_deg=1,

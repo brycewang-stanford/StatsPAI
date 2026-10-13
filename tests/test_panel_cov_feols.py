@@ -96,7 +96,7 @@ def test_hdfe_cluster_keeps_full_dof_when_no_fe_nested():
 
 
 def test_hdfe_hetero(df):
-    res = sp.hdfe_ols("y ~ x1 + x2 | id", df, se_type="hetero")
+    res = sp.hdfe_ols("y ~ x1 + x2 | id", df, vce="robust")
     assert np.isfinite(_b(res))
 
 

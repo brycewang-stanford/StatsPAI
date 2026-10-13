@@ -64,6 +64,70 @@ from ._core import calendar_time_aware as _calendar_time_aware
 __all__ = ["gardner_did", "did_2stage"]
 
 
+def _drop_unidentified_cells(
+    df: pd.DataFrame, group: str, time: str, first_treat: str
+) -> Tuple[pd.DataFrame, Optional[Dict[str, object]]]:
+    """Drop treated rows whose unit or period effect Stage 1 cannot identify.
+
+    Stage 1 is fitted on untreated rows only. A period in which every unit is
+    already treated has no period effect there, and a unit that is treated in
+    all of its rows has no unit effect; the imputed ``Y(0)`` for those cells
+    would come from the minimum-norm solution, not from the data. They are
+    removed, so the estimand is the ATT over the remaining treated cells.
+    Returns the frame untouched and ``None`` when every cell is identified.
+    """
+    ft = pd.to_numeric(df[first_treat], errors="coerce").to_numpy(dtype=float)
+    t_arr = df[time].to_numpy(dtype=float)
+    treated = np.isfinite(ft) & (ft > 0) & (t_arr >= ft)
+    if not treated.any() or treated.all():
+        return df, None
+    unit_ok = df[group].isin(df.loc[~treated, group].unique()).to_numpy()
+    time_ok = df[time].isin(df.loc[~treated, time].unique()).to_numpy()
+    bad = treated & ~(unit_ok & time_ok)
+    if not bad.any():
+        return df, None
+    periods = sorted(pd.unique(df.loc[treated & ~time_ok, time]).tolist())
+    n_units = int(df.loc[treated & ~unit_ok, group].nunique())
+    n_bad, n_treated = int(bad.sum()), int(treated.sum())
+    if n_bad == n_treated:
+        raise DataInsufficient(
+            "gardner_did: no treated observation has both its unit and its "
+            "period among the untreated observations, so no effect is "
+            "identified.",
+            recovery_hint=(
+                "Keep pre-treatment periods for the treated units and at "
+                "least one not-yet-treated or never-treated comparison in "
+                "each post-treatment period."
+            ),
+            diagnostics={"periods_without_untreated": periods},
+        )
+    reasons = []
+    if periods:
+        reasons.append(
+            f"period(s) {periods} have no untreated observation, so their "
+            "period effect is not identified"
+        )
+    if n_units:
+        reasons.append(
+            f"{n_units} unit(s) are treated in every row, so their unit "
+            "effect is not identified"
+        )
+    warnings.warn(
+        f"gardner_did: dropped {n_bad} of {n_treated} treated observations: "
+        + "; ".join(reasons)
+        + ". The estimand is the ATT over the remaining treated cells.",
+        UserWarning,
+        stacklevel=4,
+    )
+    info: Dict[str, object] = {
+        "n_dropped": n_bad,
+        "n_treated_before": n_treated,
+        "periods_without_untreated": periods,
+        "n_always_treated_units": n_units,
+    }
+    return df.loc[~bad].reset_index(drop=True), info
+
+
 def _gardner_cluster_bootstrap(
     df: pd.DataFrame,
     y: str,
@@ -111,19 +175,22 @@ def _gardner_cluster_bootstrap(
             parts.append(sub)
         bd = pd.concat(parts, ignore_index=True)
         try:
-            r = gardner_did(
-                bd,
-                y=y,
-                group=group,
-                time=time,
-                first_treat=first_treat,
-                controls=ctrl,
-                event_study=event_study,
-                horizon=horizon,
-                cluster="__bcl",
-                vce="none",
-                weights=weights,
-            )
+            with warnings.catch_warnings():
+                # Already reported once for the observed sample.
+                warnings.filterwarnings("ignore", message="gardner_did: dropped")
+                r = gardner_did(
+                    bd,
+                    y=y,
+                    group=group,
+                    time=time,
+                    first_treat=first_treat,
+                    controls=ctrl,
+                    event_study=event_study,
+                    horizon=horizon,
+                    cluster="__bcl",
+                    vce="none",
+                    weights=weights,
+                )
         except Exception:
             continue  # replicate stays NaN; bootstrap_se tracks the failure
         if np.isfinite(r.estimate):
@@ -537,11 +604,14 @@ def gardner_did(
             raise ValueError(f"Column '{col}' not found in data")
 
     df[y] = pd.to_numeric(df[y], errors="coerce")
-    subset = [y, group, time, first_treat]
+    # A missing first-treatment period means never treated, as in the other
+    # staggered estimators; such rows are comparisons, not unusable rows.
+    subset = [y, group, time]
     if weights is not None:
         df[weights] = pd.to_numeric(df[weights], errors="coerce")
         subset.append(weights)
     df = df.dropna(subset=subset).reset_index(drop=True)
+    df, unidentified = _drop_unidentified_cells(df, group, time, first_treat)
 
     if cluster is None:
         cluster = group
@@ -796,6 +866,7 @@ def gardner_did(
         "n_clusters": n_clusters,
         "alpha": alpha,
         "stage1_n": int(untreated_mask.sum()),
+        "unidentified_cells": unidentified,
         "vcov": V,
         "cell_labels": supported_names if V is not None else None,
         "event_study": (

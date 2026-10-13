@@ -25,6 +25,7 @@ import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .var import _consecutive_rows, _require_independent_series
 
 
 class CointegrationResult(ResultProtocolMixin):
@@ -250,7 +251,7 @@ def engle_granger(
             "engle_granger needs 2..12 variables (MacKinnon 2010 tables)"
         )
 
-    Z = data[list(variables)].dropna().to_numpy(dtype=float)
+    Z = _consecutive_rows(data[list(variables)], "engle_granger").to_numpy(dtype=float)
     y = Z[:, 0]
     X = Z[:, 1:]
     n = len(y)
@@ -265,6 +266,17 @@ def engle_granger(
     X_const = np.column_stack([det[0], X] + det[1:])
     beta = np.linalg.lstsq(X_const, y, rcond=None)[0]
     residuals = y - X_const @ beta
+    # A first variable that is an exact linear function of the others
+    # leaves residuals of rounding size (root mean square below 1e-10 of
+    # that of the series); a unit-root statistic of those means nothing.
+    if not float(residuals @ residuals) > 1e-20 * float(y @ y):
+        raise DataInsufficient(
+            f"engle_granger: {variables[0]!r} is an exact linear function "
+            "of the other variables and the deterministic terms, so the "
+            "first-step residuals are rounding error.",
+            recovery_hint="Cointegration is a question about distinct "
+            "series; drop the redundant one.",
+        )
 
     # Step 2: ADF on residuals, no deterministic terms
     if lags is None:
@@ -276,6 +288,16 @@ def engle_granger(
     dy = np.diff(residuals)
     y_lag = residuals[:-1]
     T = len(dy)
+    # the regression of T - lags differences on the lagged residual and
+    # ``lags`` lagged differences needs residual degrees of freedom
+    if T - lags <= lags + 1:
+        raise DataInsufficient(
+            f"engle_granger: lags={lags} leaves {max(T - lags, 0)} "
+            f"observation(s) for {lags + 1} coefficient(s) in the residual "
+            f"unit-root regression ({n} observations).",
+            recovery_hint="Use fewer lags or a longer series.",
+            diagnostics={"n_obs": int(n), "lags": int(lags)},
+        )
     max_lag = min(lags, T - 2)
 
     Y_adf = dy[max_lag:]
@@ -490,8 +512,12 @@ def johansen(
     if variables is None:
         variables = data.select_dtypes(include=[np.number]).columns.tolist()
 
-    Y = data[variables].dropna().values.astype(float)
+    Y = _consecutive_rows(data[variables], "johansen").values.astype(float)
     T, k = Y.shape
+    # A series that is a linear combination of the others (or constant)
+    # makes the moment matrices singular: the eigenvalue problem has no
+    # solution to report.
+    _require_independent_series(Y, variables, "johansen", constant=case != "n")
 
     R0, R1, T_eff = _johansen_residuals(Y, lags, case)
 

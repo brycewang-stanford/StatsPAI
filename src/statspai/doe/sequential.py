@@ -22,6 +22,12 @@ from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibi
 from ._common import pair_sqdist, resolve_factors
 from .sensitivity import _evaluate
 
+_NEEDS_OUTPUT = (
+    "The surrogate model is fitted to the outputs, so every run needs a "
+    "finite one: restrict factors= to where the function is defined, or "
+    "have it return a large finite penalty there."
+)
+
 _GOALS = ("minimize", "maximize", "emulate")
 
 
@@ -301,7 +307,7 @@ def sequential_design(
             n_starts=1,
         )
         X = first.design.to_numpy(dtype=float)
-        yy = _evaluate(func, X, names, pass_as)
+        yy = _evaluate(func, X, names, pass_as, _NEEDS_OUTPUT)
     if X.shape[0] < 5:
         raise DataInsufficient("At least five initial runs are needed.")
     n_start = X.shape[0]
@@ -364,7 +370,7 @@ def sequential_design(
             ).to_numpy()
         j = int(np.argmax(score))
         xn = lo + cand[j] * (hi - lo)
-        yn = float(_evaluate(func, xn[None, :], names, pass_as)[0])
+        yn = float(_evaluate(func, xn[None, :], names, pass_as, _NEEDS_OUTPUT)[0])
         X = np.vstack([X, xn])
         yy = np.r_[yy, yn]
         best_now = float(yy.min() if g != "maximize" else yy.max())

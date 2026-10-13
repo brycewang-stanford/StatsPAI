@@ -24,6 +24,8 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .ardl import _check_alpha
+from .var import _consecutive_rows, _require_independent_series
 
 __all__ = ["vec", "VECResult"]
 
@@ -494,7 +496,9 @@ def vec(
             "sp.var); rank = 0 means no cointegration (fit a VAR in "
             "differences).",
         )
-    levels = data[names].dropna().to_numpy(dtype=float)
+    _check_alpha(alpha, "sp.vec")
+    levels = _consecutive_rows(data[names], "sp.vec").to_numpy(dtype=float)
+    _require_independent_series(levels, names, "sp.vec", constant=case != "n")
     n = levels.shape[0]
     T = n - lags - 1
     d = rank + k * lags + {"n": 0, "rc": 0, "c": 1, "rt": 1, "ct": 2}[case]

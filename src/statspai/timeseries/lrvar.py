@@ -429,6 +429,13 @@ def lrvar(
     """
     x, names = _matrix(data, y)
     n, k = x.shape
+    # the same answer whatever the bandwidth rule: a constant has no
+    # long-run variance to estimate (the Andrews rule has always said so)
+    if n and np.any(np.ptp(x, axis=0) <= 1e-12 * np.max(np.abs(x), axis=0)):
+        raise DataInsufficient(
+            "sp.lrvar: a series is constant.",
+            recovery_hint="The long-run variance needs variation.",
+        )
     key = _KERNELS.get(str(kernel).strip().lower())
     if key is None:
         raise MethodIncompatibility(

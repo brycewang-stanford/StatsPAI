@@ -299,6 +299,13 @@ class ReconcileResult(ResultProtocolMixin):
             )
         from scipy import stats
 
+        if not np.isscalar(level) or isinstance(level, (str, bool)):
+            raise MethodIncompatibility(
+                f"intervals: level={level!r} is not one coverage; this method "
+                "returns the (lower, upper) pair of a single level.",
+                recovery_hint="Call it once per level, e.g. intervals(80) "
+                "and intervals(95).",
+            )
         pct = float(level) * 100.0 if 0.0 < float(level) < 1.0 else float(level)
         if not 0.0 < pct < 100.0:
             raise MethodIncompatibility(
@@ -393,7 +400,10 @@ def reconcile(
         series), for the variance-based methods. Rows with a missing
         value are dropped.
     history : pd.DataFrame or array-like, optional
-        The observed series (periods by series), for ``"top_down"``.
+        The observed series (periods by series), for ``"top_down"`` and
+        ``"middle_out"``. They must add up: every series equal to the sum
+        of its bottom series, to within 1e-6 of the largest value;
+        otherwise the proportions would not sum to one.
     proportions : {"average", "of_averages", "forecast"}, default "average"
         ``"average"``: mean over time of each bottom series' share of
         the total. ``"of_averages"``: its mean divided by the mean of
@@ -640,6 +650,22 @@ def reconcile(
                 )
             hist = align(history, "history")
             hist = hist[np.isfinite(hist).all(axis=1)]
+            # the shares of one parent sum to one only if every series of
+            # the history is the sum of its bottom series (y = S b)
+            gap = np.abs(hist - hist[:, rows] @ Sm.T)
+            size = float(np.max(np.abs(hist))) if hist.size else 0.0
+            if hist.size and float(gap.max()) > 1e-6 * size:
+                worst = int(np.argmax(gap.max(axis=0)))
+                raise MethodIncompatibility(
+                    "reconcile: history= does not add up: "
+                    f"{ids[worst]!r} differs from the sum of its bottom "
+                    f"series by up to {float(gap[:, worst].max()):.6g} "
+                    "(tolerance: 1e-6 of the largest value). The proportions "
+                    "would not sum to one.",
+                    recovery_hint="Pass the observed series of this "
+                    "structure, e.g. Hierarchy.Y, or use "
+                    "proportions='forecast'.",
+                )
         bottom_fc = np.empty((yhat.shape[0], nb))
         for k in start:
             for j in desc[k]:

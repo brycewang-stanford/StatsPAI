@@ -133,6 +133,14 @@ def poststratify(
     -------
     PoststratResult
 
+    Raises
+    ------
+    MethodIncompatibility
+        (a ``ValueError``.)  The count column is absent, not numeric,
+        negative, missing or all zero; a cell has no finite prediction;
+        the model cannot predict a cell (for instance a factor level it
+        was not fitted on).
+
     Notes
     -----
     The posterior describes uncertainty in the cell means given the
@@ -169,7 +177,14 @@ def poststratify(
         )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
-    weights = cells[count].to_numpy(dtype=float)
+    try:
+        weights = cells[count].to_numpy(dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"The count column {count!r} must be numeric; it is "
+            f"{cells[count].dtype} ({exc}).",
+            recovery_hint="Convert it first, e.g. pd.to_numeric(cells[count]).",
+        ) from exc
     if np.any(~np.isfinite(weights)) or np.any(weights < 0) or weights.sum() <= 0:
         raise MethodIncompatibility(
             "Population counts must be non-negative, finite and not all zero."
@@ -179,6 +194,17 @@ def poststratify(
         raise MethodIncompatibility(
             f"Got predictions for {pred.shape[1]} cells; the table has "
             f"{len(cells)}. A model drops cells with missing values."
+        )
+    bad = ~np.isfinite(pred).all(axis=0)
+    if bad.any():
+        raise MethodIncompatibility(
+            f"The prediction is missing or infinite for {int(bad.sum())} of "
+            f"{len(cells)} cells (first at row {int(np.flatnonzero(bad)[0])}); "
+            "the population average is not defined without them.",
+            recovery_hint=(
+                "Fill in the cell predictions, or drop those cells if they "
+                "are outside the population of interest."
+            ),
         )
     has_draws = pred.shape[0] > 1
     lo = (1.0 - level) / 2.0

@@ -156,9 +156,14 @@ def varsoc(
             "among the endogenous variables.",
             recovery_hint="Check the names passed to exog=.",
         )
-    complete = data[variables + exog_names].dropna()
+    from .ardl import _check_alpha
+    from .var import _consecutive_rows, _require_independent_series
+
+    _check_alpha(alpha, "sp.varsoc")
+    complete = _consecutive_rows(data[variables + exog_names], "sp.varsoc")
     values = complete[variables].to_numpy(dtype=float)
     extra = complete[exog_names].to_numpy(dtype=float)[maxlag:]
+    _require_independent_series(values, variables, "sp.varsoc", constant=trend != "n")
     n, k = values.shape
     T = n - maxlag
     deterministic = {"c": 1, "ct": 2, "n": 0}[trend] + len(exog_names)

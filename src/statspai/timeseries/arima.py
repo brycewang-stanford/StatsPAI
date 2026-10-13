@@ -25,14 +25,15 @@ Examples
 from __future__ import annotations
 
 import warnings as _warnings
-from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..core._collinear import drop_collinear
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from .ts_tools import _kpss_level as _kpss_stat  # noqa: F401  (re-exported)
 from .ts_tools import _ndiffs as _kpss_ndiffs
 from .ts_tools import _nsdiffs
@@ -88,6 +89,9 @@ class ARIMAResult(ResultProtocolMixin):
     #: forecasts are bias-adjusted on the way back
     boxcox: Optional[float] = None
     biasadj: bool = False
+    #: ``{'omitted': [{variable, reason}, ...]}``: the regressors left out of
+    #: the fit as collinear (an empty list when none was)
+    model_info: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def period(self) -> int:
@@ -205,8 +209,36 @@ class ARIMAResult(ResultProtocolMixin):
                 f"forecast: horizon must be at least 1, got {horizon!r}.",
                 recovery_hint="Pass a positive number of periods.",
             )
+        if level is None and not 0.0 < alpha < 1.0:
+            raise MethodIncompatibility(
+                f"forecast: alpha must lie strictly between 0 and 1, got "
+                f"{alpha!r}.",
+                recovery_hint="alpha=0.05 gives a 95% interval; coverage in "
+                "percent goes in level=.",
+            )
         x_future = None
         k_exog = len(self.exog_names)
+        # Regressors omitted as collinear at the fit: new values may come
+        # in the layout the fit was called with, and the kept columns are
+        # read from it.
+        layout = getattr(self, "_exog_layout", None)
+        if layout is not None and exog is not None:
+            given, kept_pos = layout
+            if isinstance(exog, pd.DataFrame):
+                if any(c not in exog.columns for c in self.exog_names) and exog.shape[
+                    1
+                ] == len(given):
+                    exog = exog.iloc[:, kept_pos]
+                    exog.columns = list(self.exog_names)
+            else:
+                arr = np.asarray(exog, dtype=float)
+                if arr.ndim == 1 and arr.size == h * len(given):
+                    arr = arr.reshape(h, len(given))
+                if arr.ndim == 2 and arr.shape[1] == len(given):
+                    arr = arr[:, kept_pos]
+                exog = arr
+            if not k_exog:
+                exog = None  # every regressor was omitted
         if k_exog:
             if exog is None:
                 raise MethodIncompatibility(
@@ -317,9 +349,20 @@ class ARIMAResult(ResultProtocolMixin):
             linewidth=0.8,
             label="fitted",
         )
+        # the data: fitted + residual, except under a Box-Cox transform,
+        # where the fitted values are on the original scale and the
+        # residuals on the transformed one
+        if self.boxcox is None:
+            observed = self.fitted_values + self.residuals
+        else:
+            from ._forecast_common import boxcox_inverse
+
+            observed = boxcox_inverse(
+                np.asarray(self._model.model.endog, dtype=float).ravel(), self.boxcox
+            )
         ax.plot(
             T,
-            self.fitted_values + self.residuals,
+            observed,
             ".",
             color="grey",
             markersize=2,
@@ -545,7 +588,10 @@ def arima(
         Regressors: the model is a regression with ARIMA errors
         (dynamic regression). Column names when ``data`` is given.
         Forecasting then needs their future values,
-        ``result.forecast(h, exog=...)``.
+        ``result.forecast(h, exog=...)``. A regressor that is a linear
+        combination of the others and of the constant (or drift) is
+        omitted with a note and listed in ``result.model_info['omitted']``;
+        ``forecast`` still accepts ``exog`` in the layout given here.
     data : pandas.DataFrame, optional
         Frame holding ``y`` (and ``exog``), in time order. Rows before the
         first and after the last non-missing ``y`` are dropped, so a
@@ -727,6 +773,9 @@ def arima(
         )
     elif isinstance(y, pd.Series):
         index = y.index
+    from ._forecast_common import require_time_order
+
+    require_time_order(index, fn="arima")
     if exog is not None and not exog_names:
         if isinstance(exog, pd.DataFrame):
             exog_names = tuple(str(c) for c in exog.columns)
@@ -739,8 +788,30 @@ def arima(
             if exog.ndim == 1:
                 exog = exog.reshape(-1, 1)
             exog_names = tuple(f"x{i + 1}" for i in range(exog.shape[1]))
-    y = np.asarray(y, dtype=float).ravel()
+    y = np.asarray(y, dtype=float)
+    if y.ndim > 1 and not (y.ndim == 2 and y.shape[1] == 1):
+        raise MethodIncompatibility(
+            f"arima: y has shape {y.shape}; one series is needed.",
+            recovery_hint="Pass a single column (regressors go in exog=; "
+            "several series are a job for sp.var).",
+            diagnostics={"shape": list(y.shape)},
+        )
+    y = y.ravel()
     n = len(y)
+    _holes = np.flatnonzero(~np.isfinite(y))
+    if _holes.size:
+        raise MethodIncompatibility(
+            f"arima: the series has {_holes.size} missing or non-finite "
+            f"value(s) (first at position {int(_holes[0])}). The likelihood "
+            "is that of consecutive observations.",
+            recovery_hint="Fit a stretch without missing values, or fill "
+            "them first; with data=, leading and trailing missing values of "
+            "the column are trimmed for you.",
+            diagnostics={
+                "n_missing": int(_holes.size),
+                "positions": _holes[:20].tolist(),
+            },
+        )
     from ._forecast_common import boxcox_forward, boxcox_inverse, resolve_boxcox
 
     _lam = resolve_boxcox(
@@ -835,6 +906,107 @@ def arima(
             "level; it is not estimated.",
             recovery_hint="Use trend='n', or difference the series once less.",
         )
+
+    omitted_exog: list = []
+    exog_layout: Any = None
+
+    def _screen(
+        order_: Tuple[int, int, int],
+        seas_: Optional[Tuple[int, int, int, int]],
+        det: Optional[str],
+        k_arma: Optional[int],
+    ) -> None:
+        """Refuse a series the model cannot be estimated on, and omit
+        regressors that are not identified.
+
+        Everything is judged on the differenced series, the one whose
+        likelihood is maximised: a series without variation there, fewer
+        observations than parameters (``k_arma`` ARMA coefficients, the
+        deterministic term, the regressors and the innovation variance;
+        not counted when ``k_arma`` is None), and regressors that are
+        linear combinations of the others and of the constant or drift.
+        """
+        nonlocal exog, exog_names, exog_layout
+        d_, s_ = int(order_[1]), (int(seas_[3]) if seas_ else 0)
+        D_ = int(seas_[1]) if seas_ else 0
+
+        def diff(a: np.ndarray) -> np.ndarray:
+            for _ in range(d_):
+                a = np.diff(a, axis=0)
+            for _ in range(D_):
+                a = a[s_:] - a[:-s_]
+            return a
+
+        w = diff(y)
+        k_x = 0 if exog is None else exog.shape[1]
+        if k_arma is not None:
+            k_all = k_arma + (det is not None) + k_x + 1
+            if len(w) < k_all:
+                raise DataInsufficient(
+                    f"arima: {len(w)} observation(s)"
+                    + (" after differencing" if d_ + D_ else "")
+                    + f" for {k_all} parameters (the innovation variance "
+                    "included).",
+                    recovery_hint="Use a longer series or a lower order.",
+                    diagnostics={"n_obs": int(len(w)), "n_params": int(k_all)},
+                )
+        if len(w) < 2:
+            raise DataInsufficient(
+                f"arima: {len(w)} observation(s)"
+                + (" after differencing." if d_ + D_ else "."),
+                recovery_hint="Use a longer series or fewer differences.",
+            )
+        # no variation: differences are exact up to the rounding of the
+        # series itself (about 1e-16 of its size), so a spread below 1e-12
+        # of that size is rounding error and every coefficient arbitrary
+        if not float(np.std(w)) > 1e-12 * float(np.sqrt(np.mean(y * y))):
+            raise DataInsufficient(
+                "arima: the series is constant"
+                + (" after differencing" if d_ + D_ else "")
+                + "; there are no dynamics and no variance to estimate.",
+                recovery_hint="Check the series"
+                + (
+                    "; it may be an exact trend, or over-differenced."
+                    if d_ + D_
+                    else "."
+                ),
+            )
+        if exog is None:
+            return
+        cols = [np.ones(len(w))] if det is not None else []
+        dx = diff(exog)
+        # A regressor that is an exact polynomial trend differences to
+        # rounding noise (about 1e-16 of its own size), not to exact zeros.
+        # Set such a column to zero so that it is omitted like one: its
+        # coefficient is otherwise the ratio of two rounding errors.
+        scale = np.sqrt(np.mean(np.asarray(exog, dtype=float) ** 2, axis=0))
+        dx = np.where(np.max(np.abs(dx), axis=0) <= 1e-12 * scale, 0.0, dx)
+        design = np.column_stack(cols + [dx])
+        labels = ([det] if det is not None else []) + list(exog_names)
+        if det is None and design.shape[1] == 1:
+            if np.any(design != 0.0):
+                return
+            keep: list = []
+            dropped = [{"variable": labels[0], "reason": "zero column"}]
+            _warnings.warn(
+                f"arima: note: {labels[0]} omitted because of collinearity "
+                "(zero column after differencing).",
+                UserWarning,
+                stacklevel=3,
+            )
+        else:
+            _, _, dropped, keep = drop_collinear(design, labels, "arima", stacklevel=4)
+        if not dropped:
+            return
+        shift = 1 if det is not None else 0
+        kept_pos = [j - shift for j in keep if j >= shift]
+        omitted_exog.extend(dropped)
+        if exog_layout is None:
+            exog_layout = (tuple(exog_names), kept_pos)
+        else:
+            exog_layout = (exog_layout[0], [exog_layout[1][j] for j in kept_pos])
+        exog_names = tuple(exog_names[j] for j in kept_pos)
+        exog = exog[:, kept_pos] if kept_pos else None
 
     class _Fit:
         """One fitted model: the estimates and what is derived from them."""
@@ -1272,6 +1444,18 @@ def arima(
         d = _kpss_ndiffs(base, max_d)
         allow_const = trend is None and (d + D) <= 1
         fixed_const: Optional[bool] = None if trend is None else trend == "c"
+        # the search may include the constant (or drift): regressors that
+        # repeat it are omitted before any candidate is fitted
+        _screen(
+            (0, d, 0),
+            (0, D, 0, s_len) if s_len else None,
+            (
+                ("const" if d + D == 0 else "drift")
+                if (allow_const or fixed_const) and d + D <= 1
+                else None
+            ),
+            None,
+        )
         if fixed_const and d + D > 1:
             _trend_for((0, d, 0), (0, D, 0, s_len) if s_len else None, True)
         n_failed = 0
@@ -1358,6 +1542,13 @@ def arima(
     if auto and final_res is not None:
         fit_ = final_res
     else:
+        _so = seas_final
+        _screen(
+            (int(order[0]), int(order[1]), int(order[2])),
+            _so,  # type: ignore[arg-type]
+            _trend_for(order, _so, constant)[1],  # type: ignore[arg-type]
+            int(order[0]) + int(order[2]) + (int(_so[0]) + int(_so[2]) if _so else 0),
+        )
         fit_ = _fit(order, seas_final, constant)  # type: ignore[arg-type]
     res = fit_.res
     if not fit_.converged:
@@ -1432,7 +1623,11 @@ def arima(
         _det=fit_.det,
         boxcox=_lam,
         biasadj=bool(biasadj),
+        model_info={"omitted": list(omitted_exog)},
     )
+    if omitted_exog:
+        # the layout exog= came in, for forecasts on new regressor values
+        setattr(_result, "_exog_layout", exog_layout)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 

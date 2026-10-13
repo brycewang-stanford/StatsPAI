@@ -118,6 +118,15 @@ def synth_ttest(
     n_folds = int(n_folds)
     if n_folds < 2:
         raise MethodIncompatibility("synth_ttest: n_folds must be at least 2.")
+    if not 0.0 < float(alpha) < 1.0:
+        raise MethodIncompatibility(
+            f"synth_ttest: alpha must lie strictly between 0 and 1, got {alpha!r}."
+        )
+    if not (np.isfinite(float(penalization)) and float(penalization) >= 0.0):
+        raise MethodIncompatibility(
+            "synth_ttest: penalization must be a finite non-negative number, "
+            f"got {penalization!r}."
+        )
     missing = [c for c in (outcome, unit, time) if c not in data.columns]
     if missing:
         raise MethodIncompatibility(

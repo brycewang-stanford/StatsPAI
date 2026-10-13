@@ -44,7 +44,7 @@ import numpy as np
 import pandas as pd
 from scipy import integrate, optimize, special, stats
 
-from ..exceptions import IdentificationFailure, MethodIncompatibility
+from ..exceptions import DataInsufficient, IdentificationFailure, MethodIncompatibility
 
 
 def _clr_conditional_pvalue(m: float, qt: float, k: int) -> float:
@@ -205,6 +205,68 @@ def _grab(v: Any, data: Any, cols: bool = False) -> np.ndarray:
     return np.asarray(v, dtype=float)
 
 
+def _refuse_missing(entry: str, **blocks: Any) -> None:
+    """The complete-case step shared by the array-style weak-IV helpers:
+    refuse, by name, any input with a missing or infinite value.
+
+    These functions take arrays that are aligned by position (with each
+    other and with ``cluster``), so rows cannot be dropped here without
+    the caller knowing; left in, one NaN turns every statistic into NaN --
+    reported as an empty confidence set, NaN endpoints, or ``pvalue = 0``.
+    """
+    bad = {}
+    for name, block in blocks.items():
+        if block is None:
+            continue
+        arr = np.asarray(block, dtype=float)
+        if arr.size == 0:
+            continue
+        rows = ~np.isfinite(arr.reshape(arr.shape[0], -1)).all(axis=1)
+        if rows.any():
+            bad[name] = int(rows.sum())
+    if bad:
+        detail = ", ".join(f"{name} ({count} row(s))" for name, count in bad.items())
+        raise MethodIncompatibility(
+            f"{entry}: missing or non-finite values in {detail}.",
+            recovery_hint="Drop the incomplete rows from every input first, "
+            "e.g. data.dropna(subset=[...]).",
+            diagnostics={"n_incomplete_rows": bad},
+        )
+
+
+def _check_level(level: Any, name: str = "level") -> float:
+    """A confidence level strictly inside (0, 1); ``level=95`` used to give
+    a NaN critical value and an empty set."""
+    try:
+        value = float(level)
+    except (TypeError, ValueError):
+        value = float("nan")
+    if not 0.0 < value < 1.0:
+        raise MethodIncompatibility(
+            f"{name} must be strictly between 0 and 1; got {level!r}.",
+            recovery_hint=(
+                f"Pass a proportion, e.g. {name}=0.05 for 95% confidence."
+                if name == "alpha"
+                else f"Pass a proportion, e.g. {name}=0.95."
+            ),
+        )
+    return value
+
+
+def _sorted_grid(beta_grid: Any) -> np.ndarray:
+    """A user grid in increasing order: the endpoints are bisected between
+    neighbouring grid points, which must be neighbours on the line."""
+    grid = np.asarray(beta_grid, dtype=float).reshape(-1)
+    if grid.size == 0 or not np.isfinite(grid).all():
+        raise MethodIncompatibility(
+            "beta_grid must be a non-empty array of finite values.",
+            recovery_hint="Pass e.g. np.linspace(lo, hi, 401).",
+        )
+    if np.all(grid[1:] >= grid[:-1]):
+        return grid
+    return np.sort(grid)
+
+
 def _residualize(M: np.ndarray, W: np.ndarray) -> np.ndarray:
     if W.size == 0 or W.shape[1] == 0:
         return M
@@ -212,7 +274,11 @@ def _residualize(M: np.ndarray, W: np.ndarray) -> np.ndarray:
     return np.asarray(M - W @ b)
 
 
-def _check_instrument_rank(Zt: np.ndarray, instruments: Any) -> None:
+def _check_instrument_rank(
+    Zt: np.ndarray,
+    instruments: Any,
+    what: str = "the Anderson-Rubin / CLR statistics",
+) -> None:
     """Refuse a rank-deficient instrument matrix instead of inverting it.
 
     Every weak-IV routine in this module forms ``(Z'Z)^-1`` — via
@@ -240,7 +306,7 @@ def _check_instrument_rank(Zt: np.ndarray, instruments: Any) -> None:
         f"the instrument matrix is rank deficient: {k} instruments "
         f"({', '.join(names)}) span only {rank} dimension(s) after "
         "partialling out the exogenous regressors, so Z'Z is singular and "
-        "the Anderson-Rubin / CLR statistics are not defined.",
+        f"{what} are not defined.",
         recovery_hint=(
             "Drop the redundant instrument(s) — one is an exact linear "
             "combination of the others (or of the exogenous controls) — and "
@@ -260,12 +326,14 @@ def _prep(
         Z = Z.reshape(-1, 1)
     n = len(Y)
     if exog is None:
+        Wx = None
         W = np.ones((n, 1)) if add_const else np.empty((n, 0))
     else:
         Wx = _grab(exog, data, cols=True)
         if Wx.ndim == 1:
             Wx = Wx.reshape(-1, 1)
         W = np.column_stack([np.ones(n), Wx]) if add_const else Wx
+    _refuse_missing("weak-IV confidence set", y=Y, endog=D, instruments=Z, exog=Wx)
     Yt = _residualize(Y.reshape(-1, 1), W).ravel()
     Dt = _residualize(D.reshape(-1, 1), W).ravel()
     Zt = _residualize(Z, W)
@@ -326,6 +394,7 @@ def anderson_rubin_ci(
     to ``F(k, G - 1)``. (For absorbed fixed effects use
     :func:`sp.anderson_rubin_test` with ``absorb=``.)
     """
+    level = _check_level(level)
     Yt, Dt, Zt, kW, n = _prep(y, endog, instruments, exog, data, add_const)
     k = Zt.shape[1]
     dfd = max(n - kW - k, 1)
@@ -342,12 +411,24 @@ def anderson_rubin_ci(
         G = int(cl_codes.max()) + 1
         if G < 2:
             raise MethodIncompatibility("cluster needs at least two clusters.")
+        if G - 1 < k:
+            # the cluster score sums add up to zero (Z'e = 0), so the meat
+            # has rank at most G - 1 and cannot be inverted for k instruments
+            raise DataInsufficient(
+                f"the cluster-robust Anderson-Rubin statistic for {k} "
+                f"instruments needs at least {k + 1} clusters; found {G}.",
+                recovery_hint="Cluster at a finer level, use fewer "
+                "instruments, or drop cluster=.",
+                diagnostics={"n_clusters": G, "n_instruments": k},
+            )
         crit = stats.f.ppf(level, k, G - 1)
         scale = (n - kW - k) / (n - 1) * (G - 1) / G
         ZtZ_inv = np.linalg.inv(Zt.T @ Zt)
     else:
         crit = stats.f.ppf(level, k, dfd)
 
+    if beta_grid is not None:
+        beta_grid = _sorted_grid(beta_grid)
     if beta_grid is None:
         beta_grid = _default_grid(Yt, Dt, Zt, n_grid)
         if cluster is not None:
@@ -438,7 +519,39 @@ def conditional_lr_ci(
         raise MethodIncompatibility(
             f"method must be 'exact' or 'simulate'; got {method!r}"
         )
+    level = _check_level(level)
     Yt, Dt, Zt, kW, n = _prep(y, endog, instruments, exog, data, add_const)
+    return _clr_set(
+        Yt,
+        Dt,
+        Zt,
+        kW,
+        n,
+        level=level,
+        n_grid=n_grid,
+        beta_grid=beta_grid,
+        n_sim=n_sim,
+        random_state=random_state,
+        method=method,
+    )
+
+
+def _clr_set(
+    Yt: np.ndarray,
+    Dt: np.ndarray,
+    Zt: np.ndarray,
+    kW: int,
+    n: int,
+    *,
+    level: float,
+    n_grid: int,
+    beta_grid: Optional[np.ndarray],
+    n_sim: int,
+    random_state: Optional[int],
+    method: str,
+) -> WeakIVConfidenceSet:
+    """CLR set from variables already net of the ``kW`` exogenous
+    regressors (``kW`` counts absorbed fixed effects too)."""
     k = Zt.shape[1]
     # Orthonormalise instruments
     L = np.linalg.cholesky(Zt.T @ Zt)
@@ -449,6 +562,8 @@ def conditional_lr_ci(
 
     if beta_grid is None:
         beta_grid = _default_grid(Yt, Dt, Zt, n_grid)
+    else:
+        beta_grid = _sorted_grid(beta_grid)
 
     df_r = max(n - kW - k, 1)
 
@@ -568,7 +683,24 @@ def k_test_ci(
     where S and T are the AR score and "T-statistic" from Moreira (2003).
     Faster than CLR but slightly less powerful; still weak-IV-robust.
     """
+    level = _check_level(level)
     Yt, Dt, Zt, kW, n = _prep(y, endog, instruments, exog, data, add_const)
+    return _k_set(Yt, Dt, Zt, kW, n, level=level, n_grid=n_grid, beta_grid=beta_grid)
+
+
+def _k_set(
+    Yt: np.ndarray,
+    Dt: np.ndarray,
+    Zt: np.ndarray,
+    kW: int,
+    n: int,
+    *,
+    level: float,
+    n_grid: int,
+    beta_grid: Optional[np.ndarray],
+) -> WeakIVConfidenceSet:
+    """K set from variables already net of the ``kW`` exogenous regressors
+    (``kW`` counts absorbed fixed effects too)."""
     k = Zt.shape[1]
     L = np.linalg.cholesky(Zt.T @ Zt)
     # Zs = Zt L'^-1 so that Zs'Zs = L^-1 (L L') L'^-1 = I. Through 1.28.0
@@ -578,6 +710,8 @@ def k_test_ci(
 
     if beta_grid is None:
         beta_grid = _default_grid(Yt, Dt, Zt, n_grid)
+    else:
+        beta_grid = _sorted_grid(beta_grid)
 
     crit = stats.chi2.ppf(level, df=1)
 

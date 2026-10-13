@@ -683,6 +683,44 @@ FAMILIES: Dict[str, Type[Family]] = {
 }
 
 
+def require_outcome_in_support(
+    y: Any, family: "Family", who: str, dependent_var: Any = "y"
+) -> None:
+    """Refuse an outcome outside the support of ``family``.
+
+    IRLS on a negative count or on a "proportion" of 2 does not fail, it
+    returns coefficients of order 1e15. Non-integer counts are allowed
+    (PPML), and so are proportions in [0, 1] (fractional / grouped
+    binomial). Shared by ``sp.glm``, ``sp.gee`` and ``sp.gam``.
+    """
+    _y = np.asarray(y, dtype=float)
+    if isinstance(family, (Poisson, NegativeBinomial)):
+        _n_bad = int(np.sum(_y < 0))
+        _support = "non-negative"
+    elif isinstance(family, Binomial):
+        _n_bad = int(np.sum((_y < 0) | (_y > 1)))
+        _support = "in [0, 1] (a 0/1 outcome or a proportion)"
+    else:
+        _n_bad = 0
+    if _n_bad:
+        raise MethodIncompatibility(
+            f"{who}: the outcome '{dependent_var}' has {_n_bad} "
+            f"value(s) outside the support of the {family.name} "
+            f"family; it must be {_support}.",
+            recovery_hint=(
+                "Check the outcome coding. For counts of successes out "
+                "of several trials use cbind(successes, failures) ~ x, "
+                "or the share with weights= set to the number of trials."
+            ),
+            diagnostics={
+                "family": family.name,
+                "n_out_of_support": _n_bad,
+                "y_min": float(np.min(_y)),
+                "y_max": float(np.max(_y)),
+            },
+        )
+
+
 def _get_family(family: str) -> Family:
     family = _require_string(family, "family")
     key = family.lower().replace("-", "_").replace(" ", "_")
@@ -1517,36 +1555,7 @@ class GLMRegression(BaseModel):
                 diagnostics={"nobs": 0},
             )
 
-        # The outcome must lie in the support of the family: IRLS on a
-        # negative count or on a "proportion" of 2 does not fail, it returns
-        # coefficients of order 1e15. Non-integer counts are allowed (PPML),
-        # and so are proportions in [0, 1] (fractional / grouped binomial).
-        _y = np.asarray(self.y, dtype=float)
-        if isinstance(self.family, (Poisson, NegativeBinomial)):
-            _n_bad = int(np.sum(_y < 0))
-            _support = "non-negative"
-        elif isinstance(self.family, Binomial):
-            _n_bad = int(np.sum((_y < 0) | (_y > 1)))
-            _support = "in [0, 1] (a 0/1 outcome or a proportion)"
-        else:
-            _n_bad = 0
-        if _n_bad:
-            raise MethodIncompatibility(
-                f"glm: the outcome '{self.dependent_var}' has {_n_bad} "
-                f"value(s) outside the support of the {self.family.name} "
-                f"family; it must be {_support}.",
-                recovery_hint=(
-                    "Check the outcome coding. For counts of successes out "
-                    "of several trials use cbind(successes, failures) ~ x, "
-                    "or the share with weights= set to the number of trials."
-                ),
-                diagnostics={
-                    "family": self.family.name,
-                    "n_out_of_support": _n_bad,
-                    "y_min": float(np.min(_y)),
-                    "y_max": float(np.max(_y)),
-                },
-            )
+        require_outcome_in_support(self.y, self.family, "glm", self.dependent_var)
 
         def _aligned_numeric_column(column: str, role: str) -> np.ndarray:
             if self.data is None:
@@ -1661,6 +1670,10 @@ class GLMRegression(BaseModel):
                     diagnostics={"column": cluster},
                 )
 
+        # weights_as= is a statement about the weights, read here; it is
+        # not an option of the estimator.
+        _weights_as = kwargs.pop("weights_as", None)
+
         # --- estimate ---
         results = self.estimator.estimate(
             y=self.y,
@@ -1734,6 +1747,7 @@ class GLMRegression(BaseModel):
                     else None
                 ),
                 cluster=cluster,
+                weights_as=_weights_as,
             )
         # Picklable design recipe for postestimation (sp.margins rebuilds
         # the design, incl. C() factors and I() transforms, from it).
@@ -1766,6 +1780,13 @@ class GLMRegression(BaseModel):
             "family_obj": self.family,
             "link_obj": self.link,
         }
+        if self._design_info is not None and self.data is not None:
+            from ..postestimation._design import fitted_factor_levels
+
+            # for predict(): which values of each factor the fit saw
+            seen = fitted_factor_levels(self._design_info, self.data.columns)
+            if seen:
+                data_info["factor_levels"] = seen
 
         diagnostics = {
             "Deviance": results["deviance"],
@@ -2025,6 +2046,7 @@ def glm(
     alpha: float = 0.05,
     information: str = "observed",
     scale: Optional[Union[str, float]] = None,
+    weights_as: Optional[str] = None,
 ) -> EconometricResults:
     """
     Fit a Generalized Linear Model.
@@ -2072,7 +2094,18 @@ def glm(
     cluster : str, optional
         Variable name for clustered standard errors.
     weights : str, optional
-        Variable name for observation weights.
+        Variable name for observation weights. Alone they are frequency
+        weights (Stata ``[fw=]`` / ``[iw=]``), or analytic weights
+        (``[aw=]``) for the gaussian family; for sampling weights say so
+        with ``weights_as='sampling'``.
+    weights_as : {'analytic', 'frequency', 'sampling'}, optional
+        What the weights are. The model-based reading is ``'analytic'``
+        for ``family='gaussian'`` and ``'frequency'`` for every other
+        family; the other of the two is refused. ``'sampling'`` (Stata
+        ``[pw=]``) gives the same coefficients with the robust variance,
+        unless ``robust=`` or ``cluster=`` asks for another. Saying which
+        also silences the warning about dispersed weights under the
+        model-based variance.
     offset : str, optional
         Variable name for offset.
     exposure : str, optional
@@ -2202,6 +2235,23 @@ def glm(
             },
         )
 
+    from ..core._agent_summary import resolve_weights_as
+
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native=(
+            "analytic" if str(family).lower() in ("gaussian", "normal") else "frequency"
+        ),
+        entry=f"sp.glm(family={str(family)!r})",
+    )
+    if (
+        weights_as == "sampling"
+        and cluster is None
+        and str(robust).lower() == "nonrobust"
+    ):
+        robust = "robust"
+
     grouped = _CBIND_LHS.match(formula) if isinstance(formula, str) else None
     if grouped is not None and data is not None:
         formula, data, weights = _grouped_binomial(
@@ -2220,6 +2270,7 @@ def glm(
     return model.fit(
         robust=robust,
         cluster=cluster,
+        weights_as=weights_as,
         weights=weights,
         offset=offset,
         exposure=exposure,

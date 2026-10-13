@@ -166,6 +166,11 @@ def _term_cost(term: Term, frame: pd.DataFrame, treated: np.ndarray) -> np.ndarr
         half = 0.2 * float(np.std(v, ddof=1))
         low, high = -half, half
     elif isinstance(width, (int, float)):
+        if not float(width) >= 0:
+            raise MethodIncompatibility(
+                f"{what}: a caliper half-width must be non-negative, got "
+                f"{width!r}. For an asymmetric caliper pass a pair (low, high)."
+            )
         low, high = -abs(float(width)), abs(float(width))
     else:
         ends = sorted(float(w) for w in width)

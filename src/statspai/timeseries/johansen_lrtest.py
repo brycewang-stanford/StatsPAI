@@ -17,8 +17,9 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from .cointegration import _JOHANSEN_TREND_ALIASES, _johansen_residuals
+from .var import _consecutive_rows, _require_independent_series
 
 __all__ = ["johansen_lrtest", "JohansenLRTest"]
 
@@ -276,7 +277,9 @@ def johansen_lrtest(
     if variables is None:
         variables = data.select_dtypes(include=[np.number]).columns.tolist()
     names = [str(v) for v in variables]
-    Y = data[list(variables)].dropna().to_numpy(dtype=float)
+    Y = _consecutive_rows(data[list(variables)], "johansen_lrtest").to_numpy(
+        dtype=float
+    )
     K = Y.shape[1]
     r = int(rank)
     if not 1 <= r < K:
@@ -287,6 +290,17 @@ def johansen_lrtest(
     lags = int(lags)
     if lags < 0:
         raise MethodIncompatibility("johansen_lrtest: lags must be >= 0.")
+    _require_independent_series(Y, names, "johansen_lrtest", constant=case != "n")
+    # the model under test is the VEC of sp.vec: as many observations as it
+    # asks for, or the eigenvalues are those of an exact fit
+    n_coef = r + K * lags + {"n": 0, "rc": 0, "c": 1, "rt": 1, "ct": 2}[case]
+    if Y.shape[0] - lags - 1 <= n_coef + K:
+        raise DataInsufficient(
+            f"johansen_lrtest: {Y.shape[0]} observations are too few for "
+            f"{lags} lagged difference(s) of {K} series.",
+            recovery_hint="Use fewer lags or a longer sample.",
+            diagnostics={"n_obs": int(Y.shape[0]), "n_coefficients": n_coef},
+        )
 
     R0, R1, T = _johansen_residuals(Y, lags, case)
     k1 = R1.shape[1]  # K, or K + 1 with a restricted deterministic term

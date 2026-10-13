@@ -21,6 +21,7 @@ two as its ``a1`` and ``P1``; under ``init='stationary'`` the two coincide.
 
 from __future__ import annotations
 
+import numbers
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -527,6 +528,12 @@ def statespace(
     if engine not in ("auto", "numpy", "numba"):
         raise MethodIncompatibility(
             f"engine={engine!r} is not 'auto', 'numpy' or 'numba'."
+        )
+    alpha_is_number = isinstance(alpha, numbers.Real) and not isinstance(alpha, bool)
+    if not (alpha_is_number and 0.0 < alpha < 1.0):
+        raise MethodIncompatibility(
+            f"alpha={alpha!r} is not in (0, 1).",
+            recovery_hint="alpha=0.05 gives 95% intervals.",
         )
     T = yv.shape[0]
     compiled = engine == "numba" or (engine == "auto" and T * k >= 400)

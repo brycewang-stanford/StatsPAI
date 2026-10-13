@@ -34,12 +34,39 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .structural_break import _EXACT_FIT
 
 __all__ = ["ardl", "ARDLResult"]
 
 
 def _lag_name(var: str, k: int) -> str:
     return var if k == 0 else f"{var}_L{k}"
+
+
+def _term(name: str) -> str:
+    """``name`` as a formula term: quoted unless it is an identifier."""
+    if name.isidentifier():
+        return name
+    return f"Q({name!r})" if '"' in name else f'Q("{name}")'
+
+
+def _formula(y: str, names: Sequence[str], trend: str) -> str:
+    out = f"{_term(y)} ~ " + (" + ".join(_term(n) for n in names) or "1")
+    return out + " - 1" if trend == "n" else out
+
+
+def _plain_index(series: pd.Series, names: Sequence[str]) -> pd.Series:
+    """Coefficients indexed by the regressor names, not their quoted terms."""
+    quoted = {_term(n): n for n in names if _term(n) != n}
+    return series.rename(index=quoted) if quoted else series
+
+
+def _check_alpha(alpha: float, who: str) -> None:
+    if not 0.0 < alpha < 1.0:
+        raise MethodIncompatibility(
+            f"{who}: alpha must lie strictly between 0 and 1, got {alpha!r}.",
+            recovery_hint="alpha=0.05 gives 95% intervals.",
+        )
 
 
 def _design(
@@ -85,6 +112,10 @@ class ARDLResult(ResultProtocolMixin):
         Autoregressive order ``p``.
     x_lags : dict
         Lag order of each additional regressor.
+    omitted, omitted_x : list of str
+        Terms left out of the fit because of collinearity, and the
+        regressors that lost every term that way (they are not in ``x``
+        or ``x_lags``). Both are empty for a full-rank design.
     nobs : int
         Observations in the estimation sample.
     ser : float
@@ -130,7 +161,20 @@ class ARDLResult(ResultProtocolMixin):
         fit_kwargs: Dict[str, Any],
         ic_table: Optional[pd.DataFrame],
         alpha: float,
+        omitted: Optional[List[str]] = None,
     ) -> None:
+        # Terms the OLS routine left out as collinear. A regressor all of
+        # whose terms were omitted is not part of the estimated model: it
+        # leaves ``x`` and ``x_lags`` and is listed in ``omitted_x``.
+        self.omitted: List[str] = list(omitted or [])
+        self.omitted_x: List[str] = []
+        if self.omitted:
+            pool = [y] + list(x)
+            kept = {_split_lag(n, pool)[0] for n in regressors if n != "_trend"}
+            lost = {_split_lag(n, pool)[0] for n in self.omitted if n != "_trend"}
+            self.omitted_x = [v for v in x if v in lost and v not in kept]
+            x = [v for v in x if v not in self.omitted_x]
+            x_lags = {v: k for v, k in x_lags.items() if v not in self.omitted_x}
         self.model = model
         self.y = y
         self.x = x
@@ -145,8 +189,8 @@ class ARDLResult(ResultProtocolMixin):
         self._sample_index = sample_index
         self._fit_kwargs = fit_kwargs
 
-        self.params = model.params
-        self.std_errors = model.std_errors
+        self.params = _plain_index(model.params, regressors)
+        self.std_errors = _plain_index(model.std_errors, regressors)
         self.nobs = int(len(sample_index))
         n_coef = len(self.params)
         resid = np.asarray(_residuals(model), dtype=float)
@@ -178,6 +222,8 @@ class ARDLResult(ResultProtocolMixin):
             f"adj. R2: {self.r2_adj:.4f}",
             f"BIC: {self.bic:.4f}    AIC: {self.aic:.4f}",
         ]
+        if self.omitted:
+            lines.append("Omitted because of collinearity: " + ", ".join(self.omitted))
         return "\n".join(lines)
 
     def __repr__(self) -> str:
@@ -243,6 +289,7 @@ class ARDLResult(ResultProtocolMixin):
         if steps < 1:
             raise MethodIncompatibility("ardl.forecast: steps must be at least 1.")
         level = self.alpha if alpha is None else alpha
+        _check_alpha(level, "ardl.forecast")
         frame = self._design
         origin = int(frame.index.get_loc(self._sample_index[-1]))
         if origin != len(frame) - 1:
@@ -374,6 +421,7 @@ class ARDLResult(ResultProtocolMixin):
         no long-run level to converge to and the method refuses.
         """
         level = self.alpha if alpha is None else alpha
+        _check_alpha(level, "ardl.long_run")
         names = list(self.params.index)
         beta = self.params.to_numpy(dtype=float)
         cov = np.asarray(self.model.data_info["var_cov"], dtype=float)
@@ -453,9 +501,23 @@ class ARDLResult(ResultProtocolMixin):
         """
         from ..postestimation.hypothesis import test as _test
 
+        if x is not None and x in self.omitted_x:
+            raise MethodIncompatibility(
+                f"ardl.granger: {x!r} was omitted from this model because of "
+                "collinearity with the other regressors; it has no "
+                "coefficient to test.",
+                recovery_hint="Refit without the regressor it duplicates, or "
+                "change its lags.",
+                diagnostics={"omitted": list(self.omitted)},
+            )
         if not self.x:
             raise MethodIncompatibility(
-                "ardl.granger: the model has no additional regressor.",
+                "ardl.granger: the model has no additional regressor"
+                + (
+                    f" ({self.omitted_x} omitted because of collinearity)."
+                    if self.omitted_x
+                    else "."
+                ),
                 recovery_hint="Fit with x=[...].",
             )
         var = self.x[0] if x is None else x
@@ -465,7 +527,7 @@ class ARDLResult(ResultProtocolMixin):
                 recovery_hint=f"Choose one of {self.x}.",
             )
         terms = [n for n in self.regressors if _split_lag(n, self.x)[0] == var]
-        return _test(self.model, " ".join(terms))
+        return _test(self.model, " ".join(_term(n) for n in terms))
 
     # --------------------------------------------------------------- poos
     def poos(self, start: Any, window: str = "expanding") -> pd.DataFrame:
@@ -517,9 +579,7 @@ class ARDLResult(ResultProtocolMixin):
                 recovery_hint="Choose a later start.",
                 diagnostics={"n_before": int(first - est_start)},
             )
-        formula = f"{self.y} ~ " + (" + ".join(self.regressors) or "1")
-        if self.trend == "n":
-            formula += " - 1"
+        formula = _formula(self.y, self.regressors, self.trend)
         initial = first - est_start
         rows = []
         with warnings.catch_warnings():
@@ -531,7 +591,9 @@ class ARDLResult(ResultProtocolMixin):
                 actual = float(frame[self.y].iloc[target])
                 if np.isnan(actual):
                     continue
-                point = self._predict(target - 1, fit.params)
+                point = self._predict(
+                    target - 1, _plain_index(fit.params, self.regressors)
+                )
                 rows.append((frame.index[target], actual, point, actual - point))
         out = pd.DataFrame(rows, columns=["date", "actual", "forecast", "error"])
         out = out.set_index("date")
@@ -696,12 +758,20 @@ def ardl(
             f"ardl: unknown trend {trend!r}.",
             recovery_hint="Use 'c', 'ct' or 'n'.",
         )
+    _check_alpha(alpha, "ardl")
     xs = [x] if isinstance(x, str) else list(x or [])
     missing_cols = [c for c in [y] + xs if c not in data.columns]
     if missing_cols:
         raise MethodIncompatibility(
             f"ardl: column(s) {missing_cols} are not in data.",
             recovery_hint="Check the column names.",
+        )
+    if y in xs or len(set(xs)) != len(xs):
+        raise MethodIncompatibility(
+            f"ardl: x={xs} repeats a column or lists the outcome {y!r}. The "
+            "lags of the outcome enter through lags=, not x=.",
+            recovery_hint="Name each regressor once and leave the outcome "
+            "out of x=.",
         )
     frame = data if time is None else data.sort_values(time, kind="stable")
     if time is not None:
@@ -721,6 +791,13 @@ def ardl(
         )
     first_complete, last_complete = int(complete[0]), int(complete[-1])
     T = last_complete - first_complete + 1
+    y_seen = frame[y].to_numpy(dtype=float)[complete]
+    if np.ptp(y_seen) <= _EXACT_FIT * float(np.max(np.abs(y_seen))):
+        raise DataInsufficient(
+            f"ardl: the outcome {y!r} is constant; its lags repeat the "
+            "intercept and there is no variation to model.",
+            recovery_hint="Check the outcome column.",
+        )
 
     def order_of(var: str, p: int) -> int:
         if isinstance(x_lags, dict):
@@ -783,14 +860,12 @@ def ardl(
         p: int, rows: pd.Index, orders: Optional[Dict[str, int]] = None
     ) -> Tuple[Any, pd.DataFrame, List[str], Dict]:
         design, names, q = build(p, orders)
-        formula = f"{y} ~ " + (" + ".join(names) or "1")
-        if trend == "n":
-            if not names:
-                raise MethodIncompatibility(
-                    "ardl: trend='n' with no lags leaves nothing to estimate.",
-                    recovery_hint="Use trend='c' or lags >= 1.",
-                )
-            formula += " - 1"
+        if trend == "n" and not names:
+            raise MethodIncompatibility(
+                "ardl: trend='n' with no lags leaves nothing to estimate.",
+                recovery_hint="Use trend='c' or lags >= 1.",
+            )
+        formula = _formula(y, names, trend)
         sub = design.loc[rows]
         holes = int(sub[[y] + names].isna().any(axis=1).sum())
         if holes:
@@ -911,6 +986,33 @@ def ardl(
         rows = rows_for(deepest)
 
     model, design, names, q = fit(p_final, rows, q_final)
+    resid = np.asarray(_residuals(model), dtype=float)
+    y_fit = design.loc[rows, y].to_numpy(dtype=float)
+    if not float(resid @ resid) > _EXACT_FIT**2 * float(y_fit @ y_fit):
+        raise DataInsufficient(
+            "ardl: the regression reproduces the outcome exactly, so the "
+            "residuals are rounding error and the standard errors would be "
+            "zero.",
+            recovery_hint="The outcome is an exact linear function of its "
+            "lags and the regressors; check for an identity in the data.",
+        )
+    # The OLS routine omits a regressor that is a linear combination of the
+    # others; its note is silenced inside ``fit`` (the searches fit many
+    # candidates), so the omission in the model returned is reported here
+    # and the term leaves ``regressors``.
+    estimated = set(model.params.index)
+    gone = [n for n in names if _term(n) not in estimated]
+    if gone:
+        warnings.warn(
+            "ardl: note: "
+            + ", ".join(gone)
+            + " omitted because of collinearity with the other regressors. "
+            "The remaining coefficients are identified; the omitted one is "
+            "not.",
+            UserWarning,
+            stacklevel=2,
+        )
+        names = [n for n in names if n not in gone]
     return ARDLResult(
         model=model,
         y=y,
@@ -925,4 +1027,5 @@ def ardl(
         fit_kwargs={"robust": vce, "hac_lags": hac_lags},
         ic_table=ic_table,
         alpha=alpha,
+        omitted=gone,
     )

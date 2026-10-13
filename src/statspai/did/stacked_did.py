@@ -29,7 +29,7 @@ from ._core import calendar_time_aware as _calendar_time_aware
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
 @_expands_categorical("controls")
-@_calendar_time_aware(time="time", cohort="first_treat")
+@_calendar_time_aware(time="time", cohort="first_treat", numeric_gaps=True)
 def stacked_did(
     data: pd.DataFrame,
     y: str,
@@ -395,6 +395,15 @@ def stacked_did(
         stacked[[y] + x_cols + [cluster] + fe_cols].notna().all(axis=1).to_numpy()
     )
     if not complete.all():
+        src_cols = [c for c in [y, *(controls or []), cluster] if c in data.columns]
+        n_src = int(data[src_cols].isna().any(axis=1).sum()) if src_cols else 0
+        warnings.warn(
+            f"stacked_did: dropped {int((~complete).sum())} row(s) of the "
+            "stack with a missing outcome, control or cluster value "
+            f"({n_src} row(s) of the input data).",
+            UserWarning,
+            stacklevel=2,
+        )
         stacked = stacked.loc[complete].reset_index(drop=True)
         if w_arr is not None:
             w_arr = w_arr[complete]

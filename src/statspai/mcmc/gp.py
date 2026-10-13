@@ -22,7 +22,7 @@ from scipy import linalg, optimize, stats
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
-from ._core import design_for
+from ._core import drops_intercept, prediction_design
 
 _KERNELS = ("rbf", "matern32", "matern52")
 
@@ -165,7 +165,8 @@ class GPResult(ResultProtocolMixin):
         if newdata is None:
             Xs, index = st["X"], st["index"]
         else:
-            Xs = design_for(st["design_info"], st["all_names"], newdata)[:, st["keep"]]
+            Xs = prediction_design(st["design_info"], st["all_names"], newdata)
+            Xs = Xs[:, st["keep"]]
             index = newdata.index
         lv = self.level if level is None else float(level)
         if not 0.0 < lv < 1.0:
@@ -371,6 +372,12 @@ def gp_regress(
         raise MethodIncompatibility(
             "interpolate=True fixes the noise variance; do not pass noise_var."
         )
+    if "~" in str(formula) and drops_intercept(str(formula).split("~", 1)[1]):
+        raise MethodIncompatibility(
+            "sp.gp_regress has no intercept term to remove: the constant is "
+            "the mean of the process. Write the formula without '- 1', and "
+            "pass mean=0.0 for a process with mean zero."
+        )
     y_df, X_df = create_design_matrices(formula, data)
     y = np.asarray(y_df, dtype=float).reshape(-1)
     Xall = np.asarray(X_df, dtype=float)
@@ -396,7 +403,14 @@ def gp_regress(
     if length_scale is None:
         len0 = X.std(axis=0) if ard else np.array([float(np.mean(X.std(axis=0)))])
     else:
-        len0 = np.broadcast_to(np.asarray(length_scale, dtype=float), (n_len,)).copy()
+        len_in = np.asarray(length_scale, dtype=float).reshape(-1)
+        if len_in.size not in (1, n_len):
+            raise MethodIncompatibility(
+                "length_scale must be one number or one per regressor "
+                f"({n_len}: {', '.join(map(str, names if ard else ['all']))}); "
+                f"got {len_in.size}."
+            )
+        len0 = np.broadcast_to(len_in, (n_len,)).copy()
     sf0 = 0.5 * vy if signal_var is None else float(signal_var)
     sn0 = 0.5 * vy if noise_var is None else float(noise_var)
     jitter = 1e-8 * vy

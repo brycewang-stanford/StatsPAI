@@ -171,6 +171,22 @@ def _disturbance_variance(result: Any) -> float:
     return rss / float(df if df else resid.size)
 
 
+_CLASSICAL = ("", "nonrobust", "iid", "classical", "unadjusted", "ols", "none")
+
+
+def _robust_covariance(result: Any) -> str:
+    """How the covariance of ``result`` departs from the classical one
+    (``'hc1'``, ``'clustered by firm'``), or ``''`` when it does not."""
+    info = getattr(result, "model_info", None) or {}
+    cluster = info.get("cluster")
+    if cluster is not None and cluster is not False:
+        return f"clustered by {cluster}" if isinstance(cluster, str) else "clustered"
+    kind = info.get("robust")
+    if kind is None or kind is False or str(kind).lower() in _CLASSICAL:
+        return ""
+    return "robust" if kind is True else str(kind)
+
+
 def hausman(
     consistent: Any,
     efficient: Any,
@@ -226,6 +242,9 @@ def hausman(
     fails under heteroskedasticity or clustering. With robust standard
     errors use the regression-based test instead
     (``sp.estat(iv_result, 'endogenous')``, or the Mundlak form for panels).
+    A fit that carries a robust or clustered covariance raises an
+    ``AssumptionWarning``; the statistic is still returned, computed from
+    the covariances as given.
 
     Examples
     --------
@@ -255,6 +274,27 @@ def hausman(
         )
     b, Vb = _coef_cov(consistent)
     B, VB = _coef_cov(efficient)
+    kinds = {
+        label: kind
+        for label, kind in (
+            ("consistent", _robust_covariance(consistent)),
+            ("efficient", _robust_covariance(efficient)),
+        )
+        if kind
+    }
+    if kinds:
+        warnings.warn(
+            "sp.hausman: "
+            + " and ".join(f"the {k} fit ({v})" for k, v in kinds.items())
+            + " carries a robust covariance. The test takes V_b - V_B for "
+            "the variance of b - B, which holds only when the efficient "
+            "estimator is fully efficient, that is with classical standard "
+            "errors; the statistic is not chi-squared here. Use the "
+            "regression-based test instead (sp.estat(iv_result, "
+            "'endogenous'), or the Mundlak form for panels).",
+            AssumptionWarning,
+            stacklevel=2,
+        )
     b, Vb, B, VB = _same_spelling(b, Vb, B, VB)
     names = [n for n in b.index if n in B.index and (constant or n != "_cons")]
     if not names:

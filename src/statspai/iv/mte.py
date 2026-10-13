@@ -182,6 +182,17 @@ def mte(
         if X_no_const.ndim == 1:
             X_no_const = X_no_const.reshape(-1, 1)
 
+    from ..exceptions import MethodIncompatibility
+    from .weak_iv_ci import _refuse_missing
+
+    _refuse_missing("mte", y=Y, treatment=D, instruments=Z, exog=X_no_const)
+    if str(propensity_model).lower() not in ("logit", "probit", "linear"):
+        # anything but 'linear' / 'logit' used to fit a probit silently
+        raise MethodIncompatibility(
+            f"propensity_model={propensity_model!r} is not supported.",
+            recovery_hint="Use propensity_model='logit', 'probit' or 'linear'.",
+        )
+
     X_raw = np.column_stack([np.ones(n), X_no_const]) if add_const else X_no_const
     if X_raw.shape[1] == 0:
         X_raw = np.ones((n, 1))

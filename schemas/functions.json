@@ -79,6 +79,14 @@
           "description": "Weight column (or an array). Alone it is an analytic weight (Stata [aw=]): weighted least squares with the classical variance, right when the weights are precisions. For sampling or inverse-probability weights add robust='hc1' (Stata [pw=]), or vce='hc3' when the effective sample is small; the default interval is far too short there. model_info['n_effective_weights'] is the Kish effective sample size",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the HC1 variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -167,6 +175,14 @@
           "default": true,
           "description": "Small-sample statistics as Stata ivregress, small (N-K divisor, HC1, G/(G-1)(N-1)/(N-K) cluster factor, t/F); False gives ivregress' default large-sample statistics (N divisor, HC0, no cluster factor, z/chi2). 2SLS/LIML",
           "type": "boolean"
+        },
+        "weights_as": {
+          "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the HC1 variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -207,6 +223,14 @@
         },
         "vcov": {
           "description": "pyfixest/fixest-style variance specification, accepted so one spelling works across sp.regress, sp.ivreg and sp.feols: 'iid' / 'hetero' / 'HC0'-'HC3', or a cluster dict such as {'CRV1': 'firm'} (CRV2 / CRV3 select the matching small-sample correction). Mutually exclusive with robust=/cluster=.",
+          "type": "string"
+        },
+        "weights_as": {
+          "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the HC1 variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
           "type": "string"
         }
       },
@@ -1001,6 +1025,14 @@
           "description": "Observation weight column. Alone it is a frequency weight (Stata [fw=] / [iw=]): the model-based variance scales with the weights. For sampling weights add robust='robust' (Stata [pw=]); the default interval is far too short there",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. 'frequency' (Stata [fw=] / [iw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the robust variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'analytic' is refused",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Regressors (alternative to formula)",
@@ -4231,6 +4263,14 @@
           "default": false,
           "description": "Two-step GMM",
           "type": "boolean"
+        },
+        "weights_as": {
+          "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the heteroskedasticity-robust variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -9782,7 +9822,7 @@
           "x-statspai-role": "formula"
         },
         "lambda_": {
-          "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted",
+          "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted. 'gcv', 'hkb' or 'lw' is the default grid with that selection rule",
           "items": {
             "type": "number"
           },
@@ -37351,13 +37391,7 @@
           "type": "integer"
         },
         "se_type": {
-          "description": "Override automatic inference of SE type. Usually inferred from ``cluster`` / ``wild``.",
-          "enum": [
-            "iid",
-            "cluster",
-            "multiway_cluster",
-            "wild_cluster"
-          ],
+          "description": "A label, not a switch: it never changes the variance, which is chosen by ``cluster=`` / ``wild=`` / ``vce=``. When given it must agree with what those options select, and a disagreeing value is",
           "type": "string"
         },
         "tol": {
@@ -37369,9 +37403,17 @@
           "type": "string"
         },
         "weights": {
-          "description": "Observation weights. Column name or raw array.",
+          "description": "Observation weights. Column name or raw array. Alone they are analytic weights (Stata ``[aw=]``).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'analytic'`` is what ``weights=`` alone already means, and saying so silences the warning about dispersed weights under the classical variance. ``'sampling'`` (Stata ``[pw=]``) needs ``cluster=``: this function has no heteroskedasticity-robust variance for a weighted fit, and refuses rather than report the classical one (``sp.feols(..., weights_as='sampling')`` has it). ``'frequency'`` is refused.",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         },
         "wild": {
           "default": false,
@@ -39888,7 +39930,7 @@
     "parameters": {
       "properties": {
         "encoding": {
-          "description": "Character encoding (for CSV).",
+          "description": "Character encoding (for .csv and .tsv).",
           "type": "string"
         },
         "extended_missing": {
@@ -39901,7 +39943,7 @@
           "type": "string"
         },
         "path": {
-          "description": "File path. Supported: .dta, .csv, .xlsx, .xls, .parquet, .sas7bdat, .sav, .feather, .json.",
+          "description": "File path. Supported: .dta, .csv, .tsv (tab-separated), .xlsx, .xls, .parquet, .sas7bdat, .sav, .feather, .json.",
           "type": "string"
         }
       },
@@ -40203,9 +40245,17 @@
           "type": "number"
         },
         "weights": {
-          "description": "Column name for frequency/analytic weights.",
+          "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Regressor names (alternative to formula).",
@@ -40286,9 +40336,17 @@
           "type": "number"
         },
         "weights": {
-          "description": "Column name for frequency/analytic weights.",
+          "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Regressor names (alternative to formula).",
@@ -40369,9 +40427,17 @@
           "type": "number"
         },
         "weights": {
-          "description": "Column name for frequency/analytic weights.",
+          "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Regressor names (alternative to formula).",
@@ -40493,9 +40559,18 @@
           "type": "number"
         },
         "weights": {
-          "description": "Variable name for observation weights.",
+          "description": "Variable name for observation weights. Alone they are frequency weights (Stata ``[fw=]`` / ``[iw=]``), or analytic weights (``[aw=]``) for the gaussian family; for sampling weights say so with ``weights_as='sampling'``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. The model-based reading is ``'analytic'`` for ``family='gaussian'`` and ``'frequency'`` for every other family; the other of the two is refused. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance.",
+          "enum": [
+            "analytic",
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Names of independent variables (alternative to formula).",
@@ -40577,6 +40652,14 @@
           "description": "Observation weight column. Read as Stata reads a weight for the variance requested: alone it is ``[iw=w]`` (``[fw=w]`` for integer weights), a model-based variance that scales with the weights; with ``robust=`` it is ``[pw=w]``; with ``cluster=`` it is ``[pw=w], vce(cluster)``. The reported log-likelihood is the weighted sum.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused.",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Independent variable names (alternative to formula).",
@@ -46738,7 +46821,7 @@
         },
         "what": {
           "default": "mean",
-          "description": "Scale of the prediction: the expected outcome or the linear index.",
+          "description": "Scale of the prediction: the expected outcome or the linear index. ``'mean'`` is what ``posterior_epred`` returns, so for ``model='tobit'``, ``'oprobit'`` and ``'ologit'`` it is the latent linear index and for ``model='quantile'`` the fitted conditional quantile, not the mean of the observed outcome.",
           "enum": [
             "mean",
             "linear"
@@ -49352,9 +49435,17 @@
           "x-canonical": "vce"
         },
         "weights": {
-          "description": "Column name for regression weights.",
+          "description": "Column name for regression weights. Alone they are analytic weights (Stata ``[aw=]``, R ``fixest`` ``weights=``).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'analytic'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with ``vcov='hetero'``, unless ``vcov=``, ``vce=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the classical variance. ``'frequency'`` is refused.",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         },
         "wild_reps": {
           "default": 999,
@@ -52623,7 +52714,7 @@
         },
         "time": {
           "default": "time",
-          "description": "Time identifier.",
+          "description": "Time identifier. Each unit's observations must be consecutive periods of the panel: a unit that, between its first and last observed period, lacks a period present in the data (for another unit, or as its own row with a missing value) is refused. Periods are compared by their rank among the periods in the data, so any coding passes (years, every fourth year, months as 200012 / 200101, dates). A period absent from every unit cannot be told from a coding jump and is not detected; units may start late or end early.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -61534,7 +61625,7 @@
         },
         "cumulative": {
           "default": false,
-          "description": "If ``True``, return the cumulative response ``y_{t+h} - y_{t-1}``. Default (False) returns ``y_{t+h}`` directly.",
+          "description": "If ``True``, return the cumulative response ``y_{t+h} - y_{t-1}``. Default (False) returns ``y_{t+h}`` directly. With ``auto_lag=True`` the regression already holds ``y_{t-1}`` fixed, so the two give the same response and the same standard error; they differ only with ``auto_lag=False``.",
           "type": "boolean"
         },
         "data": {
@@ -61564,7 +61655,7 @@
           "type": "string"
         },
         "nw_lags": {
-          "description": "Newey-West truncation lag. Defaults to ``round(1.5 * horizons)`` per Kilian & Kim (2011) recommendation.",
+          "description": "Newey-West truncation lag, used at every horizon (for ``identification='direct'``). Defaults to ``round(1.5 * horizons)`` per Kilian & Kim (2011) recommendation.",
           "type": "integer"
         },
         "outcome": {

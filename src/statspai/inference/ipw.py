@@ -25,6 +25,7 @@ Crump, R.K., Hotz, V.J., Imbens, G.W. and Mitnik, O.A. (2009).
 
 from __future__ import annotations
 
+import numbers
 import warnings
 from typing import Any, List, Optional, Union
 
@@ -36,7 +37,13 @@ from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
-from ..exceptions import AssumptionWarning, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
+from .basic_tests import _check_alpha
 
 
 @accepts_aliases(_strict=True, controls="covariates")
@@ -93,6 +100,7 @@ def ipw(
     trim : float, default 0.0
         Trim propensity scores to [trim, 1 - trim]. Common choices: 0.01, 0.05, 0.1.
         Crump et al. (2009) recommend dropping units with p outside [0.1, 0.9].
+        Must lie in ``[0, 0.5)``.
     normalize : bool, default True
         If True, use Hajek (normalised) weights. Generally recommended
         for finite-sample stability, and the estimate does not change when
@@ -101,7 +109,13 @@ def ipw(
         (``n`` for the ATE, the number of treated for the ATT, of controls
         for the ATC).
     n_bootstrap : int, default 500
-        Number of bootstrap iterations for standard error estimation.
+        Number of bootstrap iterations for standard error estimation
+        (at least 2). ``n_bootstrap=0`` asks for the point estimate alone:
+        no resampling is done and the standard error, interval and p-value
+        are missing. A resample that holds a single treatment arm has no
+        contrast: it is excluded with a warning and counted in
+        ``model_info['n_bootstrap_failed']``, and the call is refused when
+        fewer than 10 usable resamples remain.
     alpha : float, default 0.05
         Significance level for confidence intervals.
     seed : int, optional
@@ -147,6 +161,14 @@ def ipw(
         weights. When either falls below a fifth of the arm's size an
         :class:`~statspai.exceptions.AssumptionWarning` is raised: the
         estimate then rests on a few heavily weighted units.
+
+        A fitted propensity model that separates the arms completely (its
+        index classifies every unit correctly) is refused with
+        :class:`~statspai.exceptions.DataInsufficient`: there is no
+        overlap to weight on. Fitted scores at the numerical bound without
+        complete separation raise a
+        :class:`~statspai.exceptions.ConvergenceWarning` and set
+        ``model_info['separation']`` to ``'quasi-complete'``.
 
     Examples
     --------
@@ -199,6 +221,24 @@ def ipw(
     if ps_model not in ("logit", "probit"):
         raise MethodIncompatibility(
             f"ps_model must be 'logit' or 'probit', got {ps_model!r}"
+        )
+    _check_alpha(alpha, "ipw")
+    trim_is_number = isinstance(trim, numbers.Real) and not isinstance(trim, bool)
+    if not (trim_is_number and 0.0 <= float(trim) < 0.5):
+        # at trim >= 0.5 the interval [trim, 1 - trim] is empty or a point
+        raise MethodIncompatibility(
+            f"ipw: trim must lie in [0, 0.5), got {trim!r}.",
+            recovery_hint="Common choices are 0.01, 0.05 and 0.1; trim=0 "
+            "leaves the scores as fitted.",
+        )
+    # n_bootstrap=0 is an explicit request for the point estimate alone
+    point_only = se_method == "bootstrap" and n_bootstrap == 0
+    if se_method == "bootstrap" and not point_only and not n_bootstrap >= 2:
+        raise MethodIncompatibility(
+            f"ipw: n_bootstrap must be at least 2, got {n_bootstrap!r}; a "
+            "standard deviation needs two replicates.",
+            recovery_hint="Use a few hundred replicates, se_method='sandwich', "
+            "or n_bootstrap=0 for the point estimate without a standard error.",
         )
     rng = np.random.RandomState(seed)
 
@@ -262,6 +302,7 @@ def ipw(
             )
     else:
         pscore = _estimate_propensity(X, T, sw, ps_model)
+    separation = None if ps_known else _check_separation(pscore, T, covariates)
     pscore_raw = np.asarray(pscore, dtype=float).copy()  # pre-trim, for overlap
 
     # --- Trim ---
@@ -325,6 +366,7 @@ def ipw(
             ps_known=ps_known,
         )
         boot_estimates = None
+        n_boot_failed = 0
     else:
         # --- Bootstrap SE (whole clusters when cluster= is given) ---
         boot_estimates = np.empty(n_bootstrap)
@@ -337,6 +379,11 @@ def ipw(
                 pick = rng.choice(len(members), size=len(members), replace=True)
                 idx = np.concatenate([members[g] for g in pick])
             Y_b, T_b, X_b = Y[idx], T[idx], X[idx]
+            if T_b.min() == T_b.max():
+                # A resample with one arm has no contrast: a failed
+                # replicate, not ``0 - mean(Y0)``.
+                boot_estimates[b] = np.nan
+                continue
             sw_b = None if sw is None else sw[idx]
             if ps_known:
                 ps_b = pscore[idx]
@@ -347,10 +394,43 @@ def ipw(
             w1, w0 = _compute_weights(T_b, ps_b, estimand, normalize, sw_b)
             boot_estimates[b] = np.sum(w1 * Y_b) - np.sum(w0 * Y_b)
 
-        se = float(np.std(boot_estimates, ddof=1))
+        # SE = sd of the replicates that have both arms (Stata's bootstrap
+        # likewise drops the replicates it cannot compute and reports them).
+        n_boot_failed = int(np.isnan(boot_estimates).sum())
+        if n_boot_failed:
+            boot_estimates = boot_estimates[~np.isnan(boot_estimates)]
+            # the floor sp.bootstrap applies to its usable replicates
+            if len(boot_estimates) < 10:
+                raise DataInsufficient(
+                    f"ipw: {n_boot_failed} of {n_bootstrap} bootstrap "
+                    "resamples contain a single treatment arm and only "
+                    f"{len(boot_estimates)} are usable; at least 10 are "
+                    "needed for a standard error.",
+                    recovery_hint="Raise n_bootstrap, or use "
+                    "se_method='sandwich'; with this few units in an arm "
+                    "consider a randomization test (sp.fisher_exact).",
+                    diagnostics={
+                        "n_boot_failed": n_boot_failed,
+                        "n_treated": n1_arm,
+                        "n_control": n0_arm,
+                    },
+                )
+            warnings.warn(
+                f"ipw: {n_boot_failed} of {n_bootstrap} bootstrap resamples "
+                "contain a single treatment arm and were excluded; the "
+                f"standard error is the spread of the other "
+                f"{len(boot_estimates)} and is conditional on both arms "
+                "being drawn.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+        se = float("nan") if point_only else float(np.std(boot_estimates, ddof=1))
     t_crit = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (estimate - t_crit * se, estimate + t_crit * se)
-    pvalue = float(2 * sp_stats.norm.sf(abs(estimate / se))) if se > 0 else 1.0
+    if point_only:
+        pvalue = float("nan")
+    else:
+        pvalue = float(2 * sp_stats.norm.sf(abs(estimate / se))) if se > 0 else 1.0
 
     # --- Diagnostics ---
     n_treated = int(T.sum())
@@ -383,6 +463,12 @@ def ipw(
         "cluster": cluster,
         "n_clusters": None if groups is None else int(groups.max() + 1),
     }
+    # Recorded only when they occur, so an ordinary fit's model_info is
+    # unchanged.
+    if n_boot_failed:
+        model_info["n_bootstrap_failed"] = n_boot_failed
+    if separation is not None:
+        model_info["separation"] = separation
 
     _result = CausalResult(
         method=f"IPW ({estimand})",
@@ -434,12 +520,63 @@ def ipw(
 #: 0.2 four fifths of the arm's information is gone to weight dispersion.
 _ESS_RATIO_WARN = 0.2
 
+#: Fitted scores are clipped to ``[_PS_BOUND, 1 - _PS_BOUND]``; a score at
+#: the bound is 0 or 1 to the precision the weights can use.
+_PS_BOUND = 1e-8
+
 
 def _kish_ess(w: np.ndarray) -> float:
     """Kish's effective sample size of a weight vector, ``(sum w)^2 / sum w^2``."""
     total = float(np.sum(w))
     squares = float(np.sum(w**2))
     return total * total / squares if squares > 0 else 0.0
+
+
+def _check_separation(
+    pscore: np.ndarray, T: np.ndarray, covariates: List[str]
+) -> Optional[str]:
+    """Refuse complete separation, warn on quasi-complete separation.
+
+    The two signatures are those of ``regression.logit_probit``: the fitted
+    index classifies every unit correctly (complete separation: the
+    likelihood has no maximum and the fitted scores are 0 / 1 up to the
+    optimiser's stopping rule), or some fitted scores sit at the numerical
+    bound although the two arms are not separated (quasi-complete, e.g. a
+    category in which only one arm occurs). Under complete separation no
+    unit has a counterpart with a comparable score, so the weighted
+    contrast is the raw difference in means and is refused; the weaker
+    case leaves an estimate that rests on clipped weights and is flagged.
+    """
+    if np.array_equal(pscore >= 0.5, T == 1):
+        raise DataInsufficient(
+            "ipw: the covariates separate the treated from the control units "
+            "completely (the fitted propensity index classifies every unit "
+            "correctly). The propensity model has no finite maximum-"
+            "likelihood fit and there is no overlap to weight on.",
+            recovery_hint="Drop or coarsen the separating covariate, restrict "
+            "the sample to a region where both arms occur, or pass a known "
+            "design probability with propensity=.",
+            diagnostics={"covariates": list(covariates)},
+            alternative_functions=["sp.overlap_plot", "sp.trimming"],
+        )
+    at_bound = int(np.sum((pscore <= _PS_BOUND) | (pscore >= 1 - _PS_BOUND)))
+    if at_bound == 0:
+        return None
+    warnings.warn(
+        ConvergenceWarning(
+            f"ipw: quasi-complete separation suspected: {at_bound} fitted "
+            "propensity scores are numerically 0 or 1 (clipped to "
+            f"{_PS_BOUND:g} / 1 - {_PS_BOUND:g}). Those units have no "
+            "counterpart in the other arm and their weights are set by the "
+            "clipping bound, not by the data.",
+            recovery_hint="Inspect the covariates for a category or range in "
+            "which only one arm occurs; drop those units (sp.trimming) or "
+            "the covariate.",
+            diagnostics={"n_pscore_at_bound": at_bound},
+        ),
+        stacklevel=4,
+    )
+    return "quasi-complete"
 
 
 def _binomial_family(ps_model: str) -> Any:

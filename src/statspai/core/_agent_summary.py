@@ -23,6 +23,8 @@ Design principles
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -180,6 +182,8 @@ def warn_if_weights_extreme(
     classical_reading: str = "analytic weights (Stata [aw=])",
     classical_assumption: str = "precisions (error variance proportional to 1 / w)",
     evidence: str = "tests/reliability/extreme_weights_results.json",
+    declared: bool = False,
+    offers_weights_as: bool = True,
 ) -> float:
     """Kish effective sample size; warn where the studies found intervals short.
 
@@ -213,7 +217,9 @@ def warn_if_weights_extreme(
         return n_eff
     ratio = n_eff / n
     diagnostics = {"n_obs": n, "n_effective_weights": n_eff, "kish_ratio": ratio}
-    if variance == "classical" and ratio < 0.5:
+    if variance == "classical" and ratio < 0.5 and not declared:
+        # ``declared``: the caller said what the weights are (weights_as=),
+        # so the reading the classical variance assumes is the stated one.
         small = (
             f", or {small_sample_option} when the effective sample is small"
             if small_sample_option
@@ -228,8 +234,16 @@ def warn_if_weights_extreme(
                 "are sampling weights these intervals are far too short.",
                 recovery_hint=(
                     "For sampling or inverse-probability weights pass "
-                    f"{robust_option}{small}. Keep the default only for "
-                    f"{classical_reading}. See {evidence}."
+                    f"{robust_option}{small}"
+                    + (", or say weights_as='sampling'" if offers_weights_as else "")
+                    + f". Keep the default only for {classical_reading}"
+                    + (
+                        f"; weights_as='{classical_reading.split(' ')[0]}' says "
+                        "so and silences this warning"
+                        if offers_weights_as
+                        else ""
+                    )
+                    + f". See {evidence}."
                 ),
                 diagnostics=diagnostics,
                 alternative_functions=[entry],
@@ -1491,6 +1505,8 @@ def note_weight_diagnostics(
     cluster_keys: Any = None,
     cluster: Any = None,
     stacklevel: int = 4,
+    weights_as: Optional[str] = None,
+    offers_weights_as: bool = True,
 ) -> None:
     """Record (and warn on) the weight diagnostics of a weighted fit.
 
@@ -1500,6 +1516,8 @@ def note_weight_diagnostics(
     ``n_effective_weights`` and, for a one-way clustered fit,
     ``n_clusters_effective_weights`` into ``model_info``.
     """
+    if weights_as is None:
+        weights_as = _DECLARED_WEIGHTS_AS.get()
     model_info["n_effective_weights"] = warn_if_weights_extreme(
         weights,
         variance,
@@ -1509,12 +1527,91 @@ def note_weight_diagnostics(
         small_sample_option=None,
         classical_reading=classical_reading,
         classical_assumption=classical_assumption,
+        declared=weights_as is not None,
+        offers_weights_as=offers_weights_as,
         evidence=(
             "tests/reliability/extreme_weights_models_results.json and "
             "extreme_weights_fast_results.json"
         ),
     )
+    if weights_as is not None:
+        model_info["weights_as"] = weights_as
     if variance == "cluster" and cluster_keys is not None:
         model_info["n_clusters_effective_weights"] = warn_if_weighted_clusters_few(
             weights, cluster_keys, cluster, stacklevel=stacklevel
         )
+
+
+#: ``weights_as=`` of the call in progress, for entry points whose weight
+#: diagnostic runs several frames below the public function (``sp.panel``,
+#: ``sp.feols``, ``sp.iv``). Set with :func:`declaring_weights_as`.
+_DECLARED_WEIGHTS_AS: "contextvars.ContextVar[Optional[str]]" = contextvars.ContextVar(
+    "statspai_weights_as", default=None
+)
+
+
+@contextlib.contextmanager
+def declaring_weights_as(value: Optional[str]) -> Any:
+    """Make ``value`` the declared reading for the fit inside the block."""
+    token = _DECLARED_WEIGHTS_AS.set(value)
+    try:
+        yield
+    finally:
+        _DECLARED_WEIGHTS_AS.reset(token)
+
+
+#: The readings ``weights_as=`` knows. ``analytic`` and ``frequency`` are
+#: the two model-based ones; an entry point implements one of them.
+WEIGHTS_AS = ("analytic", "frequency", "sampling")
+
+
+def resolve_weights_as(
+    weights_as: Any, *, has_weights: bool, native: str, entry: str
+) -> Optional[str]:
+    """Validate ``weights_as=`` for an entry point; ``None`` if not given.
+
+    ``native`` is the reading the entry point's model-based variance
+    implements: ``'analytic'`` (Stata ``[aw=]``: the variance does not
+    change when the weights are multiplied by a constant) for the linear
+    estimators, ``'frequency'`` (``[fw=]`` / ``[iw=]``: it scales with
+    them) for the likelihood ones. ``'sampling'`` (``[pw=]``) is accepted
+    everywhere and asks for a robust variance. The other model-based
+    reading is refused rather than approximated: under Stata's ``[fw=]`` a
+    linear regression also changes its ``N`` and degrees of freedom, and
+    under ``[aw=]`` a likelihood model rescales the weights to sum to
+    ``N``, neither of which the entry point does.
+    """
+    if weights_as is None:
+        return None
+    from ..exceptions import MethodIncompatibility
+
+    key = str(weights_as).lower()
+    if key not in WEIGHTS_AS:
+        raise MethodIncompatibility(
+            f"weights_as must be one of {list(WEIGHTS_AS)}; got {weights_as!r}.",
+            recovery_hint=f"Use weights_as='{native}' or 'sampling'.",
+            diagnostics={"weights_as": weights_as},
+        )
+    if not has_weights:
+        raise MethodIncompatibility(
+            f"weights_as={key!r} says how to read weights=, and no weights were "
+            "passed.",
+            recovery_hint="Pass weights=, or drop weights_as=.",
+            diagnostics={"weights_as": key},
+        )
+    if key not in (native, "sampling"):
+        other = (
+            "Stata's [fw=] also changes N and the degrees of freedom of a "
+            "linear regression"
+            if key == "frequency"
+            else "Stata's [aw=] rescales the weights of a likelihood model to "
+            "sum to N"
+        )
+        raise MethodIncompatibility(
+            f"{entry} reads weights= as {native} weights or as sampling weights; "
+            f"weights_as={key!r} is not implemented ({other}).",
+            recovery_hint=f"Use weights_as='{native}' for the model-based "
+            "variance, or weights_as='sampling' for the robust one.",
+            diagnostics={"weights_as": key, "native": native},
+        )
+    return key

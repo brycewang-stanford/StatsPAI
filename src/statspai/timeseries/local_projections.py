@@ -25,7 +25,8 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient
+from ..core._collinear import independent_columns
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # --------------------------------------------------------------------- #
 #  Newey-West HAC for a single regression
@@ -232,7 +233,11 @@ def _lpirfs_cholesky(
         lower = (coef - half_width) @ shock_vec
         upper = (coef + half_width) @ shock_vec
         irf[h] = float(point[response_idx])
-        se[h] = float((upper[response_idx] - lower[response_idx]) / 2.0)
+        # Half the distance between the two mapped limits, sum_j s_j w_j.
+        # lpirfs keeps its sign, so when the negative weights dominate its
+        # "lower" limit lies above its "upper" one; the band is the same
+        # interval either way, and a standard error is its half-width.
+        se[h] = abs(float((upper[response_idx] - lower[response_idx]) / 2.0))
         n_used[h] = int(len(xx))
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -290,14 +295,17 @@ def local_projections(
     horizons : int, default 20
         Number of horizons h = 0, 1, …, H to estimate.
     nw_lags : int, optional
-        Newey-West truncation lag. Defaults to ``round(1.5 * horizons)``
+        Newey-West truncation lag, used at every horizon (for
+        ``identification='direct'``). Defaults to ``round(1.5 * horizons)``
         per Kilian & Kim (2011) recommendation.
     alpha : float, default 0.05
         Significance level for the confidence band.
     cumulative : bool, default False
         If ``True``, return the cumulative response
         ``y_{t+h} - y_{t-1}``. Default (False) returns ``y_{t+h}``
-        directly.
+        directly. With ``auto_lag=True`` the regression already holds
+        ``y_{t-1}`` fixed, so the two give the same response and the same
+        standard error; they differ only with ``auto_lag=False``.
     auto_lag : bool, default True
         If ``True`` (the legacy default), also adds ``y_{t-1}`` and
         ``shock_{t-1}`` as automatic regressors. Set ``False`` for a
@@ -338,6 +346,12 @@ def local_projections(
     """
     if controls is None:
         controls = []
+    if not 0 < alpha < 1:
+        raise MethodIncompatibility(
+            f"alpha must lie strictly between 0 and 1, got {alpha!r}.",
+            recovery_hint="Pass the significance level, e.g. alpha=0.05 for "
+            "a 95% band.",
+        )
     identification_norm = identification.lower().replace("-", "_")
     if identification_norm not in {"direct", "lpirfs_cholesky", "cholesky"}:
         raise ValueError("identification must be 'direct' or 'lpirfs_cholesky'")
@@ -392,6 +406,12 @@ def local_projections(
     n = len(df)
     if nw_lags is None:
         nw_lags = max(1, int(round(1.5 * horizons)))
+    elif nw_lags < 0:
+        raise MethodIncompatibility(
+            f"nw_lags must be a non-negative integer, got {nw_lags!r}.",
+            recovery_hint="nw_lags=0 is the heteroskedasticity-robust "
+            "(White) covariance; leave it unset for round(1.5 * horizons).",
+        )
 
     y = df[outcome].to_numpy(dtype=float)
     s = df[shock].to_numpy(dtype=float)
@@ -412,20 +432,24 @@ def local_projections(
     n_used = np.empty(horizons + 1, dtype=int)
 
     for h in range(horizons + 1):
-        # LHS: y_{t+h} (or y_{t+h} - y_{t-1} if cumulative)
         if t_end := n - h:
             y_lhs = y[h:]
-            lhs = y_lhs - lag_y[h:] if cumulative else y_lhs
+            # cumulative: y_{t+h} - y_{t-1}, the change since the period
+            # before the shock (lag_y[t] is y_{t-1}, so the row t = 0 drops)
+            lhs = y_lhs - lag_y[:t_end] if cumulative else y_lhs
         else:
             raise DataInsufficient("too few observations for horizon")
         shock_t = s[:t_end]
         extras_t = [arr[:t_end] for arr in extra_cols]
 
         cols = [np.ones(t_end), shock_t]
+        names = ["_cons", shock]
         if auto_lag:
             cols.append(lag_y[:t_end])
             cols.append(lag_s[:t_end])
+            names += [f"L.{outcome}", f"L.{shock}"]
         cols.extend(extras_t)
+        names += [str(c) for c in controls]
         X = np.column_stack(cols)
         valid = ~np.isnan(lhs) & ~np.any(np.isnan(X), axis=1)
         X_use = X[valid]
@@ -435,9 +459,23 @@ def local_projections(
             se[h] = np.nan
             n_used[h] = int(valid.sum())
             continue
+        _, dependent = independent_columns(X_use, names)
+        if dependent:
+            raise MethodIncompatibility(
+                f"local_projections: at horizon {h} the regressors are "
+                "perfectly collinear ("
+                + "; ".join(f"{o['variable']}: {o['reason']}" for o in dependent)
+                + "), so the coefficient on the shock is not identified.",
+                recovery_hint="Drop the redundant control (a constant shock "
+                "is collinear with the intercept), or pass auto_lag=False "
+                "if a control duplicates the automatic lags.",
+                diagnostics={"horizon": h, "omitted": dependent},
+            )
         beta, *_ = np.linalg.lstsq(X_use, lhs_use, rcond=None)
         e = lhs_use - X_use @ beta
-        V = _newey_west(X_use, e, lags=max(h, nw_lags))
+        # nw_lags is the Bartlett truncation lag at every horizon; the
+        # default round(1.5 H) is never below h, a user's choice may be.
+        V = _newey_west(X_use, e, lags=nw_lags)
         irf[h] = float(beta[1])  # coefficient on shock
         se[h] = float(np.sqrt(max(V[1, 1], 0)))
         n_used[h] = int(valid.sum())

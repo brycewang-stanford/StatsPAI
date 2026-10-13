@@ -47,6 +47,7 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from .basic_tests import _check_alpha
 
 __all__ = ["ppi_mean", "ppi_ols"]
 
@@ -146,6 +147,7 @@ def ppi_mean(
     Angelopoulos et al. (2023), *Science* 382(6671), 669–674 —
     doi:10.1126/science.adi6000.  PPI++: arXiv:2311.01453.
     """
+    _check_alpha(alpha, "ppi_mean")
     y_arr = _as_1d("y", y)
     f_arr = _as_1d("yhat", yhat)
     fu_arr = _as_1d("yhat_unlabeled", yhat_unlabeled)
@@ -341,6 +343,7 @@ def ppi_ols(
     Angelopoulos et al. (2023), *Science* 382(6671), 669–674 —
     doi:10.1126/science.adi6000.  PPI++: arXiv:2311.01453.
     """
+    _check_alpha(alpha, "ppi_ols")
     y_arr = _as_1d("y", y)
     f_arr = _as_1d("yhat", yhat)
     fu_arr = _as_1d("yhat_unlabeled", yhat_unlabeled)
@@ -430,7 +433,8 @@ def ppi_ols(
     # Headline coefficient.
     if target is None:
         idx = 1 if (add_intercept and p > 1) else 0
-    elif isinstance(target, int):
+    elif isinstance(target, (int, np.integer)) and not isinstance(target, bool):
+        target = int(target)
         if not 0 <= target < p:
             raise MethodIncompatibility(
                 f"target index {target} out of range for {p} terms.",

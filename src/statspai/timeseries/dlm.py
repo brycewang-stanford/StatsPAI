@@ -28,6 +28,7 @@ import pandas as pd
 from scipy import optimize
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._collinear import drop_collinear
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 
@@ -100,18 +101,52 @@ def _filter_py(
 def _smooth_py(
     m: np.ndarray, C: np.ndarray, R: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Rauch-Tung-Striebel smoother for random-walk states."""
+    """Rauch-Tung-Striebel smoother for random-walk states.
+
+    A coefficient with zero state variance is one number: its smoothed
+    mean and variance at the last date are carried back unchanged.
+    """
     n = R.shape[0]
     k = m.shape[1]
     s = np.zeros((n + 1, k))
     S = np.zeros((n + 1, k, k))
     s[n] = m[n]
     S[n] = C[n]
+    # R[t] = C[t] + diag(W) is formed by adding W to the diagonal, so the
+    # two diagonals are equal at every date exactly when W[j] is zero
+    const = np.ones(k, dtype=np.bool_)
+    any_const = False
+    for j in range(k):
+        for t in range(n):
+            if R[t, j, j] != C[t, j, j]:
+                const[j] = False
+                break
+        if const[j]:
+            any_const = True
     for t in range(n - 1, -1, -1):
         Rinv = np.linalg.inv(R[t])
         J = C[t] @ Rinv
         s[t] = m[t] + J @ (s[t + 1] - m[t])
-        S[t] = C[t] + J @ (S[t + 1] - R[t]) @ J.T
+        if any_const:
+            # C - J R J' as (I - J) C (I - J)' + J W J' (equal because
+            # J R J' = J C = C J'): the difference of two matrices of
+            # order C0 = 1e7 does not keep the zero conditional variance
+            # of a constant coefficient
+            A = np.eye(k) - J
+            H = A @ C[t] @ A.T
+            for q in range(k):
+                wq = R[t, q, q] - C[t, q, q]
+                for a in range(k):
+                    for b in range(k):
+                        H[a, b] += J[a, q] * wq * J[b, q]
+            # C + J (S' - R) J' = (C - J R J') + J S' J'
+            S[t] = H + J @ S[t + 1] @ J.T
+            for j in range(k):
+                if const[j]:
+                    s[t, j] = s[t + 1, j]
+                    S[t, j, j] = S[t + 1, j, j]
+        else:
+            S[t] = C[t] + J @ (S[t + 1] - R[t]) @ J.T
     return s, S
 
 
@@ -121,17 +156,52 @@ def _backward_sample_py(
     """One draw of the whole state path given the filter output (FFBS).
 
     ``z`` holds standard normal draws, shape ``(n + 1, k)``.
+
+    A coefficient whose state variance is zero (``R[t]`` and ``C[t]`` have
+    the same diagonal entry at every date) has one value at all dates: it
+    is drawn once, at the last date, and carried back unchanged.
     """
     n = R.shape[0]
     k = m.shape[1]
     out = np.zeros((n + 1, k))
+    # R[t] = C[t] + diag(W) is formed by adding W to the diagonal, so the
+    # two diagonals are equal at every date exactly when W[j] is zero
+    const = np.ones(k, dtype=np.bool_)
+    any_const = False
+    for j in range(k):
+        for t in range(n):
+            if R[t, j, j] != C[t, j, j]:
+                const[j] = False
+                break
+        if const[j]:
+            any_const = True
     L = np.linalg.cholesky(0.5 * (C[n] + C[n].T) + 1e-14 * np.eye(k))
     out[n] = m[n] + L @ z[n]
     for t in range(n - 1, -1, -1):
         Rinv = np.linalg.inv(R[t])
         J = C[t] @ Rinv
         h = m[t] + J @ (out[t + 1] - m[t])
-        H = C[t] - J @ R[t] @ J.T
+        if any_const:
+            # C - J R J' as (I - J) C (I - J)' + J W J' (equal because
+            # J R J' = J C = C J'): the difference of two matrices of
+            # order C0 = 1e7 does not keep the zero conditional variance
+            # of a constant coefficient
+            A = np.eye(k) - J
+            H = A @ C[t] @ A.T
+            for q in range(k):
+                wq = R[t, q, q] - C[t, q, q]
+                for a in range(k):
+                    for b in range(k):
+                        H[a, b] += J[a, q] * wq * J[b, q]
+            # given beta[t + 1] a constant coefficient has no variance
+            # left: exact zeros keep the factor below free of rounding noise
+            for j in range(k):
+                if const[j]:
+                    for a in range(k):
+                        H[j, a] = 0.0
+                        H[a, j] = 0.0
+        else:
+            H = C[t] - J @ R[t] @ J.T
         H = 0.5 * (H + H.T)
         # H can be singular where a state variance is zero
         w, U = np.linalg.eigh(H)
@@ -139,6 +209,10 @@ def _backward_sample_py(
             if w[j] < 0.0:
                 w[j] = 0.0
         out[t] = h + U @ (np.sqrt(w) * z[t])
+        # beta[t, j] = beta[t + 1, j] exactly where W[j] = 0
+        for j in range(k):
+            if const[j]:
+                out[t, j] = out[t + 1, j]
     return out
 
 
@@ -395,7 +469,7 @@ def dlm(
         ``'gibbs'``: inverse-gamma priors on the variances, states drawn
         by forward filtering and backward sampling.
     time : str, optional
-        Column to sort by.
+        Column to sort by; a missing value in it is an error.
     constant : list of str, optional
         Terms whose coefficient does not vary (state variance fixed at
         zero).
@@ -422,6 +496,10 @@ def dlm(
 
     Notes
     -----
+    A regressor that is a linear combination of the others (or repeats
+    the intercept) is omitted with a note and listed in
+    ``model_info['omitted']``; it has no coefficient path of its own.
+
     The first dates are dominated by the diffuse prior: with ``k``
     coefficients the first ``k`` one-step forecasts have enormous
     variance and contribute a constant to the likelihood. This is the
@@ -430,6 +508,14 @@ def dlm(
 
     A state variance estimated at (numerically) zero means the data do
     not ask for that coefficient to move; the result notes it.
+
+    A coefficient with zero state variance (``constant=``, or a zero in
+    ``state_var``) has the same smoothed value and standard error at
+    every date, and the same value at every date in each Gibbs draw.
+
+    An outcome that the regressors fit exactly (a constant outcome with
+    an intercept) is refused when the observation variance is to be
+    estimated: the likelihood has no maximum.
 
     Examples
     --------
@@ -459,6 +545,15 @@ def dlm(
     if time is not None:
         if time not in data.columns:
             raise MethodIncompatibility(f"time column {time!r} is not in data.")
+        if data[time].isna().any():
+            raise MethodIncompatibility(
+                f"{int(data[time].isna().sum())} rows have a missing value in "
+                f"the time column {time!r}: their place in the series is not "
+                "known. Fill the dates or drop those rows explicitly first."
+            )
+        from .var import _refuse_repeated_dates
+
+        _refuse_repeated_dates(data[time], time, "dlm")
         work = data.sort_values(time, kind="stable")
     y_df, X_df = create_design_matrices(formula, work)
     if len(X_df) < len(work):
@@ -470,7 +565,13 @@ def dlm(
     y = np.ascontiguousarray(np.asarray(y_df, dtype=float).reshape(-1))
     X = np.ascontiguousarray(np.asarray(X_df, dtype=float))
     names = [str(c) for c in X_df.columns]
-    index = work.loc[X_df.index, time] if time is not None else X_df.index
+    # a regressor that repeats another (or the intercept) has no coefficient
+    # path of its own: the diffuse prior would split one effect between them
+    X, names, omitted, _ = drop_collinear(X, names, "dlm", stacklevel=3)
+    X = np.ascontiguousarray(X)
+    # no row was dropped, so the design is in the row order of ``work``:
+    # take the dates by position (index labels may repeat)
+    index = work[time] if time is not None else X_df.index
     n, k = X.shape
     if n < k + 3:
         raise DataInsufficient(f"{n} observations for {k} time-varying coefficients.")
@@ -486,8 +587,10 @@ def dlm(
     m0v = np.asarray(m0, dtype=float)
     if m0v.ndim == 0:
         m0v = np.full(k, float(m0v))
-    if m0v.shape != (k,):
-        raise MethodIncompatibility(f"m0 must be a scalar or have {k} entries.")
+    if m0v.shape != (k,) or not np.all(np.isfinite(m0v)):
+        raise MethodIncompatibility(
+            f"m0 must be a finite scalar or have {k} finite entries."
+        )
     C0m = np.asarray(C0, dtype=float)
     if C0m.ndim == 0:
         C0m = np.eye(k) * float(C0m)
@@ -497,17 +600,29 @@ def dlm(
         raise MethodIncompatibility(
             f"C0 must be a scalar, {k} variances or a {k} x {k} matrix."
         )
+    # a covariance matrix: finite, symmetric, no negative eigenvalue (to
+    # rounding). Zero is allowed: the initial state is then known to be m0.
+    c0_ok = bool(np.all(np.isfinite(C0m))) and np.allclose(C0m, C0m.T)
+    if c0_ok:
+        eig = np.linalg.eigvalsh(0.5 * (C0m + C0m.T))
+        c0_ok = bool(eig[0] >= -1e-10 * abs(eig[-1]))
+    if not c0_ok:
+        raise MethodIncompatibility(
+            "C0 must be a covariance matrix: finite, symmetric and positive "
+            "semi-definite (a scalar C0 must be non-negative; zero means the "
+            "initial state is known to equal m0)."
+        )
 
     W_fixed: Optional[np.ndarray] = None
     if state_var is not None:
         sv = np.asarray(state_var, dtype=float)
         W_fixed = np.full(k, float(sv)) if sv.ndim == 0 else sv.astype(float)
-        if W_fixed.shape != (k,) or np.any(W_fixed < 0):
+        if W_fixed.shape != (k,) or not np.all(np.isfinite(W_fixed) & (W_fixed >= 0)):
             raise MethodIncompatibility(
                 f"state_var must be a non-negative number or {k} of them."
             )
         W_fixed = np.where(free, W_fixed, 0.0)
-    if obs_var is not None and not obs_var > 0:
+    if obs_var is not None and not (obs_var > 0 and np.isfinite(obs_var)):
         raise MethodIncompatibility("obs_var must be positive.")
     from scipy import stats
 
@@ -535,11 +650,30 @@ def dlm(
                 W[free] = np.exp(par[n_v:])
             return V, W
 
+        if n_v == 1:
+            # an outcome the regression fits exactly (a constant outcome
+            # when there is an intercept) leaves no observation variance to
+            # estimate: the likelihood is unbounded as every variance goes
+            # to zero. Residuals at rounding level relative to |y|.
+            fit_err = y - X @ np.linalg.lstsq(X, y, rcond=None)[0]
+            if float(np.max(np.abs(fit_err))) <= 1e-10 * float(np.max(np.abs(y))):
+                raise DataInsufficient(
+                    "The outcome is an exact linear function of the regressors "
+                    "(a constant, for a model with only an intercept): there "
+                    "is no variance to estimate. Fix obs_var= and state_var= "
+                    "to filter such a series."
+                )
         if n_v + n_w > 0:
 
             def nll(par: np.ndarray) -> float:
                 V, W = unpack(par)
-                val = -run(V, W)[5]
+                try:
+                    val = -run(V, W)[5]
+                except ZeroDivisionError:
+                    # every variance underflowed to zero: a forecast
+                    # variance of exactly zero is outside the parameter
+                    # space (the unbounded polish below can step there)
+                    return 1e300
                 return float(val) if np.isfinite(val) else 1e300
 
             best = None
@@ -652,7 +786,9 @@ def dlm(
         sm_sd = np.sqrt(np.clip(s2 / draws - sm_mean**2, 0.0, None))
         V, W = float(kept[:, 0].mean()), kept[:, 1:].mean(axis=0)
         m, C, R, f, Q, ll = run(V, W)
-        moving = var_table["ess"].to_numpy()[np.append(obs_var is None, free)]
+        # only the variances that were sampled can mix slowly
+        sampled = np.append(obs_var is None, free & (W_fixed is None))
+        moving = var_table["ess"].to_numpy()[sampled]
         if moving.size and np.nanmin(moving) < 100:
             warnings.warn(
                 "The Gibbs sampler mixes slowly for the variances (effective "
@@ -677,6 +813,7 @@ def dlm(
         "terms": names,
         "constant_terms": constant,
         "forecast_variance": Q,
+        "omitted": omitted,
     }
     return DLMResult(
         variances=var_table,

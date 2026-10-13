@@ -328,6 +328,11 @@ def bayes_mixture(
         raise MethodIncompatibility("alpha must be positive.")
     if alpha_prior is not None and not dp:
         raise MethodIncompatibility("alpha_prior applies to components='dp' only.")
+    if max_components is not None and not dp:
+        raise MethodIncompatibility(
+            "max_components applies to components='dp' only; a finite "
+            "mixture has exactly the number of components asked for."
+        )
     if alpha_prior is not None and min(alpha_prior) <= 0:
         raise MethodIncompatibility("alpha_prior must be (shape, rate), both positive.")
     y_df, X_df = create_design_matrices(formula, data)

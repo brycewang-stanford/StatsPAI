@@ -712,6 +712,7 @@ def fepois(
     drop_singletons: bool = True,
     drop_separation: bool = True,
     ssc: str = "fixest",
+    weights_as: Optional[str] = None,
 ) -> FePoisResult:
     """Poisson regression with high-dimensional fixed effects.
 
@@ -742,7 +743,15 @@ def fepois(
         Column name of observation weights (e.g. survey / frequency
         weights). Each obs's contribution to the log-likelihood is
         scaled by ``w_i``; the IRLS working weight becomes ``w_i * mu_i``.
-        ``None`` (default) is the unweighted MLE.
+        ``None`` (default) is the unweighted MLE. With ``vcov='iid'`` they
+        are frequency weights: the model-based variance scales with them.
+    weights_as : {'frequency', 'sampling'}, optional
+        What the weights are. ``'frequency'`` is what ``weights=`` alone
+        already means. ``'sampling'`` (Stata ``[pw=]``) gives the same
+        coefficients with ``vcov='hc1'``, unless ``vcov=`` or
+        ``cluster=`` asks for another. Saying which also silences the
+        warning about dispersed weights under the model-based variance.
+        ``'analytic'`` is refused.
     maxiter : int
         Outer IRLS iteration cap.
     tol : float
@@ -779,6 +788,18 @@ def fepois(
             f"fepois: ssc={ssc!r}; supported: 'fixest' or 'statspai'",
             diagnostics={"ssc": ssc},
         )
+    # weights_as=: what the weights are; sampling weights take hc1 unless
+    # another variance was asked for.
+    from ..core._agent_summary import resolve_weights_as
+
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native="frequency",
+        entry="sp.fast.fepois",
+    )
+    if weights_as == "sampling" and cluster is None and vcov == "iid":
+        vcov = "hc1"
     if vcov not in ("iid", "hc1", "cr1"):
         raise MethodIncompatibility(
             f"fepois: vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'"
@@ -1193,6 +1214,7 @@ def fepois(
             ),
             cluster_keys=cluster_arr_full if vcov == "cr1" else None,
             cluster=cluster,
+            weights_as=weights_as,
         )
 
     return FePoisResult(

@@ -531,7 +531,7 @@ def mswitch_lrtest(
         raise MethodIncompatibility(
             "mswitch_lrtest: need reps >= 1, starts >= 3 and n_jobs >= 1."
         )
-    spec1, dat, _, xn, zn = _setup(
+    spec1, dat, _, xn, zn, _ = _setup(
         y,
         x,
         data,

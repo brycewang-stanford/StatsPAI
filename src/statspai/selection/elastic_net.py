@@ -361,6 +361,14 @@ class GlmnetResult(ResultProtocolMixin):
         """Predictions at ``s``. ``type='link'`` is the linear predictor;
         ``'response'`` is the mean (a probability for a binomial fit)."""
         a0, b = self._at(s)
+        absent = [c for c in self.x if c not in data.columns]
+        if absent:
+            raise MethodIncompatibility(
+                f"glmnet: the prediction data lack column(s) {absent}.",
+                recovery_hint="Pass every predictor of the fit, including "
+                "those whose coefficient is zero.",
+                diagnostics={"missing_columns": absent},
+            )
         eta = a0 + data[self.x].to_numpy(dtype=float) @ b
         if type == "link" or self.family == "gaussian":
             return np.asarray(eta, dtype=float)

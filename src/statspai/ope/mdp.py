@@ -45,7 +45,13 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..exceptions import (
+    AssumptionWarning,
+    DataInsufficient,
+    IdentificationFailure,
+    MethodIncompatibility,
+)
 
 PolicyLike = Union[Callable[[pd.DataFrame], Any], str, int, float]
 
@@ -109,6 +115,39 @@ class MDPPolicyValueResult(ResultProtocolMixin):
             f"[{self.ci[0]:.6g}, {self.ci[1]:.6g}]"
         )
         return "\n".join(lines)
+
+
+def _complete_rows(
+    data: pd.DataFrame, cols: List[str], trajectory: Optional[str], who: str
+) -> pd.DataFrame:
+    """The needed columns, refusing a missing value inside a trajectory.
+
+    Dropping such a row would make the periods either side of it look
+    adjacent. Missing rows at the start or the end of a trajectory only
+    shorten it and are dropped.
+    """
+    df = data[cols]
+    bad = df.isna().any(axis=1).to_numpy()
+    if not bad.any():
+        return df
+    if trajectory is not None and df[trajectory].isna().any():
+        raise MethodIncompatibility(f"{who}: {trajectory!r} has missing values")
+    ok = pd.Series(~bad, index=df.index)
+    by = df[trajectory] if trajectory is not None else np.zeros(len(df), dtype=int)
+    grouped = ok.groupby(np.asarray(by), sort=False)
+    interior = (
+        bad
+        & grouped.cummax().to_numpy()
+        & grouped.transform(lambda g: g[::-1].cummax()[::-1]).to_numpy()
+    )
+    if interior.any():
+        raise MethodIncompatibility(
+            f"{who}: {int(interior.sum())} period(s) with missing values lie "
+            "inside a trajectory. Dropping them would treat the periods on "
+            "either side as consecutive. Fill them in, or split the "
+            "trajectory there with trajectory=."
+        )
+    return df.loc[~bad]
 
 
 def _transitions(
@@ -186,8 +225,17 @@ def _one_policy(
     psi: np.ndarray,
     cur: np.ndarray,
     nxt: np.ndarray,
+    centre: bool = True,
 ) -> Dict[str, Any]:
-    """Nuisances and scores for one target policy."""
+    """Nuisances and scores for one target policy.
+
+    ``centre`` takes the test functions of the stationary-ratio equations
+    to have mean zero over the periods. The ratio then depends only on
+    the span of the basis: not on which state's indicator is left out of
+    a tabular ``psi``, and not on the origin or the unit of a numeric
+    feature. ``False`` is the uncentred form used before, kept for
+    comparison.
+    """
     f = phi[cur]
     g, gn = psi[cur], psi[nxt]
     yy, r = y[cur], rho[cur]
@@ -203,7 +251,15 @@ def _one_policy(
     q, qn = g @ beta, gn @ beta
     # Stationary ratio omega = phi'a:
     #   sum_t omega_t (rho_t psi_{t+1} - psi_t) = 0 and mean(omega) = 1.
-    lhs_w = np.vstack([(r[:, None] * gn - g).T @ f / m, f.mean(axis=0)[None, :]])
+    flow = r[:, None] * gn - g
+    if centre:
+        # test function psi - mean(psi): the balance equation of the
+        # constant, sum_t omega_t (rho_t - 1) = 0, holds only on average
+        # in a sample, so equations built on uncentred functions change
+        # when a constant is added to a feature (or another indicator is
+        # dropped), although the span of [1, psi] does not
+        flow = flow - np.outer(r - 1.0, g.mean(axis=0))
+    lhs_w = np.vstack([flow.T @ f / m, f.mean(axis=0)[None, :]])
     rhs_w = np.zeros(p)
     rhs_w[-1] = 1.0
     a, *_ = np.linalg.lstsq(lhs_w, rhs_w, rcond=None)
@@ -291,8 +347,14 @@ def mdp_policy_value(
     The assumptions are those of a time-homogeneous Markov decision
     process observed in its stationary regime: the state is fully
     observed, the action depends on the past only through the state,
-    and both the data and the target policy visit the same states
-    (``detail["min_omega"]`` and ``detail["max_omega"]`` report the
+    and both the data and the target policy visit the same states.
+    With the tabular basis a failure of this condition is detected
+    exactly: if the policy leads to a state in which the data never
+    contain the action the policy takes there, ``IdentificationFailure``
+    is raised naming the state (the value would otherwise be computed as
+    if the policy never entered it). With a linear basis the same
+    failure cannot be detected exactly and shows only in the estimated
+    stationary ratio (``detail["min_omega"]`` and ``detail["max_omega"]`` report the
     range of the estimated stationary ratio; a warning is issued when
     it is negative, which a linear basis can produce when overlap is
     poor).
@@ -303,7 +365,14 @@ def mdp_policy_value(
     transition model. The standard error uses the fact that the
     summands are martingale differences at the truth, so no correction
     for serial correlation is applied; it does not account for the
-    estimation of ``propensity`` when that is omitted.
+    estimation of ``propensity`` when that is omitted. Value and
+    standard error depend on the basis only through its span: not on how
+    the states are labelled (tabular basis), and not on the origin or
+    the unit of a numeric feature (linear basis).
+
+    Rows with a missing value at the start or the end of a trajectory
+    are dropped; a missing value inside a trajectory is refused, because
+    the periods on either side would be read as consecutive.
 
     References
     ----------
@@ -339,14 +408,43 @@ def mdp_policy_value(
         raise MethodIncompatibility(f"columns not found in data: {missing}")
     if not state:
         raise MethodIncompatibility("at least one state column is required")
-    df, nxt = _transitions(data[list(dict.fromkeys(cols))].dropna(), trajectory, time)
+    if time is not None and data[time].isna().any():
+        raise MethodIncompatibility(f"{time!r} has missing values")
+    ordered = data.sort_values(time, kind="stable") if time is not None else data
+    df, nxt = _transitions(
+        _complete_rows(
+            ordered, list(dict.fromkeys(cols)), trajectory, "mdp_policy_value"
+        ),
+        trajectory,
+        time,
+    )
     cur = np.flatnonzero(nxt >= 0)
     if cur.size < 20:
         raise DataInsufficient("at least twenty transitions are needed")
     states = df[state]
     yv = df[y].to_numpy(dtype=float)
     wv = df[treat].to_numpy()
+    if features is not None and not callable(features) and features != "tabular":
+        text = [
+            c
+            for c in features
+            if c in states.columns
+            and (
+                isinstance(states[c].dtype, pd.CategoricalDtype)
+                or not pd.api.types.is_numeric_dtype(states[c])
+            )
+        ]
+        if text:
+            raise MethodIncompatibility(
+                f"features columns {text} are not numeric. Use the tabular "
+                "basis (features=None) for a categorical state, or pass "
+                "indicator columns."
+            )
     phi, psi, kind = _feature_matrix(states, features)
+    tabular = kind == "tabular"
+    if tabular:
+        names = np.asarray(sorted(pd.unique(states.astype(str).agg("|".join, axis=1))))
+        state_id = phi.argmax(axis=1)
 
     estimated_propensity = propensity is None
     if propensity is None:
@@ -380,6 +478,31 @@ def mdp_policy_value(
                 "the action taken never agrees with the policy, so its value "
                 "cannot be learned from these data"
             )
+        if tabular:
+            # Positivity, exactly: a state the policy enters from a state
+            # where its action is observed, but in which the data never
+            # contain the action the policy takes.
+            followed = cur[rho[cur] > 0]
+            supported = np.zeros(phi.shape[1], dtype=bool)
+            supported[state_id[followed]] = True
+            visited = np.zeros(phi.shape[1], dtype=bool)
+            visited[state_id[cur]] = True
+            entered = np.zeros(phi.shape[1], dtype=bool)
+            entered[state_id[nxt[followed]]] = True
+            lost = np.flatnonzero(visited & entered & ~supported)
+            if lost.size:
+                which = ", ".join(repr(str(v)) for v in names[lost][:10])
+                raise IdentificationFailure(
+                    "mdp_policy_value: the policy reaches state(s) "
+                    f"{which} in which the data never contain the action it "
+                    "takes there ("
+                    + ", ".join(
+                        f"{int(np.sum(state_id[cur] == j))} periods" for j in lost[:10]
+                    )
+                    + "). Its long-run value is not identified from these "
+                    "data. Evaluate a policy that agrees with the data in "
+                    "those states, or collect data in which the action occurs."
+                )
         fit = _one_policy(yv, rho, phi, psi, cur, nxt[cur])
         if float(fit["omega"].min()) < 0:
             warnings.warn(
@@ -491,6 +614,7 @@ def _logit_fit(X: np.ndarray, w: np.ndarray) -> np.ndarray:
     return np.asarray(1.0 / (1.0 + np.exp(-(X @ beta))))
 
 
+@_expands_categorical("covariates")
 def marginal_policy_effect(
     data: pd.DataFrame,
     y: str,
@@ -517,7 +641,10 @@ def marginal_policy_effect(
         Binary (0/1) treatment of the period.
     covariates : sequence of str
         Observed part of the state, given which treatment is as good as
-        random. May be empty for a randomized treatment.
+        random. May be empty for a randomized treatment. Categorical
+        columns (``category`` dtype, strings, ``C(col)``) are expanded
+        into indicators, the first level as the base; integer columns
+        are taken as numeric.
     horizon : int
         Number of future periods over which a treatment can still affect
         outcomes. The effect is on the sum of the outcomes of the
@@ -529,7 +656,10 @@ def marginal_policy_effect(
         Trajectory identifier and time column.
     hac_lags : int, optional
         Lags of the Bartlett kernel for the standard error. Defaults to
-        ``horizon`` plus ``floor(4 (T / 100) ** (2 / 9))``.
+        ``horizon`` plus ``floor(4 (T / 100) ** (2 / 9))``. Must be at
+        least ``horizon``, because the forward sums of periods up to
+        ``horizon`` apart share outcomes, and smaller than the number of
+        periods used.
     alpha : float, default 0.05
 
     Returns
@@ -554,7 +684,10 @@ def marginal_policy_effect(
     sums of neighbouring periods overlap, so the standard error uses a
     heteroskedasticity and autocorrelation consistent estimate. The last
     ``horizon`` periods of each trajectory have no complete forward sum
-    and are dropped.
+    and are dropped. Rows with a missing value at the start or the end
+    of a trajectory are dropped as well; a missing value inside a
+    trajectory is refused, because the forward sums would run across the
+    gap.
 
     A ``horizon`` that is too short leaves out part of the effect; one
     that is too long adds noise. Report the estimate for several values.
@@ -588,7 +721,12 @@ def marginal_policy_effect(
     if missing:
         raise MethodIncompatibility(f"columns not found in data: {missing}")
     keys = [k for k in (trajectory, time) if k is not None]
-    df = data[list(dict.fromkeys(cols))].dropna()
+    if time is not None and data[time].isna().any():
+        raise MethodIncompatibility(f"{time!r} has missing values")
+    ordered = data.sort_values(time, kind="stable") if time is not None else data
+    df = _complete_rows(
+        ordered, list(dict.fromkeys(cols)), trajectory, "marginal_policy_effect"
+    )
     df = (df.sort_values(keys, kind="stable") if keys else df).reset_index(drop=True)
     wv = df[treat].to_numpy(dtype=float)
     if not np.isin(wv, (0.0, 1.0)).all():
@@ -641,8 +779,18 @@ def marginal_policy_effect(
     theta = float(psi.mean())
 
     lags = int(hac_lags) if hac_lags is not None else K + int(4 * (T / 100) ** (2 / 9))
-    if lags < 0:
-        raise MethodIncompatibility("hac_lags must be non-negative")
+    if hac_lags is not None and (int(hac_lags) != hac_lags or hac_lags < K):
+        raise MethodIncompatibility(
+            f"hac_lags must be an integer of at least horizon ({K}): the "
+            "forward sums of periods that close together overlap, and fewer "
+            "lags leave that correlation out of the standard error"
+        )
+    if hac_lags is not None and lags >= T:
+        raise MethodIncompatibility(
+            f"hac_lags ({lags}) must be smaller than the number of periods "
+            f"used ({T}); with that many lags the long-run variance is not "
+            "estimated"
+        )
     u = psi - theta
     g_keep = group[keep]
     pos = np.flatnonzero(keep)

@@ -32,9 +32,71 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._collinear import drop_collinear
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 _SUPF_SEED = 20240601
+
+#: a residual root mean square below this share of that of the outcome is
+#: rounding error: the regression fits exactly and there is nothing to test
+_EXACT_FIT = 1e-10
+
+
+def _break_design(data: pd.DataFrame, y: str, x: Optional[List[str]], who: str) -> Any:
+    """Outcome, full-rank design with a constant, and its column names.
+
+    Refuses missing values (the procedures index consecutive observations,
+    so a row cannot be dropped) and omits redundant regressors with a note,
+    so every statistic sees the same full-rank design: the recursive
+    residual sums of squares start from an inverse of ``X'X`` and the F
+    statistics divide by the number of coefficients.
+    """
+    y_data = data[y].to_numpy(dtype=float)
+    n = len(y_data)
+    names = ["const"] + [str(v) for v in (x or [])]
+    if x is not None:
+        X_full = np.column_stack([np.ones(n), data[x].to_numpy(dtype=float)])
+    else:
+        X_full = np.ones((n, 1))
+    bad = ~(np.isfinite(y_data) & np.isfinite(X_full).all(axis=1))
+    if bad.any():
+        rows = np.flatnonzero(bad)
+        raise MethodIncompatibility(
+            f"{who}: {rows.size} row(s) have a missing or non-finite value "
+            f"(first at position {int(rows[0])}). Break dates are positions "
+            "in a series of consecutive observations, so a row cannot be "
+            "dropped.",
+            recovery_hint="Trim the sample to a stretch without missing "
+            "values, or fill the gap before calling.",
+            diagnostics={"n_missing_rows": int(rows.size), "rows": rows[:20].tolist()},
+        )
+    X_full, names, _, _ = drop_collinear(X_full, names, who, stacklevel=4)
+    return y_data, X_full, names
+
+
+def _refuse_exact_split(y: np.ndarray, rss: float, date: int, who: str) -> None:
+    """Refuse a split whose regimes reproduce the outcome exactly."""
+    if not rss > _EXACT_FIT**2 * float(y @ y):
+        raise DataInsufficient(
+            f"{who}: the regimes split at observation {date} fit the outcome "
+            "exactly, so the residual sum of squares is rounding error and "
+            "the statistic has a zero denominator.",
+            recovery_hint="The series has no residual variation within "
+            "regimes; a break test needs noise to compare against.",
+        )
+
+
+def _refuse_exact_fit(y: np.ndarray, rss: float, who: str) -> None:
+    """Refuse an outcome the full-sample regression reproduces exactly."""
+    if not rss > _EXACT_FIT**2 * float(y @ y):
+        raise DataInsufficient(
+            f"{who}: the outcome is reproduced exactly by the regression "
+            "(a constant outcome, or one that is a linear function of the "
+            "regressors), so the residuals are rounding error and no "
+            "stability statistic can be formed from them.",
+            recovery_hint="Check the outcome column; a test of parameter "
+            "stability needs residual variation.",
+        )
 
 
 @lru_cache(maxsize=128)
@@ -352,20 +414,19 @@ def structural_break(
         raise ValueError("data is required")
     assert y is not None
 
-    y_data = data[y].values.astype(float)
+    y_data, X_full, kept_names = _break_design(data, y, x, "structural_break")
     n = len(y_data)
-
-    if x is not None:
-        X_data = data[x].values.astype(float)
-        X_full = np.column_stack([np.ones(n), X_data])
-    else:
-        X_full = np.ones((n, 1))
-
     k = X_full.shape[1]
+    if n <= k:
+        raise DataInsufficient(
+            f"structural_break: {n} observation(s) for {k} coefficient(s).",
+            recovery_hint="Use a longer series or fewer regressors.",
+        )
 
     # Full sample RSS
     beta_full = np.linalg.lstsq(X_full, y_data, rcond=None)[0]
     rss_full = np.sum((y_data - X_full @ beta_full) ** 2)
+    _refuse_exact_fit(y_data, float(rss_full), "structural_break")
 
     if method not in ("bai-perron", "chow", "sup-f", "global"):
         raise MethodIncompatibility(
@@ -373,9 +434,6 @@ def structural_break(
         )
     if pvalue_method not in ("hansen", "simulate"):
         raise MethodIncompatibility("pvalue_method must be 'hansen' or 'simulate'")
-
-    if method == "global":
-        return _breakpoints_global(y_data, X_full, min_segment, max_breaks, rss_full)
 
     if vce not in ("nonrobust", "hc0", "hc1"):
         raise MethodIncompatibility("vce must be 'nonrobust', 'hc0' or 'hc1'")
@@ -386,14 +444,32 @@ def structural_break(
             "Bai-Perron procedures here assume every coefficient breaks and "
             "homoskedastic errors."
         )
+    if method == "global":
+        if max_breaks is not None and int(max_breaks) < 1:
+            raise MethodIncompatibility(
+                f"structural_break: max_breaks must be at least 1, got "
+                f"{max_breaks!r}.",
+                recovery_hint="The fit without a break is always among the "
+                "candidates BIC compares; pass max_breaks=1 or more.",
+            )
+        return _breakpoints_global(y_data, X_full, min_segment, max_breaks, rss_full)
     if partial:
         names = ["const"] + list(x or [])
-        chosen = names if break_vars is None else list(break_vars)
+        chosen = kept_names if break_vars is None else list(break_vars)
         unknown = [v for v in chosen if v not in names]
         if unknown or not chosen:
             raise MethodIncompatibility(
                 f"break_vars {unknown or chosen} must be drawn from {names}"
             )
+        omitted = [v for v in chosen if v not in kept_names]
+        if omitted:
+            raise MethodIncompatibility(
+                f"break_vars {omitted} were omitted as collinear with the "
+                "other regressors, so no break in their coefficients can be "
+                "tested.",
+                recovery_hint="Name the regressor that was kept instead.",
+            )
+        names = kept_names
         cols = [names.index(v) for v in dict.fromkeys(chosen)]
         return _sup_wald_break(
             y_data,
@@ -417,6 +493,15 @@ def structural_break(
         f_stats = []
         t_from = max(int(np.floor(min_segment * n)), k + 1)
         t_to = min(n - int(np.floor(min_segment * n)), n - k - 1)
+        if t_to < t_from:
+            raise DataInsufficient(
+                "structural_break: no admissible break date. The first "
+                f"regime must hold between {t_from} and {t_to} of the {n} "
+                f"observations (min_segment={min_segment}, {k} "
+                "coefficient(s) per regime).",
+                recovery_hint="Use a longer series, fewer regressors, or a "
+                "min_segment below one half.",
+            )
 
         for t in range(t_from, t_to + 1):
             # Segment 1
@@ -430,6 +515,7 @@ def structural_break(
             rss2 = np.sum((y2 - X2 @ b2) ** 2)
 
             rss_break = rss1 + rss2
+            _refuse_exact_split(y_data, float(rss_break), t, "structural_break")
             denom = rss_break / max(n - 2 * k, 1)
             f_stat = ((rss_full - rss_break) / k) / max(denom, 1e-20)
             f_stats.append((t, f_stat))
@@ -655,6 +741,14 @@ def _bai_perron_sequential(
             if v < best:
                 best, date = v, d
         ssr0 = seg(a, b)
+        if not best > _EXACT_FIT**2 * float(y @ y):
+            raise DataInsufficient(
+                "structural_break: the two regimes split at observation "
+                f"{a + (date or 0)} fit the outcome exactly, so sup F has a "
+                "zero denominator.",
+                recovery_hint="The series has no residual variation within "
+                "regimes; a break test needs noise to compare against.",
+            )
         stat = (L - 2 * q) * (ssr0 - best) / best
         return a + date, float(stat)
 
@@ -824,6 +918,8 @@ def _breakpoints_global(
             float(sum(seg(edges[q] + 1, edges[q + 1]) for q in range(len(edges) - 1)))
         )
         bps_by_m.append(bps)
+        # log(RSS) below: an exact fit has no likelihood to compare
+        _refuse_exact_split(y, rss_by_m[-1], bps[-1], "structural_break")
     bic = [
         n * (np.log(r) + 1 - np.log(n) + np.log(2 * np.pi))
         + (k + 1) * (m + 1) * np.log(n)
@@ -967,27 +1063,27 @@ def cusum_test(
     >>> bool(res["reject"])
     False
     """
-    y_data = data[y].values.astype(float)
+    y_data, X_data, _ = _break_design(data, y, x, "cusum_test")
     n = len(y_data)
-
-    if x is not None:
-        X_data = np.column_stack([np.ones(n), data[x].values.astype(float)])
-    else:
-        X_data = np.ones((n, 1))
-
     k = X_data.shape[1]
 
     if method not in ("recursive", "ols"):
         raise MethodIncompatibility(
             f"cusum_test: method must be 'recursive' or 'ols', got {method!r}."
         )
+    if n <= k + 1:
+        raise DataInsufficient(
+            f"cusum_test: {n} observation(s) for {k} coefficient(s).",
+            recovery_hint="Use a longer series or fewer regressors.",
+        )
+    beta = np.linalg.lstsq(X_data, y_data, rcond=None)[0]
+    e = y_data - X_data @ beta
+    _refuse_exact_fit(y_data, float(e @ e), "cusum_test")
     if method == "ols":
         from scipy.stats import kstwobign
 
         if not 0.0 < alpha < 1.0:
             raise MethodIncompatibility("alpha must lie in (0, 1)")
-        beta = np.linalg.lstsq(X_data, y_data, rcond=None)[0]
-        e = y_data - X_data @ beta
         s = np.sqrt(float(e @ e) / (n - k))
         path = np.cumsum(e) / (s * np.sqrt(n))
         ols_stat = float(np.max(np.abs(path)))

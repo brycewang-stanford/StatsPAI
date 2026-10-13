@@ -24,7 +24,9 @@ from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibi
 from ._core import (
     check_mcmc_args,
     find_mode,
+    is_default,
     log_invgamma,
+    note_default_prior,
     random_walk_metropolis,
     spawn_rngs,
 )
@@ -463,4 +465,24 @@ def bayes_arima(
         )
         diag["warnings"].append(text)
         warnings.warn(text, ConvergenceWarning, stacklevel=2)
+    if constant and is_default(mean_prior, (0.0, 1e6)):
+        # A prior that binds hard can hide from its own posterior: the AR
+        # root goes to one, which frees the level, and the constant then
+        # sits near the prior mean. So the level of the series itself is
+        # held against the prior as well.
+        level_at = float(table["mean"].iloc[0])
+        if abs(float(w.mean()) - m0) > abs(level_at - m0):
+            level_at = float(w.mean())
+        note_default_prior(
+            diag["warnings"],
+            ["const"],
+            [level_at],
+            table["sd"].to_numpy()[:1],
+            m0,
+            np.sqrt(v0),
+            advice=(
+                "Set mean_prior=(mean, variance) at the scale of the series, "
+                "or rescale the series."
+            ),
+        )
     return res

@@ -33,6 +33,8 @@ import numpy as np
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
+from .basic_tests import _check_alpha
 
 __all__ = [
     "MetaAnalysisResult",
@@ -118,7 +120,10 @@ class MetaAnalysisResult(ResultProtocolMixin):
         y = self.effects
         s = self.se_studies
         k = len(y)
-        if k < 3:
+        # With equal standard errors the precision is constant and collinear
+        # with the intercept: the asymmetry test is not estimable.
+        design = np.column_stack([np.ones(k), 1.0 / s])
+        if k < 3 or np.linalg.matrix_rank(design) < 2:
             return {
                 "intercept": float("nan"),
                 "se": float("nan"),
@@ -285,8 +290,16 @@ def meta_analysis(
     """
     y = np.asarray(effects, dtype=float)
     s = np.asarray(se, dtype=float)
+    _check_alpha(alpha, "meta_analysis")
     if y.shape != s.shape or y.ndim != 1:
         raise ValueError("effects and se must be 1-D arrays of equal length.")
+    if not (np.all(np.isfinite(y)) and np.all(np.isfinite(s))):
+        raise MethodIncompatibility(
+            "meta_analysis: effects and standard errors must be finite; "
+            f"{int((~(np.isfinite(y) & np.isfinite(s))).sum())} study(ies) "
+            "have a missing or infinite value.",
+            recovery_hint="Drop those studies before pooling.",
+        )
     if np.any(s <= 0):
         raise ValueError("all standard errors must be positive.")
     k = len(y)
@@ -298,6 +311,11 @@ def meta_analysis(
         labels = [f"Study {i + 1}" for i in range(k)]
     else:
         labels = list(labels)
+        if len(labels) != k:
+            raise MethodIncompatibility(
+                f"meta_analysis: {len(labels)} labels for {k} studies.",
+                recovery_hint="Pass one label per study, or labels=None.",
+            )
 
     # Fixed-effect inverse-variance.
     w = 1.0 / s**2

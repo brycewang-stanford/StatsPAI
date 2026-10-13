@@ -6,21 +6,21 @@ Each card is checked against a real call on small data: the required arguments, 
 
 - functions audited: **60**
 - functions with a card defect: **0**
-- enum values tried: **480** (425 accepted, 55 need a precondition, 0 refused by the function)
+- enum values tried: **502** (447 accepted, 55 need a precondition, 0 refused by the function)
 
 `precondition` means the call failed for a reason other than the value itself: it needs other arguments, other data or an optional package. Those are listed below so the card can say what the value needs. `rejected` means the schema advertises a value the function does not accept, which is a defect.
 
 | Function | Result class | Enum values ok / precondition / rejected | Card fields curated / inherited / other | Defects |
 | --- | --- | ---: | ---: | --- |
-| `regress` | EconometricResults | 9 / 0 / 0 | 8 / 0 / 0 | none |
-| `ivreg` | EconometricResults | 0 / 0 / 0 | 3 / 0 / 6 | none |
-| `iv` | EconometricResults | 16 / 15 / 0 | 10 / 0 / 0 | none |
-| `logit` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
-| `probit` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
-| `poisson` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 8 | none |
+| `regress` | EconometricResults | 11 / 0 / 0 | 8 / 0 / 0 | none |
+| `ivreg` | EconometricResults | 2 / 0 / 0 | 3 / 0 / 6 | none |
+| `iv` | EconometricResults | 19 / 14 / 0 | 10 / 0 / 0 | none |
+| `logit` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
+| `probit` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
+| `poisson` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
 | `qreg` | QuantileRegressionResult | 8 / 1 / 0 | 7 / 0 / 0 | none |
-| `feols` | EconometricResults | 4 / 0 / 0 | 8 / 0 / 2 | none |
-| `panel` | PanelResults | 12 / 0 / 0 | 8 / 0 / 0 | none |
+| `feols` | EconometricResults | 6 / 0 / 0 | 8 / 0 / 2 | none |
+| `panel` | PanelResults | 14 / 0 / 0 | 8 / 0 / 0 | none |
 | `did` | CausalResult | 17 / 3 / 0 | 10 / 0 / 0 | none |
 | `callaway_santanna` | CausalResult | 20 / 0 / 0 | 5 / 0 / 5 | none |
 | `sun_abraham` | CausalResult | 9 / 0 / 0 | 5 / 0 / 5 | none |
@@ -40,16 +40,16 @@ Each card is checked against a real call on small data: the required arguments, 
 | `psm` | CausalResult | 0 / 0 / 0 | 0 / 0 / 6 | none |
 | `match` | CausalResult | 37 / 1 / 0 | 9 / 0 / 0 | none |
 | `ipw` | CausalResult | 7 / 0 / 0 | 3 / 0 / 5 | none |
-| `aipw` | CausalResult | 4 / 3 / 0 | 8 / 0 / 0 | none |
+| `aipw` | CausalResult | 4 / 4 / 0 | 8 / 0 / 0 | none |
 | `tmle` | CausalResult | 9 / 2 / 0 | 8 / 0 / 0 | none |
-| `nbreg` | EconometricResults | 6 / 0 / 0 | 8 / 0 / 0 | none |
-| `glm` | EconometricResults | 19 / 0 / 0 | 0 / 0 / 8 | none |
+| `nbreg` | EconometricResults | 8 / 0 / 0 | 8 / 0 / 0 | none |
+| `glm` | EconometricResults | 22 / 0 / 0 | 0 / 0 / 8 | none |
 | `ppmlhdfe` | EconometricResults | 4 / 0 / 0 | 1 / 0 / 9 | none |
-| `hdfe_ols` | FEOLSResult | 15 / 0 / 0 | 7 / 0 / 2 | none |
+| `hdfe_ols` | FEOLSResult | 13 / 0 / 0 | 7 / 0 / 2 | none |
 | `ologit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
 | `mlogit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
 | `tobit` | LimitedDepResult | 2 / 0 / 0 | 8 / 0 / 0 | none |
-| `cloglog` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
+| `cloglog` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
 | `fepois` | EconometricResults | 0 / 0 / 0 | 6 / 0 / 2 | none |
 | `feglm` | EconometricResults | 3 / 0 / 0 | 0 / 0 / 7 | none |
 | `heckman` | LimitedDepResult | 3 / 0 / 0 | 3 / 0 / 4 | none |
@@ -86,7 +86,6 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.iv(method='kernel')`: TypeError: kernel_iv() missing 3 required positional arguments: 'y', 'treat', and 'instrument'
 - `sp.iv(method='ivdml')`: TypeError: ivdml() missing 3 required positional arguments: 'y', 'treat', and 'instruments'
 - `sp.iv(method='deepiv')`: TypeError: deepiv() missing 4 required positional arguments: 'y', 'treat', 'instruments', and 'covariates'
-- `sp.iv(method='ivqreg')`: TypeError: ivqreg() got an unexpected keyword argument 'formula'
 - `sp.iv(method='bayes')`: TypeError: bayesian_iv() missing 3 required positional arguments: 'y', 'endog', and 'instruments'
 - `sp.iv(method='continuous_late')`: TypeError: continuous_iv_late() missing 3 required positional arguments: 'y', 'treat', and 'instrument'
 - `sp.iv(method='shift_share')`: TypeError: bartik() missing 4 required positional arguments: 'y', 'endog', 'shares', and 'shocks'
@@ -116,6 +115,7 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.match(method='radius')`: MethodIncompatibility: match: radius matching requires caliper > 0 (the radius bandwidth)
 - `sp.aipw(se_method='sandwich')`: MethodIncompatibility: se_method='sandwich' is the stacked M-estimation variance of the full-sample parametric AIPW ATE; it requires cross_fit=False and estimand='
 - `sp.aipw(outcome_model='logit')`: MethodIncompatibility: aipw: outcome_model='logit' needs an outcome in [0, 1].
+- `sp.aipw(outcome_model='probit')`: MethodIncompatibility: aipw: outcome_model='probit' needs an outcome in [0, 1].
 - `sp.aipw(outcome_model='poisson')`: MethodIncompatibility: aipw: outcome_model='poisson' needs a non-negative outcome.
 - `sp.tmle(estimand='RR')`: MethodIncompatibility: tmle: estimand='RR' is not defined for this outcome: the ratio needs a non-negative outcome with positive targeted means, and the odds ratio
 - `sp.tmle(estimand='OR')`: MethodIncompatibility: tmle: estimand='OR' is not defined for this outcome: the ratio needs a non-negative outcome with positive targeted means, and the odds ratio

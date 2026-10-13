@@ -27,7 +27,7 @@ from scipy import special, stats
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
-from ._core import design_for, rtruncnorm
+from ._core import prediction_design, rtruncnorm
 
 _KERNEL: Dict[str, Any] = {}
 
@@ -484,7 +484,8 @@ class BARTResult(ResultProtocolMixin):
         """Posterior draws of the regression function at ``newdata``:
         an array with one row per draw."""
         st = self._state
-        X = design_for(st["design_info"], st["all_names"], newdata)[:, st["keep"]]
+        X = prediction_design(st["design_info"], st["all_names"], newdata)
+        X = X[:, st["keep"]]
         xcut = np.column_stack(
             [np.searchsorted(c, X[:, v], side="left") for v, c in enumerate(st["cuts"])]
         ).astype(np.int64)

@@ -241,3 +241,46 @@ def treatment_as_float(
         recovery_hint=hint,
         diagnostics={"n_values": int(len(levels)), "values": shown},
     )
+
+
+def require_numeric_columns(
+    data: Any, columns: Any, *, function: str, argument: str = "x"
+) -> None:
+    """Refuse columns that hold labels where numbers are needed.
+
+    For the estimators that take a list of column names and build the
+    design themselves: a string or categorical column would otherwise
+    surface as ``could not convert string to float: 'a'`` from deep
+    inside, or be coerced to missing and reported as "no complete rows".
+    Columns absent from ``data`` are left to the caller's own check, and
+    a column of numbers stored as text passes. Nothing is expanded into
+    indicators here: which level is the base is the caller's to say.
+    """
+    import pandas as pd
+    from pandas.api.types import is_bool_dtype, is_numeric_dtype
+
+    names = [columns] if isinstance(columns, str) else list(columns or [])
+    bad = []
+    for name in names:
+        if name is None or name not in data.columns:
+            continue
+        column = data[name]
+        if is_bool_dtype(column) or is_numeric_dtype(column):
+            continue
+        try:
+            np.asarray(column.dropna().to_numpy(), dtype=float)
+        except (TypeError, ValueError):
+            bad.append(str(name))
+    if not bad:
+        return
+    example = pd.unique(data[bad[0]].dropna())[:3]
+    raise MethodIncompatibility(
+        f"{function}: {argument} column(s) {bad} hold labels, not numbers "
+        f"(e.g. {', '.join(repr(v) for v in example)}).",
+        recovery_hint=(
+            "Enter a categorical variable as indicator columns "
+            "(pd.get_dummies(df, columns=[...], drop_first=True, "
+            "dtype=float)) or leave it out."
+        ),
+        diagnostics={"non_numeric_columns": bad, "argument": argument},
+    )

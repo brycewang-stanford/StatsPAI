@@ -358,6 +358,10 @@ def bch_post_lasso_iv(
             Wx = Wx.reshape(-1, 1)
         W = np.column_stack([np.ones(n), Wx]) if add_const else Wx
 
+    from .weak_iv_ci import _refuse_missing
+
+    _refuse_missing("bch_post_lasso_iv", y=Y, endog=D, instruments=Zraw, exog=W)
+
     # --- 1. Partial out controls --------------------------------------
     Y_t = _residualize(Y.reshape(-1, 1), W).ravel()
     D_t = _residualize(D.reshape(-1, 1), W).ravel()

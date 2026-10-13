@@ -9,8 +9,9 @@ Practice*, chapter 5).
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Optional, Tuple
+from typing import Any, ClassVar, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -244,6 +245,18 @@ class SimpleForecastResult(ResultProtocolMixin):
         return self.summary()
 
 
+def _benchmark_options(kwargs: Dict[str, Any], fn: str) -> Dict[str, Any]:
+    """The options a caller may pass on to :func:`simple_forecast`
+    (``boxcox``, ``biasadj``); anything else is refused by name."""
+    unknown = sorted(set(kwargs) - {"boxcox", "biasadj"})
+    if unknown:
+        raise MethodIncompatibility(
+            f"{fn}: unexpected arguments {unknown} for a benchmark method.",
+            recovery_hint="The benchmark methods take boxcox= and biasadj=.",
+        )
+    return dict(kwargs)
+
+
 def simple_forecast(
     y: Any,
     method: str = "naive",
@@ -372,6 +385,15 @@ def simple_forecast(
     resid = values - fitted
     sse = float(np.nansum(resid**2))
     sigma = float(np.sqrt(sse / dof)) if dof > 0 else float("nan")
+    if not sse > (1e-12) ** 2 * float(values @ values):
+        warnings.warn(
+            f"simple_forecast: the {key} method reproduces the series "
+            "exactly (it is constant, or an exact repetition), so the "
+            "residual variance is zero and the prediction intervals have "
+            "zero width. They do not measure forecast uncertainty.",
+            UserWarning,
+            stacklevel=2,
+        )
     return SimpleForecastResult(
         method=key,
         period=m if key == "snaive" else 1,

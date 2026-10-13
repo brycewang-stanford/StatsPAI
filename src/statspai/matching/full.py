@@ -369,7 +369,16 @@ def full_match(
     over all full matchings. ``optmatch::fullmatch`` (and ``MatchIt`` with
     ``method = "full"``, which calls it) solves the same problem on
     distances rounded to a tolerance, so its total can be slightly larger
-    and the matched sets, hence the estimate, can differ a little.
+    and the matched sets, hence the estimate, can differ a little. When
+    several matchings attain the minimum total distance, which of them is
+    returned, and so the matched sets and the estimate, can depend on the
+    order of the rows.
+
+    When the covariates separate treated from comparison units the
+    propensity model has no maximum-likelihood fit; a
+    ``ConvergenceWarning`` is issued and the match on such a score
+    balances nothing. Match on the covariates themselves
+    (``distance='mahalanobis'``) or drop the separating covariate.
 
     Matched sets can be very unequal in size when overlap is poor; a few
     comparison units then carry most of the weight. Inspect
@@ -401,6 +410,11 @@ def full_match(
             recovery_hint="Call sp.full_match(df, y, treat, covariates).",
         )
     covariates = [covariates] if isinstance(covariates, str) else list(covariates)
+    if not 0 < alpha < 1:
+        raise MethodIncompatibility(
+            f"full_match: alpha must lie strictly between 0 and 1, got {alpha!r}.",
+            recovery_hint="Use alpha=0.05 for a 95% interval.",
+        )
     est = str(estimand).upper()
     if est not in ("ATT", "ATC", "ATE"):
         raise MethodIncompatibility(
@@ -458,7 +472,8 @@ def full_match(
         if dist == "logit":
             score = index
         elif ps_model == "logit":
-            score = 1.0 / (1.0 + np.exp(-index))
+            with np.errstate(over="ignore"):
+                score = 1.0 / (1.0 + np.exp(-index))
         else:
             score = stats.norm.cdf(index)
         label = f"{ps_model} propensity score" + (

@@ -592,6 +592,89 @@ def index_calendar_time(
     return out, info
 
 
+def index_gapped_integer_time(
+    data: pd.DataFrame,
+    time: str,
+    cohort: Optional[str] = None,
+    *,
+    function: str,
+) -> Tuple[pd.DataFrame, Optional[Dict[str, Any]]]:
+    """Number the periods of a numeric time column that is not consecutive.
+
+    Estimators that write event time as ``t - g`` and omit relative time
+    ``-1`` assume neighbouring periods differ by one. A biennial panel
+    (``2001, 2003, ...``) has no relative time ``-1``, so nothing is omitted
+    and the fit is not the event study the caller asked for. When the
+    observed values of a numeric ``time`` are not consecutive they are
+    numbered ``1, ..., P`` in order, exactly as :func:`index_calendar_time`
+    numbers dates, and a positive finite ``cohort`` becomes the number of the
+    first observed period on or after it (``P + 1`` when it is later than
+    every period). Missing, infinite and non-positive cohort values are left
+    to the estimator, except that missing and infinite ones become ``0``.
+
+    A consecutive grid, a non-numeric column and a single period are returned
+    untouched with ``info = None``, so those code paths do not change.
+    """
+    if time not in data.columns:
+        return data, None
+    col = data[time]
+    if not pd.api.types.is_numeric_dtype(col.dtype) or pd.api.types.is_bool_dtype(
+        col.dtype
+    ):
+        return data, None
+    raw = col.dropna().unique()
+    try:
+        vals = np.sort(np.asarray(raw, dtype=float))
+    except (TypeError, ValueError):
+        return data, None
+    vals = vals[np.isfinite(vals)]
+    if vals.size < 2:
+        return data, None
+    steps = np.diff(vals)
+    if bool(np.all(steps == 1.0)):
+        return data, None
+
+    out = data.copy()
+    t_raw = pd.to_numeric(out[time], errors="coerce").to_numpy(dtype=float)
+    pos = np.searchsorted(vals, t_raw, side="left")
+    ok = np.isfinite(t_raw)
+    t_new = np.where(ok, pos + 1, np.nan)
+    out[time] = t_new.astype(int) if ok.all() else t_new
+
+    if cohort is not None and cohort in out.columns:
+        g_col = out[cohort]
+        if pd.api.types.is_numeric_dtype(g_col.dtype):
+            g_raw = g_col.to_numpy(dtype=float)
+            never = ~np.isfinite(g_raw)
+            keep = ~never & (g_raw <= 0)
+            g_new = np.zeros(len(g_raw))
+            g_new[keep] = g_raw[keep]
+            dated = ~never & ~keep
+            g_new[dated] = np.searchsorted(vals, g_raw[dated], side="left") + 1
+            out[cohort] = (
+                g_new.astype(int) if bool(np.all(g_new == np.round(g_new))) else g_new
+            )
+
+    regular = bool(steps.max() < 1.5 * np.median(steps))
+    if not regular:
+        warnings.warn(
+            f"{function}: the periods in {time!r} are not evenly spaced. "
+            "Periods are numbered in the order they are observed, so event "
+            "time counts observed periods, not calendar time.",
+            UserWarning,
+            stacklevel=3,
+        )
+    periods = [int(v) if float(v).is_integer() else float(v) for v in vals]
+    info = {
+        "periods": periods,
+        "time": time,
+        "cohort": cohort,
+        "regular": regular,
+        "source": "numeric_gaps",
+    }
+    return out, info
+
+
 def long_difference(
     df: pd.DataFrame,
     *,
@@ -1205,7 +1288,7 @@ def covariates_from_formula(
 
 
 def calendar_time_aware(
-    *, time: str, cohort: Optional[str] = None
+    *, time: str, cohort: Optional[str] = None, numeric_gaps: bool = False
 ) -> Callable[[_F], _F]:
     """Let an estimator take date-typed time and cohort columns.
 
@@ -1214,6 +1297,11 @@ def calendar_time_aware(
     on the period-numbered copy from :func:`index_calendar_time`, and the
     numbering is stored in ``result.model_info['calendar_time']``. Any other
     call passes straight through.
+
+    ``numeric_gaps=True`` is for estimators that hard-code relative time
+    ``-1`` as the reference: a numeric time column whose observed values are
+    not consecutive is numbered the same way
+    (:func:`index_gapped_integer_time`).
     """
 
     def decorate(fn: _F) -> _F:
@@ -1232,14 +1320,19 @@ def calendar_time_aware(
             if not isinstance(data, pd.DataFrame) or not isinstance(t_col, str):
                 return fn(*args, **kwargs)
             cols = [c for c in (t_col, g_col) if isinstance(c, str)]
-            if not any(c in data.columns and _is_calendar(data[c]) for c in cols):
+            g_name = g_col if isinstance(g_col, str) else None
+            if any(c in data.columns and _is_calendar(data[c]) for c in cols):
+                a["data"], info = index_calendar_time(
+                    data, t_col, g_name, function=fn.__name__
+                )
+            elif numeric_gaps:
+                a["data"], info = index_gapped_integer_time(
+                    data, t_col, g_name, function=fn.__name__
+                )
+                if info is None:
+                    return fn(*args, **kwargs)
+            else:
                 return fn(*args, **kwargs)
-            a["data"], info = index_calendar_time(
-                data,
-                t_col,
-                g_col if isinstance(g_col, str) else None,
-                function=fn.__name__,
-            )
             result = fn(*bound.args, **bound.kwargs)
             model_info = getattr(result, "model_info", None)
             if info is not None and isinstance(model_info, dict):

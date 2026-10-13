@@ -268,7 +268,9 @@ def confounder_tip(
         value filled in, and ``n_unmeasured_confounders`` (1 when a
         property was solved for). A solved prevalence outside [0, 1]
         means no binary confounder with the stated properties can tip the
-        effect; it is returned as NaN with a warning.
+        effect; it is returned as NaN with a warning. So is the solved
+        property of a confounder that has no effect on the outcome or no
+        association with the exposure.
 
     Examples
     --------
@@ -378,6 +380,23 @@ def confounder_tip(
                 n_conf = (
                     b / (g * d) if measure == "coef" else np.log(b) / (d * np.log(g))
                 )
+            g = np.asarray(g, dtype=float)
+            d = np.asarray(d, dtype=float)
+            bad = ~np.isfinite(g) | ~np.isfinite(d) | ~np.isfinite(n_conf)
+            if bad.any():
+                warnings.warn(
+                    "confounder_tip: no confounder with the stated "
+                    "properties can move the effect to the null (a "
+                    "confounder with no effect on the outcome, or no "
+                    "association with the exposure, explains nothing); "
+                    "returning NaN for those rows.",
+                    stacklevel=2,
+                )
+                if confounder_outcome_effect is None:
+                    g = np.where(bad, np.nan, g)
+                if exposure_confounder_effect is None:
+                    d = np.where(bad, np.nan, d)
+                n_conf = np.where(bad, np.nan, n_conf)
             cols = {"exposure_confounder_effect": d}
 
     n_conf = np.broadcast_to(np.asarray(n_conf, dtype=float), np.shape(b)).copy()

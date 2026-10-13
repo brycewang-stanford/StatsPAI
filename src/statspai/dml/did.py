@@ -432,6 +432,17 @@ def dml_did(
                 recovery_hint="Keep one pre- and one post-period, or use "
                 "sp.callaway_santanna for more periods.",
             )
+        if all(isinstance(v, str) for v in periods):
+            # strings sort alphabetically: 'pre' comes after 'post'
+            warnings.warn(
+                f"dml_did: the two values of {time!r} are text and were "
+                f"ordered alphabetically, so {periods[1]!r} is taken as the "
+                f"post-treatment period and {periods[0]!r} as the "
+                "pre-treatment period. Code the column 0/1 if that is the "
+                "wrong way round (the sign of the estimate flips).",
+                UserWarning,
+                stacklevel=2,
+            )
         post = (df[time] == periods[1]).to_numpy()
         if id is not None:
             layout = "panel"

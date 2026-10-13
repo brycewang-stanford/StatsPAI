@@ -19,7 +19,7 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
-from .rank_tests import ClassicTestResult, _groups
+from .rank_tests import ClassicTestResult, _groups, _reject_infinite
 
 __all__ = ["loneway"]
 
@@ -113,7 +113,14 @@ def loneway(
             recovery_hint="Each group needs more than one observation overall.",
             diagnostics={"groups": k, "n_obs": int(n)},
         )
+    _reject_infinite(parts, y, "loneway")
     pooled = np.concatenate(parts)
+    if np.ptp(pooled) == 0:
+        raise DataInsufficient(
+            f"loneway: {y!r} takes a single value, so there is no variation "
+            "to split between and within groups.",
+            recovery_hint="Check that the outcome is not constant.",
+        )
     means = np.array([p.mean() for p in parts])
     ss_between = float(np.sum(sizes * (means - pooled.mean()) ** 2))
     ss_within = float(sum(np.sum((p - p.mean()) ** 2) for p in parts))

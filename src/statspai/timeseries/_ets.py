@@ -871,7 +871,10 @@ def ets(
         ``period=1`` no seasonal model is considered.
     damped : bool, optional
         Damp the trend. ``None`` tries both when the trend is chosen
-        automatically, and means no damping for a named trend.
+        automatically, and means no damping for a named trend. A request
+        that contradicts ``model`` is refused: ``damped=True`` for a
+        model without trend, ``damped=False`` for a name such as
+        ``"AAdN"``.
     alpha, beta, gamma, phi : float, optional
         Fix a smoothing parameter instead of estimating it. A fixed
         parameter is not counted in the information criteria.
@@ -962,7 +965,19 @@ def ets(
     missing = ~np.isfinite(values)
     err_l, tr_l, se_l, damped_in_name = _parse_model(model)
     if damped_in_name:
+        if damped is not None and not damped:
+            raise MethodIncompatibility(
+                f"ets: model={model!r} names a damped trend but damped=False.",
+                recovery_hint="Drop one of the two.",
+            )
         damped = True
+    if damped and tr_l == "N":
+        raise MethodIncompatibility(
+            f"ets: a damped trend was requested but model={model!r} has no "
+            "trend to damp.",
+            recovery_hint="Use a model with a trend ('AAN', 'MAN', ...), "
+            "'Z' to let the trend be chosen, or drop damped=True.",
+        )
     if ic not in ("aicc", "aic", "bic"):
         raise MethodIncompatibility(
             f"ets: ic={ic!r} is not one of 'aicc', 'aic', 'bic'.",

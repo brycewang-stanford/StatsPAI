@@ -200,6 +200,14 @@ def boxcox(
     """
     if data is None:
         raise MethodIncompatibility("boxcox: data is required.")
+    if isinstance(alpha, bool) or not isinstance(alpha, (int, float, np.number)):
+        raise MethodIncompatibility(f"boxcox: alpha must be a number, got {alpha!r}.")
+    if not 0.0 < float(alpha) < 1.0:
+        raise MethodIncompatibility(
+            f"boxcox: alpha must lie strictly between 0 and 1, got {alpha!r}.",
+            recovery_hint="alpha=0.05 gives a 95% interval.",
+            diagnostics={"alpha": alpha},
+        )
     if formula is not None:
         y_df, X_df = create_design_matrices(formula, data)
         names = [str(c) for c in X_df.columns]
@@ -230,6 +238,15 @@ def boxcox(
                 "sp.glm(family='poisson') / sp.poisson for outcomes with zeros."
             ),
             diagnostics={"n_nonpositive": int(np.sum(yv <= 0))},
+        )
+    if float(yv.max()) - float(yv.min()) <= 1e-12 * float(yv.max()):
+        # every power of a constant is a constant: the residual sum of
+        # squares is rounding noise at each lambda and so is the estimate
+        raise DataInsufficient(
+            f"boxcox: the outcome {y_name!r} does not vary; no power "
+            "transformation is identified.",
+            recovery_hint="Check the outcome column.",
+            diagnostics={"y_min": float(yv.min()), "y_max": float(yv.max())},
         )
     lo, hi = float(bounds[0]), float(bounds[1])
     if not lo < hi:

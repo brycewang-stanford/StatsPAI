@@ -211,6 +211,22 @@ def _needs_patsy(formula: str) -> bool:
     return any(tok in rhs for tok in _PATSY_TOKENS)
 
 
+class _DesignNames(list):
+    """Coefficient names that also carry the patsy design they came from."""
+
+    design_info: Any = None
+
+
+def _seen_factor_levels(var_names: Any, data: pd.DataFrame) -> Dict[str, Any]:
+    """Levels of each factor the fit saw, for ``predict()`` on new data."""
+    design_info = getattr(var_names, "design_info", None)
+    if design_info is None:
+        return {}
+    from ..postestimation._design import fitted_factor_levels
+
+    return fitted_factor_levels(design_info, data.columns)
+
+
 def _patsy_count_design(
     formula: str, data: pd.DataFrame, add_constant: bool, fe_vars: List[str]
 ) -> Tuple[np.ndarray, np.ndarray, List[str], str, List[str], pd.DataFrame]:
@@ -227,7 +243,10 @@ def _patsy_count_design(
     if not add_constant and "-1" not in rhs.replace(" ", ""):
         rhs = rhs + " - 1"
     y_df, X_df = create_design_matrices(f"{lhs.strip()} ~ {rhs}", data)
-    var_names = ["_cons" if c == "Intercept" else str(c) for c in X_df.columns]
+    var_names = _DesignNames(
+        "_cons" if c == "Intercept" else str(c) for c in X_df.columns
+    )
+    var_names.design_info = getattr(X_df, "design_info", None)
     kept = data.loc[X_df.index] if len(X_df) != len(data) else data
     return (
         y_df.to_numpy(dtype=np.float64).ravel(),
@@ -1387,6 +1406,7 @@ def poisson(
     maxiter: int = 100,
     tol: float = 1e-8,
     alpha: float = 0.05,
+    weights_as: Optional[str] = None,
 ) -> EconometricResults:
     """
     Poisson regression via MLE (IRLS).
@@ -1412,6 +1432,13 @@ def poisson(
         with ``robust=`` it is ``[pw=w]``; with ``cluster=`` it is
         ``[pw=w], vce(cluster)``. The reported log-likelihood is the
         weighted sum.
+    weights_as : {'frequency', 'sampling'}, optional
+        What the weights are. ``'frequency'`` is what ``weights=`` alone
+        already means. ``'sampling'`` (Stata ``[pw=]``) gives the same
+        coefficients with the robust variance, unless ``robust=`` or
+        ``cluster=`` asks for another. Saying which also silences the
+        warning about dispersed weights under the model-based variance.
+        ``'analytic'`` is refused.
     offset : str, optional
         Offset variable (log of exposure already computed).
     exposure : str, optional
@@ -1450,6 +1477,7 @@ def poisson(
     True
     """
     y_arr, X, var_names, dep_var, _, data = _parse_formula_or_xy(formula, data, y, x)
+    seen_levels = _seen_factor_levels(var_names, data)
     from ..core._collinear import drop_collinear
 
     X, var_names, collinear_omitted, _ = drop_collinear(X, var_names, "poisson")
@@ -1473,6 +1501,20 @@ def poisson(
     )
 
     # Standard-error request (Stata grammar)
+    from ..core._agent_summary import resolve_weights_as
+
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native="frequency",
+        entry="sp.poisson",
+    )
+    if (
+        weights_as == "sampling"
+        and cluster is None
+        and str(robust).lower() == "nonrobust"
+    ):
+        robust = "robust"
     from ..core._vcov_spec import parse_se_request
 
     _se = parse_se_request(
@@ -1611,6 +1653,7 @@ def poisson(
             ),
             cluster_keys=cluster_arr,
             cluster=cluster,
+            weights_as=weights_as,
         )
 
     data_info = {
@@ -1632,6 +1675,9 @@ def poisson(
         "exposure": exposure,
         "weights": weights,
     }
+    if seen_levels:
+        # for predict(): which values of each factor the fit saw
+        data_info["factor_levels"] = seen_levels
 
     diagnostics = {
         "Log-Likelihood": ll,
@@ -1680,6 +1726,7 @@ def nbreg(
     maxiter: int = 100,
     tol: float = 1e-8,
     alpha: float = 0.05,
+    weights_as: Optional[str] = None,
 ) -> EconometricResults:
     """
     Negative binomial regression (NB2 or NB1).
@@ -1699,7 +1746,17 @@ def nbreg(
     cluster : str, optional
         Variable name for clustered standard errors.
     weights : str, optional
-        Weight variable name.
+        Observation weight column. Alone it is a frequency weight (Stata
+        ``[fw=]`` / ``[iw=]``): the model-based variance scales with the
+        weights. For sampling weights say so with
+        ``weights_as='sampling'``.
+    weights_as : {'frequency', 'sampling'}, optional
+        What the weights are. ``'frequency'`` is what ``weights=`` alone
+        already means. ``'sampling'`` (Stata ``[pw=]``) gives the same
+        coefficients with the robust variance, unless ``robust=`` or
+        ``cluster=`` asks for another. Saying which also silences the
+        warning about dispersed weights under the model-based variance.
+        ``'analytic'`` is refused.
     offset : str, optional
         Offset variable (log of exposure).
     exposure : str, optional
@@ -1739,6 +1796,7 @@ def nbreg(
     y_arr, X, var_names, dep_var, formula_fe, data = _parse_formula_or_xy(
         formula, data, y, x
     )
+    seen_levels = _seen_factor_levels(var_names, data)
     n_own = len(var_names)
     X, var_names, fe_level_counts = _append_fixed_effect_dummies(
         X, var_names, data, formula_fe
@@ -1766,6 +1824,20 @@ def nbreg(
 
     cluster_arr = None
     # Standard-error request (Stata grammar)
+    from ..core._agent_summary import resolve_weights_as
+
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native="frequency",
+        entry="sp.nbreg",
+    )
+    if (
+        weights_as == "sampling"
+        and cluster is None
+        and str(robust).lower() == "nonrobust"
+    ):
+        robust = "robust"
     from ..core._vcov_spec import parse_se_request
 
     _se = parse_se_request(
@@ -1956,6 +2028,7 @@ def nbreg(
             ),
             cluster_keys=cluster_arr,
             cluster=cluster,
+            weights_as=weights_as,
         )
 
     data_info = {
@@ -1976,6 +2049,9 @@ def nbreg(
         # Coefficients plus the dispersion, which is not in ``params``.
         "n_params": k + 1,
     }
+    if seen_levels:
+        # for predict(): which values of each factor the fit saw
+        data_info["factor_levels"] = seen_levels
 
     diagnostics = {
         "Log-Likelihood": ll,
@@ -3525,6 +3601,7 @@ def ppmlhdfe(
             ),
             cluster_keys=cluster_arr if _one_way else None,
             cluster=cluster,
+            offers_weights_as=False,
         )
     data_info = {
         "nobs": n,

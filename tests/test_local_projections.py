@@ -55,8 +55,19 @@ def test_cumulative_mode_differs(ar_dgp):
     r2 = local_projections(
         ar_dgp, outcome="y", shock="shock", horizons=5, cumulative=True
     )
-    # cumulative and level responses differ by construction
-    assert np.any(np.abs(r1.irf - r2.irf) > 0.05)
+    # y[t-1] is a regressor under the default auto_lag=True, so moving it
+    # to the left-hand side (y[t+h] - y[t-1]) changes only its own
+    # coefficient: the response to the shock is the same number
+    np.testing.assert_allclose(r1.irf, r2.irf, atol=1e-12)
+    np.testing.assert_allclose(r1.se, r2.se, rtol=1e-9)
+    # without the automatic lags the two regressions differ
+    b1 = local_projections(
+        ar_dgp, outcome="y", shock="shock", horizons=5, auto_lag=False
+    )
+    b2 = local_projections(
+        ar_dgp, outcome="y", shock="shock", horizons=5, auto_lag=False, cumulative=True
+    )
+    assert np.any(np.abs(b1.irf - b2.irf) > 0.05)
 
 
 def test_to_frame_shape(ar_dgp):

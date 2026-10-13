@@ -30,6 +30,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._validate import require_numeric_columns
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
@@ -217,6 +218,12 @@ def ivpoisson(
             f"ivpoisson: {len(en)} endogenous regressor(s) but only {len(iv)} "
             "excluded instrument(s)."
         )
+    require_numeric_columns(
+        data,
+        [y] + en + xs + iv,
+        function="ivpoisson",
+        argument="y / x / endog / instruments",
+    )
     df = data[list(dict.fromkeys(cols))].dropna()
     n = len(df)
     Y = df[y].to_numpy(dtype=float)
@@ -224,6 +231,16 @@ def ivpoisson(
         raise MethodIncompatibility(
             f"ivpoisson: y={y!r} has negative values; an exponential mean "
             "cannot fit them."
+        )
+    if n and not np.any(Y > 0):
+        # exp(x'b) = 0 has no finite solution: the constant runs to minus
+        # infinity and the moment conditions are met in the limit
+        raise DataInsufficient(
+            f"ivpoisson: y={y!r} is zero on every one of the {n} complete "
+            "rows; an exponential mean has no finite fit.",
+            recovery_hint="Check the outcome and the rows dropped for "
+            "missing values.",
+            diagnostics={"nobs": n, "n_positive": 0},
         )
     one = np.ones(n)
     ex = [df[v].to_numpy(dtype=float) for v in xs]

@@ -10,6 +10,7 @@ ranking, an outcome and a randomized treatment.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -41,12 +42,47 @@ def _gain(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Step sizes, cumulative effects and gains of one ranking."""
     n = score.shape[0]
-    order = np.argsort(score if ascending else -score, kind="stable")
-    y_s, t_s = y[order], t[order]
+    key = score if ascending else -score
+    order = np.argsort(key, kind="stable")
+    y_s, t_s, key_s = y[order], t[order], key[order]
     sizes = np.clip(np.round(np.linspace(n / n_steps, n, n_steps)).astype(int), 2, n)
-    effects = np.array([_slope(y_s[:k], t_s[:k]) for k in sizes])
-    base = _slope(y, t) if normalize else 0.0
+    full = _slope(y, t)
+    effects = np.array([_top_slope(y_s, t_s, key_s, int(k), full) for k in sizes])
+    base = full if normalize else 0.0
     return sizes, effects, (effects - base) * (sizes / n)
+
+
+def _top_slope(
+    y_s: np.ndarray, t_s: np.ndarray, key_s: np.ndarray, k: int, full: float
+) -> float:
+    """Slope among the top ``k`` of a sorted sample, tied scores together.
+
+    When the cut at ``k`` falls inside a group of equal scores, which of
+    them make the top ``k`` is an accident of row order. The group then
+    enters whole, each member with weight (places left) / (group size), so
+    the result does not depend on the order of the rows. A cut between
+    distinct scores, or inside a group of identical observations, is the
+    plain slope of the first ``k`` rows.
+    """
+    n = key_s.shape[0]
+    if k >= n or key_s[k - 1] != key_s[k]:
+        return _slope(y_s[:k], t_s[:k])
+    lo = int(np.searchsorted(key_s, key_s[k - 1], side="left"))
+    hi = int(np.searchsorted(key_s, key_s[k - 1], side="right"))
+    y_g, t_g = y_s[lo:hi], t_s[lo:hi]
+    if bool(np.all(y_g == y_g[0]) and np.all(t_g == t_g[0])):
+        return _slope(y_s[:k], t_s[:k])
+    if lo == 0:
+        # Only the tied group is in play, equally weighted.
+        return full if hi == n else _slope(y_g, t_g)
+    w = np.ones(hi)
+    w[lo:] = (k - lo) / (hi - lo)
+    y_h, t_h = y_s[:hi], t_s[:hi]
+    tc = t_h - float(np.sum(w * t_h) / np.sum(w))
+    denom = float(np.sum(w * tc**2))
+    if denom <= 0:
+        return float("nan")
+    return float(np.sum(w * tc * y_h) / denom)
 
 
 @dataclass(repr=False)
@@ -248,14 +284,46 @@ def cate_gain_curve(
             )
         score = data[cate].to_numpy(dtype=float)
     else:
+        if isinstance(cate, pd.Series) and not cate.index.equals(data.index):
+            same = (
+                len(cate) == len(data)
+                and cate.index.is_unique
+                and data.index.is_unique
+                and cate.index.isin(data.index).all()
+            )
+            if not same:
+                raise MethodIncompatibility(
+                    "cate_gain_curve: the index of the cate Series does not "
+                    "match the index of data, so the predictions cannot be "
+                    "paired with rows.",
+                    recovery_hint=(
+                        "Give the Series the index of data, or pass "
+                        "cate.to_numpy() if the values are already in row "
+                        "order."
+                    ),
+                )
+            cate = cate.reindex(data.index)
         score = np.asarray(cate, dtype=float).ravel()
         if score.shape[0] != len(data):
             raise MethodIncompatibility(
                 f"cate_gain_curve: cate has {score.shape[0]} values for "
                 f"{len(data)} rows."
             )
-    y_arr = data[y].to_numpy(dtype=float)
-    t_arr = data[treat].to_numpy(dtype=float)
+    arrays = []
+    for role, col in (("outcome", y), ("treatment", treat)):
+        try:
+            arrays.append(data[col].to_numpy(dtype=float))
+        except (TypeError, ValueError) as exc:
+            raise MethodIncompatibility(
+                f"cate_gain_curve: the {role} column {col!r} is not numeric "
+                f"(dtype {data[col].dtype}).",
+                recovery_hint=(
+                    "Code the column as numbers: 0/1 for a two-arm "
+                    "treatment, or the dose."
+                ),
+                diagnostics={"column": col, "dtype": str(data[col].dtype)},
+            ) from exc
+    y_arr, t_arr = arrays
     ok = np.isfinite(score) & np.isfinite(y_arr) & np.isfinite(t_arr)
     score, y_arr, t_arr = score[ok], y_arr[ok], t_arr[ok]
     n = int(score.shape[0])
@@ -330,6 +398,15 @@ def cate_gain_curve(
         auc_ci = (float(lo), float(hi))
 
     n_flat: Optional[int] = int(np.sum(~np.isfinite(effects)))
+    if n_flat:
+        warnings.warn(
+            f"cate_gain_curve: the treatment does not vary among the "
+            f"top-ranked units at {n_flat} of {len(sizes)} step(s) of the "
+            "curve (all of them are in one arm), so the cumulative effect "
+            "there is NaN and those steps add nothing to the area.",
+            UserWarning,
+            stacklevel=2,
+        )
     return CATEGainCurveResult(
         auc=auc,
         ate=float(ate),

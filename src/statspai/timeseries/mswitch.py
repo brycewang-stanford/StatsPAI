@@ -16,6 +16,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._collinear import drop_collinear
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from . import _mswitch_core as core
 
@@ -364,8 +365,11 @@ def _setup(
     vce: str,
     starts: int,
     alpha: float,
-) -> Tuple[core.Spec, core.Data, pd.Series, List[str], List[str]]:
-    """Check the arguments of :func:`mswitch`; the model shape and the data."""
+) -> Tuple[core.Spec, core.Data, pd.Series, List[str], List[str], List[Dict[str, str]]]:
+    """Check the arguments of :func:`mswitch`; the model shape and the data.
+
+    Redundant regressors are omitted with a note; the records are the last
+    element returned."""
     if model not in ("dr", "ar"):
         raise MethodIncompatibility(
             f"mswitch: model must be 'dr' or 'ar', got {model!r}."
@@ -413,6 +417,20 @@ def _setup(
             recovery_hint="The filter needs a gapless series; drop or fill first.",
         )
     const = {True: "switch", False: "none", "common": "common"}[constant]
+    # A regressor that repeats the constant or another regressor has no
+    # coefficient of its own (a common coefficient on a column that also
+    # has state-dependent ones is one such case): the likelihood is flat
+    # along it. Switching terms are scanned first, so the common copy goes.
+    design = np.column_stack(([] if const == "none" else [np.ones(n_all)]) + [zv, xv])
+    labels = ([] if const == "none" else ["_cons"]) + list(zn) + list(xn)
+    _, _, omitted, keep = drop_collinear(design, labels, "mswitch", stacklevel=4)
+    if omitted:
+        off = 0 if const == "none" else 1
+        kept = {j - off for j in keep}
+        zk = [j for j in range(len(zn)) if j in kept]
+        xk = [j for j in range(len(xn)) if j + len(zn) in kept]
+        zv, zn = zv[:, zk], [zn[j] for j in zk]
+        xv, xn = xv[:, xk], [xn[j] for j in xk]
     spec = core.Spec(
         int(states),
         model if ar else "dr",
@@ -436,7 +454,7 @@ def _setup(
             diagnostics={"n_obs": int(n), "n_params": int(spec.n_par)},
         )
     dat = core.Data(yv, xv, zv, spec.p)
-    return spec, dat, ys, xn, zn
+    return spec, dat, ys, xn, zn, omitted
 
 
 def mswitch(
@@ -483,7 +501,9 @@ def mswitch(
     y : str or array-like
         Outcome in time order, or its column name in ``data``.
     x : str, list of str or array-like, optional
-        Regressors with coefficients common to the states.
+        Regressors with coefficients common to the states. One that
+        repeats the constant, a switching regressor or another regressor
+        is omitted with a note (``model_info['omitted']``).
     data : pandas.DataFrame, optional
         Needed when variables are given by name.
     states : int, default 2
@@ -584,7 +604,7 @@ def mswitch(
     >>> bool((fit.smoothed["state2"] > 0.5).eq(s == 1).mean() > 0.9)
     True
     """
-    spec, dat, ys, xn, zn = _setup(
+    spec, dat, ys, xn, zn, omitted = _setup(
         y,
         x,
         data,
@@ -696,6 +716,7 @@ def mswitch(
             "ergodic": core.ergodic(fs["P"][None])[0].tolist(),
             "initial": "ergodic",
             "notes": notes,
+            "omitted": omitted,
         },
         _state={
             "spec": spec,

@@ -251,8 +251,20 @@ def stochvol(
         if data is None or y not in data.columns:
             raise MethodIncompatibility(f"{y!r} is not a column of data.")
         series = data[y]
+    elif isinstance(y, pd.Series):
+        series = y
     else:
-        series = pd.Series(np.asarray(y, dtype=float).reshape(-1))
+        arr = np.asarray(y, dtype=float)
+        if arr.ndim > 2 or (arr.ndim == 2 and arr.shape[1] != 1):
+            raise MethodIncompatibility(
+                "y must be one series (a vector, or a matrix with one "
+                f"column); got shape {arr.shape}. The model is univariate: "
+                "fit each series on its own."
+            )
+        series = pd.Series(
+            arr.reshape(-1),
+            index=y.index if isinstance(y, pd.DataFrame) else None,
+        )
     index = series.index
     r = series.to_numpy(dtype=float)
     if not np.isfinite(r).all():
@@ -262,6 +274,8 @@ def stochvol(
     n = r.size
     if n < 30:
         raise DataInsufficient(f"{n} observations are too few for a volatility model.")
+    if np.ptp(r) <= 1e-12 * float(np.abs(r).max()):
+        raise MethodIncompatibility("The series is constant.")
     if demean:
         r = r - r.mean()
     if np.allclose(r, 0.0):

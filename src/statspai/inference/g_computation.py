@@ -42,7 +42,8 @@ from scipy import stats
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
+from .basic_tests import _check_alpha
 
 
 @_expands_categorical("covariates")
@@ -183,6 +184,7 @@ def g_computation(
             f"g_computation: se_method must be 'bootstrap' or 'analytic'; "
             f"got {se_method!r}."
         )
+    _check_alpha(alpha, "g_computation")
     if by_arm:
         return _by_arm(
             data,
@@ -233,6 +235,14 @@ def g_computation(
                 f"[{preview}{tail}]{nan_note}. For multi-valued or "
                 f"continuous D, use estimand='dose_response'."
             )
+        n_arm1 = int(np.sum(D == 1))
+        if n_arm1 == 0 or n_arm1 == n:
+            raise DataInsufficient(
+                f"g_computation: {treat!r} has {n_arm1} treated and "
+                f"{n - n_arm1} control units on the complete rows; "
+                f"estimand={estimand!r} contrasts the two arms and needs both.",
+                diagnostics={"n_treated": n_arm1, "n_control": n - n_arm1},
+            )
         grid = np.array([0.0, 1.0])
     else:
         if treat_values is None or len(treat_values) == 0:
@@ -253,7 +263,9 @@ def g_computation(
         if ml_Q is None:
             import statsmodels.api as sm
 
-            fit = sm.OLS(Y_, sm.add_constant(design)).fit()
+            # has_constant="add": a constant column must not stand in for
+            # the intercept that the prediction design below always gets
+            fit = sm.OLS(Y_, sm.add_constant(design, has_constant="add")).fit()
             preds = np.empty((X_.shape[0], len(grid_)))
             for k, d_val in enumerate(grid_):
                 d_col = np.full((X_.shape[0], 1), d_val)
@@ -293,6 +305,7 @@ def g_computation(
         return np.asarray(preds.mean(axis=0), dtype=float)
 
     point = _point_estimates(Y, D, X)
+    binary_contrast = estimand in ("ATE", "ATT", "ATC")
 
     rng = np.random.default_rng(seed)
     boot = np.full((n_boot, len(point)), np.nan)
@@ -301,6 +314,9 @@ def g_computation(
     for b in range(n_boot):
         idx = rng.integers(0, n, size=n)
         try:
+            if binary_contrast and np.unique(D[idx]).size < 2:
+                # no contrast of arms can be fitted on one arm
+                raise DataInsufficient("the resample contains a single treatment arm")
             boot[b] = _point_estimates(Y[idx], D[idx], X[idx])
         except Exception as e:
             n_failed += 1

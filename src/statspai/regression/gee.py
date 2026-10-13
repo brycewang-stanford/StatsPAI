@@ -24,10 +24,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ..core._collinear import drop_collinear
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
-from .glm import FAMILIES, _get_link
+from .glm import FAMILIES, _get_link, require_outcome_in_support
 
 _CORSTR = {
     "independence": "independence",
@@ -173,8 +174,12 @@ def gee(
     id : str
         Cluster identifier (subject, village, mouse). Observations of a
         cluster need not be contiguous.
-    family : {"gaussian", "binomial", "poisson", "gamma"}, default "gaussian"
-        Variance function of the marginal model.
+    family : {"gaussian", "binomial", "poisson", "gamma", "inverse_gaussian", \
+"negative_binomial"}, default "gaussian"
+        Variance function of the marginal model. ``"negative_binomial"``
+        is ``mu + mu^2``: the overdispersion parameter is held at one,
+        not estimated. A binomial outcome must lie in [0, 1], a Poisson
+        or negative binomial one must be non-negative.
     link : str, optional
         Link function; the family's canonical link when omitted.
     corstr : {"independence", "exchangeable", "ar1", "ar-m", "unstructured"}
@@ -218,7 +223,10 @@ def gee(
         Coefficients with normal-based inference. ``model_info`` carries
         ``scale``, ``working_correlation``, ``corr_alpha`` (the scalar
         parameter for exchangeable and AR(1)), ``se_model``, ``se_robust``,
-        ``n_clusters`` and ``iterations``.
+        ``n_clusters`` and ``iterations``, and ``omitted``: the regressors
+        left out because they are constant or an exact linear combination
+        of earlier ones (one ``{"variable", "reason"}`` record each; a
+        warning names them).
 
     Notes
     -----
@@ -300,12 +308,24 @@ def gee(
     fam = FAMILIES[fam_key]()
     lnk = _get_link(link, fam)
 
+    # rows are matched by position from here on: the labels of ``data``
+    # need not be unique
     keep = data.dropna(subset=[id] + ([time] if time is not None else []))
+    keep = keep.reset_index(drop=True)
     y_df, X_df = create_design_matrices(formula, keep)
     rows = X_df.index
     names = [str(c) for c in X_df.columns]
     y = np.asarray(y_df, dtype=float).reshape(len(rows), -1)[:, -1]
-    X = np.asarray(X_df, dtype=float)
+    dep_name = str(y_df.columns[-1]) if hasattr(y_df, "columns") else "y"
+    require_outcome_in_support(y, fam, "gee", dep_name)
+    # a dependent column leaves X'WX singular: omit it and say so
+    X, names, omitted, _ = drop_collinear(
+        np.asarray(X_df, dtype=float),
+        names,
+        "gee",
+        formula=formula,
+        design_info=getattr(X_df, "design_info", None),
+    )
     n, p = X.shape
     groups = keep.loc[rows, id]
     codes = pd.factorize(groups, sort=True)[0]
@@ -474,11 +494,12 @@ def gee(
         "dof_correction": bool(dof_correction),
         "formula": formula,
         "alpha": alpha,
+        "omitted": omitted,
     }
     data_info = {
         "nobs": int(n),
         "n_clusters": int(G),
-        "dependent_var": str(y_df.columns[-1]) if hasattr(y_df, "columns") else "y",
+        "dependent_var": dep_name,
         "df_resid": np.inf,
         "cluster_size_min": int(sizes.min()),
         "cluster_size_max": m_max,

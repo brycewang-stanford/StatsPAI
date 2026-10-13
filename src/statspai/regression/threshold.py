@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from ..core._validate import require_numeric_columns
 from ..core._vcov import sandwich_vcov
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIWarning
@@ -99,6 +100,87 @@ def _candidates(q: np.ndarray, trim: float, grid: Optional[Any]) -> np.ndarray:
             recovery_hint="Lower trim, or check that the threshold variable varies.",
         )
     return np.asarray(values, dtype=float)
+
+
+class _ThresholdResults(EconometricResults):
+    """A threshold or kink fit. Its design depends on the estimated
+    threshold, so prediction rebuilds it from the threshold variable."""
+
+    _thr_base: Any = None
+    _thr: Optional[Dict[str, Any]] = None
+
+    def predict(
+        self,
+        data: Optional[pd.DataFrame] = None,
+        what: str = "mean",
+        alpha: float = 0.05,
+    ) -> Any:
+        """Predictions at the estimated threshold.
+
+        ``data`` holds the variables of the formula, the threshold
+        variable and any ``regime=`` column. ``what='confidence'`` and
+        ``'prediction'`` give intervals from the reported covariance:
+        like the standard errors, they take the threshold as known in the
+        threshold model and include it in the kink model. Not available
+        with ``absorb=``: the group effects are removed, not estimated.
+        """
+        from .nls import _check_what, _interval_frame
+
+        _check_what(what, alpha, "sp.threshold predict")
+        if data is None:
+            return super().predict(None, what=what, alpha=alpha)
+        spec = self._thr or {}
+        if spec.get("absorb") is not None:
+            raise MethodIncompatibility(
+                "sp.threshold predict: with absorb= the group effects are "
+                "removed, not estimated, so the level of a prediction is "
+                "not defined.",
+                recovery_hint="Fit with C(group) in the formula instead of "
+                "absorb= to predict.",
+            )
+        if not isinstance(data, pd.DataFrame):
+            raise MethodIncompatibility(
+                "sp.threshold predict: data must be a pandas DataFrame.",
+                diagnostics={"data_type": data.__class__.__name__},
+            )
+        var = spec["threshold_var"]
+        needed = [var] + [r for r in spec["regime_columns"]]
+        missing = [c for c in needed if c not in data.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"sp.threshold predict: the data lack column(s) {missing}.",
+                recovery_hint="Pass the threshold variable and the regime "
+                "variables along with those of the formula.",
+                diagnostics={"missing_columns": missing},
+            )
+        X = np.asarray(self._thr_base._prediction_design(data), dtype=float)
+        if X.shape[0] != len(data):
+            raise MethodIncompatibility(
+                "sp.threshold predict: the data have missing values in the "
+                "variables of the formula.",
+                recovery_hint="Drop or fill them before predicting.",
+            )
+        names = spec["names"]
+        q = np.asarray(data[var], dtype=float)
+        columns = [
+            X[:, names.index(z)] if z in names else np.asarray(data[z], dtype=float)
+            for z in spec["z_names"]
+        ]
+        Z = np.column_stack(columns) if columns else np.empty((len(data), 0))
+        gamma, kink = spec["threshold"], spec["kink"]
+        W = np.column_stack([X, _switch(q, gamma, Z, kink, not kink)])
+        theta = np.asarray(self.params, dtype=float)
+        k = W.shape[1]
+        yhat = W @ theta[:k]
+        if what in ("mean", "link"):
+            return np.asarray(yhat, dtype=float)
+        gradient = W
+        if kink:
+            slope = np.where(q < gamma, -theta[k - 2], 0.0) + np.where(
+                q > gamma, -theta[k - 1], 0.0
+            )
+            gradient = np.column_stack([W, slope])
+        return _interval_frame(self, yhat, gradient, what, alpha, data.index)
 
 
 def _switch(
@@ -255,12 +337,21 @@ def threshold(
             "variable changes; drop regime=, or use kink=False.",
         )
     outside = [r for r in (regime or []) if r in data.columns]
+    require_numeric_columns(
+        data, [threshold], function="sp.threshold", argument="threshold"
+    )
     frame = data.dropna(subset=list(dict.fromkeys(extra + outside)))
+    # rows are matched by position: the labels of ``data`` need not be
+    # unique. The labels come back on the estimation sample below.
+    labels = frame.index
+    frame = frame.reset_index(drop=True)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         base = regress(formula, data=frame)
     info = base.data_info
-    frame = frame.loc[info["sample_index"]]
+    used = np.asarray(info["sample_index"])
+    frame = frame.iloc[used]
+    frame.index = labels[used]
     X = np.asarray(info["X"], dtype=float)
     y = np.asarray(info["y"], dtype=float)
     names: List[str] = [str(v) for v in info["var_names"]]
@@ -571,13 +662,24 @@ def threshold(
         "Threshold": gamma_hat,
     }
     index = pd.Index(out_names)
-    return EconometricResults(
+    result = _ThresholdResults(
         params=pd.Series(theta, index=index),
         std_errors=pd.Series(se, index=index),
         model_info=model_info,
         data_info=data_info,
         diagnostics=diagnostics,
     )
+    result._thr_base = base
+    result._thr = {
+        "names": list(names),
+        "z_names": [] if kink else list(z_names),
+        "regime_columns": [] if kink else [z for z in z_names if z not in names],
+        "threshold_var": threshold,
+        "threshold": gamma_hat,
+        "kink": bool(kink),
+        "absorb": absorb,
+    }
+    return result
 
 
 def _linearity_test(

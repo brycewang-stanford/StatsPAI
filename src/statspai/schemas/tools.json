@@ -705,7 +705,7 @@
     "name": "anderson_rubin_test"
   },
   {
-    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ardl: unknown trend <trend> -> Use 'c', 'ct' or 'n'; ardl: column(s) <missing_cols> are not in data -> Check the column names; ardl: the time index has repeated values -> Pass one row per period; for a panel, fit each unit separately.",
+    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ardl: unknown trend <trend> -> Use 'c', 'ct' or 'n'; ardl: column(s) <missing_cols> are not in data -> Check the column names; ardl: x=<xs> repeats a column or lists the outcome <y>. The lags of the outcome enter through lags=, not x= -> Name each regressor once and leave the outcome o...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -2224,7 +2224,7 @@
     "name": "best_linear_projection"
   },
   {
-    "description": "Exact best-subset selection for OLS by branch and bound: for every model size the subset with the smallest RSS, and the size that optimises BIC, AIC, adjusted R2 or Mallows' Cp. R leaps::regsubsets(method='exhaustive'). Regressors can be forced in. Up to 30 candidates. Validation: certified parity evidence. Do NOT use when: Reporting t-statistics or p-values of the selected model -- they ignore the search and overstate significance; fix the specification in advance or use sp.rlasso_effect; More than 30 candidates -- screen with sp.lasso_select first. Cost: Worst case exponential in the number of candidates; about a second at 25 correlated candidates, minutes at 40. Assumptions: Linear model; selection is for prediction. Failure modes: best_subset: <p> candidates; the exact search is limited to <_MAX_CANDIDATES> -> Screen first with sp.lasso_select or sp.stepwise; best_subset: candidate(s) <bad> are constant or collinear with the forced regressors -> Drop them from x; best_subset: the candidates are perfectly collinear -> Drop the redundant column(s) from x. Alternatives: sp.stepwise, sp.lasso_select, sp.rlasso.",
+    "description": "Exact best-subset selection for OLS by branch and bound: for every model size the subset with the smallest RSS, and the size that optimises BIC, AIC, adjusted R2 or Mallows' Cp. R leaps::regsubsets(method='exhaustive'). Regressors can be forced in. Up to 30 candidates. Validation: certified parity evidence. Do NOT use when: Reporting t-statistics or p-values of the selected model -- they ignore the search and overstate significance; fix the specification in advance or use sp.rlasso_effect; More than 30 candidates -- screen with sp.lasso_select first. Cost: Worst case exponential in the number of candidates; about a second at 25 correlated candidates, minutes at 40. Assumptions: Linear model; selection is for prediction. Failure modes: best_subset: <p> candidates; the exact search is limited to <_MAX_CANDIDATES> -> Screen first with sp.lasso_select or sp.stepwise; best_subset: max_vars=<max_vars> must be at least 1 -> Omit max_vars to search every size; best_subset: candidate(s) <bad> are constant or collinear with the forced regressors -> Drop them from x. Alternatives: sp.stepwise, sp.lasso_select, sp.rlasso.",
     "input_schema": {
       "properties": {
         "criterion": {
@@ -3181,7 +3181,7 @@
     "name": "boxcox"
   },
   {
-    "description": "Box-Cox parameter that stabilises the variance of a series across its level, by Guerrero's method (minimum coefficient of variation of sd / mean^(1 - lambda) across cycles). lambda = 0 is the logarithm. R forecast::BoxCox.lambda, fabletools guerrero, coreforecast boxcox_lambda. For the Box-Cox transform of a regression outcome see sp.boxcox. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: boxcox_lambda: Guerrero's method needs a strictly positive series -> Shift the series or model it untransformed; boxcox_lambda: <n> observations give fewer than two cycles of length <m> -> Provide a longer series. Alternatives: sp.boxcox.",
+    "description": "Box-Cox parameter that stabilises the variance of a series across its level, by Guerrero's method (minimum coefficient of variation of sd / mean^(1 - lambda) across cycles). lambda = 0 is the logarithm. R forecast::BoxCox.lambda, fabletools guerrero, coreforecast boxcox_lambda. For the Box-Cox transform of a regression outcome see sp.boxcox. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: boxcox_lambda: Guerrero's method needs a strictly positive series -> Shift the series or model it untransformed; boxcox_lambda: <n> observations give fewer than two cycles of length <m> -> Provide a longer series; boxcox_lambda: lower=<lower> and upper=<upper> do not bracket an interval to search -> Use lower < upper, e.g. lower=-1, upper=2. Alternatives: sp.boxcox.",
     "input_schema": {
       "properties": {
         "lower": {
@@ -3871,7 +3871,7 @@
     "name": "cate_eval"
   },
   {
-    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: cate_gain_curve: the index of the cate Series does not match the index of data, so the predictions cannot be paired with rows -> Give the Series the index of data, or pass cate.to_numpy() if the values are already in row order; cate_gain_curve: the <role> column <col> is not numeric (dtype <data[col].dtype>) -> Code the column as numbers: 0/1 for a two-arm treatment, or the dose.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5328,9 +5328,17 @@
           "type": "number"
         },
         "weights": {
-          "description": "Column name for frequency/analytic weights.",
+          "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Regressor names (alternative to formula).",
@@ -13128,9 +13136,17 @@
           "x-canonical": "vce"
         },
         "weights": {
-          "description": "Column name for regression weights.",
+          "description": "Column name for regression weights. Alone they are analytic weights (Stata ``[aw=]``, R ``fixest`` ``weights=``).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'analytic'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with ``vcov='hetero'``, unless ``vcov=``, ``vce=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the classical variance. ``'frequency'`` is refused.",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         },
         "wild_reps": {
           "default": 999,
@@ -14024,7 +14040,7 @@
     "name": "front_door"
   },
   {
-    "description": "Optimal full matching. Validation: certified parity evidence. Failure modes: full_match: treat= and covariates= are required -> Call sp.full_match(df, y, treat, covariates); full_match: estimand must be ATT, ATC or ATE, got <estimand> -> Use estimand='ATT'; full_match: unknown distance <distance> -> Use 'propensity', 'logit', 'mahalanobis' or 'euclidean'.",
+    "description": "Optimal full matching. Validation: certified parity evidence. Failure modes: full_match: treat= and covariates= are required -> Call sp.full_match(df, y, treat, covariates); full_match: alpha must lie strictly between 0 and 1, got <alpha> -> Use alpha=0.05 for a 95% interval; full_match: estimand must be ATT, ATC or ATE, got <estimand> -> Use estimand='ATT'.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -15318,9 +15334,18 @@
           "type": "number"
         },
         "weights": {
-          "description": "Variable name for observation weights.",
+          "description": "Variable name for observation weights. Alone they are frequency weights (Stata ``[fw=]`` / ``[iw=]``), or analytic weights (``[aw=]``) for the gaussian family; for sampling weights say so with ``weights_as='sampling'``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. The model-based reading is ``'analytic'`` for ``family='gaussian'`` and ``'frequency'`` for every other family; the other of the two is refused. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance.",
+          "enum": [
+            "analytic",
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Names of independent variables (alternative to formula).",
@@ -16183,13 +16208,7 @@
           "type": "integer"
         },
         "se_type": {
-          "description": "Override automatic inference of SE type. Usually inferred from ``cluster`` / ``wild``.",
-          "enum": [
-            "iid",
-            "cluster",
-            "multiway_cluster",
-            "wild_cluster"
-          ],
+          "description": "A label, not a switch: it never changes the variance, which is chosen by ``cluster=`` / ``wild=`` / ``vce=``. When given it must agree with what those options select, and a disagreeing value is",
           "type": "string"
         },
         "tol": {
@@ -16201,9 +16220,17 @@
           "type": "string"
         },
         "weights": {
-          "description": "Observation weights. Column name or raw array.",
+          "description": "Observation weights. Column name or raw array. Alone they are analytic weights (Stata ``[aw=]``).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'analytic'`` is what ``weights=`` alone already means, and saying so silences the warning about dispersed weights under the classical variance. ``'sampling'`` (Stata ``[pw=]``) needs ``cluster=``: this function has no heteroskedasticity-robust variance for a weighted fit, and refuses rather than report the classical one (``sp.feols(..., weights_as='sampling')`` has it). ``'frequency'`` is refused.",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         },
         "wild": {
           "default": false,
@@ -17803,6 +17830,14 @@
           "default": true,
           "description": "Small-sample statistics as Stata ivregress, small (N-K divisor, HC1, G/(G-1)(N-1)/(N-K) cluster factor, t/F); False gives ivregress' default large-sample statistics (N divisor, HC0, no cluster factor, z/chi2). 2SLS/LIML",
           "type": "boolean"
+        },
+        "weights_as": {
+          "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the HC1 variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -18715,7 +18750,7 @@
     "name": "johansen"
   },
   {
-    "description": "Likelihood-ratio tests in a cointegrated VAR with the rank held fixed: the same linear restrictions on every cointegrating vector, given vectors lying in the cointegration space, or restrictions on the loadings (weak exogeneity). Chi-squared reference. urca blrtest / bh5lrtest / alrtest. Validation: certified parity evidence. Assumptions: The cointegration rank is correct; Gaussian VAR with the stated lag order. Pre-conditions: Choose the rank with sp.johansen first. Failure modes: johansen_lrtest: give exactly one of beta=, beta_known=, loading= -> Test one hypothesis per call; johansen_lrtest: rank must be between 1 and <K - 1>, got <rank> -> Choose the rank with sp.johansen first. Alternatives: sp.johansen, sp.vec, sp.engle_granger.",
+    "description": "Likelihood-ratio tests in a cointegrated VAR with the rank held fixed: the same linear restrictions on every cointegrating vector, given vectors lying in the cointegration space, or restrictions on the loadings (weak exogeneity). Chi-squared reference. urca blrtest / bh5lrtest / alrtest. Validation: certified parity evidence. Assumptions: The cointegration rank is correct; Gaussian VAR with the stated lag order. Pre-conditions: Choose the rank with sp.johansen first. Failure modes: johansen_lrtest: give exactly one of beta=, beta_known=, loading= -> Test one hypothesis per call; johansen_lrtest: rank must be between 1 and <K - 1>, got <rank> -> Choose the rank with sp.johansen first; johansen_lrtest: <Y.shape[0]> observations are too few for <lags> lagged difference(s) of <K> series -> Use fewer lags or a longer sample. Alternatives: sp.johansen, sp.vec, sp.engle_granger.",
     "input_schema": {
       "properties": {
         "beta": {
@@ -19989,7 +20024,7 @@
         },
         "cumulative": {
           "default": false,
-          "description": "If ``True``, return the cumulative response ``y_{t+h} - y_{t-1}``. Default (False) returns ``y_{t+h}`` directly.",
+          "description": "If ``True``, return the cumulative response ``y_{t+h} - y_{t-1}``. Default (False) returns ``y_{t+h}`` directly. With ``auto_lag=True`` the regression already holds ``y_{t-1}`` fixed, so the two give the same response and the same standard error; they differ only with ``auto_lag=False``.",
           "type": "boolean"
         },
         "endog_order": {
@@ -20014,7 +20049,7 @@
           "type": "string"
         },
         "nw_lags": {
-          "description": "Newey-West truncation lag. Defaults to ``round(1.5 * horizons)`` per Kilian & Kim (2011) recommendation.",
+          "description": "Newey-West truncation lag, used at every horizon (for ``identification='direct'``). Defaults to ``round(1.5 * horizons)`` per Kilian & Kim (2011) recommendation.",
           "type": "integer"
         },
         "outcome": {
@@ -20100,9 +20135,17 @@
           "type": "number"
         },
         "weights": {
-          "description": "Column name for frequency/analytic weights.",
+          "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Regressor names (alternative to formula).",
@@ -20188,7 +20231,7 @@
     "name": "logrank_test"
   },
   {
-    "description": "One-way analysis of variance read as a random-effects model (Stata loneway): the intraclass correlation with its asymptotic standard error and interval, the standard deviations of the group effect and of the within-group error, and the reliability of a group mean. The intraclass correlation is the input of a design effect or Moulton factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Groups are a sample of exchangeable groups (random effects); Homoskedastic errors within groups. Failure modes: loneway: alpha must lie strictly between 0 and 1, got <alpha> -> alpha=0.05 gives a 95% interval; loneway: at least two groups and one within-group degree of freedom are needed -> Each group needs more than one observation overall; loneway: the exact interval is defined for groups of equal size -> Drop exact=True for the asymptotic interval. Alternatives: sp.oneway, sp.icc, sp.mixed.",
+    "description": "One-way analysis of variance read as a random-effects model (Stata loneway): the intraclass correlation with its asymptotic standard error and interval, the standard deviations of the group effect and of the within-group error, and the reliability of a group mean. The intraclass correlation is the input of a design effect or Moulton factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Groups are a sample of exchangeable groups (random effects); Homoskedastic errors within groups. Failure modes: loneway: alpha must lie strictly between 0 and 1, got <alpha> -> alpha=0.05 gives a 95% interval; loneway: at least two groups and one within-group degree of freedom are needed -> Each group needs more than one observation overall; loneway: <y> takes a single value, so there is no variation to split between and within groups -> Check that the outcome is not constant. Alternatives: sp.oneway, sp.icc, sp.mixed.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20395,7 +20438,7 @@
     "name": "lrtest"
   },
   {
-    "description": "Long-run variance (sum of all autocovariances, the HAC variance of a mean times T) of one or several series. Bartlett, Parzen, quadratic spectral, Tukey-Hanning or truncated kernel; Andrews or Newey-West automatic bandwidth; VAR prewhitening. Reproduces R sandwich kernHAC / NeweyWest / lrvar. Validation: certified parity evidence. Assumptions: Stationary series with summable autocovariances. Failure modes: sp.lrvar: kernel=<kernel> is not known -> Use 'bartlett', 'parzen', 'qs', 'tukey-hanning' or 'truncated'; sp.lrvar: prewhite=<prewhite> is negative -> Use 0 (none) or 1; sp.lrvar: adjust=True corrects for the estimated mean and needs demean=True -> Drop adjust=True or set demean=True. Alternatives: sp.regress, sp.corrgram, sp.periodogram.",
+    "description": "Long-run variance (sum of all autocovariances, the HAC variance of a mean times T) of one or several series. Bartlett, Parzen, quadratic spectral, Tukey-Hanning or truncated kernel; Andrews or Newey-West automatic bandwidth; VAR prewhitening. Reproduces R sandwich kernHAC / NeweyWest / lrvar. Validation: certified parity evidence. Assumptions: Stationary series with summable autocovariances. Failure modes: sp.lrvar: a series is constant -> The long-run variance needs variation; sp.lrvar: kernel=<kernel> is not known -> Use 'bartlett', 'parzen', 'qs', 'tukey-hanning' or 'truncated'; sp.lrvar: prewhite=<prewhite> is negative -> Use 0 (none) or 1. Alternatives: sp.regress, sp.corrgram, sp.periodogram.",
     "input_schema": {
       "properties": {
         "adjust": {
@@ -24887,6 +24930,14 @@
           "default": false,
           "description": "Two-step GMM",
           "type": "boolean"
+        },
+        "weights_as": {
+          "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the heteroskedasticity-robust variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
+          "enum": [
+            "analytic",
+            "sampling"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -25301,7 +25352,7 @@
         },
         "time": {
           "default": "time",
-          "description": "Time identifier.",
+          "description": "Time identifier. Each unit's observations must be consecutive periods of the panel: a unit that, between its first and last observed period, lacks a period present in the data (for another unit, or as its own row with a missing value) is refused. Periods are compared by their rank among the periods in the data, so any coding passes (years, every fourth year, months as 200012 / 200101, dates). A period absent from every unit cannot be told from a coding jump and is not detected; units may start late or end early.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -26071,6 +26122,14 @@
           "description": "Observation weight column. Read as Stata reads a weight for the variance requested: alone it is ``[iw=w]`` (``[fw=w]`` for integer weights), a model-based variance that scales with the weights; with ``robust=`` it is ``[pw=w]``; with ``cluster=`` it is ``[pw=w], vce(cluster)``. The reported log-likelihood is the weighted sum.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused.",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Independent variable names (alternative to formula).",
@@ -26979,9 +27038,17 @@
           "type": "number"
         },
         "weights": {
-          "description": "Column name for frequency/analytic weights.",
+          "description": "Weight column. Alone it is a frequency weight (Stata ``[fw=]`` / ``[iw=]``): the model-based variance scales with the weights. For sampling weights say so with ``weights_as='sampling'``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "What the weights are. ``'frequency'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and inverse-probability weights: the same coefficients with the robust variance, unless ``robust=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the model-based variance. ``'analytic'`` is refused: Stata's ``[aw=]`` rescales the weights to sum to ``N``, which this function does not do.",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Regressor names (alternative to formula).",
@@ -32764,7 +32831,7 @@
           "x-statspai-role": "formula"
         },
         "lambda_": {
-          "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted",
+          "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted. 'gcv', 'hkb' or 'lw' is the default grid with that selection rule",
           "items": {
             "type": "number"
           },
@@ -33590,7 +33657,7 @@
     "name": "robustness_report"
   },
   {
-    "description": "Robust tests of equal variances across groups (Stata robvar): Levene's W0 on absolute deviations from the group means and the Brown-Forsythe variants W50 (medians) and W10 (10 percent trimmed means), each an F test. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; A continuous outcome; the median-centred form (W50) is the one to rely on when the outcome is skewed. Failure modes: robvar: a group has fewer than two observations -> Drop or merge the small group. Alternatives: sp.sdtest, sp.oneway.",
+    "description": "Robust tests of equal variances across groups (Stata robvar): Levene's W0 on absolute deviations from the group means and the Brown-Forsythe variants W50 (medians) and W10 (10 percent trimmed means), each an F test. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; A continuous outcome; the median-centred form (W50) is the one to rely on when the outcome is skewed. Failure modes: robvar: a group has fewer than two observations -> Drop or merge the small group; robvar: <y> takes a single value within every group, so there are no deviations whose spread could be compared -> Check that the outcome is not constant. Alternatives: sp.sdtest, sp.oneway.",
     "input_schema": {
       "properties": {
         "by": {
@@ -37411,7 +37478,7 @@
     "name": "svar"
   },
   {
-    "description": "Shapiro-Wilk W test for normality (Stata swilk, R shapiro.test), with Royston's (1992) normal approximation for the p-value and his V index. One row per variable; 4 to 5,000 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than 5,000 observations -- outside the range of the approximation; use sp.sktest. Assumptions: Independent observations from one distribution; between 4 and 5,000 of them. Failure modes: swilk: <name> has <n> usable observations; the test covers 4 to 5,000 observations that are not all equal -> For a larger sample use sp.sktest. Alternatives: sp.sktest, sp.estat.",
+    "description": "Shapiro-Wilk W test for normality (Stata swilk, R shapiro.test), with Royston's (1992) normal approximation for the p-value and his V index. One row per variable; 4 to 5,000 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than 5,000 observations -- outside the range of the approximation; use sp.sktest. Assumptions: Independent observations from one distribution; between 4 and 5,000 of them. Failure modes: swilk: <name> holds infinite values, for which the statistic is not defined -> Set them to missing (they are then dropped) or remove those rows; swilk: <name> has <n> usable observations; the test covers 4 to 5,000 observations that are not all equal -> For a larger sample use sp.sktest. Alternatives: sp.sktest, sp.estat.",
     "input_schema": {
       "properties": {
         "variables": {
@@ -39640,7 +39707,7 @@
     "name": "truncreg"
   },
   {
-    "description": "Summary features of a time series, or of every column of a table of series: autocorrelation and partial autocorrelation sums (levels, first and second differences, seasonal lag), strength of trend and seasonality, spike, linearity and curvature from an STL decomposition, lumpiness, stability, crossing points, flat spots, largest level and variance shifts, ARCH effect. One row per series for plotting, clustering or outlier screening. Values of R tsfeatures. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ts_features: <values.shape[0]> observations are too few -> At least 12 observations are needed; ts_features: scale must be True or False -> Use scale=True. Alternatives: sp.stl, sp.corrgram.",
+    "description": "Summary features of a time series, or of every column of a table of series: autocorrelation and partial autocorrelation sums (levels, first and second differences, seasonal lag), strength of trend and seasonality, spike, linearity and curvature from an STL decomposition, lumpiness, stability, crossing points, flat spots, largest level and variance shifts, ARCH effect. One row per series for plotting, clustering or outlier screening. Values of R tsfeatures. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ts_features: scale must be True or False -> Use scale=True; ts_features: <values.shape[0]> observations<label> are too few -> At least 12 observations are needed; ts_features: the series<label> is constant -> A constant series has no features to compute. Alternatives: sp.stl, sp.corrgram.",
     "input_schema": {
       "properties": {
         "period": {
@@ -41855,7 +41922,7 @@
     "name": "xtnbreg"
   },
   {
-    "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Random-effects model with at least one time-varying regressor; Null: the regressors are uncorrelated with the unit effect, which is what makes random effects consistent; Many panels: the test is robust to heteroskedasticity and within-panel correlation, unlike the classical Hausman test. Failure modes: sp.xtoverid: no regressor varies within panels -> The test compares within and between variation.",
+    "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Random-effects model with at least one time-varying regressor; Null: the regressors are uncorrelated with the unit effect, which is what makes random effects consistent; Many panels: the test is robust to heteroskedasticity and within-panel correlation, unlike the classical Hausman test. Failure modes: sp.xtoverid: no regressor varies within panels -> The test compares within and between variation; sp.xtoverid: <G> cluster(s) cannot test <len(varying)> restriction(s): the cluster-robust covariance has rank at most <G - 1>, so the statistic would divide by zero -> Cluster on a finer level (the default is the panel identifier), or test fewer regressors.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -41896,7 +41963,7 @@
     "name": "xtoverid"
   },
   {
-    "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear panel model with time-varying regressors; Under the null the idiosyncratic errors are serially uncorrelated, which makes the first-differenced errors correlated at -0.5; Many panels: the variance is clustered on the panel. Failure modes: sp.xtserial: time=<time> must count periods (integers) -> Convert dates to a period index first; sp.xtserial: too few consecutive observations to difference -> The test needs at least three consecutive periods per panel; sp.xtserial: no panel has three consecutive periods -> The test cannot be computed on this panel.",
+    "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear panel model with time-varying regressors; Under the null the idiosyncratic errors are serially uncorrelated, which makes the first-differenced errors correlated at -0.5; Many panels: the variance is clustered on the panel. Failure modes: sp.xtserial: time=<time> must count periods (integers) -> Convert dates to a period index first; sp.xtserial: too few consecutive observations to difference -> The test needs at least three consecutive periods per panel; sp.xtserial: no regressor changes within panels -> The first-difference regression needs at least one time-varying regressor.",
     "input_schema": {
       "properties": {
         "alpha": {

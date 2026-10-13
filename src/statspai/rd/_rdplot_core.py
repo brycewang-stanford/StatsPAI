@@ -50,13 +50,20 @@ def _r_seq(start: float, stop: float, by: float) -> np.ndarray:
 
 def _kweight(x: np.ndarray, c: float, h: float, kernel: str) -> np.ndarray:
     """R ``rdrobust_kweight``: kernel weights scaled by 1/h."""
+    name = str(kernel).strip().lower()
     u = (x - c) / h
     inside = np.abs(u) <= 1
-    if kernel in ("epanechnikov", "epa"):
+    if name in ("epanechnikov", "epa"):
         return 0.75 * (1 - u**2) * inside / h
-    if kernel in ("uniform", "uni"):
+    if name in ("uniform", "uni"):
         return 0.5 * inside / h
-    return (1 - np.abs(u)) * inside / h
+    if name in ("triangular", "tri"):
+        return (1 - np.abs(u)) * inside / h
+    raise MethodIncompatibility(
+        f"kernel must be 'triangular', 'epanechnikov' or 'uniform', got "
+        f"{kernel!r}.",
+        diagnostics={"kernel": repr(kernel)},
+    )
 
 
 def _xx_inv(X: np.ndarray) -> Optional[np.ndarray]:

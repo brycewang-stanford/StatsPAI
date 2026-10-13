@@ -105,7 +105,10 @@ def subcluster_wild_bootstrap(
         raise ValueError(f"test_var '{test_var}' not in x")
 
     rng = np.random.default_rng(seed)
-    cols = [y] + list(x) + [cluster] + ([subcluster] if subcluster else [])
+    # subcluster == cluster is the plain wild cluster bootstrap; the column
+    # must not be selected twice
+    extra = [subcluster] if subcluster and subcluster != cluster else []
+    cols = [y] + list(x) + [cluster] + extra
     df = data[cols].dropna().copy()
     Y = df[y].values.astype(float)
     X = np.column_stack([np.ones(len(df)), df[x].values.astype(float)])
@@ -370,29 +373,6 @@ def wild_cluster_ci_inv(
         "alpha": alpha,
         "method": "WCR p-value inversion",
     }
-
-
-def _draw_weights(S: int, weight_type: str, rng: np.random.Generator) -> np.ndarray:
-    """Draw S i.i.d. bootstrap weights."""
-    if weight_type == "rademacher":
-        return rng.choice([-1.0, 1.0], size=S)
-    if weight_type == "webb":
-        vals = np.array(
-            [
-                -np.sqrt(1.5),
-                -np.sqrt(1.0),
-                -np.sqrt(0.5),
-                np.sqrt(0.5),
-                np.sqrt(1.0),
-                np.sqrt(1.5),
-            ]
-        )
-        return rng.choice(vals, size=S)
-    if weight_type == "mammen":
-        p = (np.sqrt(5) + 1) / (2 * np.sqrt(5))
-        vals = np.array([-(np.sqrt(5) - 1) / 2, (np.sqrt(5) + 1) / 2])
-        return rng.choice(vals, size=S, p=[p, 1 - p])
-    raise ValueError(f"Unknown weight_type: {weight_type}")
 
 
 __all__ = ["subcluster_wild_bootstrap", "wild_cluster_ci_inv"]

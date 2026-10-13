@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import itertools
 import warnings
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -302,6 +302,24 @@ def _sobol(n: int, p: int, seed: Optional[int]) -> np.ndarray:
         return np.asarray(qmc.Sobol(p, scramble=True, seed=seed).random(n))
 
 
+def _balanced_levels(
+    m: int, sizes: Sequence[int], rng: np.random.Generator
+) -> np.ndarray:
+    """``m`` runs of level codes in which the level counts of every factor
+    differ by at most one, with distinct combinations when a short random
+    search finds them."""
+    out = np.zeros((m, len(sizes)), dtype=int)
+    for _ in range(200):
+        for j, L in enumerate(sizes):
+            col = np.concatenate(
+                [np.tile(np.arange(L), m // L), rng.permutation(L)[: m % L]]
+            )
+            out[:, j] = rng.permutation(col)
+        if np.unique(out, axis=0).shape[0] == m:
+            break
+    return out
+
+
 def space_filling(
     n: int,
     factors: Any,
@@ -376,7 +394,10 @@ def space_filling(
     qualitative : dict, optional
         ``{name: [levels]}`` for factors without an order (a model
         variant, a solver, a region). Each level gets the same number of
-        runs, as nearly as ``n`` allows, and the quantitative factors are
+        runs, as nearly as ``n`` allows: when ``n`` is a multiple of the
+        number of level combinations every combination occurs equally
+        often, otherwise the counts of the levels of each factor differ
+        by at most one. The quantitative factors are
         arranged so that the runs fill the space within every level as
         well as overall (Joseph, Gul and Ba 2020). ``method`` must be
         ``'maxpro'``. ``criteria['maxpro_qq']`` is the criterion that
@@ -442,15 +463,19 @@ def space_filling(
                 raise MethodIncompatibility(
                     f"Qualitative factor {nm!r} needs at least two distinct levels."
                 )
-        # every combination of levels equally often, in random run order
+        # every combination of levels equally often; the runs left over
+        # when n is not a multiple of the number of combinations are
+        # spread so that each factor's levels stay balanced to within one
         combos = list(itertools.product(*[range(len(v)) for v in sets.values()]))
-        reps = int(np.ceil(n / len(combos)))
-        codes = np.array((combos * reps), dtype=int)
-        codes = codes[rng.permutation(len(codes))[:n]] if n % len(combos) else codes[:n]
-        if n % len(combos):
+        whole, left = divmod(n, len(combos))
+        codes: np.ndarray = np.array(combos * whole, dtype=int).reshape(-1, len(sets))
+        if left:
+            extra = _balanced_levels(left, [len(v) for v in sets.values()], rng)
+            codes = np.vstack([codes, extra])
             info["notes"].append(
                 f"{n} runs are not a multiple of the {len(combos)} level "
-                "combinations: the levels are not perfectly balanced."
+                "combinations: each factor's levels are balanced to within "
+                "one run, the combinations are not equally frequent."
             )
         offset = np.zeros((n, n))
         for j, (nm, lv) in enumerate(sets.items()):
@@ -578,7 +603,9 @@ def design_augment(
         Runs to add.
     candidates : DataFrame or array, optional
         The points the new runs are chosen from, in the units of the
-        design. Default: a scrambled Sobol' set over the region.
+        design and inside its region (the unit cube, the bounds of a
+        DesignResult, or ``bounds``); points outside are an error.
+        Default: a scrambled Sobol' set over the region.
     criterion : {'maxpro', 'maximin'}, default 'maxpro'
         ``'maxpro'`` adds, each time, the candidate with the smallest sum
         over existing runs of ``1 / prod_l (x_l - c_l)^2``; ``'maximin'``
@@ -672,7 +699,16 @@ def design_augment(
                     "candidates and the design do not name the same factors."
                 )
             C = candidates[names].to_numpy(dtype=float)
+        if not np.all(np.isfinite(C)):
+            raise MethodIncompatibility("candidates has missing or infinite values.")
         cand = (C - lo) / (hi - lo)
+        if cand.min() < -1e-9 or cand.max() > 1 + 1e-9:
+            raise MethodIncompatibility(
+                "candidates has points outside the region of the design ("
+                + ("the unit cube" if bounds is None else "the bounds")
+                + "). Pass bounds={name: (lower, upper)} that cover them, or "
+                "drop those points."
+            )
         info["candidates"] = "supplied"
     if cand.shape[0] < n_new:
         raise DataInsufficient(

@@ -375,6 +375,13 @@ def rd_optimized(
         if col not in data.columns:
             raise MethodIncompatibility(f"column {col!r} not found in data")
     df = data[cols].dropna()
+    if len(df) < len(data):
+        warnings.warn(
+            f"rd_optimized: dropped {len(data) - len(df)} of {len(data)} rows "
+            f"with a missing value in {cols}.",
+            UserWarning,
+            stacklevel=2,
+        )
     order = np.argsort(df[x].to_numpy(dtype=float), kind="stable")
     index = df.index.to_numpy()[order]
     xv = df[x].to_numpy(dtype=float)[order]

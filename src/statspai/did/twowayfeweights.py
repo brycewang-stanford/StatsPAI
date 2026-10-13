@@ -431,7 +431,10 @@ def twowayfeweights(
     d_raw = block[:, 0]
     d_bar = float(np.sum(w[r] * d_raw) / np.sum(w[r]))
     total = float(np.sum(w[r] * (d_raw - d_bar) ** 2))
-    if not denom > 1e-12 * total:
+    # a treatment that is the same in every cell has no raw variation either
+    # (both sides of the test above would be rounding noise)
+    raw_ss = float(np.sum(w[r] * d_raw * d_raw))
+    if not total > 1e-20 * raw_ss or not denom > 1e-12 * total:
         raise DataInsufficient(
             "twowayfeweights: the treatment has no variation left after the "
             "fixed effects"

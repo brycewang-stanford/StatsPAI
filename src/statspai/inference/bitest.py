@@ -161,6 +161,11 @@ def bitest(
     """
     if not 0 < p < 1:
         raise MethodIncompatibility("bitest: p must lie strictly between 0 and 1.")
+    if not 0 < alpha < 1:
+        raise MethodIncompatibility(
+            f"bitest: alpha must lie strictly between 0 and 1, got {alpha!r}.",
+            recovery_hint="alpha=0.05 gives a 95% interval.",
+        )
     from_data = data is not None or y is not None
     from_counts = n is not None or successes is not None
     if from_data == from_counts:
@@ -180,6 +185,12 @@ def bitest(
     else:
         if n is None or successes is None:
             raise MethodIncompatibility("bitest: n= and successes= go together.")
+        for label, count in (("n", n), ("successes", successes)):
+            if isinstance(count, bool) or count != int(count):
+                raise MethodIncompatibility(
+                    f"bitest: {label} must be a whole number, got {count!r}.",
+                    recovery_hint="Pass the counts of trials and of successes.",
+                )
         n_obs, k = int(n), int(successes)
         if k < 0 or k > n_obs:
             raise MethodIncompatibility("bitest: successes must lie between 0 and n.")

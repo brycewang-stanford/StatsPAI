@@ -275,10 +275,12 @@ def test_aipw_fit_propensity_warns_on_failure():
     """Contract-level: the propensity helper warns and returns the constant
     marginal when the logit cannot be fit."""
     aipw_mod = importlib.import_module("statspai.inference.aipw")
-    # A degenerate design (single column of zeros) makes the logit singular.
-    X_train = np.zeros((20, 1))
-    D_train = np.r_[np.ones(10), np.zeros(10)]
-    X_test = np.zeros((5, 1))
+    # Two identical columns make the logit singular. (A constant column no
+    # longer does: it is dropped from the design before the fit.)
+    x = np.linspace(-1.0, 1.0, 20)
+    X_train = np.column_stack([x, x])
+    D_train = np.r_[np.ones(10), np.zeros(10)][np.argsort(np.sin(7 * x))]
+    X_test = X_train[:5]
     with pytest.warns(sp.ConvergenceWarning, match="no longer valid"):
         out = aipw_mod._fit_propensity(X_train, D_train, X_test)
     assert np.allclose(out, D_train.mean())

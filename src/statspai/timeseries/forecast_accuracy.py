@@ -84,6 +84,10 @@ def _one(
     with np.errstate(divide="ignore", invalid="ignore"):
         pe = 100.0 * e / actual
     pe = pe[ok & np.isfinite(pe)]
+    # a percentage error is undefined where the actual value is zero; the
+    # mean over the other periods is a different quantity, so none is given
+    if (actual[ok] == 0).any():
+        pe = pe[:0]
     out: Dict[str, float] = {
         "ME": float(ee.mean()),
         "RMSE": float(np.sqrt(np.mean(ee**2))),
@@ -97,6 +101,11 @@ def _one(
     out["RMSSE"] = out["RMSE"] / np.sqrt(q2) if q2 > 0 else float("nan")
     out["ACF1"] = _acf1(e)
     if frame is None:
+        if crps:
+            raise MethodIncompatibility(
+                "forecast_accuracy: crps=True needs prediction intervals.",
+                recovery_hint="Pass the frame returned by .forecast(level=...).",
+            )
         return out
     widest: Optional[Tuple[float, np.ndarray, np.ndarray]] = None
     for col in frame.columns:
@@ -214,6 +223,15 @@ def forecast_accuracy(
     else:
         items = [("forecast", forecast)]
     rows = {name: _one(y, fc, tr, m, crps) for name, fc in items}
+    n_zero = int((y[np.isfinite(y)] == 0).sum())
+    if n_zero:
+        warnings.warn(
+            f"forecast_accuracy: {n_zero} of the {y.size} actual values are "
+            "zero, where a percentage error is undefined; MPE and MAPE are "
+            "reported as nan. Use MAE, RMSE or the scaled errors (train=).",
+            UserWarning,
+            stacklevel=2,
+        )
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
@@ -267,6 +285,7 @@ class TSCVResult(ResultProtocolMixin):
     def accuracy(self) -> pd.DataFrame:
         """RMSE, MAE and MAPE by forecast horizon, over the origins."""
         rows = {}
+        n_zero = 0
         for col in self.errors.columns:
             e = self.errors[col].to_numpy(dtype=float)
             a = self.actuals[col].to_numpy(dtype=float)
@@ -276,12 +295,22 @@ class TSCVResult(ResultProtocolMixin):
                 continue
             with np.errstate(divide="ignore", invalid="ignore"):
                 pe = 100.0 * np.abs(e[k] / a[k])
+            # undefined where an actual value is zero (see forecast_accuracy)
+            n_zero += int((a[k] == 0).sum())
+            mape = np.nan if (a[k] == 0).any() else float(np.mean(pe[np.isfinite(pe)]))
             rows[col] = {
                 "RMSE": float(np.sqrt(np.mean(e[k] ** 2))),
                 "MAE": float(np.mean(np.abs(e[k]))),
-                "MAPE": float(np.mean(pe[np.isfinite(pe)])),
+                "MAPE": mape,
                 "n": int(k.sum()),
             }
+        if n_zero:
+            warnings.warn(
+                f"tscv: {n_zero} actual value(s) are zero, where a percentage "
+                "error is undefined; MAPE is nan at those horizons.",
+                UserWarning,
+                stacklevel=2,
+            )
         out = pd.DataFrame.from_dict(rows, orient="index")
         out.index.name = "horizon"
         return out
@@ -327,12 +356,13 @@ def _builtin(name: str, period: int, kwargs: Dict[str, Any]) -> Callable[..., An
             return np.asarray(fit.forecast(h)["forecast"], dtype=float)
 
         return run
-    from .simple_forecast import _ALIASES, simple_forecast
+    from .simple_forecast import _ALIASES, _benchmark_options, simple_forecast
 
     if key.replace("-", "_") in _ALIASES:
+        kwargs = _benchmark_options(kwargs, "forecaster")
 
         def run(train: np.ndarray, h: int) -> np.ndarray:
-            fit = simple_forecast(train, key, period=period)
+            fit = simple_forecast(train, key, period=period, **kwargs)
             return np.asarray(fit.forecast(h, level=95)["forecast"], dtype=float)
 
         return run
@@ -352,12 +382,12 @@ def _extract(out: Any, h: int) -> np.ndarray:
         col = "forecast" if "forecast" in out.columns else out.columns[0]
         out = out[col]
     arr = np.asarray(out, dtype=float).ravel()
-    if arr.shape[0] < h:
+    if arr.shape[0] != h:
         raise MethodIncompatibility(
             f"the forecaster returned {arr.shape[0]} values, {h} needed",
             recovery_hint="Return one forecast per step of the horizon.",
         )
-    return arr[:h]
+    return arr
 
 
 def tscv(
@@ -385,7 +415,8 @@ def tscv(
     forecaster : str or callable, default "naive"
         A built-in method -- ``"naive"``, ``"snaive"``, ``"drift"``,
         ``"mean"``, ``"ets"``, ``"arima"`` (extra keyword arguments are
-        passed to it) -- or a function ``f(train, horizon)``. The
+        passed to it; the four benchmark methods take ``boxcox`` and
+        ``biasadj``) -- or a function ``f(train, horizon)``. The
         function receives the training window as a ``pd.Series`` (with
         the index of ``y``) and returns the ``horizon`` forecasts, a
         table with a ``forecast`` column, or a fitted model with a

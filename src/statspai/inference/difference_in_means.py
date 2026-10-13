@@ -145,6 +145,8 @@ def difference_in_means(
     Notes
     -----
     Rows with a missing value in any of the columns used are dropped with a
+    warning. When the outcome does not vary within the arms the standard
+    error is zero; the statistic and the p-value are then NaN, with a
     warning. The clustered variance is the CR2 estimator of the regression
     of ``y`` on a constant and ``treat``; its degrees of freedom are those
     of ``sp.cr2_se``.
@@ -267,8 +269,19 @@ def difference_in_means(
         )
 
     se = float(np.sqrt(var))
-    tstat = est / se if se > 0 else float("nan")
-    pvalue = float(2 * stats.t.sf(abs(tstat), df)) if se > 0 else float("nan")
+    # zero up to rounding: an exact 0.0 or 1e-17 depending on the platform
+    scale = float(np.max(np.abs(yv))) if n else 0.0
+    degenerate = not se > 1e-10 * scale
+    if degenerate:
+        warnings.warn(
+            f"{context}: the outcome does not vary within the arms, so the "
+            "standard error is zero; the t statistic and the p-value are "
+            "not defined and are returned as NaN.",
+            UserWarning,
+            stacklevel=2,
+        )
+    tstat = float("nan") if degenerate else est / se
+    pvalue = float("nan") if degenerate else float(2 * stats.t.sf(abs(tstat), df))
     crit = float(stats.t.ppf(1 - alpha / 2, df))
     model_info.update(
         {

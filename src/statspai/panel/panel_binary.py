@@ -17,6 +17,7 @@ Wooldridge, J.M. (2010). Econometric Analysis of Cross Section and Panel Data.
 [@chamberlain1980analysis]
 """
 
+import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -591,6 +592,46 @@ def panel_logit(
         )
 
     # --- FE ---
+    # The conditional likelihood is defined for a 0/1 outcome: a 1/2 coding
+    # made every unit look like it had no variation to condition on (the
+    # function answered with coefficients 0 and standard errors 0) and a
+    # continuous outcome failed inside the combinatorial sum.
+    used = data[[id_col, y] + x_vars].dropna()
+    levels = pd.unique(used[y])
+    if not set(np.asarray(levels, dtype=float).tolist()) <= {0.0, 1.0}:
+        raise MethodIncompatibility(
+            f"panel_logit(method='fe'): the outcome {y!r} must be coded 0/1; "
+            f"found {len(levels)} distinct value(s) such as "
+            f"{sorted(levels.tolist())[:4]}.",
+            recovery_hint=f"Recode it, e.g. data.assign({y}=(data[{y!r}] == "
+            "<the 'success' value>).astype(int)).",
+        )
+    # A regressor that is constant within every unit the likelihood uses
+    # (units whose outcome varies) cancels out of it: omitted, as Stata's
+    # xtlogit, fe does, instead of reported with a coefficient the data do
+    # not determine.
+    varies = used.groupby(id_col)[y].transform("nunique") > 1
+    spread = used.loc[varies].groupby(id_col)[x_vars].agg(np.ptp)
+    flat = [v for v in x_vars if len(spread) and float(spread[v].max()) == 0.0]
+    omitted_info = []
+    if flat:
+        if len(flat) == len(x_vars):
+            raise MethodIncompatibility(
+                "panel_logit(method='fe'): no regressor varies within unit; "
+                "the conditional likelihood does not involve any of them.",
+                recovery_hint="Use method='re' or 'cre' for time-invariant "
+                "regressors.",
+            )
+        warnings.warn(
+            f"panel_logit(method='fe'): {flat} omitted because of no "
+            "within-unit variation.",
+            UserWarning,
+            stacklevel=2,
+        )
+        omitted_info = [
+            {"variable": v, "reason": "no within-unit variation"} for v in flat
+        ]
+        x_vars = [v for v in x_vars if v not in flat]
     beta, se, ll, n_obs, n_units, n_dropped, vcov, ok = _fit_fe_logit(
         data, y, x_vars, id_col, maxiter, tol
     )
@@ -607,6 +648,7 @@ def panel_logit(
             "converged": ok,
             "log_likelihood": ll,
             "n_dropped_units": n_dropped,
+            **({"omitted": omitted_info} if omitted_info else {}),
         },
         data_info={
             "n_obs": n_obs,

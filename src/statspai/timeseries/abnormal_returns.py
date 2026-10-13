@@ -397,6 +397,12 @@ def abnormal_returns(
             f"got {correlation!r}."
         )
     corr_key = str(correlation).lower()
+    if isinstance(alpha, bool) or not 0.0 < float(alpha) < 1.0:
+        raise MethodIncompatibility(
+            "abnormal_returns: alpha must lie strictly between 0 and 1, "
+            f"got {alpha!r}.",
+            recovery_hint="alpha=0.05 gives 95% intervals.",
+        )
     regressors: List[str] = []
     if model_key in ("market", "market_adjusted"):
         if not market:
@@ -450,6 +456,10 @@ def abnormal_returns(
     by_id = {key: grp.reset_index(drop=True) for key, grp in panel.groupby(id)}
     ev = events[[id, event_date]].copy()
     ev[event_date] = pd.to_datetime(ev[event_date])
+    if not ev.index.is_unique:
+        # two event lists stacked with pd.concat repeat their labels; an
+        # event is then known by its position in the list
+        ev = ev.reset_index(drop=True)
 
     records: List[Dict[str, Any]] = []
     ar_columns: Dict[Any, pd.Series] = {}
@@ -517,6 +527,13 @@ def abnormal_returns(
             s2 = float(res_est @ res_est) / dof
             ones = Xw.sum(axis=0)
             var_car = s2 * (length + float(ones @ np.linalg.solve(X.T @ X, ones)))
+        # A return series the model reproduces exactly (a return equal to
+        # the market's, a suspended security with zero returns) leaves a
+        # residual variance that is rounding noise: the standardised CAR
+        # would be noise over noise.
+        if not s2 > (1e-10) ** 2 * float(np.mean(y_est**2)):
+            skip("no residual variance in the estimation window")
+            continue
         se = float(np.sqrt(var_car))
         car = float(ar.sum())
         t = car / se

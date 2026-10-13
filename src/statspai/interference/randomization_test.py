@@ -224,7 +224,8 @@ def interference_test(
         share of treated neighbours.
     focal : float or array-like, optional
         The share of units drawn at random (from ``seed``, never from
-        ``Z``) as focal units, or the indices of the focal units, which
+        ``Z``) as focal units, or the indices of the focal units (or a
+        boolean mask with one entry per unit), which
         must have been chosen without looking at the realised
         assignment. The default share is 0.5 for ``"no_spillover"`` and
         0.15 for ``"no_higher_order"``. For ``"anonymous"`` focal units
@@ -331,7 +332,21 @@ def interference_test(
                     "too few units to split into focal and non-focal sets"
                 )
             return np.asarray(np.sort(rng.choice(n, size=n_focal, replace=False)))
-        idx = np.unique(np.asarray(focal, dtype=int))
+        given = np.asarray(focal)
+        if given.dtype == bool:
+            if given.shape != (n,):
+                raise MethodIncompatibility(
+                    f"a boolean focal mask must have one entry per unit ({n}); "
+                    f"got shape {given.shape}"
+                )
+            given = np.flatnonzero(given)
+        elif given.dtype.kind not in "iu":
+            if given.dtype.kind != "f" or not np.all(given == np.round(given)):
+                raise MethodIncompatibility(
+                    "focal must be a share in (0, 1), an array of integer "
+                    "indices or a boolean mask of length n"
+                )
+        idx = np.unique(given.astype(int))
         if idx.size == 0 or idx.min() < 0 or idx.max() >= n:
             raise MethodIncompatibility("focal indices must lie in [0, n)")
         return np.asarray(idx)

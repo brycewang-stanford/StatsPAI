@@ -226,6 +226,19 @@ def nlogit(
         if np.sum(nest_of == k) > 1 and name not in fixed
     ]
     if not free:
+        several = [
+            name for k, name in enumerate(nest_names) if np.sum(nest_of == k) > 1
+        ]
+        if several:
+            raise MethodIncompatibility(
+                "nlogit: fixed_lambda= fixes the dissimilarity parameter of "
+                f"every nest with more than one alternative ({several}), so "
+                "none is left to estimate.",
+                recovery_hint="Leave at least one of them out of "
+                "fixed_lambda=; with every parameter fixed at 1 the model "
+                "is the conditional logit (sp.clogit).",
+                diagnostics={"fixed_lambda": dict(fixed)},
+            )
         raise MethodIncompatibility(
             "nlogit: every nest has a single alternative, which is the "
             "conditional logit (sp.clogit)."

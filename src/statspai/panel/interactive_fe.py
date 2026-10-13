@@ -145,7 +145,13 @@ def interactive_fe(
     N = len(units)
     T = len(times)
     k = len(x)
-    r = n_factors
+    if isinstance(n_factors, bool) or n_factors != int(n_factors) or n_factors < 0:
+        # a negative number was used as a slice bound and returned estimates
+        raise MethodIncompatibility(
+            f"n_factors must be a non-negative integer; got {n_factors!r}.",
+            recovery_hint="Pass the number of latent factors, e.g. n_factors=1.",
+        )
+    r = int(n_factors)
 
     # Create unit and time indices
     unit_map = {u: i for i, u in enumerate(units)}

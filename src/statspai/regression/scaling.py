@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy import special
 
+from ..core.utils import r_formula_idioms, unquote_name
 from ..exceptions import MethodIncompatibility
 
 _BINARY_RULES = ("center", "full", "0/1", "-0.5/0.5", "none")
@@ -74,15 +75,67 @@ def _rescale(col: pd.Series, binary: str, divisor: float) -> tuple:
     }
 
 
+_QUOTED = re.compile(r"""Q\(\s*(["'])(?:\\.|(?!\1).)*\1\s*\)""")
+_NUMBER = re.compile(r"(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+
+
 def _formula_inputs(formula: str, data: pd.DataFrame) -> List[str]:
+    """Columns that enter the right-hand side as bare terms.
+
+    A column named inside a function call (``log(x)``, ``I(x**2)``,
+    ``C(g)``, ``factor(g)``) is left out, also when it appears as a bare
+    term elsewhere: rescaling it would change what the call computes.
+    Backticked and ``Q("...")`` names are read as the columns they name.
+    """
     if "~" not in formula:
         raise MethodIncompatibility(f"formula must look like 'y ~ x'; got {formula!r}.")
-    rhs = formula.split("~", 1)[1]
-    seen: List[str] = []
-    for name in _NAME.findall(rhs):
-        if name in data.columns and name not in seen:
-            seen.append(name)
-    return seen
+    rhs = r_formula_idioms(formula.split("~", 1)[1])
+    bare: List[str] = []
+    inside: set = set()
+    calls: List[bool] = []  # one entry per open parenthesis: is it a call?
+
+    def record(name: str) -> None:
+        if name not in data.columns:
+            return
+        if any(calls):
+            inside.add(name)
+        elif name not in bare:
+            bare.append(name)
+
+    i, n = 0, len(rhs)
+    while i < n:
+        ch = rhs[i]
+        quoted = _QUOTED.match(rhs, i)
+        if quoted:
+            record(unquote_name(quoted.group(0)))
+            i = quoted.end()
+            continue
+        if ch in "\"'":
+            end = rhs.find(ch, i + 1)
+            i = n if end == -1 else end + 1
+            continue
+        number = _NUMBER.match(rhs, i)
+        if number:
+            i = number.end()
+            continue
+        name = _NAME.match(rhs, i)
+        if name:
+            j = name.end()
+            while j < n and rhs[j] == " ":
+                j += 1
+            if j < n and rhs[j] == "(":
+                calls.append(True)
+                i = j + 1
+            else:
+                record(name.group(0))
+                i = name.end()
+            continue
+        if ch == "(":
+            calls.append(False)
+        elif ch == ")" and calls:
+            calls.pop()
+        i += 1
+    return [name for name in bare if name not in inside]
 
 
 def standardize(
@@ -140,7 +193,11 @@ def standardize(
     ``log(x)`` is not standardized through ``formula`` (R
     ``arm::standardize`` rescales ``x`` inside the logarithm, which
     changes the model): create the transformed column first and
-    standardize that.
+    standardize that. The rule is by column: one that appears inside a
+    function call anywhere on the right-hand side (``log(x)``,
+    ``I(x^2)``, ``C(g)``, ``factor(g)``) is left alone, also where it
+    enters as a bare term next to it (``x + I(x^2)``). A backticked
+    name is read as the column it names.
 
     Examples
     --------

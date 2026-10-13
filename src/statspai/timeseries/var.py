@@ -25,7 +25,8 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..core._collinear import independent_columns
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
 class VARResult(ResultProtocolMixin):
@@ -351,6 +352,103 @@ class VARResult(ResultProtocolMixin):
         return fig
 
 
+def _consecutive_rows(frame: pd.DataFrame, who: str) -> pd.DataFrame:
+    """The complete rows of ``frame``, which must be one unbroken stretch.
+
+    Rows with a missing value at the start or the end are trimmed. One
+    strictly inside the sample is refused: lags and differences are taken
+    between adjacent rows, so dropping it would pair the observations on
+    either side of the gap as if they were consecutive.
+    """
+    ok = frame.notna().all(axis=1).to_numpy()
+    if not ok.any():
+        raise DataInsufficient(
+            f"{who}: no row has every variable observed.",
+            recovery_hint="Check the columns for missing values.",
+        )
+    kept = np.flatnonzero(ok)
+    first, last = int(kept[0]), int(kept[-1])
+    holes = np.flatnonzero(~ok[first : last + 1]) + first
+    if holes.size:
+        raise MethodIncompatibility(
+            f"{who}: {holes.size} row(s) inside the sample have a missing "
+            f"value (first at position {int(holes[0])}, index label "
+            f"{frame.index[int(holes[0])]!r}; the complete rows run from "
+            f"position {first} to {last}). Lags and differences are taken "
+            "between adjacent rows, so dropping a row would pair the "
+            "observations on either side of the gap.",
+            recovery_hint="Use a stretch of the sample without gaps, or "
+            "fill the missing values before calling.",
+            diagnostics={
+                "n_missing_rows": int(holes.size),
+                "positions": holes[:20].tolist(),
+            },
+        )
+    # what is left has no gap, so this is the trimmed stretch (and the same
+    # memory layout the estimators have always been handed)
+    return frame.dropna()
+
+
+def _refuse_repeated_dates(col: pd.Series, time: str, who: str) -> None:
+    """Refuse a ``time=`` column in which a value occurs more than once:
+    one series has one observation per date, and a sort cannot order the
+    rows that share one."""
+    repeated = col.duplicated(keep=False)
+    if repeated.any():
+        first = col[repeated].iloc[0]
+        raise MethodIncompatibility(
+            f"{who}: the time column {time!r} has repeated values "
+            f"({int(repeated.sum())} rows share a date with another row; "
+            f"first: {first!r}).",
+            recovery_hint="Pass one row per period; for a panel, fit each "
+            "unit separately.",
+            diagnostics={"n_repeated_rows": int(repeated.sum())},
+        )
+
+
+def _require_independent_series(
+    values: np.ndarray,
+    names: Any,
+    who: str,
+    *,
+    constant: bool = True,
+) -> None:
+    """Refuse a system whose series are linearly dependent.
+
+    Two cases, both of which make the moment matrices of a VAR-type model
+    singular: a series that is constant or a linear combination of the
+    others (a duplicated column), and one that is a deterministic function
+    of its own past (a ``year`` column picked up with ``variables=None``
+    equals its lag plus one, so its equation fits exactly and the residual
+    covariance has no inverse).
+    """
+    values = np.asarray(values, dtype=float)
+    T, K = values.shape
+    labels = [str(v) for v in names]
+    if T <= K + 1:
+        return  # too short to tell; the caller's sample-size check speaks
+    _, dependent = independent_columns(
+        np.column_stack([np.ones(T), values]), ["_cons"] + labels
+    )
+    if not dependent and T - 1 > 2 * K + 1:
+        stack = [np.ones((T - 1, 1))] if constant else []
+        _, dependent = independent_columns(
+            np.column_stack(stack + [values[:-1], values[1:]]),
+            (["_cons"] if constant else []) + [f"L1.{v}" for v in labels] + labels,
+        )
+    if dependent:
+        raise MethodIncompatibility(
+            f"{who}: the series are linearly dependent ("
+            + "; ".join(f"{o['variable']}: {o['reason']}" for o in dependent[:6])
+            + "), so the moment matrices are singular.",
+            recovery_hint="Drop the redundant series (with variables=None "
+            "every numeric column is used, a year or counter column "
+            "included); the model is defined for linearly independent "
+            "variables.",
+            diagnostics={"omitted": dependent},
+        )
+
+
 def _lag_matrix(data: np.ndarray, lags: int) -> tuple[np.ndarray, np.ndarray]:
     """Create lagged matrix for VAR estimation."""
     n, k = data.shape
@@ -441,10 +539,28 @@ def var(
             "are not among the endogenous variables.",
             recovery_hint="Check the names passed to exog=.",
         )
-    complete = data[list(variables) + exog_names].dropna()
+    if trend not in ("c", "ct", "n"):
+        raise MethodIncompatibility(
+            f"sp.var: trend must be 'c' (constant), 'ct' (constant and "
+            f"linear trend) or 'n' (neither), got {trend!r}.",
+            recovery_hint="Other deterministic terms go in exog=.",
+        )
+    if isinstance(lags, bool) or int(lags) != lags or lags < 1:
+        raise MethodIncompatibility(
+            f"sp.var: lags must be a positive integer, got {lags!r}.",
+            recovery_hint="A VAR needs at least one lag; choose the order "
+            "with sp.varsoc.",
+        )
+    lags = int(lags)
+    complete = _consecutive_rows(data[list(variables) + exog_names], "sp.var")
     var_data = complete[list(variables)].values.astype(float)
     var_names = list(variables)
     n, k = var_data.shape
+    if n <= lags:
+        raise DataInsufficient(
+            f"sp.var: {n} complete observation(s) for {lags} lag(s).",
+            recovery_hint="Use a longer series or fewer lags.",
+        )
 
     Y, X = _lag_matrix(var_data, lags)
     T = Y.shape[0]
@@ -455,6 +571,33 @@ def var(
         X = X[:, :-1]  # remove constant
     if exog_names:
         X = np.column_stack([X, complete[exog_names].values.astype(float)[lags:]])
+
+    # Each equation needs residual degrees of freedom and a design of full
+    # column rank: with T <= m the fit is exact, and with dependent columns
+    # (a variable that is a multiple of another, an exog column that repeats
+    # the constant) the coefficients are not identified.
+    reg_names = [f"L{lag}.{v}" for lag in range(1, lags + 1) for v in var_names]
+    reg_names += {"c": ["_cons"], "ct": ["_cons", "_trend"], "n": []}[trend]
+    reg_names += exog_names
+    if T <= X.shape[1]:
+        raise DataInsufficient(
+            f"sp.var: {T} usable observation(s) for {X.shape[1]} "
+            "coefficient(s) per equation; the system is saturated.",
+            recovery_hint="Use fewer lags or variables, or a longer series.",
+            diagnostics={"n_obs": int(T), "n_regressors": int(X.shape[1])},
+        )
+    _, dependent = independent_columns(X, reg_names)
+    if dependent:
+        raise MethodIncompatibility(
+            "sp.var: the regressors are perfectly collinear ("
+            + "; ".join(f"{o['variable']}: {o['reason']}" for o in dependent[:6])
+            + "), so the coefficients are not identified.",
+            recovery_hint="Drop the redundant variable (a series that is a "
+            "linear combination of the others, or an exog column that "
+            "repeats the constant).",
+            diagnostics={"omitted": dependent},
+        )
+    _require_independent_series(var_data, var_names, "sp.var", constant=trend != "n")
 
     # OLS for each equation
     try:
@@ -821,6 +964,19 @@ def irf(
     k = var_result._k
     p = var_result._lags
     B = var_result._B
+    if isinstance(periods, bool) or int(periods) != periods or periods < 0:
+        raise MethodIncompatibility(
+            f"irf: periods must be a non-negative integer, got {periods!r}.",
+            recovery_hint="periods=0 is the impact response alone.",
+        )
+    periods = int(periods)
+    for role, name in (("impulse", impulse), ("response", response)):
+        if name and name not in var_result.var_names:
+            raise MethodIncompatibility(
+                f"irf: {role}={name!r} is not a variable of the VAR "
+                f"({var_result.var_names}).",
+                recovery_hint=f"Pass one of the fitted variables as {role}=.",
+            )
     if B is None:
         raise MethodIncompatibility(
             "VARResult does not contain coefficient matrices for IRF. "

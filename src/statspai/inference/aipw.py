@@ -25,7 +25,7 @@ Hansen, C., Newey, W. and Robins, J. (2018).
 """
 
 import warnings
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -35,7 +35,8 @@ from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceWarning, MethodIncompatibility
+from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from .basic_tests import _check_alpha
 
 _OUTCOME_MODELS = ("linear", "logit", "probit", "poisson")
 
@@ -253,6 +254,14 @@ def aipw(
             recovery_hint="Use trim=0.01 (the default) or trim=0 for no clipping.",
         )
     trim = float(trim)
+    _check_alpha(alpha, "aipw")
+    if cross_fit and not n_folds >= 2:
+        raise MethodIncompatibility(
+            f"aipw: cross-fitting needs n_folds >= 2, got {n_folds!r}; with "
+            "one fold the nuisance models would be trained on no data.",
+            recovery_hint="Use n_folds=5 (the default), or cross_fit=False "
+            "to fit the nuisance models on the full sample.",
+        )
     rng = np.random.default_rng(seed)
 
     extra = [c for c in (weights, cluster) if c is not None]
@@ -272,6 +281,14 @@ def aipw(
 
     if not set(np.unique(D)).issubset({0, 1}):
         raise ValueError("Treatment must be binary (0/1)")
+    n_arm1 = int(D.sum())
+    if n_arm1 == 0 or n_arm1 == n:
+        raise DataInsufficient(
+            f"aipw: {treat!r} has {n_arm1} treated and {n - n_arm1} control "
+            "units on the complete rows; the estimator needs an outcome "
+            "model for each arm.",
+            diagnostics={"n_treated": n_arm1, "n_control": n - n_arm1},
+        )
     if outcome_model in ("logit", "probit") and (Y.min() < 0 or Y.max() > 1):
         raise MethodIncompatibility(
             f"aipw: outcome_model={outcome_model!r} needs an outcome in [0, 1].",
@@ -610,6 +627,52 @@ def _aipw_stacked_if(
     return if_1, if_0
 
 
+def _nuisance_designs(
+    X_train: np.ndarray, X_test: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Training and prediction designs with the same columns.
+
+    An intercept is prepended to both. ``sm.add_constant`` on each matrix
+    separately skips the intercept wherever a covariate happens to be
+    constant, which need not be the same on the two samples (a rare dummy
+    is constant in a small test fold): the prediction design then has one
+    column fewer than the fit.
+
+    A covariate that is constant on the training rows is collinear with
+    the intercept there, so its coefficient is not identified and it is
+    left out of both designs. The one exception keeps a case that already
+    worked unchanged: a single non-zero constant covariate that takes the
+    same value on the prediction rows serves as the intercept itself.
+    """
+    import statsmodels.api as sm
+
+    X_train = np.asarray(X_train, dtype=float)
+    X_test = np.asarray(X_test, dtype=float)
+    if X_train.ndim != 2 or X_train.shape[0] == 0 or X_train.shape[1] == 0:
+        return (
+            sm.add_constant(X_train, has_constant="add"),
+            sm.add_constant(X_test, has_constant="add"),
+        )
+    fixed = np.all(X_train == X_train[0], axis=0)
+    if not fixed.any():
+        return (
+            sm.add_constant(X_train, has_constant="add"),
+            sm.add_constant(X_test, has_constant="add"),
+        )
+    j = np.flatnonzero(fixed)
+    if (
+        j.size == 1
+        and X_train[0, j[0]] != 0
+        and X_test.shape[0] > 0
+        and np.all(X_test[:, j[0]] == X_train[0, j[0]])
+    ):
+        return X_train, X_test
+    return (
+        sm.add_constant(X_train[:, ~fixed], has_constant="add"),
+        sm.add_constant(X_test[:, ~fixed], has_constant="add"),
+    )
+
+
 def _fit_propensity(
     X_train: np.ndarray,
     D_train: np.ndarray,
@@ -620,8 +683,7 @@ def _fit_propensity(
     try:
         import statsmodels.api as sm
 
-        X_tr = sm.add_constant(X_train)
-        X_te = sm.add_constant(X_test)
+        X_tr, X_te = _nuisance_designs(X_train, X_test)
         if w_train is None:
             logit = sm.Logit(D_train, X_tr)
             res = logit.fit(disp=0, maxiter=300, warn_convergence=False)
@@ -662,8 +724,7 @@ def _fit_outcome(
     try:
         import statsmodels.api as sm
 
-        X_tr = sm.add_constant(X_train)
-        X_te = sm.add_constant(X_test)
+        X_tr, X_te = _nuisance_designs(X_train, X_test)
         if model != "linear":
             family = {
                 "logit": sm.families.Binomial,

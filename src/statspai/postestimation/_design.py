@@ -326,6 +326,73 @@ def _structural_formula(formula: str) -> str:
     return formula
 
 
+def fitted_factor_levels(design_info: Any, columns: Sequence[Any]) -> Dict[str, Any]:
+    """Levels of each factor of a fitted formula, ``{column: [levels]}``.
+
+    The reference level has no dummy, so the coefficient names alone do not
+    say which values of a factor the model saw; this record (plain values,
+    picklable) does, and :func:`reject_unseen_levels` reads it at prediction
+    time.  Only factors that are one column of the data (``C(g)``, ``g``,
+    ``C(g, Treatment(...))``) are recorded.
+    """
+    out: Dict[str, Any] = {}
+    infos = getattr(design_info, "factor_infos", None) or {}
+    names = {str(c) for c in columns}
+    for factor, info in infos.items():
+        if getattr(info, "type", None) != "categorical":
+            continue
+        code = str(getattr(factor, "code", ""))
+        used = _names_in(code, names)
+        bare = len(used) == 1 and (
+            code == used[0] or re.match(rf"^C\(\s*{re.escape(used[0])}\s*[,)]", code)
+        )
+        if not bare:
+            continue
+        out[used[0]] = [c.item() if hasattr(c, "item") else c for c in info.categories]
+    return out
+
+
+def reject_unseen_levels(levels: Any, frame: pd.DataFrame) -> None:
+    """Raise when ``frame`` holds a factor level the model was not fitted on.
+
+    A dummy-coded design gives such a row zeros in every dummy of the
+    factor, which is the row of the reference level: the prediction would
+    be the reference level's, without a word.
+    """
+    if not isinstance(levels, dict):
+        return
+    for var, seen in levels.items():
+        if var not in frame.columns:
+            continue
+        known = set()
+        for level in seen:
+            known.add(str(level))
+            try:
+                known.add(float(level))
+            except (TypeError, ValueError):
+                continue
+        unseen = []
+        for value in pd.unique(frame[var].dropna()):
+            try:
+                number: Any = float(value)
+            except (TypeError, ValueError):
+                number = None
+            if str(value) not in known and number not in known:
+                unseen.append(value.item() if hasattr(value, "item") else value)
+        if unseen:
+            raise MethodIncompatibility(
+                f"predict(): {var!r} takes the value(s) {unseen} in the new "
+                f"data, which the model was not fitted on (levels at fit "
+                f"time: {list(seen)}). The model has no coefficient for "
+                f"them, so there is no prediction for these rows.",
+                recovery_hint=(
+                    "Drop these rows, recode them to a fitted level, or "
+                    "refit the model on data that includes the level."
+                ),
+                diagnostics={"variable": var, "unseen_levels": unseen},
+            )
+
+
 def design_for(result: Any, frame: pd.DataFrame) -> Any:
     """Pick the backend that can evaluate this model's design on ``frame``."""
     terms = [str(t) for t in result.params.index]
@@ -348,6 +415,8 @@ __all__ = [
     "CAT_TERM_RE",
     "design_for",
     "factor_value",
+    "fitted_factor_levels",
     "model_formula",
     "model_setting",
+    "reject_unseen_levels",
 ]

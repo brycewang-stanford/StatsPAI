@@ -253,6 +253,12 @@ def abc(
                 "summaries and were dropped"
             )
             theta, S = theta[ok], S[ok]
+        if not ok.any():
+            raise DataInsufficient(
+                "Every simulation returned missing or infinite summaries, so "
+                "none can be compared with the data. Check simulate() at "
+                "parameter values drawn from the prior."
+            )
         sc: np.ndarray
         if scale is None:
             sc = np.ones(s_obs.size)
@@ -267,7 +273,13 @@ def abc(
                     f"scale must be 'mad', 'sd', None or an array; got {scale!r}."
                 )
         else:
-            sc = np.broadcast_to(np.asarray(scale, dtype=float), s_obs.shape).copy()
+            sc_in = np.asarray(scale, dtype=float).reshape(-1)
+            if sc_in.size not in (1, s_obs.size):
+                raise MethodIncompatibility(
+                    f"scale has {sc_in.size} entries for {s_obs.size} summary "
+                    "statistics; pass one number or one per summary."
+                )
+            sc = np.broadcast_to(sc_in, s_obs.shape).copy()
         if np.any(sc <= 0):
             raise MethodIncompatibility(
                 "A summary statistic does not vary across simulations (zero "
@@ -339,6 +351,12 @@ def abc(
         tp = pr.sample(rng, n_pilot)
         Sp = _simulate_many(simulate, tp, rng, vectorized, s_obs.size)
         okp = np.isfinite(Sp).all(axis=1)
+        if not okp.any():
+            raise DataInsufficient(
+                "Every simulation returned missing or infinite summaries, so "
+                "none can be compared with the data. Check simulate() at "
+                "parameter values drawn from the prior."
+            )
         tp, Sp = tp[okp], Sp[okp]
         scp = np.median(np.abs(Sp - np.median(Sp, axis=0)), axis=0)
         scp = np.where(scp > 0, scp, 1.0)

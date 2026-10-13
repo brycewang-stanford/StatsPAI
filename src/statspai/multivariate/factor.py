@@ -9,6 +9,7 @@ principal factors, principal-component factors, and maximum likelihood.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 
 import numpy as np
@@ -16,7 +17,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ConvergenceWarning, MethodIncompatibility
 from .pca import _columns, _ordered_eigen
 
 __all__ = ["factor", "FactorResult"]
@@ -59,6 +60,12 @@ class FactorResult(ResultProtocolMixin):
     heywood : bool
         True when a uniqueness is at its lower bound (an improper
         solution): 0.005 for maximum likelihood, below zero otherwise.
+    converged : bool
+        Whether the iterations of ``'ipf'`` (the communalities) or ``'ml'``
+        (the optimiser) stopped at their tolerance. Always True for
+        ``'pf'`` and ``'pcf'``, which do not iterate.
+    n_iter : int
+        Iterations taken; 0 for ``'pf'`` and ``'pcf'``.
 
     Examples
     --------
@@ -92,6 +99,8 @@ class FactorResult(ResultProtocolMixin):
         self.lr_independence: Dict[str, float] = fields.pop("lr_independence")
         self.lr_factors: Optional[Dict[str, float]] = fields.pop("lr_factors", None)
         self.heywood: bool = fields.pop("heywood", False)
+        self.converged: bool = bool(fields.pop("converged", True))
+        self.n_iter: int = int(fields.pop("n_iter", 0))
         #: set by :meth:`rotate`
         self.rotation: Optional[str] = None
         self.rotation_matrix: Optional[pd.DataFrame] = None
@@ -270,7 +279,9 @@ class FactorResult(ResultProtocolMixin):
         return self.summary()
 
 
-def _ml_loadings(R: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray, float]:
+def _ml_loadings(
+    R: np.ndarray, k: int
+) -> Tuple[np.ndarray, np.ndarray, float, Tuple[bool, int]]:
     """Loadings, uniquenesses and the minimised discrepancy
     ``log|S| - log|R| + tr(R S^{-1}) - p`` of the ``k``-factor model.
 
@@ -310,7 +321,8 @@ def _ml_loadings(R: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray, float]:
     psi = np.asarray(fit.x, dtype=float)
     values, vectors = parts(psi)
     lead = vectors[:, :k] * np.sqrt(np.clip(values[:k] - 1.0, 0.0, None))
-    return lead * np.sqrt(psi)[:, None], psi, float(fit.fun)
+    state = (bool(fit.success), int(fit.nit))
+    return lead * np.sqrt(psi)[:, None], psi, float(fit.fun), state
 
 
 def factor(
@@ -350,7 +362,9 @@ def factor(
     tol : float, default 1e-8
         Convergence of the communalities for ``'ipf'``.
     maxiter : int, default 1000
-        Iteration limit for ``'ipf'``.
+        Iteration limit for ``'ipf'``. Reaching it raises a
+        ``ConvergenceWarning``; ``converged`` and ``n_iter`` on the result
+        say how the iterations ended.
 
     Returns
     -------
@@ -431,7 +445,7 @@ def factor(
                 f"sp.factor: {k} factors are not identified from {p} variables.",
                 recovery_hint="Ask for fewer factors.",
             )
-        load, psi, discrepancy = _ml_loadings(R, k)
+        load, psi, discrepancy, (ml_ok, ml_iter) = _ml_loadings(R, k)
         values = (load**2).sum(axis=0)
         order = np.argsort(values)[::-1]
         load, values = load[:, order], values[order]
@@ -454,6 +468,8 @@ def factor(
                 else None
             ),
             "heywood": bool(np.any(psi <= 0.005 + 1e-9)),
+            "converged": ml_ok,
+            "n_iter": ml_iter,
         }
         uniqueness = psi
     else:
@@ -479,15 +495,27 @@ def factor(
             return vals, vecs, keep
 
         values, vectors, k = decompose(communality)
+        done, n_iter = True, 0
         if method == "ipf":
-            for _ in range(maxiter):
+            done = False
+            for n_iter in range(1, int(maxiter) + 1):
                 load = vectors[:, :k] * np.sqrt(np.clip(values[:k], 0.0, None))
                 new = (load**2).sum(axis=1)
-                done = np.max(np.abs(new - communality)) < tol
+                change = float(np.max(np.abs(new - communality)))
+                done = change < tol
                 communality = new
                 values, vectors, _ = decompose(communality)
                 if done:
                     break
+            if not done:
+                warnings.warn(
+                    f"sp.factor: method='ipf' did not converge in {n_iter} "
+                    f"iterations (the communalities still moved by "
+                    f"{change:.3g}; tol={tol:g}). The loadings are those of "
+                    "the last iteration.",
+                    ConvergenceWarning,
+                    stacklevel=2,
+                )
         if np.any(values[:k] <= 0):
             raise MethodIncompatibility(
                 f"sp.factor: only {int((values > 0).sum())} factor(s) have a "
@@ -497,7 +525,11 @@ def factor(
         load = vectors[:, :k] * np.sqrt(values[:k])
         uniqueness = 1.0 - (load**2).sum(axis=1)
         shown = values
-        extra = {"heywood": bool(np.any(uniqueness < 0))}
+        extra = {
+            "heywood": bool(np.any(uniqueness < 0)),
+            "converged": bool(done),
+            "n_iter": int(n_iter),
+        }
 
     labels = [f"Factor{j + 1}" for j in range(len(shown))]
     total = shown.sum() if method != "pcf" else float(p)

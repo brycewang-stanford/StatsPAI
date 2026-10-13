@@ -112,8 +112,9 @@ def factor_importance(
         The outcome. Numeric, or a 0 / 1 indicator.
     factors : list of str, optional
         Candidate columns. Default: every other column. Categorical
-        columns are one-hot encoded for the neighbour search and count as
-        one factor.
+        columns (strings, ``category``, bool) are one-hot encoded for the
+        neighbour search and count as one factor; numeric columns enter
+        the distance as they are, ties included (see Notes).
     n_neighbors : int, optional
         Neighbours (the observation included) used for each conditional
         variance. Default 2, or 3 when the outcome takes two values.
@@ -157,6 +158,14 @@ def factor_importance(
     ``a`` in the explained variance is 0.67) this gives 0.62 for ``a``
     where ``first`` gives 0.55.
 
+    The same rule covers numeric factors with repeated values (the coded
+    columns of a factorial design, integer levels): the neighbourhood of
+    an observation is its ``k`` nearest neighbours and every observation
+    tied with the ``k``-th, so exact duplicates of a row form one cell
+    and the result does not depend on the order of the rows or on
+    whether levels are coded as numbers or as labels. Data without ties
+    are unaffected.
+
     The selection is greedy. Two factors that matter only through their
     product, with no effect of either on its own, can be missed: in the
     population neither lowers the conditional variance when added
@@ -198,6 +207,12 @@ def factor_importance(
         raise ColumnNotFound(f"Not in the data: {', '.join(miss)}.")
     if not cols:
         raise MethodIncompatibility("There is no candidate factor.")
+    if y in cols:
+        raise MethodIncompatibility(
+            f"The outcome {y!r} is listed among the factors; remove it."
+        )
+    if len(set(cols)) < len(cols):
+        raise MethodIncompatibility("A factor is listed more than once.")
     use = data[[y] + cols].dropna()
     notes: List[str] = []
     if len(use) < len(data):
@@ -240,6 +255,30 @@ def factor_importance(
         )
     cache: Dict[frozenset, float] = {}
 
+    def _nn_variance(Z: np.ndarray) -> float:
+        """Mean over the evaluation points of the outcome variance among
+        the ``k`` nearest neighbours, every point tied with the ``k``-th
+        included. Without ties this is the plain ``k``-neighbour rule."""
+        tree = cKDTree(Z)
+        kq = min(k + 1, N)
+        dist, idx = tree.query(Z[at], k=kq)
+        out = np.var(yy[idx[:, :k]], axis=1, ddof=1)
+        if kq > k:
+            edge = dist[:, k - 1]
+            tied = dist[:, k] <= edge * (1.0 + 1e-9)
+            zero = tied & (edge == 0.0)
+            if zero.any():
+                # exact duplicates of the row: the neighbourhood is the
+                # whole cell, as for a set of categorical factors
+                _, cell = np.unique(Z, axis=0, return_inverse=True)
+                cell = np.asarray(cell).ravel()
+                var_c = pd.Series(yy).groupby(cell).var(ddof=1).to_numpy()
+                out[zero] = var_c[cell[at[zero]]]
+            for i in np.flatnonzero(tied & ~zero):
+                near = tree.query_ball_point(Z[at[i]], edge[i] * (1.0 + 1e-9))
+                out[i] = np.var(yy[near], ddof=1)
+        return float(np.mean(out))
+
     def v(S: Sequence[int]) -> float:
         key = frozenset(S)
         if not key:
@@ -254,9 +293,7 @@ def factor_importance(
                 var_c, n_c = cell.var(ddof=1).fillna(0.0), cell.size()
                 cache[key] = float((var_c * n_c).sum() / n_c.sum())
             else:
-                Z = np.hstack([blocks[j] for j in sorted(key)])
-                _, idx = cKDTree(Z).query(Z[at], k=k)
-                cache[key] = float(np.mean(np.var(yy[idx], axis=1, ddof=1)))
+                cache[key] = _nn_variance(np.hstack([blocks[j] for j in sorted(key)]))
         return cache[key]
 
     p = len(cols)

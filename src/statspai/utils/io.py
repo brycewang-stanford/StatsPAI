@@ -100,10 +100,10 @@ def read_data(
     Parameters
     ----------
     path : str
-        File path. Supported: .dta, .csv, .xlsx, .xls, .parquet,
-        .sas7bdat, .sav, .feather, .json.
+        File path. Supported: .dta, .csv, .tsv (tab-separated), .xlsx,
+        .xls, .parquet, .sas7bdat, .sav, .feather, .json.
     encoding : str, optional
-        Character encoding (for CSV).
+        Character encoding (for .csv and .tsv).
     extended_missing : {'nan', 'column'}, default 'nan'
         What to do with Stata's extended missing values ``.a`` ... ``.z``
         in a .dta file (survey codes such as "refused" or "don't know").
@@ -166,6 +166,8 @@ def read_data(
                 path, converted, alias, extended_missing=extended_missing, **kwargs
             )
     elif ext in (".csv", ".tsv"):
+        if ext == ".tsv" and not {"sep", "delimiter"} & set(kwargs):
+            kwargs["sep"] = "\t"
         df = pd.read_csv(path, encoding=encoding, **kwargs)
     elif ext in (".xlsx", ".xls"):
         df = pd.read_excel(_excel_source(path, ext), **kwargs)
@@ -174,6 +176,7 @@ def read_data(
         _restore_value_label_keys(df)
     elif ext == ".feather":
         df = pd.read_feather(path, **kwargs)
+        _restore_value_label_keys(df)
     elif ext == ".json":
         df = pd.read_json(path, **kwargs)
     elif ext == ".sas7bdat":
@@ -183,7 +186,8 @@ def read_data(
     else:
         raise ValueError(
             f"Unsupported file format: '{ext}'. "
-            f"Supported: .dta, .csv, .xlsx, .parquet, .sas7bdat, .sav"
+            f"Supported: .dta, .csv, .tsv, .xlsx, .xls, .parquet, "
+            f".feather, .json, .sas7bdat, .sav"
         )
 
     return df
@@ -647,8 +651,8 @@ def _informative_formats(formats: Dict[str, Any]) -> Dict[str, str]:
 def _restore_value_label_keys(df: pd.DataFrame) -> None:
     """Turn value-label codes back into integers after a Parquet round trip.
 
-    Parquet stores ``df.attrs`` as JSON, whose object keys are strings, so
-    ``{0: 'male'}`` comes back as ``{'0': 'male'}``.
+    Parquet and Feather store ``df.attrs`` as JSON, whose object keys are
+    strings, so ``{0: 'male'}`` comes back as ``{'0': 'male'}``.
     """
     stored = df.attrs.get("_value_labels")
     if not isinstance(stored, dict):
@@ -727,6 +731,8 @@ def write_data(
 
     Raises
     ------
+    TypeError
+        ``data`` is not a pandas DataFrame.
     MethodIncompatibility
         (a ``ValueError``.)  Unsupported extension; ``labels`` / ``value_labels`` naming a
         column that is not in ``data``; a variable or dataset label longer
@@ -738,7 +744,7 @@ def write_data(
     -----
     UserWarning
         When ``data`` carries labels and the format cannot store them
-        (.csv, .tsv, .xlsx, .feather, .json).  Parquet stores them.
+        (.csv, .tsv, .xlsx, .json).  Parquet and Feather store them.
 
     Notes
     -----
@@ -781,6 +787,12 @@ def write_data(
     >>> sp.get_label(sp.read_data('survey.dta'), 'wage')  # doctest: +SKIP
     'Monthly wage (CNY)'
     """
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError(
+            f"write_data: data must be a pandas DataFrame; got "
+            f"{type(data).__name__}. Wrap it first, e.g. "
+            f"pd.DataFrame({{'x': values}})."
+        )
     p = Path(path)
     ext = p.suffix.lower()
     if extended_missing not in _EXTENDED_MISSING_MODES:
@@ -820,7 +832,7 @@ def write_data(
         )
         return p
 
-    if ext == ".parquet":
+    if ext in (".parquet", ".feather"):
         out = data
         if labels or value_labels or data_label:
             out = data.copy(deep=False)
@@ -833,6 +845,9 @@ def write_data(
                 out.attrs["_missing_labels"] = gaps
             if data_label:
                 out.attrs["_data_label"] = data_label
+        if ext == ".feather":
+            out.to_feather(p, **kwargs)
+            return p
         kwargs.setdefault("index", False)
         out.to_parquet(p, **kwargs)
         return p
@@ -845,8 +860,6 @@ def write_data(
     elif ext == ".xlsx":
         kwargs.setdefault("index", False)
         data.to_excel(p, **kwargs)
-    elif ext == ".feather":
-        data.to_feather(p, **kwargs)
     elif ext == ".json":
         data.to_json(p, **kwargs)
     else:
@@ -857,8 +870,8 @@ def write_data(
     if var_lab or val_lab or data_label:
         warnings.warn(
             f"'{ext}' files cannot store variable or value labels; "
-            f"{p.name} was written without them. Use .dta or .parquet to "
-            f"keep them.",
+            f"{p.name} was written without them. Use .dta, .parquet or "
+            f".feather to keep them.",
             UserWarning,
             stacklevel=2,
         )
@@ -915,13 +928,24 @@ def _value_label_sets(
     """Name the value-label sets: ``({variable: name}, {name: table})``.
 
     Codes are checked on the way: integers and ``'.a'`` ... ``'.z'`` only,
-    on numeric columns only.
+    on numeric columns only.  A ``Categorical`` column without labels of
+    its own gets its categories as the labels of its codes, which is how
+    pandas writes it.
     """
     recorded = df.attrs.get("_value_label_names") or {}
     set_of: Dict[Any, str] = {}
     tables: Dict[str, Dict[Any, str]] = {}
+    # pandas writes a Categorical as its codes plus a label set; the tables
+    # passed to ``patch_dta`` replace the file's, so they must repeat it
+    val_lab = dict(val_lab)
+    categorical = set()
+    for c in df.columns:
+        if isinstance(df[c].dtype, pd.CategoricalDtype) and c not in val_lab:
+            texts = df[c].cat.categories
+            val_lab[c] = {k: str(v) for k, v in enumerate(texts)}
+            categorical.add(c)
     for c, m in val_lab.items():
-        if not pd.api.types.is_numeric_dtype(df[c]):
+        if c not in categorical and not pd.api.types.is_numeric_dtype(df[c]):
             raise MethodIncompatibility(
                 f"Stata value labels attach to numeric variables; '{c}' "
                 f"is {df[c].dtype}."

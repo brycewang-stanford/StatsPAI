@@ -2719,6 +2719,28 @@ class MatchEstimator:
             "n_treated_in_strata": int((keep & (T == 1)).sum()),
             "n_control_in_strata": int((keep & (T == 0)).sum()),
         }
+        n_t_out = int((~keep & (T == 1)).sum())
+        n_c_out = int((~keep & (T == 0)).sum())
+        extra["n_treated_outside_strata"] = n_t_out
+        if self.estimand == "ATT" and n_t_out:
+            warnings.warn(
+                f"sp.match(method='stratify'): {n_t_out} of "
+                f"{int((T == 1).sum())} treated units are in strata with no "
+                "control unit and do not enter the estimate. The estimand "
+                "is the ATT over the strata that hold both arms.",
+                UserWarning,
+                stacklevel=4,
+            )
+        elif self.estimand != "ATT" and (n_t_out or n_c_out):
+            warnings.warn(
+                f"sp.match(method='stratify'): {n_t_out + n_c_out} of "
+                f"{len(T)} units ({n_t_out} treated, {n_c_out} control) are "
+                "in strata that hold one arm only and do not enter the "
+                "estimate. The estimand is the "
+                f"{self.estimand} over the strata that hold both arms.",
+                UserWarning,
+                stacklevel=4,
+            )
         return att, se, balance, extra
 
     # ==================================================================

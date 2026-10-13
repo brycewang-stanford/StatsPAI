@@ -651,6 +651,7 @@ def _fit_binary(
     alpha: float,
     at_values: Optional[Dict[str, float]] = None,
     perfect_prediction: str = "drop",
+    weights_as: Optional[str] = None,
 ) -> EconometricResults:
     """
     Internal workhorse for logit / probit / cloglog estimation.
@@ -671,8 +672,15 @@ def _fit_binary(
         )
 
     # ── Prepare data ────────────────────────────────────────────────────
+    factor_levels: Optional[Dict[str, Any]] = None
     if formula is not None and data is not None:
         y_df, X_df = create_design_matrices(formula, data)
+        from ..postestimation._design import fitted_factor_levels
+
+        # for predict(): which values of each factor the fit saw
+        factor_levels = fitted_factor_levels(
+            getattr(X_df, "design_info", None), data.columns
+        )
         y_vec = y_df.values.ravel()
         X_mat = X_df.values
         var_names = list(X_df.columns)
@@ -781,9 +789,22 @@ def _fit_binary(
             )
 
     # Standard-error request (Stata grammar: vce='robust', 'cluster firm', ...)
+    from ..core._agent_summary import resolve_weights_as
     from ..core._vcov import ml_vcov
     from ..core._vcov_spec import parse_se_request
 
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native="frequency",
+        entry=f"sp.{link}",
+    )
+    if (
+        weights_as == "sampling"
+        and cluster is None
+        and str(robust).lower() == "nonrobust"
+    ):
+        robust = "robust"
     se_req = parse_se_request(
         robust,
         cluster,
@@ -964,6 +985,7 @@ def _fit_binary(
             ),
             cluster_keys=cluster_arr,
             cluster=cluster,
+            weights_as=weights_as,
         )
 
     model_info["alpha"] = alpha
@@ -996,6 +1018,7 @@ def _fit_binary(
             _formula=formula,
             _vcov=np.asarray(vcov, dtype=float),
             _alpha=alpha,
+            _levels=factor_levels,
         ),
     )
     setattr(
@@ -1024,6 +1047,7 @@ def _bound_result_predict(
     _formula: Optional[str] = None,
     _vcov: Optional[np.ndarray] = None,
     _alpha: float = 0.05,
+    _levels: Optional[Dict[str, Any]] = None,
 ) -> Any:
     """``result.predict`` for binary-response fits (picklable via partial).
 
@@ -1057,8 +1081,10 @@ def _bound_result_predict(
     if isinstance(X_new, pd.DataFrame):
         from types import SimpleNamespace
 
-        from ..postestimation._design import design_for
+        from ..postestimation._design import design_for, reject_unseen_levels
 
+        # an unseen factor level would be predicted as the reference level
+        reject_unseen_levels(_levels, X_new)
         shim = SimpleNamespace(
             params=pd.Series(np.asarray(beta, dtype=float), index=list(_names)),
             model_info={"formula": _formula},
@@ -1145,6 +1171,7 @@ def logit(
     alpha: float = 0.05,
     at_values: Optional[Dict[str, float]] = None,
     perfect_prediction: str = "drop",
+    weights_as: Optional[str] = None,
 ) -> EconometricResults:
     """
     Logit (logistic) regression via maximum likelihood.
@@ -1166,7 +1193,18 @@ def logit(
     cluster : str, optional
         Column name for clustered standard errors.
     weights : str, optional
-        Column name for frequency/analytic weights.
+        Weight column. Alone it is a frequency weight (Stata ``[fw=]`` /
+        ``[iw=]``): the model-based variance scales with the weights. For
+        sampling weights say so with ``weights_as='sampling'``.
+    weights_as : {'frequency', 'sampling'}, optional
+        What the weights are. ``'frequency'`` is what ``weights=`` alone
+        already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and
+        inverse-probability weights: the same coefficients with the robust
+        variance, unless ``robust=`` or ``cluster=`` asks for another.
+        Saying which also silences the warning about dispersed weights
+        under the model-based variance. ``'analytic'`` is refused: Stata's
+        ``[aw=]`` rescales the weights to sum to ``N``, which this
+        function does not do.
     marginal_effects : str, optional
         ``'average'`` (AME), ``'mean'`` (MEM), or ``'at'`` (MER).
     odds_ratio : bool, default False
@@ -1226,6 +1264,7 @@ def logit(
         alpha=alpha,
         at_values=at_values,
         perfect_prediction=perfect_prediction,
+        weights_as=weights_as,
     )
 
 
@@ -1246,6 +1285,7 @@ def probit(
     alpha: float = 0.05,
     at_values: Optional[Dict[str, float]] = None,
     perfect_prediction: str = "drop",
+    weights_as: Optional[str] = None,
 ) -> EconometricResults:
     """
     Probit regression via maximum likelihood.
@@ -1267,7 +1307,18 @@ def probit(
     cluster : str, optional
         Column name for clustered standard errors.
     weights : str, optional
-        Column name for frequency/analytic weights.
+        Weight column. Alone it is a frequency weight (Stata ``[fw=]`` /
+        ``[iw=]``): the model-based variance scales with the weights. For
+        sampling weights say so with ``weights_as='sampling'``.
+    weights_as : {'frequency', 'sampling'}, optional
+        What the weights are. ``'frequency'`` is what ``weights=`` alone
+        already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and
+        inverse-probability weights: the same coefficients with the robust
+        variance, unless ``robust=`` or ``cluster=`` asks for another.
+        Saying which also silences the warning about dispersed weights
+        under the model-based variance. ``'analytic'`` is refused: Stata's
+        ``[aw=]`` rescales the weights to sum to ``N``, which this
+        function does not do.
     marginal_effects : str, optional
         ``'average'`` (AME), ``'mean'`` (MEM), or ``'at'`` (MER).
     maxiter : int, default 100
@@ -1321,6 +1372,7 @@ def probit(
         alpha=alpha,
         at_values=at_values,
         perfect_prediction=perfect_prediction,
+        weights_as=weights_as,
     )
 
 
@@ -1341,6 +1393,7 @@ def cloglog(
     alpha: float = 0.05,
     at_values: Optional[Dict[str, float]] = None,
     perfect_prediction: str = "drop",
+    weights_as: Optional[str] = None,
 ) -> EconometricResults:
     """
     Complementary log-log regression via maximum likelihood.
@@ -1365,7 +1418,18 @@ def cloglog(
     cluster : str, optional
         Column name for clustered standard errors.
     weights : str, optional
-        Column name for frequency/analytic weights.
+        Weight column. Alone it is a frequency weight (Stata ``[fw=]`` /
+        ``[iw=]``): the model-based variance scales with the weights. For
+        sampling weights say so with ``weights_as='sampling'``.
+    weights_as : {'frequency', 'sampling'}, optional
+        What the weights are. ``'frequency'`` is what ``weights=`` alone
+        already means. ``'sampling'`` (Stata ``[pw=]``) is for sampling and
+        inverse-probability weights: the same coefficients with the robust
+        variance, unless ``robust=`` or ``cluster=`` asks for another.
+        Saying which also silences the warning about dispersed weights
+        under the model-based variance. ``'analytic'`` is refused: Stata's
+        ``[aw=]`` rescales the weights to sum to ``N``, which this
+        function does not do.
     marginal_effects : str, optional
         ``'average'`` (AME), ``'mean'`` (MEM), or ``'at'`` (MER).
     maxiter : int, default 100
@@ -1414,4 +1478,5 @@ def cloglog(
         alpha=alpha,
         at_values=at_values,
         perfect_prediction=perfect_prediction,
+        weights_as=weights_as,
     )

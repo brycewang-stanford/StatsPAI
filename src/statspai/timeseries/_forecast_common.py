@@ -67,6 +67,7 @@ def read_series(
     else:
         values = np.asarray(y, dtype=float).ravel()
     values = np.asarray(values, dtype=float).ravel()
+    require_time_order(index, fn=fn)
     ok = np.flatnonzero(np.isfinite(values))
     if ok.size == 0:
         raise DataInsufficient(
@@ -91,6 +92,39 @@ def read_series(
     if isinstance(index, pd.RangeIndex) and index.step == 1 and index.start == 0:
         index = None
     return values, index, name
+
+
+def require_time_order(index: Optional[pd.Index], *, fn: str) -> None:
+    """Refuse a series whose date index is not in time order.
+
+    The forecasting functions read a series in row order. With a
+    ``DatetimeIndex`` or ``PeriodIndex`` the dates say what that order
+    should be, so rows out of order (a shuffled or reverse-sorted frame)
+    or two rows with the same date are refused rather than fitted as
+    given. Other indexes (positions, integers) carry no such claim and
+    are left alone.
+    """
+    if not isinstance(index, (pd.DatetimeIndex, pd.PeriodIndex)):
+        return
+    if index.hasnans:
+        raise MethodIncompatibility(
+            f"{fn}: the date index has missing values; the place of those "
+            "observations in the series is not known.",
+            recovery_hint="Drop or date those rows first.",
+        )
+    if not index.is_unique:
+        raise MethodIncompatibility(
+            f"{fn}: the date index has {int(index.duplicated().sum())} "
+            "repeated date(s); one series has one observation per date.",
+            recovery_hint="Aggregate the duplicates, or select one unit of "
+            "a panel, before calling.",
+        )
+    if not index.is_monotonic_increasing:
+        raise MethodIncompatibility(
+            f"{fn}: the date index is not in increasing order. The series is "
+            "read in row order, so it would be fitted out of time order.",
+            recovery_hint="Sort it first: series.sort_index().",
+        )
 
 
 def normalise_levels(level: Levels) -> Tuple[float, ...]:

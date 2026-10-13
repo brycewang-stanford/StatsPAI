@@ -37,6 +37,14 @@ def _need_model(fit: Any, what: str) -> None:
             f"{what} needs a fitted Bayesian regression "
             "(the result of sp.bayes_regress)."
         )
+    # raises for the result classes built on a shim (mixed models,
+    # systems, time-series models), which have no predictive distribution
+    fit._predictive_model(f"sp.{what}")
+
+
+def _check_level(level: float) -> None:
+    if not 0.0 < float(level) < 1.0:
+        raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
 
 
 def _no_grouped(fit: Any, what: str) -> None:
@@ -230,11 +238,23 @@ def ppc(
         observed = float(_STATS[name](y))
         with np.errstate(divide="ignore", invalid="ignore"):
             replicated = np.asarray(_STATS[name](y_rep), dtype=float)
+    p_value = float(np.mean(replicated >= observed))
+    if not np.isfinite(observed) or not np.isfinite(replicated).any():
+        # a comparison with a missing value is always false: the share
+        # above would read as 0, an extreme p-value that means nothing
+        p_value = float("nan")
+        warnings.warn(
+            f"The statistic '{name}' is not finite on the "
+            + ("observed outcome" if not np.isfinite(observed) else "replications")
+            + "; the posterior predictive p-value is not defined.",
+            StatsPAIWarning,
+            stacklevel=2,
+        )
     return PPCResult(
         stat=name,
         observed=observed,
         replicated=replicated,
-        p_value=float(np.mean(replicated >= observed)),
+        p_value=p_value,
         y=y,
         y_rep=y_rep,
     )
@@ -370,6 +390,7 @@ def bayes_r2(fit: Any, kind: str = "model", level: float = 0.95) -> BayesR2Resul
     ----------
     gelman2019rsquared
     """
+    _check_level(level)
     _need_model(fit, "bayes_r2")
     _no_grouped(fit, "bayes_r2")
     if fit.model in ("oprobit", "ologit", "mlogit", "quantile", "tobit"):
@@ -442,6 +463,11 @@ def loo_r2(
     ----------
     gelman2019rsquared, vehtari2017practical
     """
+    _check_level(level)
+    if not isinstance(n_boot, (int, np.integer)) or n_boot < 2:
+        raise MethodIncompatibility(
+            f"n_boot must be an integer of at least 2; got {n_boot!r}."
+        )
     _need_model(fit, "loo_r2")
     _no_grouped(fit, "loo_r2")
     if fit.model in ("oprobit", "ologit", "mlogit", "quantile", "tobit"):

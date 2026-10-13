@@ -34,7 +34,8 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
+from .basic_tests import _check_alpha
 
 StatFn = Callable[[np.ndarray, np.ndarray], float]
 Permuter = Callable[[], np.ndarray]
@@ -398,12 +399,15 @@ def fisher_exact(
 
     For stratified experiments, treatment is permuted within strata.
     For cluster-randomized experiments, treatment is permuted at
-    the cluster level.
+    the cluster level; with both ``cluster`` and ``stratify`` whole
+    clusters are permuted within their stratum (the treatment and the
+    stratum must then be constant within clusters).
 
     See Young (2019, *QJE*) for why randomization p-values should
     accompany asymptotic p-values in experimental papers.
     """
     rng = np.random.default_rng(seed)
+    _check_alpha(alpha, "fisher_exact")
 
     # Prepare data
     keep_cols = [y, treatment]
@@ -419,7 +423,41 @@ def fisher_exact(
     Y = df[y].values.astype(float)
     D = df[treatment].values.astype(float)
     n = len(Y)
+    if not np.all(np.isin(D, (0.0, 1.0))):
+        raise MethodIncompatibility(
+            f"fisher_exact compares treated and control units and needs a "
+            f"binary 0/1 treatment; {treatment!r} takes other values.",
+            recovery_hint="Recode the treatment to 0/1, or use sp.ri_test "
+            "with stat='ols' for a multi-valued or continuous treatment.",
+            diagnostics={"n_distinct": int(np.unique(D).size)},
+        )
     n_treated = int(D.sum())
+    if n_treated == 0 or n_treated == n:
+        raise DataInsufficient(
+            f"fisher_exact: {treatment!r} has {n_treated} treated and "
+            f"{n - n_treated} control units on the complete rows; the test "
+            "needs both arms.",
+            diagnostics={"n_treated": n_treated, "n_control": n - n_treated},
+        )
+    if cluster is not None:
+        cl_codes = pd.factorize(df[cluster])[0]
+        for name, values in ((treatment, D), (stratify, None)):
+            if name is None:
+                continue
+            if values is None:
+                values = pd.factorize(df[name])[0].astype(float)
+            first = np.zeros(int(cl_codes.max()) + 1)
+            first[cl_codes[::-1]] = values[::-1]
+            if not np.array_equal(values, first[cl_codes]):
+                raise MethodIncompatibility(
+                    f"fisher_exact: {name!r} varies within {cluster!r} "
+                    "clusters, but the permutation assigns one treatment "
+                    "per cluster"
+                    + ("." if name == treatment else " within its stratum."),
+                    recovery_hint="Pass cluster-level variables, or permute "
+                    "at the row level (no cluster=).",
+                    diagnostics={"cluster": cluster},
+                )
 
     # Covariate adjustment: residualize Y on controls. Under the sharp null
     # of a constant effect tau_0 the fixed quantity is Y - tau_0 * D, whose
@@ -442,7 +480,7 @@ def fisher_exact(
     # Build the permutation function
     perm_fn: Permuter
     if cluster is not None:
-        perm_fn = _make_cluster_permuter(df, treatment, cluster, rng)
+        perm_fn = _make_cluster_permuter(df, treatment, cluster, rng, stratify)
     elif stratify is not None:
         perm_fn = _make_stratified_permuter(df, treatment, stratify, rng)
     else:
@@ -459,9 +497,7 @@ def fisher_exact(
     assignments = _enumerate_assignments(
         D,
         clusters=df[cluster].values if cluster is not None else None,
-        strata=(
-            df[stratify].values if (stratify is not None and cluster is None) else None
-        ),
+        strata=df[stratify].values if stratify is not None else None,
         max_count=n_perm,
     )
     # ``shift_stats`` is the same difference in means applied to ``D_shift``:
@@ -1226,17 +1262,33 @@ def _make_cluster_permuter(
     treatment: str,
     cluster: str,
     rng: np.random.Generator,
+    stratify: Optional[str] = None,
 ) -> Permuter:
-    """Create a function that permutes treatment at the cluster level."""
+    """Create a function that permutes treatment at the cluster level.
+
+    With ``stratify`` (constant within clusters) the cluster treatments are
+    permuted within each stratum, which keeps every stratum's number of
+    treated clusters.
+    """
     cl = df[cluster].values
     D = df[treatment].values.astype(float)
     unique_cl = np.unique(cl)
     n = len(D)
     # Get treatment per cluster (first obs)
     cl_treat = np.array([D[cl == c][0] for c in unique_cl])
+    groups: Optional[List[np.ndarray]] = None
+    if stratify is not None:
+        st = df[stratify].values
+        cl_st = np.array([st[cl == c][0] for c in unique_cl])
+        groups = [np.flatnonzero(cl_st == s_) for s_ in np.unique(cl_st)]
 
     def permute() -> np.ndarray:
-        cl_perm = rng.permutation(cl_treat)
+        if groups is None:
+            cl_perm = rng.permutation(cl_treat)
+        else:
+            cl_perm = cl_treat.copy()
+            for gidx in groups:
+                cl_perm[gidx] = rng.permutation(cl_treat[gidx])
         D_perm = np.zeros(n)
         for i, c in enumerate(unique_cl):
             D_perm[cl == c] = cl_perm[i]

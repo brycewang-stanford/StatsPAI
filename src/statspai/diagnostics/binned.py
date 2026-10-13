@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Optional
 
 import numpy as np
@@ -81,6 +82,12 @@ def binned_residuals(
         is the share of bins outside the band; about 5 percent is
         expected from a correct model.
 
+    Warns
+    -----
+    UserWarning
+        Observations with a missing or infinite binning value or residual
+        were dropped (with their number).
+
     Notes
     -----
     Bins are cut at the order statistics ``floor(n i / n_bins)`` of the
@@ -132,6 +139,13 @@ def binned_residuals(
             f"{resid.size}."
         )
     keep = np.isfinite(xv) & np.isfinite(resid)
+    if not keep.all():
+        warnings.warn(
+            f"binned_residuals: dropped {int((~keep).sum())} observations "
+            "with a missing or infinite binning value or residual.",
+            UserWarning,
+            stacklevel=2,
+        )
     xv, resid = xv[keep], resid[keep]
     if prob is not None:
         prob = prob[keep]

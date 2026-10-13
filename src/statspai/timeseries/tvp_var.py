@@ -43,6 +43,7 @@ from ._tvp_var_core import (
     mle_free,
 )
 from ._tvp_var_results import TVPVARResult
+from .var import _refuse_repeated_dates, _require_independent_series
 
 __all__ = ["tvp_var", "TVPVARResult"]
 
@@ -271,6 +272,14 @@ def tvp_var(
     if time is not None:
         if time not in data.columns:
             raise MethodIncompatibility(f"tvp_var: time column {time!r} not found.")
+        if data[time].isna().any():
+            raise MethodIncompatibility(
+                f"tvp_var: {int(data[time].isna().sum())} rows have a missing "
+                f"value in the time column {time!r}; their place in the "
+                "series is not known.",
+                recovery_hint="Fill the dates or drop those rows first.",
+            )
+        _refuse_repeated_dates(data[time], time, "tvp_var")
         work = data.sort_values(time, kind="stable")
     if variables is None:
         names = [
@@ -295,6 +304,19 @@ def tvp_var(
             recovery_hint="Dropping rows would join dates that are not "
             "adjacent; fill or trim the sample first.",
         )
+    # constant to rounding, relative to the size of the values: the lags of
+    # such a variable repeat the intercept and its equation has no variance
+    flat = [
+        nm
+        for nm, col in zip(names, Yall.T)
+        if np.ptp(col) <= 1e-12 * np.max(np.abs(col))
+    ]
+    if flat:
+        raise DataInsufficient(
+            f"tvp_var: the variables {flat} are constant.",
+            recovery_hint="Drop them: a constant has no dynamics to model.",
+        )
+    _require_independent_series(Yall, names, "tvp_var")
     K, p = len(names), int(lags)
     k = K * p + 1
     n_eff = Yall.shape[0] - p

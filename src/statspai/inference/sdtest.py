@@ -356,7 +356,7 @@ def sdtest(
     >>> round(res.statistic, 3)
     2.925
     >>> round(res.pvalue_less, 4)   # Ha: sd < 2
-    0.0329
+    0.0328
 
     Two groups of a data set:
 

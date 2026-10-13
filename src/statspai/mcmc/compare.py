@@ -297,9 +297,18 @@ def savage_dickey(result: Any, param: str, value: float = 0.0) -> Dict[str, Any]
         post_den = float(
             stats.t.pdf((value - mdl.bn[j]) / scale_post, df=mdl.an) / scale_post
         )
+        log_prior = float(
+            stats.t.logpdf((value - b0[j]) / scale_prior, df=mdl.a0)
+            - np.log(scale_prior)
+        )
+        log_post = float(
+            stats.t.logpdf((value - mdl.bn[j]) / scale_post, df=mdl.an)
+            - np.log(scale_post)
+        )
         estimator = "exact"
     else:
         prior_den = float(stats.norm.pdf(value, b0[j], np.sqrt(B0[j, j])))
+        log_prior = float(stats.norm.logpdf(value, b0[j], np.sqrt(B0[j, j])))
         if result.model == "normal":
             s2 = result.draws["sigma2"].to_numpy()
             logs = np.empty(s2.size)
@@ -310,24 +319,35 @@ def savage_dickey(result: Any, param: str, value: float = 0.0) -> Dict[str, Any]
                     -0.5 * (_LOG_2PI + np.log(var_j))
                     - 0.5 * (value - mean[j]) ** 2 / var_j
                 )
-            post_den = float(np.exp(special.logsumexp(logs) - np.log(logs.size)))
+            log_post = float(special.logsumexp(logs) - np.log(logs.size))
+            post_den = float(np.exp(log_post))
             estimator = "rao-blackwell"
         elif result.model == "probit" and "cond_mean" in getattr(result, "_extras", {}):
             cm = result._extras["cond_mean"][:, j]
             var_j = linalg.cho_solve((mdl.Bn_chol, True), np.eye(mdl.k))[j, j]
             logs = -0.5 * (_LOG_2PI + np.log(var_j)) - 0.5 * (value - cm) ** 2 / var_j
-            post_den = float(np.exp(special.logsumexp(logs) - np.log(logs.size)))
+            log_post = float(special.logsumexp(logs) - np.log(logs.size))
+            post_den = float(np.exp(log_post))
             estimator = "rao-blackwell"
         else:
             tail = min((draws <= value).mean(), (draws >= value).mean())
             if tail * draws.size >= 50:
                 post_den = float(stats.gaussian_kde(draws)(value)[0])
+                with np.errstate(divide="ignore"):
+                    log_post = float(np.log(post_den))
                 estimator = "kernel"
             else:
                 post_den = float(stats.norm.pdf(value, draws.mean(), draws.std(ddof=1)))
+                log_post = float(
+                    stats.norm.logpdf(value, draws.mean(), draws.std(ddof=1))
+                )
                 estimator = "normal approximation (value is in the tail of the draws)"
-    with np.errstate(divide="ignore"):
+    if post_den > 0.0 and prior_den > 0.0:
         log_bf01 = float(np.log(post_den) - np.log(prior_den))
+    else:
+        # a density that underflows far in the tail: the ratio is still
+        # well defined on the log scale
+        log_bf01 = float(log_post - log_prior)
     label = _evidence_label(2.0 * log_bf01)
     side = f"{param} = {value:g}" if log_bf01 >= 0 else f"{param} != {value:g}"
     evidence = (

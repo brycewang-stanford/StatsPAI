@@ -165,6 +165,17 @@ def bds(
     # Variance terms from the whole series: c is the probability that two
     # observations are close, k that three are mutually chained.
     c = _share_close(table)
+    if not 0.0 < c < 1.0:
+        raise MethodIncompatibility(
+            f"bds: with epsilon={epsilon:g} "
+            + ("every" if c >= 1.0 else "no")
+            + " pair of observations is within epsilon of each other, so "
+            "the correlation integral carries no information and the "
+            "statistic is undefined.",
+            recovery_hint="Use an epsilon of the order of the standard "
+            f"deviation of the series ({np.std(x, ddof=1):g}); the default "
+            "distance=1.5 does that.",
+        )
     row = table.sum(axis=1).astype(float)
     k = float(
         (np.sum(row**2) - 3.0 * row.sum() + 2.0 * n) / (n * (n - 1.0) * (n - 2.0))

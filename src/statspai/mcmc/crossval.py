@@ -465,7 +465,8 @@ def pointwise_log_lik(x: Any) -> np.ndarray:
         return _as_matrix(getter(), "log_lik()")
     if isinstance(x, pd.DataFrame):
         return _as_matrix(x.to_numpy(), "log_lik")
-    if isinstance(x, (LOOResult, str)) or np.isscalar(x):
+    is_array = isinstance(x, (np.ndarray, list, tuple)) or hasattr(x, "__array__")
+    if isinstance(x, (LOOResult, str)) or np.isscalar(x) or not is_array:
         raise MethodIncompatibility(
             "Expected a fitted Bayesian model with a log_lik() method or a "
             "matrix of pointwise log-likelihoods (draws by observations)."
@@ -769,6 +770,8 @@ def kfold(
     ----------
     vehtari2017practical
     """
+    from patsy import PatsyError
+
     if refit is None:
         refit_own = getattr(fit, "_refit", None)
         frame = getattr(fit, "_frame", None)
@@ -799,7 +802,17 @@ def kfold(
     for label in labels:
         held = fold == label
         sub = refit(data.loc[~held])
-        ll = _as_matrix(sub.log_lik(data.loc[held]), "log_lik(held-out data)")
+        try:
+            ll = _as_matrix(sub.log_lik(data.loc[held]), "log_lik(held-out data)")
+        except PatsyError as exc:
+            raise MethodIncompatibility(
+                "A held-out fold could not be scored by the model fitted to "
+                "the other folds, most often because it holds a level of a "
+                "factor regressor that the training rows lack "
+                f"({str(exc).splitlines()[0]}). Build the folds with "
+                "sp.kfold_split(n, k, stratify=<that factor>) so that every "
+                "training set holds every level, or pool the rare levels."
+            ) from exc
         n_draws = ll.shape[0]
         elpd_i[held] = special.logsumexp(ll, axis=0) - np.log(n_draws)
     full = pointwise_log_lik(fit)
@@ -955,7 +968,10 @@ def loo_predict(
         The output of ``sp.loo(fit)``; computed when omitted.
     what : {'mean', 'linear'}
         Scale of the prediction: the expected outcome or the linear
-        index.
+        index. ``'mean'`` is what ``posterior_epred`` returns, so for
+        ``model='tobit'``, ``'oprobit'`` and ``'ologit'`` it is the latent
+        linear index and for ``model='quantile'`` the fitted conditional
+        quantile, not the mean of the observed outcome.
     draws : array, shape (draws, observations), optional
         Predict this quantity instead, e.g. a matrix of your own
         posterior functionals.

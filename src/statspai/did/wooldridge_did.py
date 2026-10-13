@@ -909,6 +909,18 @@ def etwfe(
     if weights is not None:
         data = _validate_etwfe_weights(data, weights)
 
+    # A first-treatment period of +/-inf, or one after the last observed
+    # period (the 9999 habit), is never treated in the sample, as in
+    # did_imputation and gardner_did. Left alone when no cohort is treated
+    # inside the sample, so that case keeps its own error below.
+    if pd.api.types.is_numeric_dtype(data[first_treat].dtype) and len(data):
+        _g_raw = data[first_treat].astype(float)
+        _t_last = float(pd.to_numeric(data[time], errors="coerce").max())
+        _late = np.isinf(_g_raw) | (_g_raw > _t_last)
+        if bool(_late.any()) and bool(((_g_raw > 0) & ~_late).any()):
+            data = data.copy()
+            data[first_treat] = _g_raw.where(~_late, 0.0)
+
     _ft = data[first_treat].replace(0, np.nan)
     _cohorts = sorted(_ft.dropna().unique().tolist())
     _n_treated_post = int((_ft.notna() & (data[time] >= _ft)).sum())

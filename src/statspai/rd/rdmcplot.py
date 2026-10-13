@@ -131,6 +131,30 @@ def rdmcplot(
     except ImportError:
         raise ImportError("matplotlib required. Install: pip install matplotlib")
 
+    try:
+        level_ok = 0.0 < float(ci_level) < 1.0
+    except (TypeError, ValueError):
+        level_ok = False
+    if not level_ok:
+        raise MethodIncompatibility(
+            f"rdmcplot: ci_level must lie strictly between 0 and 1, got "
+            f"{ci_level!r}.",
+            diagnostics={"ci_level": repr(ci_level)},
+        )
+    if str(kernel).strip().lower() not in (
+        "triangular",
+        "tri",
+        "epanechnikov",
+        "epa",
+        "uniform",
+        "uni",
+    ):
+        raise MethodIncompatibility(
+            "rdmcplot: kernel must be 'triangular', 'epanechnikov' or "
+            f"'uniform', got {kernel!r}.",
+            diagnostics={"kernel": repr(kernel)},
+        )
+
     cvals = data[cutoff_var].to_numpy()
     if cutoffs is None:
         cutoffs = sorted(pd.unique(cvals[pd.notna(cvals)]).tolist())

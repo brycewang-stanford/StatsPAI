@@ -488,7 +488,7 @@ def swilk(data: pd.DataFrame, variables: _Vars = None) -> pd.DataFrame:
     ------
     DataInsufficient
         Fewer than 4 or more than 5,000 observations (the range the
-        approximation covers), or no variation.
+        approximation covers), no variation, or an infinite value.
 
     Notes
     -----
@@ -514,6 +514,13 @@ def swilk(data: pd.DataFrame, variables: _Vars = None) -> pd.DataFrame:
     for name in _numeric_columns(data, variables, "swilk"):
         x = _col(data, name, "swilk").dropna().to_numpy()
         n = x.size
+        if np.isinf(np.asarray(x, dtype=float)).any():
+            raise DataInsufficient(
+                f"swilk: {name!r} holds infinite values, for which the "
+                "statistic is not defined.",
+                recovery_hint="Set them to missing (they are then dropped) "
+                "or remove those rows.",
+            )
         if n < 4 or n > 5000 or np.ptp(x) == 0:
             raise DataInsufficient(
                 f"swilk: {name!r} has {n} usable observations; the test "

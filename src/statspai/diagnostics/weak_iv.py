@@ -1463,8 +1463,19 @@ def weakrobust(
         out["kp_rk_lm"] = kp.rk_lm
         out["kp_rk_lm_pvalue"] = kp.rk_lm_pvalue
         out["kp_rk_f"] = kp.rk_f
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:
         out["kp_error"] = str(exc)
+        import warnings
+
+        from ..exceptions import StatsPAIWarning
+
+        warnings.warn(
+            "the Kleibergen-Paap rk statistics (kp_rk_lm, kp_rk_lm_pvalue, "
+            f"kp_rk_f) could not be computed: {exc} (also in 'kp_error'). "
+            "The other diagnostics are returned.",
+            StatsPAIWarning,
+            stacklevel=2,
+        )
         n_obs = len(
             data.dropna(subset=[y, endog] + list(instruments) + list(exog or []))
         )

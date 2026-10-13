@@ -148,6 +148,15 @@ def fit_re_mle(
             "sp.panel(method='mle') needs at least two panels.",
             recovery_hint="Check the entity column.",
         )
+    if int(frame[entity].value_counts().max()) < 2:
+        # sigma_u^2 and sigma_e^2 enter the likelihood only through their
+        # sum when every panel has one observation
+        raise DataInsufficient(
+            "sp.panel(method='mle') needs a panel observed more than once: "
+            "with one observation per unit sigma_u is not identified.",
+            recovery_hint="Use sp.regress on a single cross-section.",
+            diagnostics={"max_obs_per_unit": 1},
+        )
     y = frame[dep_var].to_numpy(dtype=float)
     X = np.column_stack(
         [np.ones(len(frame)), frame[list(indep_vars)].to_numpy(dtype=float)]

@@ -348,6 +348,18 @@ def mcmc_summary(
     ----------
     plummer2006coda
     """
+    try:
+        qs = [float(q) for q in quantiles]
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"quantiles must be a sequence of numbers in [0, 1]; got {quantiles!r}."
+        ) from exc
+    if any(not 0.0 <= q <= 1.0 for q in qs):
+        raise MethodIncompatibility(
+            f"quantiles must lie in [0, 1]; got {list(quantiles)}."
+        )
+    if hpd is not None and not 0.0 < float(hpd) < 1.0:
+        raise MethodIncompatibility(f"hpd must be in (0, 1); got {hpd}.")
     df = _as_draws(chain)
     n = df.shape[0]
     out = pd.DataFrame(index=df.columns)
@@ -743,8 +755,9 @@ def gelman_rubin(
 
     Parameters
     ----------
-    chains : list of chains, or array (chains x draws x parameters)
-        At least two chains of equal length.
+    chains : list of chains, array (chains x draws x parameters), or a fit
+        At least two chains of equal length. A fitted model that ran
+        several chains is read chain by chain (its ``chain_list()``).
     confidence : float, default 0.95
         Coverage of the upper limit.
     split : bool, default False
@@ -775,6 +788,10 @@ def gelman_rubin(
     ----------
     gelman1992inference, brooks1998general
     """
+    own = getattr(chains, "chain_list", None)
+    if callable(own) and int(getattr(chains, "chains", 1) or 1) > 1:
+        # a fit that ran several chains: compare those, not the pooled draws
+        chains = own()
     if isinstance(chains, (list, tuple)) or (
         isinstance(chains, np.ndarray) and chains.ndim == 3
     ):

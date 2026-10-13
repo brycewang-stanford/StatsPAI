@@ -1137,7 +1137,11 @@ class EconometricResults:
 
     def _prediction_design(self, data: pd.DataFrame) -> np.ndarray:
         """The model's design matrix evaluated on ``data``."""
-        from ..postestimation._design import _INTERCEPT_TOKENS, design_for
+        from ..postestimation._design import (
+            _INTERCEPT_TOKENS,
+            design_for,
+            reject_unseen_levels,
+        )
 
         # coefficients named after a column: the column has to be there,
         # and numeric
@@ -1163,6 +1167,9 @@ class EconometricResults:
                 ),
                 diagnostics={"columns": text},
             )
+        # a level the fit never saw has zeros in every dummy of its factor
+        # and would be predicted as the reference level
+        reject_unseen_levels(self.data_info.get("factor_levels"), data)
         try:
             return np.asarray(design_for(self, data).build(data), dtype=float)
         except MethodIncompatibility as exc:

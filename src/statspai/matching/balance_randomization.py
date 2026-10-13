@@ -20,6 +20,7 @@ from scipy import stats
 from .._input_validation import require_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .ps_weights import _require_numeric
 
 
 @dataclass
@@ -187,7 +188,8 @@ def balance_vs_randomization(
     treat : str
         0/1 treatment indicator.
     covariates : list of str
-        Numeric covariates to assess.
+        Numeric covariates to assess. A categorical or text column is
+        refused: expand it into 0/1 indicators first, one test per level.
     n_sim : int, default 1000
         Number of simulated randomized experiments.
     test : {"auto", "wilcoxon", "t"}, default "auto"
@@ -242,6 +244,7 @@ def balance_vs_randomization(
     if not cols:
         raise MethodIncompatibility("balance_vs_randomization: covariates is empty")
     require_columns(data, [treat] + cols, function="balance_vs_randomization")
+    _require_numeric(data, cols, "balance_vs_randomization")
     d = data[[treat] + cols].dropna()
     z = d[treat].to_numpy(dtype=float)
     if not np.all((z == 0) | (z == 1)):

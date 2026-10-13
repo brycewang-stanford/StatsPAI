@@ -414,6 +414,20 @@ def _ols(X: np.ndarray, y: np.ndarray) -> Any:
     return b, r
 
 
+def _period_positions(times: pd.Series, observed: np.ndarray) -> np.ndarray:
+    """Rank of each observed row's period among the panel's periods.
+
+    The panel's periods are the distinct values of the time column in any
+    row of the data; ``observed`` marks the rows whose value is not
+    missing. Ranks rather than arithmetic on the values: a numeric time
+    column need not be equally spaced when its periods are consecutive
+    (months coded 200012, 200101; quarters coded 20004, 20011; trading
+    days), so the spacing of the codes says nothing about a gap.
+    """
+    codes = pd.factorize(times, sort=True)[0]
+    return np.asarray(codes[observed], dtype=float)
+
+
 def _adf_unit(y: np.ndarray, lags: int, trend: str, dfcor: bool) -> Dict[str, Any]:
     """ADF regression of one series (Delta y_t on y_{t-1}, lagged diffs, det).
 
@@ -495,7 +509,15 @@ def panel_unitroot(
     id : str, default 'id'
         Unit identifier.
     time : str, default 'time'
-        Time identifier.
+        Time identifier. Each unit's observations must be consecutive
+        periods of the panel: a unit that, between its first and last
+        observed period, lacks a period present in the data (for another
+        unit, or as its own row with a missing value) is refused. Periods
+        are compared by their rank among the periods in the data, so any
+        coding passes (years, every fourth year, months as 200012 /
+        200101, dates). A period absent from every unit cannot be told
+        from a coding jump and is not detected; units may start late or
+        end early.
     test : str, default 'ips'
         Test type: 'llc' (Levin-Lin-Chu), 'ips' (Im-Pesaran-Shin W-t-bar),
         'fisher' (Maddala-Wu inverse chi-squared of the per-unit ADF
@@ -573,9 +595,46 @@ def panel_unitroot(
             "for the model without deterministic terms)"
         )
 
+    if lags is not None and (
+        isinstance(lags, bool) or lags != int(lags) or int(lags) < 0
+    ):
+        raise MethodIncompatibility(
+            f"lags must be a non-negative integer or None; got {lags!r}.",
+            recovery_hint="Pass lags=0 for the Dickey-Fuller regression, or "
+            "omit lags= for the default rule.",
+        )
+
     units = data[id].unique()
     N = len(units)
     T_avg = data.groupby(id)[variable].count().mean()
+
+    # The ADF regressions difference and lag along each unit's rows, so the
+    # observed rows must be consecutive periods (Stata's xtunitroot refuses
+    # a panel with gaps for the same reason). A unit has a gap when, between
+    # its first and last observed period, it lacks a period that appears in
+    # the data (for another unit, or as its own row with a missing value).
+    # Periods are compared by rank, never by the spacing of their codes.
+    seen = data[variable].notna().to_numpy() & data[time].notna().to_numpy()
+    obs = data.loc[seen, [id, time]]
+    step_of = _period_positions(data[time], seen)
+    if len(obs):
+        ordered = pd.DataFrame(
+            {"u": pd.factorize(obs[id])[0], "p": step_of}
+        ).sort_values(["u", "p"], kind="stable")
+        jump = ordered["p"].to_numpy()[1:] - ordered["p"].to_numpy()[:-1]
+        same = ordered["u"].to_numpy()[1:] == ordered["u"].to_numpy()[:-1]
+        n_gap = int(np.sum(same & (jump > 1)))
+        if n_gap:
+            raise MethodIncompatibility(
+                f"panel_unitroot: {n_gap} gap(s) inside a unit's series of "
+                f"{variable!r}: between two of its observed periods a unit "
+                "lacks a period that is in the data (for another unit, or as "
+                "a row with a missing value). The tests difference and lag "
+                "along consecutive periods and are not defined across a gap.",
+                recovery_hint="Keep, for each unit, one run of consecutive "
+                "periods (or fill the gap) before testing.",
+                diagnostics={"n_gaps": n_gap},
+            )
 
     series = []
     n_short = 0
@@ -640,6 +699,13 @@ def panel_unitroot(
     for unit, y in series:
         L_i = int(np.floor(4 * (len(y) / 100) ** 0.25)) if lags is None else int(lags)
         L_i = min(L_i, len(y) // 3)
+        if lags is None:
+            # the default rule never asks for more lags than the series can
+            # carry: _adf_unit needs n = T - 1 - L >= 3 + L observations and
+            # n > K = 1 + L + (deterministic terms)
+            n_det = {"n": 0, "c": 1, "ct": 2}[trend]
+            T_i = len(y)
+            L_i = max(0, min(L_i, (T_i - 4) // 2, (T_i - n_det - 3) // 2))
         try:
             f = _adf_unit(y, L_i, trend, dfcor)
         except np.linalg.LinAlgError:
@@ -669,6 +735,16 @@ def panel_unitroot(
             f"({n_short}/{N} units had <5 periods, {n_failed} had a "
             f"singular ADF design). Cannot compute a panel unit-root test.",
             recovery_hint="Drop units with fewer than 5 periods or reduce lags.",
+        )
+    if 2 * n_valid < N:
+        raise DataInsufficient(
+            f"panel_unitroot('{test}'): only {n_valid} of {N} units yielded an "
+            f"ADF statistic ({n_short} had <5 periods, {n_failed} a singular "
+            "ADF design); a statistic over a minority of the panel does not "
+            "describe it.",
+            recovery_hint="Reduce lags=, or restrict the panel to the units "
+            "with enough periods.",
+            diagnostics={"n_valid": n_valid, "n_units": N},
         )
     if n_short > 0 or n_failed > 0:
         warnings.warn(

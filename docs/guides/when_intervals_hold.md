@@ -64,12 +64,19 @@ weights. Under dispersed sampling weights the default interval covered
 Poisson. The fast entry points, `sp.nbreg`, `sp.logit`, `sp.probit`,
 `sp.glm` and `sp.iv` behave the same way (15% to 79%).
 
-Ask for a robust variance when the weights are sampling weights.
+Say what the weights are, and the variance follows.
 
 ```python
-sp.regress("y ~ x", df, weights="w", robust="hc1")      # Stata [pw=w]
-sp.poisson("y ~ x", df, weights="w", robust="robust")
+sp.regress("y ~ x", df, weights="w", weights_as="sampling")   # Stata [pw=w]
+sp.poisson("y ~ x", df, weights="w", weights_as="sampling")
+sp.regress("y ~ x", df, weights="w", weights_as="analytic")   # Stata [aw=w]
 ```
+
+`weights_as='sampling'` gives the robust variance, the same as adding
+`robust='hc1'` by hand. The model-based reading (`'analytic'` for linear
+models, `'frequency'` for likelihood models) keeps the default variance
+and tells StatsPAI you meant it, so the warning about dispersed weights
+goes away.
 
 A robust variance is itself short when a few observations carry most of
 the weight. `n_effective_weights` is the Kish effective sample size.

@@ -553,8 +553,16 @@ def _dispatch(
     if canon == "ivqreg":
         from ..regression.iv_quantile import ivqreg as _ivqreg
 
-        if formula is not None:
-            kwargs.setdefault("formula", formula)
+        # ``ivqreg`` takes column names, not a formula: translate
+        # ``"y ~ (d ~ z) + x"`` into them (forwarding ``formula=`` raised
+        # TypeError on every call). Explicit y / endog / instruments win.
+        if formula is not None and data is not None:
+            y_, endog_, instruments_, exog_ = _formula_to_parts(formula, data)
+            kwargs.setdefault("y", y_)
+            kwargs.setdefault("endog", endog_)
+            kwargs.setdefault("instruments", instruments_)
+            if exog_:
+                kwargs.setdefault("exog", exog_)
         return _ivqreg(data=data, **kwargs)
 
     # ── 9. Plausibly exogenous sensitivity ───────────────────────────
@@ -773,9 +781,10 @@ def _rank_test_cov_spec(model: Any, result: Any) -> Any:
 
 def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
     """Attach KP rk, SW per-endog F, MOP effective F on top of the standard
-    EconometricResults.diagnostics dict.  Failures are swallowed into a
-    ``augmented_diagnostics_error`` key — augmenting is *additive* and must
-    never break a successful fit.
+    EconometricResults.diagnostics dict.  A failure is recorded under the
+    ``augmented_diagnostics_error`` key and announced with a
+    ``StatsPAIWarning`` naming the diagnostics that are absent — augmenting
+    is *additive* and must never break a successful fit.
     """
     try:
         D = model.X_endog
@@ -826,7 +835,11 @@ def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
                 endog=D,
                 instruments=Z,
                 exog=exog_rf,
-                add_const=False,  # constant, if any, already stripped above
+                # the constant stripped from ``exog_rf`` above is partialled
+                # out like the other exogenous regressors (add_const=False
+                # here left it in the first stages: 120.18 for ivreg2's SW F
+                # of 120.07)
+                add_const=has_const,
                 endog_names=getattr(model, "_endog_names", None),
             )
             for name, f in sw.sw_f.items():
@@ -872,8 +885,28 @@ def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
                     result.diagnostics["Olea-Pflueger effective F"] = float(stat)
             except Exception as e:
                 result.diagnostics["OP effective F error"] = str(e)
-    except Exception as e:  # pragma: no cover — never crash the estimator
+    except Exception as e:  # never crash the estimator, but say so
         result.diagnostics["augmented_diagnostics_error"] = str(e)
+        import warnings
+
+        from ..exceptions import StatsPAIWarning
+
+        wanted = ["KP rk LM", "KP rk Wald F"]
+        if getattr(model, "X_endog", np.empty((0, 1))).shape[1] >= 2:
+            wanted.append("SW conditional F")
+        else:
+            wanted.append("Olea-Pflueger effective F")
+        absent = [
+            k for k in wanted if not any(d.startswith(k) for d in result.diagnostics)
+        ]
+        warnings.warn(
+            "iv: the fit is returned, but these weak-identification "
+            f"diagnostics could not be computed: {', '.join(absent)}. "
+            f"Reason: {e} (also in "
+            "diagnostics['augmented_diagnostics_error']).",
+            StatsPAIWarning,
+            stacklevel=4,
+        )
 
 
 def __getattr__(name: str) -> Any:

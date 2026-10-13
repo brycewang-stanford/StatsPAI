@@ -1152,6 +1152,7 @@ class OLSRegression(BaseModel):
         EconometricResults
             Fitted model results
         """
+        _weights_as = kwargs.pop("weights_as", None)
         # Prepare data
         design_index: Optional[pd.Index] = None
         if self.formula is not None and self.data is not None:
@@ -1405,8 +1406,10 @@ class OLSRegression(BaseModel):
             elif _kind == "robust":
                 _kind = "hc1"
             model_info["n_effective_weights"] = warn_if_weights_extreme(
-                kwargs["weights"], _kind
+                kwargs["weights"], _kind, declared=_weights_as is not None
             )
+            if _weights_as is not None:
+                model_info["weights_as"] = _weights_as
         if omitted:
             model_info["omitted"] = omitted
         if cluster_var is not None:
@@ -1436,6 +1439,13 @@ class OLSRegression(BaseModel):
         # align its cluster keys to these rows and weight the same way.
         if design_index is not None:
             data_info["sample_index"] = design_index
+        if self._design_info is not None and self.data is not None:
+            from ..postestimation._design import fitted_factor_levels
+
+            # for predict(): which values of each factor the fit saw
+            seen = fitted_factor_levels(self._design_info, self.data.columns)
+            if seen:
+                data_info["factor_levels"] = seen
         if kwargs.get("weights", None) is not None:
             data_info["analytic_weights"] = np.asarray(kwargs["weights"], dtype=float)
         if cluster_var is not None:
@@ -1764,6 +1774,7 @@ def regress(
     hac_panel: Optional[Sequence[str]] = None,
     ewc_df: Optional[int] = None,
     dfadjust: bool = False,
+    weights_as: Optional[str] = None,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1799,6 +1810,16 @@ def regress(
         do not implement them. Weights must be strictly positive and finite;
         invalid weights raise ``ValueError`` rather than being silently
         ignored.
+    weights_as : {'analytic', 'sampling'}, optional
+        What the weights are. ``'analytic'`` (Stata ``[aw=]``) is what
+        ``weights=`` alone already means: precisions, with the classical
+        weighted variance. ``'sampling'`` (Stata ``[pw=]``) is for sampling
+        and inverse-probability weights: the same coefficients with the
+        HC1 variance, unless ``robust=`` / ``vce=`` / ``cluster=`` asks for
+        another. Saying which also silences the warning about dispersed
+        weights under the classical variance. ``'frequency'`` is refused:
+        Stata's ``[fw=]`` changes ``N`` and the degrees of freedom, which
+        this function does not do.
     vcov : str or dict, optional
         pyfixest/``fixest``-style variance specification, accepted as a
         canonical alias so the same spelling works across ``sp.regress``
@@ -1988,6 +2009,22 @@ def regress(
     # re-inject when provided so the no-weights path stays byte-identical.
     if weights is not None:
         kwargs["weights"] = weights
+
+    # --- weights_as=: sampling weights take the robust variance ---
+    from ..core._agent_summary import resolve_weights_as
+
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native="analytic",
+        entry="sp.regress",
+    )
+    if (
+        weights_as == "sampling"
+        and cluster is None
+        and str(kwargs.get("vce") or robust).lower() == "nonrobust"
+    ):
+        robust = "hc1"
 
     # --- vce= dispatch (canonical alias of robust=; vce='CR2'/'CR3'/'conley'
     # take the native efficient path on the stored design; vce=cluster=[a,b]
@@ -2270,6 +2307,8 @@ def regress(
     from ..core._vcov_spec import reject_unknown_kwargs
 
     reject_unknown_kwargs(kwargs, function="regress", known=("weights",))
+    if weights_as is not None:
+        kwargs["weights_as"] = weights_as
 
     model = OLSRegression(formula=formula, data=data, collinear=collinear)
     robust_kw = vce_kw if vce_kw is not None else robust

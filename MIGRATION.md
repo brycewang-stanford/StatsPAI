@@ -5,6 +5,98 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.5 → next release: ⚠️ numbers that change after the October review
+
+**What changed.** A review of the month's work fixed defects on inputs
+off the main path. Default calls on ordinary data return what they did.
+The calls below return different numbers; recompute them.
+
+| Call | Before | Now |
+| --- | --- | --- |
+| `sp.sun_abraham`, `sp.stacked_did` on an integer time column with gaps | no reference period omitted (estimate off, standard error 0 or NaN) | periods numbered by rank; equals the consecutively coded panel |
+| `sp.gardner_did` with treated cells that have no untreated comparison, with units treated throughout, or with never-treated coded as NaN | minimum-norm first stage; NaN rows deleted | those cells dropped with a warning; NaN is never treated |
+| `sp.etwfe` with a cohort after the last period | treated as a cohort | never treated |
+| `sp.did_multiplegt` with no switchers | 0, p = 1 | NaN |
+| `sp.cate_gain_curve` with tied scores | ties broken by row order | tied units enter together |
+| `sp.iv.kleibergen_paap_rk`, `sp.iv.sanderson_windmeijer`, and the `KP rk` / `SW conditional F` diagnostics of `sp.iv`, with two or more endogenous regressors | not the rk statistic; OLS partialling | equal to Stata `ivreg2` |
+| `sp.iv.iv_diag(cluster=<array>)`, and with `absorb=` plus CLR / K sets | Anderson-Rubin and effective F unclustered; sets ignored the fixed effects | as with a column name; sets on the demeaned variables |
+| `sp.panel(method='fd')` on unsorted rows or a late-starting first unit | differences between non-consecutive rows | consecutive periods of a unit |
+| `sp.fisher_exact(cluster=, stratify=)` | `stratify` ignored | clusters permuted within strata |
+| `sp.bootstrap(ci_method='bca', block=)` | row jackknife for the acceleration | block jackknife |
+| `sp.jackknife_se` on fits with interactions, factors, weights or no intercept | refitted a different model | refits the stored design |
+| `sp.local_projections(cumulative=True)`, `nw_lags=` below the horizon | one-period change; lag raised to the horizon | change since `t−1`; the lag you gave |
+| `sp.garch(model='egarch', dist='t').forecast(h)` for h ≥ 2 | future shocks centred at the normal value | at the t value |
+| `sp.dlm` with `constant=` or a zero state variance | first-date smoothed sd off; Gibbs paths moved within a draw | exact |
+| `sp.arima`, `sp.structural_break`, `sp.cusum_test`, `sp.gee`, `sp.gam`, `sp.mswitch`, `sp.dlm`, `sp.panel_logit(method='fe')`, `sp.xtserial` with a redundant regressor | coefficient split arbitrarily, or a huge standard error | omitted with a note and listed in `model_info['omitted']` |
+| `sp.chow_test(time=)`, `sp.zivot_andrews(time=)` on unsorted rows | regimes by file order | sorted by `time` |
+| `sp.forecast_accuracy` with a zero actual value | MAPE over the other periods | missing, with a warning |
+| `sp.factor_importance` with numerically coded discrete factors | arbitrary tied neighbour | all tied neighbours |
+| `sp.mdp_policy_value` standard error | depended on state labels and on the location of the features | invariant to both |
+| `sp.pscore`, `sp.marginal_policy_effect`, `sp.implied_weights` with a `category` covariate | one numeric column | indicators |
+| `sp.itcv` on a weighted fit | unweighted correlations | weighted |
+| `sp.cor_test` with a redundant or constant covariate | one degree of freedom too few | rank of the covariates |
+| `sp.standardize(formula=)` with `log(x)`, `I(x^2)`, `C(g)` | rescaled `x`, `g` | left alone |
+| `sp.bandit_allocate`, `sp.bandit_experiment` with `prob_floor > 0` | floor ignored while topping up | floor applied |
+| `sp.space_filling(qualitative=)` with a run count that is not a multiple of the level combinations | unbalanced levels | balanced to within one run |
+| `sp.gam` with `d` next to `s(x, by=d)`, or `x` next to `s(x)` | unidentified parametric term kept | omitted |
+
+**Calls that now raise.** Each of these returned a number that did not
+mean what it appeared to.
+
+- `predict()` with a factor level the fit never saw (`sp.regress`,
+  `sp.logit`, `sp.probit`, `sp.glm`, `sp.poisson`, `sp.nbreg`,
+  `sp.poststratify`). Fix the label or refit.
+- `sp.influence_measures` on a weighted fit; `sp.itcv` on an IV fit.
+- `sp.jackknife_se` on a fit with absorbed fixed effects, or one whose
+  stored design does not reproduce its coefficients.
+- `sp.ipw` under complete separation; a single arm in `sp.aipw`,
+  `sp.g_computation`, `sp.pate`, `sp.fisher_exact`.
+- A single cluster in `sp.bootstrap`, `sp.jackknife_se`, `sp.cr2_se`,
+  `sp.wild_cluster_boot`, `sp.hdfe_ols`, `sp.iv.iv_diag`.
+- `sp.hdfe_ols` with `vce='robust'` and `cluster=` together, `wild=True`
+  without `cluster=`, or an `se_type` that contradicts the other
+  options. `se_type='hetero'` used to return iid standard errors under
+  that label; pass `vce='robust'`.
+- A row with a missing value inside the sample in `sp.var`, `sp.vec`,
+  `sp.varsoc`, `sp.johansen`, `sp.johansen_lrtest`, `sp.engle_granger`,
+  `sp.mdp_policy_value`, `sp.marginal_policy_effect`, and an interior
+  gap in `sp.panel_unitroot`. Rows missing at either end are trimmed.
+- A constant, exactly fitted or linearly dependent series in the unit
+  root, VAR, cointegration, break and event-study functions.
+- A Series whose `DatetimeIndex` or `PeriodIndex` is not increasing, in
+  the forecasting functions, `sp.arima`, `sp.garch` and `sp.unitroot`.
+  Sort it first.
+- `sp.mdp_policy_value` when the policy's action never occurs in a state
+  it reaches.
+- `sp.gee` and `sp.gam` with an outcome outside the support of the
+  family; `sp.panel_logit(method='fe')` with an outcome that is not 0/1.
+- `sp.nls` with a rank-deficient Jacobian at the solution.
+- `sp.ets` with `damped=` contradicting the model string.
+- `sp.meta_analysis`, the weak-instrument confidence sets,
+  `sp.plausibly_exogenous_*` and `sp.iv.mte` with missing or non-finite
+  input.
+- `sp.gp_regress("y ~ x - 1")`, `sp.stochvol` on a two-column array,
+  ordered and multinomial `sp.bayes_regress` fits with more
+  coefficients than observations.
+- `sp.rdmcplot` and the `rdplot` family with an unknown `kernel`; an
+  unrecognised spelling such as `'Uniform'` used to give the triangular
+  kernel.
+- `alpha`, `level`, `trim` and lag arguments outside their range, in
+  the functions that used to accept them.
+
+**New warnings on results that are returned.** The default prior of
+`sp.bayes_ivreg`, `sp.bayes_sur`, `sp.bayes_mixed`, the probit systems
+and `sp.bayes_arima` is now checked after the fit; if the warning fires,
+the estimate was being pulled toward zero and `prior_var=` should be
+raised or the data rescaled. The shared propensity fit warns on
+separation, which reaches `sp.match`, `sp.psmatch2`, `sp.pscore` and
+`sp.full_match`.
+
+**What to do.** Recompute anything in the table. For a call that now
+raises, the message names the argument or the rows.
+
+---
+
 ## 1.39.4 → 1.39.5: ⚠️ `sp.lasso_select(method="cv")`
 
 **What changed.** The cross-validation refits the centring and scaling

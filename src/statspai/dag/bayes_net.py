@@ -803,6 +803,14 @@ def bayes_net(
     if data is not None:
         used = [v for v in nodes if v in data.columns]
         frame = data[used].dropna()
+        if len(frame) < len(data):
+            warnings.warn(
+                f"bayes_net: dropped {len(data) - len(frame)} of {len(data)} "
+                "rows with a missing value in a node; the tables are fitted "
+                "on the complete rows.",
+                UserWarning,
+                stacklevel=2,
+            )
         for v in used:
             col = frame[v]
             levels = (

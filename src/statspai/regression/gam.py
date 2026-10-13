@@ -32,6 +32,7 @@ from scipy import optimize, stats
 from scipy.interpolate import BSpline
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._collinear import drop_collinear, independent_columns
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 from ._gam_terms import (
@@ -40,7 +41,7 @@ from ._gam_terms import (
     make_thin_plate,
     smooth_term_test,
 )
-from .glm import FAMILIES, _get_link
+from .glm import FAMILIES, _get_link, require_outcome_in_support
 
 _KNOWN_SCALE = ("binomial", "poisson")
 _SMOOTH = re.compile(r"^(s|te)\((.*)\)$")
@@ -174,6 +175,47 @@ def _make_smooth(
     )
 
 
+def _reproduced_by_smooths(
+    P: np.ndarray,
+    par_names: List[str],
+    smooths: List[Any],
+    designs: List[np.ndarray],
+) -> List[Dict[str, str]]:
+    """Parametric columns in the span of the unpenalised part of the model.
+
+    The penalised fit is unique when the functions no penalty touches
+    (the intercept, the other parametric columns, and the null space of
+    each smooth's penalty) are linearly independent. The scan puts the
+    smooths first, so a parametric column they reproduce is the one
+    reported.
+    """
+    free, labels = [], []
+    for sm, Z in zip(smooths, designs):
+        S = sum(root.T @ root for root in sm.roots)
+        ev, U = np.linalg.eigh((S + S.T) / 2.0)
+        null = U[:, ev <= 1e-9 * max(float(ev.max()), 1e-300)]
+        if null.shape[1]:
+            free.append(Z @ null)
+            labels += [sm.label] * null.shape[1]
+    if not free or P.shape[1] < 2:
+        return []
+    stacked = np.column_stack([P] + free)
+    k_par = P.shape[1]
+    order = list(range(k_par, stacked.shape[1])) + list(range(k_par))
+    _, omitted = independent_columns(stacked, list(par_names) + labels, order)
+    out = []
+    for o in omitted:
+        if o["variable"] not in par_names:
+            continue
+        # a smooth with several unpenalised directions is named once
+        named = list(dict.fromkeys(re.findall(r"'([^']*)'", o["reason"])))
+        how = "collinear with" if len(named) == 1 else "linear combination of"
+        out.append(
+            {"variable": o["variable"], "reason": f"{how} '" + "', '".join(named) + "'"}
+        )
+    return out
+
+
 def _split_terms(rhs: str) -> List[str]:
     terms, depth, start = [], 0, 0
     for i, ch in enumerate(rhs):
@@ -298,6 +340,11 @@ class GAMResult(ResultProtocolMixin):
         UBRE when the scale is known.
     deviance, n_obs, family, link, formula
         As named.
+    model_info : dict
+        ``omitted``: the parametric terms left out because they are
+        constant, an exact linear combination of earlier ones, or already
+        contained without penalty in a smooth (``x`` next to ``s(x)``);
+        one ``{"variable", "reason"}`` record each.
 
     Examples
     --------
@@ -340,6 +387,8 @@ class GAMResult(ResultProtocolMixin):
     _design_info: Any = field(default=None, repr=False)
     _par_names: Any = field(default=None, repr=False)
     _link_name: Any = field(default=None, repr=False)
+    _par_keep: Any = field(default=None, repr=False)
+    model_info: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     # -- design on new data -------------------------------------------
     def _design(self, data: pd.DataFrame) -> np.ndarray:
@@ -349,6 +398,9 @@ class GAMResult(ResultProtocolMixin):
             P = np.asarray(
                 build_design_matrices([self._design_info], data)[0], dtype=float
             )
+            if self._par_keep is not None:
+                # columns the fit omitted as collinear
+                P = P[:, self._par_keep]
         else:
             # plain numeric columns: the design is the columns themselves
             cols = [c for c in self._par_names if c != "Intercept"]
@@ -820,7 +872,10 @@ def gam(
             f"gam: cluster column {cluster!r} not found in data.",
             diagnostics={"cluster": cluster},
         )
+    # rows are matched by position from here on: the labels of ``data``
+    # need not be unique
     frame = data.dropna(subset=names_s + ([cluster] if cluster else []))
+    frame = frame.reset_index(drop=True)
     par_formula = f"{lhs.strip()} ~ {' + '.join(linear) if linear else '1'}"
     y_df, P_df = create_design_matrices(par_formula, frame)
     design_info = getattr(P_df, "design_info", None)
@@ -833,7 +888,17 @@ def gam(
         )
     rows = P_df.index
     y = np.asarray(y_df, dtype=float).reshape(len(rows), -1)[:, -1]
-    P = np.asarray(P_df, dtype=float)
+    dep_name = str(y_df.columns[-1]) if hasattr(y_df, "columns") else "y"
+    require_outcome_in_support(y, fam, "gam", dep_name)
+    # a constant or dependent parametric column leaves the unpenalised
+    # part of the model without a unique solution: omit it and say so
+    P, par_names, omitted, par_keep = drop_collinear(
+        np.asarray(P_df, dtype=float),
+        par_names,
+        "gam",
+        formula=par_formula,
+        design_info=design_info,
+    )
     n = len(y)
 
     smooths: List[_Smooth] = []
@@ -883,6 +948,34 @@ def gam(
             at += Z.shape[1]
             smooths.append(sm)
             blocks.append(Z)
+    # A parametric column that the unpenalised part of a smooth already
+    # reproduces (x next to s(x): the centred straight line is in the
+    # null space of the penalty) is not identified either. The smooth
+    # keeps it; the parametric term is omitted.
+    again = _reproduced_by_smooths(P, par_names, smooths, blocks[1:])
+    if again:
+        gone = {o["variable"] for o in again}
+        stay = [j for j, name in enumerate(par_names) if name not in gone]
+        warnings.warn(
+            "gam: "
+            + "; ".join(
+                f"note: {o['variable']} omitted because of collinearity "
+                f"({o['reason']})"
+                for o in again
+            )
+            + ". The smooth already contains that term without penalty; "
+            "the fit is the one without the parametric term.",
+            UserWarning,
+            stacklevel=2,
+        )
+        shift = len(par_names) - len(stay)
+        P = P[:, stay]
+        par_names = [par_names[j] for j in stay]
+        par_keep = [par_keep[j] for j in stay]
+        blocks[0] = P
+        for sm in smooths:
+            sm.cols = slice(sm.cols.start - shift, sm.cols.stop - shift)
+        omitted = omitted + again
     M = np.column_stack(blocks)
     p = M.shape[1]
     if n <= p:
@@ -1191,4 +1284,6 @@ def gam(
         _design_info=design_info,
         _par_names=par_names,
         _link_name=lnk.name,
+        _par_keep=par_keep if omitted else None,
+        model_info={"omitted": omitted},
     )

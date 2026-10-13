@@ -15,6 +15,7 @@ from typing import Dict, List, Literal, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from ..core._validate import require_numeric_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .stepwise import SelectionResult
 
@@ -122,6 +123,15 @@ def best_subset(
             recovery_hint="Screen first with sp.lasso_select or sp.stepwise.",
             diagnostics={"n_candidates": p},
         )
+    if max_vars is not None and int(max_vars) < 1:
+        raise MethodIncompatibility(
+            f"best_subset: max_vars={max_vars!r} must be at least 1.",
+            recovery_hint="Omit max_vars to search every size.",
+            diagnostics={"max_vars": max_vars},
+        )
+    require_numeric_columns(
+        data, [y] + forced + cand, function="best_subset", argument="y / x / force"
+    )
     frame = data[[y] + forced + cand].dropna()
     n = len(frame)
     q = 1 + len(forced)  # always-in columns: intercept and forced regressors

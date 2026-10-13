@@ -186,9 +186,12 @@ def xthtaylor(
             "regressors that may be correlated with the unit effect.",
         )
 
-    ols = regress(formula, data=data)
+    # rows are matched by position: the labels of ``data`` need not be
+    # unique. The labels come back on the estimation sample below.
+    ols = regress(formula, data=data.reset_index(drop=True))
     info = ols.data_info
-    frame = data.loc[info["sample_index"]]
+    used = np.asarray(info["sample_index"])
+    frame = data.iloc[used]
     if frame[id].isna().any():
         raise MethodIncompatibility(
             "sp.xthtaylor: the unit identifier is missing on rows of the "
@@ -347,7 +350,30 @@ def xthtaylor(
         ) from exc
     clusters = None
     if cluster is not None:
+        n_missing = int(frame[cluster].isna().sum())
+        if n_missing:
+            # pd.factorize codes a missing id -1 and np.add.at would add its
+            # scores to the last cluster
+            raise MethodIncompatibility(
+                f"sp.xthtaylor: cluster column {cluster!r} has {n_missing} "
+                "missing value(s) in the estimation sample.",
+                recovery_hint="Drop the rows with a missing cluster id first; "
+                "the estimates are then those of the remaining rows.",
+                diagnostics={"cluster": cluster, "n_missing": n_missing},
+            )
         clusters = pd.factorize(frame[cluster])[0]
+        split = pd.Series(clusters).groupby(codes).nunique()
+        if int(split.max()) > 1:
+            # the estimator is built on unit means: a unit spread over
+            # clusters has no place in a cluster sum of its scores
+            raise MethodIncompatibility(
+                f"sp.xthtaylor: {int((split > 1).sum())} unit(s) appear in "
+                f"more than one cluster of {cluster!r}; units must be "
+                "nested in the clusters.",
+                recovery_hint="Cluster on the unit (vce='robust') or on a "
+                "variable that is constant within units.",
+                diagnostics={"cluster": cluster, "n_split": int((split > 1).sum())},
+            )
     elif vce == "robust":
         clusters = codes
     if clusters is None:

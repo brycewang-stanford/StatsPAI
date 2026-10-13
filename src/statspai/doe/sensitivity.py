@@ -73,7 +73,13 @@ def _from_unit(U: np.ndarray, spec: Sequence[Any]) -> np.ndarray:
 
 
 def _evaluate(
-    func: Callable[..., Any], X: np.ndarray, names: List[str], pass_as: str
+    func: Callable[..., Any],
+    X: np.ndarray,
+    names: List[str],
+    pass_as: str,
+    why: str = (
+        "A variance decomposition needs the output everywhere on the input region."
+    ),
 ) -> np.ndarray:
     arg = pd.DataFrame(X, columns=names) if pass_as == "frame" else X
     if pass_as == "rows":
@@ -91,8 +97,7 @@ def _evaluate(
     if not np.all(np.isfinite(y)):
         raise MethodIncompatibility(
             f"func returned {int((~np.isfinite(y)).sum())} missing or infinite "
-            "values. A variance decomposition needs the output everywhere on "
-            "the input region."
+            f"values. {why}"
         )
     return y
 

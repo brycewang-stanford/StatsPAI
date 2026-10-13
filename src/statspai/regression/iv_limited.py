@@ -29,6 +29,7 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from ..core._validate import require_numeric_columns
 from ..core._vcov import ml_vcov
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -103,6 +104,9 @@ class _Design:
                     "n_instruments": len(self.instruments),
                 },
             )
+        require_numeric_columns(
+            data, needed, function=function, argument="y / x / endog / instruments"
+        )
         df = data[list(dict.fromkeys(needed + extra))].dropna()
         self.df = df
         n = len(df)

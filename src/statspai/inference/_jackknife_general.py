@@ -19,6 +19,7 @@ from scipy import stats
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
+from .basic_tests import _check_alpha
 from .bootstrap import _as_statistic_vector
 
 __all__ = ["jackknife", "JackknifeResult"]
@@ -144,6 +145,9 @@ def jackknife(
 
     The cost is one evaluation of ``statistic`` per row or cluster.
 
+    A statistic that does not change when a row is left out has a zero
+    standard error: a ``RuntimeWarning`` says so and the p-value is NaN.
+
     Examples
     --------
     >>> import numpy as np, pandas as pd
@@ -164,6 +168,7 @@ def jackknife(
     ----------
     hansen2022econometrics
     """
+    _check_alpha(alpha, "sp.jackknife")
     if not callable(statistic):
         raise MethodIncompatibility(
             "sp.jackknife: statistic must be a function of a DataFrame.",
@@ -243,9 +248,21 @@ def jackknife(
     bias = (n - 1) * (replicates.mean(axis=0) - full)
     df = n - 1
     crit = float(stats.t.ppf(1 - alpha / 2, df))
+    # zero up to rounding, relative to the size of the statistic
+    floor = 1e-10 * np.maximum(np.abs(replicates).max(axis=0), np.abs(full))
+    flat = ~(se > floor)
+    if flat.any():
+        which = "" if scalar else f" for {[labels[j] for j in np.flatnonzero(flat)]}"
+        warnings.warn(
+            "sp.jackknife: the statistic takes the same value in every "
+            f"leave-one-out sample{which}, so its standard error is zero "
+            "and no test statistic or p-value is defined (NaN).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     if scalar:
-        t = full[0] / se[0] if se[0] > 0 else np.nan
+        t = np.nan if flat[0] else full[0] / se[0]
         return JackknifeResult(
             estimate=float(full[0]),
             se=float(se[0]),

@@ -165,11 +165,20 @@ def lm_lin(
     [@lin2013agnostic]
     """
     context = "lm_lin"
-    covariates = list(covariates)
+    covariates = [covariates] if isinstance(covariates, str) else list(covariates)
     if not covariates:
         raise MethodIncompatibility(
             f"{context}: no covariates given.",
             recovery_hint="Without covariates use sp.difference_in_means.",
+        )
+    clash = [c for c in covariates if c in (y, treat)]
+    repeated = sorted({c for c in covariates if covariates.count(c) > 1})
+    if clash or repeated:
+        raise MethodIncompatibility(
+            f"{context}: the covariates must be columns other than the "
+            f"outcome {y!r} and the treatment {treat!r}, each named once; "
+            f"got {clash + repeated}.",
+            recovery_hint="Remove them from covariates.",
         )
     if blocks is not None:
         return _lm_lin_blocked(

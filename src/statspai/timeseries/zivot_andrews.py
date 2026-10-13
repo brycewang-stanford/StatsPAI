@@ -17,6 +17,8 @@ import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._forecast_common import require_time_order
+from .var import _refuse_repeated_dates
 
 __all__ = ["zivot_andrews", "ZivotAndrewsResult"]
 
@@ -339,9 +341,29 @@ def zivot_andrews(
                 "zivot_andrews: with a DataFrame, y must name one of its columns.",
                 recovery_hint="sp.zivot_andrews(df, 'gdp').",
             )
+        if time is not None:
+            if time not in data.columns:
+                raise _bad(
+                    f"time column {time!r} is not in data.", "Check the column name."
+                )
+            if data[time].isna().any():
+                raise _bad(
+                    f"{int(data[time].isna().sum())} rows have a missing value "
+                    f"in the time column {time!r}; the break date could not "
+                    "be labelled.",
+                    "Fill the dates or drop those rows first.",
+                )
+            _refuse_repeated_dates(data[time], time, "zivot_andrews")
+            # the test is about the order of the observations in time, so
+            # the rows are put in that order (a sorted frame is used as is)
+            if not data[time].is_monotonic_increasing:
+                data = data.sort_values(time, kind="stable")
+        else:
+            require_time_order(data.index, fn="zivot_andrews")
         series = data[y]
         labels = data[time].to_numpy() if time is not None else data.index.to_numpy()
     elif isinstance(data, pd.Series):
+        require_time_order(data.index, fn="zivot_andrews")
         series, labels = data, data.index.to_numpy()
     else:
         series = pd.Series(np.asarray(data, dtype=float).ravel())

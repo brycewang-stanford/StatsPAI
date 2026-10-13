@@ -307,7 +307,11 @@ class FactorialDesignResult(ResultProtocolMixin):
         For a fractional design, e.g. ``['E = ABCD']``.
     defining_relation : list of str
         Words equal to the identity, e.g. ``['ABCDE']``; a leading minus
-        sign marks a word that equals minus the identity.
+        sign marks a word that equals minus the identity. Reported for
+        regular two-level fractions only: it is empty for a full
+        factorial and also for the three-, five- and seven-level
+        fractions and the orthogonal arrays, see the notes of
+        :func:`factorial_design`.
     resolution : int or None
         Length of the shortest word; ``None`` for a full factorial.
     word_length_pattern : list of int
@@ -316,7 +320,9 @@ class FactorialDesignResult(ResultProtocolMixin):
         Each main effect and two-factor interaction with the effects it
         cannot be separated from (up to ``alias_order`` factors). A
         leading minus sign means the two columns are opposite: the
-        estimate is the first effect minus the second.
+        estimate is the first effect minus the second. An interaction
+        that is itself a defining word is constant over the fraction,
+        hence not an effect, and is not listed.
     model_info : dict
 
     Examples
@@ -451,8 +457,12 @@ def factorial_design(
     may differ, as minimum-aberration designs are unique only up to
     relabelling.
 
-    For the fractions that are not two-level regular ones there is no
-    defining relation in letters; ``word_length_pattern`` then holds the
+    ``defining_relation`` and ``aliases`` are reported for regular
+    two-level fractions only. Regular three-, five- and seven-level
+    fractions do have a defining relation (in words such as ``ABC^2``),
+    but it is not worked out here and ``defining_relation`` is left
+    empty for them, as it is for Plackett-Burman designs and the L18
+    array, which have none; ``word_length_pattern`` then holds the
     generalized pattern ``A1, A2, ...`` of ``sp.design_aberration`` and
     ``resolution`` the first non-zero entry. In a Plackett-Burman design
     every main effect is partially aliased with many two-factor
@@ -648,7 +658,8 @@ def factorial_design(
         ]
         seen: set = set()
         for e in effects:
-            if e in seen:
+            # a defining word is the constant column, not an effect
+            if e in seen or e in sign_of:
                 continue
             # the column of e times a defining word is that of e ^ w, up to
             # the sign of the word

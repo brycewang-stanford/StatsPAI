@@ -283,7 +283,7 @@ def _resolve_control_cohort(
     cohort="g",
     controls="covariates",
 )
-@_calendar_time_aware(time="t", cohort="g")
+@_calendar_time_aware(time="t", cohort="g", numeric_gaps=True)
 @_expands_categorical("covariates")
 def sun_abraham(
     data: pd.DataFrame,

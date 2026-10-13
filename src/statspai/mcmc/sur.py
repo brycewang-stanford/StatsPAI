@@ -21,8 +21,17 @@ from scipy import linalg
 
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
-from ._core import check_mcmc_args, normal_prior, rinvwishart, rmvnorm_prec, spawn_rngs
-from .diagnostics import mcmc_summary
+from ._core import (
+    check_mcmc_args,
+    is_default,
+    normal_prior,
+    note_default_prior,
+    rinvwishart,
+    rmvnorm_prec,
+    rows_by_position,
+    spawn_rngs,
+)
+from .diagnostics import gelman_rubin, mcmc_summary
 from .regress import BayesRegressResult
 
 
@@ -107,6 +116,8 @@ def bayes_sur(
             "formulas must be a list of at least two formulas; for one "
             "equation use sp.bayes_regress."
         )
+    # the equations are lined up by row label below
+    data = rows_by_position(data)
     ys: List[pd.Series] = []
     Xs: List[pd.DataFrame] = []
     for f in formulas:
@@ -132,7 +143,8 @@ def bayes_sur(
     for yn, X in zip(ynames, Xl):
         if np.linalg.matrix_rank(X) < X.shape[1]:
             raise MethodIncompatibility(f"The regressors of {yn} are collinear.")
-    b0, _, A = normal_prior(K, prior_mean, prior_var, names)
+    b0, B0, A = normal_prior(K, prior_mean, prior_var, names)
+    default_prior = is_default(prior_mean, 0.0) and is_default(prior_var, 1000.0)
     if sigma_prior is None:
         nu0, V0 = float(M + 1), np.eye(M) * 0.02
     else:
@@ -212,6 +224,13 @@ def bayes_sur(
         }
     )
     diag: Dict[str, Any] = {"warnings": [], "min_ess": float(table["ess"].min())}
+    try:
+        gr = gelman_rubin(
+            [d_df.loc[chain_idx == ch] for ch in range(chains)], split=True
+        )
+        diag["max_split_rhat"] = float(gr.table["psrf"].max())
+    except (MethodIncompatibility, DataInsufficient):
+        diag["max_split_rhat"] = float("nan")
     res = BayesRegressResult(
         model="sur",
         formula=" ; ".join(formulas),
@@ -239,6 +258,7 @@ def bayes_sur(
         diagnostics_info=diag,
         _model=None,
     )
+    rhat = diag["max_split_rhat"]
     if diag["min_ess"] < 100:
         text = (
             "The chain mixes slowly: effective sample size "
@@ -246,4 +266,20 @@ def bayes_sur(
         )
         diag["warnings"].append(text)
         warnings.warn(text, ConvergenceWarning, stacklevel=2)
+    elif np.isfinite(rhat) and rhat > 1.05:
+        text = (
+            "The chain may not have converged: split potential scale "
+            f"reduction factor is {rhat:.3f}. Increase draws / burnin."
+        )
+        diag["warnings"].append(text)
+        warnings.warn(text, ConvergenceWarning, stacklevel=2)
+    if default_prior:
+        note_default_prior(
+            diag["warnings"],
+            names,
+            table["mean"].to_numpy()[:K],
+            table["sd"].to_numpy()[:K],
+            b0,
+            np.sqrt(np.diag(B0)),
+        )
     return res

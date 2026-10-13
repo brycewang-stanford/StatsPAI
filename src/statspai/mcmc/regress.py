@@ -31,7 +31,15 @@ from ..exceptions import (
 )
 from . import _models as M
 from . import _workflow as W
-from ._core import check_mcmc_args, design_for, normal_prior, spawn_rngs
+from ._core import (
+    check_mcmc_args,
+    design_for,
+    drops_intercept,
+    normal_prior,
+    note_default_prior,
+    rows_by_position,
+    spawn_rngs,
+)
 from .diagnostics import (
     _spectrum0_ar,
     gelman_rubin,
@@ -371,6 +379,7 @@ class _PredictiveMethods:
         formula = self.formula
         if self._trials is not None and self._trials.formula is not None:
             formula = self._trials.formula
+        data = rows_by_position(data)
         y_df, _ = create_design_matrices(formula, data)
         rows = data.loc[y_df.index]
         return np.asarray(y_df, dtype=float).reshape(-1), rows
@@ -390,7 +399,14 @@ class _PredictiveMethods:
         """Draws of the expected outcome ``E[y | x]``: the probability for
         binary models, the rate for count models. Uncertainty about the
         coefficients only; see :meth:`posterior_predict` for new
-        outcomes."""
+        outcomes.
+
+        For three models this is not the mean of the observed outcome.
+        ``model='tobit'`` and the ordered models (``'oprobit'``,
+        ``'ologit'``) return the latent linear index ``x'beta``: the mean
+        of the uncensored variable, and the location of the latent scale
+        the cutpoints divide. ``model='quantile'`` returns the fitted
+        conditional quantile ``x'beta`` at the ``quantile`` of the fit."""
         return np.asarray(
             self._model.expected_value(self.posterior_linpred(data, index))
         )
@@ -728,10 +744,17 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
 
     # -- prediction --------------------------------------------------------
     def _design(self, data: Optional[pd.DataFrame]) -> np.ndarray:
-        if self._model is None:
+        if self._model is None and self.model == "bayes_bootstrap":
             raise MethodIncompatibility(
                 "predict() is available for regression fits, not for a "
                 "user-supplied statistic."
+            )
+        if self._model is None:
+            raise MethodIncompatibility(
+                f"predict() is not available for this fit (model='{self.model}'): "
+                "there is no single regression design to predict from. It "
+                "is implemented for sp.bayes_regress, sp.bayes_shrink, "
+                "sp.bayes_mixed and sp.bayes_ivreg."
             )
         if data is None:
             return np.asarray(self._model.X)
@@ -1266,12 +1289,17 @@ def bayes_regress(
         prior_kind = "vague"
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
+    inference = str(inference).lower()
+    if inference not in ("mcmc", "vb"):
+        raise MethodIncompatibility("inference must be 'mcmc' or 'vb'.")
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility("data must be a pandas DataFrame.")
     if "~" not in formula:
         raise MethodIncompatibility(
             f"formula must look like 'y ~ x1 + x2'; got {formula!r}."
         )
+    # rows are matched to the design by label further down
+    data = rows_by_position(data)
 
     user_formula = formula
     grouped = _CBIND_OUTCOME.match(formula)
@@ -1315,8 +1343,7 @@ def bayes_regress(
         work = data.loc[data[lhs].notna()].copy()
         codes, levels = _ordered_codes(work[lhs])
         work[lhs] = codes
-        rhs = formula.split("~", 1)[1]
-        no_const = "-1" in rhs.replace(" ", "") or "+0" in rhs.replace(" ", "")
+        no_const = drops_intercept(formula.split("~", 1)[1])
         if model_key in M.ORDERED and no_const:
             raise MethodIncompatibility(
                 "An ordered model has free cutpoints in place of an "
@@ -1328,10 +1355,27 @@ def bayes_regress(
     xnames = [str(c) for c in X_df.columns]
     design_info = getattr(X_df, "design_info", None)
     n, k = X.shape
-    if n <= k:
+    n_par, what = k, "coefficients"
+    if model_key == "mlogit":
+        n_par = k * max(len(levels) - 1, 1)
+    elif model_key in M.ORDERED:
+        # slopes and cutpoints; the intercept is the first cutpoint
+        n_par, what = k + max(len(levels) - 2, 0), "coefficients and cutpoints"
+    if n <= n_par:
+        hint = (
+            f" The outcome has {len(levels)} distinct values, and each is a "
+            "category of its own; these models are for a few categories."
+            if n_par > k
+            else ""
+        )
         raise DataInsufficient(
-            f"{n} observations for {k} coefficients; the model needs more "
-            "observations than coefficients."
+            f"{n} observations for {n_par} {what}; the model needs more "
+            f"observations than {what}.{hint}"
+        )
+    if not (np.isfinite(y).all() and np.isfinite(X).all()):
+        raise MethodIncompatibility(
+            "The outcome or a regressor has infinite values on the "
+            "estimation sample; remove or recode those rows."
         )
     rank = np.linalg.matrix_rank(X)
     if rank < k:
@@ -1470,9 +1514,6 @@ def bayes_regress(
         )
         return res
 
-    inference = str(inference).lower()
-    if inference not in ("mcmc", "vb"):
-        raise MethodIncompatibility("inference must be 'mcmc' or 'vb'.")
     if inference == "vb" and model_key != "normal":
         raise MethodIncompatibility(
             "inference='vb' is implemented for model='normal' only."
@@ -1813,18 +1854,17 @@ def _note_default_prior(
     else:
         post_mean = res.table["mean"].to_numpy()[:k]
         post_sd = res.table["sd"].to_numpy()[:k]
-    prior_sd = np.sqrt(np.diag(B0))
-    far = np.abs(post_mean - b0) / prior_sd > 1.0
-    tight = post_sd / prior_sd > 0.3
-    bad = [n for n, f, t in zip(names, far, tight) if f or t]
-    if bad:
-        text = (
-            "The default prior is not vague for " + ", ".join(map(str, bad)) + ": "
-            "its standard deviation is of the same order as the "
-            "coefficient or its posterior uncertainty, so it pulls the "
-            "estimate toward zero. Use prior='weakly_informative' (priors "
+    note_default_prior(
+        res.diagnostics_info["warnings"],
+        names,
+        post_mean,
+        post_sd,
+        b0,
+        np.sqrt(np.diag(B0)),
+        advice=(
+            "Use prior='weakly_informative' (priors "
             "scaled to the data), set prior_var= (and prior_mean=) to "
             "match the scale of these regressors, or rescale them."
-        )
-        res.diagnostics_info["warnings"].append(text)
-        warnings.warn(text, StatsPAIWarning, stacklevel=3)
+        ),
+        stacklevel=4,
+    )

@@ -98,6 +98,10 @@ def bayes_bootstrap(
     rubin1981bayesian
     """
     check_mcmc_args(draws, 0, 1)
+    if draws < 2:
+        raise MethodIncompatibility(
+            "draws must be at least 2: one weight draw has no spread to " "summarise."
+        )
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility("data must be a pandas DataFrame.")
     if (formula is None) == (statistic is None):
@@ -145,8 +149,16 @@ def bayes_bootstrap(
 
         def as_row(val: Any) -> np.ndarray:
             if isinstance(val, (dict, pd.Series)):
-                return np.asarray(list(dict(val).values()), dtype=float)
-            return np.atleast_1d(np.asarray(val, dtype=float))
+                row = np.asarray(list(dict(val).values()), dtype=float)
+            else:
+                row = np.atleast_1d(np.asarray(val, dtype=float)).reshape(-1)
+            if row.size != len(names):
+                raise MethodIncompatibility(
+                    f"statistic returned {row.size} values for one weight "
+                    f"draw and {len(names)} for the first; it must return "
+                    "the same quantities every time."
+                )
+            return row
 
         out[0] = as_row(first)
         for s in range(1, draws):

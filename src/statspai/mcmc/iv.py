@@ -29,7 +29,16 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
-from ._core import check_mcmc_args, normal_prior, rinvwishart, rmvnorm_prec, spawn_rngs
+from ._core import (
+    check_mcmc_args,
+    is_default,
+    normal_prior,
+    note_default_prior,
+    rinvwishart,
+    rmvnorm_prec,
+    rows_by_position,
+    spawn_rngs,
+)
 from .diagnostics import gelman_rubin, mcmc_summary
 from .regress import BayesRegressResult
 
@@ -173,6 +182,8 @@ def bayes_ivreg(
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility("data must be a pandas DataFrame.")
+    # the two equations are lined up by row label below
+    data = rows_by_position(data)
     ydep, endog, inst, exog = _split_formula(formula)
     if endog not in data.columns:
         raise MethodIncompatibility(
@@ -215,6 +226,8 @@ def bayes_ivreg(
 
     t0, T0, A_t = normal_prior(kw, prior_mean, prior_var, wnames)
     _, D0, A_d = normal_prior(kz, 0.0, first_stage_prior_var, znames)
+    default_prior = is_default(prior_mean, 0.0) and is_default(prior_var, 1000.0)
+    default_fs_prior = is_default(first_stage_prior_var, 1000.0)
     if sigma_prior is None:
         nu0, V0 = 3.0, np.eye(2) * 0.02
     else:
@@ -393,4 +406,26 @@ def bayes_ivreg(
         )
         diag_info["warnings"].append(text)
         warnings.warn(text, ConvergenceWarning, stacklevel=2)
+    if default_prior:
+        note_default_prior(
+            diag_info["warnings"],
+            wnames,
+            table["mean"].to_numpy()[:kw],
+            table["sd"].to_numpy()[:kw],
+            t0,
+            np.sqrt(np.diag(T0)),
+        )
+    if default_fs_prior:
+        note_default_prior(
+            diag_info["warnings"],
+            names[kw + 3 :],
+            table["mean"].to_numpy()[kw + 3 :],
+            table["sd"].to_numpy()[kw + 3 :],
+            0.0,
+            np.sqrt(np.diag(D0)),
+            advice=(
+                "Set first_stage_prior_var= to match the scale of the "
+                "instruments, or rescale them."
+            ),
+        )
     return res

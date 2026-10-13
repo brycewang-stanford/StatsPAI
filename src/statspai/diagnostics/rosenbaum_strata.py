@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence, Tuple, Union
 
@@ -184,6 +185,12 @@ def rosenbaum_stratified(
     -------
     SensitivityTestResult
 
+    Warns
+    -----
+    UserWarning
+        Rows with a missing value in a column used were dropped (with
+        their number).
+
     Notes
     -----
     The moments of the statistic are computed exactly from Fisher's
@@ -221,7 +228,17 @@ def rosenbaum_stratified(
     cols = [y, treat] + ([strata] if strata is not None else [])
     require_columns(data, cols, function="rosenbaum_stratified")
     d = data[cols].dropna()
-    z = d[treat].to_numpy(dtype=float)
+    n_dropped = len(data) - len(d)
+    if n_dropped:
+        warnings.warn(
+            f"rosenbaum_stratified: dropped {n_dropped} rows with " "missing values.",
+            UserWarning,
+            stacklevel=2,
+        )
+    try:
+        z = d[treat].to_numpy(dtype=float)
+    except (TypeError, ValueError):
+        z = np.full(len(d), np.nan)
     if not np.all((z == 0) | (z == 1)):
         raise MethodIncompatibility(
             "rosenbaum_stratified: the treat column must be coded 0/1"
@@ -366,6 +383,12 @@ def noether_test(
         ``statistic`` is the number of positive differences among the pairs
         used; ``diagnostics["n_pairs_used"]`` is how many those are.
 
+    Warns
+    -----
+    UserWarning
+        Pairs with a missing or infinite difference were dropped (with
+        their number).
+
     Examples
     --------
     >>> import numpy as np
@@ -390,7 +413,15 @@ def noether_test(
         if c.shape != d.shape:
             raise MethodIncompatibility("treated and control must have the same length")
         d = d - c
-    d = d[np.isfinite(d)]
+    finite = np.isfinite(d)
+    if d.ndim == 1 and not finite.all():
+        warnings.warn(
+            f"noether_test: dropped {int((~finite).sum())} pairs with a "
+            "missing or infinite difference.",
+            UserWarning,
+            stacklevel=2,
+        )
+    d = d[finite]
     if d.ndim != 1 or d.size < 2:
         raise MethodIncompatibility("noether_test needs at least two pairs")
     ad = np.abs(d)

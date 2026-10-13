@@ -17,7 +17,13 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
+from ..exceptions import warn as _sp_warn
 from ._common import pair_sqdist
 
 
@@ -376,6 +382,14 @@ def support_points(
             best = (e, P, it, ok)
     assert best is not None
     e, P, it, ok = best
+    if not np.all(np.isfinite(P)):
+        raise MethodIncompatibility(
+            "support_points: the iteration broke down because several points "
+            "fell on the same location. The sample has too few distinct "
+            f"values for {n} points.",
+            recovery_hint="Ask for fewer points, or use sp.split_data("
+            "method='twinning') to pick representative rows of discrete data.",
+        )
     index = None
     if subsample:
         index = _nearest_distinct(Z, P)
@@ -393,6 +407,13 @@ def support_points(
         e_rand = float("nan")
     if not ok:
         notes.append(f"Not converged in {max_iter} iterations; raise max_iter.")
+        _sp_warn(
+            ConvergenceWarning,
+            f"support_points: not converged in {max_iter} iterations; the "
+            "points are close to, but not at, a stationary configuration.",
+            recovery_hint="Raise max_iter or loosen tol.",
+            stacklevel=2,
+        )
     if index is not None:
         points = frame.iloc[index].copy()
     else:
@@ -567,7 +588,11 @@ def split_data(
         out of each group of ``r = 1 / test_size`` neighbours; it is far
         faster on large data and needs ``1 / test_size`` to be a whole
         number. ``'auto'`` uses twinning when it applies and there are
-        more than 2,000 rows, otherwise support points.
+        more than 2,000 rows, otherwise support points. Support points
+        need more distinct rows than test rows; on data with fewer (all
+        columns discrete, many repeated rows) ``'auto'`` uses twinning,
+        which handles ties, and says so in ``model_info['notes']``,
+        while an explicit ``'support'`` is an error.
     start : int, optional
         Twinning only: the row (position) where the walk starts. With it
         the split is deterministic.
@@ -661,11 +686,47 @@ def split_data(
                 f"{N} rows with {n_test} test rows are too many for support "
                 "points; use method='twinning'."
             )
-        P, it, ok = _sp_ccp(Z, n_test, rng, int(max_iter), float(tol))
-        idx = _nearest_distinct(Z, P)
-        if not ok:
-            notes.append(f"Support points not converged in {max_iter} iterations.")
-        info.update(method="support points (SPlit)", iterations=int(it))
+        n_distinct = int(np.unique(Z, axis=0).shape[0])
+        P = None
+        if n_distinct > n_test:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                P, it, ok = _sp_ccp(Z, n_test, rng, int(max_iter), float(tol))
+            if not np.all(np.isfinite(P)):
+                P = None
+        if P is None:
+            why = (
+                f"the data have {n_distinct} distinct rows, too few for the "
+                f"support points of {n_test} test rows"
+            )
+            if str(method).lower() != "auto":
+                raise MethodIncompatibility(
+                    f"split_data: {why}. Use method='twinning', which handles "
+                    "repeated rows."
+                )
+            if not whole:
+                raise MethodIncompatibility(
+                    f"split_data: {why}, and twinning needs 1 / test_size to "
+                    f"be a whole number (got {inv:.4g}). Choose such a "
+                    "test_size, e.g. 0.2 or 0.25."
+                )
+            r = int(round(inv))
+            u1 = int(rng.integers(N))
+            idx = twin_indices(Z, r, u1)
+            notes.append(f"Twinning used: {why}.")
+            info.update(method="twinning", r=r, start=u1)
+        else:
+            idx = _nearest_distinct(Z, P)
+            if not ok:
+                notes.append(f"Support points not converged in {max_iter} iterations.")
+                _sp_warn(
+                    ConvergenceWarning,
+                    f"split_data: support points not converged in {max_iter} "
+                    "iterations; the split is close to, but not at, the "
+                    "energy-minimising one.",
+                    recovery_hint="Raise max_iter or loosen tol.",
+                    stacklevel=2,
+                )
+            info.update(method="support points (SPlit)", iterations=int(it))
     idx = np.sort(idx)
     mask = np.zeros(N, dtype=bool)
     mask[idx] = True

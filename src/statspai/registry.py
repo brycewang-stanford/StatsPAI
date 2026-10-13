@@ -865,6 +865,19 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec(
+                    "weights_as",
+                    "str",
+                    False,
+                    None,
+                    "What the weights are. 'analytic' (Stata [aw=]) is what "
+                    "weights= alone already means; 'sampling' (Stata [pw=]) "
+                    "gives the same coefficients with the HC1 variance, unless "
+                    "another variance is asked for. Saying which silences "
+                    "the warning about dispersed weights under the "
+                    "model-based variance. 'frequency' is refused",
+                    ["analytic", "sampling"],
+                ),
+                ParamSpec(
                     "weights",
                     "str",
                     False,
@@ -984,7 +997,9 @@ def _build_registry() -> None:
                 ),
             ],
             returns="EconometricResults",
-            example='sp.regress("wage ~ education + experience", data=df, robust="hc1")',
+            example=(
+                'sp.regress("wage ~ education + experience", ' 'data=df, robust="hc1")'
+            ),
             tags=["regression", "ols", "linear", "robust"],
             reference="wooldridge2010econometric",
             pre_conditions=[
@@ -1050,6 +1065,19 @@ def _build_registry() -> None:
                 "Hausman diagnostics."
             ),
             params=[
+                ParamSpec(
+                    "weights_as",
+                    "str",
+                    False,
+                    None,
+                    "What the weights are. 'analytic' (Stata [aw=]) is what "
+                    "weights= alone already means; 'sampling' (Stata [pw=]) "
+                    "gives the same coefficients with the HC1 variance, unless "
+                    "another variance is asked for. Saying which silences "
+                    "the warning about dispersed weights under the "
+                    "model-based variance. 'frequency' is refused",
+                    ["analytic", "sampling"],
+                ),
                 ParamSpec(
                     "formula",
                     "str",
@@ -1217,6 +1245,19 @@ def _build_registry() -> None:
                 "sp.iv(method='2sls')."
             ),
             params=[
+                ParamSpec(
+                    "weights_as",
+                    "str",
+                    False,
+                    None,
+                    "What the weights are. 'analytic' (Stata [aw=]) is what "
+                    "weights= alone already means; 'sampling' (Stata [pw=]) "
+                    "gives the same coefficients with the HC1 variance, unless "
+                    "another variance is asked for. Saying which silences "
+                    "the warning about dispersed weights under the "
+                    "model-based variance. 'frequency' is refused",
+                    ["analytic", "sampling"],
+                ),
                 ParamSpec(
                     "vcov",
                     "str",
@@ -2109,6 +2150,19 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec(
+                    "weights_as",
+                    "str",
+                    False,
+                    None,
+                    "What the weights are. 'frequency' (Stata [fw=] / [iw=]) is what "
+                    "weights= alone already means; 'sampling' (Stata [pw=]) "
+                    "gives the same coefficients with the robust variance, unless "
+                    "another variance is asked for. Saying which silences "
+                    "the warning about dispersed weights under the "
+                    "model-based variance. 'analytic' is refused",
+                    ["frequency", "sampling"],
+                ),
+                ParamSpec(
                     "formula",
                     "str",
                     True,
@@ -2166,7 +2220,10 @@ def _build_registry() -> None:
                 ParamSpec("tol", "float", False, 1e-8, "Convergence tolerance"),
             ],
             returns="EconometricResults",
-            example='sp.nbreg("visits ~ age + income | person", data=df, cluster="person")',
+            example=(
+                'sp.nbreg("visits ~ age + income | person", '
+                'data=df, cluster="person")'
+            ),
             tags=["count", "negative-binomial", "nbreg", "overdispersion"],
             reference="Cameron & Trivedi (2013) Regression Analysis of Count Data",
             alternatives=["poisson", "ppmlhdfe", "xtnbreg", "menbreg"],
@@ -4457,7 +4514,8 @@ def _build_registry() -> None:
                 "split on the gradient of all contrasts (multi-arm R-learner with GRF "
                 "weights). Propensities from a probability forest, doubly-robust per-"
                 "arm ATEs, BLPs per contrast. Operators match grf to 1e-13 (T2); forest"
-                " statistics are screened against grf on known-truth designs (a stochastic "
+                " statistics are screened against grf on known-truth designs"
+                " (a stochastic "
                 "screen, not a seed-replicated equivalence test)."
             ),
             params=[
@@ -6584,7 +6642,10 @@ def _build_registry() -> None:
                 ),
             ],
             returns="TMLE result",
-            example='sp.tmle(df, y="outcome", treat="treat", covariates=["x1","x2","x3"])',
+            example=(
+                'sp.tmle(df, y="outcome", treat="treat", '
+                'covariates=["x1","x2","x3"])'
+            ),
             tags=["tmle", "doubly-robust", "semiparametric"],
             reference="van der Laan & Rose (2011) Targeted Learning",
             pre_conditions=[
@@ -6640,6 +6701,20 @@ def _build_registry() -> None:
                 ".f_test_effects(), .pesaran_cd_test(), .compare(method)."
             ),
             params=[
+                ParamSpec(
+                    "weights_as",
+                    "str",
+                    False,
+                    None,
+                    "What the weights are. 'analytic' (Stata [aw=]) is what "
+                    "weights= alone already means; 'sampling' (Stata [pw=]) "
+                    "gives the same coefficients with the heteroskedasticity-robust "
+                    "variance, unless "
+                    "another variance is asked for. Saying which silences "
+                    "the warning about dispersed weights under the "
+                    "model-based variance. 'frequency' is refused",
+                    ["analytic", "sampling"],
+                ),
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec(
                     "formula",
@@ -13157,11 +13232,12 @@ def _build_registry() -> None:
                 ParamSpec("x", "list", False, None, "Regressors (instead of formula)"),
                 ParamSpec(
                     "lambda_",
-                    "float | list",
+                    "float | list | str",
                     False,
                     None,
                     "Penalty or grid on the standardised scale; automatic "
-                    "log-spaced grid when omitted",
+                    "log-spaced grid when omitted. 'gcv', 'hkb' or 'lw' is "
+                    "the default grid with that selection rule",
                 ),
                 ParamSpec(
                     "select",

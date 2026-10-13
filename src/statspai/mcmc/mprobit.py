@@ -28,9 +28,12 @@ from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ._core import (
     check_mcmc_args,
+    is_default,
     normal_prior,
+    note_default_prior,
     rinvwishart,
     rmvnorm_prec,
+    rows_by_position,
     rtruncnorm,
     spawn_rngs,
 )
@@ -138,7 +141,8 @@ def _run(
     ks = [X.shape[1] for X in Xl]
     K = int(sum(ks))
     off = np.concatenate([[0], np.cumsum(ks)])
-    b0, _, A = normal_prior(K, prior_mean, prior_var, names)
+    b0, B0, A = normal_prior(K, prior_mean, prior_var, names)
+    default_prior = is_default(prior_mean, 0.0) and is_default(prior_var, 100.0)
     nu0, V0 = _sigma_prior(sigma_prior, m)
     prior = (A, A @ b0, nu0, V0)
     XX = [[Xl[a].T @ Xl[b] for b in range(m)] for a in range(m)]
@@ -152,6 +156,8 @@ def _run(
     n_iter = burnin + draws * thin
     rngs = spawn_rngs(seed, chains)
     pieces = []
+    # moments of the coefficients on the scale the prior is written on
+    raw_sum, raw_sq = np.zeros(K), np.zeros(K)
     for ch in range(chains):
         rng = rngs[ch]
         if kind == "mv":
@@ -169,6 +175,8 @@ def _run(
         for it in range(n_iter):
             w, beta, Sigma = _sweep(rng, w, beta, Sigma, y, Xl, XX, off, prior, kind)
             if it >= burnin and (it - burnin) % thin == 0:
+                raw_sum += beta
+                raw_sq += beta * beta
                 if kind == "mv":
                     sd = np.sqrt(np.diag(Sigma))
                     out[kept, :K] = beta / np.repeat(sd, ks)
@@ -218,6 +226,22 @@ def _run(
         )
         diag["warnings"].append(text)
         warnings.warn(text, ConvergenceWarning, stacklevel=3)
+    if default_prior:
+        # the prior is on the unnormalised coefficients, so those are the
+        # draws to hold against it (the reported ones are divided by the
+        # latent standard deviation)
+        kept_n = draws * chains
+        raw_mean = raw_sum / kept_n
+        raw_sd = np.sqrt(np.clip(raw_sq / kept_n - raw_mean**2, 0.0, None))
+        note_default_prior(
+            diag["warnings"],
+            names,
+            raw_mean,
+            raw_sd,
+            b0,
+            np.sqrt(np.diag(B0)),
+            stacklevel=4,
+        )
     return res
 
 
@@ -297,6 +321,8 @@ def bayes_mvprobit(
             "formulas must be a list of at least two formulas; for one "
             "binary outcome use sp.bayes_regress(model='probit')."
         )
+    # the equations are lined up by row label below
+    data = rows_by_position(data)
     ys: List[pd.Series] = []
     Xs: List[pd.DataFrame] = []
     for f in formulas:

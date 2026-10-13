@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._validate import require_numeric_columns
 from ..core._vcov import sandwich_vcov
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -178,10 +179,17 @@ def series(
             recovery_hint="degree=3 is a cubic spline.",
         )
     extra = [c for c in (x, cluster) if c is not None]
+    require_numeric_columns(data, [x], function="sp.series", argument="x")
     frame = data.dropna(subset=extra)
+    # rows are matched by position: the labels of ``data`` need not be
+    # unique. The labels come back on the estimation sample below.
+    labels = frame.index
+    frame = frame.reset_index(drop=True)
     base = regress(formula, data=frame)
     info = base.data_info
-    frame = frame.loc[info["sample_index"]]
+    used = np.asarray(info["sample_index"])
+    frame = frame.iloc[used]
+    frame.index = labels[used]
     Z = np.asarray(info["X"], dtype=float)
     z_names = [str(v) for v in info["var_names"]]
     if x in z_names:

@@ -1459,6 +1459,14 @@ class IVRegression(BaseModel):
         **kwargs
             Three further options:
 
+            - ``weights_as`` ({'analytic', 'sampling'}, optional): what the
+              weights are. ``'analytic'`` (Stata ``[aw=]``) is what
+              ``weights=`` alone already means. ``'sampling'`` (Stata
+              ``[pw=]``) gives the same coefficients with the HC1
+              variance, unless ``robust=`` or ``cluster=`` asks for
+              another. Saying which also silences the warning about
+              dispersed weights under the classical variance.
+              ``'frequency'`` is refused.
             - ``weights`` (str or array-like, optional): analytic regression
               weights (Stata ``[aw=]``), a column name or one strictly
               positive value per estimation-sample row. Every estimator runs
@@ -1479,6 +1487,23 @@ class IVRegression(BaseModel):
         from ..core._vcov_spec import reject_unknown_kwargs
 
         weights = kwargs.pop("weights", None)
+        # weights_as=: what the weights are. 'sampling' takes the robust
+        # variance unless another was asked for.
+        from ..core._agent_summary import resolve_weights_as
+
+        weights_as = resolve_weights_as(
+            kwargs.pop("weights_as", None),
+            has_weights=weights is not None,
+            native="analytic",
+            entry="sp.iv",
+        )
+        if (
+            weights_as == "sampling"
+            and cluster is None
+            and isinstance(robust, str)
+            and robust.lower() == "nonrobust"
+        ):
+            robust = "hc1"
         alpha = _validate_iv_alpha(kwargs.pop("alpha", 0.05))
         gmm_vcov = str(kwargs.pop("gmm_vcov", "sandwich")).lower()
         if gmm_vcov not in ("sandwich", "efficient"):
@@ -1823,6 +1848,7 @@ class IVRegression(BaseModel):
                 classical_reading="analytic weights (Stata [aw=])",
                 cluster_keys=_keys,
                 cluster=cluster if isinstance(cluster, str) else None,
+                weights_as=weights_as,
             )
         if cluster_var is not None:
             try:
@@ -3532,6 +3558,6 @@ def ivreg(
         function="ivreg",
         # ``small`` / ``iv_diag`` used to be listed here and then dropped
         # downstream without effect; they are rejected until implemented.
-        known=("method", "alpha", "weights"),
+        known=("method", "alpha", "weights", "weights_as"),
     )
     return iv(formula=formula, data=data, robust=se_kw, cluster=cluster, **kwargs)

@@ -151,8 +151,21 @@ class _GLMFit:
 
 
 def _glm_fit(
-    y: np.ndarray, X: np.ndarray, family: str, link: str, max_iter: int = 100
+    y: np.ndarray,
+    X: np.ndarray,
+    family: str,
+    link: str,
+    max_iter: int = 100,
+    probe: bool = False,
 ) -> _GLMFit:
+    """Iteratively reweighted least squares.
+
+    ``probe=True`` runs the iterations on past the deviance tolerance,
+    until the weights stop being finite or ``max_iter`` is reached. A fit
+    that has a maximum stays where it is; one that is diverging (a
+    separated binary outcome) carries its fitted probabilities to 0 and 1,
+    which is how the separation check recognises it.
+    """
     inv, dmu, var, dev = _glm_parts(family, link)
     n, p = X.shape
     # starting values as in standard IRLS
@@ -178,9 +191,19 @@ def _glm_fit(
     w = np.ones(n)
     z = eta.copy()
     for _ in range(max_iter):
-        g = dmu(eta)
-        w = g * g / var(mu)
-        z = eta + (y - mu) / g
+        with np.errstate(divide="ignore", invalid="ignore"):
+            g = dmu(eta)
+            w = g * g / var(mu)
+            z = eta + (y - mu) / g
+        if not (np.isfinite(w).all() and np.isfinite(z).all()):
+            if probe:
+                break
+            # fitted values on the boundary of the family's support
+            raise NumericalInstability(
+                "The iteratively reweighted least squares fit broke down: "
+                "fitted values reached the boundary of the family's support "
+                "(for a binary outcome, complete separation)."
+            )
         sw = np.sqrt(w)
         coef_new = np.linalg.lstsq(X * sw[:, None], z * sw, rcond=None)[0]
         eta_new = X @ coef_new
@@ -199,11 +222,17 @@ def _glm_fit(
             dev_new = dev(y, mu_new)
             halve += 1
         coef, eta, mu = coef_new, eta_new, mu_new
+        if probe:
+            dev_old = dev_new
+            continue
         if abs(dev_new - dev_old) / (abs(dev_new) + 0.1) < 1e-10:
             dev_old = dev_new
             converged = True
             break
         dev_old = dev_new
+    if probe:
+        # only the coefficients are of use
+        return _GLMFit(coef, np.full(p, np.nan), float(dev_old), 1.0, w, z, False)
     g = dmu(eta)
     w = g * g / var(mu)
     z = eta + (y - mu) / g
@@ -682,6 +711,11 @@ def bma(
     names = [str(c) for c in X_df.columns]
     design_info = getattr(X_df, "design_info", None)
     n = X.shape[0]
+    if n and np.ptp(y) <= 1e-12 * max(float(np.abs(y).max()), 1.0):
+        raise DataInsufficient(
+            f"The outcome is constant (all {y[0]:g}); there is nothing for "
+            "the candidate terms to explain."
+        )
     terms, groups = _term_groups(X_df, design_info)
     if "Intercept" not in terms:
         raise MethodIncompatibility(
@@ -770,7 +804,37 @@ def bma(
         else:
             # candidates from the weighted least squares problem at the
             # full-model fit, with a widened window; exact refits follow
-            full = _glm_fit(y, X, family, link)
+            try:
+                full = _glm_fit(y, X, family, link)
+            except (np.linalg.LinAlgError, NumericalInstability) as exc:
+                raise NumericalInstability(
+                    "The full model could not be fitted: the weighted least "
+                    "squares steps broke down, which is what complete "
+                    "separation of a binary outcome (or an outcome outside "
+                    "the family's support) does. The maximum likelihood "
+                    "estimates do not exist, so there is nothing to average. "
+                    "Drop the separating term, or use a prior "
+                    "(sp.bayes_regress, sp.bayes_shrink(family='logit'))."
+                ) from exc
+            if family == "binomial" and full.converged:
+                # a term that separates the outcome in the full model does
+                # so in every model that holds it: its weight is then an
+                # artefact of where the iterations stopped
+                from ..regression.logit_probit import _warn_if_separated
+
+                far = _glm_fit(y, X, family, link, max_iter=60, probe=True)
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("always")
+                    _warn_if_separated(y, _glm_parts(family, link)[0](X @ far.coef))
+                for item in caught:
+                    text = (
+                        f"{item.message} The inclusion probabilities and "
+                        "averaged coefficients of the terms involved are "
+                        "not estimates: the fit of every model that holds "
+                        "them diverges."
+                    )
+                    notes.append(text)
+                    warnings.warn(text, ConvergenceWarning, stacklevel=2)
             if not full.converged:
                 raise NumericalInstability(
                     "The full model did not converge; BMA over its "

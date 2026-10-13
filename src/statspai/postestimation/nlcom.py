@@ -27,7 +27,38 @@ from .hypothesis import _params, _resolve_name
 
 __all__ = ["nlcom"]
 
-_B = re.compile(r"_b\[([^\]]+)\]")
+_B_OPEN = re.compile(r"(?<![A-Za-z0-9_])_b\[")
+
+
+def _swap_b_references(expression: str, replace: Any) -> str:
+    """``expression`` with every ``_b[name]`` replaced by ``replace(name)``.
+
+    The closing bracket is the one that balances the opening one, so a
+    name with brackets of its own (``_b[C(race)[T.2]]``) is read whole.
+    """
+    out: List[str] = []
+    pos = 0
+    while True:
+        found = _B_OPEN.search(expression, pos)
+        if found is None:
+            out.append(expression[pos:])
+            return "".join(out)
+        depth, end = 1, found.end()
+        while end < len(expression) and depth:
+            depth += {"[": 1, "]": -1}.get(expression[end], 0)
+            end += 1
+        if depth:
+            raise MethodIncompatibility(
+                f"nlcom({expression!r}): the '_b[' at position "
+                f"{found.start()} is never closed.",
+                recovery_hint="Write a coefficient as _b[name], closing "
+                "every bracket the name opens.",
+            )
+        out.append(expression[pos : found.start()])
+        out.append(replace(expression[found.end() : end - 1]))
+        pos = end
+
+
 _Dual = Tuple[float, np.ndarray]
 
 
@@ -191,13 +222,13 @@ def nlcom(result: Any, expression: str, alpha: float = 0.05) -> Dict[str, Any]:
     # _b[...] may hold any coefficient name; swap each for an identifier
     lookup: Dict[str, int] = {}
 
-    def placeholder(match: "re.Match[str]") -> str:
-        position = _resolve_name(match.group(1).strip(), params, expression)
+    def placeholder(name: str) -> str:
+        position = _resolve_name(name.strip(), params, expression)
         key = f"_coef_{position}_"
         lookup[key] = position
         return key
 
-    text = _B.sub(placeholder, expression).replace("^", "**")
+    text = _swap_b_references(expression, placeholder).replace("^", "**")
     for position, name in enumerate(names):
         if name.isidentifier():
             lookup.setdefault(name, position)

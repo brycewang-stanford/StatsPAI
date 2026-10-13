@@ -30,9 +30,11 @@ from ._core import (
     check_mcmc_args,
     find_mode,
     normal_prior,
+    note_default_prior,
     rinvgamma,
     rinvwishart,
     rmvnorm_prec,
+    rows_by_position,
     spawn_rngs,
 )
 from .diagnostics import gelman_rubin, mcmc_summary
@@ -530,6 +532,8 @@ def bayes_mixed(
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility("data must be a pandas DataFrame.")
+    # the design is lined up with its rows by label below
+    data = rows_by_position(data)
     if group not in data.columns:
         raise MethodIncompatibility(f"group column {group!r} is not in data.")
     random = list(random or [])
@@ -583,6 +587,11 @@ def bayes_mixed(
         raise MethodIncompatibility("The fixed-effect regressors are collinear.")
     if fam == "logit" and not np.all(np.isin(np.unique(y), (0.0, 1.0))):
         raise MethodIncompatibility("family='logit' needs a 0/1 outcome.")
+    if fam == "logit" and y.min() == y.max():
+        raise DataInsufficient(
+            f"The outcome is constant (all {int(y[0])}); a binary model is "
+            "not identified."
+        )
     if fam == "poisson" and (np.any(y < 0) or np.any(y != np.round(y))):
         raise MethodIncompatibility("family='poisson' needs non-negative counts.")
     not_fixed = [w for w in wnames if w not in xnames]
@@ -594,6 +603,7 @@ def bayes_mixed(
             stacklevel=2,
         )
 
+    default_prior = prior_var is None
     if prior_var is None:
         prior_var = 100.0 if fam == "logit" else 1000.0
     b0, B0, B0inv = normal_prior(k, prior_mean, prior_var, xnames)
@@ -733,9 +743,7 @@ def bayes_mixed(
     share = prior_ss / (prior_ss + ss)
     info["re_prior_share"] = {w: float(v) for w, v in zip(wnames, share)}
     try:
-        gr = gelman_rubin(
-            [d_df.loc[chain_idx == ch] for c in range(chains)], split=True
-        )
+        gr = gelman_rubin([d_df.loc[chain_idx == c] for c in range(chains)], split=True)
         diag_info["max_split_rhat"] = float(gr.table["psrf"].max())
     except (MethodIncompatibility, DataInsufficient):
         diag_info["max_split_rhat"] = float("nan")
@@ -819,4 +827,13 @@ def bayes_mixed(
         )
         diag_info["warnings"].append(text)
         warnings.warn(text, ConvergenceWarning, stacklevel=2)
+    if default_prior:
+        note_default_prior(
+            diag_info["warnings"],
+            xnames,
+            table["mean"].to_numpy()[:k],
+            table["sd"].to_numpy()[:k],
+            b0,
+            np.sqrt(np.diag(B0)),
+        )
     return res

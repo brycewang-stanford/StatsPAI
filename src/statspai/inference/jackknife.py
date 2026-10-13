@@ -30,8 +30,9 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import EconometricResults
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._psd import se_from_vcov
+from .basic_tests import _check_alpha
 
 
 def jackknife_se(
@@ -92,26 +93,24 @@ def jackknife_se(
 
     The effective degrees of freedom are G - 1, which gives
     wider confidence intervals than asymptotic cluster-robust SEs.
+
+    Each refit is least squares on the design the fit stored (its terms,
+    its intercept or lack of one, and ``sqrt(w)`` scaling for a weighted
+    fit). A result whose design cannot be recovered, one with absorbed
+    fixed effects, and a cluster variable with a single cluster are
+    refused; ``sp.jackknife`` with a statistic that refits the model
+    covers those estimators.
     """
-    # Extract formula components from the result
-    formula = result.model_info.get("formula", "")
+    _check_alpha(alpha, "jackknife_se")
+    # The refits use the design the fit itself stored (its columns, in its
+    # order, scaled by sqrt(w) for a weighted fit), so an interaction, a
+    # factor, a suppressed intercept and the weights are those of the model.
+    X, Y, var_names, cl, _src = _design_from_result(result, data, cluster)
+    _require_refittable(result, X, Y, var_names)
 
-    # Parse the formula to get y and X variable names
-    y_var, x_vars = _parse_formula(formula, result)
-
-    # Prepare data
-    cols = [y_var] + x_vars + [cluster]
-    cols = [c for c in cols if c in data.columns]
-    df = data[cols].dropna()
-
-    Y = df[y_var].values.astype(float)
-    X_names = [v for v in x_vars if v in df.columns]
-    X = np.column_stack([np.ones(len(df)), df[X_names].values.astype(float)])
-    var_names = ["_const"] + X_names
-
-    cl = df[cluster].values
     unique_cl = np.unique(cl)
     G = len(unique_cl)
+    _require_two_clusters(G, "jackknife_se", cluster)
     k = X.shape[1]
 
     # Leave-one-cluster-out estimates
@@ -138,16 +137,7 @@ def jackknife_se(
     params_series = result.params.copy()
 
     for i, vn in enumerate(var_names):
-        # Match variable name (handle _const vs Intercept)
-        matched = None
-        if vn == "_const":
-            for pn in param_names:
-                if pn.lower() in ("intercept", "_const", "const", "(intercept)"):
-                    matched = pn
-                    break
-        else:
-            if vn in param_names:
-                matched = vn
+        matched = _match_varname(vn, param_names)
         if matched is not None:
             se_series[matched] = jk_se[i]
 
@@ -258,6 +248,8 @@ def cr2_se(
 
     unique_cl = np.unique(cl)
     G = len(unique_cl)
+    # With one cluster I - H_gg is the residual maker, which is singular.
+    _require_two_clusters(G, "cr2_se", cluster)
     k = X.shape[1]
 
     XtX_inv = np.linalg.inv(X.T @ X)
@@ -460,6 +452,7 @@ def wild_cluster_boot(
 
     unique_cl = np.unique(cl)
     G = len(unique_cl)
+    _require_two_clusters(G, "wild_cluster_boot", cluster)
     n = len(Y)
     k = X.shape[1]
 
@@ -596,6 +589,65 @@ def _parse_formula(
     return y_var, x_vars
 
 
+def _require_two_clusters(n_clusters: int, who: str, cluster: str) -> None:
+    """A between-cluster variance needs at least two clusters."""
+    if n_clusters < 2:
+        raise DataInsufficient(
+            f"{who}: cluster={cluster!r} has {n_clusters} cluster(s) on the "
+            "fitted sample; a cluster-level variance needs at least two.",
+            recovery_hint="Cluster on a variable with several groups, or use "
+            "heteroskedasticity-robust standard errors.",
+            diagnostics={"n_clusters": int(n_clusters)},
+        )
+
+
+def _require_refittable(
+    result: EconometricResults, X: np.ndarray, Y: np.ndarray, var_names: List[str]
+) -> None:
+    """Refuse a delete-one-cluster refit that would not be the fitted model.
+
+    The refit is least squares of ``Y`` on ``X``. That is the model only if
+    every coefficient has a column, least squares on the full design returns
+    the reported coefficients (it does not for IV or a non-linear model, or
+    when a formula re-parse lost a term), and no fixed effects were absorbed
+    (the stored design is then demeaned on the full sample and a refit would
+    have to demean again).
+    """
+    info = getattr(result, "model_info", {}) or {}
+    absorbed = [k for k in ("fixed_effects", "absorb", "fe") if info.get(k)]
+    if absorbed:
+        raise MethodIncompatibility(
+            "jackknife_se: the fit absorbed fixed effects; its stored design "
+            "is demeaned on the full sample, so dropping a cluster and "
+            "solving least squares on it is not a refit of the model.",
+            recovery_hint="Use sp.jackknife(data, statistic, cluster=...) "
+            "with a statistic that refits the model, or enter the fixed "
+            "effects as C() terms in sp.regress.",
+        )
+    params = result.params
+    matched = [_match_varname(vn, list(params.index)) for vn in var_names]
+    ok = (
+        X.shape[1] == len(params)
+        and None not in matched
+        and len(set(matched)) == len(params)
+    )
+    if ok:
+        beta = np.linalg.lstsq(X, Y, rcond=None)[0]
+        target = params[matched].to_numpy(dtype=float)
+        scale = max(1.0, float(np.max(np.abs(target))))
+        ok = bool(np.allclose(beta, target, rtol=0.0, atol=1e-6 * scale))
+    if not ok:
+        raise MethodIncompatibility(
+            "jackknife_se: least squares on the design recovered for this "
+            "result does not reproduce its coefficients, so the "
+            "delete-one-cluster refits would be those of another model.",
+            recovery_hint="Pass the DataFrame the model was fitted on and a "
+            "result from sp.regress; for other estimators use "
+            "sp.jackknife(data, statistic, cluster=...).",
+            diagnostics={"design_columns": list(var_names)},
+        )
+
+
 def _match_varname(vn: str, param_names: List[str]) -> Optional[str]:
     """Match a variable name to parameter names (handle _const/Intercept)."""
     if vn == "_const":
@@ -695,36 +747,6 @@ def _design_from_result(
     var_names = ["_const"] + x_names
     cl = df[cluster].to_numpy()
     return X, y, var_names, cl, "reparsed"
-
-
-def _draw_weights(
-    G: int,
-    weight_type: str,
-    rng: np.random.Generator,
-) -> np.ndarray:
-    """Draw G bootstrap weights from the specified distribution."""
-    if weight_type == "rademacher":
-        return rng.choice([-1.0, 1.0], size=G)
-    elif weight_type == "webb":
-        vals = np.array(
-            [
-                -np.sqrt(1.5),
-                -np.sqrt(1.0),
-                -np.sqrt(0.5),
-                np.sqrt(0.5),
-                np.sqrt(1.0),
-                np.sqrt(1.5),
-            ]
-        )
-        return rng.choice(vals, size=G)
-    elif weight_type == "mammen":
-        p = (np.sqrt(5) + 1) / (2 * np.sqrt(5))
-        vals = np.array([-(np.sqrt(5) - 1) / 2, (np.sqrt(5) + 1) / 2])
-        return rng.choice(vals, size=G, p=[p, 1 - p])
-    raise ValueError(
-        f"weight_type must be 'rademacher', 'webb', or 'mammen', "
-        f"got '{weight_type}'"
-    )
 
 
 def _satterthwaite_dof(

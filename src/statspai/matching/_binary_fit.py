@@ -89,7 +89,11 @@ def fit_binary_index(
         covariate; ``vcov`` -- inverse of the observed information, in the
         same coordinates (zero rows and columns for an omitted covariate);
         ``omitted`` -- positions in ``X`` of the omitted covariates;
-        ``loglik``; ``iterations``; ``converged``.
+        ``loglik``; ``iterations``; ``converged``; ``separated`` -- the
+        covariates separate the two groups (completely, or some fitted
+        probabilities are 0 or 1 to machine precision), so the maximum
+        does not exist. A :class:`ConvergenceWarning` is issued and
+        ``converged`` is ``False``.
     """
     X = np.asarray(X, dtype=float)
     if X.ndim == 1:
@@ -131,7 +135,24 @@ def fit_binary_index(
         if abs(decrement) < 1e-10 or abs(gain) <= 1e-13 * (abs(loglik) + 1.0):
             converged = True
             break
-    if not converged:
+    # Under separation the likelihood rises towards zero without a maximum
+    # and the loop above stops on a vanishing gain, so "converged" would be
+    # reported for coefficients set by the stopping rule.
+    fitted = norm.cdf(A @ gamma) if model == "probit" else expit(A @ gamma)
+    tiny = 10.0 * np.finfo(float).eps
+    separated = bool(
+        np.unique(t).size == 2
+        and (
+            np.array_equal((fitted >= 0.5).astype(int), t.astype(int))
+            or np.any((fitted < tiny) | (fitted > 1.0 - tiny))
+        )
+    )
+    if separated:
+        from ..regression.logit_probit import _warn_if_separated
+
+        _warn_if_separated(t, fitted)
+        converged = False
+    elif not converged:
         warnings.warn(
             f"the {model} propensity model did not converge in {max_iter} "
             "Newton steps; the fitted scores are not the maximum-likelihood "
@@ -159,4 +180,5 @@ def fit_binary_index(
         "loglik": loglik,
         "iterations": iterations,
         "converged": converged,
+        "separated": separated,
     }

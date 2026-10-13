@@ -245,9 +245,10 @@ def test_etwfe_cgroup_nevertreated(staggered_panel):
 def test_etwfe_cgroup_nevertreated_no_never_raises():
     """Synthesise a panel with NO never-treated unit → explicit ValueError."""
     df = sp.dgp_did(n_units=40, n_periods=6, staggered=True, seed=2)
-    # Fill all NaNs with a real cohort year so nothing is never-treated.
+    # Give every NaN a cohort inside the sample so nothing is never-treated.
+    # (A cohort after the last period would itself count as never treated.)
     df = df.copy()
-    df.loc[df["first_treat"].isna(), "first_treat"] = 6
+    df.loc[df["first_treat"].isna(), "first_treat"] = df["time"].max()
     with pytest.raises(ValueError, match="never-treated"):
         etwfe(
             df,

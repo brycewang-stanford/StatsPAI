@@ -68,7 +68,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from .hdfe import Absorber, SlopeSpec, _factorize_multi, absorb_ols
 
 
@@ -750,6 +750,7 @@ def feols(
     maxiter: int = 10_000,
     df_inference: Optional[Union[str, float]] = None,
     absorb_dof: str = "reghdfe",
+    weights_as: Optional[str] = None,
 ) -> FEOLSResult:
     """reghdfe-style OLS with high-dimensional fixed effects.
 
@@ -774,12 +775,31 @@ def feols(
         test and Hansen J (all as ``ivreghdfe ..., first``).
     data : DataFrame
     weights : str or ndarray, optional
-        Observation weights. Column name or raw array.
+        Observation weights. Column name or raw array. Alone they are
+        analytic weights (Stata ``[aw=]``).
+    weights_as : {'analytic', 'sampling'}, optional
+        What the weights are. ``'analytic'`` is what ``weights=`` alone
+        already means, and saying so silences the warning about dispersed
+        weights under the classical variance. ``'sampling'`` (Stata
+        ``[pw=]``) needs ``cluster=``: this function has no
+        heteroskedasticity-robust variance for a weighted fit, and
+        refuses rather than report the classical one
+        (``sp.feols(..., weights_as='sampling')`` has it).
+        ``'frequency'`` is refused.
     cluster : str or list, optional
         One-way or multi-way cluster column(s).
-    se_type : {'iid', 'cluster', 'multiway_cluster', 'wild_cluster'}
-        Override automatic inference of SE type. Usually inferred from
-        ``cluster`` / ``wild``.
+    se_type : str, optional
+        A label, not a switch: it never changes the variance, which is
+        chosen by ``cluster=`` / ``wild=`` / ``vce=``. When given it must
+        agree with what those options select, and a disagreeing value is
+        refused: ``'iid'`` (none of them), ``'cluster'`` (one cluster
+        column, also with ``vce='CR2'`` / ``'CR3'`` / ``'jackknife'``),
+        ``'multiway_cluster'`` (several), ``'wild_cluster'``
+        (``wild=True`` / ``vce='wild'``), ``'hc_robust'``
+        (``vce='robust'`` / ``'hc1'`` / ``'hc0'``), ``'conley'``
+        (``vce='conley'``); the spelling passed to ``vce=`` is accepted
+        too. Leave it out and set the variance with ``vce=`` /
+        ``cluster=``; ``result.se_type`` reports what was computed.
     vce : str, optional
         Canonical SE-menu keyword (matches ``sp.regress`` / ``sp.feols``):
 
@@ -894,6 +914,26 @@ def feols(
     >>> sorted(res.coef.index.tolist())
     ['educ', 'exper']
     """
+    # --- weights_as=: what the weights are ---------------------------------
+    from ..core._agent_summary import resolve_weights_as
+
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native="analytic",
+        entry="sp.hdfe_ols",
+    )
+    if weights_as == "sampling" and cluster is None:
+        raise MethodIncompatibility(
+            "hdfe_ols(weights_as='sampling') needs cluster=: a weighted fit "
+            "here has the classical or the cluster-robust variance, and the "
+            "classical one is wrong for sampling weights.",
+            recovery_hint="Pass cluster=, or use sp.feols(..., "
+            "weights_as='sampling'), which reports the "
+            "heteroskedasticity-robust variance.",
+            diagnostics={"weights_as": "sampling", "cluster": None},
+        )
+
     # --- canonical vce= keyword (matches sp.regress / sp.feols) -------------
     _HC_VCE = {"robust": True, "hc_robust": True, "hc1": True, "hc0": False}
     _BR_VCE = {"cr2": 0.5, "cr3": 1.0, "jackknife": 1.0}
@@ -916,6 +956,54 @@ def feols(
             f"hdfe_ols vce={vce!r} does not support weights= — the extended "
             "SE menu is unweighted."
         )
+    # Options that contradict each other used to be resolved silently, one
+    # of them winning while the result still named the other.
+    if _vce in _HC_VCE and cluster is not None:
+        raise MethodIncompatibility(
+            f"hdfe_ols: vce={vce!r} and cluster= were both given; the "
+            "heteroskedasticity-robust variance would drop the clustering.",
+            recovery_hint="Pass cluster= alone for cluster-robust standard "
+            f"errors, or vce={vce!r} alone.",
+            diagnostics={"vce": vce, "cluster": cluster},
+        )
+    if wild and cluster is None:
+        raise MethodIncompatibility(
+            "hdfe_ols: the wild cluster bootstrap (wild=True / vce='wild') "
+            "needs cluster='<column>'.",
+            recovery_hint="Pass the cluster column, or drop wild=.",
+        )
+    if se_type is not None:
+        _n_cl = (
+            0 if cluster is None else (1 if isinstance(cluster, str) else len(cluster))
+        )
+        _implied = (
+            "wild_cluster"
+            if wild
+            else {0: "iid", 1: "cluster"}.get(_n_cl, "multiway_cluster")
+        )
+        _agree = {_implied}
+        if _vce in _HC_VCE:
+            _implied = "hc_robust"
+            _agree = {_implied, _vce}
+        elif _vce == "conley":
+            _implied = "conley"
+            _agree = {_implied}
+        elif _vce in _BR_VCE:
+            _agree = {_implied, _vce}
+        _as_vce = _vce is not None and str(se_type).lower() == _vce
+        if se_type not in _agree and not _as_vce:
+            # se_type is a label, not a switch: the variance is chosen by
+            # cluster= / wild= / vce=
+            raise MethodIncompatibility(
+                f"hdfe_ols: se_type={se_type!r} does not describe the "
+                "requested variance ("
+                + (f"vce={vce!r}, " if _vce is not None else "")
+                + f"{_implied!r}).",
+                recovery_hint="Drop se_type= (it is inferred), and choose "
+                "the variance with cluster=, wild= or vce= ('robust' for "
+                "heteroskedasticity-robust standard errors).",
+                diagnostics={"se_type": se_type, "implied": _implied},
+            )
     if _vce in _BR_VCE and (cluster is None or not isinstance(cluster, str)):
         raise ValueError(
             f"hdfe_ols vce={vce!r} requires cluster='<one column>' (one-way)."
@@ -983,6 +1071,18 @@ def feols(
         raise ValueError(
             "No non-missing rows remaining after dropna."
         )  # pragma: no cover
+    for _c in cluster_names:
+        if df[_c].nunique() < 2:
+            # the cluster score sums to zero by the normal equations: the
+            # "variance" is rounding error (SEs of 5e-16, NaN p-values)
+            raise DataInsufficient(
+                f"hdfe_ols: cluster column {_c!r} has a single value in the "
+                "estimation sample; a cluster-robust variance needs at "
+                "least two clusters.",
+                recovery_hint="Cluster on a variable with more than one "
+                "value, or drop cluster=.",
+                diagnostics={"cluster": _c, "n_clusters": int(df[_c].nunique())},
+            )
 
     y_arr = df[lhs].to_numpy(dtype=np.float64)
     if not x_terms:
@@ -1011,6 +1111,15 @@ def feols(
                 f"post-dropna sample; got {raw_w.size}, expected {len(data)} "
                 f"or {len(df)}."
             )
+
+    if w_arr is not None and (not np.isfinite(w_arr).all() or (w_arr < 0).any()):
+        # with absorbed effects a negative weight used to surface as "every
+        # regressor is collinear with the fixed effects"
+        raise MethodIncompatibility(
+            "hdfe_ols: weights must be finite and non-negative.",
+            recovery_hint="Drop or fix the rows with a negative or infinite " "weight.",
+            diagnostics={"n_negative": int((w_arr < 0).sum())},
+        )
 
     if fe_terms:
         fe_mat, slope_specs, fe_vars = _materialize_fe(df, fe_terms)
@@ -1387,13 +1496,20 @@ def feols(
             _kind,
             entry="sp.hdfe_ols",
             robust_option="cluster=",
-            classical_reading="analytic weights (Stata [aw=])",
+            # 'sampling' alone is refused here (no robust variance for a
+            # weighted fit), so the hint does not offer it on its own.
+            offers_weights_as=False,
+            classical_reading=(
+                "analytic weights (Stata [aw=]; weights_as='analytic' says "
+                "so and silences this warning)"
+            ),
             cluster_keys=(
                 df[cluster_names[0]].to_numpy()[result["absorber"].keep_mask]
                 if _one_way
                 else None
             ),
             cluster=cluster_names[0] if _one_way else None,
+            weights_as=weights_as,
         )
 
     return FEOLSResult(

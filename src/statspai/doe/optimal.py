@@ -520,6 +520,14 @@ def doe_optimal(
     if candidates is not None:
         if not isinstance(candidates, pd.DataFrame) or candidates.shape[0] < 1:
             raise MethodIncompatibility("candidates must be a non-empty DataFrame.")
+        numeric = candidates.select_dtypes(include="number")
+        if candidates.isna().any().any() or not np.all(
+            np.isfinite(numeric.to_numpy(dtype=float))
+        ):
+            raise MethodIncompatibility(
+                "candidates has missing or infinite values; every candidate "
+                "run needs a value for every factor."
+            )
         cand_df = candidates.drop_duplicates().reset_index(drop=True)
         names = [str(c) for c in cand_df.columns]
         U = None

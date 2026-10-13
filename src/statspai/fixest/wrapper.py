@@ -141,6 +141,16 @@ def _feols_varying_slopes(
     elif isinstance(vcov, str):
         v = vcov.lower()
         if v in ("hetero", "hc1", "robust"):
+            if cluster is not None:
+                raise MethodIncompatibility(
+                    f"feols: vcov={vcov!r} and cluster={cluster!r} were both "
+                    "given; the heteroskedasticity-robust variance would "
+                    "drop the clustering.",
+                    recovery_hint="Pass cluster= alone (or "
+                    f"vcov={{'CRV1': {cluster!r}}}) for cluster-robust "
+                    f"standard errors, or vcov={vcov!r} alone.",
+                    diagnostics={"vcov": vcov, "cluster": cluster},
+                )
             kw["vce"] = "robust"
             label = "hetero"
         elif v not in ("iid",):
@@ -1072,6 +1082,7 @@ def feols(
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
     backend: str = "pyfixest",
+    weights_as: Optional[str] = None,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -1113,7 +1124,15 @@ def feols(
         - ``vce="conley"`` (with ``conley_lat=/conley_lon=/conley_cutoff=``)
           — Conley spatial HAC (Stata ``acreg`` planar-distance convention).
     weights : str, optional
-        Column name for regression weights.
+        Column name for regression weights. Alone they are analytic
+        weights (Stata ``[aw=]``, R ``fixest`` ``weights=``).
+    weights_as : {'analytic', 'sampling'}, optional
+        What the weights are. ``'analytic'`` is what ``weights=`` alone
+        already means. ``'sampling'`` (Stata ``[pw=]``) gives the same
+        coefficients with ``vcov='hetero'``, unless ``vcov=``, ``vce=``
+        or ``cluster=`` asks for another. Saying which also silences the
+        warning about dispersed weights under the classical variance.
+        ``'frequency'`` is refused.
     ssc : optional
         Small-sample correction via ``pyfixest.ssc()``.
     fixef_rm : str, default "none"
@@ -1183,6 +1202,45 @@ def feols(
     >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
+    if weights_as is not None:
+        # Resolve the declaration once, then run the ordinary call inside
+        # it: the fit has several return paths and the weight diagnostic
+        # sits at the end of each.
+        from ..core._agent_summary import declaring_weights_as, resolve_weights_as
+
+        declared = resolve_weights_as(
+            weights_as,
+            has_weights=weights is not None,
+            native="analytic",
+            entry="sp.feols",
+        )
+        if (
+            declared == "sampling"
+            and vcov is None
+            and cluster is None
+            and kwargs.get("vce") is None
+        ):
+            vcov = "hetero"
+        with declaring_weights_as(declared):
+            return feols(
+                fml,
+                data,
+                vcov,
+                weights=weights,
+                ssc=ssc,
+                fixef_rm=fixef_rm,
+                collin_tol=collin_tol,
+                lean=lean,
+                cluster=cluster,
+                wild_reps=wild_reps,
+                wild_weight_type=wild_weight_type,
+                seed=seed,
+                conley_lat=conley_lat,
+                conley_lon=conley_lon,
+                conley_cutoff=conley_cutoff,
+                backend=backend,
+                **kwargs,
+            )
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
     fml = r_formula_idioms(fml)

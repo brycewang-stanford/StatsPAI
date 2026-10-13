@@ -448,6 +448,15 @@ def periodogram(
         xw = x - x.mean()
     else:
         xw = x.copy()
+    # what is left after detrending is rounding error (a constant, or an
+    # exact line under detrend='linear'): there is no spectrum to estimate
+    if not float(xw @ xw) > (1e-12) ** 2 * float(x @ x):
+        raise DataInsufficient(
+            "sp.periodogram: nothing is left of the series after "
+            f"detrend={detrend!r} (it is constant or an exact linear trend).",
+            recovery_hint="The spectrum describes variation around the "
+            "trend; this series has none.",
+        )
     m = int(np.floor(n * taper))
     if m > 0:
         bell = 0.5 * (1.0 - np.cos(np.pi * (2 * np.arange(1, m + 1) - 1) / (2 * m)))

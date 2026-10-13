@@ -27,14 +27,15 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Name each regressor once and leave the outcome out of " "x=.",
+            "symptom": "ardl: x=<xs> repeats a column or lists the outcome <y>. "
+            "The lags of the outcome enter through lags=, not x=.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass one row per period; for a panel, fit each unit "
             "separately.",
             "symptom": "ardl: the time index has repeated values.",
-        },
-        {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "Check the columns.",
-            "symptom": "ardl: no row has all of the series observed.",
         },
     ],
     "bagged_forecast": [
@@ -92,6 +93,11 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Omit max_vars to search every size.",
+            "symptom": "best_subset: max_vars=<max_vars> must be at " "least 1.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Drop them from x.",
             "symptom": "best_subset: candidate(s) <bad> are constant or "
             "collinear with the forced regressors.",
@@ -124,6 +130,15 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Lower max_order or use a longer series.",
             "symptom": "sp.beveridge_nelson: max_order=<pmax> with " "<n> differences.",
         },
+    ],
+    "blp_instruments": [
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Drop those rows, or fill in the identifiers.",
+            "symptom": "blp_instruments: missing values in the "
+            "grouping column(s) <unlabelled> (column: "
+            "number of rows).",
+        }
     ],
     "bootstrap_series": [
         {
@@ -161,6 +176,37 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Provide a longer series.",
             "symptom": "boxcox_lambda: <n> observations give fewer "
             "than two cycles of length <m>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use lower < upper, e.g. lower=-1, upper=2.",
+            "symptom": "boxcox_lambda: lower=<lower> and upper=<upper> "
+            "do not bracket an interval to search.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "No transformation is needed for such a series.",
+            "symptom": "boxcox_lambda: the series does not vary within "
+            "its cycles (it is constant), so there is no "
+            "spread to stabilise.",
+        },
+    ],
+    "cate_gain_curve": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Give the Series the index of data, or pass "
+            "cate.to_numpy() if the values are already in "
+            "row order.",
+            "symptom": "cate_gain_curve: the index of the cate "
+            "Series does not match the index of data, so "
+            "the predictions cannot be paired with rows.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Code the column as numbers: 0/1 for a two-arm "
+            "treatment, or the dose.",
+            "symptom": "cate_gain_curve: the <role> column <col> is "
+            "not numeric (dtype <data[col].dtype>).",
         },
     ],
     "cate_pretrend_test": [
@@ -220,10 +266,9 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "chow_test: the regressors are collinear within a " "regime.",
         },
         {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "Move the break, or let fewer coefficients change.",
-            "symptom": "chow_test: a regime of <b - a> observations cannot "
-            "identify <q> coefficients.",
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Every observation needs a date to be placed in a " "regime.",
+            "symptom": "chow_test: missing values in the time column " "<time>.",
         },
     ],
     "ci": [
@@ -475,6 +520,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use alpha=0.05 for a 95% interval.",
+            "symptom": "full_match: alpha must lie strictly between 0 and "
+            "1, got <alpha>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Use estimand='ATT'.",
             "symptom": "full_match: estimand must be ATT, ATC or ATE, got "
             "<estimand>.",
@@ -483,11 +534,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Use 'propensity', 'logit', 'mahalanobis' or " "'euclidean'.",
             "symptom": "full_match: unknown distance <distance>.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use caliper_scale='sd'.",
-            "symptom": "full_match: caliper_scale must be 'sd' or " "'raw'.",
         },
     ],
     "glmnet": [
@@ -560,6 +606,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     ],
     "hill_climb": [
         {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Drop the constant column(s).",
+            "symptom": "hill_climb: column(s) <flat> are constant, so the "
+            "Gaussian score of a node with zero variance is "
+            "not defined.",
+        },
+        {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass data_type='discrete' to treat every column as "
             "categorical, or encode / drop the categorical ones "
@@ -567,7 +620,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "hill_climb: the columns mix categorical and "
             "numeric types (categorical: <[c for (c, f) in "
             "zip(cols, flags) if f]>).",
-        }
+        },
     ],
     "icc": [
         {
@@ -630,6 +683,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Choose the rank with sp.johansen first.",
             "symptom": "johansen_lrtest: rank must be between 1 and "
             "<K - 1>, got <rank>.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Use fewer lags or a longer sample.",
+            "symptom": "johansen_lrtest: <Y.shape[0]> observations "
+            "are too few for <lags> lagged difference(s) "
+            "of <K> series.",
         },
     ],
     "jwdid": [
@@ -710,6 +770,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "degree of freedom are needed.",
         },
         {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Check that the outcome is not constant.",
+            "symptom": "loneway: <y> takes a single value, so there is no "
+            "variation to split between and within groups.",
+        },
+        {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Drop exact=True for the asymptotic interval.",
             "symptom": "loneway: the exact interval is defined for groups of "
@@ -717,6 +783,11 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
     ],
     "lrvar": [
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "The long-run variance needs variation.",
+            "symptom": "sp.lrvar: a series is constant.",
+        },
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Use 'bartlett', 'parzen', 'qs', 'tukey-hanning' or "
@@ -733,11 +804,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Drop adjust=True or set demean=True.",
             "symptom": "sp.lrvar: adjust=True corrects for the estimated mean "
             "and needs demean=True.",
-        },
-        {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "Use a longer series.",
-            "symptom": "sp.lrvar: <n> observations are too few.",
         },
     ],
     "mmhc": [
@@ -839,10 +905,16 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "pca": [
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the number of components to keep, e.g. 2.",
+            "symptom": "sp.pca: n_components must be a whole number, got "
+            "<n_components>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Ask for at most as many components as variables.",
             "symptom": "sp.pca: n_components=<n_components> is not between 1 and "
             "<p>.",
-        }
+        },
     ],
     "periodogram": [
         {
@@ -1015,7 +1087,14 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.DataInsufficient",
             "remedy": "Drop or merge the small group.",
             "symptom": "robvar: a group has fewer than two observations.",
-        }
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Check that the outcome is not constant.",
+            "symptom": "robvar: <y> takes a single value within every group, "
+            "so there are no deviations whose spread could be "
+            "compared.",
+        },
     ],
     "rolling": [
         {
@@ -1176,6 +1255,18 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "sumstats: negative weights.",
         },
     ],
+    "support_points": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Ask for fewer points, or use "
+            "sp.split_data(method='twinning') to pick "
+            "representative rows of discrete data.",
+            "symptom": "support_points: the iteration broke down "
+            "because several points fell on the same "
+            "location. The sample has too few distinct "
+            "values for <n> points.",
+        }
+    ],
     "svar": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1203,11 +1294,18 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "swilk": [
         {
             "exception": "statspai.DataInsufficient",
+            "remedy": "Set them to missing (they are then dropped) or remove "
+            "those rows.",
+            "symptom": "swilk: <name> holds infinite values, for which the "
+            "statistic is not defined.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
             "remedy": "For a larger sample use sp.sktest.",
             "symptom": "swilk: <name> has <n> usable observations; the test "
             "covers 4 to 5,000 observations that are not all "
             "equal.",
-        }
+        },
     ],
     "switchback": [
         {
@@ -1257,14 +1355,20 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     ],
     "ts_features": [
         {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "At least 12 observations are needed.",
-            "symptom": "ts_features: <values.shape[0]> observations are " "too few.",
-        },
-        {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Use scale=True.",
             "symptom": "ts_features: scale must be True or False.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "At least 12 observations are needed.",
+            "symptom": "ts_features: <values.shape[0]> "
+            "observations<label> are too few.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "A constant series has no features to compute.",
+            "symptom": "ts_features: the series<label> is constant.",
         },
     ],
     "tscv": [
@@ -1431,7 +1535,16 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "The test compares within and between variation.",
             "symptom": "sp.xtoverid: no regressor varies within panels.",
-        }
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Cluster on a finer level (the default is the panel "
+            "identifier), or test fewer regressors.",
+            "symptom": "sp.xtoverid: <G> cluster(s) cannot test "
+            "<len(varying)> restriction(s): the cluster-robust "
+            "covariance has rank at most <G - 1>, so the "
+            "statistic would divide by zero.",
+        },
     ],
     "xtserial": [
         {
@@ -1444,6 +1557,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "The test needs at least three consecutive periods " "per panel.",
             "symptom": "sp.xtserial: too few consecutive observations to "
             "difference.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "The first-difference regression needs at least one "
+            "time-varying regressor.",
+            "symptom": "sp.xtserial: no regressor changes within panels.",
         },
         {
             "exception": "statspai.DataInsufficient",

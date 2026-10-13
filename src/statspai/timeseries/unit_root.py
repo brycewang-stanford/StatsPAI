@@ -39,6 +39,7 @@ from .._result_serialize import ResultProtocolMixin
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 from ..panel.unit_root import _adf_unit, mackinnon1994_pvalue
 from ._critvals import DFGLS_MIN_T, dfgls_cv, mackinnon_cv
+from ._forecast_common import require_time_order
 from ._unit_root_pp_kpss import KPSS_CV, kpss_statistic, pp_statistics
 
 __all__ = ["unitroot", "UnitRootResult"]
@@ -80,7 +81,19 @@ class UnitRootResult(ResultProtocolMixin):
     n_obs : int
         Observations in the test regression.
     rho, se : float
-        Coefficient on the lagged level and its standard error.
+        Coefficient on the lagged level and its standard error. The
+        regression differs by test: for ADF and DF-GLS the dependent
+        variable is the *difference*, ``dy[t] = rho * y[t-1] + ...``, so
+        ``rho`` is near 0 under a unit root; for Phillips-Perron it is the
+        *level*, ``y[t] = rho * y[t-1] + ...``, so ``rho`` is near 1 (the
+        number Stata's ``pperron`` prints). The two are one apart and
+        share the standard error; ``rho_level`` and ``rho_diff`` name
+        them without ambiguity. ``nan`` for KPSS.
+    rho_level, rho_diff : float
+        The coefficient on ``y[t-1]`` when the dependent variable is
+        ``y[t]`` (``rho_level``, 1 under a unit root) and when it is
+        ``dy[t]`` (``rho_diff = rho_level - 1``, 0 under a unit root),
+        whichever regression the test ran. ``nan`` for KPSS.
     trend : str
         ``"n"``, ``"c"`` or ``"ct"``.
 
@@ -134,6 +147,12 @@ class UnitRootResult(ResultProtocolMixin):
         self.lag_selection = lag_selection
         self.n_obs = n_obs
         self.rho = rho
+        # Phillips-Perron regresses the level on its lag, the Dickey-Fuller
+        # tests the difference: the same coefficient, one apart
+        if test == "Phillips-Perron":
+            self.rho_level, self.rho_diff = float(rho), float(rho) - 1.0
+        else:
+            self.rho_level, self.rho_diff = float(rho) + 1.0, float(rho)
         self.se = se
         self.trend = trend
         self.ic_table = ic_table
@@ -167,6 +186,13 @@ class UnitRootResult(ResultProtocolMixin):
         ]
         if self.z_rho is not None:
             lines.insert(-1, f"Z(rho)              : {self.z_rho:.4f}")
+        if np.isfinite(self.rho_level):
+            lines.append(
+                f"Coefficient on y[t-1]: {self.rho_level:.4f} in levels, "
+                f"{self.rho_diff:.4f} in differences (rho reports the "
+                + ("former" if self.test == "Phillips-Perron" else "latter")
+                + ")"
+            )
         if self.pvalue is not None:
             lines.append(f"MacKinnon p-value   : {self.pvalue:.4f}")
         verdict = "rejected" if self.reject else "not rejected"
@@ -196,9 +222,31 @@ def _series(
                 recovery_hint="Check the column name.",
                 diagnostics={"columns": [str(c) for c in data.columns][:20]},
             )
-        frame = data if time is None else data.sort_values(time, kind="stable")
+        frame = data
+        if time is not None:
+            if time not in data.columns:
+                raise MethodIncompatibility(
+                    f"unitroot: time column {time!r} is not in data.",
+                    recovery_hint="Check the column name.",
+                    diagnostics={"columns": [str(c) for c in data.columns][:20]},
+                )
+            if data[time].isna().any():
+                raise MethodIncompatibility(
+                    f"unitroot: {int(data[time].isna().sum())} rows have a "
+                    f"missing value in the time column {time!r}; their place "
+                    "in the series is not known.",
+                    recovery_hint="Fill the dates or drop those rows first.",
+                )
+            from .var import _refuse_repeated_dates
+
+            _refuse_repeated_dates(data[time], time, "unitroot")
+            frame = data.sort_values(time, kind="stable")
+        else:
+            require_time_order(data.index, fn="unitroot")
         values = frame[y].to_numpy(dtype=float)
     else:
+        if isinstance(data, pd.Series):
+            require_time_order(data.index, fn="unitroot")
         values = np.asarray(data, dtype=float).ravel()
     keep = np.flatnonzero(~np.isnan(values))
     if keep.size == 0:
@@ -214,6 +262,20 @@ def _series(
             recovery_hint="Fill or drop the gap deliberately, or test the "
             "longest complete stretch.",
             diagnostics={"n_missing": int(np.isnan(values).sum())},
+        )
+    if not np.isfinite(values).all():
+        raise MethodIncompatibility(
+            "unitroot: the series has infinite values.",
+            recovery_hint="Remove or correct them (a logarithm of zero?).",
+            diagnostics={"n_infinite": int(np.isinf(values).sum())},
+        )
+    # constant to rounding, relative to the size of the values
+    if np.ptp(values) <= 1e-12 * np.max(np.abs(values)):
+        raise DataInsufficient(
+            "unitroot: the series is constant; the test regression is "
+            "singular and no statistic is defined.",
+            recovery_hint="Check the column: a constant has no dynamics to test.",
+            diagnostics={"n_obs": int(values.size)},
         )
     return np.asarray(values, dtype=float)
 
@@ -307,8 +369,9 @@ def unitroot(
         searches ``0 .. max_lags`` on the common sample those regressions
         share, then the test is run on every observation the chosen order
         allows. Stata's ``dfuller`` default is ``lags=0``. For ``"pp"``
-        and ``"kpss"`` this is the Newey-West truncation lag instead, and
-        any string selects the default rule: ``floor(4 (T/100)^(2/9))`` for
+        and ``"kpss"`` this is the Newey-West truncation lag instead:
+        an integer, or the default (``"aic"`` as left unset, or
+        ``"auto"``) for the rule ``floor(4 (T/100)^(2/9))`` for
         Phillips-Perron (Stata's ``pperron``), ``floor(4 (T/100)^(1/4))``
         for KPSS (the ``l4`` rule of the original paper and of R's
         ``tseries::kpss.test``).
@@ -328,10 +391,12 @@ def unitroot(
     Raises
     ------
     MethodIncompatibility
-        Unknown ``test`` / ``trend``, ``trend="n"`` with DF-GLS, a gap in the
-        series, or a DF-GLS level other than 1%, 5%, 10%.
+        Unknown ``test`` / ``trend`` / lag rule, ``trend="n"`` with DF-GLS,
+        a gap or an infinite value in the series, a missing value in
+        ``time``, or a DF-GLS level other than 1%, 5%, 10%.
     DataInsufficient
-        Too few observations for the requested lag order.
+        Too few observations for the requested lag order, a constant
+        series, or a series the test regression fits exactly.
 
     Notes
     -----
@@ -494,6 +559,20 @@ def _long_run_test(
             recovery_hint="Use trend='c' or trend='ct'.",
         )
     if isinstance(lags, str):
+        # "aic" is the default of sp.unitroot (it names the ADF rule): here
+        # it means "not set". An information criterion does not choose a
+        # Newey-West truncation lag, so other names are refused.
+        if lags.lower() not in ("aic", "auto"):
+            rule = (
+                "floor(4 (T/100)^(2/9))"
+                if test_key == "pp"
+                else "floor(4 (T/100)^(1/4))"
+            )
+            raise MethodIncompatibility(
+                f"unitroot: unknown lag rule {lags!r} for the {name} test.",
+                recovery_hint="Pass an integer number of Newey-West lags, or "
+                f"leave lags unset (or lags='auto') for the rule {rule}.",
+            )
         power = 2.0 / 9.0 if test_key == "pp" else 0.25
         chosen = int(np.floor(4.0 * (T / 100.0) ** power))
         selection = "Newey-West rule" if test_key == "pp" else "l4 rule"

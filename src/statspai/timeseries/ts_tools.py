@@ -6,6 +6,7 @@ terms for seasonal patterns.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Optional, Sequence, Union
 
 import numpy as np
@@ -50,7 +51,9 @@ def ljungbox(
         Number of ARMA parameters estimated in the model the residuals
         come from; the reference distribution is chi-squared with
         ``lags - model_df`` degrees of freedom. Default 0, or
-        ``p + q + P + Q`` when ``x`` is a fitted ARIMA model.
+        ``p + q + P + Q`` when ``x`` is a fitted ARIMA model. A lag at or
+        below ``model_df`` has no reference distribution: its p-value is
+        missing and a warning says so.
     method : {"ljung-box", "box-pierce"}, default "ljung-box"
     period : int, default 1
         Seasonal period, used only for the default number of lags.
@@ -132,6 +135,16 @@ def ljungbox(
         raise MethodIncompatibility(
             "ljungbox: lags must be positive.",
             recovery_hint="E.g. lags=10.",
+        )
+    no_df = sorted(v for v in lag_list if v <= k)
+    if no_df:
+        # as R Box.test(fitdf=) and statsmodels acorr_ljungbox(model_df=)
+        warnings.warn(
+            f"ljungbox: lags {no_df} leave no degrees of freedom with "
+            f"model_df={k}; their p-values are missing. Use lags of at "
+            f"least {k + 1}.",
+            UserWarning,
+            stacklevel=2,
         )
     top = max(lag_list)
     if top >= n:
@@ -412,9 +425,22 @@ def boxcox_lambda(
             f"length {m}.",
             recovery_hint="Provide a longer series.",
         )
+    lo, hi = float(lower), float(upper)
+    if not (np.isfinite(lo) and np.isfinite(hi) and lo < hi):
+        raise MethodIncompatibility(
+            f"boxcox_lambda: lower={lower!r} and upper={upper!r} do not "
+            "bracket an interval to search.",
+            recovery_hint="Use lower < upper, e.g. lower=-1, upper=2.",
+        )
     mat = values[n - n_cycles * m :].reshape(n_cycles, m)
     mean = mat.mean(axis=1)
     sd = mat.std(axis=1, ddof=1)
+    if float(sd.max()) <= 1e-12 * float(mean.max()):
+        raise DataInsufficient(
+            "boxcox_lambda: the series does not vary within its cycles (it "
+            "is constant), so there is no spread to stabilise.",
+            recovery_hint="No transformation is needed for such a series.",
+        )
 
     def cv(lam: float) -> float:
         rat = sd / mean ** (1.0 - lam)
@@ -422,7 +448,7 @@ def boxcox_lambda(
 
     res = optimize.minimize_scalar(
         cv,
-        bounds=(float(lower), float(upper)),
+        bounds=(lo, hi),
         method="bounded",
         options={"xatol": 1e-10},
     )

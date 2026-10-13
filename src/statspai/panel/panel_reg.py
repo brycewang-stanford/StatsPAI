@@ -700,6 +700,7 @@ def panel(
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
     ssc: Optional[str] = None,
+    weights_as: Optional[str] = None,
 ) -> PanelResults:
     """Public ``sp.panel`` entry point — see ``_dispatch_panel_impl``
     for the full docstring on methods and parameters.
@@ -712,29 +713,42 @@ def panel(
     individual panel backend having to opt in. The dispatcher itself
     lives in :func:`_dispatch_panel_impl`.
     """
-    _result = _dispatch_panel_impl(
-        data=data,
-        formula=formula,
-        entity=entity,
-        time=time,
-        method=method,
-        robust=robust,
-        cluster=cluster,
-        weights=weights,
-        alpha=alpha,
-        balance=balance,
-        lags=lags,
-        gmm_lags=gmm_lags,
-        twostep=twostep,
-        vce=vce,
-        conley_lat=conley_lat,
-        conley_lon=conley_lon,
-        conley_cutoff=conley_cutoff,
-        wild_reps=wild_reps,
-        wild_weight_type=wild_weight_type,
-        seed=seed,
-        ssc=ssc,
+    from ..core._agent_summary import declaring_weights_as, resolve_weights_as
+
+    weights_as = resolve_weights_as(
+        weights_as, has_weights=weights is not None, native="analytic", entry="sp.panel"
     )
+    if (
+        weights_as == "sampling"
+        and cluster is None
+        and vce is None
+        and str(robust).lower() == "nonrobust"
+    ):
+        robust = "robust"
+    with declaring_weights_as(weights_as):
+        _result = _dispatch_panel_impl(
+            data=data,
+            formula=formula,
+            entity=entity,
+            time=time,
+            method=method,
+            robust=robust,
+            cluster=cluster,
+            weights=weights,
+            alpha=alpha,
+            balance=balance,
+            lags=lags,
+            gmm_lags=gmm_lags,
+            twostep=twostep,
+            vce=vce,
+            conley_lat=conley_lat,
+            conley_lon=conley_lon,
+            conley_cutoff=conley_cutoff,
+            wild_reps=wild_reps,
+            wild_weight_type=wild_weight_type,
+            seed=seed,
+            ssc=ssc,
+        )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
@@ -819,7 +833,12 @@ def _dispatch_panel_impl(
           information of the full likelihood; ``model_info`` carries
           ``sigma_u``, ``sigma_e``, ``rho``, the log likelihood and the
           likelihood-ratio test of ``sigma_u = 0``.
-        - ``'fd'``          First Differences
+        - ``'fd'``          First Differences: OLS of ``D.y`` on ``D.x``
+          without a constant, differences taken between consecutive periods
+          of a unit whatever the order of the rows (Stata ``regress D.y D.x,
+          nocons``). Across a gap inside a unit no difference is formed, and
+          a warning says so: R ``plm(model='fd')`` differences adjacent rows
+          instead and also adds an intercept.
         - ``'pooled'``      Pooled OLS
         - ``'twoway'``      Two-way FE (entity + time effects)
 
@@ -843,6 +862,13 @@ def _dispatch_panel_impl(
         Analytic-weight column (WLS). Supported for ``'fe'``, ``'twoway'``
         and ``'pooled'``, where it matches ``sp.feols(weights=)``; other
         methods raise ``MethodIncompatibility``.
+    weights_as : {'analytic', 'sampling'}, optional
+        What the weights are. ``'analytic'`` (Stata ``[aw=]``) is what
+        ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``)
+        gives the same coefficients with the heteroskedasticity-robust
+        variance, unless ``robust=``, ``vce=`` or ``cluster=`` asks for
+        another. Saying which also silences the warning about dispersed
+        weights under the classical variance. ``'frequency'`` is refused.
     alpha : float, default 0.05
         Significance level.
     balance : bool, default False
@@ -1088,6 +1114,7 @@ def _dispatch_panel_impl(
             recovery_hint="Drop ssc=, or drop vce= / use a static method.",
         )
     ssc_key = resolve_ssc(ssc, canonical)
+    _refuse_unusable_panel_keys(data, entity, time, canonical, cluster, ssc_key)
     if _vce_l in _PANEL_BR_VCE or _cluster_is_pair:
         return _panel_bias_reduced(
             data=data,
@@ -1196,6 +1223,58 @@ def _dispatch_panel_impl(
             weights=weights,
             alpha=alpha,
             ssc=ssc_key,
+        )
+
+
+def _refuse_unusable_panel_keys(
+    data: pd.DataFrame,
+    entity: str,
+    time: str,
+    method: str,
+    cluster: Any,
+    ssc: Optional[str],
+) -> None:
+    """Refuse, by name, the inputs the static backends fail on obscurely:
+    a missing unit or period id, a missing cluster id under ``ssc=`` (the
+    default path refuses it in ``_build_cov_kwargs``), and a one-unit panel
+    for the estimators that compare units or remove unit means."""
+    static = method in _LINEARMODELS_METHODS
+    for role, col, applies in (
+        ("entity", entity, static),
+        ("time", time, static or method in _CRE_METHODS),
+    ):
+        n_missing = int(data[col].isna().sum()) if applies else 0
+        if n_missing:
+            raise _panel_method_error(
+                f"{role} column {col!r} has {n_missing} missing value(s); a "
+                "row without a unit or period id cannot be placed in the "
+                "panel.",
+                diagnostics={"column": col, "n_missing": n_missing},
+                recovery_hint=f"Drop the rows with a missing {col!r} first.",
+            )
+    if (
+        ssc is not None
+        and isinstance(cluster, str)
+        and cluster not in (entity, time)
+        and cluster in data.columns
+        and data[cluster].isna().any()
+    ):
+        raise _panel_method_error(
+            f"cluster column {cluster!r} has missing values.",
+            diagnostics={
+                "cluster": cluster,
+                "n_missing": int(data[cluster].isna().sum()),
+            },
+            recovery_hint="Drop rows with a missing cluster id first.",
+        )
+    if method in ("fe", "be", "twoway") and data[entity].nunique() < 2:
+        raise DataInsufficient(
+            f"sp.panel(method={method!r}) needs at least two units; the "
+            f"entity column {entity!r} has one.",
+            recovery_hint="Check the entity column; a single time series is "
+            "sp.regress.",
+            diagnostics={"n_units": int(data[entity].nunique())},
+            alternative_functions=_PANEL_ALTERNATIVES,
         )
 
 
@@ -1369,6 +1448,8 @@ def _fit_linearmodels(
     )
     from statsmodels.tools import add_constant
 
+    if method == "fd":
+        data = _fd_row_order(data, [dep_var, *indep_vars], entity, time)
     panel_data = data.set_index([entity, time])
     dep = _indexed_columns(panel_data, [dep_var])[dep_var]
     exog = _indexed_columns(panel_data, indep_vars)
@@ -1482,6 +1563,55 @@ def _fit_linearmodels(
             cluster=cluster,
         )
     return result
+
+
+def _fd_row_order(
+    data: pd.DataFrame, cols: List[str], entity: str, time: str
+) -> pd.DataFrame:
+    """Rows in an order that makes ``FirstDifferenceOLS`` difference
+    consecutive periods, whatever order they arrived in.
+
+    linearmodels lays the time axis out in order of first appearance in the
+    rows and differences along it, so the rows are sorted by (entity, time)
+    -- a no-op on a sorted panel -- and, when the first unit does not start
+    at the first period (so that even sorted rows leave the axis out of
+    order), by (time, entity). The estimator is then OLS of ``D.y`` on
+    ``D.x`` over pairs of consecutive periods of a unit (Stata's ``D.``
+    operator on an ``xtset`` panel); a warning names the other convention
+    when a unit has a gap, because there the two give different numbers.
+    """
+    used = [c for c in dict.fromkeys(cols) if c in data.columns]
+
+    def axis_in_order(frame: pd.DataFrame) -> bool:
+        return bool(pd.Index(pd.unique(frame[time])).is_monotonic_increasing)
+
+    out = data
+    keys = data[[entity, time]]
+    if not keys.isna().to_numpy().any():
+        order = np.lexsort((keys[time].to_numpy(), keys[entity].to_numpy()))
+        if not np.array_equal(order, np.arange(len(data))):
+            out = data.iloc[order]
+        complete = out.loc[out[used].notna().all(axis=1)]
+        if not (axis_in_order(out) and axis_in_order(complete)):
+            out = data.sort_values([time, entity], kind="stable")
+        # a gap: two adjacent observed rows of a unit that are not adjacent
+        # periods of the panel (positions among the periods in use)
+        cc = complete[[entity, time]]
+        pos = np.searchsorted(np.sort(cc[time].unique()), cc[time].to_numpy())
+        same = cc[entity].to_numpy()[1:] == cc[entity].to_numpy()[:-1]
+        n_gap = int(np.sum(same & (pos[1:] != pos[:-1] + 1)))
+        if n_gap:
+            warnings.warn(
+                f"sp.panel(method='fd'): {n_gap} within-unit gap(s) in the "
+                "time variable. First differences are taken between "
+                "consecutive periods only (Stata's D. operator), so the "
+                "observations on either side of a gap do not form a "
+                "difference; R plm(model='fd') differences adjacent rows "
+                "across the gap and gives different estimates.",
+                UserWarning,
+                stacklevel=5,
+            )
+    return out
 
 
 _WEIGHTED_METHODS = frozenset({"fe", "twoway", "pooled"})

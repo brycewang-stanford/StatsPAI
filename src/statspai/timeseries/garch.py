@@ -30,7 +30,8 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._forecast_common import require_time_order
 
 
 @dataclass
@@ -146,7 +147,12 @@ class GARCHResult(ResultProtocolMixin):
         # squared negative shocks; a future one is half the variance for a
         # symmetric innovation
         neg2 = list(np.where(eps < 0, eps**2, 0.0))
-        gam = np.zeros(self.q) if self.gamma is None else np.asarray(self.gamma)
+        # one threshold term per ARCH lag up to ``threshold`` (<= q); the
+        # lags beyond it have none
+        gam = np.zeros(self.q)
+        if self.gamma is not None:
+            g_fit = np.asarray(self.gamma, float)
+            gam[: g_fit.size] = g_fit
         s2 = list(np.asarray(self.sigma2, float))
         out = np.empty(horizon)
         for h in range(horizon):
@@ -164,20 +170,43 @@ class GARCHResult(ResultProtocolMixin):
     def _forecast_egarch(self, horizon: int) -> np.ndarray:
         """``exp`` of the forecast of the log variance. Exact one step
         ahead; further out it is the exponential of the expected log
-        variance, which is below the expected variance."""
+        variance, which is below the expected variance.
+
+        A future shock enters with its expectation: ``E z = 0`` and
+        ``gamma_i (E|z| - sqrt(2 / pi))``. The second is zero for normal
+        innovations. For Student t innovations scaled to unit variance
+        ``E|z| = sqrt((nu - 2) / pi) Gamma((nu - 1) / 2) / Gamma(nu / 2)``
+        (the mean absolute value of a t variate times ``sqrt((nu - 2) /
+        nu)``), while the recursion still centres ``|z|`` at ``sqrt(2 /
+        pi)`` as the likelihood does, so the term stays.
+        """
         z = list(np.asarray(self.std_residuals, float))
         ls = list(np.log(np.asarray(self.sigma2, float)))
         th = np.zeros(self.q) if self.theta is None else np.asarray(self.theta)
         ga = np.zeros(self.q) if self.gamma is None else np.asarray(self.gamma)
         kappa = float(np.sqrt(2.0 / np.pi))
+        future = 0.0  # E|z| - kappa for a shock not yet observed
+        if self.dist == "t" and self.nu is not None:
+            from scipy.special import gammaln
+
+            nu = float(self.nu)
+            future = (
+                float(
+                    np.sqrt((nu - 2.0) / np.pi)
+                    * np.exp(gammaln((nu - 1.0) / 2.0) - gammaln(nu / 2.0))
+                )
+                - kappa
+            )
         n = len(z)
         out = np.empty(horizon)
         for h in range(horizon):
             v = self.omega
             for i in range(self.q):
                 idx = n + h - 1 - i
-                if idx < n:  # an observed shock; future ones have mean zero
+                if idx < n:  # an observed shock
                     v += th[i] * z[idx] + ga[i] * (abs(z[idx]) - kappa)
+                elif future != 0.0:  # a future one, at its expectation
+                    v += ga[i] * future
             for j in range(self.p):
                 v += self.beta[j] * ls[-1 - j]
             ls.append(v)
@@ -720,13 +749,23 @@ def _series_argument(y: object, data: Optional[pd.DataFrame], who: str) -> np.nd
                 f"{who}: y={y!r} names a column; pass data= as well.",
                 recovery_hint=f"sp.{who}({y!r}, data=df) or sp.{who}(df[{y!r}]).",
             )
-        return np.asarray(y, dtype=float).ravel()
+        if isinstance(y, (pd.Series, pd.DataFrame)):
+            require_time_order(y.index, fn=who)
+        arr = np.asarray(y, dtype=float)
+        if arr.ndim > 1 and not (arr.ndim == 2 and arr.shape[1] == 1):
+            raise MethodIncompatibility(
+                f"{who}: y has shape {arr.shape}; one series is needed.",
+                recovery_hint="Pass a single column.",
+                diagnostics={"shape": list(arr.shape)},
+            )
+        return arr.ravel()
     if not isinstance(y, str) or y not in data.columns:
         raise MethodIncompatibility(
             f"{who}: with data=, y must be the name of one of its columns.",
             recovery_hint="Check the column name.",
             diagnostics={"columns": [str(c) for c in data.columns][:20]},
         )
+    require_time_order(data.index, fn=who)
     values = data[y].to_numpy(dtype=float)
     keep = np.flatnonzero(~np.isnan(values))
     if keep.size == 0:
@@ -951,6 +990,13 @@ def garch(
         raise MethodIncompatibility(
             "garch: y contains NaN or inf",
             recovery_hint="Drop or impute non-finite values of y.",
+        )
+    # a spread below 1e-12 of the size of the series is rounding error
+    if not float(np.std(y)) > 1e-12 * float(np.sqrt(np.mean(y * y))):
+        raise DataInsufficient(
+            "garch: the series is constant; there is no variance to model.",
+            recovery_hint="Check the series (returns, not a price level "
+            "that never moves).",
         )
     if dist not in ("normal", "t"):
         raise MethodIncompatibility(

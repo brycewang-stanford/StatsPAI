@@ -32,6 +32,8 @@ randomized trials: counterfactual and graphical identification."
 *Biometrics*, 75(3), 685-694. [@dahabreh2019generalizing]
 """
 
+import numbers
+import warnings
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -41,6 +43,8 @@ from scipy.optimize import minimize
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
+from .basic_tests import _check_alpha
 
 
 @accepts_aliases(treat="treatment")
@@ -237,6 +241,42 @@ class PATEEstimator:
         vals = self.data_exp[self.treatment].dropna().unique()
         if not set(vals).issubset({0, 1, 0.0, 1.0, True, False}):
             raise ValueError("Treatment must be binary (0/1)")
+        _check_alpha(self.alpha, "pate")
+        trim_is_number = isinstance(self.trim, numbers.Real) and not isinstance(
+            self.trim, bool
+        )
+        if not (trim_is_number and 0.0 <= float(self.trim) < 0.5):
+            # at trim >= 0.5 the interval [trim, 1 - trim] is empty or a point
+            raise MethodIncompatibility(
+                f"pate: trim must lie in [0, 0.5), got {self.trim!r}.",
+                recovery_hint="Use trim=0.01 (the default) or trim=0.",
+            )
+        # Complete cases only, on each sample, with a note.
+        exp_cols = list(dict.fromkeys([self.y, self.treatment] + self.covariates))
+        keep_exp = self.data_exp[exp_cols].notna().all(axis=1).to_numpy()
+        keep_tgt = self.data_tgt[self.covariates].notna().all(axis=1).to_numpy()
+        n_drop_exp = int((~keep_exp).sum())
+        n_drop_tgt = int((~keep_tgt).sum())
+        if n_drop_exp or n_drop_tgt:
+            warnings.warn(
+                f"pate: dropped {n_drop_exp} of {len(keep_exp)} experiment "
+                f"rows and {n_drop_tgt} of {len(keep_tgt)} target rows with "
+                "missing values in the outcome, treatment or covariates.",
+                UserWarning,
+                stacklevel=4,
+            )
+            self.data_exp = self.data_exp.loc[keep_exp]
+            self.data_tgt = self.data_tgt.loc[keep_tgt]
+        d = self.data_exp[self.treatment].to_numpy(dtype=float)
+        n1 = int(d.sum())
+        if n1 == 0 or n1 == len(d) or len(self.data_tgt) == 0:
+            raise DataInsufficient(
+                f"pate: the experiment has {n1} treated and {len(d) - n1} "
+                f"control units and the target sample {len(self.data_tgt)} "
+                "rows on the complete cases; the estimator needs both arms "
+                "and a target sample.",
+                diagnostics={"n_treated": n1, "n_control": len(d) - n1},
+            )
 
     # ------------------------------------------------------------------
     # Participation propensity  P(S=1 | X)

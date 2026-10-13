@@ -518,6 +518,13 @@ def ndcg(y_true: Any, scores: Any, k: float = 0.01) -> float:
     float
         NDCG at ``k`` in [0, 1]; 0 when there is no true case at all.
 
+    Raises
+    ------
+    MethodIncompatibility
+        (a ``ValueError``.)  ``y_true`` holds a value other than 0 and 1,
+        the inputs differ in length or hold missing values, or ``k``
+        selects no case.
+
     Notes
     -----
     Tied scores are ranked in the order of the data, as R's ``sort`` does.
@@ -547,7 +554,21 @@ def ndcg(y_true: Any, scores: Any, k: float = 0.01) -> float:
         )
     if np.isnan(s).any() or pd.isna(y).any():
         raise MethodIncompatibility("ndcg: missing values in y_true or scores.")
-    rel = (y.astype(float) == 1).astype(float)
+    try:
+        yf = y.astype(float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"ndcg: y_true must be a 0/1 outcome ({exc})."
+        ) from exc
+    other = np.unique(yf[(yf != 0) & (yf != 1)])
+    if other.size:
+        raise MethodIncompatibility(
+            "ndcg: y_true must be a 0/1 outcome; it also holds "
+            f"{other[:5].tolist()}.",
+            recovery_hint="Code the true cases as 1 and the rest as 0 "
+            "(graded relevance is not supported).",
+        )
+    rel = (yf == 1).astype(float)
     n = len(rel)
     if not k > 0:
         raise MethodIncompatibility(f"ndcg: k must be positive, got {k!r}.")

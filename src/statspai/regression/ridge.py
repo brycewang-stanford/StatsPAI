@@ -10,6 +10,7 @@ the GCV score and the two plug-in penalties (HKB, LW) are those of R
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Union
 
@@ -148,11 +149,13 @@ def ridge(
     data : pd.DataFrame
     y, x : str and list of str, optional
         Outcome and regressors, as an alternative to ``formula``.
-    lambda_ : float, sequence of float or None
+    lambda_ : float, sequence of float, str or None
         Penalty or grid of penalties (on the standardised scale, as
         ``lm.ridge``). ``None`` builds a grid of 100 values, log-spaced
         from ``1e-4`` to ``1e4`` times the mean squared singular value of
-        the standardised design, plus zero.
+        the standardised design, plus zero. One of the rule names
+        ``"gcv"``, ``"hkb"``, ``"lw"`` is the default grid with that
+        ``select``.
     select : {"gcv", "hkb", "lw"}, default "gcv"
         Which penalty the returned coefficients use when more than one is
         available: the GCV minimiser over the grid, or the HKB or LW
@@ -171,6 +174,12 @@ def ridge(
     *standardised* regressors and is not divided by ``n``. ``glmnet`` and
     scikit-learn scale the loss differently, so the same number means a
     different amount of shrinkage there.
+
+    With linearly dependent regressors least squares is not unique. At
+    ``lambda = 0`` (also the first row of the default path) the
+    coefficients are then the minimum-norm solution on the standardised
+    scale, with a warning; any positive penalty gives the usual unique
+    ridge solution. A regressor that does not vary is refused.
 
     Ridge trades variance for bias; it does not select variables and has no
     standard errors here. For inference after shrinkage use ``sp.rlasso``
@@ -237,8 +246,11 @@ def ridge(
     Xc = Xr - xm
     yc = yv - ym
     scale = np.sqrt(np.mean(Xc**2, axis=0))
-    if np.any(scale <= 0):
-        bad = [names[slope[i]] for i in np.flatnonzero(scale <= 0)]
+    # relative: the float deviations of a constant such as 1/3 from its
+    # own mean are of order 1e-17, not zero
+    flat = scale <= 1e-10 * np.sqrt(np.mean(Xr**2, axis=0))
+    if np.any(flat):
+        bad = [names[slope[i]] for i in np.flatnonzero(flat)]
         raise MethodIncompatibility(
             f"ridge: regressor(s) {bad} do not vary.",
             recovery_hint="Drop the constant column(s).",
@@ -254,6 +266,15 @@ def ridge(
     hkb = float((p - 2) * s2 / np.sum(ls_coef**2)) if p > 2 else np.nan
     lw = float((p - 2) * s2 * n / np.sum(ls_fit**2)) if p > 2 else np.nan
 
+    if isinstance(lambda_, str):
+        rule = lambda_.lower()
+        if rule not in ("gcv", "hkb", "lw"):
+            raise MethodIncompatibility(
+                f"ridge: lambda_={lambda_!r} is not a number, a sequence of "
+                "numbers, or one of the rules 'gcv', 'hkb', 'lw'.",
+                diagnostics={"lambda_": lambda_},
+            )
+        key, lambda_ = rule, None
     if lambda_ is None:
         base = float(np.mean(d**2))
         grid = np.concatenate([[0.0], base * np.logspace(-4, 4, 100)])
@@ -268,12 +289,27 @@ def ridge(
             recovery_hint="Use strictly positive penalties.",
         )
 
+    if not np.all(keep) and np.any(grid == 0):
+        warnings.warn(
+            f"ridge: the regressors have rank {int(keep.sum())}, fewer than "
+            f"their number ({p}), so least squares (lambda = 0) is not "
+            "unique. The lambda = 0 coefficients are the minimum-norm "
+            "solution on the standardised scale, not a least-squares "
+            "estimate of each coefficient.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     def fit_at(lams: np.ndarray) -> Dict[str, np.ndarray]:
         div = d[:, None] ** 2 + lams[None, :]
-        a = (d * rhs)[:, None] / div
+        # at lambda = 0 a direction with a zero singular value carries no
+        # information: leave it out instead of dividing by it
+        dead = (~keep)[:, None] & (lams[None, :] == 0)
+        div = np.where(dead, 1.0, div)
+        a = np.where(dead, 0.0, (d * rhs)[:, None] / div)
         coef_s = Vt.T @ a  # p x k, standardised scale
         resid = yc[:, None] - Xs @ coef_s
-        edf = np.sum(d[:, None] ** 2 / div, axis=0)
+        edf = np.sum(np.where(dead, 0.0, d[:, None] ** 2 / div), axis=0)
         gcv = np.sum(resid**2, axis=0) / (n - edf) ** 2
         coef = coef_s / scale[:, None]
         inter = ym - xm @ coef

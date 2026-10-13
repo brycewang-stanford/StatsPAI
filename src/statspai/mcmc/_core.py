@@ -9,12 +9,15 @@ samplers do not each carry their own copy.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Sequence, Tuple, Union
+import re
+import warnings
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
+import pandas as pd
 from scipy import linalg, special
 
-from ..exceptions import MethodIncompatibility
+from ..exceptions import MethodIncompatibility, StatsPAIWarning
 
 ArrayLike = Union[float, Sequence[float], np.ndarray]
 
@@ -157,6 +160,105 @@ def normal_prior(
     prec = linalg.cho_solve((chol, True), np.eye(k))
     prec = 0.5 * (prec + prec.T)
     return m, cov, prec
+
+
+#: advice of the default-prior note for the samplers that take ``prior_var``
+PRIOR_VAR_ADVICE = (
+    "Set prior_var= (and prior_mean=) to match the scale of these "
+    "regressors, or rescale them."
+)
+
+
+def is_default(value: Any, default: Any) -> bool:
+    """Whether a prior argument still holds the default of the signature.
+
+    Compared by value, so a call that spells out the default is treated as
+    the default: the prior is the same one either way.
+    """
+    try:
+        return bool(np.array_equal(np.asarray(value, dtype=float), default))
+    except (TypeError, ValueError):
+        return False
+
+
+def note_default_prior(
+    notes: List[str],
+    names: Sequence[Any],
+    post_mean: np.ndarray,
+    post_sd: np.ndarray,
+    prior_mean: Any,
+    prior_sd: Any,
+    advice: str = PRIOR_VAR_ADVICE,
+    stacklevel: int = 3,
+) -> None:
+    """Flag a default prior that is not vague at the scale of the data.
+
+    The one post-fit check of every sampler whose default prior is a fixed
+    normal: a coefficient whose posterior mean is more than one prior
+    standard deviation from the prior mean, or whose posterior standard
+    deviation is more than 0.3 of the prior's, is being shaped by the
+    prior. The text is appended to ``notes`` (the ``warnings`` list of the
+    result's ``diagnostics_info``) and raised as a ``StatsPAIWarning``.
+    Uses only the summaries, so it draws no random numbers.
+    """
+    mean = np.asarray(post_mean, dtype=float).reshape(-1)
+    sd = np.asarray(post_sd, dtype=float).reshape(-1)
+    p_sd = np.broadcast_to(np.asarray(prior_sd, dtype=float), mean.shape)
+    p_mean = np.broadcast_to(np.asarray(prior_mean, dtype=float), mean.shape)
+    far = np.abs(mean - p_mean) / p_sd > 1.0
+    tight = sd / p_sd > 0.3
+    bad = [n for n, f, t in zip(names, far, tight) if f or t]
+    if not bad:
+        return
+    text = (
+        "The default prior is not vague for " + ", ".join(map(str, bad)) + ": "
+        "its standard deviation is of the same order as the "
+        "coefficient or its posterior uncertainty, so it pulls the "
+        "estimate toward zero. " + advice
+    )
+    notes.append(text)
+    warnings.warn(text, StatsPAIWarning, stacklevel=stacklevel)
+
+
+def rows_by_position(data: Any) -> Any:
+    """``data`` with a fresh ``RangeIndex`` when its row labels repeat.
+
+    The entry points line the design matrices up with the rows they came
+    from by label. Repeated labels make every such lookup return each row
+    several times, so a frame with them is re-indexed by position on the
+    way in; a frame with unique labels is returned as it is.
+    """
+    if isinstance(data, pd.DataFrame) and not data.index.is_unique:
+        return data.reset_index(drop=True)
+    return data
+
+
+def drops_intercept(rhs: str) -> bool:
+    """Whether the right-hand side of a formula removes the intercept.
+
+    Looks for a top-level ``- 1`` or ``+ 0`` term. Whatever sits inside
+    parentheses, brackets or quotes belongs to a term (``I(x - 1)``,
+    ``Q("a-1")``) and is ignored.
+    """
+    top: List[str] = []
+    depth = 0
+    quote = ""
+    for ch in rhs:
+        if quote:
+            quote = "" if ch == quote else quote
+        elif ch in "\"'`":
+            quote = ch
+        elif ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(depth - 1, 0)
+        elif depth == 0 and not ch.isspace():
+            top.append(ch)
+    terms = re.findall(r"([+-]?)([^+-]+)", "".join(top))
+    return any(
+        (sign == "-" and term == "1") or (sign != "-" and term == "0")
+        for sign, term in terms
+    )
 
 
 def log_mvnorm(x: np.ndarray, mean: np.ndarray, cov: np.ndarray) -> float:
@@ -402,3 +504,28 @@ def design_for(design_info: Any, names: Sequence[str], data: Any) -> np.ndarray:
     n = len(data)
     out = [np.ones(n) if c == "Intercept" else pieces[c] for c in names]
     return np.column_stack(out) if out else np.zeros((n, 0))
+
+
+def prediction_design(design_info: Any, names: Sequence[str], data: Any) -> np.ndarray:
+    """:func:`design_for`, refusing new data with missing regressors.
+
+    For the predictors that cannot carry a missing value through (trees,
+    kernels): a row with one would otherwise be dropped by the formula
+    parser or scored as if the value were there.
+    """
+    X = design_for(design_info, names, data)
+    if X.shape[0] != len(data):
+        bad = [
+            str(c)
+            for c in data.columns
+            if data[c].isna().any() and any(str(c) in str(nm) for nm in names)
+        ]
+    else:
+        bad = [str(nm) for nm, ok in zip(names, np.isfinite(X).all(axis=0)) if not ok]
+        if not bad:
+            return X
+    raise MethodIncompatibility(
+        "The new data have missing or infinite values in "
+        + (", ".join(bad) if bad else "a regressor")
+        + "; a prediction needs every regressor. Drop or fill those rows."
+    )

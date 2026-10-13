@@ -32,6 +32,7 @@ from scipy import stats as sp_stats
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .basic_tests import _check_alpha
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..core.results import EconometricResults
@@ -142,6 +143,9 @@ def bootstrap(
     block : str, optional
         Column name for block bootstrap (resample blocks, preserve
         within-block ordering). Useful for panel/time-series data.
+        With ``cluster=`` or ``block=`` the BCa acceleration is a
+        delete-one-group jackknife, the unit that is resampled. A grouping
+        column with missing ids or a single group is refused.
     ci_method : str, default 'percentile'
         CI method: ``'percentile'``, ``'bca'``, ``'normal'`` or
         ``'studentized'``. The studentized (bootstrap-t) interval needs a
@@ -186,8 +190,39 @@ def bootstrap(
     True
     """
     rng = np.random.RandomState(seed)
+    _check_alpha(alpha, "bootstrap")
+    if ci_method not in ("percentile", "normal", "bca", "studentized"):
+        raise MethodIncompatibility(
+            f"Unknown ci_method: {ci_method}. Use 'percentile', 'normal', "
+            "'bca' or 'studentized'."
+        )
     if idcluster is not None and cluster is None:
         raise MethodIncompatibility("idcluster= requires cluster=.")
+    for option, column in (("cluster", cluster), ("block", block)):
+        if column is None or column not in data.columns:
+            continue
+        ids = data[column]
+        n_missing = int(ids.isna().sum())
+        if n_missing:
+            raise MethodIncompatibility(
+                f"bootstrap: {option}={column!r} is missing (NaN) on "
+                f"{n_missing} row(s), which belong to no resampling unit.",
+                recovery_hint="Drop those rows or fill in the ids before "
+                "calling sp.bootstrap.",
+                diagnostics={"n_missing": n_missing},
+            )
+        if option == "block" and cluster is not None:
+            continue  # cluster= decides the resampling unit
+        n_units = int(ids.nunique())
+        if n_units < 2:
+            # every resample of one unit is the data itself
+            raise DataInsufficient(
+                f"bootstrap: {option}={column!r} has {n_units} distinct "
+                "value(s); resampling whole units needs at least two.",
+                recovery_hint=f"Drop {option}= to resample rows, or use a "
+                "grouping with several units.",
+                diagnostics={"n_units": n_units},
+            )
 
     # Original estimate
     base = data
@@ -285,11 +320,8 @@ def bootstrap(
         q_lo, q_hi = np.percentile(t_star, [100 * alpha / 2, 100 * (1 - alpha / 2)])
         ci_lower = float(theta_hat - q_hi * se_hat)
         ci_upper = float(theta_hat - q_lo * se_hat)
-    else:
-        raise MethodIncompatibility(
-            f"Unknown ci_method: {ci_method}. Use 'percentile', 'normal', "
-            "'bca' or 'studentized'."
-        )
+    else:  # pragma: no cover - ci_method is validated on entry
+        raise MethodIncompatibility(f"Unknown ci_method: {ci_method}.")
 
     # Two-sided p-value (fraction of boot dist more extreme than null)
     centered = boot_stats - theta_hat  # center at estimate
@@ -513,34 +545,42 @@ def _bca_ci(
     # Acceleration factor a (jackknife).
     #
     # The jackknife leave-one-out unit must match the *resampling* unit of
-    # the bootstrap that produced ``boot_stats``: with ``cluster=`` the
-    # bootstrap resamples clusters, so the jackknife deletes whole clusters
-    # (leave-one-cluster-out), not individual rows — otherwise ``a`` is
+    # the bootstrap that produced ``boot_stats``: with ``cluster=`` (or
+    # ``block=``) the bootstrap resamples whole groups, so the jackknife
+    # deletes whole groups, not individual rows — otherwise ``a`` is
     # estimated on a different design than the interval it corrects.
     _JACK_CAP = 200
-    if cluster is not None and cluster in data.columns:
-        units = list(pd.unique(data[cluster]))
+    group = cluster if cluster is not None else block
+    if group is not None and group in data.columns:
+        units = list(pd.unique(data[group]))
 
         def _delete(u: object) -> pd.DataFrame:
-            return data[data[cluster] != u].reset_index(drop=True)
+            return data[data[group] != u].reset_index(drop=True)
 
     else:
         units = list(range(len(data)))
+        positions = np.arange(len(data))
 
         def _delete(u: object) -> pd.DataFrame:
-            return data.drop(data.index[u]).reset_index(drop=True)
+            # by position: index labels need not be unique
+            return data.iloc[positions != u].reset_index(drop=True)
 
     # Cap the jackknife for cost. Sample the units *at random* rather than
     # taking the first K, whose statistic is systematically biased when the
     # data are ordered (by group, time, …); warn that ``a`` is approximate.
     n_units = len(units)
+    unit_name = (
+        "clusters"
+        if cluster is not None
+        else "blocks" if group is not None else "observations"
+    )
     if n_units > _JACK_CAP:
         pick = rng.choice(n_units, size=_JACK_CAP, replace=False)
         units = [units[int(k)] for k in pick]
         warnings.warn(
             f"bootstrap: BCa acceleration is estimated from a random "
             f"{_JACK_CAP}-unit jackknife subsample of {n_units} "
-            f"{'clusters' if cluster is not None else 'observations'} "
+            f"{unit_name} "
             "(exact jackknife capped for cost); the interval endpoints are "
             "approximate.",
             RuntimeWarning,

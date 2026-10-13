@@ -106,6 +106,17 @@ def _apply_floor(prob: np.ndarray, floor: float) -> np.ndarray:
     return np.asarray(p / p.sum())
 
 
+def _check_design(prob_floor: float, sigma: Optional[float], K: int) -> None:
+    """Validate the floor and the known reward standard deviation."""
+    if not np.isfinite(prob_floor) or prob_floor < 0 or prob_floor * K > 1 + 1e-12:
+        raise MethodIncompatibility(
+            f"prob_floor must satisfy 0 <= prob_floor <= 1/K = {1.0 / K:.4g} "
+            f"with {K} arms; got {prob_floor!r}"
+        )
+    if sigma is not None and not (np.isfinite(sigma) and sigma > 0):
+        raise MethodIncompatibility(f"sigma must be a positive number; got {sigma!r}")
+
+
 def _allocation(
     counts: np.ndarray,
     sums: np.ndarray,
@@ -126,8 +137,11 @@ def _allocation(
     short = counts < min_pulls
     if short.any():
         # Initialisation: spread the next draws over under-sampled arms.
+        # Without a floor the arms that already have min_pulls get
+        # probability zero; with one they keep it, so that the recorded
+        # probabilities respect the floor in every period.
         p = short / short.sum()
-        return np.asarray(p, dtype=float)
+        return _apply_floor(np.asarray(p, dtype=float), prob_floor)
     mean = sums / counts
     if model == "bernoulli":
         scale = np.sqrt(np.clip(mean * (1 - mean), 1e-12, None))
@@ -138,7 +152,18 @@ def _allocation(
         resid = float((sumsq - counts * mean**2).sum())
         dof = max(total - K, 1)
         pooled = np.sqrt(max(resid / dof, 0.0))
-        scale = np.full(K, pooled if pooled > 0 else 1.0)
+        size = float(np.sqrt(sumsq.sum() / total))
+        if total <= K or not pooled > 1e-10 * size:
+            warnings.warn(
+                "the within-arm standard deviation of the reward cannot be "
+                "estimated from these data (no variation within arms, or "
+                "one observation per arm); sigma = 1 is used, so the "
+                "allocation depends on the units of the reward. Pass sigma=.",
+                AssumptionWarning,
+                stacklevel=3,
+            )
+            pooled = 1.0
+        scale = np.full(K, pooled)
 
     if algorithm == "thompson":
         if model == "bernoulli":
@@ -206,8 +231,12 @@ def bandit_allocate(
         prior on each mean; ``"bernoulli"`` uses uniform Beta priors and
         needs 0/1 rewards.
     sigma : float, optional
-        Known reward standard deviation for the Gaussian model. By
-        default the pooled within-arm standard deviation is used.
+        Known reward standard deviation for the Gaussian model, positive.
+        By default the pooled within-arm standard deviation is used.
+        When that cannot be estimated (the rewards do not vary within
+        arms, or there is one observation per arm) the value 1 is used
+        and a warning is issued, because the allocation then depends on
+        the units of the reward.
     horizon : int, optional
         Planned number of subjects, used by ``"ucb"``. Defaults to the
         number observed so far plus one.
@@ -216,11 +245,18 @@ def bandit_allocate(
     epsilon : float, default 0.1
         Exploration share of ``"epsilon_greedy"``.
     prob_floor : float, default 0.0
-        Lower bound on every assignment probability. A positive floor
-        keeps later inference well behaved.
+        Lower bound on every assignment probability, between 0 and one
+        over the number of arms. A positive floor keeps later inference
+        well behaved. It holds in every period, the first draws
+        included (see ``min_pulls``).
     min_pulls : int, default 2
         Arms with fewer observations are drawn first, with equal
-        probability among them.
+        probability among them. With ``prob_floor=0`` the other arms get
+        probability zero in those periods, so when a single arm is short
+        its draw is deterministic (probability one, which is what is
+        returned and what :func:`bandit_experiment` records). With a
+        positive ``prob_floor`` every arm keeps at least the floor and
+        the short arms share the rest.
 
     Returns
     -------
@@ -244,9 +280,17 @@ def bandit_allocate(
     for col in (y, arm):
         if col not in data.columns:
             raise MethodIncompatibility(f"column {col!r} not found in data")
+    if data[arm].isna().any():
+        raise MethodIncompatibility(
+            f"{arm!r} has missing values; every observed outcome needs the "
+            "arm it came from"
+        )
     labels = list(arms) if arms is not None else sorted(pd.unique(data[arm]))
     if len(labels) < 2:
         raise DataInsufficient("at least two arms are needed; pass arms=")
+    if len(set(labels)) < len(labels):
+        raise MethodIncompatibility("arms= lists a label more than once")
+    _check_design(prob_floor, sigma, len(labels))
     unknown = set(pd.unique(data[arm])) - set(labels)
     if unknown:
         raise MethodIncompatibility(f"arms in data but not in arms=: {sorted(unknown)}")
@@ -440,6 +484,7 @@ def bandit_experiment(
         raise DataInsufficient("at least two arms are needed")
     if T < 1:
         raise DataInsufficient("n_periods must be positive")
+    _check_design(prob_floor, sigma, K)
 
     counts = np.zeros(K)
     sums = np.zeros(K)
@@ -551,7 +596,11 @@ def contextual_bandit(
         giving arm ``k`` to a subject with covariate vector ``x``, or a
         ``T x K`` table of potential outcomes.
     contexts : ndarray or DataFrame, shape (T, p)
-        Covariates of the subjects, in order of arrival.
+        Covariates of the subjects, in order of arrival. Numeric: a
+        categorical or text column is refused and has to be expanded
+        into 0/1 indicators first. A column may not be called ``t``,
+        ``arm``, ``reward``, ``prob`` or ``prob_<arm>``, the names of the
+        columns of the result.
     n_arms : int, optional
         Number of arms. Required with a callable.
     algorithm : {"thompson", "ucb", "epsilon_greedy", "uniform"}
@@ -619,6 +668,21 @@ def contextual_bandit(
         raise MethodIncompatibility("prior_precision must be positive")
     if isinstance(contexts, pd.DataFrame):
         feature_names = [str(c) for c in contexts.columns]
+        text = [
+            str(c)
+            for c in contexts.columns
+            if isinstance(contexts[c].dtype, pd.CategoricalDtype)
+            or not (
+                pd.api.types.is_numeric_dtype(contexts[c])
+                or pd.api.types.is_bool_dtype(contexts[c])
+            )
+        ]
+        if text:
+            raise MethodIncompatibility(
+                f"contexts columns {text} are categorical or text; expand "
+                "them into 0/1 indicator columns first, e.g. "
+                "pd.get_dummies(contexts, dtype=float)"
+            )
         X = contexts.to_numpy(dtype=float)
     else:
         X = np.asarray(contexts, dtype=float)
@@ -655,6 +719,15 @@ def contextual_bandit(
         K = table.shape[1]
     if K < 2:
         raise DataInsufficient("at least two arms are needed")
+    _check_design(prob_floor, sigma, K)
+    reserved = {"t", "arm", "reward", "prob"} | {f"prob_{lab}" for lab in labels}
+    clash = sorted(reserved & set(feature_names))
+    if clash or len(set(feature_names)) < len(feature_names):
+        raise MethodIncompatibility(
+            f"contexts columns {clash or 'with repeated names'} would be "
+            "overwritten in the result, whose columns are t, arm, reward, "
+            "prob and prob_<arm>; rename them"
+        )
 
     precision = np.stack([prior_precision * np.eye(p) for _ in range(K)])
     xty = np.zeros((K, p))
@@ -829,7 +902,11 @@ def adaptive_inference(
     probs : sequence of str or dict, optional
         Columns with the assignment probability of *every* arm in each
         period: a dict ``{arm label: column}`` or a list aligned with
-        the sorted arm labels. Required for ``method="aipw"``.
+        the sorted arm labels. Required for ``method="aipw"``. The
+        probabilities of a period must sum to one; if an arm was never
+        assigned, pass a dict that includes its column. When ``prob`` is
+        given as well, it must equal the ``probs`` entry of the assigned
+        arm.
     method : {"aw", "aipw", "ipw", "mean"}, default "aw"
         ``"aw"`` weights each observation of an arm by the inverse
         square root of its assignment probability and normalises by the
@@ -891,6 +968,10 @@ def adaptive_inference(
             raise MethodIncompatibility(f"column {col!r} not found in data")
     df = data.sort_values(time, kind="stable") if time else data
     yv = df[y].to_numpy(dtype=float)
+    if df[arm].isna().any():
+        raise MethodIncompatibility(
+            f"{arm!r} has missing values; every outcome needs the arm it " "came from"
+        )
     av = df[arm].to_numpy()
     T = yv.shape[0]
     if not np.all(np.isfinite(yv)):
@@ -918,6 +999,24 @@ def adaptive_inference(
             if col not in df.columns:
                 raise MethodIncompatibility(f"column {col!r} not found in data")
         E = df[cols].to_numpy(dtype=float)
+        every = list(dict.fromkeys(probs.values())) if isinstance(probs, dict) else cols
+        for col in every:
+            if col not in df.columns:
+                raise MethodIncompatibility(f"column {col!r} not found in data")
+        full = df[every].to_numpy(dtype=float)
+        if not np.all(np.isfinite(full)) or (full < 0).any() or (full > 1 + 1e-9).any():
+            raise MethodIncompatibility(
+                "probs must hold probabilities: finite and between 0 and 1"
+            )
+        off = np.abs(full.sum(axis=1) - 1.0)
+        if float(off.max()) > 1e-6:
+            raise MethodIncompatibility(
+                "the probabilities in probs do not sum to one in "
+                f"{int((off > 1e-6).sum())} period(s) (largest deviation "
+                f"{float(off.max()):.3g}). Pass the probability of every arm; "
+                "if an arm was never assigned, use a dict {arm: column} that "
+                "includes it."
+            )
     if method == "aipw" and E is None:
         raise MethodIncompatibility(
             "method='aipw' needs probs=, the assignment probability of every "
@@ -926,6 +1025,14 @@ def adaptive_inference(
     idx = np.array([labels.index(a) for a in av])
     if prob is not None:
         e_assigned = df[prob].to_numpy(dtype=float)
+        if E is not None:
+            gap = np.abs(e_assigned - E[np.arange(T), idx])
+            if not float(np.nanmax(gap)) <= 1e-8:
+                raise MethodIncompatibility(
+                    f"prob={prob!r} disagrees with the probs column of the "
+                    f"assigned arm in {int((gap > 1e-8).sum())} period(s); "
+                    "pass one of them, or make them consistent"
+                )
     elif E is not None:
         e_assigned = E[np.arange(T), idx]
     elif method == "mean":

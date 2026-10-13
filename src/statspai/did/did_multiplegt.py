@@ -212,6 +212,17 @@ def did_multiplegt(
 
     cluster_var = cluster if cluster is not None else group
 
+    # A missing outcome or treatment makes every first difference it enters
+    # missing, and one such difference wipes out the whole cell mean. The
+    # cell is unusable, so it is removed before the differences are formed.
+    _cell_cols = list(dict.fromkeys([y, group, time, treatment, *(controls or [])]))
+    _incomplete = df[_cell_cols].isna().any(axis=1).to_numpy()
+    n_incomplete = int(_incomplete.sum())
+    if n_incomplete:
+        # The count is reported by the shared listwise-deletion warning
+        # (output/_lineage), which compares n_obs with the input frame.
+        df = df.loc[~_incomplete]
+
     # ── Sort and compute main estimate ───────────────────────────── #
     df = df.sort_values([group, time]).reset_index(drop=True)
 
@@ -299,11 +310,26 @@ def did_multiplegt(
                 boot_dynamic[b, horizon_idx] = dyn["estimate"]
 
     # ── Compute SEs, p-values, CIs ───────────────────────────────── #
-    se_main = np.nanstd(boot_main, ddof=1)
-    z_main = main["did_m"] / se_main if se_main > 0 else 0.0
-    p_main = 2 * stats.norm.sf(abs(z_main))
     z_crit = stats.norm.ppf(1 - alpha / 2)
-    ci_main = (main["did_m"] - z_crit * se_main, main["did_m"] + z_crit * se_main)
+    if np.isfinite(main["did_m"]):
+        se_main = np.nanstd(boot_main, ddof=1)
+        z_main = main["did_m"] / se_main if se_main > 0 else 0.0
+        p_main = 2 * stats.norm.sf(abs(z_main))
+        ci_main = (
+            main["did_m"] - z_crit * se_main,
+            main["did_m"] + z_crit * se_main,
+        )
+    else:
+        se_main = p_main = float("nan")
+        ci_main = (float("nan"), float("nan"))
+        warnings.warn(
+            "did_multiplegt: no group changes treatment between two "
+            "consecutive periods while another group with the same previous "
+            "treatment stays put, so DID_M is not estimable; reported as "
+            "missing.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     def _inference_row(est: float, draws: Optional[np.ndarray]) -> Dict[str, float]:
         """Bootstrap se, p-value and interval; all missing if not estimable."""
@@ -408,6 +434,7 @@ def did_multiplegt(
         "n_switchers": main["n_switchers"],
         "n_boot": n_boot,
         "seed": seed,
+        "n_rows_dropped_missing": n_incomplete,
         "cluster_var": cluster_var,
         "controls": controls,
         "placebo": placebo_out,
@@ -425,7 +452,7 @@ def did_multiplegt(
         pvalue=float(p_main),
         ci=ci_main,
         alpha=alpha,
-        n_obs=len(data),
+        n_obs=len(df),
         detail=detail_df,
         model_info=model_info,
         _citation_key="did_multiplegt",
@@ -589,7 +616,9 @@ def _estimate_did_m(
 
     if total_switchers == 0:
         return {
-            "did_m": 0.0,
+            # Not estimable: missing, not zero (a bootstrap replicate without
+            # a switching cell is then left out of the standard error).
+            "did_m": float("nan"),
             "n_switching_cells": 0,
             "n_switchers": 0,
             "cell_estimates": [],

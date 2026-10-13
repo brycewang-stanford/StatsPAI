@@ -4,7 +4,7 @@
   "n_functions": 60,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 425,
+    "ok": 447,
     "precondition": 55,
     "rejected": 0
   },
@@ -30,6 +30,20 @@
         "matches": true
       },
       "enums": {
+        "weights_as": {
+          "analytic": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          }
+        },
         "robust": {
           "nonrobust": {
             "status": "ok"
@@ -104,7 +118,22 @@
         "actual": "EconometricResults",
         "matches": true
       },
-      "enums": {},
+      "enums": {
+        "weights_as": {
+          "analytic": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          }
+        }
+      },
       "alternatives": [
         {
           "name": "iv",
@@ -162,6 +191,20 @@
         "matches": true
       },
       "enums": {
+        "weights_as": {
+          "analytic": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          }
+        },
         "method": {
           "2sls": {
             "status": "ok"
@@ -241,8 +284,7 @@
             "error": "TypeError: deepiv() missing 4 required positional arguments: 'y', 'treat', 'instruments', and 'covariates'"
           },
           "ivqreg": {
-            "status": "precondition",
-            "error": "TypeError: ivqreg() got an unexpected keyword argument 'formula'"
+            "status": "ok"
           },
           "bayes": {
             "status": "precondition",
@@ -319,6 +361,20 @@
           "keep": {
             "status": "ok"
           }
+        },
+        "weights_as": {
+          "frequency": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          }
         }
       },
       "alternatives": [
@@ -362,6 +418,20 @@
           "keep": {
             "status": "ok"
           }
+        },
+        "weights_as": {
+          "frequency": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          }
         }
       },
       "alternatives": [
@@ -397,7 +467,22 @@
         "actual": "EconometricResults",
         "matches": true
       },
-      "enums": {},
+      "enums": {
+        "weights_as": {
+          "frequency": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          }
+        }
+      },
       "alternatives": [
         {
           "name": "nbreg",
@@ -519,6 +604,20 @@
           "native": {
             "status": "ok"
           }
+        },
+        "weights_as": {
+          "analytic": {
+            "status": "ok",
+            "with": {
+              "weights": "wt"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "wt"
+            }
+          }
         }
       },
       "alternatives": [
@@ -565,6 +664,20 @@
         "matches": true
       },
       "enums": {
+        "weights_as": {
+          "analytic": {
+            "status": "ok",
+            "with": {
+              "weights": "wt"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "wt"
+            }
+          }
+        },
         "method": {
           "fe": {
             "status": "ok"
@@ -2439,6 +2552,10 @@
             "status": "precondition",
             "error": "MethodIncompatibility: aipw: outcome_model='logit' needs an outcome in [0, 1]."
           },
+          "probit": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: aipw: outcome_model='probit' needs an outcome in [0, 1]."
+          },
           "poisson": {
             "status": "precondition",
             "error": "MethodIncompatibility: aipw: outcome_model='poisson' needs a non-negative outcome."
@@ -2577,6 +2694,20 @@
         "matches": true
       },
       "enums": {
+        "weights_as": {
+          "frequency": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          }
+        },
         "robust": {
           "nonrobust": {
             "status": "ok"
@@ -2646,7 +2777,10 @@
             "status": "ok"
           },
           "binomial": {
-            "status": "ok"
+            "status": "ok",
+            "with": {
+              "formula": "yb ~ d + x1"
+            }
           },
           "poisson": {
             "status": "ok"
@@ -2704,6 +2838,27 @@
           },
           "dev": {
             "status": "ok"
+          }
+        },
+        "weights_as": {
+          "analytic": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos",
+              "family": "gaussian"
+            }
+          },
+          "frequency": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
           }
         }
       },
@@ -2792,20 +2947,6 @@
         "matches": true
       },
       "enums": {
-        "se_type": {
-          "iid": {
-            "status": "ok"
-          },
-          "cluster": {
-            "status": "ok"
-          },
-          "multiway_cluster": {
-            "status": "ok"
-          },
-          "wild_cluster": {
-            "status": "ok"
-          }
-        },
         "wild_weight_type": {
           "rademacher": {
             "status": "ok"
@@ -2847,6 +2988,21 @@
           },
           "areg": {
             "status": "ok"
+          }
+        },
+        "weights_as": {
+          "analytic": {
+            "status": "ok",
+            "with": {
+              "weights": "wt"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "wt",
+              "cluster": "countyreal"
+            }
           }
         }
       },
@@ -3000,6 +3156,20 @@
           },
           "keep": {
             "status": "ok"
+          }
+        },
+        "weights_as": {
+          "frequency": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "ypos"
+            }
           }
         }
       },

@@ -899,10 +899,11 @@ class OrderedProbitModel(_Model):
         self.levels = list(levels)
         self.J = len(self.levels)
         if self.J < 3:
+            binary = "probit" if self.name == "oprobit" else "logit"
             raise MethodIncompatibility(
-                "model='oprobit' needs an outcome with at least three "
-                f"ordered categories; found {self.J}. Use model='probit' for "
-                "a binary outcome."
+                f"model='{self.name}' needs an outcome with at least three "
+                f"ordered categories; found {self.J}. Use model='{binary}' "
+                "for a binary outcome."
             )
         counts = np.bincount(self.y.astype(int), minlength=self.J)
         if (counts == 0).any():

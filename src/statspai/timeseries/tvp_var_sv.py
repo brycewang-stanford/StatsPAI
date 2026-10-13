@@ -27,6 +27,7 @@ from ..exceptions import (
 )
 from ._tvp_var_sv_core import kernels, lag_matrix, mixture, simple_prior, training_prior
 from ._tvp_var_sv_results import TVPVARSVResult
+from .var import _refuse_repeated_dates, _require_independent_series
 
 __all__ = ["tvp_var_sv", "TVPVARSVResult"]
 
@@ -304,6 +305,7 @@ def tvp_var_sv(
     if time is not None:
         if time not in data.columns:
             raise MethodIncompatibility(f"tvp_var_sv: time column {time!r} not found.")
+        _refuse_repeated_dates(data[time], time, "tvp_var_sv")
         work = data.sort_values(time, kind="stable")
     if variables is None:
         names = [
@@ -329,6 +331,7 @@ def tvp_var_sv(
             recovery_hint="Dropping rows would join dates that are not "
             "adjacent; fill or trim the sample first.",
         )
+    _require_independent_series(Yall, names, "tvp_var_sv")
     K, p = len(names), int(lags)
     k = K * p + 1
     m = K * k
@@ -344,6 +347,15 @@ def tvp_var_sv(
                 f"equation; at least {k + K + 1 + p} rows are needed.",
                 recovery_hint="Lengthen training=, reduce lags, or pass "
                 "training=None with a prior.",
+            )
+        left = Yall.shape[0] - tau
+        if left < max(k + 3, 10):
+            raise DataInsufficient(
+                f"tvp_var_sv: training={tau} of the {Yall.shape[0]} rows "
+                f"leaves {max(left, 0)} dates for estimation; at least "
+                f"{max(k + 3, 10)} are needed.",
+                recovery_hint="Shorten training=, reduce lags, or use a "
+                "longer sample.",
             )
         pr = training_prior(
             Yall[:tau],

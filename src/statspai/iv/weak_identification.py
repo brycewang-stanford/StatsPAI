@@ -44,7 +44,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import IdentificationFailure, MethodIncompatibility
+from ..exceptions import DataInsufficient, IdentificationFailure, MethodIncompatibility
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Data containers
@@ -222,11 +222,17 @@ def _reduced_form_cov(
         Sigma = (V.T @ V) / denom
         return np.asarray(np.kron(Sigma, ZZ_inv), dtype=float)
 
+    # One ordering throughout: vec() stacks the columns of the (k, p)
+    # matrix Pi, so entry (instrument i, endogenous j) sits at j*k + i in
+    # vec(Pi), in the scores and in the bread kron(I_p, (Z'Z)^-1). Before the
+    # 2026-10 fix the robust meat and the bread were instrument-major against an
+    # endogenous-major vec(Pi) and cluster meat -- the same thing when
+    # p = 1, a scrambled sandwich when p >= 2.
     if cov_type == "robust":
-        # Meat: sum_i kron(z_i z_i', v_i v_i') -- KP (2006) eq. 13 -- which
-        # is U'U with U_i = kron(z_i, v_i). Vectorised: the per-row Python
-        # loop took ~1.6 s at n = 100,000.
-        U = (Z_tilde[:, :, None] * V[:, None, :]).reshape(n, k * p)
+        # Meat: sum_i kron(v_i v_i', z_i z_i') = U'U with U_i = kron(v_i,
+        # z_i). Vectorised: the per-row Python loop took ~1.6 s at
+        # n = 100,000.
+        U = (Z_tilde[:, :, None] * V[:, None, :]).transpose(0, 2, 1).reshape(n, k * p)
         meat = U.T @ U
         meat *= ssc
     else:  # cluster
@@ -263,8 +269,91 @@ def _reduced_form_cov(
             meat *= g_min / max(g_min - 1, 1)
         meat *= ssc
 
-    bread = np.kron(ZZ_inv, np.eye(p))
+    bread = np.kron(np.eye(p), ZZ_inv)
     return np.asarray(bread @ meat @ bread, dtype=float)
+
+
+def _psd_sqrt(M: np.ndarray) -> np.ndarray:
+    """Symmetric square root of a positive semi-definite matrix."""
+    w, Q = np.linalg.eigh((M + M.T) / 2.0)
+    return np.asarray((Q * np.sqrt(np.clip(w, 0.0, None))) @ Q.T, dtype=float)
+
+
+def _rk_statistic(
+    Pi: np.ndarray, cov_vec: np.ndarray, ZtZ: np.ndarray, DtD: np.ndarray, n: int
+) -> float:
+    """Kleibergen-Paap rk statistic of H0: rank(Pi) = p - 1, for p >= 2.
+
+    The construction of Kleibergen and Paap (2006, [@kleibergen2006generalized])
+    as ``ranktest`` / ``ivreg2`` apply it to the first stage:
+
+    * ``Theta = F Pi G`` with ``F (Z'Z/n)^-1 F' = I`` and ``G' (D'D/n) G =
+      I``, so its singular values are the canonical correlations of the
+      (partialled-out) endogenous regressors and instruments, and
+      ``Var(vec Theta) = (G' kron F) Var(vec Pi) (G kron F')``;
+    * singular value decomposition ``Theta = U S V'``, partitioned after
+      the first ``q = p - 1`` rows / columns; ``A_perp = [U12; U22]
+      U22^-1 (U22 U22')^(1/2)`` and ``B_perp = (V22 V22')^(1/2) V22'^-1
+      [V12' V22']``;
+    * ``lambda = A_perp' Theta B_perp'`` and ``rk = lambda' [(B_perp kron
+      A_perp') Var(vec Theta) (B_perp kron A_perp')']^-1 lambda``, which
+      is chi2((k - q)(p - q)) = chi2(k - p + 1) under H0.
+
+    With ``Var(vec Pi) = Sigma_V kron (Z'Z)^-1`` this is ``n r^2 / (1 -
+    r^2)`` for the smallest canonical correlation ``r`` (the Cragg-Donald
+    statistic), and with ``Sigma_D`` in place of ``Sigma_V`` it is
+    Anderson's ``n r^2``.
+    """
+    k, p = Pi.shape
+    q = p - 1
+    F = np.linalg.cholesky(ZtZ / n).T
+    G = np.linalg.inv(np.linalg.cholesky(DtD / n)).T
+    Theta = F @ Pi @ G
+    T = np.kron(G.T, F)
+    W_theta = T @ cov_vec @ T.T
+    U, _, Vt = np.linalg.svd(Theta)
+    Vm = Vt.T
+    U22 = U[q:, q:]
+    V22 = Vm[q:, q:]
+    A_perp = U[:, q:] @ np.linalg.solve(U22, _psd_sqrt(U22 @ U22.T))
+    B_perp = _psd_sqrt(V22 @ V22.T) @ np.linalg.solve(V22.T, Vm[:, q:].T)
+    lam = (A_perp.T @ Theta @ B_perp.T).flatten(order="F")
+    K = np.kron(B_perp, A_perp.T)
+    return float(lam @ np.linalg.solve(K @ W_theta @ K.T, lam))
+
+
+def _validated_cluster(cluster: object, n: int) -> pd.DataFrame:
+    """Cluster ids as an (n, d) frame; refuses what would otherwise be
+    answered with a number: a missing id (``pd.factorize`` codes it -1 and
+    ``np.add.at`` then adds its scores to the last cluster) and a single
+    cluster (the score sums to zero by the normal equations, so the
+    covariance is rounding error)."""
+    frame = pd.DataFrame(np.asarray(cluster))
+    if frame.shape[0] != n and frame.shape[1] == n:  # pragma: no cover
+        frame = frame.T
+    if frame.shape[0] != n:
+        raise MethodIncompatibility(
+            f"cluster has {frame.shape[0]} rows; the data have {n}.",
+            recovery_hint="Pass one cluster id per observation.",
+        )
+    n_missing = int(frame.isna().any(axis=1).sum())
+    if n_missing:
+        raise MethodIncompatibility(
+            f"cluster has {n_missing} missing value(s).",
+            recovery_hint="Drop the rows with a missing cluster id from "
+            "every input first.",
+            diagnostics={"n_missing": n_missing},
+        )
+    counts = [int(frame.iloc[:, j].nunique()) for j in range(frame.shape[1])]
+    if min(counts) < 2:
+        raise DataInsufficient(
+            "cluster-robust rank statistics need at least two clusters; "
+            f"found {min(counts)}.",
+            recovery_hint="Cluster on a variable with more than one value, "
+            "or use cov_type='robust'.",
+            diagnostics={"n_clusters": counts},
+        )
+    return frame
 
 
 def kleibergen_paap_rk(
@@ -303,7 +392,9 @@ def kleibergen_paap_rk(
     cov_type : {'nonrobust', 'robust', 'cluster'}
         Covariance for the stacked reduced-form equations.
     cluster : array-like, optional
-        Required when ``cov_type='cluster'``.
+        Required when ``cov_type='cluster'``, and refused with any other
+        ``cov_type`` (it used to be ignored). Missing ids and a single
+        cluster are refused.
     add_const : bool, default True
         Prepend a constant to the exogenous block.
     n_absorbed : int, default 0
@@ -329,9 +420,23 @@ def kleibergen_paap_rk(
     from the unrestricted reduced-form residuals, and ``rk_lm`` is the
     same quadratic form evaluated under the null ``Pi = 0`` (so the score
     variance uses the *unexplained* endogenous regressor) with no
-    finite-sample factor. With two or more endogenous regressors the LM
-    statistic falls back to the singular-value form, which is the right
-    test but not digit-for-digit ``ranktest``.
+    finite-sample factor.
+
+    With two or more endogenous regressors the null is a rank restriction,
+    not ``Pi = 0``, and both statistics are the Kleibergen-Paap rk form
+    built from the singular value decomposition of the normalised
+    reduced-form matrix (see ``_rk_statistic``), with the same two
+    covariances as above. Under ``cov_type='nonrobust'`` ``rk_wald`` is the
+    Cragg-Donald statistic and ``rk_lm`` Anderson's canonical-correlation
+    statistic. ``rk_f`` is ``rk_wald`` divided by the number of excluded
+    instruments (``df_num``), ``ivreg2``'s "Kleibergen-Paap rk Wald F";
+    both p-values refer to chi2(k - p + 1). Pinned to Stata 18 ``ivreg2``
+    for two and three endogenous regressors under all three covariance
+    types. (Before the 2026-10 fix the p >= 2 ``rk_wald`` was the Wald statistic of
+    ``Pi = 0`` and ``rk_lm`` ignored ``cov_type``.)
+
+    Collinear excluded instruments (after partialling out ``exog``) are
+    refused.
     """
     D = _as_matrix(endog)  # n x p
     Z = _as_matrix(instruments)  # n x k
@@ -348,6 +453,14 @@ def kleibergen_paap_rk(
     # Partial out exogenous regressors
     D_tilde = _residualize(D, W)
     Z_tilde = _residualize(Z, W)
+
+    from .weak_iv_ci import _check_instrument_rank
+
+    _check_instrument_rank(
+        Z_tilde,
+        list(instruments.columns) if isinstance(instruments, pd.DataFrame) else None,
+        what="the Kleibergen-Paap rank statistics",
+    )
 
     # Reduced form coefficients: D_tilde = Z_tilde @ Pi + V
     ZtZ = Z_tilde.T @ Z_tilde
@@ -368,6 +481,15 @@ def kleibergen_paap_rk(
         raise ValueError("cov_type='cluster' requires `cluster`.")
     if cov_type not in ("nonrobust", "robust", "cluster"):
         raise ValueError(f"Unknown cov_type: {cov_type}")
+    if cluster is not None and cov_type != "cluster":
+        raise MethodIncompatibility(
+            f"cluster= was passed with cov_type={cov_type!r}, which does "
+            "not use it.",
+            recovery_hint="Pass cov_type='cluster' for cluster-robust rank "
+            "statistics, or drop cluster=.",
+        )
+    if cov_type == "cluster":
+        _validated_cluster(cluster, n)
 
     if cov_type == "robust":
         ssc = (n / max(n - K_rf, 1)) if small else 1.0
@@ -398,63 +520,47 @@ def kleibergen_paap_rk(
     else:
         cov_label = "nonrobust"
 
-    # KP rk Wald: vec(Pi)' cov_vec^{-1} vec(Pi)
     vec_Pi = Pi.flatten(order="F")
-    cov_pinv = np.linalg.pinv(cov_vec)
-    rk_wald = float(vec_Pi @ cov_pinv @ vec_Pi)
+    DtD = D_tilde.T @ D_tilde
+    if p == 1:
+        # KP rk Wald: vec(Pi)' cov_vec^{-1} vec(Pi) -- with one endogenous
+        # regressor rank p - 1 = 0 is Pi = 0
+        cov_pinv = np.linalg.pinv(cov_vec)
+        rk_wald = float(vec_Pi @ cov_pinv @ vec_Pi)
+    else:
+        rk_wald = _rk_statistic(Pi, cov_vec, ZtZ, DtD, n)
 
-    # For F version divide by (k*p) and nominal denom
-    df_num = k * p  # number of excluded restrictions on reduced form
+    # F version: divide by the number of excluded instruments, as ivreg2's
+    # "rk Wald F" does (the finite-sample factor is already in cov_vec)
+    df_num = k
     df_denom = max(n - K_rf, 1)
     rk_f = rk_wald / df_num
     rk_wald_pvalue = float(stats.chi2.sf(rk_wald, df=k - p + 1))
 
-    # KP rk LM statistic (Kleibergen-Paap 2006, Theorem 1)
-    # Tests H0: rank(Pi) <= p-1 vs H1: rank(Pi) = p.
+    # KP rk LM statistic. The LM principle evaluates the score variance at
+    # the restricted estimate; ranktest takes the (partialled-out)
+    # endogenous regressors themselves as the "residual" there rather than
+    # V, and applies no finite-sample factor -- neither G/(G-1) nor
+    # (n-1)/(n-K).
+    cov_null = _reduced_form_cov(
+        Z_tilde,
+        D_tilde,
+        ZZ_inv,
+        cov_type,
+        cluster,
+        n=n,
+        k=k,
+        p=p,
+        denom=n,
+        ssc=1.0,
+        cluster_ssc=False,
+    )
     if p == 1:
-        # Single endogenous regressor: H0 is Pi = 0, so the rank test is
-        # the score test of that restriction. The LM principle evaluates
-        # the score variance at the *restricted* estimate, which means the
-        # reduced-form "residual" is the endogenous regressor itself
-        # rather than V. ranktest applies no finite-sample factor here --
-        # neither G/(G-1) nor (n-1)/(n-K).
-        cov_null = _reduced_form_cov(
-            Z_tilde,
-            D_tilde,
-            ZZ_inv,
-            cov_type,
-            cluster,
-            n=n,
-            k=k,
-            p=p,
-            denom=n,
-            ssc=1.0,
-            cluster_ssc=False,
-        )
+        # H0 is Pi = 0, so the rank test is the score test of that
+        # restriction.
         rk_lm = float(vec_Pi @ np.linalg.pinv(cov_null) @ vec_Pi)
     else:
-        # Two or more endogenous regressors: the rank-(p-1) null is not a
-        # zero restriction, so fall back to the smallest singular value of
-        # the whitened reduced form. Correct test, but not digit-for-digit
-        # ranktest -- that needs the full KP (2006) A_perp/B_perp machinery.
-        Sigma_lm = (V.T @ V) / n
-        try:
-            Sigma_half_inv = np.linalg.inv(np.linalg.cholesky(Sigma_lm))
-        except np.linalg.LinAlgError:  # pragma: no cover
-            Sigma_half_inv = np.linalg.pinv(_sqrtm_sym(Sigma_lm))
-        try:
-            ZZ_chol = np.linalg.cholesky(Z_tilde.T @ Z_tilde / n)
-            Zs = Z_tilde @ np.linalg.inv(ZZ_chol.T)  # orthonormal instruments
-        except np.linalg.LinAlgError:  # pragma: no cover
-            Zs = Z_tilde
-        Ds = D_tilde @ Sigma_half_inv.T  # whitened endog
-        # A is O(1): Zs'Zs / n == I, so the sample average -- not the sum --
-        # is the object whose smallest singular value carries the rank
-        # information. Scaling by sqrt(n) instead of n inflated rk_lm by a
-        # factor of n.
-        A = Zs.T @ Ds / n
-        sv = np.linalg.svd(A, compute_uv=False)
-        rk_lm = float(n * sv[-1] ** 2)  # smallest sv², scaled by n
+        rk_lm = _rk_statistic(Pi, cov_null, ZtZ, DtD, n)
     rk_lm_pvalue = float(stats.chi2.sf(rk_lm, df=(k - p + 1)))
 
     return KleibergenPaapResult(
@@ -493,11 +599,18 @@ def sanderson_windmeijer(
     """
     Sanderson-Windmeijer (2016) conditional first-stage F.
 
-    For each endogenous regressor ``j``, residualises all *other*
-    endogenous regressors out of both the outcome (that endog column) and
-    the instruments, then reports the first-stage F of the resulting
-    partial regression. This is the correct individual-endogenous weak-IV
-    diagnostic when multiple endogenous regressors are present.
+    For each endogenous regressor ``j``, nets the *other* endogenous
+    regressors out with their 2SLS coefficients -- ``d_j`` is regressed on
+    the others by 2SLS with the excluded instruments -- and tests the
+    instruments in the first stage of the residual ``v_j = d_j -
+    D_other @ delta_2sls``: ``F = [v_j' P_Z v_j / (k - p + 1)] / [v_j' M_Z
+    v_j / (n - n_exog - k)]``, everything after partialling out the
+    exogenous regressors. This is the individual-endogenous weak-IV
+    diagnostic when several endogenous regressors are present, and the
+    statistic Stata ``ivreg2, first`` reports as "SW F" (classical
+    version; pinned to it for two and three endogenous regressors).
+    Before the 2026-10 fix the other regressors were partialled out by OLS, of both
+    ``d_j`` and the instruments, which is a different statistic.
 
     When only one endogenous regressor is present, this reduces exactly to
     the standard first-stage F.
@@ -551,14 +664,16 @@ def sanderson_windmeijer(
         D_j = D_tilde[:, j]
 
         if p > 1:
-            # Residualise D_j on D_other AND Z on D_other simultaneously
-            # then run first-stage of (D_j | D_other) on (Z | D_other)
-            # SW (2016) Theorem 1: equivalent conditional F form
-            Zc = _residualize(Z_tilde, D_other)
-            y_j = np.asarray(
-                _residualize(D_j.reshape(-1, 1), D_other).ravel(),
-                dtype=float,
-            )
+            # Sanderson-Windmeijer ([@sanderson2016weak]): delta is the
+            # 2SLS coefficient of D_j on D_other with instruments Z,
+            #   delta = (D_o' P_Z D_o)^-1 D_o' P_Z D_j,
+            # and the F below tests Z in the regression of the residual
+            # D_j - D_o delta on Z, with k - (p - 1) numerator degrees of
+            # freedom (p - 1 directions of Z are used up by delta).
+            fitted_other = Z_tilde @ np.linalg.lstsq(Z_tilde, D_other, rcond=None)[0]
+            delta, *_ = np.linalg.lstsq(fitted_other, D_j, rcond=None)
+            Zc = Z_tilde
+            y_j = np.asarray(D_j - D_other @ delta, dtype=float)
         else:
             Zc = Z_tilde
             y_j = np.asarray(D_j, dtype=float)
@@ -570,7 +685,9 @@ def sanderson_windmeijer(
         tss = float(y_j @ y_j)
 
         df1 = k - (p - 1)  # SW adjusted numerator df
-        df2 = n - n_W - k - (p - 1)  # SW (2016) eq. 7 denominator df
+        # residual degrees of freedom of the first stage of v_j: delta is
+        # not a regressor in it (ivreg2 reports the same n - n_exog - k)
+        df2 = n - n_W - k
         if df1 <= 0:
             raise ValueError(
                 f"Not enough instruments: k - (p-1) = {df1} for endogenous "
@@ -683,6 +800,15 @@ def conditional_lr_test(
     k = Z.shape[1]
 
     W = _extract_exog(data, exog, n, add_const)
+
+    from .weak_iv_ci import _refuse_missing
+
+    _refuse_missing("conditional_lr_test", y=Yv, endog=Dv, instruments=Z, exog=W)
+    if not np.isfinite(beta0):
+        raise MethodIncompatibility(
+            f"beta0 must be a finite number; got {beta0!r}.",
+            recovery_hint="Pass the hypothesised coefficient, e.g. beta0=0.0.",
+        )
 
     # Partial out exogenous
     y_t = _residualize(Yv.reshape(-1, 1), W).ravel()

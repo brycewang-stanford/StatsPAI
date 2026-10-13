@@ -166,6 +166,18 @@ def _groups(
     return levels, [col[grp == lv].to_numpy(dtype=float) for lv in levels]
 
 
+def _reject_infinite(parts: List[np.ndarray], y: Any, who: str) -> None:
+    """Means and variances are not defined with an infinite value."""
+    n_inf = int(sum(np.isinf(p).sum() for p in parts))
+    if n_inf:
+        raise DataInsufficient(
+            f"{who}: {y!r} holds {n_inf} infinite value(s), for which means "
+            "and variances are not defined.",
+            recovery_hint="Set them to missing (they are then dropped) or "
+            "remove those rows.",
+        )
+
+
 def _percentile(x: np.ndarray, p: float) -> float:
     """Stata's percentile: with ``h = n p / 100``, the mean of the h-th and
     (h + 1)-th order statistics when h is an integer, else the next one."""
@@ -467,6 +479,11 @@ def spearman(data: pd.DataFrame, x: str, y: str) -> ClassicTestResult:
     """
     a, b = _pair(data, x, y, "spearman")
     n = a.size
+    if np.unique(a).size < 2 or np.unique(b).size < 2:
+        raise DataInsufficient(
+            "spearman: one of the variables is constant, so the rank "
+            "correlation is undefined.",
+        )
     rho = float(np.corrcoef(stats.rankdata(a), stats.rankdata(b))[0, 1])
     if abs(rho) >= 1:
         t, p = float("inf"), 0.0
@@ -739,6 +756,13 @@ def robvar(data: pd.DataFrame, y: str, by: str) -> ClassicTestResult:
             "robvar: a group has fewer than two observations.",
             recovery_hint="Drop or merge the small group.",
         )
+    _reject_infinite(parts, y, "robvar")
+    if all(np.ptp(p) == 0 for p in parts):
+        raise DataInsufficient(
+            f"robvar: {y!r} takes a single value within every group, so "
+            "there are no deviations whose spread could be compared.",
+            recovery_hint="Check that the outcome is not constant.",
+        )
     n = sum(p.size for p in parts)
     k = len(parts)
 
@@ -830,7 +854,13 @@ def oneway(
             "oneway: no within-group degrees of freedom.",
             recovery_hint="Each group needs more than one observation overall.",
         )
+    _reject_infinite(parts, y, "oneway")
     pooled = np.concatenate(parts)
+    if np.unique(pooled).size < 2:
+        raise DataInsufficient(
+            f"oneway: {y!r} takes a single value, so there is no variation "
+            "to split between and within groups.",
+        )
     means = np.array([p.mean() for p in parts])
     sizes = np.array([p.size for p in parts], dtype=float)
     ss_between = float(np.sum(sizes * (means - pooled.mean()) ** 2))

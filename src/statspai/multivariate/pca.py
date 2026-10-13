@@ -28,6 +28,8 @@ def _columns(
             f"sp.{who}: data must be a DataFrame.",
             recovery_hint="Pass the variables as columns of a DataFrame.",
         )
+    if isinstance(variables, str):
+        variables = [variables]  # one name, not its characters
     names = (
         [str(v) for v in variables]
         if variables is not None
@@ -45,6 +47,14 @@ def _columns(
             recovery_hint="List the variables to analyse.",
         )
     frame = data[names].apply(pd.to_numeric, errors="coerce").dropna()
+    infinite = [v for v in names if np.isinf(frame[v].to_numpy(dtype=float)).any()]
+    if infinite:
+        raise MethodIncompatibility(
+            f"sp.{who}: {infinite} hold infinite values, for which a "
+            "correlation is not defined.",
+            recovery_hint="Set them to missing (those rows are then dropped) "
+            "or remove the rows.",
+        )
     if len(frame) <= len(names):
         raise DataInsufficient(
             f"sp.{who}: {len(frame)} complete rows for {len(names)} variables.",
@@ -228,6 +238,15 @@ def pca(
     values = np.clip(values, 0.0, None)
 
     if n_components is not None:
+        whole = isinstance(n_components, (int, np.integer)) or (
+            isinstance(n_components, float) and n_components.is_integer()
+        )
+        if not whole or isinstance(n_components, bool):
+            raise MethodIncompatibility(
+                f"sp.pca: n_components must be a whole number, got "
+                f"{n_components!r}.",
+                recovery_hint="Pass the number of components to keep, e.g. 2.",
+            )
         keep = int(n_components)
         if not 1 <= keep <= p:
             raise MethodIncompatibility(

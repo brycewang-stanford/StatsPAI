@@ -112,6 +112,8 @@ def _staggered():
     ).astype(int)
     df["g_nan"] = df["first_treat"].where(df["first_treat"] > 0)
     df["lemp_pos"] = (df["lemp"] > df["lemp"].median()).astype(int)
+    # a unit-level positive weight, for the values of weights_as=
+    df["wt"] = 1.0 + (df["countyreal"] % 5)
     return df
 
 
@@ -353,6 +355,21 @@ ENUM_CONTEXT: Dict[Tuple[str, str, str], Dict[str, Any]] = {
     ("dml", "score", "ATTE"): {"model": "irm"},
 }
 
+#: ``weights_as=`` says how to read ``weights=``, so every value of it
+#: needs a weight column: a positive column each frame already has.
+_WEIGHT_COLUMN = {"cross": "ypos", "staggered": "wt"}
+for _name, (_kind, _, _) in CALLS.items():
+    if _kind not in _WEIGHT_COLUMN:
+        continue
+    for _value in ("analytic", "frequency", "sampling"):
+        ENUM_CONTEXT[(_name, "weights_as", _value)] = {"weights": _WEIGHT_COLUMN[_kind]}
+# sp.hdfe_ols has no heteroskedasticity-robust variance for a weighted fit
+ENUM_CONTEXT[("hdfe_ols", "weights_as", "sampling")]["cluster"] = "countyreal"
+# the analytic reading of sp.glm belongs to the gaussian family
+ENUM_CONTEXT[("glm", "weights_as", "analytic")]["family"] = "gaussian"
+# a binomial fit needs an outcome in [0, 1]; the base call is a count
+ENUM_CONTEXT[("glm", "family", "binomial")] = {"formula": "yb ~ d + x1"}
+
 
 def _invoke(name: str, overrides: Dict[str, Any] = None, drop: str = None) -> Any:
     import statspai as sp
@@ -362,6 +379,9 @@ def _invoke(name: str, overrides: Dict[str, Any] = None, drop: str = None) -> An
     args = [frame if a == "@" else a for a in positional]
     kwargs = dict(keywords)
     kwargs.update(overrides or {})
+    if "formula" in kwargs and args and isinstance(args[0], str):
+        # a context that needs another outcome replaces the formula
+        args[0] = kwargs.pop("formula")
     if drop is not None:
         if drop in kwargs:
             kwargs.pop(drop)

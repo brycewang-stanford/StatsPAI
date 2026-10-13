@@ -41,7 +41,12 @@ def _linear_fit(result: Any, who: str) -> Tuple[np.ndarray, np.ndarray, List[str
             f"sp.{who}: these statistics are those of a linear regression.",
             recovery_hint="After sp.logit use sp.logit_influence.",
         )
-    if info.get("weights") is not None or model.get("weights") is not None:
+    from ..postestimation._design import model_setting
+
+    # sp.regress records its weights as ``analytic_weights`` and in the
+    # provenance record, other fits as ``weights``
+    weighted = info.get("analytic_weights") is not None
+    if weighted or model_setting(result, "weights") is not None:
         raise MethodIncompatibility(
             f"sp.{who}: a weighted fit is not supported.",
             recovery_hint="Refit without weights, or compute the statistics "
@@ -90,6 +95,13 @@ def influence_measures(result: Any) -> pd.DataFrame:
     pandas.DataFrame
         One row per observation of the estimation sample, in its order,
         with the columns above and ``fitted`` and ``residual``.
+
+    Raises
+    ------
+    MethodIncompatibility
+        (a ``ValueError``.)  The fit is not a linear regression, or it
+        was weighted: the stored design is unweighted and the residuals
+        are not, so the statistics would mix the two.
 
     Examples
     --------

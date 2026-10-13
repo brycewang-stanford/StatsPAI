@@ -19,6 +19,7 @@ takes as input.
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -238,7 +239,9 @@ def cor_test(
     Without ``covariates`` this is the correlation of ``x`` and ``y``; with
     them, the correlation of what is left of each after a linear regression
     on the covariates. ``t = r sqrt(df / (1 - r^2))`` with
-    ``df = n - 2 - k`` (``k`` covariates) is Student's t under no
+    ``df = n - 2 - k`` (``k`` linearly independent, non-constant
+    covariates; a redundant one is named in a warning and not counted)
+    is Student's t under no
     correlation and joint normality, and the interval is Fisher's:
     ``tanh(atanh(r) -/+ z / sqrt(n - 3 - k))``.
 
@@ -302,6 +305,27 @@ def cor_test(
         [_column(data, c, who).astype(float) for c in cols], axis=1
     ).dropna()
     n, k = len(frame), len(covs)
+    if k and n:
+        # a covariate that the constant and the earlier ones reproduce
+        # conditions on nothing new and costs no degree of freedom
+        from ..core._collinear import independent_columns
+
+        _, omitted = independent_columns(
+            np.column_stack([np.ones(n), frame[covs].to_numpy()]),
+            ["_cons", *map(str, covs)],
+        )
+        if omitted:
+            warnings.warn(
+                "cor_test: "
+                + "; ".join(
+                    f"note: {o['variable']} is redundant ({o['reason']})"
+                    for o in omitted
+                )
+                + ". It is not counted in the degrees of freedom.",
+                UserWarning,
+                stacklevel=2,
+            )
+            k -= len(omitted)
     if n < k + 4:
         raise DataInsufficient(
             f"cor_test: {n} complete rows are too few for {k} covariates "

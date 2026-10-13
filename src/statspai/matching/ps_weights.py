@@ -26,7 +26,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import MethodIncompatibility
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..exceptions import AssumptionWarning, MethodIncompatibility
+from ..exceptions import warn as _sp_warn
 
 _ESTIMANDS = ("ATE", "ATT", "ATC", "ATO", "ATM")
 
@@ -36,6 +38,49 @@ def _as_1d(values: Any, name: str) -> np.ndarray:
     if arr.size == 0:
         raise MethodIncompatibility(f"{name} is empty")
     return arr
+
+
+def _require_numeric(data: pd.DataFrame, cols: Sequence[str], who: str) -> None:
+    """Refuse categorical or text covariates in a function that measures
+    distances or ranks: their codes are not quantities."""
+    bad = [
+        str(c)
+        for c in cols
+        if c in data.columns
+        and (
+            isinstance(data[c].dtype, pd.CategoricalDtype)
+            or not (
+                pd.api.types.is_numeric_dtype(data[c])
+                or pd.api.types.is_bool_dtype(data[c])
+            )
+        )
+    ]
+    if bad:
+        raise MethodIncompatibility(
+            f"{who}: covariates {bad} are categorical or text, not numeric.",
+            recovery_hint="Expand them into 0/1 indicator columns first, e.g. "
+            "pd.get_dummies(df, columns=[...], dtype=float), and pass the "
+            "indicators.",
+            diagnostics={"columns": bad},
+        )
+
+
+def _aligned(values: pd.Series, index: pd.Index, name: str, who: str) -> pd.Series:
+    """``values`` in the order of ``index``; an error if the labels differ."""
+    if values.index.equals(index):
+        return values
+    if (
+        len(values) == len(index)
+        and values.index.is_unique
+        and index.is_unique
+        and values.index.isin(index).all()
+    ):
+        return values.reindex(index)
+    raise MethodIncompatibility(
+        f"{who}: the index of {name} does not match the rows it belongs to.",
+        recovery_hint=f"Pass {name} with the same index, or as a plain array "
+        "(.to_numpy()) if it is already in row order.",
+    )
 
 
 def ps_weights(
@@ -101,7 +146,10 @@ def ps_weights(
     -------
     numpy.ndarray or pandas.Series
         One weight per row; a Series with the index of ``ps`` or
-        ``treat`` when either is a Series.
+        ``treat`` when either is a Series. When both are Series they are
+        matched on their index (``treat`` is put in the order of ``ps``);
+        indexes that do not hold the same labels are an error. An array
+        is taken to be in row order.
 
     Notes
     -----
@@ -133,6 +181,8 @@ def ps_weights(
     ----------
     [@li2018balancing], [@li2013weighting], [@robins2000marginal]
     """
+    if isinstance(ps, pd.Series) and isinstance(treat, pd.Series):
+        treat = _aligned(treat, ps.index, "treat", "ps_weights")
     index = None
     for obj in (ps, treat):
         if isinstance(obj, pd.Series):
@@ -271,11 +321,14 @@ def ess(
     weights : array-like
         Weights. Negative entries are allowed, since the weights a
         regression implies can be negative (:func:`sp.implied_weights`);
-        the formula is applied as it stands.
+        the formula is applied as it stands. When every weight (of a
+        group, with ``by``) is zero the value is NaN and a warning is
+        issued.
     by : array-like, optional
         Group labels (typically the exposure). The effective sample size
         is then returned for each group, which is what matters for a
         contrast: the precision of each group mean depends on its own ESS.
+        Missing labels are an error.
 
     Returns
     -------
@@ -298,13 +351,33 @@ def ess(
     if not np.isfinite(w).all():
         raise MethodIncompatibility("weights must not contain missing values")
     if by is None:
+        if not np.any(w != 0):
+            _sp_warn(
+                AssumptionWarning,
+                "ess: every weight is zero; the effective sample size is not "
+                "defined and is reported as NaN.",
+                stacklevel=2,
+            )
         return _ess(w)
     g = np.asarray(by).ravel()
     if g.shape != w.shape:
         raise MethodIncompatibility(
             f"by and weights must have the same length; got {g.size} and {w.size}"
         )
+    if pd.isna(g).any():
+        raise MethodIncompatibility(
+            "ess: by contains missing values; drop those rows or give them a "
+            "group label"
+        )
     out = {level: _ess(w[g == level]) for level in pd.unique(g)}
+    empty = [level for level, value in out.items() if not np.isfinite(value)]
+    if empty:
+        _sp_warn(
+            AssumptionWarning,
+            f"ess: every weight is zero in group(s) {empty}; the effective "
+            "sample size there is not defined and is reported as NaN.",
+            stacklevel=2,
+        )
     return pd.Series(out, name="ess").sort_index()
 
 
@@ -335,10 +408,13 @@ def energy_distance(
     treat : str
         Binary 0/1 column.
     covariates : sequence of str
-        Numeric columns. Expand categorical variables into indicators
-        first.
+        Numeric columns. A categorical or text column is refused:
+        expand it into 0/1 indicators first (the codes of a category are
+        not distances).
     weights : str or array-like, optional
-        Weights; omitted, the unweighted distance.
+        Weights; omitted, the unweighted distance. A Series is matched to
+        the rows of ``data`` on its index and is an error if the labels
+        differ; an array is taken to be in row order.
 
     Returns
     -------
@@ -376,6 +452,9 @@ def energy_distance(
     cols: List[str] = list(covariates)
     if not cols:
         raise MethodIncompatibility("covariates is empty")
+    _require_numeric(data, cols, "energy_distance")
+    if isinstance(weights, pd.Series):
+        weights = _aligned(weights, data.index, "weights", "energy_distance")
     frame = data[[treat] + cols]
     if frame.isna().any().any():
         raise MethodIncompatibility(
@@ -413,6 +492,7 @@ def energy_distance(
     return float(-(a @ cdist(Z, Z) @ a))
 
 
+@_expands_categorical("covariates")
 def implied_weights(
     data: pd.DataFrame,
     treat: str,
@@ -437,8 +517,10 @@ def implied_weights(
     treat : str
         Binary 0/1 column.
     covariates : sequence of str
-        Numeric regressors other than the treatment (expand categorical
-        variables into indicators first).
+        Regressors other than the treatment. Categorical columns
+        (``category`` dtype, strings, ``C(col)``) are expanded into
+        indicators, the first level as the base, as the regression would
+        enter them; integer columns are taken as numeric.
     interactions : bool, default False
         ``False``: the regression ``y ~ treat + covariates`` with one set
         of covariate slopes ("uniform regression imputation"). ``True``:
@@ -466,6 +548,11 @@ def implied_weights(
     the covariates. With interactions the weights of arm ``g`` are
     ``n_g * xbar' (X_g' X_g)^{-1} x_i`` with ``xbar`` the covariate mean
     of the target population. Both match R ``lmw::lmw``.
+
+    The weights do not exist when the covariates predict the treatment
+    perfectly (no interactions) or are collinear within a group
+    (interactions): the regression then has no treatment coefficient,
+    and an error is raised.
 
     Examples
     --------
@@ -521,7 +608,15 @@ def implied_weights(
                 recovery_hint="Use interactions=True to choose estimand=.",
             )
         resid = t - X @ np.linalg.lstsq(X, t, rcond=None)[0]
-        base = resid / float(resid @ resid)
+        rss = float(resid @ resid)
+        if rss <= 1e-12 * float(np.sum((t - t.mean()) ** 2)):
+            raise MethodIncompatibility(
+                "implied_weights: the covariates predict the treatment "
+                "perfectly, so the treatment is collinear with them and the "
+                "regression has no treatment coefficient",
+                recovery_hint="Drop the covariate that determines the " "treatment.",
+            )
+        base = resid / rss
         w[treated] = n1 * base[treated]
         w[~treated] = -n0 * base[~treated]
     else:
