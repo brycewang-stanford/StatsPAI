@@ -554,6 +554,18 @@ def _make_parser() -> argparse.ArgumentParser:
         "--force", action="store_true", help="Overwrite an existing installation."
     )
     skill_sub.add_parser("path", help="Print the packaged skill's directory.")
+    p_status = skill_sub.add_parser(
+        "status",
+        help=(
+            "Compare an installed copy with the packaged skill "
+            "(exit 0 only when they are identical)."
+        ),
+    )
+    p_status.add_argument(
+        "--target",
+        default=None,
+        help="Skills directory holding statspai-analysis/ (default ~/.claude/skills).",
+    )
     p_validate = skill_sub.add_parser(
         "validate",
         help="Run the skill's API-claim gate against the installed StatsPAI.",
@@ -562,6 +574,11 @@ def _make_parser() -> argparse.ArgumentParser:
         "--quick",
         action="store_true",
         help="Existence + signature checks only (no fits).",
+    )
+    p_validate.add_argument(
+        "--run",
+        action="store_true",
+        help="Also execute the pipeline files on synthetic data (minutes).",
     )
 
     # version
@@ -773,20 +790,24 @@ def _skill_command(args: argparse.Namespace) -> int:
         )
         saved = sys.argv
         # The gate parses sys.argv itself; hand it only its own flags.
-        sys.argv = ["validate_api_claims.py"] + (
-            ["--quick"] if getattr(args, "quick", False) else []
+        sys.argv = (
+            ["validate_api_claims.py"]
+            + (["--quick"] if getattr(args, "quick", False) else [])
+            + (["--run"] if getattr(args, "run", False) else [])
         )
         try:
             return int(ns["main"]())
         finally:
             sys.argv = saved
+    target = (
+        Path(args.target).expanduser()
+        if getattr(args, "target", None)
+        else Path.home() / ".claude" / "skills"
+    )
+    dest = target / SKILL_NAME
+    if action == "status":
+        return _skill_status(src, dest)
     if action == "install":
-        target = (
-            Path(args.target).expanduser()
-            if args.target
-            else Path.home() / ".claude" / "skills"
-        )
-        dest = target / SKILL_NAME
         if dest.exists():
             if not args.force:
                 print(
@@ -799,10 +820,102 @@ def _skill_command(args: argparse.Namespace) -> int:
             src, dest, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
         )
         n_files = sum(1 for p in dest.rglob("*") if p.is_file())
+        _write_skill_manifest(dest)
         print(f"installed {SKILL_NAME} -> {dest} ({n_files} files)")
         return 0
-    print("usage: statspai skill install|path|validate", file=sys.stderr)
+    print("usage: statspai skill install|path|status|validate", file=sys.stderr)
     return EXIT_USAGE
+
+
+#: Written next to an installed copy so ``statspai skill status`` can tell a
+#: copy that fell behind the package from one that was edited by hand.
+SKILL_MANIFEST = ".statspai-skill.json"
+
+
+def _skill_files(root: Any) -> Dict[str, str]:
+    """``{relative path: sha256}`` of the skill's own files under ``root``."""
+    import hashlib
+
+    out: Dict[str, str] = {}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.name == SKILL_MANIFEST:
+            continue
+        if "__pycache__" in path.parts or path.suffix == ".pyc":
+            continue
+        rel = path.relative_to(root).as_posix()
+        out[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return out
+
+
+def _write_skill_manifest(dest: Any) -> None:
+    import json
+
+    from . import __version__
+
+    record = {"statspai_version": __version__, "files": _skill_files(dest)}
+    (dest / SKILL_MANIFEST).write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def _skill_status(src: Any, dest: Any) -> int:
+    """Report whether the copy at ``dest`` is the packaged skill.
+
+    An installed skill is a plain copy: upgrading the package does not touch
+    it, so it keeps describing the API of the version it was copied from.
+    """
+    import json
+
+    from . import __version__
+
+    if not (dest / "SKILL.md").exists():
+        print(f"not installed: {dest}")
+        print("  run: statspai skill install")
+        return 1
+    packaged, installed = _skill_files(src), _skill_files(dest)
+    record: Dict[str, Any] = {}
+    manifest = dest / SKILL_MANIFEST
+    if manifest.exists():
+        try:
+            record = json.loads(manifest.read_text(encoding="utf-8"))
+        except ValueError:
+            print(
+                f"warning: {manifest} is not valid JSON; ignoring it", file=sys.stderr
+            )
+    origin = record.get("statspai_version")
+    if installed == packaged:
+        print(f"current: {dest} matches the skill packaged with statspai {__version__}")
+        return 0
+    edited = sorted(
+        name
+        for name, digest in installed.items()
+        if record.get("files") and record["files"].get(name) != digest
+    )
+    changed = sorted(
+        n for n in packaged if n in installed and packaged[n] != installed[n]
+    )
+    missing = sorted(n for n in packaged if n not in installed)
+    extra = sorted(n for n in installed if n not in packaged)
+    came_from = f"statspai {origin}" if origin else "an unrecorded version"
+    print(
+        f"stale: {dest} was installed from {came_from}; "
+        f"this is statspai {__version__}"
+    )
+    for label, names in (
+        ("changed in the package", changed),
+        ("missing from the installed copy", missing),
+        ("only in the installed copy", extra),
+    ):
+        if names:
+            print(f"  {label} ({len(names)}): {', '.join(names)}")
+    if edited:
+        print(
+            f"  edited by hand since it was installed ({len(edited)}): "
+            f"{', '.join(edited)}"
+        )
+        print("  --force would discard those edits; copy them elsewhere first.")
+    print("  run: statspai skill install --force")
+    return 1
 
 
 def _print_route(payload: Dict[str, Any]) -> None:

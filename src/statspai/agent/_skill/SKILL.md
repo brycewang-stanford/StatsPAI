@@ -1,11 +1,11 @@
 ---
 name: statspai-analysis
-description: Run a full empirical / causal analysis in Python with StatsPAI (import statspai as sp) — applied-economics style (DID / RD / IV / synthetic control / DML / matching with estimating equation, identifying assumption, Table 1, main table, event-study figure, robustness gauntlet, Word / Excel / LaTeX export), epidemiology style (target-trial emulation, IPTW + g-formula + TMLE, Mendelian randomization, survival, E-values, STROBE / TRIPOD reporting), ML-causal style (DML, meta-learners, causal forest, CATE, policy learning, conformal, fairness), or decomposition style (Oaxaca-Blinder, Kitagawa, DFL, Gelbach, RIF). Use when the user names StatsPAI / statspai, asks for an AER / QJE-style empirical pipeline, event study, honest DID, spec curve, regression tables to Word / Excel (outreg2 / esttab / modelsummary equivalent), a replication bundle, a target-trial or g-formula analysis, or CATE / policy learning in Python.
+description: Run a full empirical / causal analysis in Python with StatsPAI (import statspai as sp) — applied-economics style (DID / RD / IV / synthetic control / DML / matching with estimating equation, identifying assumption, Table 1, main table, event-study figure, robustness gauntlet, Word / Excel / LaTeX export), epidemiology style (target-trial emulation, IPTW + g-formula + TMLE, Mendelian randomization, survival, E-values, STROBE / TRIPOD reporting), ML-causal style (DML, meta-learners, causal forest, CATE, policy learning, conformal, fairness), or decomposition style (Oaxaca-Blinder, Kitagawa, DFL, Gelbach, RIF). Use when the user names StatsPAI / statspai, asks for an AER / QJE-style empirical pipeline, event study, honest DID, spec curve, regression tables to Word / Excel (outreg2 / esttab / modelsummary equivalent), a replication bundle, a target-trial or g-formula analysis, or CATE / policy learning in Python, including requests in Chinese (实证分析 / 因果推断 / 双重差分 / 事件研究 / 回归表导出).
 ---
 
 # StatsPAI: agent-native causal inference, paper-ready
 
-StatsPAI is one `import statspai as sp` over 1,200+ registered functions for
+StatsPAI is one `import statspai as sp` over 1,500+ registered functions for
 causal inference and applied econometrics, numerically aligned with Stata / R
 reference implementations, with self-describing schemas and result objects that
 export to LaTeX / Word / Excel / BibTeX. This skill drives it through the
@@ -23,8 +23,15 @@ artifacts on disk at every step.
   every `sp.*(...)` call in a code block binds to the real signature
   (for a function that takes `**kwargs`, to its agent schema or forwarding
   target), and the
-  result attributes on the gate's smoke-fit list exist. There is no version
-  stamp to go stale.
+  result attributes on the gate's smoke-fit list exist. With `--run` the
+  pipeline files are also executed end to end on synthetic data, which is
+  what catches a call that binds but is rejected at run time. There is no
+  version stamp to go stale.
+- **Is this copy current?** An installed skill is a plain copy and does not
+  follow `pip install -U statspai`. `statspai skill status` compares it with
+  the skill packaged in the installed version; if it reports `stale`, say so
+  and suggest `statspai skill install --force` before relying on a call shape
+  written here.
 - **Paper**: Wang & Rozelle (2026), *Journal of Open Source Software* 11(125),
   10604, <https://doi.org/10.21105/joss.10604>.
 
@@ -111,8 +118,8 @@ Step-by-step code: `references/pipeline-econ.md`. Mode A:
   not a 2SLS t-ratio.
 - **Parity claims are per configuration**: quote `sp.validation_scope(result)`
   instead of a blanket "matches Stata / R".
-- **RD**: `sp.rddensity` and `sp.rdplot` before the effect table; bandwidth
-  sensitivity in robustness.
+- **RD**: `sp.rddensity` (test), `sp.rdplotdensity` (its figure) and `sp.rdplot`
+  before the effect table; bandwidth sensitivity in robustness.
 - **Matching / weighting**: balance (`sp.love_plot`, `sp.ps_balance`) before
   outcomes; say which estimand (ATT / ATE / ATO).
 - **Export all three formats** (`.to_word`, `.to_excel`, `.to_latex`) from the
@@ -141,6 +148,11 @@ Step-by-step code: `references/pipeline-econ.md`. Mode A:
 
 `statspai skill validate` (or `python validate_api_claims.py`) runs the gate:
 every `sp.<name>` in this skill exists, the documented argument names bind, and
-the documented result attributes hold on a live fit. `EVALS.md`-style held-out
+the documented result attributes hold on a live fit. `statspai skill validate
+--run` also executes the quick path, the verified skeleton, the three
+pipelines and the export recipes on synthetic frames (several minutes); a
+block opened with ```` ```python no-run ```` is a sketch that needs something
+the gate does not have (an LLM client, your own second dataset) and is bound
+but not executed. `EVALS.md`-style held-out
 checks for editing the skill itself live in the repository under
 `StatsPAI_full_data_analysis_skill/EVALS.md`.

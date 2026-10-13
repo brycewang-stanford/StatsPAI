@@ -39,8 +39,9 @@ ml = sp.metalearner(df, y="wage", treat="training", covariates=["age","edu","ten
 fig, ax = sp.cate_plot(ml, kind="hist"); fig.savefig("figures/fig4.png", dpi=300)
 
 # §7 Robustness — Oster + E-value + honest-DID sensitivity figure
-sp.oster_bounds(data=df, y="wage", treat="training", controls=["age","edu","tenure"], r_max=1.3)
-sp.evalue(estimate=M2.params["training"], ci=tuple(M2.conf_int().loc["training"]), measure="RR")
+sp.oster_bounds(data=df, y="wage", treat="training", controls=["age","edu","tenure"], r_max="1.3*r2")
+sp.evalue(estimate=M2.params["training"], ci=tuple(M2.conf_int().loc["training"]),
+          measure="OLS", sd=df["wage"].std())     # a regression coefficient is not a risk ratio
 fig, ax = sp.sensitivity_plot(sp.honest_did(cs, method="smoothness"),
                               original_estimate=cs.estimate, original_ci=cs.ci)
 fig.savefig("figures/fig6.png", dpi=300)

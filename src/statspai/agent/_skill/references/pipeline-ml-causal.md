@@ -16,6 +16,7 @@ import statspai as sp
 # 0.1 Train/holdout split — DML uses cross-fitting internally, but holdout is for policy eval.
 # statspai doesn't expose its own splitter; use sklearn directly.
 from sklearn.model_selection import train_test_split
+# X_cols is the list of PRE-TREATMENT covariate columns, fixed before any fit.
 train, holdout = train_test_split(df, test_size=0.2, stratify=df["treatment"], random_state=42)
 
 # 0.2 Nuisance learners. IMPORTANT: `sp.dml` / `sp.metalearner` do NOT accept a
@@ -75,27 +76,30 @@ ml_dr = sp.metalearner(train, y="revenue_30d", treat="treatment", covariates=X_c
 cf = sp.causal_forest("revenue_30d ~ treatment | " + " + ".join(X_cols),
                        train, n_estimators=2000, honest=True)
 
-# (4) Neural causal — Dragonnet / TARNet / CEVAE. REQUIRES torch: pip install statspai[neural].
-# Omit this block (and the neural columns below) if torch is not installed.
-dn   = sp.dragonnet(train, y="revenue_30d", treat="treatment", covariates=X_cols,
-                    repr_layers=(200,100), head_layers=(100,))
-tar  = sp.tarnet  (train, y="revenue_30d", treat="treatment", covariates=X_cols)
-
-# (5) Bayesian causal forest (full posterior over CATE)
+# (4) Bayesian causal forest (full posterior over CATE)
 bcf  = sp.bcf(train, y="revenue_30d", treat="treatment", covariates=X_cols,
               n_trees_mu=200, n_trees_tau=50)
 
-# (6) Panel matrix completion (when units × periods)
+# (5) Panel matrix completion (when the data are units × periods; `panel_df` is
+# that second frame, not the cross-section above)
 mc   = sp.matrix_completion(panel_df, y="revenue", d="treatment", unit="user_id", time="week")
 
 # Convergent evidence table — same regtable / collect stack. CausalResult AND CausalForest
-# both flow into regtable; drop `dn` if you skipped the neural block.
-rt = sp.regtable(dml, ml_dr, cf, dn, bcf,
-                 model_labels=["(1) DML-PLR","(2) DR-Learner","(3) Causal forest",
-                               "(4) Dragonnet","(5) BCF"],
+# both flow into regtable.
+rt = sp.regtable(dml, ml_dr, cf, bcf,
+                 model_labels=["(1) DML-PLR","(2) DR-Learner","(3) Causal forest","(4) BCF"],
                  stats=["N","ATE","CATE 5–95% range","Cross-fit folds","Nuisance R²"],
                  title="Table 2. ATE — ML estimator horse race")
 rt.to_word ("tables/table2_ml.docx"); rt.to_excel("tables/table2_ml.xlsx")
+```
+
+Neural estimators need torch (`pip install "statspai[neural]"`); add their results
+to the `regtable` call above as extra columns when you run them:
+
+```python no-run
+dn   = sp.dragonnet(train, y="revenue_30d", treat="treatment", covariates=X_cols,
+                    repr_layers=(200,100), head_layers=(100,))
+tar  = sp.tarnet  (train, y="revenue_30d", treat="treatment", covariates=X_cols)
 ```
 
 ### B.3 CATE distribution & subgroup view (the ML-causal headline)

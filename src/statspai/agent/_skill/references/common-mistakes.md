@@ -10,6 +10,7 @@
 | Skipping the event-study figure and going straight to the DID coefficient | Step 3.1 — `sp.event_study(...)` + `sp.enhanced_event_study_plot(...)` precedes the regression table |
 | Reporting IV without first-stage F | Step 3.2 — `iv.summary()` reports first-stage F; bench-mark F ≥ 10 (≥ 23 for AR-equivalent inference) |
 | Reporting RD without McCrary + binscatter | Step 3.3 — `sp.rddensity` + `sp.binscatter` |
+| `sp.rddensity(df, x, c).plot()` for the density figure | `sp.rdplotdensity(df, x=, c=)` draws it. `.plot()` on the test result is the generic coefficient plot and raises on it |
 | Single-spec main result with no robustness panel | Step 7 — placebo, Oster, honest_did, alt-SE, spec_curve are *expected*, not optional |
 | Cluster at observation level when treatment is at firm/state level | Cluster at the level of treatment assignment; use `sp.twoway_cluster` if multi-dim |
 | Raw panel → staggered DID without balance check | Run Step 0 `data_contract`; inspect `sp.balance_panel` output and cohort sizes |
@@ -27,6 +28,11 @@
 | `sp.callaway_santanna(..., covariates=[...])` | Kwarg is `x=[...]`, not `covariates=` |
 | `sp.subgroup_analysis(..., cluster=...)` | Kwarg is `robust='hc1'` (or `'hc0'`/`'hc2'`/`'hc3'`); no cluster slot |
 | `sp.oster_delta(..., treat=, controls=, r_max=)` | Real signature: `(data, y, x_base, x_controls, r_max)` |
+| `sp.oster_bounds(..., r_max=1.3)` | `r_max` is the R-squared itself and cannot exceed 1. Oster's rule of thumb is `r_max="1.3*r2"` (or leave it out: the default is `min(1, 1.3·R²)`) |
+| `sp.bjs_pretrend_joint(cs, df, group="first_treat_year", ...)` | It re-tests a `sp.did_imputation` result, not a CS result, and `group=` is the unit id (the cohort column goes in `first_treat=`). Fit `sp.did_imputation(df, ..., horizon=[-3, ..., 3])` first and pass the same arguments to both |
+| `sp.evalue(estimate=tmle.estimate, measure="RR")` on a default TMLE / AIPW fit | The default estimand is a risk difference. Refit with `estimand="RR"` before computing an E-value on the ratio scale. For a regression coefficient use `measure="OLS", sd=<outcome SD>`; `"RR"` on a wage coefficient is not an error the function can detect |
+| `df.query("first_treat_year > 2008")` to drop early cohorts | Never-treated units are coded 0, so this deletes the comparison group. Filter with `df[df["first_treat_year"] != earliest]` |
+| `sp.unified_sensitivity(model, ...)` on a model with several regressors | Pass `term="<treatment column>"`; without it the call is refused |
 | `sp.power_did(..., power_target=...)` | Wrappers don't auto-solve. Use dispatcher: `sp.power('did', ..., power_target=..., n_periods=, n_treated_periods=)` |
 | `sp.power_cluster_rct(n_clusters=..., power_target=...)` | Use dispatcher: `sp.power('cluster_rct', cluster_size=, icc=, effect_size=, power_target=)` |
 | `sp.cate_group_plot(forest, group=...)` | Takes a DataFrame: `g = sp.cate_by_group(ml, df, by=..., n_groups=4); sp.cate_group_plot(g)`. Forest result lacks per-row CATEs — use `sp.metalearner(..., learner='dr')` |

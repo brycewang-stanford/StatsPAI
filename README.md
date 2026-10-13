@@ -569,6 +569,8 @@ Claude Desktop、Cursor 等其他客户端：
 
 数据交接、结果句柄以及推荐的 识别设计 → 估计 → 审计 流程见 [MCP 工作流指南](docs/guides/economist_mcp_workflow_zh.md)。
 
+**作为 Claude Code skill**——`statspai skill install` 把随包附带的 `statspai-analysis` skill（应用经济学、流行病学、因果机器学习三条流程，表格同时导出 Word / Excel / LaTeX）复制到 `~/.claude/skills`。`statspai skill validate` 对照当前安装的版本逐条核对其中的 API 写法，加 `--run` 还会把流程里的代码在合成数据上实际跑一遍。已安装的 skill 只是一份拷贝，升级 StatsPAI 后不会自动更新，用 `statspai skill status` 检查，过期了就 `statspai skill install --force`。使用本库的 agent 从 [`AGENTS.md`](AGENTS.md) 和 [`llms.txt`](llms.txt) 读起。
+
 ---
 
 ## 验证状态：哪些核验过，哪些还没有

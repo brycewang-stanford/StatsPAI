@@ -117,7 +117,7 @@ sp.robustness_report(df, formula="wage ~ training + age + edu",
 sp.subgroup_analysis(df, formula="wage ~ training + age + edu",
                      x="training", by={"gender": "female", "age_bin": "age_quartile"})
 sp.oster_bounds(df, y="wage", treat="training",
-                controls=["age", "edu"], r_max=1.3)                  # Oster 2019
+                controls=["age", "edu"], r_max="1.3*r2")             # Oster 2019
 sp.unified_sensitivity(result, r2_treated=0.05, r2_controlled=0.10,
                        include_oster=True).summary()                  # text dashboard (.summary(); no figure)
 sp.sensitivity_dashboard(result).summary()                           # Cinelli-Hazlett + Oster + E-value (text)

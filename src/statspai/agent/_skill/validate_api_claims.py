@@ -21,11 +21,23 @@ It verifies three layers of perishable claims the skill makes:
   3. ATTRIBUTES  — the documented result-object attributes / return shapes hold
                    (the layer that drifts silently when the library adds a
                    convenience method, e.g. ``AFTResult.params`` in 1.19.0).
+  4. EXECUTION   — (``--run``) the pipeline files are executed, block by block
+                   in one namespace per file, on a synthetic frame that has the
+                   columns the file names. A call can bind and still be wrong:
+                   an argument value the function rejects, a result of the
+                   wrong kind passed downstream, an attribute the object does
+                   not have. Only running the code finds those. A block that
+                   cannot run here (it needs an LLM client, torch, or is a
+                   signature sketch) opens with ```` ```python no-run ````; it
+                   is still bound in layer 2b, and the number of such blocks is
+                   capped by a test.
 
 Usage
 -----
     python validate_api_claims.py            # full gate; exits non-zero on drift
     python validate_api_claims.py --quick    # existence + signatures only (no fits)
+    python validate_api_claims.py --run      # full gate + execute the pipelines
+    python validate_api_claims.py --run-only pipeline-epi.md   # one file, timed
 
 Keep this green. When it goes red, either the library changed (update the skill
 files + this file together) or a skill edit introduced a false claim. The skill
@@ -244,7 +256,7 @@ def check_signatures(failures: list[str]) -> None:
 
 
 # --------------------------------------------------------------------- calls
-_FENCE_OPEN = re.compile(r"^```(?:python|py)\s*$")
+_FENCE_OPEN = re.compile(r"^```(?:python|py)(?:[ \t]+(no-run))?\s*$")
 
 
 def _python_blocks(path: pathlib.Path) -> Any:
@@ -254,13 +266,20 @@ def _python_blocks(path: pathlib.Path) -> Any:
     only on a line that is exactly the fence, so a literal `````` inside a
     string does not end the block early.
     """
+    for start, source, _ in _tagged_python_blocks(path):
+        yield start, source
+
+
+def _tagged_python_blocks(path: pathlib.Path) -> Any:
+    """``(first_line_number, source, no_run)`` for each fenced Python block."""
     lines = path.read_text(encoding="utf-8").splitlines()
     i = 0
     while i < len(lines):
         raw = lines[i]
         quoted = re.match(r"^\s*(?:>\s?)+", raw)
         prefix = quoted.group(0) if quoted else ""
-        if not _FENCE_OPEN.match(raw[len(prefix) :].strip()):
+        fence = _FENCE_OPEN.match(raw[len(prefix) :].strip())
+        if not fence:
             i += 1
             continue
         start = i + 2
@@ -275,7 +294,7 @@ def _python_blocks(path: pathlib.Path) -> Any:
             body.append(line)
             i += 1
         i += 1
-        yield start, textwrap.dedent("\n".join(body))
+        yield start, textwrap.dedent("\n".join(body)), bool(fence.group(1))
 
 
 def _sp_call_target(node: ast.Call) -> Any:
@@ -303,10 +322,11 @@ def _forwarded_keyword_problems(name: str, node: ast.Call, params: Any) -> list[
 
     The signature alone cannot say which keywords are accepted, so three
     further sources are used, in order: the function's agent schema (which
-    lists the forwarded arguments of a dispatcher); for ``sp.route`` and
-    ``sp.power`` the family / design named by the first argument, whose
-    questions or wrapper signature define the keywords (and, for
-    ``route``, the legal answers); and a declared forwarding target. A
+    lists the forwarded arguments of a dispatcher); for ``sp.route``,
+    ``sp.power`` and ``sp.decompose`` the family / design / method named by
+    the first argument, whose questions or worker signature define the
+    keywords (and, for ``route``, the legal answers); and a declared
+    forwarding target. A
     keyword none of them knows is reported: it may be accepted at run
     time, but nothing here can show that it is.
     """
@@ -347,6 +367,17 @@ def _forwarded_keyword_problems(name: str, node: ast.Call, params: Any) -> list[
         if wrapper is None:
             return [f"names an unknown design {first!r}"]
         accepted |= set(inspect.signature(wrapper).parameters)
+    if name == "decompose" and isinstance(first, str):
+        # The dispatcher's table says which function a method name reaches.
+        from statspai.decomposition import dispatcher as _decomp
+
+        entry = _decomp._REGISTRY.get(first)
+        if entry is None:
+            return [f"names an unknown decomposition method {first!r}"]
+        import importlib
+
+        worker = getattr(importlib.import_module(entry[0]), entry[1])
+        accepted |= set(inspect.signature(worker).parameters)
     target = _FORWARD_TARGETS.get(name)
     if target and hasattr(sp, target):
         accepted |= set(inspect.signature(getattr(sp, target).__init__).parameters)
@@ -653,6 +684,255 @@ def check_attributes(failures: list[str]) -> None:
         _record(failures, False, "modern methods", f"{type(exc).__name__}: {exc}")
 
 
+# ------------------------------------------------------------------ execution
+def _worker_panel() -> dict:
+    """Staggered worker-year panel with the columns the econ pipeline names."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(20261014)
+    n, t = 300, 8
+    wid = np.repeat(np.arange(n), t)
+    df = pd.DataFrame({"worker_id": wid, "year": np.tile(np.arange(2010, 2010 + t), n)})
+    cohort = rng.choice([0, 2013, 2015, 2016], n, p=[0.4, 0.2, 0.2, 0.2])
+    firm = rng.integers(0, 40, n)
+    df["first_treat_year"] = cohort[wid]
+    df["firm_id"] = firm[wid]
+    df["industry"] = 31 + df["firm_id"] % 3
+    df["region"] = df["firm_id"] // 14
+    df["lat"] = rng.uniform(30, 40, 40)[df["firm_id"]]
+    df["lon"] = rng.uniform(100, 120, 40)[df["firm_id"]]
+    df["firm_size"] = rng.integers(10, 500, 40)[df["firm_id"]]
+    df["female"] = rng.integers(0, 2, n)[wid]
+    df["edu"] = rng.integers(9, 20, n)[wid]
+    df["age"] = 20 + rng.integers(0, 35, n)[wid] + (df["year"] - 2010)
+    df["tenure"] = rng.integers(0, 15, n)[wid] + (df["year"] - 2010)
+    df["motivation"] = rng.normal(size=n)[wid]
+    df["training"] = (
+        (df["first_treat_year"] > 0) & (df["year"] >= df["first_treat_year"])
+    ).astype(int)
+    noise = rng.normal(size=len(df))
+    df["Z1"] = 0.8 * df["training"] + rng.normal(size=len(df))
+    df["Z2"] = 0.5 * df["training"] + rng.normal(size=len(df))
+    df["training_hours"] = df["training"] * rng.uniform(5, 40, len(df))
+    df["hours_worked"] = 30 + 3 * df["training"] + rng.normal(0, 2, len(df))
+    df["wage"] = (
+        10
+        + 0.05 * df["age"]
+        + 0.3 * df["edu"]
+        + 1.2 * df["training"]
+        + 0.2 * (df["hours_worked"] - 30)
+        + 0.1 * (df["year"] - 2010)
+        + rng.normal(size=n)[wid]
+        + noise
+    )
+    # A score for the RD snippets, with a jump in the outcome at zero.
+    df["running_var"] = rng.normal(size=len(df))
+    df["wage"] += 1.5 * (df["running_var"] >= 0)
+    df["log_wage"] = np.log(df["wage"])
+    df["skill_quartile"] = pd.qcut(df["edu"].rank(method="first"), 4, labels=False) + 1
+    df["weeks_employed"] = (40 + 2 * df["training"] + rng.normal(0, 3, len(df))).clip(
+        0, 52
+    )
+    df["left_firm"] = (rng.uniform(size=len(df)) < 0.2 - 0.05 * df["training"]).astype(
+        int
+    )
+    df["promoted"] = (rng.uniform(size=len(df)) < 0.1 + 0.05 * df["training"]).astype(
+        int
+    )
+    return {"df_raw": df.copy(), "df": df}
+
+
+def _ehr_cohort() -> dict:
+    """Patient-month records with a baseline exposure and a binary outcome."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(20261015)
+    n, months = 500, 4
+    age = rng.integers(40, 76, n)
+    sex = rng.integers(0, 2, n)
+    ldl = rng.normal(160, 20, n).clip(130, None)
+    comorb = rng.poisson(1.5, n)
+    smoker = rng.integers(0, 2, n)
+    lin = -0.5 + 0.02 * (age - 55) + 0.01 * (ldl - 160) + 0.2 * comorb
+    statin = (rng.uniform(size=n) < 1 / (1 + np.exp(-lin))).astype(int)
+    risk = -1.2 + 0.03 * (age - 55) + 0.3 * comorb + 0.4 * smoker - 0.5 * statin
+    mace = (rng.uniform(size=n) < 1 / (1 + np.exp(-risk))).astype(int)
+    base = pd.DataFrame(
+        {
+            "patient_id": np.arange(n),
+            "age": age,
+            "sex": sex,
+            "ldl_baseline": ldl,
+            "comorbidity_index": comorb,
+            "smoker": smoker,
+            "statin_initiation": statin,
+            "mace": mace,
+            "followup_days": rng.exponential(900, n).clip(30, 1825).round(),
+            "zip_pharmacy_density": rng.normal(size=n) + 0.6 * statin,
+            "adherence_score": rng.uniform(size=n),
+        }
+    )
+    long = base.loc[base.index.repeat(months)].reset_index(drop=True)
+    long["month"] = np.tile(np.arange(months), n)
+    long["ldl_current"] = (
+        long["ldl_baseline"]
+        - 8 * long["statin_initiation"] * long["month"]
+        + rng.normal(0, 5, len(long))
+    )
+    k = 25
+    bx = rng.uniform(0.05, 0.2, k)
+    return {
+        "df": base,
+        "df_long": long,
+        "beta_exposure": bx,
+        "se_exposure": np.full(k, 0.01),
+        "beta_outcome": 0.4 * bx + rng.normal(0, 0.01, k),
+        "se_outcome": np.full(k, 0.01),
+    }
+
+
+def _uplift_experiment() -> dict:
+    """Marketing uplift cross-section plus a small user-week panel."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(20261016)
+    n = 1200
+    x_cols = [f"x{j}" for j in range(1, 7)]
+    df = pd.DataFrame(rng.normal(size=(n, 6)), columns=x_cols)
+    p = 1 / (1 + np.exp(-0.5 * df["x1"]))
+    df["treatment"] = (rng.uniform(size=n) < p).astype(int)
+    tau = 1.0 + 0.8 * (df["x2"] > 0)
+    df["revenue_30d"] = (
+        2 + df["x1"] + 0.5 * df["x3"] + tau * df["treatment"] + rng.normal(size=n)
+    )
+    df["customer_value_quartile"] = pd.qcut(df["x2"], 4, labels=False) + 1
+    df["offer_cost"] = 2.0 * df["treatment"] + rng.uniform(0, 0.5, n)
+    df["gender"] = rng.integers(0, 2, n)
+    units, weeks = 40, 12
+    panel = pd.DataFrame(
+        {
+            "user_id": np.repeat(np.arange(units), weeks),
+            "week": np.tile(np.arange(weeks), units),
+        }
+    )
+    treated = panel["user_id"] < 12
+    panel["treatment"] = (treated & (panel["week"] >= 8)).astype(int)
+    panel["revenue"] = (
+        rng.normal(size=units)[panel["user_id"]]
+        + 0.1 * panel["week"]
+        + 1.5 * panel["treatment"]
+        + rng.normal(0, 0.5, len(panel))
+    )
+    return {"df": df, "X_cols": x_cols, "panel_df": panel}
+
+
+#: Files whose blocks are executed in order, one namespace per file, and the
+#: fixture each one starts from. The other reference files are catalogs of
+#: call shapes with placeholder column names; layer 2b covers those.
+RUN_PLAN = {
+    "quick-path.md": None,
+    "verified-skeleton.md": _worker_panel,
+    "pipeline-econ.md": _worker_panel,
+    "pipeline-epi.md": _ehr_cohort,
+    "pipeline-ml-causal.md": _uplift_experiment,
+    "export.md": _worker_panel,
+}
+_OUTPUT_DIRS = ("tables", "figures", "artifacts", "replication")
+
+
+def run_file(path: pathlib.Path, *, verbose: bool = False) -> dict:
+    """Execute a file's runnable blocks; return what ran and what raised."""
+    import contextlib
+    import io
+    import os
+    import tempfile
+    import time
+    import traceback
+    import warnings
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    builder = RUN_PLAN[path.name]
+    env: dict = dict(builder()) if builder else {}
+    report: dict = {"ran": 0, "no_run": 0, "errors": []}
+    here = os.getcwd()
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        try:
+            for d in _OUTPUT_DIRS:
+                os.makedirs(d)
+            for start, source, no_run in _tagged_python_blocks(path):
+                if no_run:
+                    report["no_run"] += 1
+                    continue
+                t0 = time.perf_counter()
+                try:
+                    with (
+                        warnings.catch_warnings(),
+                        contextlib.redirect_stdout(io.StringIO()),
+                    ):
+                        warnings.simplefilter("ignore")
+                        # The source is a code block of this skill's own
+                        # Markdown, shipped in the same package as this file.
+                        code = compile(source, path.name, "exec")
+                        exec(code, env)  # noqa: S102  # nosec B102
+                    report["ran"] += 1
+                except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+                    lines = [
+                        fr.lineno
+                        for fr in traceback.extract_tb(exc.__traceback__)
+                        if fr.filename == path.name
+                    ]
+                    at = start + lines[-1] - 1 if lines else start
+                    code = source.splitlines()[lines[-1] - 1].strip() if lines else ""
+                    report["errors"].append(
+                        f"{path.name}:{at} {type(exc).__name__}: "
+                        f"{str(exc).splitlines()[0][:200] if str(exc) else ''}"
+                        f"  |  {code[:90]}"
+                    )
+                finally:
+                    plt.close("all")
+                    if verbose:
+                        print(
+                            f"      {path.name}:{start:<5} "
+                            f"{time.perf_counter() - t0:6.1f}s"
+                        )
+            report["files_written"] = sum(
+                1 for p in pathlib.Path(tmp).rglob("*") if p.is_file()
+            )
+        finally:
+            os.chdir(here)
+    return report
+
+
+def check_execution(failures: list[str], only: Any = None) -> None:
+    print("\n== 4. EXECUTION: the pipeline files run on their fixtures ==")
+    for name in RUN_PLAN:
+        if only and name != only:
+            continue
+        path = SKILL_DIR / "references" / name
+        if not path.exists():
+            _record(failures, False, name, "file in RUN_PLAN is missing")
+            continue
+        report = run_file(path, verbose=bool(only))
+        for err in report["errors"]:
+            _record(failures, False, "run", err)
+        if not report["errors"]:
+            _record(
+                failures,
+                True,
+                f"{name}: {report['ran']} blocks ran, "
+                f"{report['no_run']} marked no-run, "
+                f"{report['files_written']} files written",
+            )
+
+
 def _silent_ok(thunk: Any) -> bool:
     try:
         thunk()
@@ -669,6 +949,17 @@ def main() -> int:
         action="store_true",
         help="existence + signatures only (skip the smoke fits)",
     )
+    ap.add_argument(
+        "--run",
+        action="store_true",
+        help="also execute the pipeline files on synthetic data (minutes)",
+    )
+    ap.add_argument(
+        "--run-only",
+        metavar="FILE",
+        choices=sorted(RUN_PLAN),
+        help="execute one pipeline file only, with per-block timings",
+    )
     args = ap.parse_args()
 
     print(
@@ -676,12 +967,15 @@ def main() -> int:
         f"({len(SKILL_FILES)} files)"
     )
     failures: list[str] = []
-    check_references(failures)
-    check_modules(failures)
-    check_signatures(failures)
-    check_call_keywords(failures)
-    if not args.quick:
-        check_attributes(failures)
+    if not args.run_only:
+        check_references(failures)
+        check_modules(failures)
+        check_signatures(failures)
+        check_call_keywords(failures)
+        if not args.quick:
+            check_attributes(failures)
+    if args.run or args.run_only:
+        check_execution(failures, only=args.run_only)
 
     print("\n" + "=" * 60)
     if failures:

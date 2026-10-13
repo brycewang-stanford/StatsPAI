@@ -105,6 +105,69 @@ does. No estimate changes.
 - `statspai-mcp --profile full` prints a warning with the size of the
   list it is about to advertise.
 
+### The packaged skill's examples are now run, not only parsed
+
+#### Fixed
+
+- **Examples in the `statspai-analysis` skill that bound to a real
+  signature and still failed when run.** The skill's gate checked that
+  every `sp.*` name exists and every keyword is one the function takes.
+  It never executed the code. Running the pipeline files on synthetic
+  data turned up these, all in text an agent is told to copy.
+  - The "verified skeleton", the econ pipeline and the method catalog
+    called `sp.oster_bounds(..., r_max=1.3)`. `r_max` is an R-squared and
+    the function rejects a value above 1. Oster's rule of thumb is
+    `r_max="1.3*r2"`.
+  - `sp.bjs_pretrend_joint` was shown with a Callaway-Sant'Anna result
+    and `group=` set to the cohort column. It needs a `sp.did_imputation`
+    result and the unit id, and as written every bootstrap replication
+    failed.
+  - The epidemiology pipeline passed a TMLE risk difference to
+    `sp.evalue(measure="RR")`. A negative risk difference is refused and
+    a positive one would have been read as a risk ratio. The example now
+    refits with `estimand="RR"`.
+  - The econ pipeline and the skeleton computed an E-value from an OLS
+    wage coefficient with `measure="RR"`. That runs and returns a number
+    that means nothing. They now pass `measure="OLS"` with the outcome
+    standard deviation.
+  - In the econ pipeline `result` meant three different objects. The
+    E-value and `sp.estat` snippets read `.params` from a result that has
+    none, and `sp.unified_sensitivity` was called without `term=` on a
+    model with several regressors.
+  - Two robustness snippets dropped early cohorts with
+    `first_treat_year > 2008`. Never-treated units are coded 0, so that
+    filter deletes the whole comparison group.
+  - The McCrary figure was drawn with `sp.rddensity(...).plot()`. That is
+    the generic coefficient plot, and it raises on this result because
+    the reported interval is for the density difference while the
+    estimate is the test statistic. The figure comes from
+    `sp.rdplotdensity`.
+  - Smaller ones. A codebook written into a directory that does not
+    exist, placeholder columns (`X`, `Z`, `y`) inside otherwise concrete
+    formulas, and synthetic-control calls on a worker panel that has no
+    single treated unit (they now use the bundled Proposition 99 panel).
+
+#### Added
+
+- **`statspai skill validate --run`** executes the quick path, the
+  verified skeleton, the three pipelines and the export recipes, block by
+  block in one namespace per file, on synthetic frames built inside the
+  gate. A block that needs something the gate does not have opens with
+  ```` ```python no-run ````. It is still bound against the signature,
+  and a test caps how many such blocks there are (one today, the torch
+  estimators). The verified skeleton runs in the default test suite. The
+  full pipelines take minutes and are marked `slow`.
+- **`statspai skill status`** says whether an installed copy matches the
+  skill packaged with the installed version. A skill in
+  `~/.claude/skills` is a plain copy, so it keeps describing the API of
+  the release it was copied from. `statspai skill install` now leaves a
+  small record next to the copy, which lets `status` tell a copy that
+  fell behind from one that was edited by hand before `--force`
+  overwrites it.
+- The binding check follows `sp.decompose(method, ...)` to the function
+  the method name reaches, as it already did for `sp.route` and
+  `sp.power`.
+
 ### Sample size on results that recorded it as `n_obs`
 
 #### Fixed

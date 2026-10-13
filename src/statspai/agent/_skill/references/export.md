@@ -12,6 +12,18 @@ StatsPAI's export stack is the agent-native equivalent of Stata's `outreg2` / `e
 | **2. Multi-panel paper format** (Tables 2 + 3 + A1 + A2 in one file) | Producing the *paper-tables block* — main + heterogeneity + robustness + placebo as a single document | `pt = sp.paper_tables(main=[M1...M5], heterogeneity=[H1,H2,H3], robustness=[R1...Rn], placebo=[P1,P2], template="aer")`<br>`pt.to_docx("paper_tables.docx")`<br>`pt.to_xlsx("paper_tables.xlsx")`<br>`pt.to_latex(...)` | `main`, `heterogeneity`, `robustness`, `placebo`, `template`, `coef_labels`, `model_labels_<panel>`, `keep` |
 | **3. Full session bundle** (Stata 15 `collect` equivalent) | Replication appendix that mixes summary stats + balance + multiple regression tables + headings + prose in **one** file | `c = sp.collect("Paper title", template="aer")`<br>`c.add_heading("§1. Descriptives")`<br>`c.add_summary(df, vars=...)`<br>`c.add_balance(df, treatment=, variables=...)`<br>`c.add_regression(M1, M2, ..., title="Table 2")`<br>`c.add_text("Notes ...")`<br>`c.save("paper.docx")` (auto-detect by extension; `.xlsx`/`.tex`/`.md`/`.html`/`.txt` all work) | `add_heading(level=)`, `add_summary(stats=, labels=)`, `add_balance(weights=, test=)`, `add_regression(**regtable_kwargs)`, `add_table(result)`, `add_text(...)` |
 
+The recipes on this page use three fitted models and the worker panel `df` of
+`pipeline-econ.md` (wage, training, age, edu, tenure, firm_size, firm_id, year):
+
+```python
+import statspai as sp
+
+M1 = sp.regress("wage ~ training",                                  df, cluster="firm_id")
+M2 = sp.regress("wage ~ training + age + edu",                      df, cluster="firm_id")
+M3 = sp.regress("wage ~ training + age + edu + tenure + firm_size", df, cluster="firm_id")
+models = [M1, M2, M3]
+```
+
 **Journal templates** (apply the right SE label, star levels, and notes automatically):
 
 ```python
@@ -116,7 +128,7 @@ If the saved PNG shows Chinese characters cleanly *and* the y-axis tick `-1` is 
 > - **`sp.binscatter(...)` returns a 3-tuple** `(fig, ax, binned_df)` — `fig, ax, _ = sp.binscatter(...)`.
 > - **`sp.kaplan_meier(...).plot()` returns a bare `Axes`** (it is a `KMResult`, not a `CausalResult`) — save via `ax = km.plot(); ax.figure.savefig(...)`.
 >
-> This applies uniformly to `coefplot`, `binscatter`, `rdplot`, `rddensity().plot()`, `bacon_plot`, `enhanced_event_study_plot`, `did_summary_plot`/`ggdid`/`group_time_plot`, `synthdid_plot`, `cate_plot`, `cate_group_plot`, `dose_response().plot()`, `sensitivity_plot`, `match().plot()`, `synth().plot()`, and a generic `result.plot()`. The code blocks below all use the unpack-then-save form.
+> This applies uniformly to `coefplot`, `binscatter`, `rdplot`, `rdplotdensity`, `bacon_plot`, `enhanced_event_study_plot`, `did_summary_plot`/`ggdid`/`group_time_plot`, `synthdid_plot`, `cate_plot`, `cate_group_plot`, `dose_response().plot()`, `sensitivity_plot`, `match().plot()`, `synth().plot()`, and a generic `result.plot()`. The code blocks below all use the unpack-then-save form.
 
 ### Troubleshooting
 
@@ -171,7 +183,7 @@ rt = sp.regtable(*models,
                  # only if you want the constant suppressed; add
                  # `keep=[focal]` only for an intentional focal-only table.
                  coef_labels={"training": "Training"},
-                 model_labels=[...],              # column labels
+                 model_labels=["(1)", "(2)", "(3)"],  # one label per column
                  stats=["N", "R2", "Cluster", "FE", "DV mean"],
                  title="Table N. ...")
 
@@ -194,7 +206,7 @@ For pyfixest-style native output, `sp.etable(*models, ...)` is the alternative; 
 | 2a' | Bacon weights | `sp.bacon_plot(sp.bacon_decomposition(...))` | §3 |
 | 2a'' | CS-DID dynamic effects | `cs.plot()` · `sp.ggdid(cs)` · `sp.group_time_plot(cs)` | §3 |
 | 2b | RD canonical plot | `sp.rdplot(df, y, x, c)` | §3 |
-| 2b' | McCrary density | `sp.rddensity(df, x, c).plot()` | §3 |
+| 2b' | McCrary density | `sp.rdplotdensity(df, x, c)` *(the test itself is `sp.rddensity`; its `.plot()` is not a density plot)* | §3 |
 | 2c | Matching love plot | `sp.match(...).plot()` | §3 |
 | 2d | SCM trajectory | `sp.synth(...).plot()` · `sp.synthdid_plot(sp.sdid(...))` | §3 |
 | 3 | Coefficient plot of main specs | `sp.coefplot(M1...M5, variables=["x"])` | §4 |

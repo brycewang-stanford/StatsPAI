@@ -729,7 +729,10 @@ handoff, result handles, and the recommended detect → estimate → audit loop.
 **As a Claude Code skill** — `statspai skill install` copies the packaged
 `statspai-analysis` skill (applied-econ / epidemiology / ML-causal pipelines
 with paper-ready exports) into `~/.claude/skills`; `statspai skill validate`
-re-checks every API claim in it against the installed package. Agents using the
+re-checks every API claim in it against the installed package, and with `--run`
+executes its pipelines on synthetic data. The installed skill is a copy and does
+not follow package upgrades: `statspai skill status` reports whether it is
+current, `statspai skill install --force` refreshes it. Agents using the
 library start at [`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt).
 
 ---

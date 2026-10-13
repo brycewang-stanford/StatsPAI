@@ -40,7 +40,8 @@ cohort_res = sp.target_trial_emulate(
     protocol, df, outcome_col="mace", treatment_col="statin_initiation",
     time_zero_filter=lambda d: d["age"].between(40, 75) & (d["ldl_baseline"] >= 130),
 )
-cohort = df   # downstream estimators run on the eligible analysis frame you constructed
+cohort = df            # baseline frame, ONE ROW PER PATIENT: the point-exposure estimators run on it
+cohort_long = df_long  # person-period frame (one row per patient-month) for the time-varying MSM in A.3
 ```
 
 ### A.1 Table 1 — baseline characteristics by exposure
@@ -93,8 +94,9 @@ ax.figure.savefig("figures/figA2_km.png", dpi=300)
 Report **all three** in one `regtable` so the reader sees convergent doubly-robust evidence — this is the epi equivalent of the AER design horse race:
 
 ```python
-# (1) IPTW marginal structural model
-iptw = sp.msm(cohort, y="mace", treat="statin_initiation",
+# (1) IPTW marginal structural model. Exposure and confounders vary over
+# follow-up, so this one takes PERSON-PERIOD rows; do not pass the baseline frame.
+iptw = sp.msm(cohort_long, y="mace", treat="statin_initiation",
               id="patient_id", time="month",
               time_varying=["ldl_current","comorbidity_index"],
               baseline=["age","sex"])
@@ -171,6 +173,8 @@ import pandas as pd
 # Standard MR triple: IVW → Egger → weighted median, on summary statistics.
 # Each mr_* returns a DICT (keys: estimate, se, ci_lower, ci_upper, p_value, ...) —
 # NOT a result object, so it does NOT go into sp.regtable. Assemble a DataFrame instead.
+# beta_exposure / se_exposure / beta_outcome / se_outcome are per-SNP arrays
+# from the exposure and outcome GWAS, harmonised to the same effect allele.
 ivw    = sp.mr_ivw   (beta_exposure, beta_outcome, se_exposure, se_outcome)
 egger  = sp.mr_egger (beta_exposure, beta_outcome, se_exposure, se_outcome)   # 'intercept'(_p) = pleiotropy test
 median = sp.mr_median(beta_exposure, beta_outcome, se_exposure, se_outcome, penalized=True)
@@ -188,7 +192,12 @@ print(mr_table)
 ```python
 # E-value: minimum strength of unmeasured confounding to explain away the result.
 # CausalResult exposes `.estimate` and `.ci` (there is NO `.point_estimate`).
-ev = sp.evalue(estimate=tmle.estimate, ci=tmle.ci, measure="RR")
+# `measure="RR"` needs a RISK RATIO. The TMLE above targets the risk DIFFERENCE
+# (it can be negative, and sp.evalue rejects it), so refit on the ratio scale.
+tmle_rr = sp.tmle(cohort, y="mace", treat="statin_initiation",
+                  covariates=["age","sex","ldl_baseline","comorbidity_index","smoker"],
+                  estimand="RR")
+ev = sp.evalue(estimate=tmle_rr.estimate, ci=tmle_rr.ci, measure="RR")
 # → "E-value 1.84; CI E-value 1.42" (a confounder must be ~2x associated with both
 #   exposure and outcome to nullify the effect — interpret in your domain)
 

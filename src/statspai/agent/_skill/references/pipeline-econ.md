@@ -12,6 +12,7 @@
 # power_iv / power_cluster_rct / power_ols) accept *only* the design's
 # native arguments — they will NOT solve for power_target / n / effect
 # unless you go via `sp.power(design, ..., power_target=...)`.
+import statspai as sp
 
 sp.power("rct", effect_size=0.3, power_target=0.80)                  # → PowerResult(n=349, power=0.80)
 sp.power("did", n=200, effect_size=0.15, power_target=0.80,
@@ -32,6 +33,7 @@ An AER §1 *Data* section has three jobs: (a) describe sources, (b) document **e
 ### 0.1 Sample-construction log (footnote 4)
 
 ```python
+MANUF_CODES = [31, 32, 33]                                  # your industry codes
 sample_log = []
 df0 = df_raw.copy();                                       sample_log.append(("0. raw",                len(df0)))
 df1 = df0.dropna(subset=["wage"]);                          sample_log.append(("1. drop missing wage",  len(df1)))
@@ -120,7 +122,7 @@ The Imbens–Rubin rule of thumb: a normalized difference `|Δ| / √((s²₁+s�
 # the panel headers as **Control / Treated** so the academic Table 1 reads
 # correctly out of the box. For non-0/1 codings or different wording, pass
 # `by_labels={0:"Untrained", 1:"Trained"}` (or `{"A":"Control","B":"Treated"}`).
-print(sp.sumstats(df, vars=["wage","edu","exp","tenure","age"],
+print(sp.sumstats(df, vars=["wage","edu","tenure","age"],
                   by="training", output="text"))
 
 # AER-style balance table → Word + Excel + LaTeX in three lines.
@@ -134,7 +136,7 @@ mc = sp.mean_comparison(df,
 mc.to_word ("tables/table1_summary.docx")     # editable in Word
 mc.to_excel("tables/table1_summary.xlsx")     # editable in Excel
 open("tables/table1_summary.tex", "w").write(mc.to_latex())
-sp.describe(df).to_markdown("references/codebook.md")              # auto-codebook
+sp.describe(df).to_markdown("artifacts/codebook.md")               # auto-codebook
 ```
 
 ### 1.1 Multi-panel Table 1 (AER convention)
@@ -144,8 +146,8 @@ Group rows into **Panel A: Outcomes**, **Panel B: Treatment intensity**, **Panel
 panels = {
     "A. Outcomes":             ["wage", "log_wage", "weeks_employed"],
     "B. Treatment":            ["training", "training_hours"],
-    "C. Demographic controls": ["age", "edu", "female", "married"],
-    "D. Labor market":         ["tenure", "firm_size", "industry_id"],
+    "C. Demographic controls": ["age", "edu", "female"],
+    "D. Labor market":         ["tenure", "firm_size"],
 }
 
 c1 = sp.collect("Table 1. Summary statistics", template="aer")
@@ -262,7 +264,9 @@ Path("artifacts/empirical_strategy.md").write_text(
 # Machine-readable sidecar (full question, replayable):
 Path("artifacts/causal_question.yaml").write_text(q.to_yaml())
 
-result = q.estimate()              # run only after the plan is committed to disk / git
+est = q.estimate()                 # run only after the plan is committed to disk / git
+# `est` wraps the fitted model (est.estimate / est.se / est.ci / est.underlying). The
+# CausalResult the later steps call `result` is fitted in Step 4.6.
 ```
 
 ### 2.5 (Optional) LLM-assisted DAG addendum
@@ -270,23 +274,29 @@ result = q.estimate()              # run only after the plan is committed to dis
 Useful when the user wants an explicit DAG to defend in §2 or §7. Pipe the discovered DAG into `sp.causal(..., dag=...)`.
 
 ```python
+# Name the variables that belong in the DAG. Passing every column (ids, cohort
+# codes, coordinates) asks the search to orient edges that mean nothing.
+dag_vars = ["wage", "training", "age", "edu", "tenure", "firm_size"]
 proposal   = sp.llm_dag_propose(
-    variables=df.columns.tolist(),
+    variables=dag_vars,
     domain="labor economics: training, wages, tenure",
-    client=my_llm_client,                          # .complete(prompt) -> str; None = heuristic
+    client=None,                 # an object with .complete(prompt) -> str; None = heuristic
 )
 validation = sp.llm_dag_validate(proposal, df, alpha=0.05)   # (dag, data) positional
 print(validation.edge_evidence)
 
 discovered = sp.llm_dag_constrained(
-    df,
+    df, variables=dag_vars,
     descriptions={"wage": "monthly wage USD", "training": "0/1 program"},
-    oracle=my_llm_client.suggest_edges,            # optional; falls back to plain PC
+    oracle=None,                 # e.g. my_llm_client.suggest_edges; None = plain PC
     max_iter=3,
 )
-# The result is an LLMConstrainedDAGResult — it has NO `.dag` attribute. Get a DAG with
-# `.to_dag()` (or inspect `.final_edges`). Pass into Step 4 as:
+# The result is an LLMConstrainedDAGResult — it has NO `.dag` attribute. Inspect
+# `.final_edges` (the directed edges), then `.to_dag()` for Step 4:
 #   sp.causal(..., dag=discovered.to_dag())
+# Read the edges before using them: with few variables and a panel, the search
+# can orient edges into a cycle, and `.to_dag()` then raises.
+print(discovered.final_edges)
 ```
 
 ## Step 3 — Identification graphics (Section "Identification, graphical evidence")
@@ -329,11 +339,14 @@ bd = sp.bacon_decomposition(df, y="wage", treat="training",
 fig, ax = sp.bacon_plot(bd, title="Figure 2a-bis. Goodman-Bacon weights")
 fig.savefig("figures/fig2a2_bacon.png", dpi=300)
 
-# Borusyak–Jaravel–Spiess joint pre-trends test — needs the CS/SA result
-# AND the underlying panel (NOT the event_study() output):
-sp.bjs_pretrend_joint(cs, df, y="wage", group="first_treat_year",
-                      time="year", first_treat="first_treat_year",
-                      controls=["age", "edu"])
+# Borusyak–Jaravel–Spiess joint pre-trends test. It re-tests the leads of a
+# `sp.did_imputation` fit (NOT the CS result, NOT event_study() output) with a
+# cluster-bootstrap covariance, so pass the same arguments to both calls.
+# `group=` is the UNIT id here; the cohort column goes in `first_treat=`.
+bjs_args = dict(y="wage", group="worker_id", time="year",
+                first_treat="first_treat_year")
+bjs = sp.did_imputation(df, horizon=list(range(-3, 4)), **bjs_args)
+sp.bjs_pretrend_joint(bjs, df, n_boot=200, seed=42, **bjs_args)
 ```
 
 ### 3.2 First-stage F-statistic + scatter (IV identification)
@@ -353,13 +366,17 @@ The signature RD figure is `sp.rdplot` (CCT-style binned scatter with local-poly
 
 ```python
 # Figure 2b — canonical RD plot (binned means + local poly fit on each side)
-fig, ax = sp.rdplot(df, y="y", x="running_var", c=0,
+fig, ax = sp.rdplot(df, y="wage", x="running_var", c=0,
                     p=4, kernel="triangular", binselect="esmv",
                     shade_ci=True, ci_level=0.95)
 fig.savefig("figures/fig2b_rdplot.png", dpi=300)
 
-# Figure 2b-bis — McCrary density (manipulation test). .plot() → (fig, ax)
-fig, ax = sp.rddensity(df, x="running_var", c=0).plot()
+# Figure 2b-bis — density of the running variable (manipulation test). The TEST is
+# sp.rddensity (report its p-value); the FIGURE is sp.rdplotdensity. Do not call
+# .plot() on the rddensity result: that is the generic one-coefficient plot.
+dens = sp.rddensity(df, x="running_var", c=0)
+print(dens.summary())                                 # T-statistic + p-value for the footnote
+fig, ax = sp.rdplotdensity(df, x="running_var", c=0)
 fig.savefig("figures/fig2b2_mccrary.png", dpi=300)
 
 # Optional: covariate-adjusted binscatter (continuity in covariates is also testable)
@@ -379,14 +396,23 @@ fig.savefig("figures/fig2c_love_plot.png", dpi=300)
 For synthetic-control designs the canonical Figure 2 is the treated-vs-synthetic time-series with treatment time annotated. `synthdid_plot` does this in one line.
 
 ```python
-sc = sp.synth(df, outcome="y", unit="unit", time="time",
-              treated_unit=1, treatment_time=2000)
+# SCM needs another data shape: ONE treated unit, a donor pool, a long
+# pre-period. The worker panel is not that, so this block runs on the bundled
+# Proposition 99 panel (state × year); swap in your own unit / time / outcome.
+prop99 = sp.datasets.california_prop99()
+sc = sp.synth(prop99, outcome="cigsale", unit="state", time="year",
+              treated_unit="California", treatment_time=1989)
 fig, ax = sc.plot()                                   # treated vs synthetic + gap
 fig.savefig("figures/fig2d_synth_trajectory.png", dpi=300)
-sd = sp.sdid(df, outcome="y", unit="unit", time="time",
-             treated_unit=1, treatment_time=2000)
+sd = sp.sdid(prop99, outcome="cigsale", unit="state", time="year",
+             treated_unit="California", treatment_time=1989)
 fig, ax = sp.synthdid_plot(sd, title="Figure 2d. Synthetic DID")
 fig.savefig("figures/fig2d2_sdid.png", dpi=300)
+
+# In-time placebo: move the treatment date into the pre-period; the gap should vanish.
+sp.synth_time_placebo(prop99, outcome="cigsale", unit="state", time="year",
+                      treated_unit="California", treatment_time=1989,
+                      n_placebo_times=5)
 ```
 
 ### 3.6 Generic pre-flight (identification-independent)
@@ -533,17 +559,22 @@ open("tables/table2c_multi_outcome.tex", "w").write(rt.to_latex())
 Same model family, two horizons (short-run / long-run) or two samples (pre-2015 / post-2015) stacked vertically. Use `panel_labels`.
 
 ```python
-panelA = [sp.feols("wage_t1 ~ training + X | industry + year",  df, vcov={"CRV1":"firm_id"}),
-          sp.feols("wage_t1 ~ training + X | worker_id + year", df, vcov={"CRV1":"firm_id"})]
-panelB = [sp.feols("wage_t5 ~ training + X | industry + year",  df, vcov={"CRV1":"firm_id"}),
-          sp.feols("wage_t5 ~ training + X | worker_id + year", df, vcov={"CRV1":"firm_id"})]
+# Outcome h years ahead, built within worker (rows without a lead drop out).
+df = df.sort_values(["worker_id", "year"])
+df["wage_t1"] = df.groupby("worker_id")["wage"].shift(-1)
+df["wage_t3"] = df.groupby("worker_id")["wage"].shift(-3)
+X = "age + edu + tenure"
+panelA = [sp.feols(f"wage_t1 ~ training + {X} | industry + year",  df, vcov={"CRV1":"firm_id"}),
+          sp.feols(f"wage_t1 ~ training + {X} | worker_id + year", df, vcov={"CRV1":"firm_id"})]
+panelB = [sp.feols(f"wage_t3 ~ training + {X} | industry + year",  df, vcov={"CRV1":"firm_id"}),
+          sp.feols(f"wage_t3 ~ training + {X} | worker_id + year", df, vcov={"CRV1":"firm_id"})]
 
 rt = sp.regtable(*panelA, *panelB,
                  template="aer",
                  panel_labels=["Panel A. Short-run (1 year)",
                                "Panel A. Short-run (1 year)",
-                               "Panel B. Long-run (5 years)",
-                               "Panel B. Long-run (5 years)"],
+                               "Panel B. Long-run (3 years)",
+                               "Panel B. Long-run (3 years)"],
                  model_labels=["(1) Industry FE","(2) Worker FE"]*2,
                  stats=["N","R2"],
                  title="Table 2-quater. Short- vs long-run effects")
@@ -558,14 +589,14 @@ The textbook AER IV table presents the **first stage**, the **reduced form**, an
 > **Trap:** `sp.ivreg` does **not** absorb `| fe` and does **not** parse `C(fe)` — it **silently drops** a `| industry + year` term (identical β̂ with or without it), so a 2SLS column written that way would not control for the FE the first-stage/reduced-form columns absorb. Keep the IV triplet on the **same low-dim control set** in all three columns; to control for fixed effects in a 2SLS, pre-build dummy columns in pandas and add them explicitly, or partial the FE out first.
 
 ```python
-fs = sp.feols("training ~ Z + age + edu", df, vcov={"CRV1":"firm_id"})   # 1st stage
-rf = sp.feols("wage     ~ Z + age + edu", df, vcov={"CRV1":"firm_id"})   # reduced form
-iv = sp.ivreg("wage ~ (training ~ Z) + age + edu", df, cluster="firm_id")  # 2SLS (same controls)
+fs = sp.feols("training ~ Z1 + age + edu", df, vcov={"CRV1":"firm_id"})   # 1st stage
+rf = sp.feols("wage     ~ Z1 + age + edu", df, vcov={"CRV1":"firm_id"})   # reduced form
+iv = sp.ivreg("wage ~ (training ~ Z1) + age + edu", df, cluster="firm_id")  # 2SLS (same controls)
 
 rt = sp.regtable(fs, rf, iv,
                  template="aer",
-                 keep=["Z", "training"],               # IV triplet is intentionally focal:
-                                                       # show only Z + endog so the reader can
+                 keep=["Z1", "training"],              # IV triplet is intentionally focal:
+                                                       # show only Z1 + endog so the reader can
                                                        # eyeball Wald-ratio = RF / FS. For the
                                                        # full coef list, drop the kwarg entirely.
                  dep_var_labels=["training", "wage", "wage"],
@@ -583,12 +614,15 @@ For DID / IV / RD / SCM mains, the `sp.causal(...)` orchestrator returns a `Caus
 ```python
 w = sp.causal(df, y="wage", treatment="training",
               id="worker_id", time="year", design="did",
-              covariates=["age", "edu", "tenure"],
-              dag=discovered.to_dag())             # optional (LLMConstrainedDAGResult.to_dag())
+              covariates=["age", "edu", "tenure"])
+# Optional: dag=sp.dag("age -> training; age -> wage; training -> wage") or the
+# learned graph of §2.5, dag=discovered.to_dag(). A graph learned by PC is not
+# guaranteed to be acyclic; to_dag() raises on a cycle rather than repair it.
 print(w.diagnostics)                               # PT verdict + warnings
 print(w.recommendation)                            # which estimator + why
 print(w.result.summary())                          # point estimate + cluster-robust SE + CI
 print(w.robustness_findings)                       # automated robustness battery preview
+result = w.result                                  # the CausalResult §7 and §8 call `result`
 ```
 
 ### 4.7 Figure 3 — coefficient plot of the main table
@@ -646,6 +680,7 @@ open("tables/table3_heterogeneity.tex", "w").write(rt.to_latex())
 Test moderation formally with interaction terms — referees often ask whether the gap between subgroups is statistically significant, which requires the interaction p-value.
 
 ```python
+df["log_firm_size"] = np.log(df["firm_size"])
 H1 = sp.feols("wage ~ training*female + age + edu + tenure | industry + year",
               df, vcov={"CRV1": "firm_id"})
 H2 = sp.feols("wage ~ training*C(skill_quartile) + age + edu + tenure | industry + year",
@@ -672,7 +707,9 @@ open("tables/table3b_interactions.tex", "w").write(rt.to_latex())
 ```python
 dr = sp.dose_response(df, y="wage", treat="training_hours",
                       covariates=["age","edu","tenure","firm_size"],
-                      n_dose_points=20)
+                      n_dose_points=20,
+                      n_bootstrap=50)        # default 200; every replication refits both
+                                             # nuisance models, so this is the slow call
 fig, ax = dr.plot(title="Figure 4a. Dose-response: training hours → wage")
 fig.savefig("figures/fig4a_dose_response.png", dpi=300)
 
@@ -731,7 +768,8 @@ For continuous moderators or many subgroups, prefer:
 ```python
 sp.mediation(df, y="wage", d="training", m="hours_worked",
              X=["age", "edu", "tenure"])           # ACME / ADE / total effect
-sp.decompose(...)                                   # Oaxaca-Blinder / RIF / FFL / KOB
+sp.decompose("oaxaca", data=df, y="wage", group="female",
+             x=["age", "edu", "tenure"])            # also 'ffl' / 'dfl' / 'gap_closing' / ... (method is positional)
 ```
 
 ## Step 7 — Robustness gauntlet (the AER referee gauntlet)
@@ -740,27 +778,37 @@ The seven canonical robustness blocks of an applied paper. A modern AER paper ex
 
 ### 7.1 Placebo tests
 ```python
-sp.rdplacebo(df, y="y", x="running_var", c=0,
+sp.rdplacebo(df, y="wage", x="running_var", c=0,
              placebo_cutoffs=[-2, -1, 1, 2])                      # RD: fake cutoffs
-sp.synth_time_placebo(df, outcome="y", unit="unit", time="time",
-                      treated_unit=1, treatment_time=2000,
-                      n_placebo_times=10)                          # SCM in-time placebo
-sp.synthdid_placebo(...)                                           # SDID placebo
-# For DID: re-run with a fake treat year before actual treatment and confirm β̂ ≈ 0.
+
+# DID: on not-yet-treated rows only, pretend treatment started two years early
+# and confirm β̂ ≈ 0. These two models are Table A2 in §8.3.
+pre = df[(df["first_treat_year"] == 0) | (df["year"] < df["first_treat_year"])].copy()
+pre["fake_training"] = ((pre["first_treat_year"] > 0)
+                        & (pre["year"] >= pre["first_treat_year"] - 2)).astype(int)
+pb1 = sp.feols("wage ~ fake_training + age + edu + tenure | industry + year",
+               pre, vcov={"CRV1": "firm_id"})
+pb2 = sp.feols("wage ~ fake_training + age + edu + tenure | worker_id + year",
+               pre, vcov={"CRV1": "firm_id"})
+# SCM / SDID placebos (in-time and in-space) are in §3.5 next to the fit they test.
 ```
 
 ### 7.2 Alternative samples
 ```python
-result_no_outliers = sp.causal(df.query("wage < wage.quantile(0.99)"), ...)
-result_drop_early  = sp.causal(df.query("first_treat_year > 2008"),  ...)
-result_balanced    = sp.causal(sp.balance_panel(df, entity="worker_id", time="year"), ...)
+main = dict(y="wage", treatment="training", id="worker_id", time="year", design="did")
+result_no_outliers = sp.causal(df.query("wage < wage.quantile(0.99)"), **main)
+# Dropping a cohort: never-treated units are coded 0, so a filter such as
+# `first_treat_year > 2012` would silently delete the whole comparison group.
+earliest = df.loc[df["first_treat_year"] > 0, "first_treat_year"].min()
+result_drop_early  = sp.causal(df[df["first_treat_year"] != earliest], **main)
+result_balanced    = sp.causal(sp.balance_panel(df, entity="worker_id", time="year"), **main)
 ```
 
 ### 7.3 Alternative specifications (spec curve)
 ```python
 sp.spec_curve(df, y="wage", x="training",
               controls=[["age"], ["age", "edu"], ["age", "edu", "tenure"]],
-              subsets={"all": None, "manuf": df["industry"].eq("manufacturing")})
+              subsets={"all": None, "large_firm": df["firm_size"] >= 100})
 ```
 
 ### 7.4 Alternative standard errors
@@ -773,7 +821,7 @@ sp.conley(M3, df, lat="lat", lon="lon",
           dist_cutoff=100, kernel="uniform")                        # spatial HAC (Conley 1999)
 
 # For pyfixest-backed sp.feols results, set 2-way cluster directly in `vcov`:
-sp.feols("y ~ x | firm_id + year", df,
+sp.feols("wage ~ training + age + edu | firm_id + year", df,
          vcov={"CRV1": "firm_id+year"})                              # 2-way: firm × year
 ```
 
@@ -783,7 +831,7 @@ sp.feols("y ~ x | firm_id + year", df,
 ```python
 sp.oster_bounds(data=df, y="wage", treat="training",
                 controls=["age", "edu", "tenure"],
-                r_max=1.3)                          # β* assuming δ=1, R̃²=1.3·R²
+                r_max="1.3*r2")                     # β* at δ=1, R_max = 1.3·R² (a float is R_max itself, ≤ 1)
 # `oster_delta` uses x_base / x_controls (NOT treat= / controls=):
 sp.oster_delta(data=df, y="wage",
                x_base=["training"],                 # treatment(s) of interest
@@ -802,18 +850,22 @@ sp.honest_did(cs, method="smoothness")              # bound β under bounded PT 
 
 ### 7.7 E-value & unified sensitivity (unmeasured confounding)
 ```python
-sp.evalue(estimate=result.params["training"],       # E-value takes point + CI, NOT result
-          ci=tuple(result.conf_int().loc["training"]),
-          measure="RR")
-sp.unified_sensitivity(result, r2_treated=0.05,
+# These read a REGRESSION result (`.params` / `.conf_int()`), so use the
+# selection-on-observables column M3 from Table 2, not the DID `result`.
+sp.evalue(estimate=M3.params["training"],           # E-value takes point + CI, NOT a result
+          ci=tuple(M3.conf_int().loc["training"]),
+          measure="OLS", sd=df["wage"].std())       # a wage coefficient is not a risk ratio:
+                                                    # 'OLS' + outcome SD converts it; use 'RR' /
+                                                    # 'OR' / 'HR' only for an estimate on that scale
+sp.unified_sensitivity(M3, term="training",         # term= is required when the model
+                       r2_treated=0.05,             # has more than one regressor
                        r2_controlled=0.10,
                        include_oster=True)          # Cinelli-Hazlett + Oster combined
-sp.sensitivity_dashboard(result)                    # one-page sensitivity figure
 ```
 
 ### 7.8 RD-specific bandwidth / kernel sensitivity
 ```python
-sp.rdbwsensitivity(df, y="y", x="running_var", c=0,
+sp.rdbwsensitivity(df, y="wage", x="running_var", c=0,
                     bw_grid=[0.5, 1.0, 1.5, 2.0])   # is β̂ stable across bandwidths?
 ```
 
@@ -821,7 +873,7 @@ sp.rdbwsensitivity(df, y="y", x="running_var", c=0,
 Goodman-Bacon decomposition flags when the TWFE estimate is contaminated by forbidden 2×2's (already-treated as control).
 
 ```python
-sp.bacon_decomposition(df, y="y", treat="training",
+sp.bacon_decomposition(df, y="wage", treat="training",
                        time="year", id="worker_id")
 ```
 
@@ -851,6 +903,7 @@ The canonical AER appendix Table A1 stacks every robustness specification next t
 ```python
 baseline = sp.feols("wage ~ training + age + edu + tenure | industry + year",
                      df, vcov={"CRV1": "firm_id"})
+df["ihs_wage"] = np.arcsinh(df["wage"])
 
 rob = {
     "(1) Baseline":            baseline,
@@ -860,8 +913,8 @@ rob = {
     "(3) Balanced panel":      sp.feols("wage ~ training + age + edu + tenure | industry + year",
                                         sp.balance_panel(df, entity="worker_id", time="year"),
                                         vcov={"CRV1": "firm_id"}),
-    "(4) Drop early cohorts":  sp.feols("wage ~ training + age + edu + tenure | industry + year",
-                                        df.query("first_treat_year > 2008"),
+    "(4) Drop earliest cohort": sp.feols("wage ~ training + age + edu + tenure | industry + year",
+                                        df[df["first_treat_year"] != earliest],   # keeps never-treated (0)
                                         vcov={"CRV1": "firm_id"}),
     "(5) Worker FE":           sp.feols("wage ~ training + age + edu + tenure | worker_id + year",
                                         df, vcov={"CRV1": "firm_id"}),
@@ -941,7 +994,7 @@ sc = sp.spec_curve(df, y="wage", x="training",
                                  "log":   np.log,
                                  "ihs":   np.arcsinh},
                    subsets={"all": None,
-                            "manuf":  df["industry"].eq("manufacturing"),
+                            "large":  df["firm_size"] >= 100,
                             "no99":   df["wage"] < df["wage"].quantile(0.99)},
                    cluster_var="firm_id")
 fig, ax = sc.plot(title="Figure 5-bis. Specification curve")
@@ -959,11 +1012,11 @@ DataFrame returned by `sp.honest_did(...)` (columns `M / ci_lower / ci_upper / r
 
 ```python
 # (a) Numeric sensitivity dashboard — print the summary, read the attributes.
-dash = sp.unified_sensitivity(baseline, r2_treated=0.05, r2_controlled=0.10,
+dash = sp.unified_sensitivity(M3, term="training", r2_treated=0.05, r2_controlled=0.10,
                               include_oster=True)
 print(dash.summary())                                 # one-page text dashboard
 print(dash.e_value_point, dash.e_value_ci)            # numeric fields for the §7 prose
-# sp.sensitivity_dashboard(baseline).summary() is the auto-dimensioned variant.
+# sp.sensitivity_dashboard(M3).summary() is the auto-dimensioned variant.
 
 # (b) Sensitivity FIGURE (honest-DID PT sensitivity) — needs a CS/SA event-study
 #     result (`cs` from §3.1) and its honest_did() DataFrame.
@@ -980,7 +1033,7 @@ fig.savefig("figures/fig6_sensitivity.png", dpi=300)
 sp.diagnose_result(result)                          # PT / weak-IV / overlap / leverage verdict
 sp.robustness_report(df, formula="wage ~ training + age + edu",
                      x="training", cluster_var="firm_id")
-sp.estat(result, test="all")                        # Stata-style postestimation battery
+sp.estat(M3, test="all")                            # Stata-style postestimation battery (regression results)
 ```
 
 ## Step 8 — Replication package
@@ -1004,12 +1057,12 @@ Every `sp.regtable(*models)` returns a `RegtableResult` with `.to_word()` / `.to
 ```python
 sp.paper_tables(
     main          = [M1, M2, M3, M4, M5],            # → "Table 2. Main results"
-    heterogeneity = [g_full, g_fem, g_male],         # → "Table 3. Heterogeneity"
+    heterogeneity = gmodels[:3],                     # → "Table 3. Heterogeneity" (all / female / male)
     robustness    = list(rob.values()),              # → "Table A1. Robustness"
-    placebo       = [pb1, pb2],                      # → "Table A2. Placebo tests"
+    placebo       = [pb1, pb2],                      # → "Table A2. Placebo tests" (§7.1)
     template      = "aer",
-    coef_labels   = {"training": "Training"},
-    keep          = ["training"],
+    coef_labels   = {"training": "Training", "fake_training": "Placebo training"},
+    keep          = ["training", "fake_training"],
 ).to_docx("replication/paper_tables.docx")           # → 4 panels in one .docx
 # .to_xlsx(...) writes one sheet per panel; .to_latex(...) one .tex with section breaks.
 ```
