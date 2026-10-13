@@ -37,7 +37,10 @@ Rules:
   `tests/r_parity/results/_implementation_trace.json` and all 12
   original-data modules in
   `tests/orig_parity/results/_implementation_trace.json`. The source
-  that staled them is in the same commit.
+  that staled them is in the same commit. `9264bdec` re-recorded
+  original-data modules 06, 10 and 11 in
+  `tests/orig_parity/results/_implementation_trace.json` after a type
+  annotation in `src/statspai/inference/ipw.py` (no behaviour change).
 - **Reason.** The review of October's work (CHANGELOG, Unreleased)
   edited files on the estimation path of most modules:
   `src/statspai/core/results.py` and `core/_validate.py` (shared by
