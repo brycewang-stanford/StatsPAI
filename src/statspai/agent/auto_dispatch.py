@@ -88,6 +88,10 @@ def dispatch_registry_tool(
     if fn is None or not callable(fn):
         raise KeyError(name)
 
+    from ._default_seed import inject_default_seed
+
+    seed_injected = inject_default_seed(fn, arguments)
+
     allowed = _allowed_kwargs(name, fn)
     kwargs = dict(arguments)
     unsupported: list = []
@@ -162,6 +166,9 @@ def dispatch_registry_tool(
             "These arguments are not accepted by the estimator and were NOT "
             "applied; check describe_function for the accepted names.",
         )
+
+    if seed_injected:
+        out["seed_injected"] = seed_injected
 
     replay = build_replay(name, kwargs, result_id=result_id)
     out["replay"] = replay

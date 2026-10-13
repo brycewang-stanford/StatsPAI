@@ -340,6 +340,12 @@ def execute_tool(
         }
     serialize = spec.get("serializer", _default_serializer)
 
+    # A seed argument left unset would make the call unrepeatable; the fill
+    # goes into ``arguments`` so the replay and the cached record carry it.
+    from .._default_seed import inject_default_seed
+
+    seed_injected = inject_default_seed(fn, arguments)
+
     # Most tools take `data=` as first positional (or kwarg).
     # Formula-based ones (regress, ivreg) also take data.
     kwargs = dict(arguments)
@@ -478,6 +484,8 @@ def execute_tool(
     # silently assuming every advertised parameter took effect.
     if _unsupported_args:
         out["_unsupported_args"] = _unsupported_args
+    if seed_injected:
+        out["seed_injected"] = seed_injected
 
     # Result-handle caching. When ``as_handle=True`` we stash the live
     # fitted result in the process-local LRU cache and surface a handle

@@ -665,7 +665,7 @@ _PROVENANCE_SCALAR_FIELDS: Tuple[str, ...] = (
 )
 #: Allowed provenance tags (see :meth:`FunctionSpec.agent_card`).
 PROVENANCE_SOURCES: frozenset = frozenset(
-    {"curated", "family", "baseline", "docstring"}
+    {"curated", "family", "baseline", "docstring", "source"}
 )
 
 
@@ -763,7 +763,7 @@ def _card_provenance(spec: "FunctionSpec", view: Dict[str, Any]) -> Dict[str, st
             out[fld] = tags.pop()
         else:
             # A baseline / docstring item mixed in: report the strongest.
-            for tag in ("curated", "family", "baseline", "docstring"):
+            for tag in ("curated", "family", "baseline", "docstring", "source"):
                 if tag in tags:
                     out[fld] = tag
                     break
@@ -35490,7 +35490,59 @@ def _apply_schema_enrichment() -> None:
             if found:
                 spec.result_class, cls = found
                 object.__setattr__(spec, "_result_cls", cls)
+    _apply_enum_seeds()
     _SCHEMA_ENRICHMENT_APPLIED = True
+
+
+def _apply_enum_seeds() -> None:
+    """Fill ``enum`` from :mod:`statspai._enum_seeds` where it is still empty.
+
+    Runs after the derived enums so that a forwarded argument can reuse what
+    its target ended up with. A seed is skipped when the parameter is gone,
+    is not a string, already has an ``enum``, or has a default outside the
+    seeded list (the list would then contradict the signature).
+    """
+    from . import _enum_seeds as seeds
+
+    def param(func: str, name: str) -> Optional[ParamSpec]:
+        spec = _REGISTRY.get(func)
+        if spec is None:
+            return None
+        for q in spec.params:
+            if q.name == name:
+                return q
+        return None
+
+    def fill(func: str, name: str, values: Optional[List[str]]) -> None:
+        q = param(func, name)
+        if q is None or q.enum or not values:
+            return
+        if _json_schema_type(q.type) != "string":
+            return
+        if isinstance(q.default, str) and q.default not in values:
+            return
+        q.enum = list(values)
+
+    for (func, name), values in seeds.DIRECT.items():
+        fill(func, name, values)
+    for (func, name), (_const, values) in seeds.CONSTANT.items():
+        fill(func, name, values)
+    for func in seeds.KERNEL_USERS:
+        fill(func, "kernel", seeds.KERNEL_FN_CHOICES)
+    # Two passes: ``synth_report_to_file`` forwards to ``synth_report``,
+    # which forwards to ``synth``.
+    for _ in range(2):
+        for (func, name), (target, tname) in seeds.FORWARDED.items():
+            src = param(target, tname)
+            if src is not None and src.enum:
+                fill(func, name, [str(v) for v in src.enum])
+    for alias, target in seeds.SAME_CALL.items():
+        tspec = _REGISTRY.get(target)
+        if tspec is None:
+            continue
+        for src in tspec.params:
+            if src.enum:
+                fill(alias, src.name, [str(v) for v in src.enum])
 
 
 def is_alias(name: str) -> bool:
@@ -36604,6 +36656,50 @@ def _apply_baseline_cards() -> None:
 _DOCSTRING_EXAMPLE_DONE: set = set()
 
 
+#: Names whose failure modes came from :mod:`statspai._source_failure_modes`
+#: (the generator reads it to know which functions had none of their own).
+_SOURCE_FAILURE_MODES_FILLED: set = set()
+_SOURCE_FAILURE_MODES_APPLIED = False
+
+
+def _apply_source_failure_modes() -> None:
+    """Give card-less functions the failure modes their own code states.
+
+    :mod:`statspai._source_failure_modes` quotes the typed errors a function
+    raises together with the ``recovery_hint`` written next to each one
+    (``scripts/gen_source_failure_modes.py``). They are used only where a
+    function has no failure mode at all, hand-written or inherited, and are
+    tagged ``source`` in the card provenance. Runs last, after the family
+    inheritance pass has had its say.
+    """
+    global _SOURCE_FAILURE_MODES_APPLIED
+    if _SOURCE_FAILURE_MODES_APPLIED:
+        return
+    try:
+        from ._source_failure_modes import SOURCE_FAILURE_MODES
+    except ImportError:
+        _SOURCE_FAILURE_MODES_APPLIED = True
+        return
+    for name, modes in SOURCE_FAILURE_MODES.items():
+        spec = _REGISTRY.get(name)
+        if spec is None or getattr(spec, "_kind", None) == "class":
+            continue
+        if spec.agent_card(merge_inherited=True)["failure_modes"]:
+            continue
+        _snapshot_hand_written(spec)
+        for mode in modes:
+            fm = FailureMode(
+                symptom=mode["symptom"],
+                exception=mode["exception"],
+                remedy=mode["remedy"],
+                alternative=mode.get("alternative", ""),
+            )
+            spec.failure_modes.append(fm)
+            _record_item_source(spec, "failure_modes", fm, "source")
+        _SOURCE_FAILURE_MODES_FILLED.add(name)
+    _SOURCE_FAILURE_MODES_APPLIED = True
+
+
 def _apply_docstring_examples() -> None:
     """Fill an empty ``example`` on a hand-written spec from the docstring.
 
@@ -36647,6 +36743,7 @@ def _ensure_full_registry() -> None:
         _apply_schema_enrichment()
         _apply_docstring_examples()
         _apply_family_inheritance()
+        _apply_source_failure_modes()
         return
 
     import statspai as _sp  # safe: called post-import from user code
@@ -36682,6 +36779,7 @@ def _ensure_full_registry() -> None:
     _apply_schema_enrichment()
     _apply_docstring_examples()
     _apply_family_inheritance()
+    _apply_source_failure_modes()
 
 
 # ====================================================================== #
@@ -36736,12 +36834,43 @@ CORE_FUNCTIONS: Tuple[str, ...] = (
 )
 
 
+def _unknown_function(name: Any) -> KeyError:
+    """``KeyError`` for a name that is not registered, naming what is close.
+
+    The closest registered names come first (a misspelling such as
+    ``callaway_santana``); when nothing is close the message points at
+    :func:`search_functions`, which takes a description instead of a name.
+    The names are also on the exception as ``.suggestions``.
+    """
+    import difflib
+
+    text = str(name)
+    if text.startswith("sp."):
+        text = text[3:]
+    lowered = {k.lower(): k for k in _REGISTRY}
+    close = [
+        lowered[k]
+        for k in difflib.get_close_matches(text.lower(), list(lowered), n=5, cutoff=0.6)
+    ]
+    if close:
+        hint = "did you mean " + ", ".join(repr(c) for c in close) + "?"
+    else:
+        hint = (
+            f"no registered name is close; sp.search_functions({text!r}) "
+            "searches by description"
+        )
+    err = KeyError(f"Unknown function {name!r}; {hint}")
+    err.suggestions = close  # type: ignore[attr-defined]
+    return err
+
+
 def list_functions(
     category: Optional[str] = None,
     *,
     stability: Optional[str] = None,
     validation_status: Optional[str] = None,
     core: bool = False,
+    kind: Optional[str] = None,
 ) -> List[str]:
     """
     List all registered StatsPAI functions, optionally filtered.
@@ -36768,6 +36897,11 @@ def list_functions(
         Return only :data:`CORE_FUNCTIONS`, the everyday estimation and
         post-estimation verbs, in their curated order (the other filters
         still apply).
+    kind : str, optional
+        ``"function"`` leaves out the registered result, model and exception
+        classes (about a quarter of the names), which an agent reads about
+        but never calls; ``"class"`` returns only those. The default lists
+        both.
 
     Examples
     --------
@@ -36779,8 +36913,12 @@ def list_functions(
     True
     >>> sp.list_functions(core=True)[:3]
     ['regress', 'ivreg', 'feols']
+    >>> 'CausalResult' in sp.list_functions(kind='function')
+    False
     """
     _ensure_full_registry()
+    if kind not in (None, "function", "class"):
+        raise ValueError(f"kind={kind!r} must be 'function', 'class' or None")
     if core:
         pool = [_REGISTRY[k] for k in CORE_FUNCTIONS]
         return [
@@ -36789,6 +36927,7 @@ def list_functions(
             if (not category or v.category == category)
             and (not stability or v.stability == stability)
             and (not validation_status or v.validation_status == validation_status)
+            and _kind_matches(v, kind)
         ]
     if stability is not None and stability not in STABILITY_TIERS:
         raise ValueError(
@@ -36808,8 +36947,17 @@ def list_functions(
             continue
         if validation_status and v.validation_status != validation_status:
             continue
+        if not _kind_matches(v, kind):
+            continue
         out.append(k)
     return out
+
+
+def _kind_matches(spec: "FunctionSpec", kind: Optional[str]) -> bool:
+    if kind is None:
+        return True
+    is_class = getattr(spec, "_kind", None) == "class"
+    return is_class if kind == "class" else not is_class
 
 
 def describe_function(name: str) -> Dict[str, Any]:
@@ -36835,12 +36983,7 @@ def describe_function(name: str) -> Dict[str, Any]:
     """
     _ensure_full_registry()
     if name not in _REGISTRY:
-        # Keep error message compact — full registry may contain 200+ names.
-        hand_written = sorted(
-            k for k, v in _REGISTRY.items() if not getattr(v, "_auto", False)
-        )
-        hint = ", ".join(hand_written[:15]) + ", ..."
-        raise KeyError(f"Unknown function '{name}'. Examples: {hint}")
+        raise _unknown_function(name)
     spec = _REGISTRY[name]
     out = spec.to_dict()
     # Merge the parent's agent-native lists exactly as ``agent_card`` does,
@@ -36916,6 +37059,8 @@ def support_tier(name: str) -> str:
     'research'
     """
     _ensure_full_registry()
+    if name not in _REGISTRY:
+        raise _unknown_function(name)
     spec = _REGISTRY[name]
     if spec.stability in ("experimental", "deprecated") or (
         name in _FRONTIER_METHOD_LIMITATIONS
@@ -36963,7 +37108,7 @@ def function_schema(name: str, *, agent_native: bool = False) -> Dict[str, Any]:
     """
     _ensure_full_registry()
     if name not in _REGISTRY:
-        raise KeyError(f"Unknown function '{name}'")
+        raise _unknown_function(name)
     spec = _REGISTRY[name]
     return spec.to_agent_schema() if agent_native else spec.to_openai_schema()
 
@@ -37106,7 +37251,7 @@ def agent_card(name: str) -> Dict[str, Any]:
     """
     _ensure_full_registry()
     if name not in _REGISTRY:
-        raise KeyError(f"Unknown function '{name}'")
+        raise _unknown_function(name)
     return _REGISTRY[name].agent_card()
 
 

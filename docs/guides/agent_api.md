@@ -241,6 +241,33 @@ the parser walks every `@type{...}` head in the source string.
 
 ---
 
+## Finding the function
+
+```python
+sp.search_functions("staggered adoption with heterogeneous effects")
+sp.search_functions("我有面板数据，政策分批实施")   # same ranking as the English wording
+sp.list_functions(kind="function")                # callables only; "class" for result classes
+sp.describe_function("callaway_santana")          # KeyError: ... did you mean 'callaway_santanna'?
+```
+
+The full set of schemas is far larger than a context window, so search is
+the way in. A query may be a design name, an estimand, or a description of
+the data, in English or Chinese. A name that is not registered raises
+`KeyError` with the closest registered names in the message and on
+`err.suggestions`.
+
+Selector arguments (`method=`, `kernel=`, `family=` and the like) carry an
+`enum` wherever the accepted set is closed. Where an argument is a grammar
+(`vce="cluster firm"`, a lavaan model string, ETS letter codes) there is no
+`enum` and the description states the form.
+
+Each card says where its statements come from (`provenance`): `curated`,
+`family`, `baseline`, `docstring`, or `source`. A `source` failure mode
+quotes a typed error the function raises and the recovery hint written
+next to it in the code.
+
+---
+
 ## `sp.session(seed=42)` — reproducible blocks
 
 A standard frustration: an agent reruns `sp.bootstrap(...)`
@@ -255,6 +282,10 @@ with sp.session(seed=42):
     perm = sp.ri_test(df, y='y', treat='d', n_perms=1000)
 # state outside the block is byte-identical to before the with
 ```
+
+Through the tool layer (MCP, `execute_tool`) the same problem is handled
+per call: an unset `seed=` / `random_state=` is filled, and the response
+says which argument and which value under `seed_injected`.
 
 What's covered: Python `random`, NumPy legacy global (`np.random.randn`,
 `np.random.choice`, …). Lazy interop with PyTorch / JAX (only seeded
@@ -466,6 +497,7 @@ Operator settings (environment of the server process):
 | `STATSPAI_MCP_MAX_ORPHANED_CALLS` | timed-out or cancelled computations that may still be running before new calls are refused with `server_busy` (default 4; `0` = unlimited). A thread cannot be killed, so a timeout does not free the CPU |
 | `STATSPAI_MCP_MAX_QUEUE_SECONDS` | longest a `tools/call` may wait in the queue before it starts (default 900; `0` = unlimited); past it the call is answered `server_busy` instead of being run |
 | `STATSPAI_MCP_ISOLATION` | `process` runs every self-contained call (no `result_id`, `data_id` or `as_handle`) in a child process that is killed on timeout or cancel, so nothing is left running; each such call pays a fresh interpreter start. Default `thread` |
+| `STATSPAI_MCP_DEFAULT_SEED` | seed given to a tool call that leaves a `seed=` / `random_state=` argument unset (default `42`); `off` disables the fill. The response reports it as `seed_injected` |
 | `STATSPAI_MCP_MAX_REQUEST_BYTES` | largest accepted request line (default 64 MiB; `0` = unlimited); larger lines get `-32600` unparsed |
 | `STATSPAI_MCP_DATA_CACHE_SIZE` / `STATSPAI_MCP_DATA_CACHE_BYTES` | data-handle cache bounds (16 frames / 2 GiB) |
 | `STATSPAI_MCP_PROFILE` | default `tools/list` profile |

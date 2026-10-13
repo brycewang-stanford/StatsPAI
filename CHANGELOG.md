@@ -4,6 +4,51 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What an agent sees before and after a call
+
+Five gaps found by using the registry and the tool layer the way an agent
+does. No estimate changes.
+
+#### Added
+
+- **`sp.search_functions` answers a query written in Chinese.** It returned
+  `[]` for any of them: the ranker splits on whitespace and every
+  description is English. About 190 Chinese econometrics terms are now
+  rewritten to the English vocabulary the ranker already knows before it
+  ranks, so the Chinese and English spellings of a query return the same
+  list. A query with no known term still returns nothing.
+- **`sp.list_functions(kind="function" | "class")`.** 402 of the 1,566
+  registered names are result, model and exception classes, which an agent
+  reads about but never calls. The default still lists both.
+- **`enum` on 56 more selector arguments**, among them
+  `sp.structural_break(method=)`, `sp.survreg(dist=)`, `sp.meglm(family=)`,
+  `sp.adjust_pvalues(method=)` and the `kernel=` of fourteen RD functions.
+  These are the arguments whose accepted values are stated only by the
+  code (a validation in the body, a module constant, a callee the argument
+  is passed to unchanged). Each list is re-read from that place by
+  `tests/test_enum_seeds.py`.
+- **Failure modes for 87 functions that had none**, quoted from the typed
+  errors each function raises and the `recovery_hint` written next to them
+  (`scripts/gen_source_failure_modes.py`). They are tagged `source` in the
+  card provenance and are used only where a function has no hand-written
+  or inherited failure mode.
+- **Tool calls fill an unset seed and say so.** 171 functions default to
+  `seed=None` or `random_state=None`, so the same tool call returned
+  different numbers each time. The dispatcher now sets the argument when
+  the caller did not pass it, reports it as `seed_injected` and carries it
+  into the `replay` snippet. `STATSPAI_MCP_DEFAULT_SEED` sets the value
+  (default 42) or turns it off. A direct Python call keeps the library
+  default.
+
+#### Changed
+
+- **An unknown name is answered with the nearest registered ones.**
+  `sp.describe_function("callaway_santana")` listed the first fifteen
+  names in alphabetical order; `sp.function_schema`, `sp.agent_card` and
+  `sp.support_tier` gave no hint at all. All four now say
+  `did you mean 'callaway_santanna'?` and carry the candidates on the
+  exception as `.suggestions`.
+
 ### Sample size on results that recorded it as `n_obs`
 
 #### Fixed

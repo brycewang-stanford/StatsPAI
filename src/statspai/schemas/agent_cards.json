@@ -7177,7 +7177,32 @@
       "tolerance": ""
     },
     "example": "sp.forest_support(cf, df_never_treated[['x1', 'x2']])",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use k=10.",
+        "symptom": "forest_support(): k must be a positive integer."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use quantile=0.95, alpha=0.05.",
+        "symptom": "forest_support(): quantile and alpha must lie in (0, 1)."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Lower k.",
+        "symptom": "forest_support(): fewer reference rows than k."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Lower k.",
+        "symptom": "forest_support(): the reference rows come from k or fewer units."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "forest_support",
@@ -7189,6 +7214,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "pre_conditions": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -7273,7 +7299,32 @@
       "tolerance": ""
     },
     "example": "sp.cate_pretrend_test(cf, n_groups=2, leads=3)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "sp.did_forest",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fit sp.causal_forest(..., id=, time=, fe='twoway'); for staggered designs sp.did_forest() reports its own pre-trend test.",
+        "symptom": "<context> needs a causal forest with fixed effects (fe=...)."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use time_effects='common'.",
+        "symptom": "<context>: time_effects must be 'common' or 'by_group'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use a design in which units stay treated once treated.",
+        "symptom": "<context> needs an absorbing (staggered) treatment so that leads relative to the adoption period are defined."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use n_groups >= 2 or pass two or more labels.",
+        "symptom": "<context>: need at least two groups."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "cate_pretrend_test",
@@ -7286,6 +7337,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "pre_conditions": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -8098,7 +8150,32 @@
       "tolerance": ""
     },
     "example": "sp.pscore(df, 'treat', ['age', 'educ', 'married', 're74'], common_support=True)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the DataFrame holding the treatment and covariates.",
+        "symptom": "pscore: data must be a pandas DataFrame."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the treat and covariates column names.",
+        "symptom": "pscore: columns not found in data: <missing>"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the covariates of the treatment model.",
+        "symptom": "pscore: at least one covariate is needed."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use ps_model='logit' or ps_model='probit'.",
+        "symptom": "pscore: ps_model must be 'logit' or 'probit', got <ps_model>."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "pscore",
@@ -8111,6 +8188,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "pre_conditions": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -10436,6 +10514,350 @@
   {
     "alias_of": null,
     "alternatives": [],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/external_parity/test_stock_watson_4e_ch15.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ardl(df, \"gdp_growth\", \"term_spread\", lags=\"bic\", x_lags=\"same\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'c', 'ct' or 'n'.",
+        "symptom": "ardl: unknown trend <trend>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the column names.",
+        "symptom": "ardl: column(s) <missing_cols> are not in data."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass one row per period; for a panel, fit each unit separately.",
+        "symptom": "ardl: the time index has repeated values."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the columns.",
+        "symptom": "ardl: no row has all of the series observed."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ardl",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "curated",
+      "failure_modes": "source",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "ARDLResult",
+      "description": "ARDLResult",
+      "fields": {
+        "alpha": "float",
+        "contemporaneous": "bool",
+        "design": "pd.DataFrame",
+        "fit_kwargs": "Dict[str, Any]",
+        "ic_table": "Optional[pd.DataFrame]",
+        "lags": "int",
+        "model": "Any",
+        "regressors": "List[str]",
+        "sample_index": "pd.Index",
+        "trend": "str",
+        "x": "List[str]",
+        "x_lags": "Dict[str, int]",
+        "y": "str"
+      }
+    },
+    "signature": {
+      "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "ardl",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Forecast interval level",
+            "type": "number"
+          },
+          "contemporaneous": {
+            "default": false,
+            "description": "Include x[t]; the model then cannot forecast",
+            "type": "boolean"
+          },
+          "data": {
+            "description": "One row per period",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "hac_lags": {
+            "description": "Newey-West lags for 'hac'",
+            "type": "integer"
+          },
+          "lags": {
+            "default": 1,
+            "description": "Autoregressive order p, or 'bic' / 'aic' to search 0..max_lags on a common sample",
+            "type": "integer"
+          },
+          "max_lags": {
+            "description": "Largest order searched",
+            "type": "integer"
+          },
+          "sample": {
+            "description": "(start, end) labels of the estimation sample; lags still come from earlier rows",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "time": {
+            "description": "Column to sort and index by",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "trend": {
+            "default": "c",
+            "description": "Deterministics",
+            "enum": [
+              "c",
+              "ct",
+              "n"
+            ],
+            "type": "string"
+          },
+          "vce": {
+            "default": "hc1",
+            "description": "Covariance estimator, as sp.regress",
+            "enum": [
+              "hc1",
+              "hc0",
+              "nonrobust",
+              "hac"
+            ],
+            "type": "string"
+          },
+          "x": {
+            "description": "Other predictors; omit for AR(p)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "x_lags": {
+            "default": 1,
+            "description": "Lags of each x: an order, {name: order}, 'same' (= p), or 'bic' / 'aic' to search the order of every x separately, from leaving it out to max_lags",
+            "type": [
+              "object",
+              "integer"
+            ]
+          },
+          "y": {
+            "description": "Series to forecast",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Unit-root test for one time series: augmented Dickey-Fuller, DF-GLS (Elliott-Rothenberg-Stock), Phillips-Perron or KPSS, with a constant or a constant and trend. For ADF, DF-GLS and Phillips-Perron H0 is a unit root; for KPSS H0 is stationarity, so there rejecting is evidence of a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order; Phillips-Perron and KPSS correct for serial correlation with a Newey-West long-run variance. Not rejecting a unit root is not evidence of one. Stata dfuller / dfgls / pperron / kpss, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py",
+        "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/external_parity/test_stock_watson_4e_ch15.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.unitroot(df, \"log_gdp\", trend=\"ct\", lags=\"aic\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use test='adf', 'dfgls', 'pp' or 'kpss'.",
+        "symptom": "unitroot: unknown test <test>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'c' (constant), 'ct' (constant and trend) or 'n' (none).",
+        "symptom": "unitroot: unknown trend <trend>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use test='adf', trend='n', or trend='c'.",
+        "symptom": "unitroot: DF-GLS removes a constant or a trend by GLS; there is no trend='n' version."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 0.01, 0.05 or 0.10.",
+        "symptom": "unitroot: alpha must be in (0, 1), got <alpha>."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "unitroot",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "dickey1979distribution; elliott1996efficient",
+    "returns": {
+      "class": "UnitRootResult",
+      "description": "UnitRootResult",
+      "fields": {
+        "alpha": "float",
+        "critical_values": "Dict[str, float]",
+        "ic_table": "Optional[pd.DataFrame]",
+        "lag_selection": "str",
+        "lags": "int",
+        "n_obs": "int",
+        "null": "str",
+        "pvalue": "Optional[float]",
+        "reject": "bool",
+        "rho": "float",
+        "se": "float",
+        "statistic": "float",
+        "test": "str",
+        "trend": "str",
+        "z_rho": "Optional[float]"
+      }
+    },
+    "signature": {
+      "description": "Unit-root test for one time series: augmented Dickey-Fuller, DF-GLS (Elliott-Rothenberg-Stock), Phillips-Perron or KPSS, with a constant or a constant and trend. For ADF, DF-GLS and Phillips-Perron H0 is a unit root; for KPSS H0 is stationarity, so there rejecting is evidence of a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order; Phillips-Perron and KPSS correct for serial correlation with a Newey-West long-run variance. Not rejecting a unit root is not evidence of one. Stata dfuller / dfgls / pperron / kpss, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "unitroot",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10; KPSS also 0.025)",
+            "type": "number"
+          },
+          "data": {
+            "description": "The series, in time order",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "lags": {
+            "default": "aic",
+            "description": "Lagged differences: an integer, or 'aic' / 'bic' to search 0..max_lags. Stata dfuller defaults to 0. For 'pp' / 'kpss': the Newey-West truncation lag (any string selects the default rule)",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "max_lags": {
+            "description": "Search limit; default floor(12 * (T/100)^0.25)",
+            "type": "integer"
+          },
+          "test": {
+            "default": "adf",
+            "description": "Which test; 'kpss' has stationarity as its null",
+            "enum": [
+              "adf",
+              "dfgls",
+              "pp",
+              "kpss"
+            ],
+            "type": "string"
+          },
+          "time": {
+            "description": "Column to sort by first",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "trend": {
+            "default": "c",
+            "description": "Deterministic terms: constant, constant and trend, none (ADF only). Use 'ct' for a trending series",
+            "enum": [
+              "c",
+              "ct",
+              "n"
+            ],
+            "type": "string"
+          },
+          "y": {
+            "description": "Column, when data is a DataFrame",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
+      "tests/reference_parity/test_hansen_methods_stata_parity.py",
+      "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
     "assumptions": [
       "Covariance-stationary series",
       "Equally spaced observations in time order",
@@ -10461,7 +10883,32 @@
       "tolerance": ""
     },
     "example": "sp.corrgram(df, \"resid\", lags=12)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass p + q of the fitted ARMA model, or 0.",
+        "symptom": "sp.corrgram: model_df=<model_df> is negative."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use a longer series or fewer lags.",
+        "symptom": "sp.corrgram: lags=<lags> with <n> observations."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use pac='regression' (the default).",
+        "symptom": "sp.corrgram: pac=<pac> is not 'regression' or 'yw'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Autocorrelations need variation.",
+        "symptom": "sp.corrgram: the series is constant."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "corrgram",
@@ -10470,6 +10917,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -10564,7 +11012,32 @@
       "tolerance": ""
     },
     "example": "sp.chow_test(df, \"y\", [\"x\"], break_point=60)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the column names.",
+        "symptom": "chow_test: column(s) <missing> not found in data."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop or fill them first; dropping rows silently would move the break date.",
+        "symptom": "chow_test: missing values in y or x."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "A regressor that is constant inside a regime cannot have its own coefficient there; leave it out of break_vars.",
+        "symptom": "chow_test: the regressors are collinear within a regime."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Move the break, or let fewer coefficients change.",
+        "symptom": "chow_test: a regime of <b - a> observations cannot identify <q> coefficients."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "chow_test",
@@ -10574,6 +11047,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -10688,7 +11162,26 @@
       "tolerance": ""
     },
     "example": "sp.bds(df, \"resid\", max_dim=4)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop them; the test needs consecutive observations.",
+        "symptom": "bds: the series has missing values."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sp.bds(df, \"resid\")",
+        "symptom": "bds: y= names the column to test."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the name.",
+        "symptom": "bds: column <y> not found."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "bds",
@@ -10698,6 +11191,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -10782,7 +11276,26 @@
       "tolerance": ""
     },
     "example": "sp.rolling(\"ret ~ mkt\", df, window=36)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'nonrobust' or 'hc1'.",
+        "symptom": "rolling: vce must be one of <_VCE>, got <vce>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop the redundant term from the formula.",
+        "symptom": "rolling: the regressors are collinear in the full sample."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use a shorter window.",
+        "symptom": "rolling: window=<window> exceeds the <n> usable observations."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "rolling",
@@ -10792,6 +11305,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -10886,7 +11400,32 @@
       "tolerance": ""
     },
     "example": "sp.prais(\"consumption ~ income + price\", data=df, method=\"corc\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use method='prais' (Prais-Winsten) or 'corc'.",
+        "symptom": "sp.prais: method=<method> is not 'prais' or 'corc'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use rhotype='regress' (the default).",
+        "symptom": "sp.prais: rhotype=<rhotype> is not one of <', '.join(_RHOTYPES)>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use vce='ols' or vce='robust'.",
+        "symptom": "sp.prais: vce=<vce> is not 'ols', 'robust', 'hc2' or 'hc3'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Drop or fill the incomplete periods so that the rows are consecutive.",
+        "symptom": "sp.prais: <len(data) - n> row(s) have a missing value in the model variables, which leaves a gap in the series."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "prais",
@@ -10895,6 +11434,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -11031,7 +11571,32 @@
       "tolerance": ""
     },
     "example": "sp.cnsreg(\"lnq ~ lnk + lnl\", data=df, constraints=\"lnk + lnl = 1\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use method='cls' (constrained least squares) or 'emd' (efficient minimum distance).",
+        "symptom": "sp.cnsreg: method=<method> is not 'cls' or 'emd'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use vce='robust', or cluster='<column>'.",
+        "symptom": "sp.cnsreg: vce=<vce> is not 'ols', 'robust', 'hc2' or 'hc3'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass constraints='x1 + x2 = 1', or use sp.regress.",
+        "symptom": "sp.cnsreg: no constraint given."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Remove constraints.",
+        "symptom": "sp.cnsreg: <q> independent constraints on <k> coefficients leave nothing to estimate."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "cnsreg",
@@ -11043,6 +11608,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -11961,7 +12527,32 @@
       "tolerance": ""
     },
     "example": "sp.model_average([\"y ~ x1\", \"y ~ x1 + x2\", \"y ~ x1 + x2 + x3\"], df, method=\"jma\").weights",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'jma', 'mma', 'aic' or 'bic'.",
+        "symptom": "sp.model_average: method=<method> is not one of <', '.join(_METHODS)>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass a list of formulas with the same outcome.",
+        "symptom": "sp.model_average: at least two candidate formulas are needed."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop names= to use m1, m2, ...",
+        "symptom": "sp.model_average: names= must give one distinct label per formula."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Averaging compares fits of one outcome.",
+        "symptom": "sp.model_average: the formulas have different outcomes (<outcomes>)."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "model_average",
@@ -11973,6 +12564,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -12068,7 +12660,32 @@
       "tolerance": ""
     },
     "example": "sp.jackknife(df, lambda d: sp.regress('y ~ x', data=d))",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. lambda d: sp.regress('y ~ x', data=d).",
+        "symptom": "sp.jackknife: statistic must be a function of a DataFrame."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the name of the cluster variable.",
+        "symptom": "sp.jackknife: cluster=<cluster> is not a column."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check that the statistic runs on a sample with one row removed.",
+        "symptom": "sp.jackknife: fewer than three replications succeeded."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop those rows first.",
+        "symptom": "sp.jackknife: the cluster variable has missing values."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "jackknife",
@@ -12082,6 +12699,7 @@
       "assumptions": "curated",
       "cost_profile": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -12175,7 +12793,14 @@
       "tolerance": ""
     },
     "example": "sp.pca(df, [\"math\", \"reading\", \"writing\"]).scores(df)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Ask for at most as many components as variables.",
+        "symptom": "sp.pca: n_components=<n_components> is not between 1 and <p>."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "pca",
@@ -12185,6 +12810,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -12275,7 +12901,32 @@
       "tolerance": ""
     },
     "example": "sp.factor(df, tests, method=\"ml\", n_factors=2).loadings",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'pf', 'ipf', 'pcf' or 'ml'.",
+        "symptom": "sp.factor: method=<method> is not one of <', '.join(_METHODS)>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Ask for fewer factors than variables.",
+        "symptom": "sp.factor: n_factors=<n_factors> is not between 1 and <p>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass n_factors=; compare fits with lr_factors, aic and bic.",
+        "symptom": "sp.factor: method='ml' needs n_factors."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop a variable that is a linear combination of the others.",
+        "symptom": "sp.factor: the correlation matrix is singular."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "factor",
@@ -12285,6 +12936,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -12383,7 +13035,26 @@
       "tolerance": ""
     },
     "example": "sp.varsoc(df, [\"inflation\", \"unemployment\"], maxlag=8)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use trend='c'.",
+        "symptom": "sp.varsoc: trend=<trend> is not 'c', 'ct' or 'n'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the names passed to exog=.",
+        "symptom": "sp.varsoc: exog=<exog_names> must name columns that are not among the endogenous variables."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Lower maxlag.",
+        "symptom": "sp.varsoc: <n> observations cannot support maxlag=<maxlag> with <k> variable(s)."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "varsoc",
@@ -12392,6 +13063,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -12696,7 +13368,32 @@
       "tolerance": ""
     },
     "example": "sp.simple_forecast(df[\"beer\"], \"snaive\", period=4).forecast(8)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'naive', 'snaive', 'drift' or 'mean'.",
+        "symptom": "simple_forecast: method=<method> is not a benchmark method."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Provide a longer series.",
+        "symptom": "simple_forecast: the mean method needs at least 2 observations."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Provide a longer series.",
+        "symptom": "simple_forecast: the naive method needs at least 2 observations."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Provide a longer series.",
+        "symptom": "simple_forecast: the drift method needs at least 3 observations."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "simple_forecast",
@@ -12706,6 +13403,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
@@ -12902,7 +13600,32 @@
       "tolerance": ""
     },
     "example": "sp.tscv(df[\"y\"], \"ets\", horizon=4, initial=60, period=4).accuracy()",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass positive integers.",
+        "symptom": "tscv: horizon and step must be at least 1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Lower initial= (or window=) or use a longer series.",
+        "symptom": "tscv: the first training window (<first> observations) leaves nothing to forecast in a series of <n>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use window=None for an expanding window.",
+        "symptom": "tscv: window must be at least 2."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "E.g. forecaster='ets' or lambda train, h: ...",
+        "symptom": "tscv: forecaster must be a method name or a function."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "tscv",
@@ -12912,6 +13635,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
@@ -13020,7 +13744,26 @@
       "tolerance": ""
     },
     "example": "sp.stl(df[\"employment\"], period=12, robust=True).to_frame()",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Non-seasonal data have no seasonal component to remove.",
+        "symptom": "stl: the seasonal period must be at least 2."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "At least two full cycles are needed.",
+        "symptom": "stl: <n> observations are fewer than two cycles of period <m>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Give one window per period, or a single one.",
+        "symptom": "stl: <len(windows)> seasonal windows for <len(periods)> periods."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "stl",
@@ -13030,6 +13773,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -13170,7 +13914,26 @@
       "tolerance": ""
     },
     "example": "sp.classical_decompose(df[\"sales\"], period=12, model=\"multiplicative\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use model='additive'.",
+        "symptom": "classical_decompose: model=<model> is not 'additive' or 'multiplicative'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "At least two full cycles and period >= 2 are needed.",
+        "symptom": "classical_decompose: <n> observations are fewer than two cycles of period <m>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use model='additive'.",
+        "symptom": "classical_decompose: a multiplicative decomposition needs a strictly positive series."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "classical_decompose",
@@ -13179,6 +13942,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -13271,7 +14035,32 @@
       "tolerance": ""
     },
     "example": "sp.ljungbox(sp.arima(y, order=(2, 1, 0)), lags=10)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the number of estimated ARMA parameters.",
+        "symptom": "ljungbox: model_df cannot be negative."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "E.g. lags=10.",
+        "symptom": "ljungbox: lags must be positive."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Lower lags=.",
+        "symptom": "ljungbox: <top> lags need more than <n> observations."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "There is no autocorrelation to test.",
+        "symptom": "ljungbox: the series is constant."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "ljungbox",
@@ -13281,6 +14070,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -13371,7 +14161,20 @@
       "tolerance": ""
     },
     "example": "sp.ndiffs(df[\"log_gdp\"])",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 0.10, 0.05, 0.025 or 0.01.",
+        "symptom": "ndiffs: alpha=<alpha> has no tabulated KPSS critical value."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use max_d=2.",
+        "symptom": "ndiffs: max_d cannot be negative."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "ndiffs",
@@ -13380,6 +14183,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -13456,7 +14260,14 @@
       "tolerance": ""
     },
     "example": "sp.nsdiffs(df[\"log_turnover\"], period=12)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the seasonal period, or use sp.ndiffs.",
+        "symptom": "nsdiffs: non-seasonal data (period=1) have no seasonal difference."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "nsdiffs",
@@ -13465,6 +14276,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -13545,7 +14357,20 @@
       "tolerance": ""
     },
     "example": "lam = sp.boxcox_lambda(df[\"gas\"], period=4)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Shift the series or model it untransformed.",
+        "symptom": "boxcox_lambda: Guerrero's method needs a strictly positive series."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Provide a longer series.",
+        "symptom": "boxcox_lambda: <n> observations give fewer than two cycles of length <m>."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "boxcox_lambda",
@@ -13554,6 +14379,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -13634,7 +14460,26 @@
       "tolerance": ""
     },
     "example": "X = sp.fourier_terms(len(y), period=52.18, K=3)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the number of periods.",
+        "symptom": "fourier_terms: at least one row is needed."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "12 for monthly data, 52.18 for weekly data.",
+        "symptom": "fourier_terms: period=<period> must be above 1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "More harmonics than half the period are collinear.",
+        "symptom": "fourier_terms: K=<K> must be between 1 and period/2 = <per / 2>."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "fourier_terms",
@@ -13643,6 +14488,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -13716,7 +14562,32 @@
       "tolerance": ""
     },
     "example": "sp.hierarchy(df, [[\"country\"], [\"country\", \"state\"]], time=\"quarter\", value=\"trips\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "E.g. spec=[[\"country\"], [\"country\", \"state\"]].",
+        "symptom": "hierarchy: spec must be a non-empty list of non-empty key lists."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check spec, time= and value=.",
+        "symptom": "hierarchy: columns <absent> are not in data."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fill or drop them before aggregating.",
+        "symptom": "hierarchy: <int(work[value].isna().sum())> missing values in <value>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Add the key that distinguishes them to the last entry of spec, or aggregate first.",
+        "symptom": "hierarchy: <int(dup.sum())> duplicated (series, period) rows at the bottom level <bottom_keys>."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "hierarchy",
@@ -13727,6 +14598,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "pre_conditions": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -13953,7 +14825,20 @@
       "tolerance": ""
     },
     "example": "sp.ts_features(wide_df, period=4)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "At least 12 observations are needed.",
+        "symptom": "ts_features: <values.shape[0]> observations are too few."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use scale=True.",
+        "symptom": "ts_features: scale must be True or False."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "ts_features",
@@ -13962,6 +14847,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -14036,7 +14922,32 @@
       "tolerance": "first column equal to the series (default assert_allclose); seasonal strength above 0.9 and trend strength above 0.95 in every draw; draw mean within 8% of the series"
     },
     "example": "sp.bootstrap_series(df[\"cement\"], 100, period=4)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass a positive number of series.",
+        "symptom": "bootstrap_series: n_boot must be at least 1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "At least two seasonal cycles (or 8 points) are needed.",
+        "symptom": "bootstrap_series: <n> observations are too few."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Leave block_size=None for the default.",
+        "symptom": "bootstrap_series: block_size=<block> must be between 1 and <n>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use boxcox='auto'.",
+        "symptom": "bootstrap_series: boxcox=<boxcox> is not a number, 'auto' or None."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "bootstrap_series",
@@ -14045,6 +14956,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -14137,7 +15049,26 @@
       "tolerance": "mean and maximum of the members to assert_allclose defaults; first member equal to the single ETS forecast to 1e-9 rel"
     },
     "example": "sp.bagged_forecast(df[\"cement\"], \"ets\", horizon=12, period=4).forecast",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass a positive number of periods.",
+        "symptom": "bagged_forecast: horizon must be at least 1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "E.g. forecaster='ets'.",
+        "symptom": "bagged_forecast: forecaster must be a method name or a function."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Bind them in the function itself.",
+        "symptom": "bagged_forecast: unexpected arguments <sorted(kwargs)> with a callable forecaster."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "bagged_forecast",
@@ -14146,6 +15077,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -14252,7 +15184,14 @@
       "tolerance": "exact equality of the indicator matrix; a trend-plus-season regression recovers the simulated coefficients"
     },
     "example": "X = sp.seasonal_dummies(len(y), 4)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "E.g. sp.seasonal_dummies(len(y), 4).",
+        "symptom": "seasonal_dummies: period must be at least 2 and n at least 1."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "seasonal_dummies",
@@ -14261,6 +15200,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -14338,7 +15278,32 @@
       "tolerance": ""
     },
     "example": "sp.vec(df, [\"log_m\", \"log_y\", \"r\"], lags=1, rank=1)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use trend='c' for an unrestricted constant.",
+        "symptom": "sp.vec: trend=<trend> is not one of 'c', 'rc', 'n', 'rt', 'ct' (or Stata's constant / rconstant / none / rtrend / trend)."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "rank = K means the levels are stationary (fit sp.var); rank = 0 means no cointegration (fit a VAR in differences).",
+        "symptom": "sp.vec: lags=<lags>, rank=<rank> with <k> series; need lags >= 0 and 1 <= rank <= <k - 1>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use fewer lags or a longer sample.",
+        "symptom": "sp.vec: <n> observations are too few for <lags> lagged difference(s) of <k> series."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Reorder `variables` so that a series that belongs to the long-run relation comes first.",
+        "symptom": "sp.vec: the cointegrating relation cannot be normalised on the first <rank> variable(s); they do not enter it."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "vec",
@@ -14347,6 +15312,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -14444,7 +15410,26 @@
       "tolerance": ""
     },
     "example": "sp.hausman(iv_fit, ols_fit, sigmamore=True)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Choose one; sigmamore is the usual choice.",
+        "symptom": "sp.hausman: sigmamore and sigmaless cannot both be set."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fit both models on the same regressors.",
+        "symptom": "sp.hausman: the two results share no coefficient."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use results of sp.regress, sp.iv or sp.panel.",
+        "symptom": "sp.hausman: sigmamore / sigmaless need the disturbance variance of both models, which a result does not store."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "hausman",
@@ -14453,6 +15438,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -14537,7 +15523,20 @@
       "tolerance": ""
     },
     "example": "sp.xtsum(df, [\"wage\", \"tenure\"], id=\"person\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the panel identifier.",
+        "symptom": "sp.xtsum: id=<id> is not a column."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Drop the variable.",
+        "symptom": "sp.xtsum: <name> has no observed value."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "xtsum",
@@ -14546,6 +15545,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -14620,7 +15620,26 @@
       "tolerance": ""
     },
     "example": "sp.xtserial(df, \"y\", [\"x1\", \"x2\"], id=\"firm\", time=\"year\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Convert dates to a period index first.",
+        "symptom": "sp.xtserial: time=<time> must count periods (integers)."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "The test needs at least three consecutive periods per panel.",
+        "symptom": "sp.xtserial: too few consecutive observations to difference."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "The test cannot be computed on this panel.",
+        "symptom": "sp.xtserial: no panel has three consecutive periods."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "xtserial",
@@ -14629,6 +15648,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -14721,7 +15741,14 @@
       "tolerance": ""
     },
     "example": "sp.xtoverid(df, \"y\", [\"x1\", \"x2\"], id=\"firm\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "The test compares within and between variation.",
+        "symptom": "sp.xtoverid: no regressor varies within panels."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "xtoverid",
@@ -14730,6 +15757,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -14945,7 +15973,14 @@
       "tolerance": "z, rank sum and adjusted variance 1e-9 rel"
     },
     "example": "sp.ranksum(df, \"wage\", by=\"female\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the variable.",
+        "symptom": "ranksum: every value is the same, so the ranks carry no information."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "ranksum",
@@ -14955,6 +15990,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -15042,7 +16078,20 @@
       "tolerance": "z, positive rank sum and adjusted variance 1e-9 rel"
     },
     "example": "sp.signrank(df, \"after\", other=\"before\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the columns.",
+        "symptom": "signrank: fewer than two pairs."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the columns.",
+        "symptom": "signrank: every difference is zero."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "signrank",
@@ -15052,6 +16101,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -15341,7 +16391,14 @@
       "tolerance": ""
     },
     "example": "sp.weighted_rank_power(y, gammas=[2, 3, 4], phi='u868')",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Collect more blocks.",
+        "symptom": "weighted_rank_power: the jackknife needs at least three blocks."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "weighted_rank_power",
@@ -15353,6 +16410,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated",
@@ -15476,7 +16534,14 @@
       "tolerance": ""
     },
     "example": "sp.rosenbaum_stratified(df, \"y\", \"z\", \"stratum\", gamma=1.5)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Coarsen the strata.",
+        "symptom": "rosenbaum_stratified: no stratum contains both a treated individual and a control."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "rosenbaum_stratified",
@@ -15489,6 +16554,7 @@
       "assumptions": "curated",
       "cost_profile": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "pre_conditions": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -15627,7 +16693,14 @@
       "tolerance": ""
     },
     "example": "sp.noether_test(treated, control, gamma=2)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "The sign test has nothing to count.",
+        "symptom": "noether_test: every pair difference is zero."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "noether_test",
@@ -15637,6 +16710,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -16175,7 +17249,26 @@
       "tolerance": ""
     },
     "example": "sp.tighten_blocks(df, \"z\", \"block\", covariates=[\"age\"], fine_balance=[\"bmi_cat\"], ratio=2)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use ratio=1, or drop subset_cost.",
+        "symptom": "<caller>: subset_cost needs ratio=1."
+      },
+      {
+        "alternative": "sp.two_criteria_match",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Build the blocks first, for example with sp.two_criteria_match.",
+        "symptom": "<caller>: every block must hold exactly one treated individual and at least one control."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Lower ratio.",
+        "symptom": "<caller>: some blocks have fewer than <ratio> controls."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "tighten_blocks",
@@ -16186,6 +17279,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "pre_conditions": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -16302,7 +17396,14 @@
       "tolerance": ""
     },
     "example": "sp.balance_vs_randomization(matched, \"z\", [\"age\", \"female\"])",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the treat column.",
+        "symptom": "balance_vs_randomization: need at least two treated and two control individuals."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "balance_vs_randomization",
@@ -16313,6 +17414,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -16442,7 +17544,14 @@
       "tolerance": "chi-squared with and without ties 1e-5 rel"
     },
     "example": "sp.kwallis(df, \"income\", by=\"education\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the variable.",
+        "symptom": "kwallis: every value is the same."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "kwallis",
@@ -16452,6 +17561,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -16792,7 +17902,14 @@
       "tolerance": "BIC of eight fixed graphs 1e-12 rel; the score hc() ends at 1e-10 rel on the two fixture data sets"
     },
     "example": "sp.hill_climb(df, data_type=\"discrete\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass data_type='discrete' to treat every column as categorical, or encode / drop the categorical ones and pass data_type='gaussian'.",
+        "symptom": "hill_climb: the columns mix categorical and numeric types (categorical: <[c for (c, f) in zip(cols, flags) if f]>)."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "hill_climb",
@@ -16802,6 +17919,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -16927,7 +18045,14 @@
       "tolerance": "exact: the skeleton is a set of edges"
     },
     "example": "sp.mmpc(df)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass data_type='discrete' or 'gaussian'.",
+        "symptom": "mmpc: the columns mix categorical and numeric types (categorical: <[c for (c, f) in zip(cols, flags) if f]>)."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "mmpc",
@@ -16937,6 +18062,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -17038,7 +18164,14 @@
       "tolerance": ""
     },
     "example": "sp.mmhc(df)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use sp.hill_climb(required=...) to impose it without the restriction.",
+        "symptom": "mmhc: the required arc (<a>, <b>) joins two variables the tests found separable."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "mmhc",
@@ -17048,6 +18181,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -17247,7 +18381,14 @@
       "tolerance": "on four seeds: the tuned forest is adopted and beats the default out-of-bag error against the true effect in at least three, with min_samples_leaf above the default"
     },
     "example": "sp.tune_causal_forest(Y=y, T=w, X=X, n_draws=40, random_state=1)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop them from parameters= or from the keywords.",
+        "symptom": "tune_causal_forest: <clash> are both tuned and fixed by keyword."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "tune_causal_forest",
@@ -17257,6 +18398,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -17487,7 +18629,14 @@
       "tolerance": "estimates and interval limits 1e-8 rel (observed <= 1e-12)"
     },
     "example": "sp.esize(df, \"cars_sold\", by=\"strategy\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the grouping column for near-empty groups.",
+        "symptom": "esize: each group needs at least two observations."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "esize",
@@ -17497,6 +18646,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -17597,7 +18747,32 @@
       "tolerance": "power / delta 1e-8 rel vs Stata (observed <= 1e-11); fractional n 1e-6 rel vs pwr (its uniroot tolerance)"
     },
     "example": "sp.power_ttest(delta=0.5, power=0.8)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'two-sample', 'one-sample' or 'paired'.",
+        "symptom": "power_ttest: unknown type <type>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'two-sided', 'greater' or 'less'.",
+        "symptom": "power_ttest: unknown alternative <alternative>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "e.g. sp.power_ttest(delta=0.5, power=0.8)",
+        "symptom": "power_ttest: give exactly two of n, delta and power; the third is computed (<given> given)."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "A test has power alpha when the effect is zero.",
+        "symptom": "power_ttest: power must lie between alpha (<alpha>) and 1."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "power_ttest",
@@ -17607,6 +18782,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -17719,7 +18895,14 @@
       "tolerance": "tau-a, tau-b, score, its standard error and p-value 1e-9 rel"
     },
     "example": "sp.ktau(df, \"health\", \"education\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the columns.",
+        "symptom": "ktau: one of the variables does not vary."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "ktau",
@@ -17729,6 +18912,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -18024,7 +19208,14 @@
       "tolerance": "W0, W50 and W10 1e-9 rel"
     },
     "example": "sp.robvar(df, \"income\", by=\"female\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Drop or merge the small group.",
+        "symptom": "robvar: a group has fewer than two observations."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "robvar",
@@ -18034,6 +19225,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -18117,7 +19309,26 @@
       "tolerance": ""
     },
     "example": "sp.loneway(df, \"score\", by=\"school\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "alpha=0.05 gives a 95% interval.",
+        "symptom": "loneway: alpha must lie strictly between 0 and 1, got <alpha>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Each group needs more than one observation overall.",
+        "symptom": "loneway: at least two groups and one within-group degree of freedom are needed."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop exact=True for the asymptotic interval.",
+        "symptom": "loneway: the exact interval is defined for groups of equal size."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "loneway",
@@ -18127,6 +19338,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -18225,7 +19437,20 @@
       "tolerance": "F, sums of squares and Bartlett's test 1e-9 rel"
     },
     "example": "sp.oneway(df, \"income\", by=\"education\", compare=\"bonferroni\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'bonferroni', 'sidak' or 'scheffe'.",
+        "symptom": "oneway: unknown compare <compare>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Each group needs more than one observation overall.",
+        "symptom": "oneway: no within-group degrees of freedom."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "oneway",
@@ -18235,6 +19460,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -18326,7 +19552,14 @@
       "tolerance": "mean and sd of each statistic over the sample 1e-9 rel; DFBETAs 1e-5 rel"
     },
     "example": "sp.influence_measures(sp.regress(\"y ~ x\", data=df))",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "The fit needs more than k + 1 observations.",
+        "symptom": "sp.influence_measures: too few observations to leave one out."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "influence_measures",
@@ -18336,6 +19569,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -18478,7 +19712,14 @@
       "tolerance": "chi-squared and degrees of freedom 1e-5 rel"
     },
     "example": "sp.logit_gof(sp.logit(\"d ~ x\", data=df), groups=10)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "groups=10 is the usual choice.",
+        "symptom": "sp.logit_gof: the Hosmer-Lemeshow test needs at least 3 groups."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "logit_gof",
@@ -18488,6 +19729,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "returns": "curated"
     },
     "reference": "",
@@ -18716,7 +19958,20 @@
       "tolerance": ""
     },
     "example": "sp.nlcom(result, \"x1 / x2\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "alpha is 1 minus the confidence level, e.g. 0.05.",
+        "symptom": "nlcom: alpha must be in (0, 1), got <alpha>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Write coefficient names that are not plain identifiers as _b[name].",
+        "symptom": "nlcom(<expression>) is not a valid expression (<exc.msg>)."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "nlcom",
@@ -18729,6 +19984,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "returns": "curated"
     },
@@ -18804,7 +20060,32 @@
       "tolerance": ""
     },
     "example": "sp.svar(fit, B=np.tril(np.full((3, 3), np.nan)))",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "fit = sp.var(df, variables=[...], lags=p); sp.svar(fit, ...)",
+        "symptom": "svar: the first argument is a VAR fitted by sp.var."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "alpha is 1 minus the coverage of the bands.",
+        "symptom": "svar: alpha must be in (0, 1), got <alpha>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "A recursive identification is B=np.tril(np.full((K, K), np.nan)).",
+        "symptom": "svar: give exactly one kind of restriction: A= / B= (short-run), long_run= or sign=."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use a longer sample or fewer variables.",
+        "symptom": "svar: too few observations for the residual covariance."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "svar",
@@ -18820,6 +20101,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -18942,7 +20224,32 @@
       "tolerance": ""
     },
     "example": "sp.prtest(df, \"employed\", by=\"treated\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the variable.",
+        "symptom": "prtest: the standard error under the null is zero (every observation is the same), so the statistic is not defined."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sp.prtest(n=50, proportion=0.52, p=0.4)",
+        "symptom": "prtest: y / by / other name columns of data; pass data, or the summary statistics n= and proportion=."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sp.prtest(n=50, proportion=0.52, p=0.4)",
+        "symptom": "prtest: give data and y, or both n= and proportion=."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass scalars for one sample, pairs for two.",
+        "symptom": "prtest: n and proportion must describe the same one or two samples."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "prtest",
@@ -18954,6 +20261,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "returns": "curated"
     },
@@ -19835,7 +21143,14 @@
       "tolerance": ""
     },
     "example": "sp.sktest(df, [\"wage\", \"lwage\"])",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the variable.",
+        "symptom": "sktest: <name> needs at least 8 observations that are not all equal."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "sktest",
@@ -19848,6 +21163,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -19923,7 +21239,14 @@
       "tolerance": ""
     },
     "example": "sp.swilk(df, \"wage\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "For a larger sample use sp.sktest.",
+        "symptom": "swilk: <name> has <n> usable observations; the test covers 4 to 5,000 observations that are not all equal."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "swilk",
@@ -19935,6 +21258,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -20011,7 +21335,32 @@
       "tolerance": ""
     },
     "example": "sp.ci(df, \"employed\", stat=\"proportions\", method=\"wilson\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sp.ci(df, 'y', stat='means')",
+        "symptom": "ci: stat=<stat> is not one of 'means', 'variances', 'sd', 'proportions'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "method applies to stat='proportions'.",
+        "symptom": "ci: method=<method> is not one of <list(_PROPORTION_METHODS)>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the variable.",
+        "symptom": "ci: <name> has too few observations."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Recode the variable first.",
+        "symptom": "ci: <name> must be coded 0 / 1 for a proportion."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "ci",
@@ -20023,6 +21372,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "returns": "curated"
     },
@@ -20516,7 +21866,14 @@
       "tolerance": ""
     },
     "example": "sp.conformal_regression(\"y ~ x1 + x2\", df, new, alpha=0.1)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop or fill them before predicting.",
+        "symptom": "conformal_regression: newdata has rows with missing regressors."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "conformal_regression",
@@ -20531,6 +21888,7 @@
       "assumptions": "curated",
       "cost_profile": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -21440,7 +22798,20 @@
       "tolerance": "coefficients, GCV, kHKB and kLW 1e-9 rel"
     },
     "example": "sp.ridge(\"medv ~ crim + rm + lstat\", df)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop the constant column(s).",
+        "symptom": "ridge: regressor(s) <bad> do not vary."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use strictly positive penalties.",
+        "symptom": "ridge: lambda = 0 is least squares, which is not unique with at least as many regressors as observations."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "ridge",
@@ -21453,6 +22824,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -21713,7 +23085,26 @@
       "tolerance": "RSS and adjusted R2 of the best model of each size 1e-9 rel; Cp 1e-8 abs; the same variables at every size"
     },
     "example": "sp.best_subset(df, \"y\", [\"x1\", \"x2\", \"x3\", \"x4\"])",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Screen first with sp.lasso_select or sp.stepwise.",
+        "symptom": "best_subset: <p> candidates; the exact search is limited to <_MAX_CANDIDATES>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop them from x.",
+        "symptom": "best_subset: candidate(s) <bad> are constant or collinear with the forced regressors."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop the redundant column(s) from x.",
+        "symptom": "best_subset: the candidates are perfectly collinear."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "best_subset",
@@ -21727,6 +23118,7 @@
       "assumptions": "curated",
       "cost_profile": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -21838,7 +23230,26 @@
       "tolerance": ""
     },
     "example": "sp.sdtest(df, \"wage\", by=\"female\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop sd0=, or drop by= / other=.",
+        "symptom": "sdtest: sd0= is the null of a one-sample test; two samples are tested against a ratio of one."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check that the variable is not constant.",
+        "symptom": "sdtest: <label> has no variation, so the test is not defined."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sp.sdtest(df, 'y', sd0=5); for two samples pass by= or other=.",
+        "symptom": "sdtest: a one-sample test needs sd0=, the positive standard deviation under the null."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "sdtest",
@@ -21849,6 +23260,7 @@
     "provenance": {
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "returns": "curated"
     },
@@ -21956,7 +23368,20 @@
       "tolerance": ""
     },
     "example": "sp.ztest(df, \"score\", mu=85, sd=2)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sd is the known population standard deviation.",
+        "symptom": "ztest: sd must be a positive number, or one per sample."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sp.ztest(n=10, mean=88, sd=0.7, mu=85).",
+        "symptom": "ztest: mean= is required with summary statistics."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "ztest",
@@ -21968,6 +23393,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "returns": "curated"
     },
@@ -22080,7 +23506,20 @@
       "tolerance": ""
     },
     "example": "fit = sp.shrinkage(train, \"testscore\", predictors, method=\"ridge\"); fit.rmspe(holdout)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop them; a constant cannot be standardised.",
+        "symptom": "shrinkage: predictors <constant> do not vary."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use shuffle=True, fewer folds, or drop predictors that vary in a few rows only.",
+        "symptom": "shrinkage: a predictor is constant within a training fold, so it cannot be standardised there."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "shrinkage",
@@ -22093,6 +23532,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "returns": "curated"
     },
@@ -38546,7 +39986,32 @@
       "tolerance": "cross-correlations 1e-10; AR coefficients 1e-9; Haugh statistic 1e-9"
     },
     "example": "sp.xcorr(\"gdp\", \"sentiment\", data=df, prewhiten=\"ar\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use prewhiten='ar' to filter each series with its own autoregression.",
+        "symptom": "sp.xcorr: prewhiten=<prewhiten> is not None, 'ar' or 'x'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use ar_method='ols'.",
+        "symptom": "sp.xcorr: ar_method=<ar_method> is not 'ols' or 'yw'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use ic='aic' or ic='bic'.",
+        "symptom": "sp.xcorr: ic=<ic> is not 'aic' or 'bic'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use alpha=0.05 for a 95% band.",
+        "symptom": "sp.xcorr: alpha=<alpha> is not between 0 and 1."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "xcorr",
@@ -38558,6 +40023,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -38695,7 +40161,32 @@
       "tolerance": "long-run variance and bandwidth 1e-9 rel over 104 kernel x bandwidth x prewhitening cases"
     },
     "example": "sp.lrvar(df, \"growth\", kernel=\"qs\", prewhite=1)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'bartlett', 'parzen', 'qs', 'tukey-hanning' or 'truncated'.",
+        "symptom": "sp.lrvar: kernel=<kernel> is not known."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 0 (none) or 1.",
+        "symptom": "sp.lrvar: prewhite=<prewhite> is negative."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop adjust=True or set demean=True.",
+        "symptom": "sp.lrvar: adjust=True corrects for the estimated mean and needs demean=True."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use a longer series.",
+        "symptom": "sp.lrvar: <n> observations are too few."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "lrvar",
@@ -38705,6 +40196,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -38839,7 +40331,32 @@
       "tolerance": "frequencies, spectrum, degrees of freedom, bandwidth and band 1e-9 rel"
     },
     "example": "sp.periodogram(df, \"growth\", method=\"smoothed\", spans=[5, 5])",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Choose one of the three estimators.",
+        "symptom": "sp.periodogram: method=<method> is not 'raw', 'smoothed' or 'ar'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'cycles' (R) or 'radians' (textbook).",
+        "symptom": "sp.periodogram: scale=<scale> is not 'cycles' or 'radians'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. alpha=0.05.",
+        "symptom": "sp.periodogram: alpha=<alpha> is not between 0 and 1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "A spectrum needs at least four observations.",
+        "symptom": "sp.periodogram: <n> observations."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "periodogram",
@@ -38851,6 +40368,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -39002,7 +40520,26 @@
       "tolerance": "statistic 1e-12 rel; p-value 2e-8 abs"
     },
     "example": "sp.cumulative_periodogram_test(df, \"resid\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. alpha=0.05.",
+        "symptom": "sp.<who>: alpha=<alpha> is not between 0 and 1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "The test needs at least four observations.",
+        "symptom": "sp.<who>: <n> observations."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "There is no variance to decompose.",
+        "symptom": "sp.<who>: the series is constant."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "cumulative_periodogram_test",
@@ -39011,6 +40548,7 @@
     "provenance": {
       "alternatives": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -39096,7 +40634,32 @@
       "tolerance": "trend and cycle 1e-9 rel"
     },
     "example": "sp.tsfilter(df, \"lgdp\", method=\"bk\", low=6, high=32, K=12)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'hp', 'bk', 'cf', 'bw' or 'hamilton'.",
+        "symptom": "sp.tsfilter: method=<method> is not one of <_METHODS>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the column.",
+        "symptom": "sp.tsfilter: the series has no observed value."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fill the gap or filter the longest complete stretch.",
+        "symptom": "sp.tsfilter: the series has missing or infinite values between observed ones; the filters need consecutive periods."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "method='hamilton' is one-sided by construction.",
+        "symptom": "sp.tsfilter: one_sided=True is defined for method='hp', not <method>."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "tsfilter",
@@ -39109,6 +40672,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -39250,7 +40814,32 @@
       "tolerance": "trend 1e-8 rel against a 400-step forecast"
     },
     "example": "sp.beveridge_nelson(\"lgdp\", data=df)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use ic='bic' or ic='aic'.",
+        "symptom": "sp.beveridge_nelson: ic=<ic> is not 'aic' or 'bic'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use a longer series.",
+        "symptom": "sp.beveridge_nelson: <level.size> observations are too few."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Add arma=True, or pass an integer max_order.",
+        "symptom": "sp.beveridge_nelson: max_order=(P, Q) is the grid of the ARMA search."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Lower max_order or use a longer series.",
+        "symptom": "sp.beveridge_nelson: max_order=<pmax> with <n> differences."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "beveridge_nelson",
@@ -39262,6 +40851,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "not_recommended_when": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -39383,7 +40973,32 @@
       "tolerance": "minimum t statistic, the path over break dates and the regression at the break 1e-7 rel; break date equal"
     },
     "example": "sp.zivot_andrews(df, \"lgdp\", model=\"both\", lags=2)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "'intercept' allows a level shift, 'trend' a change of slope, 'both' the two together.",
+        "symptom": "zivot_andrews: model=<model> is not 'intercept', 'trend' or 'both'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use fewer lags or a longer series.",
+        "symptom": "zivot_andrews: <n> observations are too few for <k_edge> lags and trim=<trim>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sp.zivot_andrews(df, 'gdp').",
+        "symptom": "zivot_andrews: with a DataFrame, y must name one of its columns."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fill or drop the gaps; the test needs a regularly spaced series.",
+        "symptom": "zivot_andrews: the series has missing values inside the sample."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "zivot_andrews",
@@ -39393,6 +41008,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -39542,7 +41158,20 @@
       "tolerance": "LR statistic 1e-8 rel, degrees of freedom equal, restricted vectors 1e-6"
     },
     "example": "sp.johansen_lrtest(df, rank=1, beta_known=[1, -1, 0])",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Test one hypothesis per call.",
+        "symptom": "johansen_lrtest: give exactly one of beta=, beta_known=, loading=."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Choose the rank with sp.johansen first.",
+        "symptom": "johansen_lrtest: rank must be between 1 and <K - 1>, got <rank>."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "johansen_lrtest",
@@ -39554,6 +41183,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "pre_conditions": "curated",
       "reference": "curated",
       "returns": "curated"
@@ -47802,6 +49432,136 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "decomposition",
+    "cost_profile": "",
+    "description": "Species-diversity indices from record-level or count data: Shannon entropy, species richness, Pielou evenness, the Simpson family (concentration / Gini-Simpson / inverse) and Hill numbers of any order. Accepts long-format sighting records or a site-by-species matrix and groups straight onto a panel index, so an ecological outcome can be built inside the same pipeline that estimates on it. min_records makes the small-sample filter explicit rather than a footnote. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_closed_form_identities.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.diversity_index(records, species=\"species\", by=[\"county\", \"ym\"], index=[\"shannon\", \"richness\"], min_records=5)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the species and grouping columns for NaNs.",
+        "symptom": "No records remain after dropping rows with missing group or species values."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass long-format records with species= instead, or reshape to a site-by-species matrix.",
+        "symptom": "Matrix input must be 1-D (one site) or 2-D (sites x species)."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "diversity_index",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "Shannon (1948); Simpson (1949); Pielou (1966); Hill (1973).",
+    "returns": {
+      "class": "float",
+      "description": "float | Series | DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Species-diversity indices from record-level or count data: Shannon entropy, species richness, Pielou evenness, the Simpson family (concentration / Gini-Simpson / inverse) and Hill numbers of any order. Accepts long-format sighting records or a site-by-species matrix and groups straight onto a panel index, so an ecological outcome can be built inside the same pipeline that estimates on it. min_records makes the small-sample filter explicit rather than a footnote. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "diversity_index",
+      "parameters": {
+        "properties": {
+          "base": {
+            "description": "Log base for Shannon",
+            "type": "number"
+          },
+          "by": {
+            "description": "Grouping keys, typically the panel index",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "count": {
+            "description": "Abundance column; omit when one row is one record",
+            "type": "string"
+          },
+          "data": {
+            "description": "Long-format records or a site-by-species matrix",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "index": {
+            "default": "shannon",
+            "description": "Index/indices to compute, or 'all'",
+            "items": {
+              "enum": [
+                "shannon",
+                "richness",
+                "pielou",
+                "simpson",
+                "gini_simpson",
+                "inv_simpson",
+                "hill",
+                "all"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "string"
+            ]
+          },
+          "min_records": {
+            "default": 0,
+            "description": "Groups below this many records return NaN",
+            "type": "integer"
+          },
+          "q": {
+            "default": 1.0,
+            "description": "Hill number order",
+            "type": "number"
+          },
+          "species": {
+            "description": "Species column (required for long-format input)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_closed_form_identities.py",
+      "API/unit contract evidence: tests/test_diversity_index.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "sp.iv",
       "sp.anderson_rubin_ci"
@@ -50368,7 +52128,32 @@
       "tolerance": ""
     },
     "example": "sp.fairness.evidence_without_injustice(df, predictor, protected='race', admissible_features=['credit'], scm_intervention=fn)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass a function accepting a DataFrame and returning predictions.",
+        "symptom": "predictor must be callable."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass a function accepting (data, protected_value).",
+        "symptom": "scm_intervention must be callable."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the protected column name.",
+        "symptom": "`protected` column <protected> not in data."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check admissible feature names against data.columns.",
+        "symptom": "admissible_features not in data: <missing>"
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "evidence_without_injustice",
@@ -50379,6 +52164,7 @@
     "provenance": {
       "alternatives": "family",
       "example": "curated",
+      "failure_modes": "source",
       "pre_conditions": "family",
       "reference": "curated",
       "returns": "curated"
@@ -67654,6 +69440,10 @@
           "control_group": {
             "default": "nevertreated",
             "description": "control_group parameter (str).",
+            "enum": [
+              "nevertreated",
+              "notyettreated"
+            ],
             "type": "string"
           },
           "data": {
@@ -67664,6 +69454,11 @@
           "estimator": {
             "default": "dr",
             "description": "estimator parameter (str).",
+            "enum": [
+              "dr",
+              "ipw",
+              "reg"
+            ],
             "type": "string"
           },
           "g": {
@@ -67878,6 +69673,10 @@
           "control_group": {
             "default": "nevertreated",
             "description": "Passed through to :func:`callaway_santanna`. ``weights`` names a sampling-weight column; leaving it unset weights every unit equally.",
+            "enum": [
+              "nevertreated",
+              "notyettreated"
+            ],
             "type": "string"
           },
           "data": {
@@ -67888,6 +69687,11 @@
           "estimator": {
             "default": "dr",
             "description": "Passed through to :func:`callaway_santanna`. ``weights`` names a sampling-weight column; leaving it unset weights every unit equally.",
+            "enum": [
+              "dr",
+              "ipw",
+              "reg"
+            ],
             "type": "string"
           },
           "g": {
@@ -70486,6 +72290,11 @@
           },
           "se_method": {
             "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
+            "enum": [
+              "analytic",
+              "bootstrap",
+              "auto"
+            ],
             "type": "string"
           },
           "time": {
@@ -70808,6 +72617,11 @@
           },
           "se_method": {
             "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
+            "enum": [
+              "analytic",
+              "bootstrap",
+              "auto"
+            ],
             "type": "string"
           },
           "time": {
@@ -71977,6 +73791,204 @@
       "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
       "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
       "tests/reference_parity/test_jwdid_Stata_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Wooldridge ETWFE with Stata ``jwdid``'s option names. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 jwdid ..., method(ppmlhdfe) + estat simple",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "jwdid": "2.2",
+        "ppmlhdfe": "2.3.3"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_jwdid_Stata_parity.py"
+      ],
+      "tolerance": "Link-scale simple ATT 1e-9 and its SE 1e-7 relative (observed <= 3e-14 and <= 3e-11); response-scale ATT and its default (response_se='margins') SE 1e-6 (Stata margins takes numerical derivatives; observed <= 2e-7). Sixteen specifications: every hettype(), never, i.xcat / xc covariates, over(xcat), and exovar(i.year#i.xcat), never exovar(i.year#i.xcat), exovar(c.xc#i.xcat)."
+    },
+    "example": "r = sp.jwdid(df, \"y\", ivar=\"unit\", tvar=\"time\", gvar=\"first_treat\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass method='ppmlhdfe' for count outcomes.",
+        "symptom": "jwdid(method=<method>) is not supported; use one of None, 'regress', 'ppmlhdfe', 'poisson', 'logit'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "predict='xb' reports the ATT in log points.",
+        "symptom": "jwdid(predict=<predict>) is not supported; use None, 'mu' or 'xb'."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop predict=, or pass method='ppmlhdfe'.",
+        "symptom": "jwdid(predict=<predict>) needs a nonlinear method(); the linear model has a single scale."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "jwdid",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "reference": "docstring",
+      "returns": "docstring"
+    },
+    "reference": "@wooldridge2021two",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult: The :func:`sp.etwfe` result; model_info['stata_equivalent'] spells out the Stata command it reproduces.",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Wooldridge ETWFE with Stata ``jwdid``'s option names. Validation: certified parity evidence.",
+      "name": "jwdid",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level.",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "``cluster()``; defaults to ``ivar``.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "Panel in long format.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "exovar": {
+            "description": "``exovar()``: covariates that enter without interactions. Stata factor terms work, e.g. ``\"i.year#i.nodecity\"``.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "gvar": {
+            "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+            "type": "string"
+          },
+          "hettype": {
+            "description": "``hettype()``: ``'timecohort'`` (default), ``'time'``, ``'cohort'``, ``'event'`` or ``'twfe'``.",
+            "type": "string"
+          },
+          "ivar": {
+            "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+            "type": "string",
+            "x-aliases": [
+              "id"
+            ],
+            "x-canonical": "id",
+            "x-statspai-role": "column"
+          },
+          "method": {
+            "description": "``method()``. ``None`` is ``jwdid``'s default linear model (``reghdfe``); ``'ppmlhdfe'`` / ``'poisson'`` the Poisson model.",
+            "enum": [
+              "regress",
+              "ppmlhdfe",
+              "poisson",
+              "logit"
+            ],
+            "type": "string"
+          },
+          "never": {
+            "default": false,
+            "description": "``never``: compare with never-treated units only, which also estimates the pre-treatment (lead) effects.",
+            "type": "boolean"
+          },
+          "predict": {
+            "description": "The ``estat ..., predict()`` scale of the reported ATT for a nonlinear ``method``: ``None`` / ``'mu'`` the count (response) scale, Stata's default; ``'xb'`` the linear index (log points for Poisson).",
+            "enum": [
+              "mu",
+              "xb"
+            ],
+            "type": "string"
+          },
+          "response_se": {
+            "default": "margins",
+            "description": "Delta-method convention of the count-scale SEs (see :func:`sp.etwfe`). ``'margins'`` is what ``estat`` reports -- the absorbed effects held fixed -- so the default reproduces Stata's table; ``'profile'`` is ``sp.etwfe``'s own default.",
+            "enum": [
+              "margins",
+              "profile"
+            ],
+            "type": "string"
+          },
+          "separated": {
+            "default": "keep",
+            "description": "Treatment of units whose outcome is always zero under Poisson; see :func:`sp.etwfe`.",
+            "enum": [
+              "keep",
+              "drop"
+            ],
+            "type": "string"
+          },
+          "tvar": {
+            "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+            "type": "string"
+          },
+          "x": {
+            "description": "``indepvars`` of ``jwdid y x``: covariates that moderate each treatment effect. ``\"i.region\"`` marks a categorical covariate -- the per-level ATTs of ``estat simple, over(region)`` are ``sp.etwfe_emfx(result, type='simple', by_xvar=True)``.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome (``depvar``).",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "ivar",
+          "tvar",
+          "gvar"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 jwdid ..., method(ppmlhdfe) + estat simple [Stata 18 MP, jwdid 2.2, ppmlhdfe 2.3.3]; tolerance Link-scale simple ATT 1e-9 and its SE 1e-7 relative (observed <= 3e-14 and <= 3e-11); response-scale ATT and its default (response_se='margins') SE 1e-6 (Stata margins takes numerical derivatives; observed <= 2e-7). Sixteen specifications: every hettype(), never, i.xcat / xc covariates, over(xcat), and exovar(i.year#i.xcat), never exovar(i.year#i.xcat), exovar(c.xc#i.xcat). -- tests/reference_parity/test_jwdid_Stata_parity.py",
+      "tests/reference_parity/test_stata_did_commands_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -73384,6 +75396,11 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "epanechnikov",
+              "uniform"
+            ],
             "type": "string"
           },
           "n_grid": {
@@ -73527,6 +75544,11 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "epanechnikov",
+              "uniform"
+            ],
             "type": "string"
           },
           "p": {
@@ -73663,6 +75685,11 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "epanechnikov",
+              "uniform"
+            ],
             "type": "string"
           },
           "n_placebo": {
@@ -76059,6 +78086,12 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel for local linear regression ('triangular', 'uniform', 'epanechnikov').",
+            "enum": [
+              "triangular",
+              "uniform",
+              "epanechnikov",
+              "gaussian"
+            ],
             "type": "string"
           },
           "x": {
@@ -79637,6 +81670,11 @@
           "method": {
             "default": "logit",
             "description": "PS estimation method ('logit', 'probit', 'gbm').",
+            "enum": [
+              "logit",
+              "probit",
+              "gbm"
+            ],
             "type": "string"
           },
           "sd_denom": {
@@ -84772,6 +86810,147 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "output",
+    "cost_profile": "",
+    "description": "Generate descriptive statistics table.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.sumstats(df, output='table1.docx') # doctest: +SKIP",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'linear' or 'stata'.",
+        "symptom": "sumstats: unknown percentile_method <percentile_method>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the name of a numeric column.",
+        "symptom": "sumstats: the weights column <weights> is not in the data."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Analytic weights must be zero or positive.",
+        "symptom": "sumstats: negative weights."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "sumstats",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "str",
+      "description": "str or pd.DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Generate descriptive statistics table.",
+      "name": "sumstats",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Group-by variable for stratified summaries.",
+            "type": "string"
+          },
+          "by_labels": {
+            "description": "Group labels for ``by=`` panel headers, e.g. ``{0: 'Control', 1: 'Treated'}``. When ``by`` is binary 0/1 and no ``by_labels`` is supplied, ``Control``/``Treated`` is auto-applied so academic Table 1 reads correctly out of the box.",
+            "type": "object"
+          },
+          "data": {
+            "description": "Input data.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "digits": {
+            "description": "digits parameter (Optional[int]).",
+            "type": "integer"
+          },
+          "fmt": {
+            "description": "Number format. The default rounds each cell to a few significant digits; pass ``digits=3`` for a fixed three decimals throughout.",
+            "type": "integer"
+          },
+          "labels": {
+            "description": "Variable labels: ``{'x1': 'Education (years)'}``.",
+            "type": "object"
+          },
+          "output": {
+            "default": "text",
+            "description": "'text', 'latex', 'html', 'dataframe', 'numeric', or filepath (.xlsx/.docx). ``'dataframe'`` holds the formatted display strings; ``'numeric'`` the unrounded values (``N`` as int, the rest float) for further computation, with ``fmt`` / ``digits`` ignored.",
+            "type": "string"
+          },
+          "percentile_method": {
+            "default": "linear",
+            "description": "How a percentile between two order statistics is defined. ``'linear'`` interpolates (numpy / pandas default, R's type 7). ``'stata'`` is the rule of Stata's ``summarize, detail`` and ``tabstat``: with ``h = N * p / 100``, the mean of the ``h``-th and ``(h + 1)``-th order statistics when ``h`` is an integer, and the ``ceil(h)``-th otherwise. The two agree on the median of an odd sample and can differ elsewhere within a gap between observations.",
+            "enum": [
+              "linear",
+              "stata"
+            ],
+            "type": "string"
+          },
+          "stats": {
+            "description": "Statistics to compute. Default: ['n', 'mean', 'sd', 'min', 'p25', 'median', 'p75', 'max'].",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "default": "Summary Statistics",
+            "description": "Table title.",
+            "type": "string"
+          },
+          "total": {
+            "default": false,
+            "description": "With ``by=``, add a panel ``'Total'`` for all the rows that belong to a group (Stata ``tabstat, by()`` prints it as its last row).",
+            "type": "boolean"
+          },
+          "vars": {
+            "description": "Variables to summarize. Defaults to all numeric columns.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "weights": {
+            "description": "Column of analytic weights (Stata ``summarize x [aweight=w]``). Rows with a missing or zero weight are left out. The mean is ``sum(w x) / sum(w)``; the variance is the weighted mean squared deviation times ``n / (n - 1)``, with ``n`` the number of rows used; skewness and kurtosis are ratios of weighted moments; ``sum`` is ``n`` times the weighted mean (the weights are scaled to add up to ``n``). Percentiles are the weighted ones of Stata's ``_pctile`` whatever ``percentile_method`` says: the first value at which the cumulative weight passes ``p`` percent of the total, or the mean of that value and the next when it lands on it exactly. ``N`` counts rows. Negative weights raise.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "sp.regress",
       "sp.feols",
@@ -85042,6 +87221,48 @@
           "method": {
             "default": "classic",
             "description": "Synthetic-control method passed to :func:`sp.synth` (e.g. ``'classic'``, ``'augmented'``, ``'sdid'``).",
+            "enum": [
+              "classic",
+              "classic_adh",
+              "adh",
+              "penalized",
+              "ridge",
+              "demeaned",
+              "detrended",
+              "unconstrained",
+              "elastic_net",
+              "augmented",
+              "ascm",
+              "sdid",
+              "factor",
+              "gsynth",
+              "staggered",
+              "mc",
+              "matrix_completion",
+              "discos",
+              "distributional",
+              "multi_outcome",
+              "multi",
+              "scpi",
+              "prediction_interval",
+              "bayesian",
+              "bsts",
+              "causal_impact",
+              "penscm",
+              "abadie_lhour",
+              "pairwise",
+              "fdid",
+              "forward_did",
+              "rcm",
+              "hcw",
+              "regression_control",
+              "pda",
+              "cluster",
+              "sparse",
+              "lasso",
+              "kernel",
+              "kernel_ridge"
+            ],
             "type": "string"
           },
           "outcome": {
@@ -90028,6 +92249,98 @@
     "typical_n_min": null,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_correctness_fixes.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "Joint (seemingly unrelated) inference across separately fitted OLS equations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_suest_Stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "res = sp.suest(d, [\"y1 ~ x\", \"y2 ~ x\"], cluster=\"c\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Copy the column under a new name for a second equation.",
+        "symptom": "Each equation needs a distinct dependent variable."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "suest",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "SuestResult",
+      "description": "SuestResult: params, joint vcov, and wald / test_equal / test_zero for cross-equation hypotheses.",
+      "fields": {
+        "equations": "List[str]",
+        "n_clusters": "Optional[int]",
+        "n_obs": "Dict[str, int]",
+        "params": "pd.Series",
+        "vce": "str",
+        "vcov": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Joint (seemingly unrelated) inference across separately fitted OLS equations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "suest",
+      "parameters": {
+        "properties": {
+          "cluster": {
+            "description": "Cluster variable: the joint covariance sums the stacked influence functions within clusters and scales by ``G/(G-1)`` (Stata ``suest, vce(cluster c)``); otherwise it is the robust ``n/(n-1)`` version.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "equations": {
+            "description": "Each equation is ``(y, [x1, x2, ...])`` or a formula string ``\"y ~ x1 + x2\"`` (plain column names; an intercept is added). Each is fitted on its own complete rows.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "equations"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_suest_Stata_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -101595,6 +103908,217 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Lasso, ridge and elastic net with the conventions of R ``glmnet``. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "glmnet::glmnet and glmnet::cv.glmnet (gaussian, binomial; thresh = 1e-14)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "glmnet": "4.1.10"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_glmnet_r_parity.py",
+        "tests/reference_parity/_fixtures/glmnet_R.json"
+      ],
+      "tolerance": "penalty path 1e-10 and equal length; coefficients 1e-6 absolute (5e-5 with more predictors than rows); deviance explained 1e-7; cross-validated error and its standard error 1e-4; lambda.min and lambda.1se the same grid point"
+    },
+    "example": "fit = sp.glmnet(df, \"y\", cols, alpha=0.5, seed=0)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Other families are not implemented.",
+        "symptom": "glmnet: family must be 'gaussian' or 'binomial', got <family>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use rule='min'.",
+        "symptom": "glmnet: rule must be 'min' or '1se', got <rule>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Recode the outcome.",
+        "symptom": "glmnet: a binomial outcome must be coded 0/1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Encode categorical predictors as indicators.",
+        "symptom": "glmnet: the outcome and predictors must be numeric."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "glmnet",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "reference": "docstring",
+      "returns": "docstring"
+    },
+    "reference": "@friedman2010regularization; @zou2005regularization; @zou2006adaptive",
+    "returns": {
+      "class": "GlmnetResult",
+      "description": "GlmnetResult",
+      "fields": {
+        "alpha": "float",
+        "coefficients": "pd.DataFrame",
+        "cv": "Optional[pd.DataFrame]",
+        "family": "str",
+        "intercept": "float",
+        "lambda_1se": "float",
+        "lambda_min": "float",
+        "model_info": "Dict[str, Any]",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "path": "pd.DataFrame",
+        "penalty": "float",
+        "x": "List[str]"
+      }
+    },
+    "signature": {
+      "description": "Lasso, ridge and elastic net with the conventions of R ``glmnet``. Validation: certified parity evidence.",
+      "name": "glmnet",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 1.0,
+            "description": "Mixing weight: 1 is the lasso, 0 the ridge.",
+            "type": "number"
+          },
+          "cv": {
+            "default": true,
+            "description": "Cross-validate. With ``False`` the last penalty of the path is selected and ``lambda_min`` / ``lambda_1se`` are ``nan``.",
+            "type": "boolean"
+          },
+          "data": {
+            "description": "Rows with a missing outcome or predictor are dropped.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "family": {
+            "default": "gaussian",
+            "description": "family parameter (str).",
+            "enum": [
+              "gaussian",
+              "binomial"
+            ],
+            "type": "string"
+          },
+          "foldid": {
+            "description": "Fold label of each row (or a column holding it). Without it rows are assigned at random with ``seed``.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "intercept": {
+            "default": true,
+            "description": "intercept parameter (bool).",
+            "type": "boolean"
+          },
+          "lambda_": {
+            "description": "Penalties to fit. ``None`` builds ``glmnet``'s path: ``n_lambda`` values, log-spaced from the smallest penalty that sets every penalised coefficient to zero down to ``lambda_min_ratio`` of it, stopped early once the deviance explained no longer improves.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "lambda_min_ratio": {
+            "description": "Default ``1e-4`` with more rows than predictors, else ``0.01``.",
+            "type": "number"
+          },
+          "max_iter": {
+            "default": 100000,
+            "description": "Maximum number of optimisation iterations.",
+            "type": "integer"
+          },
+          "n_folds": {
+            "default": 10,
+            "description": "Number of cross-fitting or cross-validation folds.",
+            "type": "integer"
+          },
+          "n_lambda": {
+            "default": 100,
+            "description": "Number of lambda.",
+            "type": "integer"
+          },
+          "penalty_factor": {
+            "description": "Multiplier ``v_j`` of the penalty of each predictor. 0 leaves a predictor unpenalised; weights ``1 / |b_j|`` from a first-stage fit give the adaptive lasso. Rescaled to sum to the number of predictors, as in ``glmnet``.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "rule": {
+            "default": "min",
+            "description": "Which penalty ``params``, ``coef()`` and ``predict()`` use by default.",
+            "enum": [
+              "min",
+              "1se"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "standardize": {
+            "default": true,
+            "description": "Scale predictors to unit standard deviation (divisor ``n``) before penalising. Coefficients are always returned in original units.",
+            "type": "boolean"
+          },
+          "tol": {
+            "default": 1e-18,
+            "description": "Convergence threshold of coordinate descent, on the largest squared coefficient change (standardised units). Much tighter than ``glmnet``'s default ``thresh = 1e-7``, so that the fit is the minimiser to about nine digits. ``glmnet`` at its default is up to 6e-4 from that in the coefficients of the test designs; at ``thresh = 1e-14`` it agrees to 1e-6.",
+            "type": "number"
+          },
+          "x": {
+            "description": "Predictors, in their original units.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome. For ``family='binomial'`` it must be coded 0/1.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs glmnet::glmnet and glmnet::cv.glmnet (gaussian, binomial; thresh = 1e-14) [R version 4.5.2 (2025-10-31), glmnet 4.1.10]; tolerance penalty path 1e-10 and equal length; coefficients 1e-6 absolute (5e-5 with more predictors than rows); deviance explained 1e-7; cross-validated error and its standard error 1e-4; lambda.min and lambda.1se the same grid point -- tests/reference_parity/test_glmnet_r_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "sp.benjamini_hochberg",
       "sp.holm"
@@ -101808,6 +104332,15 @@
           "method": {
             "default": "holm",
             "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence. - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence. - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than Holm; needs independent or positively dependent tests. - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under the same condition. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence. These are the methods of R's ``p.adjust`` (plus Sidak), and return the same numbers. A missing p-value stays missing and still counts towards the size of the family, which is where this differs from ``p.adjust``: R drops it from the count. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
+            "enum": [
+              "bonferroni",
+              "sidak",
+              "holm",
+              "hochberg",
+              "hommel",
+              "bh",
+              "by"
+            ],
             "type": "string"
           },
           "pvalues": {
@@ -104559,6 +107092,10 @@
           "method": {
             "default": "partialling out",
             "description": "See the module docstring.",
+            "enum": [
+              "partialling out",
+              "double selection"
+            ],
             "type": "string"
           },
           "penalty": {
@@ -104699,6 +107236,10 @@
           "method": {
             "default": "partialling out",
             "description": "Estimator or algorithm variant to use.",
+            "enum": [
+              "partialling out",
+              "double selection"
+            ],
             "type": "string"
           },
           "penalty": {
@@ -106265,6 +108806,12 @@
           "dist": {
             "default": "weibull",
             "description": "dist parameter (str).",
+            "enum": [
+              "weibull",
+              "exponential",
+              "lognormal",
+              "loglogistic"
+            ],
             "type": "string"
           },
           "duration": {
@@ -106932,6 +109479,168 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata lpoly (at(), bwidth(), degree(), kernel(), se(), pwidth()) [Stata 18 MP]; tolerance 1e-10 rel (observed 1.6e-12) -- tests/reference_parity/test_survival_epi_R_parity.py",
       "tests/external_parity/test_ding_linear_model.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "nonparametric",
+    "cost_profile": "",
+    "description": "Conditional inference tree (Hothorn, Hornik and Zeileis 2006). Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "partykit::ctree (quadratic test statistic, Bonferroni and univariate tests)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "partykit": "1.3.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_ctree_partykit_parity.py",
+        "tests/reference_parity/_fixtures/ctree_R.json"
+      ],
+      "tolerance": "tree shape, split variables, cut points and level sets, terminal node and prediction of every row exact; test statistics 1e-9 relative; adjusted p-values 1e-7 relative"
+    },
+    "example": "fit = sp.ctree(df, y=\"survived\", covariates=[\"age\", \"noise\"],\n task=\"classification\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Drop those rows first.",
+        "symptom": "ctree: the outcome '<y>' has missing values."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "A tree needs data to test on.",
+        "symptom": "ctree: fewer than two observations."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ctree",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "reference": "docstring",
+      "returns": "docstring"
+    },
+    "reference": "@hothorn2006unbiased; @varian2014big",
+    "returns": {
+      "class": "CTreeResult",
+      "description": "CTreeResult",
+      "fields": {
+        "classes": "Optional[List[Any]]",
+        "covariates": "List[str]",
+        "fitted": "np.ndarray",
+        "model_info": "Dict[str, Any]",
+        "n_obs": "int",
+        "node_id": "np.ndarray",
+        "nodes": "pd.DataFrame",
+        "task": "str",
+        "tests": "pd.DataFrame",
+        "y": "str"
+      }
+    },
+    "signature": {
+      "description": "Conditional inference tree (Hothorn, Hornik and Zeileis 2006). Validation: certified parity evidence.",
+      "name": "ctree",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level a split must reach (``1 - mincriterion`` in ``party``).",
+            "type": "number"
+          },
+          "covariates": {
+            "description": "Numeric, boolean and ordered-categorical columns are split at a cut point. String and unordered-categorical columns are split into two sets of levels (at most 12 levels).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "max_depth": {
+            "description": "Depth at which growth stops; the root has depth 0.",
+            "type": "integer"
+          },
+          "min_bucket": {
+            "default": 7,
+            "description": "min_bucket parameter (int).",
+            "type": "integer"
+          },
+          "min_prob": {
+            "default": 0.01,
+            "description": "A child must hold at least ``max(min_bucket, min_prob * n)`` observations, ``n`` being the size of the node.",
+            "type": "number"
+          },
+          "min_split": {
+            "default": 20,
+            "description": "A node with fewer observations is not split.",
+            "type": "integer"
+          },
+          "split_stat": {
+            "default": "quadratic",
+            "description": "Statistic that ranks cut points: the quadratic form (the default of ``partykit``) or the largest standardised component (the paper). They coincide for a numeric or a two-class outcome.",
+            "enum": [
+              "quadratic",
+              "maximum"
+            ],
+            "type": "string"
+          },
+          "task": {
+            "default": "auto",
+            "description": "``'auto'``: classification for a string, categorical or boolean outcome, regression for a numeric one. A numeric 0/1 outcome gives the same tree either way; classification predicts the majority class, regression the share.",
+            "enum": [
+              "auto",
+              "classification",
+              "regression"
+            ],
+            "type": "string"
+          },
+          "test": {
+            "default": "bonferroni",
+            "description": "``'bonferroni'``: the p-value is adjusted to ``1 - (1 - p)^m`` for the ``m`` covariates that vary in the node. ``'univariate'``: no adjustment.",
+            "enum": [
+              "bonferroni",
+              "univariate"
+            ],
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome column.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs partykit::ctree (quadratic test statistic, Bonferroni and univariate tests) [R version 4.5.2 (2025-10-31), partykit 1.3.0]; tolerance tree shape, split variables, cut points and level sets, terminal node and prediction of every row exact; test statistics 1e-9 relative; adjusted p-values 1e-7 relative -- tests/reference_parity/test_ctree_partykit_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -108619,6 +111328,12 @@
           "method": {
             "default": "bai-perron",
             "description": "Estimator or algorithm variant to use.",
+            "enum": [
+              "bai-perron",
+              "global",
+              "sup-f",
+              "chow"
+            ],
             "type": "string"
           },
           "min_segment": {
@@ -109554,6 +112269,163 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Design-based analysis of a switchback experiment. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "res = sp.switchback(plan, y=\"y\", treat=\"treat\", m=2,\n design=\"randomize\", seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Analyse a stretch of consecutive complete periods.",
+        "symptom": "switchback: the outcome and the assignment must be observed in every period; a missing period changes the windows around it."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the design that generated the assignment: design= takes a boolean column marking the periods where the coin was flipped.",
+        "symptom": "switchback: the assignment changes at period(s) <(off_design[:5] + 1).tolist()>, which are not randomization points of the stated design."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass a bound that the outcome cannot exceed.",
+        "symptom": "switchback: outcome_bound=<outcome_bound> is below the largest observed |<y>| (<largest>); it must bound every outcome under every assignment."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "switchback",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "reference": "docstring",
+      "returns": "docstring"
+    },
+    "reference": "bojinov2023design",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult: * estimate -- the Horvitz-Thompson estimate of :math:`\\tau_m`. * se, ci, pvalue -- under the optimal design with m >= 1, the conservative standard error of their Corollary 1,",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Design-based analysis of a switchback experiment. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "switchback",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the confidence interval.",
+            "type": "number"
+          },
+          "data": {
+            "description": "One row per period, in time order (or sortable by ``time``).",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "design": {
+            "default": "optimal",
+            "description": "The design the assignment was drawn from: a design name or block length as in :func:`switchback_design`, a boolean vector, or the name of a boolean column of ``data`` marking the randomization points. This must be the design that was actually run; the estimator's weights are its probabilities.",
+            "items": {
+              "enum": [
+                "optimal",
+                "every"
+              ],
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "string"
+            ]
+          },
+          "m": {
+            "default": 0,
+            "description": "Order of the carryover effect assumed in the analysis.",
+            "type": "integer"
+          },
+          "n_draws": {
+            "default": 10000,
+            "description": "Assignment paths drawn for the randomization test. ``0`` skips it.",
+            "type": "integer"
+          },
+          "outcome_bound": {
+            "description": "A number ``B`` that no outcome can exceed in absolute value under any assignment (it must be at least the largest observed ``|y|``). With it, a design other than the optimal one gets a standard error and an interval; see Returns. The estimand does not change when a constant is subtracted from the outcome, so centring the outcome at a value chosen before the experiment makes ``B``, and the interval, smaller.",
+            "type": "number"
+          },
+          "p": {
+            "default": 0.5,
+            "description": "Probability of treatment at each coin flip.",
+            "type": "number"
+          },
+          "seed": {
+            "description": "Seed for the randomization test.",
+            "type": "integer"
+          },
+          "time": {
+            "description": "Column to sort by. Default: the row order of ``data``.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "Assignment column (0/1), constant between randomization points.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_facure_causal_inference_in_python.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "sp.ri_test",
       "sp.romano_wolf"
@@ -110288,6 +113160,11 @@
           "model": {
             "default": "default",
             "description": "Model variant or parameterisation to fit.",
+            "enum": [
+              "default",
+              "fixed",
+              "random"
+            ],
             "type": "string"
           },
           "se_exposure": {
@@ -110979,6 +113856,11 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "epanechnikov",
+              "uniform"
+            ],
             "type": "string"
           },
           "ranges": {
@@ -111305,6 +114187,11 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "epanechnikov",
+              "uniform"
+            ],
             "type": "string"
           },
           "ranges": {
@@ -111446,6 +114333,11 @@
           "approach": {
             "default": "location",
             "description": "See the module docstring.",
+            "enum": [
+              "location",
+              "distance",
+              "pooled"
+            ],
             "type": "string"
           },
           "boundary": {
@@ -111463,11 +114355,25 @@
           "bwparam": {
             "default": "main",
             "description": "Fuzzy designs: select the bandwidth for the ratio or the ITT.",
+            "enum": [
+              "main",
+              "itt"
+            ],
             "type": "string"
           },
           "bwselect": {
             "default": "mserd",
             "description": "``mserd``, ``cerrd``, ``imserd``, ``icerrd``, ``msetwo``, ``certwo``, ``imsetwo`` or ``icertwo``.",
+            "enum": [
+              "mserd",
+              "cerrd",
+              "imserd",
+              "icerrd",
+              "msetwo",
+              "certwo",
+              "imsetwo",
+              "icertwo"
+            ],
             "type": "string"
           },
           "cluster": {
@@ -111510,6 +114416,10 @@
           "fitmethod": {
             "default": "joint",
             "description": "``joint`` applies the degrees-of-freedom correction to both sides together (R's default).",
+            "enum": [
+              "joint",
+              "separate"
+            ],
             "type": "string"
           },
           "fuzzy": {
@@ -111523,11 +114433,21 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "epanechnikov",
+              "uniform",
+              "gaussian"
+            ],
             "type": "string"
           },
           "kernel_type": {
             "default": "prod",
             "description": "Location approach: product or radial kernel.",
+            "enum": [
+              "prod",
+              "rad"
+            ],
             "type": "string"
           },
           "kink_position": {
@@ -111545,11 +114465,20 @@
           "masspoints": {
             "default": "check",
             "description": "masspoints parameter (str).",
+            "enum": [
+              "check",
+              "adjust",
+              "off"
+            ],
             "type": "string"
           },
           "method": {
             "default": "dpi",
             "description": "Location approach: pilot bandwidth rule for the bias constants.",
+            "enum": [
+              "dpi",
+              "rot"
+            ],
             "type": "string"
           },
           "n_eval": {
@@ -111578,6 +114507,11 @@
           "side": {
             "default": "two",
             "description": "Two-sided or one-sided intervals.",
+            "enum": [
+              "two",
+              "left",
+              "right"
+            ],
             "type": "string"
           },
           "stdvars": {
@@ -111601,6 +114535,12 @@
           "vce": {
             "default": "hc1",
             "description": "vce parameter (str).",
+            "enum": [
+              "hc1",
+              "hc0",
+              "hc2",
+              "hc3"
+            ],
             "type": "string"
           },
           "weights": {
@@ -111744,6 +114684,12 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "uniform",
+              "epanechnikov",
+              "gaussian"
+            ],
             "type": "string"
           },
           "running_vars": {
@@ -112366,6 +115312,10 @@
           "method": {
             "default": "iterative",
             "description": "Bai's (2009) iterated least squares: alternate principal components of ``Y - Xbeta`` (factors) and least squares of ``Y M_F`` on ``X M_F`` (slopes) until the slopes move by less than ``tol``. ``'pca'`` is accepted for backward compatibility and runs the same algorithm (it always did); it is deprecated.",
+            "enum": [
+              "iterative",
+              "pca"
+            ],
             "type": "string"
           },
           "n_factors": {
@@ -113448,6 +116398,10 @@
           "method": {
             "default": "mle",
             "description": "``'mle'`` for full-information maximum likelihood (Stata's default) or ``'twostep'`` for the control-function estimator (Stata's ``twostep`` option). They are different estimators, not two routes to the same numbers.",
+            "enum": [
+              "mle",
+              "twostep"
+            ],
             "type": "string"
           },
           "robust": {
@@ -115236,6 +118190,13 @@
           "family": {
             "default": "gaussian",
             "description": "``'gaussian'``, ``'binomial'``, ``'poisson'``, ``'gamma'``, or ``'nbinomial'`` (alias ``'negbin'``).",
+            "enum": [
+              "gaussian",
+              "binomial",
+              "poisson",
+              "gamma",
+              "nbinomial"
+            ],
             "type": "string"
           },
           "group": {
@@ -116108,7 +119069,20 @@
       "tolerance": "estimate / SE rtol 1e-6, logit-scale CI rtol 2e-6 (observed <= 2.4e-7 / 7e-7 / 1.2e-6); balanced REML ICC = ANOVA ICC(1) rtol 1e-9"
     },
     "example": "rho = sp.icc(res)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Refit with a random intercept only.",
+        "symptom": "icc() is defined for random-intercept models only; with random slopes on <x_random> the intraclass correlation depends on the covariate values."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use a Gaussian (sp.mixed) or logit (sp.melogit, sp.meologit) random-intercept model.",
+        "symptom": "icc() is not defined for a <family> GLMM: there is no residual variance on the linear-predictor scale (Stata's estat icc is likewise unavailable after mepoisson / menbreg / meglm gamma)."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "icc",
@@ -116120,6 +119094,7 @@
       "alternatives": "family",
       "assumptions": "family",
       "example": "docstring",
+      "failure_modes": "source",
       "pre_conditions": "family",
       "returns": "docstring"
     },
@@ -116797,6 +119772,11 @@
           "dist": {
             "default": "half-normal",
             "description": "dist parameter (str).",
+            "enum": [
+              "half-normal",
+              "exponential",
+              "truncated-normal"
+            ],
             "type": "string"
           },
           "envelope": {
@@ -116935,6 +119915,11 @@
           "dist": {
             "default": "half-normal",
             "description": "dist parameter (str).",
+            "enum": [
+              "half-normal",
+              "exponential",
+              "truncated-normal"
+            ],
             "type": "string"
           },
           "efficiency": {
@@ -117187,6 +120172,9 @@
           "dist": {
             "default": "half-normal",
             "description": "Distribution of ``u`` in the inefficient regime. Currently only half-normal is supported (KPT 2013 baseline).",
+            "enum": [
+              "half-normal"
+            ],
             "type": "string"
           },
           "maxiter": {
@@ -117202,6 +120190,11 @@
           "vce": {
             "default": "oim",
             "description": "vce parameter (str).",
+            "enum": [
+              "oim",
+              "opg",
+              "robust"
+            ],
             "type": "string"
           },
           "x": {
@@ -117345,6 +120338,9 @@
           "dist": {
             "default": "half-normal",
             "description": "dist parameter (str).",
+            "enum": [
+              "half-normal"
+            ],
             "type": "string"
           },
           "maxiter": {
@@ -117360,6 +120356,11 @@
           "vce": {
             "default": "oim",
             "description": "vce parameter (str).",
+            "enum": [
+              "oim",
+              "opg",
+              "robust"
+            ],
             "type": "string"
           },
           "x": {
@@ -120878,6 +123879,48 @@
           "method": {
             "default": "classic",
             "description": "SCM variant passed to ``synth()``.",
+            "enum": [
+              "classic",
+              "classic_adh",
+              "adh",
+              "penalized",
+              "ridge",
+              "demeaned",
+              "detrended",
+              "unconstrained",
+              "elastic_net",
+              "augmented",
+              "ascm",
+              "sdid",
+              "factor",
+              "gsynth",
+              "staggered",
+              "mc",
+              "matrix_completion",
+              "discos",
+              "distributional",
+              "multi_outcome",
+              "multi",
+              "scpi",
+              "prediction_interval",
+              "bayesian",
+              "bsts",
+              "causal_impact",
+              "penscm",
+              "abadie_lhour",
+              "pairwise",
+              "fdid",
+              "forward_did",
+              "rcm",
+              "hcw",
+              "regression_control",
+              "pda",
+              "cluster",
+              "sparse",
+              "lasso",
+              "kernel",
+              "kernel_ridge"
+            ],
             "type": "string"
           },
           "outcome": {
@@ -125028,6 +128071,16 @@
           "bwselect": {
             "default": "mserd",
             "description": "bwselect parameter (str).",
+            "enum": [
+              "mserd",
+              "cerrd",
+              "imserd",
+              "icerrd",
+              "msetwo",
+              "certwo",
+              "imsetwo",
+              "icertwo"
+            ],
             "type": "string"
           },
           "cluster": {
@@ -125111,6 +128164,10 @@
           "method": {
             "default": "dpi",
             "description": "Estimator or algorithm variant to use.",
+            "enum": [
+              "dpi",
+              "rot"
+            ],
             "type": "string"
           },
           "n_eval": {
@@ -125154,6 +128211,12 @@
           "vce": {
             "default": "hc1",
             "description": "vce parameter (str).",
+            "enum": [
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3"
+            ],
             "type": "string"
           },
           "x1": {
@@ -125186,6 +128249,149 @@
       "Cross-language parity (bit-exact) vs R rd2d::rdbw2d / rdbw2d.distance 1.0.0 [R 4.5, rd2d 1.0.0]; tolerance per-point bandwidths rel 1e-8 (observed 5.0e-13) -- tests/reference_parity/test_rd_open_R_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "2D boundary RD visualization.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "fig, ax = sp.rd2d_plot(\n df, y=\"y\", x1=\"x1\", x2=\"x2\", treatment=\"treat\", result=res\n)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass a DataFrame containing y, x1, x2, and treatment.",
+        "symptom": "`data` must be a pandas DataFrame."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass boundary=lambda x1: f(x1), or leave boundary=None.",
+        "symptom": "boundary must be callable or None"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use plot_type='scatter', 'heatmap', or 'boundary_effects'.",
+        "symptom": "plot_type must be 'scatter', 'heatmap', or 'boundary_effects', got '<plot_type>'"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check y/x1/x2/treatment names against data.columns.",
+        "symptom": "Column '<col>' not found in data"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "rd2d_plot",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "tuple",
+      "description": "(fig, ax)",
+      "fields": {}
+    },
+    "signature": {
+      "description": "2D boundary RD visualization.",
+      "name": "rd2d_plot",
+      "parameters": {
+        "properties": {
+          "ax": {
+            "description": "ax parameter (Optional[Any]).",
+            "type": "string"
+          },
+          "boundary": {
+            "description": "Boundary function ``f(x1) -> x2``; ``None`` draws the line ``x1 = 0``.",
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "figsize": {
+            "default": [
+              10,
+              8
+            ],
+            "description": "figsize parameter (Tuple[float, float]).",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "plot_type": {
+            "default": "scatter",
+            "description": "plot_type parameter (str).",
+            "enum": [
+              "scatter",
+              "heatmap",
+              "boundary_effects"
+            ],
+            "type": "string"
+          },
+          "result": {
+            "description": "Result of :func:`sp.rd2d`; its evaluation points are marked on the scatter, and ``plot_type='boundary_effects'`` plots its pointwise bias-corrected effects with robust intervals.",
+            "type": "string"
+          },
+          "treatment": {
+            "description": "Binary assignment indicator.",
+            "type": "string",
+            "x-aliases": [
+              "treat"
+            ],
+            "x-canonical": "treat",
+            "x-statspai-role": "column"
+          },
+          "x1": {
+            "description": "Running variable names.",
+            "type": "string"
+          },
+          "x2": {
+            "description": "Running variable names.",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable name.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x1",
+          "x2",
+          "treatment"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
   },
   {
     "alias_of": null,
@@ -129521,6 +132727,196 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Optimal full matching. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "MatchIt::matchit(method = 'full') 4.7.2, optmatch 0.10.8; lm + sandwich::vcovCL",
+      "reference_versions": {
+        "MatchIt": "4.7.2",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "optmatch": "0.10.8",
+        "sandwich": "3.1.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py",
+        "tests/reference_parity/_fixtures/yuksel_aydede_causal_ml_R.json"
+      ],
+      "tolerance": "Total matched distance <= optmatch's, and equal to it to 1e-7 at optmatch tol = 1e-9. Given optmatch's matched sets: ATT, ATE and matched-set-clustered standard error 1e-9. The estimate from StatsPAI's own sets is not pinned (5% screen): the optimum is nearly flat and the sets are not unique."
+    },
+    "example": "fit = sp.full_match(df, \"y\", \"d\", [\"x\"])",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Call sp.full_match(df, y, treat, covariates).",
+        "symptom": "full_match: treat= and covariates= are required."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use estimand='ATT'.",
+        "symptom": "full_match: estimand must be ATT, ATC or ATE, got <estimand>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'propensity', 'logit', 'mahalanobis' or 'euclidean'.",
+        "symptom": "full_match: unknown distance <distance>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use caliper_scale='sd'.",
+        "symptom": "full_match: caliper_scale must be 'sd' or 'raw'."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "full_match",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "reference": "docstring",
+      "returns": "docstring"
+    },
+    "reference": "@rosenbaum1991characterization; @hansen2004full",
+    "returns": {
+      "class": "FullMatchResult",
+      "description": "FullMatchResult",
+      "fields": {
+        "balance": "pd.DataFrame",
+        "ci": "Tuple[float, float]",
+        "distance": "str",
+        "estimand": "str",
+        "estimate": "float",
+        "model_info": "Dict[str, Any]",
+        "n_control": "int",
+        "n_sets": "int",
+        "n_treated": "int",
+        "n_unmatched": "int",
+        "pvalue": "float",
+        "se": "float",
+        "subclass": "pd.Series",
+        "total_distance": "float",
+        "weights": "pd.Series"
+      }
+    },
+    "signature": {
+      "description": "Optimal full matching. Validation: certified parity evidence.",
+      "name": "full_match",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "caliper": {
+            "description": "Largest permitted distance. A unit with no partner inside the caliper is left unmatched and the estimand then refers to the matched units.",
+            "type": "number"
+          },
+          "caliper_scale": {
+            "default": "sd",
+            "description": "``'sd'`` reads ``caliper`` in standard deviations of the score (score distances only), ``'raw'`` in the units of the distance.",
+            "enum": [
+              "sd",
+              "raw"
+            ],
+            "type": "string"
+          },
+          "covariates": {
+            "description": "Variables to match on, and the variables of the balance table.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "distance": {
+            "default": "propensity",
+            "description": "``'propensity'``: absolute difference of the fitted propensity score (``MatchIt``'s default, ``distance = \"glm\"``). ``'logit'``: difference on the linear-predictor scale. ``'mahalanobis'`` uses the pooled within-group covariance, as ``MatchIt`` does.",
+            "enum": [
+              "propensity",
+              "logit",
+              "mahalanobis",
+              "euclidean"
+            ],
+            "type": "string"
+          },
+          "estimand": {
+            "default": "ATT",
+            "description": "Sets the matching weights; the matched sets are the same.",
+            "enum": [
+              "ATT",
+              "ATC",
+              "ATE"
+            ],
+            "type": "string"
+          },
+          "ps_model": {
+            "default": "logit",
+            "description": "ps_model parameter (str).",
+            "enum": [
+              "logit",
+              "probit"
+            ],
+            "type": "string"
+          },
+          "pscore": {
+            "description": "Column holding a score computed elsewhere (a boosted or forest propensity score, say). Matching is on the absolute difference of this column and ``covariates`` are used for the balance table only.",
+            "type": "string"
+          },
+          "treat": {
+            "description": "0/1 treatment indicator.",
+            "type": "string",
+            "x-aliases": [
+              "treatment"
+            ],
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome. Without it only the matching (sets, weights, balance) is returned.",
+            "type": "string",
+            "x-aliases": [
+              "outcome"
+            ],
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (aligned) vs MatchIt::matchit(method = 'full') 4.7.2, optmatch 0.10.8; lm + sandwich::vcovCL [MatchIt 4.7.2, R version 4.5.2 (2025-10-31), optmatch 0.10.8, sandwich 3.1.1]; tolerance Total matched distance <= optmatch's, and equal to it to 1e-7 at optmatch tol = 1e-9. Given optmatch's matched sets: ATT, ATE and matched-set-clustered standard error 1e-9. The estimate from StatsPAI's own sets is not pinned (5% screen): the optimum is nearly flat and the sets are not unique. -- tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "sp.causal_forest",
       "sp.metalearner",
@@ -131787,6 +135183,12 @@
           "method": {
             "default": "manski",
             "description": "Estimator or algorithm variant to use.",
+            "enum": [
+              "manski",
+              "lee",
+              "horowitz_manski",
+              "iv"
+            ],
             "type": "string"
           },
           "selection": {
@@ -132825,6 +136227,97 @@
     "typical_n_min": null,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_matrix_completion_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Causal-discovery dispatcher -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "res = sp.causal_discovery(df, method='notears')",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Choose one of: notears, pc, fci, ges, lingam.",
+        "symptom": "Unknown causal_discovery method <method>. Expected one of: <sorted(valid)>."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "causal_discovery",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "reference": "docstring"
+    },
+    "reference": "@zheng2018dags",
+    "returns": {
+      "class": null,
+      "description": "",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Causal-discovery dispatcher -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "causal_discovery",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "method": {
+            "default": "notears",
+            "description": "Estimator or algorithm variant to use.",
+            "enum": [
+              "notears",
+              "pc",
+              "ges",
+              "lingam",
+              "fci"
+            ],
+            "type": "string"
+          },
+          "variables": {
+            "description": "variables parameter (Optional[List[str]]).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
     "validation_status": "validated"
   },
@@ -135276,6 +138769,12 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "uniform",
+              "epanechnikov",
+              "gaussian"
+            ],
             "type": "string"
           },
           "n_boot": {
@@ -135421,6 +138920,12 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "uniform",
+              "epanechnikov",
+              "gaussian"
+            ],
             "type": "string"
           },
           "neighbour_running": {
@@ -135577,6 +139082,12 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "uniform",
+              "epanechnikov",
+              "gaussian"
+            ],
             "type": "string"
           },
           "running_vars": {
@@ -136878,6 +140389,12 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "uniform",
+              "epanechnikov",
+              "gaussian"
+            ],
             "type": "string"
           },
           "n_draws": {
@@ -137014,6 +140531,12 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "uniform",
+              "epanechnikov",
+              "gaussian"
+            ],
             "type": "string"
           },
           "quantiles": {

@@ -256,6 +256,15 @@
         "method": {
           "default": "holm",
           "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence. - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence. - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than Holm; needs independent or positively dependent tests. - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under the same condition. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence. These are the methods of R's ``p.adjust`` (plus Sidak), and return the same numbers. A missing p-value stays missing and still counts towards the size of the family, which is where this differs from ``p.adjust``: R drops it from the count. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
+          "enum": [
+            "bonferroni",
+            "sidak",
+            "holm",
+            "hochberg",
+            "hommel",
+            "bh",
+            "by"
+          ],
           "type": "string"
         },
         "pvalues": {
@@ -696,7 +705,7 @@
     "name": "anderson_rubin_test"
   },
   {
-    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ardl: unknown trend <trend> -> Use 'c', 'ct' or 'n'; ardl: column(s) <missing_cols> are not in data -> Check the column names; ardl: the time index has repeated values -> Pass one row per period; for a panel, fit each unit separately.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -1486,7 +1495,7 @@
     "name": "bacon_plot"
   },
   {
-    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.ets, sp.tscv.",
+    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: bagged_forecast: horizon must be at least 1 -> Pass a positive number of periods; bagged_forecast: forecaster must be a method name or a function -> E.g. forecaster='ets'; bagged_forecast: unexpected arguments <sorted(kwargs)> with a callable forecaster -> Bind them in the function itself. Alternatives: sp.ets, sp.tscv.",
     "input_schema": {
       "properties": {
         "block_size": {
@@ -1630,7 +1639,7 @@
     "name": "balance_panel"
   },
   {
-    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized. Alternatives: sp.balance_diagnostics, sp.ps_balance, sp.love_plot.",
+    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized. Failure modes: balance_vs_randomization: need at least two treated and two control individuals -> Check the treat column. Alternatives: sp.balance_diagnostics, sp.ps_balance, sp.love_plot.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -2137,7 +2146,7 @@
     "name": "bcf_ordinal"
   },
   {
-    "description": "BDS test that a series is independent and identically distributed, from the share of pairs of m-histories that stay within epsilon of each other. Standard normal under the null for each embedding dimension 2..max_dim. Has power against linear and nonlinear dependence alike, so it is run on the residuals of a fitted model to ask whether structure is left; a rejection does not say which kind. Reproduces statsmodels bds. The normal approximation is poor below about 200 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Consecutive observations with no gaps; A sample long enough for the normal approximation (a few hundred observations); On residuals: a model fitted by least squares; the limit law differs for GARCH standardised residuals. Alternatives: sp.corrgram, sp.estat.",
+    "description": "BDS test that a series is independent and identically distributed, from the share of pairs of m-histories that stay within epsilon of each other. Standard normal under the null for each embedding dimension 2..max_dim. Has power against linear and nonlinear dependence alike, so it is run on the residuals of a fitted model to ask whether structure is left; a rejection does not say which kind. Reproduces statsmodels bds. The normal approximation is poor below about 200 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Consecutive observations with no gaps; A sample long enough for the normal approximation (a few hundred observations); On residuals: a model fitted by least squares; the limit law differs for GARCH standardised residuals. Failure modes: bds: the series has missing values -> Drop them; the test needs consecutive observations; bds: y= names the column to test -> sp.bds(df, \"resid\"); bds: column <y> not found -> Check the name. Alternatives: sp.corrgram, sp.estat.",
     "input_schema": {
       "properties": {
         "distance": {
@@ -2215,7 +2224,7 @@
     "name": "best_linear_projection"
   },
   {
-    "description": "Exact best-subset selection for OLS by branch and bound: for every model size the subset with the smallest RSS, and the size that optimises BIC, AIC, adjusted R2 or Mallows' Cp. R leaps::regsubsets(method='exhaustive'). Regressors can be forced in. Up to 30 candidates. Validation: certified parity evidence. Do NOT use when: Reporting t-statistics or p-values of the selected model -- they ignore the search and overstate significance; fix the specification in advance or use sp.rlasso_effect; More than 30 candidates -- screen with sp.lasso_select first. Cost: Worst case exponential in the number of candidates; about a second at 25 correlated candidates, minutes at 40. Assumptions: Linear model; selection is for prediction. Alternatives: sp.stepwise, sp.lasso_select, sp.rlasso.",
+    "description": "Exact best-subset selection for OLS by branch and bound: for every model size the subset with the smallest RSS, and the size that optimises BIC, AIC, adjusted R2 or Mallows' Cp. R leaps::regsubsets(method='exhaustive'). Regressors can be forced in. Up to 30 candidates. Validation: certified parity evidence. Do NOT use when: Reporting t-statistics or p-values of the selected model -- they ignore the search and overstate significance; fix the specification in advance or use sp.rlasso_effect; More than 30 candidates -- screen with sp.lasso_select first. Cost: Worst case exponential in the number of candidates; about a second at 25 correlated candidates, minutes at 40. Assumptions: Linear model; selection is for prediction. Failure modes: best_subset: <p> candidates; the exact search is limited to <_MAX_CANDIDATES> -> Screen first with sp.lasso_select or sp.stepwise; best_subset: candidate(s) <bad> are constant or collinear with the forced regressors -> Drop them from x; best_subset: the candidates are perfectly collinear -> Drop the redundant column(s) from x. Alternatives: sp.stepwise, sp.lasso_select, sp.rlasso.",
     "input_schema": {
       "properties": {
         "criterion": {
@@ -2335,7 +2344,7 @@
     "name": "betareg"
   },
   {
-    "description": "Beveridge-Nelson decomposition of an integrated series into a random walk with drift (the long-horizon forecast) and a stationary cycle, from an autoregression (OLS) or an ARMA model (exact ML) for the first difference. Reports the long-run multiplier psi(1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Seasonally unadjusted data: the seasonal lags dominate the cycle. Assumptions: The series is I(1) and its difference is a stationary AR(p). Alternatives: sp.tsfilter, sp.unitroot, sp.arima.",
+    "description": "Beveridge-Nelson decomposition of an integrated series into a random walk with drift (the long-horizon forecast) and a stationary cycle, from an autoregression (OLS) or an ARMA model (exact ML) for the first difference. Reports the long-run multiplier psi(1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Seasonally unadjusted data: the seasonal lags dominate the cycle. Assumptions: The series is I(1) and its difference is a stationary AR(p). Failure modes: sp.beveridge_nelson: ic=<ic> is not 'aic' or 'bic' -> Use ic='bic' or ic='aic'; sp.beveridge_nelson: <level.size> observations are too few -> Use a longer series; sp.beveridge_nelson: max_order=(P, Q) is the grid of the ARMA search -> Add arma=True, or pass an integer max_order. Alternatives: sp.tsfilter, sp.unitroot, sp.arima.",
     "input_schema": {
       "properties": {
         "arma": {
@@ -2809,6 +2818,11 @@
         },
         "se_method": {
           "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
+          "enum": [
+            "analytic",
+            "bootstrap",
+            "auto"
+          ],
           "type": "string"
         },
         "time": {
@@ -3073,7 +3087,7 @@
     "name": "bootstrap"
   },
   {
-    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.bagged_forecast.",
+    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: bootstrap_series: n_boot must be at least 1 -> Pass a positive number of series; bootstrap_series: <n> observations are too few -> At least two seasonal cycles (or 8 points) are needed; bootstrap_series: block_size=<block> must be between 1 and <n> -> Leave block_size=None for the default. Alternatives: sp.bagged_forecast.",
     "input_schema": {
       "properties": {
         "block_size": {
@@ -3167,7 +3181,7 @@
     "name": "boxcox"
   },
   {
-    "description": "Box-Cox parameter that stabilises the variance of a series across its level, by Guerrero's method (minimum coefficient of variation of sd / mean^(1 - lambda) across cycles). lambda = 0 is the logarithm. R forecast::BoxCox.lambda, fabletools guerrero, coreforecast boxcox_lambda. For the Box-Cox transform of a regression outcome see sp.boxcox. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.boxcox.",
+    "description": "Box-Cox parameter that stabilises the variance of a series across its level, by Guerrero's method (minimum coefficient of variation of sd / mean^(1 - lambda) across cycles). lambda = 0 is the logarithm. R forecast::BoxCox.lambda, fabletools guerrero, coreforecast boxcox_lambda. For the Box-Cox transform of a regression outcome see sp.boxcox. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: boxcox_lambda: Guerrero's method needs a strictly positive series -> Shift the series or model it untransformed; boxcox_lambda: <n> observations give fewer than two cycles of length <m> -> Provide a longer series. Alternatives: sp.boxcox.",
     "input_schema": {
       "properties": {
         "lower": {
@@ -4009,7 +4023,7 @@
     "name": "cate_plot"
   },
   {
-    "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Clusters (default: unit) are independent. Pre-conditions: forest fitted with fe='twoway' (or 'unit') and a binary absorbing treatment; treated units observed for at least `leads` periods before adoption. Alternatives: sp.did_forest, sp.pretrends_test, sp.bjs_pretrend_joint.",
+    "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Clusters (default: unit) are independent. Pre-conditions: forest fitted with fe='twoway' (or 'unit') and a binary absorbing treatment; treated units observed for at least `leads` periods before adoption. Failure modes: <context> needs a causal forest with fixed effects (fe=...) -> Fit sp.causal_forest(..., id=, time=, fe='twoway'); for staggered designs sp.did_forest() reports its own pre-trend test; <context>: time_effects must be 'common' or 'by_group' -> Use time_effects='common'; <context> needs an absorbing (staggered) treatment so that leads relative to the adoption period are defined -> Use a design in which units stay treated once treated. Alternatives: sp.did_forest, sp.pretrends_test, sp.bjs_pretrend_joint.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -4133,12 +4147,19 @@
     "name": "causal"
   },
   {
-    "description": "Causal-discovery dispatcher -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Causal-discovery dispatcher -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: Unknown causal_discovery method <method>. Expected one of: <sorted(valid)> -> Choose one of: notears, pc, fci, ges, lingam.",
     "input_schema": {
       "properties": {
         "method": {
           "default": "notears",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "notears",
+            "pc",
+            "ges",
+            "lingam",
+            "fci"
+          ],
           "type": "string"
         },
         "variables": {
@@ -4987,7 +5008,7 @@
     "name": "chilean_households"
   },
   {
-    "description": "Chow test for a structural break at a date fixed in advance: F test that the regression coefficients are equal before and after break_point. All coefficients or the subset in break_vars, one break or several jointly, classical or heteroskedasticity-robust covariance. Returns the F and Wald statistics and the coefficients regime by regime. strucchange sctest(type='Chow'), Stata estat sbknown. For a date chosen by looking at the data use sp.structural_break(method='sup-f'), whose reference distribution allows for the search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The break date was chosen before looking at the data; With vce='nonrobust': errors with the same variance in every regime; Each regime has at least as many rows as coefficients that change. Alternatives: sp.structural_break, sp.cusum_test.",
+    "description": "Chow test for a structural break at a date fixed in advance: F test that the regression coefficients are equal before and after break_point. All coefficients or the subset in break_vars, one break or several jointly, classical or heteroskedasticity-robust covariance. Returns the F and Wald statistics and the coefficients regime by regime. strucchange sctest(type='Chow'), Stata estat sbknown. For a date chosen by looking at the data use sp.structural_break(method='sup-f'), whose reference distribution allows for the search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The break date was chosen before looking at the data; With vce='nonrobust': errors with the same variance in every regime; Each regime has at least as many rows as coefficients that change. Failure modes: chow_test: column(s) <missing> not found in data -> Check the column names; chow_test: missing values in y or x -> Drop or fill them first; dropping rows silently would move the break date; chow_test: the regressors are collinear within a regime -> A regressor that is constant inside a regime cannot have its own coefficient there; leave it out of...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5047,7 +5068,7 @@
     "name": "chow_test"
   },
   {
-    "description": "Confidence intervals for means (t), variances or standard deviations (chi-squared) and proportions (exact Clopper-Pearson by default; Wald, Wilson, Agresti-Coull, Jeffreys), one row per variable. Stata ci means / ci variances / ci proportions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Clustered, weighted or survey data -- the intervals assume simple random sampling; use sp.regress('y ~ 1', cluster=...) or the survey functions. Assumptions: Independent observations; Variances / sd: a normal population (the chi-squared interval is not robust to departures from it); Proportions: a 0/1 variable. Alternatives: sp.ttest, sp.sdtest, sp.prtest, sp.bootstrap.",
+    "description": "Confidence intervals for means (t), variances or standard deviations (chi-squared) and proportions (exact Clopper-Pearson by default; Wald, Wilson, Agresti-Coull, Jeffreys), one row per variable. Stata ci means / ci variances / ci proportions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Clustered, weighted or survey data -- the intervals assume simple random sampling; use sp.regress('y ~ 1', cluster=...) or the survey functions. Assumptions: Independent observations; Variances / sd: a normal population (the chi-squared interval is not robust to departures from it); Proportions: a 0/1 variable. Failure modes: ci: stat=<stat> is not one of 'means', 'variances', 'sd', 'proportions' -> sp.ci(df, 'y', stat='means'); ci: method=<method> is not one of <list(_PROPORTION_METHODS)> -> method applies to stat='proportions'; ci: <name> has too few observations -> Check the variable. Alternatives: sp.ttest, sp.sdtest, sp.prtest, sp.bootstrap.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5160,7 +5181,7 @@
     "name": "cic"
   },
   {
-    "description": "Classical additive or multiplicative decomposition by centred moving averages: a 2 x m moving-average trend and a fixed seasonal figure. The textbook baseline; sp.stl has no missing ends, lets the seasonal pattern evolve and resists outliers. R stats::decompose, statsmodels seasonal_decompose. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.stl.",
+    "description": "Classical additive or multiplicative decomposition by centred moving averages: a 2 x m moving-average trend and a fixed seasonal figure. The textbook baseline; sp.stl has no missing ends, lets the seasonal pattern evolve and resists outliers. R stats::decompose, statsmodels seasonal_decompose. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: classical_decompose: model=<model> is not 'additive' or 'multiplicative' -> Use model='additive'; classical_decompose: <n> observations are fewer than two cycles of period <m> -> At least two full cycles and period >= 2 are needed; classical_decompose: a multiplicative decomposition needs a strictly positive series -> Use model='additive'. Alternatives: sp.stl.",
     "input_schema": {
       "properties": {
         "model": {
@@ -5472,7 +5493,7 @@
     "name": "cmtest"
   },
   {
-    "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test. Assumptions: The constraints hold in the population; otherwise the estimates converge to the best approximation that satisfies them, not to the unconstrained coefficients; The usual conditions for least squares on the unconstrained model. Alternatives: sp.regress, sp.test, sp.nlcom.",
+    "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test. Assumptions: The constraints hold in the population; otherwise the estimates converge to the best approximation that satisfies them, not to the unconstrained coefficients; The usual conditions for least squares on the unconstrained model. Failure modes: sp.cnsreg: method=<method> is not 'cls' or 'emd' -> Use method='cls' (constrained least squares) or 'emd' (efficient minimum distance); sp.cnsreg: vce=<vce> is not 'ols', 'robust', 'hc2' or 'hc3'...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5941,7 +5962,7 @@
     "name": "conformal_fair_ite"
   },
   {
-    "description": "Distribution-free prediction intervals for a least-squares regression: split conformal, jackknife+ or exact full conformal. Each covers a new exchangeable outcome with probability at least 1 - alpha (1 - 2 alpha worst case for jackknife+) without assuming normal or homoskedastic errors or a correct mean. All three are computed without refitting in a loop. Without newdata, every row is predicted from the others. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Time series or a new cluster of a clustered sample -- exchangeability fails; An interval for a mean, a coefficient or a treatment effect is wanted -- this covers an individual outcome; see sp.conformal('cate', ...) for effects; Coverage is needed at each value of the regressors -- the guarantee is on average over new points. Cost: split and jackknife+ are one least-squares fit; full grows with n squared per new point (about 3 s for 600 points predicted in sample). Assumptions: The new observation is exchangeable with the sample (in particular, independent draws from one population). Alternatives: sp.regress, sp.conformal, sp.weighted_conformal_prediction.",
+    "description": "Distribution-free prediction intervals for a least-squares regression: split conformal, jackknife+ or exact full conformal. Each covers a new exchangeable outcome with probability at least 1 - alpha (1 - 2 alpha worst case for jackknife+) without assuming normal or homoskedastic errors or a correct mean. All three are computed without refitting in a loop. Without newdata, every row is predicted from the others. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Time series or a new cluster of a clustered sample -- exchangeability fails; An interval for a mean, a coefficient or a treatment effect is wanted -- this covers an individual outcome; see sp.conformal('cate', ...) for effects; Coverage is needed at each value of the regressors -- the guarantee is on average over new points. Cost: split and jackknife+ are one least-squares fit; full grows with n squared per new point (about 3 s for 600 points predicted in sample). Assumptions: The new observation is exchangeable with the sample (in particular, independent draws from one population). Failure modes: conformal_regression: newdata has rows with missing regres...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -6515,7 +6536,7 @@
     "name": "cor_test"
   },
   {
-    "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). On ARMA residuals pass model_df=p+q so the Q statistic loses those degrees of freedom; boxpierce=True adds the Box-Pierce statistic. On regression residuals the chi-squared reference ignores that they were estimated: use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Covariance-stationary series; Equally spaced observations in time order; The Q statistic's chi-squared reference assumes a raw series; on residuals of a fitted ARMA(p, q) the degrees of freedom fall by p + q.",
+    "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). On ARMA residuals pass model_df=p+q so the Q statistic loses those degrees of freedom; boxpierce=True adds the Box-Pierce statistic. On regression residuals the chi-squared reference ignores that they were estimated: use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Covariance-stationary series; Equally spaced observations in time order; The Q statistic's chi-squared reference assumes a raw series; on residuals of a fitted ARMA(p, q) the degrees of freedom fall by p + q. Failure modes: sp.corrgram: model_df=<model_df> is negative -> Pass p + q of the fitted ARMA model, or 0; sp.corrgram: lags=<lags> with <n> observations -> Use a longer series or fewer lags; sp.corrgram: pac=<pac> is not 'regression' or 'yw' -> Use pac='regression' (the default).",
     "input_schema": {
       "properties": {
         "boxpierce": {
@@ -7224,7 +7245,7 @@
     "name": "cuminc"
   },
   {
-    "description": "Bartlett's test for white noise from the cumulative periodogram: a Kolmogorov-Smirnov statistic for the distance between the normalised cumulative periodogram and the straight line of white noise. Stata wntestb. Validation: certified parity evidence. Alternatives: sp.ljungbox, sp.bds, sp.periodogram.",
+    "description": "Bartlett's test for white noise from the cumulative periodogram: a Kolmogorov-Smirnov statistic for the distance between the normalised cumulative periodogram and the straight line of white noise. Stata wntestb. Validation: certified parity evidence. Failure modes: sp.<who>: alpha=<alpha> is not between 0 and 1 -> Pass e.g. alpha=0.05; sp.<who>: <n> observations -> The test needs at least four observations; sp.<who>: the series is constant -> There is no variance to decompose. Alternatives: sp.ljungbox, sp.bds, sp.periodogram.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -10169,11 +10190,20 @@
         "control_group": {
           "default": "nevertreated",
           "description": "control_group parameter (str).",
+          "enum": [
+            "nevertreated",
+            "notyettreated"
+          ],
           "type": "string"
         },
         "estimator": {
           "default": "dr",
           "description": "estimator parameter (str).",
+          "enum": [
+            "dr",
+            "ipw",
+            "reg"
+          ],
           "type": "string"
         },
         "g": {
@@ -10319,7 +10349,7 @@
     "name": "distributional_te"
   },
   {
-    "description": "Species-diversity indices from record-level or count data: Shannon entropy, species richness, Pielou evenness, the Simpson family (concentration / Gini-Simpson / inverse) and Hill numbers of any order. Accepts long-format sighting records or a site-by-species matrix and groups straight onto a panel index, so an ecological outcome can be built inside the same pipeline that estimates on it. min_records makes the small-sample filter explicit rather than a footnote. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Species-diversity indices from record-level or count data: Shannon entropy, species richness, Pielou evenness, the Simpson family (concentration / Gini-Simpson / inverse) and Hill numbers of any order. Accepts long-format sighting records or a site-by-species matrix and groups straight onto a panel index, so an ecological outcome can be built inside the same pipeline that estimates on it. min_records makes the small-sample filter explicit rather than a footnote. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: No records remain after dropping rows with missing group or species values -> Check the species and grouping columns for NaNs; Matrix input must be 1-D (one site) or 2-D (sites x species) -> Pass long-format records with species= instead, or reshape to a site-by-species matrix.",
     "input_schema": {
       "properties": {
         "base": {
@@ -11568,7 +11598,7 @@
     "name": "enhanced_event_study_plot"
   },
   {
-    "description": "Standardised effect sizes of a difference between two group means: Cohen's d, Hedges's g (exact small-sample correction), Glass's Delta for either group and the point-biserial correlation, with confidence intervals from the noncentral t distribution (Stata esize twosample, R effsize::cohen.d with noncentral = TRUE). Validation: certified parity evidence. Assumptions: Independent observations in two groups; Normal outcome within each group for the noncentral-t intervals to be exact; Cohen's d and Hedges's g take the two groups to share a variance; Glass's Delta does not. Alternatives: sp.ttest, sp.power_ttest, sp.balance_table.",
+    "description": "Standardised effect sizes of a difference between two group means: Cohen's d, Hedges's g (exact small-sample correction), Glass's Delta for either group and the point-biserial correlation, with confidence intervals from the noncentral t distribution (Stata esize twosample, R effsize::cohen.d with noncentral = TRUE). Validation: certified parity evidence. Assumptions: Independent observations in two groups; Normal outcome within each group for the noncentral-t intervals to be exact; Cohen's d and Hedges's g take the two groups to share a variance; Glass's Delta does not. Failure modes: esize: each group needs at least two observations -> Check the grouping column for near-empty groups. Alternatives: sp.ttest, sp.power_ttest, sp.balance_table.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -11833,6 +11863,10 @@
         "method": {
           "default": "mle",
           "description": "``'mle'`` for full-information maximum likelihood (Stata's default) or ``'twostep'`` for the control-function estimator (Stata's ``twostep`` option). They are different estimators, not two routes to the same numbers.",
+          "enum": [
+            "mle",
+            "twostep"
+          ],
           "type": "string"
         },
         "robust": {
@@ -13719,7 +13753,7 @@
     "name": "forest_policy_tree"
   },
   {
-    "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Predictions for untreated units assume tau(x) carries over at equal x. Pre-conditions: forest fitted with sp.causal_forest (default GRF engine). Alternatives: sp.overlap_plot, sp.forest_diagnostics.",
+    "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Predictions for untreated units assume tau(x) carries over at equal x. Pre-conditions: forest fitted with sp.causal_forest (default GRF engine). Failure modes: forest_support(): k must be a positive integer -> Use k=10; forest_support(): quantile and alpha must lie in (0, 1) -> Use quantile=0.95, alpha=0.05; forest_support(): fewer reference rows than k -> Lower k. Alternatives: sp.overlap_plot, sp.forest_diagnostics.",
     "input_schema": {
       "properties": {
         "X_new": {
@@ -13802,7 +13836,7 @@
     "name": "fortified_pci"
   },
   {
-    "description": "Sine and cosine regressors sin(2 pi k t / period), cos(2 pi k t / period), k = 1..K, for smooth, long, non-integer or multiple seasonal patterns: regressors of sp.arima (dynamic harmonic regression) or sp.regress. start= gives the rows of the forecast periods. R forecast::fourier, utilsforecast fourier. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.stl.",
+    "description": "Sine and cosine regressors sin(2 pi k t / period), cos(2 pi k t / period), k = 1..K, for smooth, long, non-integer or multiple seasonal patterns: regressors of sp.arima (dynamic harmonic regression) or sp.regress. start= gives the rows of the forecast periods. R forecast::fourier, utilsforecast fourier. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: fourier_terms: at least one row is needed -> Pass the number of periods; fourier_terms: period=<period> must be above 1 -> 12 for monthly data, 52.18 for weekly data; fourier_terms: K=<K> must be between 1 and period/2 = <per / 2> -> More harmonics than half the period are collinear. Alternatives: sp.stl.",
     "input_schema": {
       "properties": {
         "K": {
@@ -13990,7 +14024,7 @@
     "name": "front_door"
   },
   {
-    "description": "Optimal full matching. Validation: certified parity evidence.",
+    "description": "Optimal full matching. Validation: certified parity evidence. Failure modes: full_match: treat= and covariates= are required -> Call sp.full_match(df, y, treat, covariates); full_match: estimand must be ATT, ATC or ATE, got <estimand> -> Use estimand='ATT'; full_match: unknown distance <distance> -> Use 'propensity', 'logit', 'mahalanobis' or 'euclidean'.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14119,11 +14153,20 @@
         "control_group": {
           "default": "nevertreated",
           "description": "Passed through to :func:`callaway_santanna`. ``weights`` names a sampling-weight column; leaving it unset weights every unit equally.",
+          "enum": [
+            "nevertreated",
+            "notyettreated"
+          ],
           "type": "string"
         },
         "estimator": {
           "default": "dr",
           "description": "Passed through to :func:`callaway_santanna`. ``weights`` names a sampling-weight column; leaving it unset weights every unit equally.",
+          "enum": [
+            "dr",
+            "ipw",
+            "reg"
+          ],
           "type": "string"
         },
         "g": {
@@ -15298,7 +15341,7 @@
     "name": "glm"
   },
   {
-    "description": "Lasso, ridge and elastic net with the conventions of R ``glmnet``. Validation: certified parity evidence.",
+    "description": "Lasso, ridge and elastic net with the conventions of R ``glmnet``. Validation: certified parity evidence. Failure modes: glmnet: family must be 'gaussian' or 'binomial', got <family> -> Other families are not implemented; glmnet: rule must be 'min' or '1se', got <rule> -> Use rule='min'; glmnet: a binomial outcome must be coded 0/1 -> Recode the outcome.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -15954,7 +15997,7 @@
     "name": "harvest_did"
   },
   {
-    "description": "Hausman specification test between two fitted models: one consistent under both hypotheses (IV, fixed effects), one efficient under the null (OLS, random effects). Compares the coefficients they share with a generalised inverse of V_b - V_B; degrees of freedom are its rank. sigmamore=True bases both covariances on the efficient model's variance, the form to use for IV against OLS (Stata hausman, sigmamore). Not valid with robust or clustered covariances: use sp.estat(iv, 'endogenous') or sp.xtoverid instead. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Both estimators are consistent under the null and the second is efficient there; The difference of the two covariance matrices is positive semi-definite; with robust or clustered covariances it need not be, and the statistic is then not chi-squared; Both models are fitted on the same sample with the same coefficient names.",
+    "description": "Hausman specification test between two fitted models: one consistent under both hypotheses (IV, fixed effects), one efficient under the null (OLS, random effects). Compares the coefficients they share with a generalised inverse of V_b - V_B; degrees of freedom are its rank. sigmamore=True bases both covariances on the efficient model's variance, the form to use for IV against OLS (Stata hausman, sigmamore). Not valid with robust or clustered covariances: use sp.estat(iv, 'endogenous') or sp.xtoverid instead. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Both estimators are consistent under the null and the second is efficient there; The difference of the two covariance matrices is positive semi-definite; with robust or clustered covariances it need not be, and the statistic is then not chi-squared; Both models are fitted on the same sample with the same coefficient names. Failure modes: sp.hausman: sigmamore and sigmaless cannot both be set -> Choose one; sigmamore is the usual choice; sp.hausman: the two results share no coefficient -> Fit both models on the same regressors; sp.hausman: sigmamore / sigmaless n...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -16289,7 +16332,7 @@
     "name": "het_test"
   },
   {
-    "description": "Build a hierarchical or grouped time series structure from a long table: aggregate the bottom-level series along the key columns of each level and return every series (wide), the summing matrix S and the level tags. Input of sp.reconcile. hierarchicalforecast aggregate, R hts / fabletools aggregate_key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: Balanced bottom level: every series in every period. Alternatives: sp.reconcile.",
+    "description": "Build a hierarchical or grouped time series structure from a long table: aggregate the bottom-level series along the key columns of each level and return every series (wide), the summing matrix S and the level tags. Input of sp.reconcile. hierarchicalforecast aggregate, R hts / fabletools aggregate_key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: Balanced bottom level: every series in every period. Failure modes: hierarchy: spec must be a non-empty list of non-empty key lists -> E.g. spec=[[\"country\"], [\"country\", \"state\"]]; hierarchy: columns <absent> are not in data -> Check spec, time= and value=; hierarchy: <int(work[value].isna().sum())> missing values in <value> -> Fill or drop them before aggregating. Alternatives: sp.reconcile.",
     "input_schema": {
       "properties": {
         "sep": {
@@ -16444,6 +16487,10 @@
         "method": {
           "default": "smoothness",
           "description": "As in :func:`honest_did`.",
+          "enum": [
+            "smoothness",
+            "relative_magnitude"
+          ],
           "type": "string"
         },
         "num_pre_periods": {
@@ -16657,7 +16704,7 @@
     "name": "hurdle"
   },
   {
-    "description": "Intra-class correlation for a fitted random-intercept model. Validation: certified parity evidence. Assumptions: A random-intercept model: group effects are independent of the residual and each has constant variance; the ICC is the group-level share of variance under that model. Pre-conditions: Inputs / outputs per decision-making unit for frontier tools; a fitted effect and baseline risk for NNT. Alternatives: sp.sp.regress, sp.sp.decompose.",
+    "description": "Intra-class correlation for a fitted random-intercept model. Validation: certified parity evidence. Assumptions: A random-intercept model: group effects are independent of the residual and each has constant variance; the ICC is the group-level share of variance under that model. Pre-conditions: Inputs / outputs per decision-making unit for frontier tools; a fitted effect and baseline risk for NNT. Failure modes: icc() is defined for random-intercept models only; with random slopes on <x_random> the intraclass correlation depends on the covariate values -> Refit with a random intercept only; icc() is not defined for a <family> GLMM: there is no residual variance on the linear-predictor scale (Stata's estat icc is likewise unavailable after mepoisson / menbreg / meglm gamma) -> Use a Gaussian (sp.mixed) or logit (sp.melogit, sp.meologit) random-intercept model. Alternatives: sp.sp.regress, sp.sp.decompose.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -16827,7 +16874,7 @@
     "name": "influence_functions"
   },
   {
-    "description": "Influence statistics of every observation of a linear regression: leverage, standardized and studentized residuals, Cook's distance, DFFITS, Welsch distance, COVRATIO, the standard errors of the prediction, forecast and residual, and DFBETAs (Stata predict after regress and dfbeta, R influence.measures). Validation: certified parity evidence. Assumptions: A linear regression fitted by least squares (an sp.regress result); the statistics describe how much each observation moves that fit, not whether the model is right; Cut-offs such as 4/n or 2 sqrt(k/n) are screening rules, not tests. Alternatives: sp.estat, sp.logit_influence.",
+    "description": "Influence statistics of every observation of a linear regression: leverage, standardized and studentized residuals, Cook's distance, DFFITS, Welsch distance, COVRATIO, the standard errors of the prediction, forecast and residual, and DFBETAs (Stata predict after regress and dfbeta, R influence.measures). Validation: certified parity evidence. Assumptions: A linear regression fitted by least squares (an sp.regress result); the statistics describe how much each observation moves that fit, not whether the model is right; Cut-offs such as 4/n or 2 sqrt(k/n) are screening rules, not tests. Failure modes: sp.influence_measures: too few observations to leave one out -> The fit needs more than k + 1 observations. Alternatives: sp.estat, sp.logit_influence.",
     "input_schema": {
       "properties": {
         "result": {
@@ -16996,6 +17043,10 @@
         "method": {
           "default": "iterative",
           "description": "Bai's (2009) iterated least squares: alternate principal components of ``Y - Xbeta`` (factors) and least squares of ``Y M_F`` on ``X M_F`` (slopes) until the slopes move by less than ``tol``. ``'pca'`` is accepted for backward compatibility and runs the same algorithm (it always did); it is deprecated.",
+          "enum": [
+            "iterative",
+            "pca"
+          ],
           "type": "string"
         },
         "n_factors": {
@@ -18498,7 +18549,7 @@
     "name": "ivtobit"
   },
   {
-    "description": "Delete-one (or delete-one-cluster) jackknife standard errors for any statistic: a function of a DataFrame that returns a number, a vector or a fitted model. Covers Stata's `jackknife (exp): command` and `vce(jackknife)` and reproduces their numbers, since nothing is random. Use it for smooth functions of estimates (ratios, predicted levels, turning points); it is not consistent for quantiles, where sp.bootstrap applies. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The statistic is a quantile or another non-smooth functional -- use sp.bootstrap; The sample is large and each evaluation is slow -- the cost is one evaluation per observation; sp.nlcom gives the delta-method answer at once. Cost: One evaluation of the statistic per observation or cluster. Assumptions: The statistic is a smooth function of sample moments; Independent observations, or independent clusters with cluster=. Alternatives: sp.bootstrap, sp.nlcom, sp.jackknife_se.",
+    "description": "Delete-one (or delete-one-cluster) jackknife standard errors for any statistic: a function of a DataFrame that returns a number, a vector or a fitted model. Covers Stata's `jackknife (exp): command` and `vce(jackknife)` and reproduces their numbers, since nothing is random. Use it for smooth functions of estimates (ratios, predicted levels, turning points); it is not consistent for quantiles, where sp.bootstrap applies. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The statistic is a quantile or another non-smooth functional -- use sp.bootstrap; The sample is large and each evaluation is slow -- the cost is one evaluation per observation; sp.nlcom gives the delta-method answer at once. Cost: One evaluation of the statistic per observation or cluster. Assumptions: The statistic is a smooth function of sample moments; Independent observations, or independent clusters with cluster=. Failure modes: sp.jackknife: statistic must be a function of a DataFrame -> Pass e.g. lambda d: sp.regress('y ~ x', data=d); sp.jackknife: cluster=<cluster> is not a column -> Pass the name of the cluster variable; sp.jackknife: fe...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -18664,7 +18715,7 @@
     "name": "johansen"
   },
   {
-    "description": "Likelihood-ratio tests in a cointegrated VAR with the rank held fixed: the same linear restrictions on every cointegrating vector, given vectors lying in the cointegration space, or restrictions on the loadings (weak exogeneity). Chi-squared reference. urca blrtest / bh5lrtest / alrtest. Validation: certified parity evidence. Assumptions: The cointegration rank is correct; Gaussian VAR with the stated lag order. Pre-conditions: Choose the rank with sp.johansen first. Alternatives: sp.johansen, sp.vec, sp.engle_granger.",
+    "description": "Likelihood-ratio tests in a cointegrated VAR with the rank held fixed: the same linear restrictions on every cointegrating vector, given vectors lying in the cointegration space, or restrictions on the loadings (weak exogeneity). Chi-squared reference. urca blrtest / bh5lrtest / alrtest. Validation: certified parity evidence. Assumptions: The cointegration rank is correct; Gaussian VAR with the stated lag order. Pre-conditions: Choose the rank with sp.johansen first. Failure modes: johansen_lrtest: give exactly one of beta=, beta_known=, loading= -> Test one hypothesis per call; johansen_lrtest: rank must be between 1 and <K - 1>, got <rank> -> Choose the rank with sp.johansen first. Alternatives: sp.johansen, sp.vec, sp.engle_granger.",
     "input_schema": {
       "properties": {
         "beta": {
@@ -18716,7 +18767,7 @@
     "name": "johansen_lrtest"
   },
   {
-    "description": "Wooldridge ETWFE with Stata ``jwdid``'s option names. Validation: certified parity evidence.",
+    "description": "Wooldridge ETWFE with Stata ``jwdid``'s option names. Validation: certified parity evidence. Failure modes: jwdid(method=<method>) is not supported; use one of None, 'regress', 'ppmlhdfe', 'poisson', 'logit' -> Pass method='ppmlhdfe' for count outcomes; jwdid(predict=<predict>) is not supported; use None, 'mu' or 'xb' -> predict='xb' reports the ATT in log points; jwdid(predict=<predict>) needs a nonlinear method(); the linear model has a single scale -> Drop predict=, or pass method='ppmlhdfe'.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19172,7 +19223,7 @@
     "name": "ksmirnov"
   },
   {
-    "description": "Kendall's rank correlations tau-a and tau-b with the score test of independence (Stata ktau). The variance of the score is corrected for ties and z carries a continuity correction. Validation: certified parity evidence. Assumptions: Independent pairs of observations; Both variables at least ordinal; the test is of independence, the coefficient measures monotone association. Alternatives: sp.spearman, sp.tab.",
+    "description": "Kendall's rank correlations tau-a and tau-b with the score test of independence (Stata ktau). The variance of the score is corrected for ties and z carries a continuity correction. Validation: certified parity evidence. Assumptions: Independent pairs of observations; Both variables at least ordinal; the test is of independence, the coefficient measures monotone association. Failure modes: ktau: one of the variables does not vary -> Check the columns. Alternatives: sp.spearman, sp.tab.",
     "input_schema": {
       "properties": {
         "x": {
@@ -19195,7 +19246,7 @@
     "name": "ktau"
   },
   {
-    "description": "Kruskal-Wallis rank test that several groups have the same distribution (Stata kwallis, R kruskal.test). Reports the statistic with and without the correction for ties, on k - 1 degrees of freedom. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; An outcome that is at least ordinal; Reading a rejection as a shift in location needs the groups to share the same shape and spread. Alternatives: sp.oneway, sp.ranksum, sp.median_test.",
+    "description": "Kruskal-Wallis rank test that several groups have the same distribution (Stata kwallis, R kruskal.test). Reports the statistic with and without the correction for ties, on k - 1 degrees of freedom. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; An outcome that is at least ordinal; Reading a rejection as a shift in location needs the groups to share the same shape and spread. Failure modes: kwallis: every value is the same -> Check the variable. Alternatives: sp.oneway, sp.ranksum, sp.median_test.",
     "input_schema": {
       "properties": {
         "by": {
@@ -19542,7 +19593,7 @@
     "name": "list_replications"
   },
   {
-    "description": "Ljung-Box or Box-Pierce portmanteau test that the first `lags` autocorrelations are zero, with the degrees of freedom reduced by the number of ARMA parameters estimated (model_df). Accepts a series of residuals or a fitted sp.arima / sp.ets / sp.simple_forecast result. R Box.test(fitdf=), Stata wntestq, statsmodels acorr_ljungbox(model_df=). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Under H0 the series is white noise; the chi-squared reference is asymptotic; After a regression with lagged dependent variables use sp.estat(result, 'bgodfrey') instead. Alternatives: sp.corrgram, sp.estat.",
+    "description": "Ljung-Box or Box-Pierce portmanteau test that the first `lags` autocorrelations are zero, with the degrees of freedom reduced by the number of ARMA parameters estimated (model_df). Accepts a series of residuals or a fitted sp.arima / sp.ets / sp.simple_forecast result. R Box.test(fitdf=), Stata wntestq, statsmodels acorr_ljungbox(model_df=). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Under H0 the series is white noise; the chi-squared reference is asymptotic; After a regression with lagged dependent variables use sp.estat(result, 'bgodfrey') instead. Failure modes: ljungbox: model_df cannot be negative -> Pass the number of estimated ARMA parameters; ljungbox: lags must be positive -> E.g. lags=10; ljungbox: <top> lags need more than <n> observations -> Lower lags=. Alternatives: sp.corrgram, sp.estat.",
     "input_schema": {
       "properties": {
         "lags": {
@@ -20072,7 +20123,7 @@
     "name": "logit"
   },
   {
-    "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. Validation: certified parity evidence. Assumptions: A binary-outcome model fitted by maximum likelihood; Pearson's test needs covariate patterns with several observations each; with near-continuous regressors use the grouped (Hosmer- Lemeshow) form; A non-rejection is not evidence that the model is right: the grouped test has little power against omitted interactions. Alternatives: sp.estat, sp.logit_influence.",
+    "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. Validation: certified parity evidence. Assumptions: A binary-outcome model fitted by maximum likelihood; Pearson's test needs covariate patterns with several observations each; with near-continuous regressors use the grouped (Hosmer- Lemeshow) form; A non-rejection is not evidence that the model is right: the grouped test has little power against omitted interactions. Failure modes: sp.logit_gof: the Hosmer-Lemeshow test needs at least 3 groups -> groups=10 is the usual choice. Alternatives: sp.estat, sp.logit_influence.",
     "input_schema": {
       "properties": {
         "groups": {
@@ -20137,7 +20188,7 @@
     "name": "logrank_test"
   },
   {
-    "description": "One-way analysis of variance read as a random-effects model (Stata loneway): the intraclass correlation with its asymptotic standard error and interval, the standard deviations of the group effect and of the within-group error, and the reliability of a group mean. The intraclass correlation is the input of a design effect or Moulton factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Groups are a sample of exchangeable groups (random effects); Homoskedastic errors within groups. Alternatives: sp.oneway, sp.icc, sp.mixed.",
+    "description": "One-way analysis of variance read as a random-effects model (Stata loneway): the intraclass correlation with its asymptotic standard error and interval, the standard deviations of the group effect and of the within-group error, and the reliability of a group mean. The intraclass correlation is the input of a design effect or Moulton factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Groups are a sample of exchangeable groups (random effects); Homoskedastic errors within groups. Failure modes: loneway: alpha must lie strictly between 0 and 1, got <alpha> -> alpha=0.05 gives a 95% interval; loneway: at least two groups and one within-group degree of freedom are needed -> Each group needs more than one observation overall; loneway: the exact interval is defined for groups of equal size -> Drop exact=True for the asymptotic interval. Alternatives: sp.oneway, sp.icc, sp.mixed.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20344,7 +20395,7 @@
     "name": "lrtest"
   },
   {
-    "description": "Long-run variance (sum of all autocovariances, the HAC variance of a mean times T) of one or several series. Bartlett, Parzen, quadratic spectral, Tukey-Hanning or truncated kernel; Andrews or Newey-West automatic bandwidth; VAR prewhitening. Reproduces R sandwich kernHAC / NeweyWest / lrvar. Validation: certified parity evidence. Assumptions: Stationary series with summable autocovariances. Alternatives: sp.regress, sp.corrgram, sp.periodogram.",
+    "description": "Long-run variance (sum of all autocovariances, the HAC variance of a mean times T) of one or several series. Bartlett, Parzen, quadratic spectral, Tukey-Hanning or truncated kernel; Andrews or Newey-West automatic bandwidth; VAR prewhitening. Reproduces R sandwich kernHAC / NeweyWest / lrvar. Validation: certified parity evidence. Assumptions: Stationary series with summable autocovariances. Failure modes: sp.lrvar: kernel=<kernel> is not known -> Use 'bartlett', 'parzen', 'qs', 'tukey-hanning' or 'truncated'; sp.lrvar: prewhite=<prewhite> is negative -> Use 0 (none) or 1; sp.lrvar: adjust=True corrects for the estimated mean and needs demean=True -> Drop adjust=True or set demean=True. Alternatives: sp.regress, sp.corrgram, sp.periodogram.",
     "input_schema": {
       "properties": {
         "adjust": {
@@ -20929,6 +20980,10 @@
         "method": {
           "default": "ame",
           "description": "Forwarded verbatim to :func:`margins`.",
+          "enum": [
+            "ame",
+            "mem"
+          ],
           "type": "string"
         },
         "result": {
@@ -21759,6 +21814,13 @@
         "family": {
           "default": "gaussian",
           "description": "``'gaussian'``, ``'binomial'``, ``'poisson'``, ``'gamma'``, or ``'nbinomial'`` (alias ``'negbin'``).",
+          "enum": [
+            "gaussian",
+            "binomial",
+            "poisson",
+            "gamma",
+            "nbinomial"
+          ],
           "type": "string"
         },
         "group": {
@@ -22589,7 +22651,7 @@
     "name": "mlogit"
   },
   {
-    "description": "Model selection criteria and averaging weights for candidate least-squares regressions of one outcome: AIC, BIC and leave-one-out cross-validation for selection; Mallows, jackknife (cross-validation) and smoothed AIC / BIC weights for averaging. Returns averaged coefficients, fitted values and predictions, and averages any function of the candidate fits. Jackknife weights (the default) remain optimal under heteroskedasticity. No standard errors: inference after selection or averaging is not normal-based. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A confidence interval for one coefficient is the goal -- fit the model chosen in advance; intervals after selection or averaging undercover. Assumptions: Candidates are linear regressions of the same outcome on the same sample; Mallows weights assume homoskedastic errors; jackknife weights do not. Alternatives: sp.regress, sp.rlasso, sp.lasso_select.",
+    "description": "Model selection criteria and averaging weights for candidate least-squares regressions of one outcome: AIC, BIC and leave-one-out cross-validation for selection; Mallows, jackknife (cross-validation) and smoothed AIC / BIC weights for averaging. Returns averaged coefficients, fitted values and predictions, and averages any function of the candidate fits. Jackknife weights (the default) remain optimal under heteroskedasticity. No standard errors: inference after selection or averaging is not normal-based. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A confidence interval for one coefficient is the goal -- fit the model chosen in advance; intervals after selection or averaging undercover. Assumptions: Candidates are linear regressions of the same outcome on the same sample; Mallows weights assume homoskedastic errors; jackknife weights do not. Failure modes: sp.model_average: method=<method> is not one of <', '.join(_METHODS)> -> Use 'jma', 'mma', 'aic' or 'bic'; sp.model_average: at least two candidate formulas are needed -> Pass a list of formulas with the same outcome; sp.model_average: names= must give o...",
     "input_schema": {
       "properties": {
         "formulas": {
@@ -23575,7 +23637,7 @@
     "name": "ndcg"
   },
   {
-    "description": "Number of first differences that make a series stationary: difference until a KPSS test no longer rejects level stationarity (Hyndman-Khandakar rule). R forecast::ndiffs(test='kpss'), statsforecast ndiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.unitroot, sp.nsdiffs.",
+    "description": "Number of first differences that make a series stationary: difference until a KPSS test no longer rejects level stationarity (Hyndman-Khandakar rule). R forecast::ndiffs(test='kpss'), statsforecast ndiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ndiffs: alpha=<alpha> has no tabulated KPSS critical value -> Use 0.10, 0.05, 0.025 or 0.01; ndiffs: max_d cannot be negative -> Use max_d=2. Alternatives: sp.unitroot, sp.nsdiffs.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23776,7 +23838,7 @@
     "name": "network_exposure"
   },
   {
-    "description": "Nonlinear combination of coefficients with a delta-method standard error (Stata nlcom, R car::deltaMethod): ratios, long-run effects b/(1-c), turning points, exp(b)-1. The expression is parsed, not evaluated as code; coefficient names or _b[name], + - * / **, and exp / ln / sqrt / abs / normal / normalden / invlogit. Returns estimate, se, z, p-value, confidence interval and the gradient. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The expression is linear in the coefficients -- use sp.lincom, whose inference needs no approximation; A ratio whose denominator is not clearly different from zero -- the delta-method interval is unreliable; use a Fieller interval or the bootstrap. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix; The function is smooth at the true coefficients, with a non-zero gradient. Alternatives: sp.lincom, sp.test, sp.bootstrap.",
+    "description": "Nonlinear combination of coefficients with a delta-method standard error (Stata nlcom, R car::deltaMethod): ratios, long-run effects b/(1-c), turning points, exp(b)-1. The expression is parsed, not evaluated as code; coefficient names or _b[name], + - * / **, and exp / ln / sqrt / abs / normal / normalden / invlogit. Returns estimate, se, z, p-value, confidence interval and the gradient. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The expression is linear in the coefficients -- use sp.lincom, whose inference needs no approximation; A ratio whose denominator is not clearly different from zero -- the delta-method interval is unreliable; use a Fieller interval or the bootstrap. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix; The function is smooth at the true coefficients, with a non-zero gradient. Failure modes: nlcom: alpha must be in (0, 1), got <alpha> -> alpha is 1 minus the confidence level, e.g. 0.05; nlcom(<expression>) is not a valid expression (<exc.msg>) -> Write coefficient names that are not plain identifiers as _b[name]. Alternatives: sp.lin...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23939,7 +24001,7 @@
     "name": "nls"
   },
   {
-    "description": "Sign test restricted to the matched pairs with the largest absolute differences, with its exact bound under hidden bias Gamma (R iTOS::noether). Less sensitive to unmeasured bias than the sign test or Wilcoxon's test when the effect is not small. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Independent matched pairs; Within a pair the odds of treatment differ by at most Gamma. Alternatives: sp.rosenbaum_bounds, sp.weighted_rank, sp.signrank.",
+    "description": "Sign test restricted to the matched pairs with the largest absolute differences, with its exact bound under hidden bias Gamma (R iTOS::noether). Less sensitive to unmeasured bias than the sign test or Wilcoxon's test when the effect is not small. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Independent matched pairs; Within a pair the odds of treatment differ by at most Gamma. Failure modes: noether_test: every pair difference is zero -> The sign test has nothing to count. Alternatives: sp.rosenbaum_bounds, sp.weighted_rank, sp.signrank.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -24095,7 +24157,7 @@
     "name": "notears"
   },
   {
-    "description": "Number of seasonal differences a series needs: one while the strength of seasonality of an STL decomposition exceeds 0.64. R forecast::nsdiffs(test='seas'), feasts unitroot_nsdiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.ndiffs, sp.stl.",
+    "description": "Number of seasonal differences a series needs: one while the strength of seasonality of an STL decomposition exceeds 0.64. R forecast::nsdiffs(test='seas'), feasts unitroot_nsdiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: nsdiffs: non-seasonal data (period=1) have no seasonal difference -> Pass the seasonal period, or use sp.ndiffs. Alternatives: sp.ndiffs, sp.stl.",
     "input_schema": {
       "properties": {
         "max_D": {
@@ -24287,7 +24349,7 @@
     "name": "ologit"
   },
   {
-    "description": "One-way analysis of variance (Stata oneway, R aov): the F test of equal group means, Bartlett's test of equal variances and, on request, pairwise differences of means with Bonferroni, Sidak or Scheffe p-values. Validation: certified parity evidence. Assumptions: Independent observations; Equal variances across groups (Bartlett's test is reported). Alternatives: sp.kwallis, sp.regress, sp.ttest.",
+    "description": "One-way analysis of variance (Stata oneway, R aov): the F test of equal group means, Bartlett's test of equal variances and, on request, pairwise differences of means with Bonferroni, Sidak or Scheffe p-values. Validation: certified parity evidence. Assumptions: Independent observations; Equal variances across groups (Bartlett's test is reported). Failure modes: oneway: unknown compare <compare> -> Use 'bonferroni', 'sidak' or 'scheffe'; oneway: no within-group degrees of freedom -> Each group needs more than one observation overall. Alternatives: sp.kwallis, sp.regress, sp.ttest.",
     "input_schema": {
       "properties": {
         "by": {
@@ -24596,6 +24658,11 @@
         "method": {
           "default": "logit",
           "description": "PS estimation method if *ps* is None.",
+          "enum": [
+            "logit",
+            "probit",
+            "gbm"
+          ],
           "type": "string"
         },
         "ps": {
@@ -25503,6 +25570,12 @@
         "method": {
           "default": "manski",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "manski",
+            "lee",
+            "horowitz_manski",
+            "iv"
+          ],
           "type": "string"
         },
         "selection": {
@@ -25746,7 +25819,7 @@
     "name": "pcmci"
   },
   {
-    "description": "Spectral density of a series: raw periodogram, periodogram smoothed with modified Daniell kernels, or the spectrum of an autoregression fitted by Yule-Walker. Frequencies, cycle lengths, the estimate and its chi-squared band. R spec.pgram / spec.ar, Stata pergram. Validation: certified parity evidence. Do NOT use when: Reading single ordinates of the raw periodogram: it is not consistent; smooth it or fit the AR spectrum. Assumptions: Stationary series. Alternatives: sp.corrgram, sp.tsfilter, sp.cumulative_periodogram_test.",
+    "description": "Spectral density of a series: raw periodogram, periodogram smoothed with modified Daniell kernels, or the spectrum of an autoregression fitted by Yule-Walker. Frequencies, cycle lengths, the estimate and its chi-squared band. R spec.pgram / spec.ar, Stata pergram. Validation: certified parity evidence. Do NOT use when: Reading single ordinates of the raw periodogram: it is not consistent; smooth it or fit the AR spectrum. Assumptions: Stationary series. Failure modes: sp.periodogram: method=<method> is not 'raw', 'smoothed' or 'ar' -> Choose one of the three estimators; sp.periodogram: scale=<scale> is not 'cycles' or 'radians' -> Use 'cycles' (R) or 'radians' (textbook); sp.periodogram: alpha=<alpha> is not between 0 and 1 -> Pass e.g. alpha=0.05. Alternatives: sp.corrgram, sp.tsfilter, sp.cumulative_periodogram_test.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -26349,7 +26422,7 @@
     "name": "ppmlhdfe"
   },
   {
-    "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear model with strictly exogenous regressors: a lagged dependent variable makes the estimate of rho, and with it the FGLS estimate, inconsistent; Errors follow a stationary AR(1); higher-order or seasonal correlation is not removed; Equally spaced observations in time order, no gaps.",
+    "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear model with strictly exogenous regressors: a lagged dependent variable makes the estimate of rho, and with it the FGLS estimate, inconsistent; Errors follow a stationary AR(1); higher-order or seasonal correlation is not removed; Equally spaced observations in time order, no gaps. Failure modes: sp.prais: method=<method> is not 'prais' or 'corc' -> Use method='prais' (Prais-Winsten) or 'corc'; sp.prais: rhotype=<rhotype> is not one of <', '.join(_RHOTYPES)> -> Use rhotype='regress' (the default); sp.prais: vce=<vce> is not 'ols', 'robust', 'hc2' or 'hc3' -> Use vce='ols' or vce='robust'.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -27090,7 +27163,7 @@
     "name": "proximal_regression"
   },
   {
-    "description": "Large-sample z test that a proportion equals a value, or that two proportions are equal (Stata prtest / prtesti). Takes a 0/1 column or summary statistics (n=, proportion=). The two-sample statistic uses the standard error pooled under the null; the interval uses the unpooled one. Returns z, the two-sided and one-sided p-values and Wald intervals. For small samples use sp.bitest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A small sample or a proportion near 0 or 1 -- use the exact sp.bitest, or sp.ci(stat='proportions') for an exact or Wilson interval. Assumptions: Independent 0/1 observations with a common success probability; Samples large enough for the normal approximation (n p and n (1 - p) not small). Alternatives: sp.bitest, sp.ci, sp.ttest.",
+    "description": "Large-sample z test that a proportion equals a value, or that two proportions are equal (Stata prtest / prtesti). Takes a 0/1 column or summary statistics (n=, proportion=). The two-sample statistic uses the standard error pooled under the null; the interval uses the unpooled one. Returns z, the two-sided and one-sided p-values and Wald intervals. For small samples use sp.bitest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A small sample or a proportion near 0 or 1 -- use the exact sp.bitest, or sp.ci(stat='proportions') for an exact or Wilson interval. Assumptions: Independent 0/1 observations with a common success probability; Samples large enough for the normal approximation (n p and n (1 - p) not small). Failure modes: prtest: the standard error under the null is zero (every observation is the same), so the statistic is not defined -> Check the variable; prtest: y / by / other name columns of data; pass data, or the summary statistics n= and proportion= -> sp.prtest(n=50, proportion=0.52, p=0.4); prtest: give data and y, or both n= and proportion= -> sp.prtest(n=50, proportion=0.52, p=0.4). Alternativ...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -27145,6 +27218,11 @@
         "method": {
           "default": "logit",
           "description": "PS estimation method ('logit', 'probit', 'gbm').",
+          "enum": [
+            "logit",
+            "probit",
+            "gbm"
+          ],
           "type": "string"
         },
         "sd_denom": {
@@ -27247,7 +27325,7 @@
     "name": "ps_weights"
   },
   {
-    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap of the score between treated and controls. Pre-conditions: binary treatment 0/1; covariates are pre-treatment. Alternatives: sp.psmatch2, sp.match, sp.ps_balance, sp.balance_table.",
+    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap of the score between treated and controls. Pre-conditions: binary treatment 0/1; covariates are pre-treatment. Failure modes: pscore: data must be a pandas DataFrame -> Pass the DataFrame holding the treatment and covariates; pscore: columns not found in data: <missing> -> Check the treat and covariates column names; pscore: at least one covariate is needed -> Pass the covariates of the treatment model. Alternatives: sp.psmatch2, sp.match, sp.ps_balance, sp.balance_table.",
     "input_schema": {
       "properties": {
         "common_support": {
@@ -28124,7 +28202,7 @@
     "name": "quasi_untreated_test"
   },
   {
-    "description": "Wilcoxon rank-sum (Mann-Whitney) test that two groups have the same distribution (Stata ranksum, R wilcox.test with correct=FALSE). The variance of the rank sum is corrected for ties; z is referred to the standard normal without a continuity correction. Returns z, the p-value, the rank sums and P(y1 > y2). Validation: certified parity evidence. Assumptions: Independent observations in two independent groups; Ordinal or continuous outcome. Alternatives: sp.ttest, sp.ksmirnov, sp.median_test, sp.kwallis.",
+    "description": "Wilcoxon rank-sum (Mann-Whitney) test that two groups have the same distribution (Stata ranksum, R wilcox.test with correct=FALSE). The variance of the rank sum is corrected for ties; z is referred to the standard normal without a continuity correction. Returns z, the p-value, the rank sums and P(y1 > y2). Validation: certified parity evidence. Assumptions: Independent observations in two independent groups; Ordinal or continuous outcome. Failure modes: ranksum: every value is the same, so the ranks carry no information -> Check the variable. Alternatives: sp.ttest, sp.ksmirnov, sp.median_test, sp.kwallis.",
     "input_schema": {
       "properties": {
         "by": {
@@ -28670,6 +28748,16 @@
         "bwselect": {
           "default": "mserd",
           "description": "bwselect parameter (str).",
+          "enum": [
+            "mserd",
+            "cerrd",
+            "imserd",
+            "icerrd",
+            "msetwo",
+            "certwo",
+            "imsetwo",
+            "icertwo"
+          ],
           "type": "string"
         },
         "cluster": {
@@ -28748,6 +28836,10 @@
         "method": {
           "default": "dpi",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "dpi",
+            "rot"
+          ],
           "type": "string"
         },
         "n_eval": {
@@ -28791,6 +28883,12 @@
         "vce": {
           "default": "hc1",
           "description": "vce parameter (str).",
+          "enum": [
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
           "type": "string"
         },
         "x1": {
@@ -28818,7 +28916,7 @@
     "name": "rd2d_bw"
   },
   {
-    "description": "2D boundary RD visualization.",
+    "description": "2D boundary RD visualization. Failure modes: `data` must be a pandas DataFrame -> Pass a DataFrame containing y, x1, x2, and treatment; boundary must be callable or None -> Pass boundary=lambda x1: f(x1), or leave boundary=None; plot_type must be 'scatter', 'heatmap', or 'boundary_effects', got '<plot_type>' -> Use plot_type='scatter', 'heatmap', or 'boundary_effects'.",
     "input_schema": {
       "properties": {
         "ax": {
@@ -28916,6 +29014,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "n_draws": {
@@ -29437,6 +29541,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "n_boot": {
@@ -29488,6 +29598,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "quantiles": {
@@ -29877,6 +29993,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "neighbour_running": {
@@ -29941,6 +30063,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel for local linear regression ('triangular', 'uniform', 'epanechnikov').",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "x": {
@@ -30035,6 +30163,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "running_vars": {
@@ -30269,6 +30403,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "p": {
@@ -30524,6 +30663,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "n_grid": {
@@ -31050,6 +31194,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "ranges": {
@@ -31131,6 +31280,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "n_placebo": {
@@ -31888,6 +32042,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "p": {
@@ -32596,7 +32755,7 @@
     "name": "ri_test"
   },
   {
-    "description": "Ridge regression on standardised regressors over one or a grid of penalties, chosen by generalized cross-validation (or the HKB / LW plug-ins). Scaling and GCV as R MASS::lm.ridge. Returns coefficients on the original scale, the full path with effective degrees of freedom, and predict(). No standard errors. Validation: certified parity evidence. Do NOT use when: Inference on a coefficient is the goal -- ridge coefficients are biased by design and carry no standard errors here; use sp.regress, or sp.rlasso_effect / sp.dml with many controls; A sparse model is wanted -- ridge never sets a coefficient to zero; use sp.lasso_select. Assumptions: Linear conditional mean; the goal is prediction, not unbiased coefficients. Alternatives: sp.lasso_select, sp.rlasso, sp.best_subset, sp.regress.",
+    "description": "Ridge regression on standardised regressors over one or a grid of penalties, chosen by generalized cross-validation (or the HKB / LW plug-ins). Scaling and GCV as R MASS::lm.ridge. Returns coefficients on the original scale, the full path with effective degrees of freedom, and predict(). No standard errors. Validation: certified parity evidence. Do NOT use when: Inference on a coefficient is the goal -- ridge coefficients are biased by design and carry no standard errors here; use sp.regress, or sp.rlasso_effect / sp.dml with many controls; A sparse model is wanted -- ridge never sets a coefficient to zero; use sp.lasso_select. Assumptions: Linear conditional mean; the goal is prediction, not unbiased coefficients. Failure modes: ridge: regressor(s) <bad> do not vary -> Drop the constant column(s); ridge: lambda = 0 is least squares, which is not unique with at least as many regressors as observations -> Use strictly positive penalties. Alternatives: sp.lasso_select, sp.rlasso, sp.best_subset, sp.regress.",
     "input_schema": {
       "properties": {
         "formula": {
@@ -32880,6 +33039,10 @@
         "method": {
           "default": "partialling out",
           "description": "See the module docstring.",
+          "enum": [
+            "partialling out",
+            "double selection"
+          ],
           "type": "string"
         },
         "penalty": {
@@ -32940,6 +33103,10 @@
         "method": {
           "default": "partialling out",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "partialling out",
+            "double selection"
+          ],
           "type": "string"
         },
         "penalty": {
@@ -33423,7 +33590,7 @@
     "name": "robustness_report"
   },
   {
-    "description": "Robust tests of equal variances across groups (Stata robvar): Levene's W0 on absolute deviations from the group means and the Brown-Forsythe variants W50 (medians) and W10 (10 percent trimmed means), each an F test. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; A continuous outcome; the median-centred form (W50) is the one to rely on when the outcome is skewed. Alternatives: sp.sdtest, sp.oneway.",
+    "description": "Robust tests of equal variances across groups (Stata robvar): Levene's W0 on absolute deviations from the group means and the Brown-Forsythe variants W50 (medians) and W10 (10 percent trimmed means), each an F test. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; A continuous outcome; the median-centred form (W50) is the one to rely on when the outcome is skewed. Failure modes: robvar: a group has fewer than two observations -> Drop or merge the small group. Alternatives: sp.sdtest, sp.oneway.",
     "input_schema": {
       "properties": {
         "by": {
@@ -33445,7 +33612,7 @@
     "name": "robvar"
   },
   {
-    "description": "Rolling or recursive least squares: the same regression on a window of fixed length that moves through the sample, or on a sample that grows from the first row (recursive=True). Returns one row per window with the coefficients, their standard errors, R-squared and root MSE, indexed by the window's last row. The usual tool for a rolling market beta or for looking at coefficient stability. statsmodels RollingOLS, Stata rolling. Paths are noisy and consecutive windows overlap; test stability with sp.cusum_test or sp.structural_break. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Rows in time order; Each window is long enough to estimate the coefficients; windows where the regressors are collinear return missing values with a warning. Alternatives: sp.cusum_test, sp.structural_break, sp.regress.",
+    "description": "Rolling or recursive least squares: the same regression on a window of fixed length that moves through the sample, or on a sample that grows from the first row (recursive=True). Returns one row per window with the coefficients, their standard errors, R-squared and root MSE, indexed by the window's last row. The usual tool for a rolling market beta or for looking at coefficient stability. statsmodels RollingOLS, Stata rolling. Paths are noisy and consecutive windows overlap; test stability with sp.cusum_test or sp.structural_break. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Rows in time order; Each window is long enough to estimate the coefficients; windows where the regressors are collinear return missing values with a warning. Failure modes: rolling: vce must be one of <_VCE>, got <vce> -> Use 'nonrobust' or 'hc1'; rolling: the regressors are collinear in the full sample -> Drop the redundant term from the formula; rolling: window=<window> exceeds the <n> usable observations -> Use a shorter window. Alternatives: sp.cusum_test, sp.structural_break, sp.regress.",
     "input_schema": {
       "properties": {
         "formula": {
@@ -33631,7 +33798,7 @@
     "name": "rosenbaum_bounds"
   },
   {
-    "description": "Rosenbaum bounds for a treated-versus-control comparison within strata of any size and composition, or in one stratum (the two-sample case): bounds the p-value of the sum of treated scores under hidden bias Gamma (R senstrat and sen2sample). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Time O(sum over strata of N_s * n_treated_s) per Gamma; a stratum of 2,000 with 500 treated takes about a tenth of a second. Assumptions: Within a stratum, two individuals differ in their odds of treatment by at most Gamma; Under the null hypothesis the treatment changes no one's outcome. Pre-conditions: At least one stratum holds both a treated individual and a control. Alternatives: sp.weighted_rank, sp.rosenbaum_bounds, sp.sensemakr, sp.evalue.",
+    "description": "Rosenbaum bounds for a treated-versus-control comparison within strata of any size and composition, or in one stratum (the two-sample case): bounds the p-value of the sum of treated scores under hidden bias Gamma (R senstrat and sen2sample). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Time O(sum over strata of N_s * n_treated_s) per Gamma; a stratum of 2,000 with 500 treated takes about a tenth of a second. Assumptions: Within a stratum, two individuals differ in their odds of treatment by at most Gamma; Under the null hypothesis the treatment changes no one's outcome. Pre-conditions: At least one stratum holds both a treated individual and a control. Failure modes: rosenbaum_stratified: no stratum contains both a treated individual and a control -> Coarsen the strata. Alternatives: sp.weighted_rank, sp.rosenbaum_bounds, sp.sensemakr, sp.evalue.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -34356,7 +34523,7 @@
     "name": "sdid"
   },
   {
-    "description": "Test on the variance of a normal population (Stata sdtest / sdtesti, R var.test). One sample: (n-1)s^2/sd0^2 against chi-squared(n-1). Two samples (by= or other=): s1^2/s2^2 against F(n1-1, n2-1). Takes data or summary statistics (n=, sd=). Returns the statistic, degrees of freedom, the two-sided (twice the smaller tail) and both one-sided p-values, and a confidence interval for the standard deviation or the ratio. Exact under normality, not robust to heavy tails. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The data are skewed or heavy-tailed -- the chi-squared and F tests then reject a true null far more often than alpha; compare spreads with a robust test or the bootstrap. Assumptions: Each sample is an independent draw from a normal population; Two samples: the samples are independent of each other.",
+    "description": "Test on the variance of a normal population (Stata sdtest / sdtesti, R var.test). One sample: (n-1)s^2/sd0^2 against chi-squared(n-1). Two samples (by= or other=): s1^2/s2^2 against F(n1-1, n2-1). Takes data or summary statistics (n=, sd=). Returns the statistic, degrees of freedom, the two-sided (twice the smaller tail) and both one-sided p-values, and a confidence interval for the standard deviation or the ratio. Exact under normality, not robust to heavy tails. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The data are skewed or heavy-tailed -- the chi-squared and F tests then reject a true null far more often than alpha; compare spreads with a robust test or the bootstrap. Assumptions: Each sample is an independent draw from a normal population; Two samples: the samples are independent of each other. Failure modes: sdtest: sd0= is the null of a one-sample test; two samples are tested against a ratio of one -> Drop sd0=, or drop by= / other=; sdtest: <label> has no variation, so the test is not defined -> Check that the variable is not constant; sdtest: a one-sample test needs sd0=, the positive standard...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -34427,7 +34594,7 @@
     "name": "search_functions"
   },
   {
-    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.fourier_terms.",
+    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: seasonal_dummies: period must be at least 2 and n at least 1 -> E.g. sp.seasonal_dummies(len(y), 4). Alternatives: sp.fourier_terms.",
     "input_schema": {
       "properties": {
         "drop_first": {
@@ -34970,7 +35137,7 @@
     "name": "shapley_inequality"
   },
   {
-    "description": "Prediction with many regressors: ridge, lasso, principal components regression or OLS, with the penalty / number of components chosen by m-fold cross-validation and the cross-validated root mean squared prediction error reported. Predictors are standardised and the outcome demeaned, on each training fold separately. Penalties multiply the sum of squared residuals as it stands: ridge = sklearn Ridge(alpha=penalty), lasso = sklearn Lasso(alpha=penalty / (2 n)). For prediction, not for inference: no standard errors are reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The goal is a causal effect or a confidence interval for a coefficient -- shrinkage biases coefficients by design; use sp.dml or sp.rlasso_effect; Observations are serially dependent -- consecutive or random folds then leak information; use a pseudo out-of-sample scheme (sp.ardl(...).poos()). Assumptions: The observations to be predicted are drawn from the same population as the estimation sample. Alternatives: sp.ridge, sp.lasso_select, sp.rlasso, sp.dml.",
+    "description": "Prediction with many regressors: ridge, lasso, principal components regression or OLS, with the penalty / number of components chosen by m-fold cross-validation and the cross-validated root mean squared prediction error reported. Predictors are standardised and the outcome demeaned, on each training fold separately. Penalties multiply the sum of squared residuals as it stands: ridge = sklearn Ridge(alpha=penalty), lasso = sklearn Lasso(alpha=penalty / (2 n)). For prediction, not for inference: no standard errors are reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The goal is a causal effect or a confidence interval for a coefficient -- shrinkage biases coefficients by design; use sp.dml or sp.rlasso_effect; Observations are serially dependent -- consecutive or random folds then leak information; use a pseudo out-of-sample scheme (sp.ardl(...).poos()). Assumptions: The observations to be predicted are drawn from the same population as the estimation sample. Failure modes: shrinkage: predictors <constant> do not vary -> Drop them; a constant cannot be standardised; shrinkage: a predictor is constant w...",
     "input_schema": {
       "properties": {
         "method": {
@@ -35039,7 +35206,7 @@
     "name": "shrinkage"
   },
   {
-    "description": "Wilcoxon matched-pairs signed-rank test (Stata signrank). Ranks the absolute differences y - other (or y - value), zeros and ties included, and tests that their distribution is symmetric about zero; the variance is adjusted for ties and for zero differences. Validation: certified parity evidence. Assumptions: Paired observations whose differences are independent; Under the null the differences are symmetric about zero; Differences on an interval scale, so that their absolute values can be ranked. Alternatives: sp.ttest, sp.ranksum.",
+    "description": "Wilcoxon matched-pairs signed-rank test (Stata signrank). Ranks the absolute differences y - other (or y - value), zeros and ties included, and tests that their distribution is symmetric about zero; the variance is adjusted for ties and for zero differences. Validation: certified parity evidence. Assumptions: Paired observations whose differences are independent; Under the null the differences are symmetric about zero; Differences on an interval scale, so that their absolute values can be ranked. Failure modes: signrank: fewer than two pairs -> Check the columns; signrank: every difference is zero -> Check the columns. Alternatives: sp.ttest, sp.ranksum.",
     "input_schema": {
       "properties": {
         "other": {
@@ -35065,7 +35232,7 @@
     "name": "signrank"
   },
   {
-    "description": "Benchmark forecasting methods: mean, naive (random walk), seasonal naive and drift, with normal or bootstrapped prediction intervals. The yardstick any forecasting model has to beat out of sample. R forecast::meanf / naive / snaive / rwf(drift=TRUE); statsforecast HistoricAverage / Naive / SeasonalNaive / RandomWalkWithDrift. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Intervals assume uncorrelated, homoscedastic, normal one-step errors (bootstrap=True drops normality). Alternatives: sp.ets, sp.arima. Typical minimum N: 3.",
+    "description": "Benchmark forecasting methods: mean, naive (random walk), seasonal naive and drift, with normal or bootstrapped prediction intervals. The yardstick any forecasting model has to beat out of sample. R forecast::meanf / naive / snaive / rwf(drift=TRUE); statsforecast HistoricAverage / Naive / SeasonalNaive / RandomWalkWithDrift. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Intervals assume uncorrelated, homoscedastic, normal one-step errors (bootstrap=True drops normality). Failure modes: simple_forecast: method=<method> is not a benchmark method -> Use 'naive', 'snaive', 'drift' or 'mean'; simple_forecast: the mean method needs at least 2 observations -> Provide a longer series; simple_forecast: the naive method needs at least 2 observations -> Provide a longer series. Alternatives: sp.ets, sp.arima. Typical minimum N: 3.",
     "input_schema": {
       "properties": {
         "biasadj": {
@@ -35107,7 +35274,7 @@
     "name": "simple_forecast"
   },
   {
-    "description": "Skewness and kurtosis tests for normality with their joint chi-squared(2) test (Stata sktest): D'Agostino's skewness test, the Anscombe-Glynn kurtosis test, and Royston's small-sample adjustment of the joint statistic. One row per variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A very large sample -- the test rejects for departures from normality too small to matter; look at the distribution; Regression residuals are what is in doubt -- use sp.estat(result, 'normality'). Assumptions: Independent observations from one distribution; at least 8. Alternatives: sp.swilk, sp.estat.",
+    "description": "Skewness and kurtosis tests for normality with their joint chi-squared(2) test (Stata sktest): D'Agostino's skewness test, the Anscombe-Glynn kurtosis test, and Royston's small-sample adjustment of the joint statistic. One row per variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A very large sample -- the test rejects for departures from normality too small to matter; look at the distribution; Regression residuals are what is in doubt -- use sp.estat(result, 'normality'). Assumptions: Independent observations from one distribution; at least 8. Failure modes: sktest: <name> needs at least 8 observations that are not all equal -> Check the variable. Alternatives: sp.swilk, sp.estat.",
     "input_schema": {
       "properties": {
         "adjust": {
@@ -36354,7 +36521,7 @@
     "name": "stepwise"
   },
   {
-    "description": "STL decomposition of a series into trend, seasonal and remainder by loess, optionally robust to outliers, with a periodic seasonal option; several seasonal periods give MSTL. The result carries the seasonally adjusted series, the strength of trend and of seasonality, and forecasts that model the seasonally adjusted series (ETS, ARIMA, naive, drift) and add the seasonal pattern back. Defaults and numbers of R stats::stl / forecast::mstl / stlf; statsmodels STL runs the same algorithm with other defaults. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Additive components; take logs (or a Box-Cox transform) first when the seasonal swings grow with the level; At least two full cycles of each period. Alternatives: sp.classical_decompose, sp.ets.",
+    "description": "STL decomposition of a series into trend, seasonal and remainder by loess, optionally robust to outliers, with a periodic seasonal option; several seasonal periods give MSTL. The result carries the seasonally adjusted series, the strength of trend and of seasonality, and forecasts that model the seasonally adjusted series (ETS, ARIMA, naive, drift) and add the seasonal pattern back. Defaults and numbers of R stats::stl / forecast::mstl / stlf; statsmodels STL runs the same algorithm with other defaults. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Additive components; take logs (or a Box-Cox transform) first when the seasonal swings grow with the level; At least two full cycles of each period. Failure modes: stl: the seasonal period must be at least 2 -> Non-seasonal data have no seasonal component to remove; stl: <n> observations are fewer than two cycles of period <m> -> At least two full cycles are needed; stl: <len(windows)> seasonal windows for <len(periods)> periods -> Give one window per period, or a single one. Alternatives: sp.classical_decompose, sp.ets.",
     "input_schema": {
       "properties": {
         "inner_iter": {
@@ -36485,6 +36652,12 @@
         "method": {
           "default": "bai-perron",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "bai-perron",
+            "global",
+            "sup-f",
+            "chow"
+          ],
           "type": "string"
         },
         "min_segment": {
@@ -36677,7 +36850,7 @@
     "name": "subgroup_decompose"
   },
   {
-    "description": "Joint (seemingly unrelated) inference across separately fitted OLS equations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Joint (seemingly unrelated) inference across separately fitted OLS equations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: Each equation needs a distinct dependent variable -> Copy the column under a new name for a second equation.",
     "input_schema": {
       "properties": {
         "cluster": {
@@ -37132,6 +37305,12 @@
         "dist": {
           "default": "weibull",
           "description": "dist parameter (str).",
+          "enum": [
+            "weibull",
+            "exponential",
+            "lognormal",
+            "loglogistic"
+          ],
           "type": "string"
         },
         "duration": {
@@ -37232,7 +37411,7 @@
     "name": "svar"
   },
   {
-    "description": "Shapiro-Wilk W test for normality (Stata swilk, R shapiro.test), with Royston's (1992) normal approximation for the p-value and his V index. One row per variable; 4 to 5,000 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than 5,000 observations -- outside the range of the approximation; use sp.sktest. Assumptions: Independent observations from one distribution; between 4 and 5,000 of them. Alternatives: sp.sktest, sp.estat.",
+    "description": "Shapiro-Wilk W test for normality (Stata swilk, R shapiro.test), with Royston's (1992) normal approximation for the p-value and his V index. One row per variable; 4 to 5,000 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than 5,000 observations -- outside the range of the approximation; use sp.sktest. Assumptions: Independent observations from one distribution; between 4 and 5,000 of them. Failure modes: swilk: <name> has <n> usable observations; the test covers 4 to 5,000 observations that are not all equal -> For a larger sample use sp.sktest. Alternatives: sp.sktest, sp.estat.",
     "input_schema": {
       "properties": {
         "variables": {
@@ -37814,6 +37993,48 @@
         "method": {
           "default": "classic",
           "description": "SCM variant passed to ``synth()``.",
+          "enum": [
+            "classic",
+            "classic_adh",
+            "adh",
+            "penalized",
+            "ridge",
+            "demeaned",
+            "detrended",
+            "unconstrained",
+            "elastic_net",
+            "augmented",
+            "ascm",
+            "sdid",
+            "factor",
+            "gsynth",
+            "staggered",
+            "mc",
+            "matrix_completion",
+            "discos",
+            "distributional",
+            "multi_outcome",
+            "multi",
+            "scpi",
+            "prediction_interval",
+            "bayesian",
+            "bsts",
+            "causal_impact",
+            "penscm",
+            "abadie_lhour",
+            "pairwise",
+            "fdid",
+            "forward_did",
+            "rcm",
+            "hcw",
+            "regression_control",
+            "pda",
+            "cluster",
+            "sparse",
+            "lasso",
+            "kernel",
+            "kernel_ridge"
+          ],
           "type": "string"
         },
         "outcome": {
@@ -37889,6 +38110,48 @@
         "method": {
           "default": "classic",
           "description": "SCM variant passed to ``synth()``.",
+          "enum": [
+            "classic",
+            "classic_adh",
+            "adh",
+            "penalized",
+            "ridge",
+            "demeaned",
+            "detrended",
+            "unconstrained",
+            "elastic_net",
+            "augmented",
+            "ascm",
+            "sdid",
+            "factor",
+            "gsynth",
+            "staggered",
+            "mc",
+            "matrix_completion",
+            "discos",
+            "distributional",
+            "multi_outcome",
+            "multi",
+            "scpi",
+            "prediction_interval",
+            "bayesian",
+            "bsts",
+            "causal_impact",
+            "penscm",
+            "abadie_lhour",
+            "pairwise",
+            "fdid",
+            "forward_did",
+            "rcm",
+            "hcw",
+            "regression_control",
+            "pda",
+            "cluster",
+            "sparse",
+            "lasso",
+            "kernel",
+            "kernel_ridge"
+          ],
           "type": "string"
         },
         "outcome": {
@@ -38920,7 +39183,7 @@
     "name": "threshold"
   },
   {
-    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: Every block holds exactly one treated individual and at least ratio controls. Alternatives: sp.two_criteria_match.",
+    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: Every block holds exactly one treated individual and at least ratio controls. Failure modes: <caller>: subset_cost needs ratio=1 -> Use ratio=1, or drop subset_cost; <caller>: every block must hold exactly one treated individual and at least one control -> Build the blocks first, for example with sp.two_criteria_match; <caller>: some blocks have fewer than <ratio> controls -> Lower ratio. Alternatives: sp.two_criteria_match.",
     "input_schema": {
       "properties": {
         "block": {
@@ -39377,7 +39640,7 @@
     "name": "truncreg"
   },
   {
-    "description": "Summary features of a time series, or of every column of a table of series: autocorrelation and partial autocorrelation sums (levels, first and second differences, seasonal lag), strength of trend and seasonality, spike, linearity and curvature from an STL decomposition, lumpiness, stability, crossing points, flat spots, largest level and variance shifts, ARCH effect. One row per series for plotting, clustering or outlier screening. Values of R tsfeatures. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.stl, sp.corrgram.",
+    "description": "Summary features of a time series, or of every column of a table of series: autocorrelation and partial autocorrelation sums (levels, first and second differences, seasonal lag), strength of trend and seasonality, spike, linearity and curvature from an STL decomposition, lumpiness, stability, crossing points, flat spots, largest level and variance shifts, ARCH effect. One row per series for plotting, clustering or outlier screening. Values of R tsfeatures. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ts_features: <values.shape[0]> observations are too few -> At least 12 observations are needed; ts_features: scale must be True or False -> Use scale=True. Alternatives: sp.stl, sp.corrgram.",
     "input_schema": {
       "properties": {
         "period": {
@@ -39404,7 +39667,7 @@
     "name": "ts_features"
   },
   {
-    "description": "Time series cross-validation on a rolling forecast origin: refit at each origin on the observations up to it (expanding or rolling window), forecast up to `horizon` steps and collect the errors; .accuracy() gives RMSE / MAE / MAPE by horizon. Built-in forecasters (naive, snaive, drift, mean, ets, arima) or any function f(train, horizon). The error matrix has the layout of R forecast::tsCV; statsforecast cross_validation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The forecaster uses only the training window it is handed; Errors at long horizons overlap across origins and are serially correlated. Alternatives: sp.forecast_accuracy. Typical minimum N: 20.",
+    "description": "Time series cross-validation on a rolling forecast origin: refit at each origin on the observations up to it (expanding or rolling window), forecast up to `horizon` steps and collect the errors; .accuracy() gives RMSE / MAE / MAPE by horizon. Built-in forecasters (naive, snaive, drift, mean, ets, arima) or any function f(train, horizon). The error matrix has the layout of R forecast::tsCV; statsforecast cross_validation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The forecaster uses only the training window it is handed; Errors at long horizons overlap across origins and are serially correlated. Failure modes: tscv: horizon and step must be at least 1 -> Pass positive integers; tscv: the first training window (<first> observations) leaves nothing to forecast in a series of <n> -> Lower initial= (or window=) or use a longer series; tscv: window must be at least 2 -> Use window=None for an expanding window. Alternatives: sp.forecast_accuracy. Typical minimum N: 20.",
     "input_schema": {
       "properties": {
         "forecaster": {
@@ -39449,7 +39712,7 @@
     "name": "tscv"
   },
   {
-    "description": "Trend-cycle decomposition by a linear filter: Hodrick-Prescott, Baxter-King band-pass, Christiano-Fitzgerald band-pass, Butterworth high-pass, or Hamilton's regression filter; one-sided HP and the fixed-length symmetric CF filter. Returns trend, cycle and the filter's gain. Stata tsfilter hp / bk / cf / bw. Validation: certified parity evidence. Do NOT use when: Seasonally unadjusted data with the HP filter: the seasonal component ends up in the cycle; Reading the last few HP cycle values as current conditions: the filter is two-sided and revises them. Assumptions: The cycle of interest lives in the frequency band the filter passes. Alternatives: sp.stl, sp.beveridge_nelson, sp.classical_decompose.",
+    "description": "Trend-cycle decomposition by a linear filter: Hodrick-Prescott, Baxter-King band-pass, Christiano-Fitzgerald band-pass, Butterworth high-pass, or Hamilton's regression filter; one-sided HP and the fixed-length symmetric CF filter. Returns trend, cycle and the filter's gain. Stata tsfilter hp / bk / cf / bw. Validation: certified parity evidence. Do NOT use when: Seasonally unadjusted data with the HP filter: the seasonal component ends up in the cycle; Reading the last few HP cycle values as current conditions: the filter is two-sided and revises them. Assumptions: The cycle of interest lives in the frequency band the filter passes. Failure modes: sp.tsfilter: method=<method> is not one of <_METHODS> -> Use 'hp', 'bk', 'cf', 'bw' or 'hamilton'; sp.tsfilter: the series has no observed value -> Check the column; sp.tsfilter: the series has missing or infinite values between observed ones; the filters need consecutive periods -> Fill the gap or filter the longest complete stretch. Alternatives: sp.stl, sp.beveridge_nelson, sp.classical_decompose.",
     "input_schema": {
       "properties": {
         "K": {
@@ -40145,7 +40408,7 @@
     "name": "uniform_bands"
   },
   {
-    "description": "Unit-root test for one time series: augmented Dickey-Fuller, DF-GLS (Elliott-Rothenberg-Stock), Phillips-Perron or KPSS, with a constant or a constant and trend. For ADF, DF-GLS and Phillips-Perron H0 is a unit root; for KPSS H0 is stationarity, so there rejecting is evidence of a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order; Phillips-Perron and KPSS correct for serial correlation with a Newey-West long-run variance. Not rejecting a unit root is not evidence of one. Stata dfuller / dfgls / pperron / kpss, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unit-root test for one time series: augmented Dickey-Fuller, DF-GLS (Elliott-Rothenberg-Stock), Phillips-Perron or KPSS, with a constant or a constant and trend. For ADF, DF-GLS and Phillips-Perron H0 is a unit root; for KPSS H0 is stationarity, so there rejecting is evidence of a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order; Phillips-Perron and KPSS correct for serial correlation with a Newey-West long-run variance. Not rejecting a unit root is not evidence of one. Stata dfuller / dfgls / pperron / kpss, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: unitroot: unknown test <test> -> Use test='adf', 'dfgls', 'pp' or 'kpss'; unitroot: unknown trend <trend> -> Use 'c' (constant), 'ct' (constant and trend) or 'n' (none); unitroot: DF-GLS removes a constant or a trend by GLS; there is no trend='n' version -> Use test='adf', trend='n', or trend='c'.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -40280,7 +40543,7 @@
     "name": "variable_importance"
   },
   {
-    "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every lag order is fitted on the same sample, the one the longest lag allows; Stationary VAR, or a VAR in levels where the rank of cointegration is not the question; The likelihood-ratio column assumes Gaussian errors.",
+    "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every lag order is fitted on the same sample, the one the longest lag allows; Stationary VAR, or a VAR in levels where the rank of cointegration is not the question; The likelihood-ratio column assumes Gaussian errors. Failure modes: sp.varsoc: trend=<trend> is not 'c', 'ct' or 'n' -> Use trend='c'; sp.varsoc: exog=<exog_names> must name columns that are not among the endogenous variables -> Check the names passed to exog=; sp.varsoc: <n> observations cannot support maxlag=<maxlag> with <k> variable(s) -> Lower maxlag.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -40398,7 +40661,7 @@
     "name": "vcnet"
   },
   {
-    "description": "Vector error-correction model by Johansen maximum likelihood for a given cointegration rank: adjustment coefficients (alpha), cointegrating vectors (beta, Johansen normalisation, with standard errors), short-run dynamics, log likelihood and information criteria; reproduces Stata vec. Methods: equation_table(), lm_test() (veclmar), stability() (vecstable). Choose the rank with sp.johansen first; lags counts lagged differences (Stata's lags(p) is lags = p - 1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every series is I(1) and the cointegrating rank passed is the true one (test it with sp.johansen first); Gaussian errors for the likelihood and the reported standard errors; The lag order is that of the VAR in levels; the VECM has one lag fewer.",
+    "description": "Vector error-correction model by Johansen maximum likelihood for a given cointegration rank: adjustment coefficients (alpha), cointegrating vectors (beta, Johansen normalisation, with standard errors), short-run dynamics, log likelihood and information criteria; reproduces Stata vec. Methods: equation_table(), lm_test() (veclmar), stability() (vecstable). Choose the rank with sp.johansen first; lags counts lagged differences (Stata's lags(p) is lags = p - 1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every series is I(1) and the cointegrating rank passed is the true one (test it with sp.johansen first); Gaussian errors for the likelihood and the reported standard errors; The lag order is that of the VAR in levels; the VECM has one lag fewer. Failure modes: sp.vec: trend=<trend> is not one of 'c', 'rc', 'n', 'rt', 'ct' (or Stata's constant / rconstant / none / rtrend / trend) -> Use trend='c' for an unrestricted constant; sp.vec: lags=<lags>, rank=<rank> with <k> series; need lags >= 0 and 1 <= rank <= <k - 1> -> rank = K means the levels are stationary (fit sp.var); rank = 0 means no cointegration (fit a VA...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -40765,7 +41028,7 @@
     "name": "weighted_rank"
   },
   {
-    "description": "Jackknife estimate, from pilot blocks, of the power of a weighted rank sensitivity analysis at each Gamma, for a study with sample_ratio times as many blocks (R weightedRank::estPower). A design tool for choosing weights and sample size. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Choosing phi by estimated power and then testing the same outcomes -- use the adaptive test, sp.weighted_rank(phi=[...]). Assumptions: Blocks are an independent sample from a population of blocks; The pilot data carry a treatment effect and no unmeasured bias. Alternatives: sp.weighted_rank, sp.power. Typical minimum N: 30.",
+    "description": "Jackknife estimate, from pilot blocks, of the power of a weighted rank sensitivity analysis at each Gamma, for a study with sample_ratio times as many blocks (R weightedRank::estPower). A design tool for choosing weights and sample size. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Choosing phi by estimated power and then testing the same outcomes -- use the adaptive test, sp.weighted_rank(phi=[...]). Assumptions: Blocks are an independent sample from a population of blocks; The pilot data carry a treatment effect and no unmeasured bias. Failure modes: weighted_rank_power: the jackknife needs at least three blocks -> Collect more blocks. Alternatives: sp.weighted_rank, sp.power. Typical minimum N: 30.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -41130,7 +41393,7 @@
     "name": "wooldridge_did"
   },
   {
-    "description": "Cross-correlogram of two series at leads and lags, raw or after prewhitening each series with its own autoregression, with the band under no cross-correlation and the Haugh portmanteau test. Raw cross-correlations of autocorrelated series are not readable; the prewhitened ones are. R ccf, Stata xcorr (mirror image of the lag). Validation: certified parity evidence. Do NOT use when: Reading leads and lags off raw cross-correlations of autocorrelated series: use prewhiten='ar'. Assumptions: Both series stationary; Band and Haugh test: the two prewhitened series are white noise under the null of no relation. Alternatives: sp.granger_causality, sp.var, sp.corrgram.",
+    "description": "Cross-correlogram of two series at leads and lags, raw or after prewhitening each series with its own autoregression, with the band under no cross-correlation and the Haugh portmanteau test. Raw cross-correlations of autocorrelated series are not readable; the prewhitened ones are. R ccf, Stata xcorr (mirror image of the lag). Validation: certified parity evidence. Do NOT use when: Reading leads and lags off raw cross-correlations of autocorrelated series: use prewhiten='ar'. Assumptions: Both series stationary; Band and Haugh test: the two prewhitened series are white noise under the null of no relation. Failure modes: sp.xcorr: prewhiten=<prewhiten> is not None, 'ar' or 'x' -> Use prewhiten='ar' to filter each series with its own autoregression; sp.xcorr: ar_method=<ar_method> is not 'ols' or 'yw' -> Use ar_method='ols'; sp.xcorr: ic=<ic> is not 'aic' or 'bic' -> Use ic='aic' or ic='bic'. Alternatives: sp.granger_causality, sp.var, sp.corrgram.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -41592,7 +41855,7 @@
     "name": "xtnbreg"
   },
   {
-    "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Random-effects model with at least one time-varying regressor; Null: the regressors are uncorrelated with the unit effect, which is what makes random effects consistent; Many panels: the test is robust to heteroskedasticity and within-panel correlation, unlike the classical Hausman test.",
+    "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Random-effects model with at least one time-varying regressor; Null: the regressors are uncorrelated with the unit effect, which is what makes random effects consistent; Many panels: the test is robust to heteroskedasticity and within-panel correlation, unlike the classical Hausman test. Failure modes: sp.xtoverid: no regressor varies within panels -> The test compares within and between variation.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -41633,7 +41896,7 @@
     "name": "xtoverid"
   },
   {
-    "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear panel model with time-varying regressors; Under the null the idiosyncratic errors are serially uncorrelated, which makes the first-differenced errors correlated at -0.5; Many panels: the variance is clustered on the panel.",
+    "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear panel model with time-varying regressors; Under the null the idiosyncratic errors are serially uncorrelated, which makes the first-differenced errors correlated at -0.5; Many panels: the variance is clustered on the panel. Failure modes: sp.xtserial: time=<time> must count periods (integers) -> Convert dates to a period index first; sp.xtserial: too few consecutive observations to difference -> The test needs at least three consecutive periods per panel; sp.xtserial: no panel has three consecutive periods -> The test cannot be computed on this panel.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -41675,7 +41938,7 @@
     "name": "xtserial"
   },
   {
-    "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Long panel, one row per unit and period; The within deviation adds the grand mean back, as Stata does, so it is comparable with the overall column.",
+    "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Long panel, one row per unit and period; The within deviation adds the grand mean back, as Stata does, so it is comparable with the overall column. Failure modes: sp.xtsum: id=<id> is not a column -> Pass the panel identifier; sp.xtsum: <name> has no observed value -> Drop the variable.",
     "input_schema": {
       "properties": {
         "id": {
@@ -42017,7 +42280,7 @@
     "name": "zip_model"
   },
   {
-    "description": "Zivot-Andrews unit-root test allowing one break in the level, the slope of the trend, or both, at a date chosen by the data (the minimum t statistic over candidate dates). Returns the statistic, the break date, the critical values and the statistic at every date. urca ur.za; options reproduce Stata zandrews. Validation: certified parity evidence. Assumptions: Under the null: a unit root with drift and no break; At most one break under the alternative. Alternatives: sp.unitroot, sp.structural_break, sp.chow_test.",
+    "description": "Zivot-Andrews unit-root test allowing one break in the level, the slope of the trend, or both, at a date chosen by the data (the minimum t statistic over candidate dates). Returns the statistic, the break date, the critical values and the statistic at every date. urca ur.za; options reproduce Stata zandrews. Validation: certified parity evidence. Assumptions: Under the null: a unit root with drift and no break; At most one break under the alternative. Failure modes: zivot_andrews: model=<model> is not 'intercept', 'trend' or 'both' -> 'intercept' allows a level shift, 'trend' a change of slope, 'both' the two together; zivot_andrews: <n> observations are too few for <k_edge> lags and trim=<trim> -> Use fewer lags or a longer series; zivot_andrews: with a DataFrame, y must name one of its columns -> sp.zivot_andrews(df, 'gdp'). Alternatives: sp.unitroot, sp.structural_break, sp.chow_test.",
     "input_schema": {
       "properties": {
         "lag_alpha": {
@@ -42093,7 +42356,7 @@
     "name": "zivot_andrews"
   },
   {
-    "description": "z test on a mean or on a difference of two means when the population standard deviation is known (Stata ztest / ztesti). Takes data or summary statistics (n=, mean=). Returns the estimate, its standard error, z, the two-sided and both one-sided p-values and the confidence interval. Use sp.ttest when the standard deviation is estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: sd is the sample standard deviation -- use sp.ttest, which accounts for estimating it. Assumptions: The population standard deviation is known, not estimated from the sample being tested; Independent observations; a normal population, or a sample large enough for the mean to be approximately normal. Alternatives: sp.ttest.",
+    "description": "z test on a mean or on a difference of two means when the population standard deviation is known (Stata ztest / ztesti). Takes data or summary statistics (n=, mean=). Returns the estimate, its standard error, z, the two-sided and both one-sided p-values and the confidence interval. Use sp.ttest when the standard deviation is estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: sd is the sample standard deviation -- use sp.ttest, which accounts for estimating it. Assumptions: The population standard deviation is known, not estimated from the sample being tested; Independent observations; a normal population, or a sample large enough for the mean to be approximately normal. Failure modes: ztest: sd must be a positive number, or one per sample -> sd is the known population standard deviation; ztest: mean= is required with summary statistics -> sp.ztest(n=10, mean=88, sd=0.7, mu=85). Alternatives: sp.ttest.",
     "input_schema": {
       "properties": {
         "alpha": {

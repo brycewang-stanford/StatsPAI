@@ -20,6 +20,8 @@ This module keeps the original scoring (name > tag > description) and adds:
   match on their own, they only break ties);
 * **aliases rank below their canonical entry** (``sp.rdd`` below
   ``sp.rdrobust``);
+* **Chinese queries** -- known Chinese terms are rewritten to the English
+  vocabulary above before tokenising (:mod:`statspai._discovery_zh`);
 * **partial fallback** -- a non-empty query with at least one term hit never
   returns ``[]``; when nothing clears the half-of-the-words bar the best
   partial matches come back flagged ``match: "partial"``.
@@ -320,7 +322,9 @@ PARTIAL_LIMIT = 25
 
 def search_terms(query: str) -> List[Tuple[str, Tuple[str, ...]]]:
     """Tokenise ``query`` into ``(word, alternative spellings)`` pairs."""
-    lowered = " " + query.lower() + " "
+    from ._discovery_zh import translate_query
+
+    lowered = " " + translate_query(query).lower() + " "
     for phrase, token in PHRASES:
         lowered = lowered.replace(phrase, f" {token} ")
     raw = [w.strip(".,;:()[]'\"?!") for w in lowered.replace("_", " ").split()]

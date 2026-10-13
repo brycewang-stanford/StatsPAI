@@ -29337,6 +29337,10 @@
         "control_group": {
           "default": "nevertreated",
           "description": "control_group parameter (str).",
+          "enum": [
+            "nevertreated",
+            "notyettreated"
+          ],
           "type": "string"
         },
         "data": {
@@ -29347,6 +29351,11 @@
         "estimator": {
           "default": "dr",
           "description": "estimator parameter (str).",
+          "enum": [
+            "dr",
+            "ipw",
+            "reg"
+          ],
           "type": "string"
         },
         "g": {
@@ -29466,6 +29475,10 @@
         "control_group": {
           "default": "nevertreated",
           "description": "Passed through to :func:`callaway_santanna`. ``weights`` names a sampling-weight column; leaving it unset weights every unit equally.",
+          "enum": [
+            "nevertreated",
+            "notyettreated"
+          ],
           "type": "string"
         },
         "data": {
@@ -29476,6 +29489,11 @@
         "estimator": {
           "default": "dr",
           "description": "Passed through to :func:`callaway_santanna`. ``weights`` names a sampling-weight column; leaving it unset weights every unit equally.",
+          "enum": [
+            "dr",
+            "ipw",
+            "reg"
+          ],
           "type": "string"
         },
         "g": {
@@ -30623,6 +30641,10 @@
         "method": {
           "default": "smoothness",
           "description": "As in :func:`honest_did`.",
+          "enum": [
+            "smoothness",
+            "relative_magnitude"
+          ],
           "type": "string"
         },
         "num_pre_periods": {
@@ -30819,6 +30841,11 @@
         },
         "se_method": {
           "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
+          "enum": [
+            "analytic",
+            "bootstrap",
+            "auto"
+          ],
           "type": "string"
         },
         "time": {
@@ -30993,6 +31020,11 @@
         },
         "se_method": {
           "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
+          "enum": [
+            "analytic",
+            "bootstrap",
+            "auto"
+          ],
           "type": "string"
         },
         "time": {
@@ -32917,6 +32949,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "n_grid": {
@@ -32992,6 +33029,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "p": {
@@ -33059,6 +33101,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "n_placebo": {
@@ -33259,6 +33306,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "p": {
@@ -34268,6 +34320,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel for local linear regression ('triangular', 'uniform', 'epanechnikov').",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "x": {
@@ -35968,6 +36026,11 @@
         "method": {
           "default": "logit",
           "description": "PS estimation method if *ps* is None.",
+          "enum": [
+            "logit",
+            "probit",
+            "gbm"
+          ],
           "type": "string"
         },
         "ps": {
@@ -36140,6 +36203,11 @@
         "method": {
           "default": "logit",
           "description": "PS estimation method ('logit', 'probit', 'gbm').",
+          "enum": [
+            "logit",
+            "probit",
+            "gbm"
+          ],
           "type": "string"
         },
         "sd_denom": {
@@ -38917,6 +38985,48 @@
         "method": {
           "default": "classic",
           "description": "Synthetic-control method passed to :func:`sp.synth` (e.g. ``'classic'``, ``'augmented'``, ``'sdid'``).",
+          "enum": [
+            "classic",
+            "classic_adh",
+            "adh",
+            "penalized",
+            "ridge",
+            "demeaned",
+            "detrended",
+            "unconstrained",
+            "elastic_net",
+            "augmented",
+            "ascm",
+            "sdid",
+            "factor",
+            "gsynth",
+            "staggered",
+            "mc",
+            "matrix_completion",
+            "discos",
+            "distributional",
+            "multi_outcome",
+            "multi",
+            "scpi",
+            "prediction_interval",
+            "bayesian",
+            "bsts",
+            "causal_impact",
+            "penscm",
+            "abadie_lhour",
+            "pairwise",
+            "fdid",
+            "forward_did",
+            "rcm",
+            "hcw",
+            "regression_control",
+            "pda",
+            "cluster",
+            "sparse",
+            "lasso",
+            "kernel",
+            "kernel_ridge"
+          ],
           "type": "string"
         },
         "outcome": {
@@ -40691,6 +40801,10 @@
         "method": {
           "default": "ame",
           "description": "Forwarded verbatim to :func:`margins`.",
+          "enum": [
+            "ame",
+            "mem"
+          ],
           "type": "string"
         },
         "result": {
@@ -46964,6 +47078,15 @@
         "method": {
           "default": "holm",
           "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence. - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence. - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than Holm; needs independent or positively dependent tests. - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under the same condition. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence. These are the methods of R's ``p.adjust`` (plus Sidak), and return the same numbers. A missing p-value stays missing and still counts towards the size of the family, which is where this differs from ``p.adjust``: R drops it from the count. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
+          "enum": [
+            "bonferroni",
+            "sidak",
+            "holm",
+            "hochberg",
+            "hommel",
+            "bh",
+            "by"
+          ],
           "type": "string"
         },
         "pvalues": {
@@ -47038,6 +47161,10 @@
           "default": false,
           "description": "Return only :data:`CORE_FUNCTIONS`, the everyday estimation and post-estimation verbs, in their curated order (the other filters still apply).",
           "type": "boolean"
+        },
+        "kind": {
+          "description": "``\"function\"`` leaves out the registered result, model and exception classes (about a quarter of the names), which an agent reads about but never calls; ``\"class\"`` returns only those. The default lists both.",
+          "type": "string"
         },
         "stability": {
           "description": "Limit to one tier -- one of :data:`STABILITY_TIERS` (``\"stable\"`` / ``\"experimental\"`` / ``\"deprecated\"``). This is the API-lifecycle filter.",
@@ -48841,6 +48968,10 @@
         "method": {
           "default": "partialling out",
           "description": "See the module docstring.",
+          "enum": [
+            "partialling out",
+            "double selection"
+          ],
           "type": "string"
         },
         "penalty": {
@@ -48906,6 +49037,10 @@
         "method": {
           "default": "partialling out",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "partialling out",
+            "double selection"
+          ],
           "type": "string"
         },
         "penalty": {
@@ -49566,6 +49701,12 @@
         "dist": {
           "default": "weibull",
           "description": "dist parameter (str).",
+          "enum": [
+            "weibull",
+            "exponential",
+            "lognormal",
+            "loglogistic"
+          ],
           "type": "string"
         },
         "duration": {
@@ -50521,6 +50662,12 @@
         "method": {
           "default": "bai-perron",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "bai-perron",
+            "global",
+            "sup-f",
+            "chow"
+          ],
           "type": "string"
         },
         "min_segment": {
@@ -51271,6 +51418,11 @@
         "model": {
           "default": "default",
           "description": "Model variant or parameterisation to fit.",
+          "enum": [
+            "default",
+            "fixed",
+            "random"
+          ],
           "type": "string"
         },
         "se_exposure": {
@@ -51578,6 +51730,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "ranges": {
@@ -51722,6 +51879,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "ranges": {
@@ -51775,6 +51937,11 @@
         "approach": {
           "default": "location",
           "description": "See the module docstring.",
+          "enum": [
+            "location",
+            "distance",
+            "pooled"
+          ],
           "type": "string"
         },
         "boundary": {
@@ -51792,11 +51959,25 @@
         "bwparam": {
           "default": "main",
           "description": "Fuzzy designs: select the bandwidth for the ratio or the ITT.",
+          "enum": [
+            "main",
+            "itt"
+          ],
           "type": "string"
         },
         "bwselect": {
           "default": "mserd",
           "description": "``mserd``, ``cerrd``, ``imserd``, ``icerrd``, ``msetwo``, ``certwo``, ``imsetwo`` or ``icertwo``.",
+          "enum": [
+            "mserd",
+            "cerrd",
+            "imserd",
+            "icerrd",
+            "msetwo",
+            "certwo",
+            "imsetwo",
+            "icertwo"
+          ],
           "type": "string"
         },
         "cluster": {
@@ -51839,6 +52020,10 @@
         "fitmethod": {
           "default": "joint",
           "description": "``joint`` applies the degrees-of-freedom correction to both sides together (R's default).",
+          "enum": [
+            "joint",
+            "separate"
+          ],
           "type": "string"
         },
         "fuzzy": {
@@ -51852,11 +52037,21 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform",
+            "gaussian"
+          ],
           "type": "string"
         },
         "kernel_type": {
           "default": "prod",
           "description": "Location approach: product or radial kernel.",
+          "enum": [
+            "prod",
+            "rad"
+          ],
           "type": "string"
         },
         "kink_position": {
@@ -51874,11 +52069,20 @@
         "masspoints": {
           "default": "check",
           "description": "masspoints parameter (str).",
+          "enum": [
+            "check",
+            "adjust",
+            "off"
+          ],
           "type": "string"
         },
         "method": {
           "default": "dpi",
           "description": "Location approach: pilot bandwidth rule for the bias constants.",
+          "enum": [
+            "dpi",
+            "rot"
+          ],
           "type": "string"
         },
         "n_eval": {
@@ -51907,6 +52111,11 @@
         "side": {
           "default": "two",
           "description": "Two-sided or one-sided intervals.",
+          "enum": [
+            "two",
+            "left",
+            "right"
+          ],
           "type": "string"
         },
         "stdvars": {
@@ -51930,6 +52139,12 @@
         "vce": {
           "default": "hc1",
           "description": "vce parameter (str).",
+          "enum": [
+            "hc1",
+            "hc0",
+            "hc2",
+            "hc3"
+          ],
           "type": "string"
         },
         "weights": {
@@ -51992,6 +52207,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "running_vars": {
@@ -52303,6 +52524,10 @@
         "method": {
           "default": "iterative",
           "description": "Bai's (2009) iterated least squares: alternate principal components of ``Y - Xbeta`` (factors) and least squares of ``Y M_F`` on ``X M_F`` (slopes) until the slopes move by less than ``tol``. ``'pca'`` is accepted for backward compatibility and runs the same algorithm (it always did); it is deprecated.",
+          "enum": [
+            "iterative",
+            "pca"
+          ],
           "type": "string"
         },
         "n_factors": {
@@ -52756,6 +52981,10 @@
         "method": {
           "default": "mle",
           "description": "``'mle'`` for full-information maximum likelihood (Stata's default) or ``'twostep'`` for the control-function estimator (Stata's ``twostep`` option). They are different estimators, not two routes to the same numbers.",
+          "enum": [
+            "mle",
+            "twostep"
+          ],
           "type": "string"
         },
         "robust": {
@@ -54474,6 +54703,13 @@
         "family": {
           "default": "gaussian",
           "description": "``'gaussian'``, ``'binomial'``, ``'poisson'``, ``'gamma'``, or ``'nbinomial'`` (alias ``'negbin'``).",
+          "enum": [
+            "gaussian",
+            "binomial",
+            "poisson",
+            "gamma",
+            "nbinomial"
+          ],
           "type": "string"
         },
         "group": {
@@ -55141,6 +55377,11 @@
         "dist": {
           "default": "half-normal",
           "description": "dist parameter (str).",
+          "enum": [
+            "half-normal",
+            "exponential",
+            "truncated-normal"
+          ],
           "type": "string"
         },
         "envelope": {
@@ -55211,6 +55452,11 @@
         "dist": {
           "default": "half-normal",
           "description": "dist parameter (str).",
+          "enum": [
+            "half-normal",
+            "exponential",
+            "truncated-normal"
+          ],
           "type": "string"
         },
         "efficiency": {
@@ -55329,6 +55575,9 @@
         "dist": {
           "default": "half-normal",
           "description": "Distribution of ``u`` in the inefficient regime. Currently only half-normal is supported (KPT 2013 baseline).",
+          "enum": [
+            "half-normal"
+          ],
           "type": "string"
         },
         "maxiter": {
@@ -55344,6 +55593,11 @@
         "vce": {
           "default": "oim",
           "description": "vce parameter (str).",
+          "enum": [
+            "oim",
+            "opg",
+            "robust"
+          ],
           "type": "string"
         },
         "x": {
@@ -55402,6 +55656,9 @@
         "dist": {
           "default": "half-normal",
           "description": "dist parameter (str).",
+          "enum": [
+            "half-normal"
+          ],
           "type": "string"
         },
         "maxiter": {
@@ -55417,6 +55674,11 @@
         "vce": {
           "default": "oim",
           "description": "vce parameter (str).",
+          "enum": [
+            "oim",
+            "opg",
+            "robust"
+          ],
           "type": "string"
         },
         "x": {
@@ -57266,6 +57528,48 @@
         "method": {
           "default": "classic",
           "description": "SCM variant passed to ``synth()``.",
+          "enum": [
+            "classic",
+            "classic_adh",
+            "adh",
+            "penalized",
+            "ridge",
+            "demeaned",
+            "detrended",
+            "unconstrained",
+            "elastic_net",
+            "augmented",
+            "ascm",
+            "sdid",
+            "factor",
+            "gsynth",
+            "staggered",
+            "mc",
+            "matrix_completion",
+            "discos",
+            "distributional",
+            "multi_outcome",
+            "multi",
+            "scpi",
+            "prediction_interval",
+            "bayesian",
+            "bsts",
+            "causal_impact",
+            "penscm",
+            "abadie_lhour",
+            "pairwise",
+            "fdid",
+            "forward_did",
+            "rcm",
+            "hcw",
+            "regression_control",
+            "pda",
+            "cluster",
+            "sparse",
+            "lasso",
+            "kernel",
+            "kernel_ridge"
+          ],
           "type": "string"
         },
         "outcome": {
@@ -57347,6 +57651,48 @@
         "method": {
           "default": "classic",
           "description": "SCM variant passed to ``synth()``.",
+          "enum": [
+            "classic",
+            "classic_adh",
+            "adh",
+            "penalized",
+            "ridge",
+            "demeaned",
+            "detrended",
+            "unconstrained",
+            "elastic_net",
+            "augmented",
+            "ascm",
+            "sdid",
+            "factor",
+            "gsynth",
+            "staggered",
+            "mc",
+            "matrix_completion",
+            "discos",
+            "distributional",
+            "multi_outcome",
+            "multi",
+            "scpi",
+            "prediction_interval",
+            "bayesian",
+            "bsts",
+            "causal_impact",
+            "penscm",
+            "abadie_lhour",
+            "pairwise",
+            "fdid",
+            "forward_did",
+            "rcm",
+            "hcw",
+            "regression_control",
+            "pda",
+            "cluster",
+            "sparse",
+            "lasso",
+            "kernel",
+            "kernel_ridge"
+          ],
           "type": "string"
         },
         "outcome": {
@@ -58997,6 +59343,16 @@
         "bwselect": {
           "default": "mserd",
           "description": "bwselect parameter (str).",
+          "enum": [
+            "mserd",
+            "cerrd",
+            "imserd",
+            "icerrd",
+            "msetwo",
+            "certwo",
+            "imsetwo",
+            "icertwo"
+          ],
           "type": "string"
         },
         "cluster": {
@@ -59080,6 +59436,10 @@
         "method": {
           "default": "dpi",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "dpi",
+            "rot"
+          ],
           "type": "string"
         },
         "n_eval": {
@@ -59123,6 +59483,12 @@
         "vce": {
           "default": "hc1",
           "description": "vce parameter (str).",
+          "enum": [
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
           "type": "string"
         },
         "x1": {
@@ -62270,6 +62636,12 @@
         "method": {
           "default": "manski",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "manski",
+            "lee",
+            "horowitz_manski",
+            "iv"
+          ],
           "type": "string"
         },
         "selection": {
@@ -62680,6 +63052,13 @@
         "method": {
           "default": "notears",
           "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "notears",
+            "pc",
+            "ges",
+            "lingam",
+            "fci"
+          ],
           "type": "string"
         },
         "variables": {
@@ -63746,6 +64125,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "n_boot": {
@@ -63808,6 +64193,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "neighbour_running": {
@@ -63863,6 +64254,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "running_vars": {
@@ -64423,6 +64820,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "n_draws": {
@@ -64477,6 +64880,12 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov",
+            "gaussian"
+          ],
           "type": "string"
         },
         "quantiles": {

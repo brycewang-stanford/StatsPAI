@@ -76,6 +76,7 @@ StatsPAI/
 - 新对外函数**必须注册** → [`src/statspai/registry.py`](src/statspai/registry.py)，否则 `sp.help` / `sp.list_functions` 看不到。
 - 给已注册函数**加参数也要登记**：在它的 `params=[...]` 里补一条 `ParamSpec`（描述就是 agent 看到的文档），再 `python scripts/dump_schemas.py`。漏了的话 `sp.function_schema()` 里没有这个参数，agent 不知道它存在；pre-push hook `registry-params`（2026-10-05 起）会拦。
 - docstring 用 NumPy 风格，包含 `Parameters` / `Returns` / `Examples` / `References`。
+- **agent 卡片里能从代码读出来的内容不要手写（2026-10-14 起）。** 三处各有一个来源和一道闸门：(1) 选择型参数的 `enum`：注解是 `Literal`、或 docstring 里的列表被模块源码印证时自动得到；只由代码陈述的（函数体里的校验、模块常量、原样转交给另一个函数）登记在 `src/statspai/_enum_seeds.py`，`tests/test_enum_seeds.py` 会回到那个位置重新核对，**不要**把记忆里的取值写进去，语法型参数（`vce='cluster firm'`、lavaan 模型串）不给枚举。(2) 没有任何失败模式的函数，取自它自己抛出的带 `recovery_hint` 的类型化异常：改了这类 `raise` 之后跑 `python scripts/gen_source_failure_modes.py`（`tests/test_source_failure_modes.py` 查漂移），所以**新函数用 taxonomy 异常并写 `recovery_hint`，卡片就自动有内容**。(3) `sp.search_functions` 的中文词表在 `src/statspai/_discovery_zh.py`，条目写成 `\uXXXX` 转义、上一行注释写汉字（JSS 归档会把源码里的非 ASCII 转写掉），加词时两处都要写，测试会比对。工具层（MCP / `execute_tool`）对未传的 `seed=None` 类参数注入默认种子并在返回里写 `seed_injected`（`agent/_default_seed.py`）；库函数自己的默认值不动。
 - `References` 段只写 **bib key**（对应 [`paper.bib`](paper.bib)）或**经过核验的规范引用**——禁止在 docstring 里手写未核验的引用字符串，详见 §10。
 - 示例一律 `import statspai as sp` + `sp.xxx`。
 - 破坏性改动 → [`MIGRATION.md`](MIGRATION.md) + `DeprecationWarning`。
