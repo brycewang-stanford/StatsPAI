@@ -545,7 +545,9 @@ def check_attributes(failures: list[str]) -> None:
         raised = False
         try:
             sp.regtable(M, output="docx")
-        except Exception:  # noqa: BLE001  (claim: docx is not a valid output enum)
+        except ValueError:
+            # The claim is that "docx" is refused as an output value. Any
+            # other failure is not that refusal and must surface.
             raised = True
         valid = all(
             _silent_ok(lambda v=v: sp.regtable(M, output=v))
