@@ -31,6 +31,45 @@ Rules:
 
 ## Entries
 
+### 2026-10-14 — call traces re-recorded after the October review
+
+- **Commits.** `ab1786f2` re-recorded all 89 Track A modules in
+  `tests/r_parity/results/_implementation_trace.json` and all 12
+  original-data modules in
+  `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in the same commit.
+- **Reason.** The review of October's work (CHANGELOG, Unreleased)
+  edited files on the estimation path of most modules:
+  `src/statspai/core/results.py` and `core/_validate.py` (shared by
+  nearly all), `regression/ols.py`, `regression/iv.py`,
+  `regression/glm.py`, `regression/logit_probit.py`,
+  `regression/count.py`, `fast/feols.py`, `fast/fepois.py`,
+  `panel/feols.py`, `panel/panel_reg.py`, `did/_core.py`,
+  `did/sun_abraham.py`, `matching/_binary_fit.py`, `matching/match.py`,
+  `inference/ipw.py`, `inference/aipw.py`,
+  `inference/g_computation.py`. The edits add `weights_as=`, record the
+  factor levels a fit saw, validate arguments, and change behaviour on
+  inputs the parity modules do not use (integer time with gaps,
+  separation, single-arm resamples, repeated index labels).
+- **Effect on the paper.** None. Before re-recording, every Python-side
+  result was re-derived on this tree with
+  `python tests/r_parity/verify_reproduce_py.py`: 89 of 89 reproduce the
+  committed `*_py.json` within 1e-9 (worst 1.3e-10, module 25), every
+  fixture is byte-identical, and `python tests/orig_parity/compare_orig.py`
+  rebuilds the original-data table from the committed results. No
+  committed result file changed. In both trace files only source digests
+  and `seconds` differ.
+- **Track C.** `python scripts/trace_perf_path.py --check` reports all
+  four timed modules stale (`fast/feols.py`, `fast/fepois.py`,
+  `core/results.py`, `core/_validate.py`, `did/_core.py` are on timed
+  paths). Modules 02 to 04 were already stale on main after `3d5dfe37`.
+  The timings were not re-measured: other sessions were using the
+  machine. They are to be re-measured with `tests/perf/run_when_idle.sh`
+  before the next re-anchor.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-13 — call traces re-recorded after the sample-size alias in the base result class
 
 - **Commits.** `3d5dfe37` re-recorded all 89 Track A modules in
