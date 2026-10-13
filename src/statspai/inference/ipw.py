@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import numbers
 import warnings
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -291,7 +291,7 @@ def ipw(
         if isinstance(propensity, str):
             pscore = df[propensity].to_numpy(dtype=float)
         else:
-            pscore = np.full(n, float(propensity))
+            pscore = np.full(n, float(cast(float, propensity)))
         if not np.all(np.isfinite(pscore)) or np.any((pscore <= 0) | (pscore >= 1)):
             raise MethodIncompatibility(
                 "ipw: a known propensity must lie strictly between 0 and 1.",

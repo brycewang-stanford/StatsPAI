@@ -476,7 +476,7 @@ def bayes_arima(
         note_default_prior(
             diag["warnings"],
             ["const"],
-            [level_at],
+            np.array([level_at]),
             table["sd"].to_numpy()[:1],
             m0,
             np.sqrt(v0),

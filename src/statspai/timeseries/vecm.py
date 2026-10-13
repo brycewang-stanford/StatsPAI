@@ -387,7 +387,8 @@ class VECResult(ResultProtocolMixin):
 def _residualise(A: np.ndarray, Z: np.ndarray) -> np.ndarray:
     if Z.shape[1] == 0:
         return A
-    return A - Z @ np.linalg.lstsq(Z, A, rcond=None)[0]
+    out: np.ndarray = A - Z @ np.linalg.lstsq(Z, A, rcond=None)[0]
+    return out
 
 
 def vec(
