@@ -6,10 +6,11 @@ client (Claude Desktop, Copilot CLI, Cursor, custom agents) can call
 ``sp.iv()``, ``sp.did()``, ``sp.causal()``, etc. directly from a
 natural-language workflow.
 
-The server speaks JSON-RPC 2.0 over stdio — the transport required by
-the MCP spec (https://modelcontextprotocol.io/specification). It is
-implemented in pure Python with no external dependencies so it can
-ship inside the StatsPAI wheel.
+The server speaks JSON-RPC 2.0 over stdio by default, and over the MCP
+Streamable HTTP transport with ``--transport http``
+(:mod:`statspai.agent._http_transport`). It is implemented in pure
+Python with no external dependencies so it can ship inside the StatsPAI
+wheel.
 
 Quick start
 -----------
@@ -34,6 +35,8 @@ Every tool takes one data source — ``data_path`` (absolute path on the
 server), ``data_id`` (a handle from ``load_data`` / ``transform_data``)
 or an inline ``data_records`` / ``data_csv`` table — plus whatever
 column-name arguments the underlying StatsPAI function expects. The
+shared arguments carry one clause each in every tool schema; their full
+reference is the ``statspai://arguments`` resource. The
 server loads the data, runs the estimator, and returns the result as
 ``structuredContent`` (validated against each tool's ``outputSchema``)
 plus the same object serialised compactly in a ``text`` block for
@@ -71,6 +74,9 @@ data handle in a child process that is killed on timeout or cancel;
 result handles travel both ways, so a fit that asks for one
 (``as_handle``) and a follow-up that reads one (``result_id``) are both
 isolated (:mod:`statspai.agent._process_worker`).
+``STATSPAI_MCP_STATE_DIR`` keeps a copy of every result and data handle
+on disk so handles resolve after a restart
+(:mod:`statspai.agent._state_store`).
 
 Protocol features
 -----------------
@@ -86,6 +92,8 @@ the original ``2024-11-05`` surface, advertises:
 * ``ping``, ``notifications/progress`` (with ``_meta.progressToken``) and
   ``notifications/cancelled`` — the stdio loop keeps answering while a
   tool runs (see :func:`serve_stdio`).
+* ``completion/complete`` for resource-template variables and prompt
+  arguments (:mod:`statspai.agent._completion`).
 
 Older clients negotiate ``2024-11-05`` and simply ignore the extra
 fields, so the additions are fully backward-compatible.
@@ -930,12 +938,7 @@ RESULT_SCHEMA_URI = "statspai://schema/result"
 _RESULT_OUTPUT_SCHEMA_COMPACT: Dict[str, Any] = {
     "type": "object",
     "additionalProperties": True,
-    "description": (
-        "Agent-facing estimator result (object). Shape varies by tool and "
-        "the `detail` level; on failure it carries `error` / `error_kind` / "
-        "`remediation` instead. Full typed field reference: read the "
-        f"`{RESULT_SCHEMA_URI}` resource."
-    ),
+    "description": f"Result object; fields in {RESULT_SCHEMA_URI}.",
 }
 
 
@@ -1057,6 +1060,159 @@ def _dataless_tool_names() -> "frozenset[str]":
     return frozenset(derived)
 
 
+#: URI of the reference for the arguments the server adds to every tool.
+COMMON_ARGUMENTS_URI = "statspai://arguments"
+
+#: Order in which the server-handled arguments are added to a tool schema.
+_COMMON_ARGUMENT_ORDER = (
+    "data_path",
+    "data_id",
+    "data_records",
+    "data_csv",
+    "data_columns",
+    "data_sample_n",
+    "result_id",
+    "max_output_bytes",
+    "as_handle",
+    "detail",
+)
+
+#: Arguments that shape how a file is read. Every tool *accepts* them,
+#: but only the tools an agent loads data with advertise them: on the
+#: other tools they are reached just in time, from the hint of the
+#: oversize-file error that names them, and leaving them out of
+#: ``tools/list`` saves two schema entries per tool.
+_LOAD_ONLY_ARGUMENTS = frozenset({"data_columns", "data_sample_n"})
+
+_LOAD_ARGUMENT_TOOLS = frozenset(
+    {"load_data", "describe_data", "transform_data", "call_function"}
+)
+
+
+def _common_argument_schemas(remote_ok: bool) -> Dict[str, Dict[str, Any]]:
+    """Schemas of the arguments the server handles for every tool.
+
+    These ten entries are repeated in each advertised tool, so their
+    descriptions are one short clause each: with the long form they were
+    two thirds of ``tools/list`` (97 KiB of 146 KiB under the ``curated``
+    profile). The long form is served once, by
+    :func:`common_arguments_reference` at :data:`COMMON_ARGUMENTS_URI`.
+    """
+    return {
+        "data_path": {
+            "type": "string",
+            "description": (
+                "Absolute path of a data file on the server"
+                + (" or an s3 / gs / https URL." if remote_ok else ".")
+            ),
+        },
+        "data_id": {
+            "type": "string",
+            "description": "Data handle (d_...) from load_data; replaces data_path.",
+        },
+        "data_records": {
+            "type": "array",
+            "items": {"type": "object"},
+            "description": "Small inline table as row objects.",
+        },
+        "data_csv": {
+            "type": "string",
+            "description": "Small inline table as CSV text.",
+        },
+        "data_columns": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Load only these columns.",
+        },
+        "data_sample_n": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Uniform random subsample of this many rows (seed 0).",
+        },
+        "result_id": {
+            "type": "string",
+            "description": "Handle of an earlier fit made with as_handle=true.",
+        },
+        "max_output_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Result byte budget (default 262144; 0 = none).",
+        },
+        "as_handle": {
+            "type": "boolean",
+            "default": False,
+            "description": "Return a result_id so later calls can reuse the fit.",
+        },
+        "detail": {
+            "type": "string",
+            "enum": list(_DETAIL_LEVELS),
+            "default": "agent",
+            "description": "Payload depth; agent is the fullest.",
+        },
+    }
+
+
+def common_arguments_reference() -> str:
+    """Long-form reference for the arguments added to every tool.
+
+    Served as the :data:`COMMON_ARGUMENTS_URI` resource. The per-tool
+    schemas carry one clause per argument; everything an agent may need
+    beyond that clause is here, once.
+    """
+    from ._data_loader import ALLOW_REMOTE_ENV, DATA_ROOTS_ENV, remote_loading_enabled
+
+    remote = (
+        "Network URLs (s3://, gs://, https://) are enabled on this server."
+        if remote_loading_enabled()
+        else f"Network URLs are disabled (operator opt-in: {ALLOW_REMOTE_ENV}=1)."
+    )
+    return (
+        "# Arguments the StatsPAI MCP server handles for every tool\n\n"
+        "Pass exactly one data source: `data_path`, `data_id`, "
+        "`data_records` or `data_csv`.\n\n"
+        "- `data_path`: absolute path to a data file on the server, or a "
+        "file:// URL. Supported: .csv / .tsv / .txt (delimited), .parquet / "
+        ".pq, .feather / .arrow, .xlsx / .xls, .dta (Stata), .json / .jsonl. "
+        f"{remote} The operator may restrict readable directories "
+        f"({DATA_ROOTS_ENV}).\n"
+        "- `data_id`: handle (d_...) of a dataset already loaded with "
+        "load_data or derived with transform_data. Use it instead of "
+        "data_path to avoid re-sending the file; the handle's lineage is "
+        "recorded in data_provenance.\n"
+        "- `data_records`: inline table as a JSON array of row objects. "
+        "Small data only; same byte cap as file loads.\n"
+        "- `data_csv`: inline table as CSV text with a header row.\n"
+        "`data_columns` and `data_sample_n` are accepted by every tool but "
+        "advertised only on load_data, describe_data, transform_data and "
+        "call_function.\n\n"
+        "- `data_columns`: column projection, honoured by every reader that "
+        "supports it (CSV / Parquet / Feather / Stata) and by streamed "
+        "sampling.\n"
+        "- `data_sample_n`: uniform random subsample size (seed=0, "
+        "deterministic, file order kept). Files over the server's size cap "
+        "are sampled in one streamed pass for .csv / .tsv / .txt / .parquet "
+        "/ .jsonl / .dta, which is useful on huge panels.\n"
+        "- `result_id`: handle to a previously fitted result, returned by an "
+        "earlier call made with as_handle=true. Tools that operate on a "
+        "fitted object accept it in place of data_path and column names.\n"
+        "- `as_handle`: if true, the server caches the fitted result and "
+        "returns result_id + result_uri alongside the payload, so a later "
+        "tools/call can chain without re-running the estimator.\n"
+        "- `max_output_bytes`: byte budget for this result (default 262144, "
+        "server env STATSPAI_MCP_MAX_OUTPUT_BYTES; 0 = no limit). Over "
+        "budget, the longest lists and tables are shortened first and "
+        "listed under `truncated`; headline numbers are never cut. Risk "
+        "lists are cut last and leave `risk_summary`; `output_budget` "
+        "reports the outcome.\n"
+        "- `detail`: payload depth. 'minimal' (about 150 tokens) for "
+        "sub-step calls where only the point estimate is needed; 'standard' "
+        "(about 1K tokens) for diagnostics and the coefficient table; "
+        "'agent' (about 2K tokens, the default) adds violations, next_steps "
+        "and suggested_functions so the next call can be planned without "
+        "another round trip.\n"
+    )
+
+
 @lru_cache(maxsize=4)
 def _build_mcp_tools(profile: Optional[str] = None) -> List[Dict[str, Any]]:
     """Convert the StatsPAI agent-tool manifest into MCP tool specs.
@@ -1086,20 +1242,10 @@ def _build_mcp_tools(profile: Optional[str] = None) -> List[Dict[str, Any]]:
     the resources layer passes ``"full"`` so ``statspai://functions``
     indexes every tool whatever the advertised list is.
     """
-    from ._data_loader import ALLOW_REMOTE_ENV, DATA_ROOTS_ENV, remote_loading_enabled
+    from ._data_loader import remote_loading_enabled
 
     remote_ok = remote_loading_enabled()
-    data_path_description = (
-        "Absolute path to a data file on the server (or file:// URL). "
-        "Supported: .csv / .tsv / .txt (delimited), .parquet / .pq, "
-        ".feather / .arrow, .xlsx / .xls, .dta (Stata), .json / .jsonl. "
-        + (
-            "Network URLs (s3://, gs://, https://) are enabled on this server."
-            if remote_ok
-            else f"Network URLs are disabled (operator opt-in: {ALLOW_REMOTE_ENV}=1)."
-        )
-        + f" The operator may restrict readable directories ({DATA_ROOTS_ENV})."
-    )
+    common = _common_argument_schemas(remote_ok)
     manifest = _agent_tool_manifest()
     dataless = _dataless_tool_names()
     profile = _normalise_profile(_ACTIVE_PROFILE if profile is None else profile)
@@ -1120,117 +1266,23 @@ def _build_mcp_tools(profile: Optional[str] = None) -> List[Dict[str, Any]]:
         props = dict(schema.get("properties") or {})
         required = list(schema.get("required") or [])
         writes_files = _is_file_writing_tool(t["name"], schema)
-        if "data_path" not in props:
-            props["data_path"] = {
-                "type": "string",
-                "description": data_path_description,
-            }
-            # Mark required ONLY for tools whose underlying function
-            # actually takes a DataFrame; dataless tools leave
-            # ``data_path`` optional so strict-schema MCP clients don't
-            # refuse to dispatch them.
-            if t["name"] not in dataless:
-                required.append("data_path")
-        if "data_id" not in props:
-            props["data_id"] = {
-                "type": "string",
-                "description": (
-                    "Handle (d_…) of a dataset already loaded with load_data "
-                    "or derived with transform_data. Use instead of "
-                    "data_path to avoid re-sending the file; the handle's "
-                    "lineage is recorded in data_provenance."
-                ),
-            }
-        if "data_records" not in props:
-            props["data_records"] = {
-                "type": "array",
-                "items": {"type": "object", "additionalProperties": True},
-                "description": (
-                    "Inline table as a JSON array of row objects (small "
-                    "data only; same byte cap as file loads)."
-                ),
-            }
-        if "data_csv" not in props:
-            props["data_csv"] = {
-                "type": "string",
-                "description": "Inline table as CSV text with a header row.",
-            }
-        if "data_columns" not in props:
-            props["data_columns"] = {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": (
-                    "Optional column projection, honoured by every "
-                    "reader that supports it (CSV/Parquet/Feather/Stata) "
-                    "and by streamed sampling."
-                ),
-            }
-        if "data_sample_n" not in props:
-            props["data_sample_n"] = {
-                "type": "integer",
-                "minimum": 1,
-                "description": (
-                    "Optional uniform random subsample size "
-                    "(seed=0, deterministic, file order kept). Files over "
-                    "the server's size cap are sampled in one streamed "
-                    "pass for .csv/.tsv/.txt/.parquet/.jsonl/.dta — useful "
-                    "on huge panels."
-                ),
-            }
-        if "result_id" not in props:
-            props["result_id"] = {
-                "type": "string",
-                "description": (
-                    "Optional handle to a previously-fitted result "
-                    "(returned by an earlier call when as_handle=true). "
-                    "Tools that operate on a fitted object accept this "
-                    "in place of re-supplying data_path + columns."
-                ),
-            }
-        if "max_output_bytes" not in props:
-            props["max_output_bytes"] = {
-                "type": "integer",
-                "minimum": 0,
-                "description": (
-                    "Byte budget for this result (default 262144, server env "
-                    "STATSPAI_MCP_MAX_OUTPUT_BYTES; 0 = no limit). Over "
-                    "budget, the longest lists / tables are shortened first "
-                    "and listed under `truncated`; headline numbers are "
-                    "never cut. Risk lists are cut last and leave "
-                    "`risk_summary`; `output_budget` reports the outcome."
-                ),
-            }
-        if "as_handle" not in props:
-            props["as_handle"] = {
-                "type": "boolean",
-                "default": False,
-                "description": (
-                    "If true, cache the fitted result on the server "
-                    "and return result_id + result_uri alongside the "
-                    "JSON payload so a subsequent tools/call can chain "
-                    "without re-running."
-                ),
-            }
-        # Unconditional overwrite: ``detail`` is a server-handled control
-        # arg (forwarded to ``result.to_dict(detail=...)``) — if a
-        # registry estimator happens to have its own ``detail`` parameter
-        # (e.g. ``oaxaca`` uses it as a bool), we hide it so the manifest
-        # schema is uniform across tools. Reaching that estimator's
-        # ``detail`` requires the direct Python API.
-        props["detail"] = {
-            "type": "string",
-            "enum": list(_DETAIL_LEVELS),
-            "default": "agent",
-            "description": (
-                "Payload depth: 'minimal' (~150 tokens) for "
-                "sub-step calls where only the point estimate is "
-                "needed; 'standard' (~1K tokens) for diagnostics "
-                "+ coefficient table; 'agent' (~2K tokens, "
-                "default) adds violations / next_steps / "
-                "suggested_functions so the LLM can plan its "
-                "next call without another round-trip."
-            ),
-        }
+        # Mark ``data_path`` required ONLY for tools whose underlying
+        # function actually takes a DataFrame; dataless tools leave it
+        # optional so strict-schema MCP clients don't refuse to dispatch
+        # them.
+        if "data_path" not in props and t["name"] not in dataless:
+            required.append("data_path")
+        for arg in _COMMON_ARGUMENT_ORDER:
+            if arg in _LOAD_ONLY_ARGUMENTS and t["name"] not in _LOAD_ARGUMENT_TOOLS:
+                continue
+            # ``detail`` is overwritten unconditionally: it is a
+            # server-handled control arg (forwarded to
+            # ``result.to_dict(detail=...)``). If a registry estimator has
+            # its own ``detail`` parameter (``oaxaca`` uses it as a bool)
+            # we hide it so the schema is uniform across tools; reaching
+            # that estimator's ``detail`` requires the direct Python API.
+            if arg == "detail" or arg not in props:
+                props[arg] = common[arg]
         schema["type"] = schema.get("type", "object")
         schema["properties"] = props
         schema["required"] = sorted(set(required))
@@ -1366,7 +1418,16 @@ _SESSION_INSTRUCTIONS = (
     "handles carry their lineage.\n\n"
     "Token economy: pass detail='minimal' on cheap sub-step calls; "
     "default 'agent' carries violations + next_steps. Inline plots "
-    "arrive as image content blocks for vision-capable clients."
+    "arrive as image content blocks for vision-capable clients.\n\n"
+    "Every tool takes the same data / handle / output arguments "
+    "(data_path, data_id, data_records, data_csv, data_columns, "
+    "data_sample_n, result_id, as_handle, max_output_bytes, detail); "
+    "their schemas carry one clause each and statspai://arguments has "
+    "the full reference. data_columns / data_sample_n are accepted by "
+    "every tool but listed only on the data tools. detail is 'minimal' "
+    "(estimate only), 'standard' (+ diagnostics, coefficients) or "
+    "'agent' (default; + violations, next steps); as_handle defaults "
+    "to false."
 )
 
 
@@ -1398,6 +1459,9 @@ def _handle_initialize(params: Dict[str, Any]) -> Dict[str, Any]:
             "tools": {"listChanged": False},
             "resources": {"subscribe": False, "listChanged": False},
             "prompts": {"listChanged": False},
+            # Argument completion for prompts and resource templates
+            # (function names, guide families, live handles).
+            "completions": {},
         },
         "serverInfo": {
             "name": SERVER_NAME,
@@ -1421,11 +1485,29 @@ def _handle_tools_list(params: Dict[str, Any]) -> Dict[str, Any]:
 #: thing for in-process tests.
 _PROGRESS_SINK: Optional[TextIO] = None
 
+#: Per-thread override of :data:`_PROGRESS_SINK`. The HTTP transport
+#: serves several connections at once, each with its own response stream,
+#: so it binds the stream of the request being served on the thread that
+#: serves it (:func:`_bind_progress_sink`).
+_THREAD_PROGRESS = threading.local()
+
+
+def _bind_progress_sink(sink: Optional[Any]) -> None:
+    """Route this thread's progress notifications to ``sink``."""
+    _THREAD_PROGRESS.sink = sink
+    _THREAD_PROGRESS.bound = sink is not None
+
+
+def _progress_sink() -> Optional[Any]:
+    if getattr(_THREAD_PROGRESS, "bound", False):
+        return getattr(_THREAD_PROGRESS, "sink", None)
+    return _PROGRESS_SINK
+
 
 def _make_progress_drain() -> Callable[[Dict[str, Any]], None]:
     """Return a callable that writes a progress notification to the
     active stdio sink. Returns a no-op if no sink is registered."""
-    sink = _PROGRESS_SINK
+    sink = _progress_sink()
     if sink is None:
 
         def _noop(payload: Dict[str, Any]) -> None:
@@ -1589,7 +1671,7 @@ def _run_isolated_call(
     from ._runner import current_cancel_event, tool_timeout
 
     meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else None
-    sink = _PROGRESS_SINK
+    sink = _progress_sink()
 
     def _forward(line: str) -> None:
         if sink is not None:
@@ -2098,6 +2180,12 @@ def _handle_prompts_get(params: Dict[str, Any]) -> Dict[str, Any]:
     return _prompts_get_impl(params, _InvalidParamsError, _ResourceNotFoundError)
 
 
+def _handle_completion_complete(params: Dict[str, Any]) -> Dict[str, Any]:
+    from ._completion import handle_completion_complete
+
+    return handle_completion_complete(params, InvalidParamsError=_InvalidParamsError)
+
+
 def _handle_ping(params: Dict[str, Any]) -> Dict[str, Any]:
     """MCP ``ping``: liveness check, answered with an empty result."""
     return {}
@@ -2113,6 +2201,7 @@ _METHODS = {
     "resources/read": _handle_resources_read,
     "prompts/list": _handle_prompts_list,
     "prompts/get": _handle_prompts_get,
+    "completion/complete": _handle_completion_complete,
 }
 
 
@@ -2306,6 +2395,47 @@ def _request_key(request_id: Any) -> str:
     return json.dumps(request_id, sort_keys=True)
 
 
+def _admission_refusal(
+    in_flight: int,
+    n_workers: int,
+    max_queued: Optional[int],
+    max_orphans: Optional[int],
+) -> Optional[Dict[str, Any]]:
+    """``server_busy`` result when a new ``tools/call`` must not be admitted.
+
+    Shared by the stdio loop and the HTTP transport.
+    """
+    from . import _runner
+
+    orphans = _runner.orphaned_threads()
+    if max_orphans is not None and orphans >= max_orphans:
+        return _tool_error_result(
+            "server_busy",
+            f"{orphans} timed-out or cancelled computations are still "
+            "running in the background; no new call is started until "
+            "they finish.",
+            hint=(
+                "Wait and retry, or restart the server to stop them. "
+                f"{MAX_ORPHANED_CALLS_ENV} sets the limit."
+            ),
+            orphaned_tool_threads=orphans,
+            retryable=True,
+        )
+    if max_queued is not None and in_flight >= n_workers + max_queued:
+        return _tool_error_result(
+            "server_busy",
+            f"{in_flight} tools/call requests are already running or "
+            "queued; this one was not queued.",
+            hint=(
+                "Wait for earlier calls to answer (or cancel them) and "
+                f"retry. {MAX_QUEUED_CALLS_ENV} sets the limit."
+            ),
+            calls_in_flight=in_flight,
+            retryable=True,
+        )
+    return None
+
+
 def serve_stdio(
     stdin: Optional[Iterable[str]] = None,
     stdout: Optional[TextIO] = None,
@@ -2425,34 +2555,7 @@ def serve_stdio(
     inflight_lock = threading.Lock()
 
     def _busy(in_flight: int) -> Optional[Dict[str, Any]]:
-        """``server_busy`` result when a new call must not be admitted."""
-        orphans = _runner.orphaned_threads()
-        if max_orphans is not None and orphans >= max_orphans:
-            return _tool_error_result(
-                "server_busy",
-                f"{orphans} timed-out or cancelled computations are still "
-                "running in the background; no new call is started until "
-                "they finish.",
-                hint=(
-                    "Wait and retry, or restart the server to stop them. "
-                    f"{MAX_ORPHANED_CALLS_ENV} sets the limit."
-                ),
-                orphaned_tool_threads=orphans,
-                retryable=True,
-            )
-        if max_queued is not None and in_flight >= n_workers + max_queued:
-            return _tool_error_result(
-                "server_busy",
-                f"{in_flight} tools/call requests are already running or "
-                "queued; this one was not queued.",
-                hint=(
-                    "Wait for earlier calls to answer (or cancel them) and "
-                    f"retry. {MAX_QUEUED_CALLS_ENV} sets the limit."
-                ),
-                calls_in_flight=in_flight,
-                retryable=True,
-            )
-        return None
+        return _admission_refusal(in_flight, n_workers, max_queued, max_orphans)
 
     def _run_call(
         line: str, key: str, cancel: threading.Event, request_id: Any, queued_at: float
@@ -2556,6 +2659,18 @@ def serve_stdio(
         _sampling.set_capability(False)
 
 
+def serve_http(*args: Any, **kwargs: Any) -> None:
+    """Serve MCP over Streamable HTTP until interrupted.
+
+    Thin wrapper over :func:`statspai.agent._http_transport.serve_http`
+    (``host``, ``port``, ``path=``, ``token=``, ``allowed_origins=``,
+    ``workers=``) so ``http.server`` is imported only when used.
+    """
+    from ._http_transport import serve_http as _impl
+
+    _impl(*args, **kwargs)
+
+
 def _profile_help() -> str:
     """``--profile`` help text; sizes are described, not hard-coded."""
     return (
@@ -2581,7 +2696,10 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
 
     parser = argparse.ArgumentParser(
         prog="statspai-mcp",
-        description="StatsPAI MCP server (JSON-RPC over stdio).",
+        description=(
+            "StatsPAI MCP server: JSON-RPC over stdio (default) or "
+            "Streamable HTTP (--transport http)."
+        ),
         epilog=(
             "Environment: STATSPAI_MCP_DATA_ROOTS (readable directories), "
             "STATSPAI_MCP_ALLOW_REMOTE=1 (network data URLs), "
@@ -2590,7 +2708,11 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
             "STATSPAI_MCP_MAX_QUEUED_CALLS, STATSPAI_MCP_MAX_ORPHANED_CALLS, "
             "STATSPAI_MCP_MAX_QUEUE_SECONDS, STATSPAI_MCP_MAX_REQUEST_BYTES, "
             "STATSPAI_MCP_ISOLATION=process (killable workers), "
-            "STATSPAI_MCP_DATA_CACHE_SIZE / _BYTES, STATSPAI_MCP_DEBUG."
+            "STATSPAI_MCP_DATA_CACHE_SIZE / _BYTES, STATSPAI_MCP_STATE_DIR "
+            "(keep handles on disk across restarts), "
+            "STATSPAI_MCP_STATE_MAX_BYTES, STATSPAI_MCP_HTTP_TOKEN (bearer "
+            "token; required to bind a non-loopback host), "
+            "STATSPAI_MCP_HTTP_ALLOWED_ORIGINS, STATSPAI_MCP_DEBUG."
         ),
     )
     parser.add_argument(
@@ -2599,13 +2721,59 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
         default=os.environ.get("STATSPAI_MCP_PROFILE", DEFAULT_PROFILE),
         help=_profile_help(),
     )
+    from ._http_transport import DEFAULT_HTTP_HOST, DEFAULT_HTTP_PATH, DEFAULT_HTTP_PORT
+
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "http"],
+        default="stdio",
+        help="'stdio' (default) or 'http' (Streamable HTTP on one endpoint).",
+    )
+    parser.add_argument(
+        "--host",
+        default=DEFAULT_HTTP_HOST,
+        help="HTTP bind address (default 127.0.0.1; any other address "
+        "needs STATSPAI_MCP_HTTP_TOKEN).",
+    )
+    parser.add_argument(
+        "--port", type=int, default=DEFAULT_HTTP_PORT, help="HTTP port (default 8765)."
+    )
+    parser.add_argument(
+        "--http-path",
+        default=DEFAULT_HTTP_PATH,
+        help="HTTP endpoint path (default /mcp).",
+    )
     args = parser.parse_args(argv)
     set_tool_profile(args.profile)
+    if args.profile == "full":
+        size = len(_tools_list_result_json())
+        print(
+            f"statspai-mcp: warning: --profile full advertises "
+            f"{len(_build_mcp_tools())} tools ({size / 1048576:.1f} MiB of "
+            "tools/list), more than a client context window holds. It is "
+            "meant for schema dumps and debugging; under 'curated' every "
+            "function is still reachable through search_functions / "
+            "describe_function / call_function.",
+            file=sys.stderr,
+        )
+    if args.transport == "http":
+        from . import mcp_server as _canonical
+        from ._http_transport import serve_http
+
+        # Under ``python -m`` this file runs as ``__main__`` while the
+        # transport imports the package module; set the profile there.
+        _canonical.set_tool_profile(args.profile)
+        try:
+            serve_http(args.host, args.port, path=args.http_path)
+        except ValueError as exc:
+            parser.error(str(exc))
+        return
     serve_stdio()
 
 
 __all__ = [
     "serve_stdio",
+    "serve_http",
     "handle_request",
     "set_tool_profile",
     "DEFAULT_PROFILE",

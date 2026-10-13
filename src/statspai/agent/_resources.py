@@ -36,6 +36,9 @@ BUNDLE_SUFFIX = "/bundle"
 DATA_URI_PREFIX = "statspai://data/"
 GUIDE_URI_PREFIX = "statspai://guide/"
 PARITY_TRACK_A_URI = "statspai://parity/track-a-summary"
+#: Long-form reference for the arguments the server adds to every tool
+#: (``mcp_server.COMMON_ARGUMENTS_URI`` is the same literal).
+ARGUMENTS_URI = "statspai://arguments"
 
 #: Fallback URI for the result-schema resource. ``mcp_server`` owns the
 #: canonical :data:`RESULT_SCHEMA_URI` (it must reference it early, before
@@ -417,6 +420,16 @@ def handle_resources_list(params: Dict[str, Any]) -> Dict[str, Any]:
                 "field-by-field reference.",
             },
             {
+                "uri": ARGUMENTS_URI,
+                "name": "StatsPAI common tool arguments",
+                "mimeType": "text/markdown",
+                "description": "Full reference for the data / handle / "
+                "output arguments every tool accepts (data_path, data_id, "
+                "inline tables, sampling, result_id, as_handle, "
+                "max_output_bytes, detail). Tool schemas carry one clause "
+                "per argument; this is the long form.",
+            },
+            {
                 "uri": PARITY_TRACK_A_URI,
                 "name": "StatsPAI Track A parity summary",
                 "mimeType": "application/json",
@@ -494,6 +507,19 @@ def handle_resources_read(
                 },
             ],
         }
+    if uri == ARGUMENTS_URI:
+        from .mcp_server import common_arguments_reference
+
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "text/markdown",
+                    "text": common_arguments_reference(),
+                }
+            ]
+        }
+
     if uri == PARITY_TRACK_A_URI:
         return {
             "contents": [

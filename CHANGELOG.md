@@ -49,6 +49,62 @@ does. No estimate changes.
   `did you mean 'callaway_santanna'?` and carry the candidates on the
   exception as `.suggestions`.
 
+### MCP server: smaller tool list, HTTP transport, handles that survive a restart
+
+#### Added
+
+- **`statspai-mcp --transport http`.** The MCP Streamable HTTP transport
+  on one endpoint (`http://127.0.0.1:8765/mcp` by default; `--host`,
+  `--port`, `--http-path`), for clients that connect to a URL and for
+  several clients sharing one server. A request is answered with JSON,
+  or with an SSE stream of progress notifications followed by the result
+  when the call carries a `progressToken` and the client accepts
+  `text/event-stream`. `notifications/cancelled` stops a running call,
+  and the queue, orphan and wait limits of the stdio loop apply. The
+  server validates `Origin` (and `Host` on a loopback bind) and refuses
+  to bind a non-loopback address without `STATSPAI_MCP_HTTP_TOKEN`.
+  Standard library only. There is no TLS, handles are process-wide
+  rather than per session, and `sampling` is off under this transport;
+  the guide says what that means for a shared deployment.
+- **`STATSPAI_MCP_STATE_DIR`.** With it set, every result and data
+  handle is also written to disk and read back on a memory miss, with
+  its provenance, lineage and replay string. A `result_id` then resolves
+  after a server restart and after LRU eviction, where it used to answer
+  `missing_result_handle` and force a re-fit of the whole chain. Unset
+  (the default), nothing changes. The files are signed pickles in a
+  directory that must be private to the server's user; one that group or
+  others can write is refused with a warning. A TTL still counts from
+  the fit, an entry written by another StatsPAI version is discarded on
+  read, and a result that cannot be pickled stays memory-only.
+  `STATSPAI_MCP_STATE_MAX_BYTES` (default 4 GiB) bounds each kind.
+- **`completion/complete`.** Suggestions for resource-template variables
+  (function names, guide families, live handles) and for the `result_id`
+  argument of prompts. MCP defines no completion for tool arguments, so
+  column names are not offered.
+- **`statspai://arguments`.** The long-form reference for the arguments
+  every tool accepts.
+
+#### Changed
+
+- **`tools/list` is half the size.** The ten arguments the server adds
+  to every tool (`data_path`, `data_id`, inline tables, `result_id`,
+  `as_handle`, `max_output_bytes`, `detail`, ...) carried paragraph-long
+  descriptions, repeated in each tool: 97 KiB of the 146 KiB list under
+  the default `curated` profile. They now carry one clause each and the
+  full text is served once, as `statspai://arguments`, with a pointer in
+  the session instructions. `curated` goes from 146 to 71 KiB and `core`
+  from 82 to 39 KiB (roughly 37 to 18 and 20 to 10 thousand tokens).
+  Both pairs were measured before the enum additions described above,
+  which add about 2 KiB to each list.
+  `data_columns` and `data_sample_n` are still accepted by every tool but
+  are listed only on `load_data`, `describe_data`, `transform_data` and
+  `call_function`; the oversize-file error names them where they matter.
+  No argument was removed and no result changes. The effect on how often
+  a model picks the right tool has not been measured: the real-model
+  benchmark stays off until its pre-registration.
+- `statspai-mcp --profile full` prints a warning with the size of the
+  list it is about to advertise.
+
 ### Sample size on results that recorded it as `n_obs`
 
 #### Fixed

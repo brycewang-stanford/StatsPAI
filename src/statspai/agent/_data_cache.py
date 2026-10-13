@@ -17,8 +17,10 @@ needed a temporary file. Three additions close that gap:
   ``data_provenance`` on every result fitted from it, so a table note can
   say exactly how the analysis sample was built.
 
-Handles are process-local (they do not survive a server restart); a
-missing handle is a recoverable error that tells the agent to reload.
+Handles are process-local by default (they do not survive a server
+restart) and a missing handle is a recoverable error that tells the agent
+to reload. ``STATSPAI_MCP_STATE_DIR`` keeps a copy on disk, lineage
+included (:mod:`statspai.agent._state_store`).
 """
 
 from __future__ import annotations
@@ -82,6 +84,7 @@ class DataCache(ResultCache):
     """
 
     _prefix = "d_"
+    _kind = "data"
 
     def __init__(
         self, max_size: Optional[int] = None, *, max_bytes: Optional[int] = None

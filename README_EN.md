@@ -697,8 +697,12 @@ estimators without data; `statspai mcp` starts the server.
 no extra dependencies). By default it lists the hand-curated estimators,
 workflow and pipeline tools plus three discovery meta-tools
 (`search_functions` → `describe_function` → `call_function`) that reach every
-registered function; `statspai-mcp --profile full` advertises all ~580
-auto-generated tools for clients that page their tool list. It also ships
+registered function; `statspai-mcp --profile full` advertises every
+auto-generated tool as its own entry (several hundred, about 2 MB, more than
+a client context window holds; for schema dumps and debugging). Clients that
+connect to a URL use `statspai-mcp --transport http` (binds
+`127.0.0.1:8765/mcp` by default; any other address needs
+`STATSPAI_MCP_HTTP_TOKEN`). It also ships
 workflow prompts (for example `audit_did_result`, `stata_command_workflow`)
 and resources such as `statspai://catalog`. Tools take a `data_path` (CSV,
 Stata `.dta`, and other formats pandas can read) and return structured JSON

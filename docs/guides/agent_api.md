@@ -360,6 +360,30 @@ config:
 statspai-mcp     # speaks JSON-RPC 2.0 over stdio
 ```
 
+**Over HTTP** (clients that connect to a URL instead of spawning a
+process, or several clients sharing one server):
+
+```bash
+statspai-mcp --transport http              # http://127.0.0.1:8765/mcp
+STATSPAI_MCP_HTTP_TOKEN=... statspai-mcp --transport http --host 0.0.0.0
+```
+
+This is the MCP Streamable HTTP transport on one endpoint: `POST` a
+JSON-RPC message and get JSON back, or an SSE stream of progress
+notifications followed by the result when the call carries a
+`progressToken` and the client accepts `text/event-stream`. `initialize`
+returns an `Mcp-Session-Id`; `DELETE` ends the session. The server binds
+`127.0.0.1` by default, validates `Origin` (and `Host` on a loopback
+bind), and refuses to bind any other address without
+`STATSPAI_MCP_HTTP_TOKEN`, which clients then send as
+`Authorization: Bearer <token>`. There is no TLS: put a reverse proxy in
+front before exposing it beyond the machine. Three things differ from
+stdio. `data_path` reads files on the *server*, so set
+`STATSPAI_MCP_DATA_ROOTS` on a shared deployment. Handles are
+process-wide, so every authenticated client that knows a `data_id` or
+`result_id` can use it. And there is no server-to-client request
+channel, so `sampling` is off.
+
 What the server exposes:
 
 - **`tools/list`** — typed tools with JSON-Schema inputs. The shape
@@ -370,15 +394,19 @@ What the server exposes:
   which every registered function stays reachable; `--profile core`
   trims that to a smaller set; `--profile full` advertises every
   auto-generated tool (several hundred entries, megabytes of schema —
-  larger than most client context windows, so only for clients that
-  page or defer tool loading). `tools/call` accepts any tool name under
+  larger than any client context window, so only for schema dumps and
+  debugging; the server prints a warning when started with it). `tools/call` accepts any tool name under
   every profile, and `statspai://functions` always indexes all of them.
 - **`tools/call`** — runs the estimator. Data arrives as `data_path`
   (CSV, Parquet, Stata, … read server-side), `data_id` (a handle from
   `load_data` / `transform_data` — no re-upload, lineage recorded),
   `data_records` or `data_csv` (a small inline table); plus the
   estimator's own kwargs, `detail` to control payload depth and
-  `max_output_bytes` to cap its size. Payloads carry `data_provenance`,
+  `max_output_bytes` to cap its size. These shared arguments appear in
+  every tool schema with one clause each; the full reference is the
+  `statspai://arguments` resource. `data_columns` and `data_sample_n`
+  are accepted by every tool but listed only on the data tools and
+  `call_function`. Payloads carry `data_provenance`,
   `runtime_warnings`, `_unsupported_args` and `replay` (the
   `sp.<fn>(data=data, ...)` call that reproduces the fit).
 - **`ping`** answers `{}`; `notifications/progress` is sent when the
@@ -501,6 +529,30 @@ Operator settings (environment of the server process):
 | `STATSPAI_MCP_MAX_REQUEST_BYTES` | largest accepted request line (default 64 MiB; `0` = unlimited); larger lines get `-32600` unparsed |
 | `STATSPAI_MCP_DATA_CACHE_SIZE` / `STATSPAI_MCP_DATA_CACHE_BYTES` | data-handle cache bounds (16 frames / 2 GiB) |
 | `STATSPAI_MCP_PROFILE` | default `tools/list` profile |
+| `STATSPAI_MCP_STATE_DIR` | directory that keeps a copy of every result and data handle, so handles resolve after a restart and after LRU eviction (unset = memory only). Must belong to the server's user and not be writable by group or others: the files are pickles |
+| `STATSPAI_MCP_STATE_MAX_BYTES` | disk budget per handle kind (default 4 GiB; `0` = unlimited); least recently used files go first |
+| `STATSPAI_MCP_HTTP_TOKEN` | bearer token for `--transport http`; required to bind a non-loopback address |
+| `STATSPAI_MCP_HTTP_ALLOWED_ORIGINS` | comma-separated extra `Origin` values the HTTP transport accepts (loopback origins always are) |
+
+### Handles across restarts
+
+Result and data handles live in two in-process LRU caches (32 results,
+16 frames). Without `STATSPAI_MCP_STATE_DIR` a restarted server answers
+`missing_result_handle` / `missing_data_handle` for every old id and the
+agent re-fits. With it, each entry is also written to disk and read back
+on a memory miss, with its provenance, lineage and replay string. A TTL
+(`STATSPAI_MCP_RESULT_CACHE_TTL`) still counts from the fit, and an
+entry written by another StatsPAI version is discarded on read. A result
+that cannot be pickled stays memory-only.
+
+### Completion
+
+`completion/complete` suggests values for resource-template variables
+(function names for `statspai://function/{name}`, families for
+`statspai://guide/{family}`, live handles for `statspai://data/{id}` and
+`statspai://result/{id}`) and for the `result_id` argument of prompts.
+MCP has no completion for tool arguments, so column names are not
+offered.
 
 Tools that can write a file (report / export builders, and any tool
 whose schema has an output-path parameter such as `output` / `path` /

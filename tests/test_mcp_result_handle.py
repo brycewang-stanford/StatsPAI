@@ -20,12 +20,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
-from statspai.agent._result_cache import RESULT_CACHE, ResultCache, CacheEntry
-from statspai.agent import (
-    execute_tool,
-    mcp_handle_request,
-)
+from statspai.agent import execute_tool, mcp_handle_request
+from statspai.agent._result_cache import RESULT_CACHE, CacheEntry, ResultCache
 
 
 def _rpc(method, params=None, request_id=1):
@@ -247,11 +243,21 @@ class TestSchemaInjection:
             assert "as_handle" in props, t["name"]
             assert props["as_handle"]["type"] == "boolean"
 
-    def test_every_tool_exposes_data_columns(self):
+    def test_data_tools_expose_data_columns(self):
+        # Every tool accepts ``data_columns`` / ``data_sample_n``; only the
+        # tools an agent loads data with list them (tools/list budget, see
+        # ``test_mcp_tool_list_budget.py``).
+        from statspai.agent.mcp_server import _LOAD_ARGUMENT_TOOLS
+
         msg = _rpc("tools/list", {})
+        seen = set()
         for t in msg["result"]["tools"]:
             props = t["inputSchema"]["properties"]
-            assert "data_columns" in props, t["name"]
+            if t["name"] in _LOAD_ARGUMENT_TOOLS:
+                seen.add(t["name"])
+                assert "data_columns" in props, t["name"]
+                assert "data_sample_n" in props, t["name"]
+        assert seen == set(_LOAD_ARGUMENT_TOOLS)
 
 
 # ----------------------------------------------------------------------
@@ -314,8 +320,9 @@ class TestJsonDefault:
         assert out == ["a", "c"]
 
     def test_path_and_decimal(self):
-        from pathlib import Path
         from decimal import Decimal
+        from pathlib import Path
+
         from statspai.agent.mcp_server import _json_default
 
         assert _json_default(Path("/tmp/x")) == "/tmp/x"

@@ -46,15 +46,14 @@ With Anthropic's Claude tool-use API::
 
 """
 
-from .tools import tool_manifest, execute_tool, TOOL_REGISTRY
-from .remediation import remediate, REMEDIATIONS
-from .mcp_server import (
-    serve_stdio as mcp_serve_stdio,
-    handle_request as mcp_handle_request,
-    SERVER_NAME as MCP_SERVER_NAME,
-    SERVER_VERSION as MCP_SERVER_VERSION,
-    MCP_PROTOCOL_VERSION,
-)
+from .mcp_server import MCP_PROTOCOL_VERSION
+from .mcp_server import SERVER_NAME as MCP_SERVER_NAME
+from .mcp_server import SERVER_VERSION as MCP_SERVER_VERSION
+from .mcp_server import handle_request as mcp_handle_request
+from .mcp_server import serve_http as mcp_serve_http
+from .mcp_server import serve_stdio as mcp_serve_stdio
+from .remediation import REMEDIATIONS, remediate
+from .tools import TOOL_REGISTRY, execute_tool, tool_manifest
 
 __all__ = [
     "tool_manifest",
@@ -63,6 +62,7 @@ __all__ = [
     "remediate",
     "REMEDIATIONS",
     "mcp_serve_stdio",
+    "mcp_serve_http",
     "mcp_handle_request",
     "MCP_SERVER_NAME",
     "MCP_SERVER_VERSION",

@@ -551,7 +551,7 @@ sp.stata("regress y x, vce(cluster id)", data=df)   # 翻译并运行
 
 **在命令行里**——`statspai list`、`statspai describe rdrobust`、`statspai search "synthetic control"`。
 
-**通过 MCP**——安装包时会附带 `statspai-mcp` stdio 服务（纯 Python，无额外依赖）。默认列出手工整理的估计器、工作流与流水线工具，外加三个发现类元工具（`search_functions` → `describe_function` → `call_function`），通过它们可以调用全部已注册函数；`statspai-mcp --profile full` 则把约 580 个自动生成的工具全部列出（约 2 MB，仅适合会分页加载工具的客户端）。另有工作流 prompts（例如 `audit_did_result`、`stata_command_workflow`）和 `statspai://catalog` 等 resources。工具接收 `data_path`（CSV、Stata `.dta` 以及 pandas 能读取的其他格式），返回带数据来源信息、运行期警告和未被接受参数清单的结构化 JSON。Claude Code 中：
+**通过 MCP**——安装包时会附带 `statspai-mcp` stdio 服务（纯 Python，无额外依赖）。默认列出手工整理的估计器、工作流与流水线工具，外加三个发现类元工具（`search_functions` → `describe_function` → `call_function`），通过它们可以调用全部已注册函数；`statspai-mcp --profile full` 则把全部自动生成的工具逐个列出（数百个、约 2 MB，超出任何客户端的上下文窗口，只用于导出 schema 和调试）。需要通过 URL 连接的客户端用 `statspai-mcp --transport http`（默认只监听 `127.0.0.1:8765/mcp`，对外监听必须设置 `STATSPAI_MCP_HTTP_TOKEN`）。另有工作流 prompts（例如 `audit_did_result`、`stata_command_workflow`）和 `statspai://catalog` 等 resources。工具接收 `data_path`（CSV、Stata `.dta` 以及 pandas 能读取的其他格式），返回带数据来源信息、运行期警告和未被接受参数清单的结构化 JSON。Claude Code 中：
 
 ```bash
 claude mcp add statspai -- statspai-mcp

@@ -15,8 +15,12 @@ Design
   preserving the original behaviour exactly. A long-running server can
   set a TTL so a handle never silently resolves to a stale fit after the
   underlying data may have changed.
-* **Process-local** — handles do not survive a server restart. Agents
-  treat the absence of a result as a recoverable error and re-fit.
+* **Process-local by default** — handles do not survive a server
+  restart, and agents treat the absence of a result as a recoverable
+  error and re-fit. With ``STATSPAI_MCP_STATE_DIR`` set, every entry is
+  also written to disk (:mod:`statspai.agent._state_store`) and read back
+  on a memory miss, so a handle resolves after a restart and after LRU
+  eviction; TTL expiry and explicit drops remove the disk copy too.
 * **Reason-aware misses** — when a handle is gone, the cache remembers
   *why* (``ttl`` / ``lru`` / ``explicit``) in a small bounded ledger so
   the MCP layer can tell an agent "expired, re-fit" vs. "unknown id"
@@ -152,6 +156,8 @@ class ResultCache:
     """
 
     _prefix = "r_"
+    #: Sub-directory of the optional on-disk store.
+    _kind = "results"
 
     def __init__(
         self,
@@ -182,6 +188,65 @@ class ResultCache:
         if entry is not None:
             self._total_bytes -= entry.nbytes
         self._record_eviction(rid, reason)
+        if reason in (EVICT_TTL, EVICT_EXPLICIT):
+            # LRU / bytes pressure only frees memory; the disk copy (when
+            # the store is on) keeps the handle resolvable.
+            from . import _state_store
+
+            _state_store.delete(self._kind, rid)
+
+    def _persist(self, rid: str) -> None:
+        from . import _state_store
+
+        if not _state_store.enabled():
+            return
+        with self._lock:
+            entry = self._store.get(rid)
+        if entry is not None:
+            _state_store.save(self._kind, rid, entry)
+
+    def _persist_meta(self, rid: str, entry: CacheEntry) -> None:
+        from . import _state_store
+
+        if _state_store.enabled():
+            _state_store.save_meta(self._kind, rid, entry)
+
+    def _restore_locked(self, rid: str) -> Optional[CacheEntry]:
+        """Read ``rid`` back from the on-disk store into memory."""
+        from . import _state_store
+
+        if not _state_store.enabled():
+            return None
+        if self._evicted.get(rid) in (EVICT_TTL, EVICT_EXPLICIT):
+            return None
+        saved = _state_store.load(self._kind, rid)
+        if saved is None:
+            return None
+        entry = CacheEntry(
+            obj=saved["obj"],
+            tool=saved["tool"],
+            arguments=saved["arguments"],
+            replay=saved["replay"],
+        )
+        if isinstance(saved["created_at"], (int, float)):
+            entry.created_at = float(saved["created_at"])
+        if self._is_expired(entry):
+            self._record_eviction(rid, EVICT_TTL)
+            _state_store.delete(self._kind, rid)
+            return None
+        entry.nbytes = self._entry_bytes(entry.obj) if self._max_bytes else 0
+        self._store[rid] = entry
+        self._total_bytes += entry.nbytes
+        self._evicted.pop(rid, None)
+        self._trim_locked()
+        return entry
+
+    def _trim_locked(self) -> None:
+        while len(self._store) > self._max_size:
+            self._drop_locked(next(iter(self._store)), EVICT_LRU)
+        if self._max_bytes is not None:
+            while self._total_bytes > self._max_bytes and len(self._store) > 1:
+                self._drop_locked(next(iter(self._store)), EVICT_BYTES)
 
     def _record_eviction(self, rid: str, reason: str) -> None:
         self._evicted[rid] = reason
@@ -238,13 +303,8 @@ class ResultCache:
             self._store.move_to_end(rid)
             # A reused id (vanishingly unlikely) is no longer evicted.
             self._evicted.pop(rid, None)
-            while len(self._store) > self._max_size:
-                old_rid = next(iter(self._store))
-                self._drop_locked(old_rid, EVICT_LRU)
-            if self._max_bytes is not None:
-                while self._total_bytes > self._max_bytes and len(self._store) > 1:
-                    old_rid = next(iter(self._store))
-                    self._drop_locked(old_rid, EVICT_BYTES)
+            self._trim_locked()
+        self._persist(rid)
         return rid
 
     def adopt(self, rid: str, entry: CacheEntry) -> bool:
@@ -267,13 +327,8 @@ class ResultCache:
             self._store[rid] = entry
             self._total_bytes += nbytes
             self._evicted.pop(rid, None)
-            while len(self._store) > self._max_size:
-                old_rid = next(iter(self._store))
-                self._drop_locked(old_rid, EVICT_LRU)
-            if self._max_bytes is not None:
-                while self._total_bytes > self._max_bytes and len(self._store) > 1:
-                    old_rid = next(iter(self._store))
-                    self._drop_locked(old_rid, EVICT_BYTES)
+            self._trim_locked()
+        self._persist(rid)
         return rid in self
 
     def snapshot(self) -> Dict[str, CacheEntry]:
@@ -285,11 +340,12 @@ class ResultCache:
     def set_replay(self, rid: str, replay: str) -> bool:
         """Replace the replay string of an existing entry."""
         with self._lock:
-            entry = self._store.get(rid)
+            entry = self._store.get(rid) or self._restore_locked(rid)
             if entry is None:
                 return False
             entry.replay = replay
-            return True
+        self._persist_meta(rid, entry)
+        return True
 
     def annotate(self, rid: str, arguments: Dict[str, Any]) -> bool:
         """Merge additional provenance arguments into an existing entry."""
@@ -301,7 +357,8 @@ class ResultCache:
                 return False
             entry.arguments.update(arguments)
             self._store.move_to_end(rid)
-            return True
+        self._persist_meta(rid, entry)
+        return True
 
     def get(self, rid: str) -> Optional[Any]:
         """Return the cached object for ``rid``, or ``None`` if absent/expired."""
@@ -317,7 +374,7 @@ class ResultCache:
         with self._lock:
             entry = self._store.get(rid)
             if entry is None:
-                return None
+                return self._restore_locked(rid)
             if self._is_expired(entry):
                 self._drop_locked(rid, EVICT_TTL)
                 return None
@@ -344,6 +401,8 @@ class ResultCache:
         with self._lock:
             if rid in self._store and not self._is_expired(self._store[rid]):
                 return "present"
+            if self._restore_locked(rid) is not None:
+                return "present"
             return self._evicted.get(rid, "unknown")
 
     def stats(self) -> Dict[str, Any]:
@@ -368,7 +427,7 @@ class ResultCache:
         with self._lock:
             entry = self._store.get(rid)
             if entry is None:
-                return False
+                return self._restore_locked(rid) is not None
             if self._is_expired(entry):
                 self._drop_locked(rid, EVICT_TTL)
                 return False
@@ -384,6 +443,10 @@ class ResultCache:
             self._store.clear()
             self._evicted.clear()
             self._total_bytes = 0
+        from . import _state_store
+
+        if _state_store.enabled():
+            _state_store.clear(self._kind)
 
 
 #: Module-level singleton — shared across the agent + MCP layers so a
@@ -406,7 +469,8 @@ _RESULT_MISS_HINTS = {
     ),
     "unknown": (
         "unknown result_id (never cached, evicted long ago, or the server "
-        "restarted); re-fit the estimator with as_handle=true."
+        "restarted without STATSPAI_MCP_STATE_DIR); re-fit the estimator "
+        "with as_handle=true."
     ),
 }
 

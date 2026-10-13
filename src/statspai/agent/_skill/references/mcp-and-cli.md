@@ -19,6 +19,16 @@ auto-generated tool (several hundred, megabytes of schema — only for clients
 that page their tool list). Every registered function stays callable under
 every profile, and `statspai://functions` always indexes all of them.
 
+`statspai-mcp --transport http` serves the same surface over Streamable HTTP
+(`http://127.0.0.1:8765/mcp` by default) for clients that connect to a URL.
+Any non-loopback bind needs `STATSPAI_MCP_HTTP_TOKEN`; `sampling` is off
+under HTTP, and `data_path` then names a file on the server.
+
+Every tool takes the same data / handle / output arguments. Their schemas
+carry one clause each; `statspai://arguments` is the full reference.
+`data_columns` and `data_sample_n` work on every tool although only
+`load_data`, `describe_data`, `transform_data` and `call_function` list them.
+
 ## Data over MCP
 
 - First call: `load_data(data_path="/abs/panel.dta")` → `data_id` (also
@@ -112,7 +122,9 @@ every profile, and `statspai://functions` always indexes all of them.
   by count (`STATSPAI_MCP_DATA_CACHE_SIZE`) and bytes
   (`STATSPAI_MCP_DATA_CACHE_BYTES`, default 2 GiB). Tools that can write a
   file carry `readOnlyHint: false`; `openWorldHint` is true only when remote
-  loading is on.
+  loading is on. `STATSPAI_MCP_STATE_DIR` keeps a copy of every handle on
+  disk, so a `result_id` / `data_id` still resolves after a server restart;
+  without it a restart answers `missing_result_handle` and you re-fit.
 
 ## The result contract (what to read before trusting a number)
 

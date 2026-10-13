@@ -126,6 +126,8 @@ def _child_env(
     env[ISOLATION_ENV] = "thread"  # the child runs the call itself
     # The parent owns the deadline; the child must not race it.
     env["STATSPAI_MCP_TOOL_TIMEOUT_SECONDS"] = "0"
+    # The parent adopts what the child cached and writes the on-disk copy.
+    env.pop("STATSPAI_MCP_STATE_DIR", None)
     if handoff_dir and handoff_key:
         env[HANDOFF_ENV] = handoff_dir
         env[HANDOFF_KEY_ENV] = handoff_key
