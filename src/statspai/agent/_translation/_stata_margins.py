@@ -302,7 +302,7 @@ class _View:
 def _weighted(result: Any) -> bool:
     try:
         return result is not None and model_setting(result, "weights") is not None
-    except Exception:  # noqa: BLE001 - a result without the stores
+    except AttributeError:  # a store that is not a mapping
         return False
 
 
