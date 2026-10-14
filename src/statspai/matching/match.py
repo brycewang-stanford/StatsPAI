@@ -473,6 +473,15 @@ def match(
         no binding caliper). The default is kept the same for the ATT and
         the ATE, and for every distance, so that one rule applies.
 
+        The default estimates each unit's conditional variance from its
+        ``J`` nearest same-arm units and, as ``psmatch2``'s ``ai(J)`` does,
+        breaks ties among them by row order. When the matching variable has
+        ties the default standard error therefore depends on the order of
+        the rows (1174 to 1182 over four orderings of the Lalonde data,
+        with the estimate fixed). It reproduces ``psmatch2`` on the order
+        Stata sees. ``'abadie_imbens_2016'`` keeps every tied same-arm
+        unit and does not depend on row order (1126.26 on all four).
+
         .. versionchanged:: 1.22
            ``'auto'`` resolved to ``'ai'`` before 1.22, so **default
            nearest-neighbour standard errors change** (they get larger, by

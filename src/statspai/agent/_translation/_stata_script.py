@@ -17,6 +17,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+from ._stata_lexer import quote_end
+
 __all__ = [
     "split_commands",
     "MacroTable",
@@ -61,32 +63,36 @@ def _strip_block_comments(text: str) -> str:
 
 
 def _comment_start(line: str, marker: str) -> int:
-    """Index of ``//`` or ``///`` outside quotes, at line start or after a blank."""
-    quoted = False
-    for i, ch in enumerate(line):
-        if ch == '"':
-            quoted = not quoted
-        elif (
-            not quoted
-            and line.startswith(marker, i)
-            and (i == 0 or line[i - 1].isspace())
-        ):
-            if marker == "//" and line.startswith("///", i):
-                continue
-            return i
+    """Index of ``//`` or ``///`` outside string literals (plain or
+    compound quotes), at line start or after a blank."""
+    i = 0
+    while i < len(line):
+        end = quote_end(line, i)
+        if end > i:
+            i = end
+            continue
+        if line.startswith(marker, i) and (i == 0 or line[i - 1].isspace()):
+            if not (marker == "//" and line.startswith("///", i)):
+                return i
+        i += 1
     return -1
 
 
 def _split_semicolons(line: str) -> List[str]:
-    parts, cur, quoted = [], "", False
-    for ch in line:
-        if ch == '"':
-            quoted = not quoted
-        if ch == ";" and not quoted:
+    """``line`` cut at each ``;`` outside a string literal."""
+    parts, cur, i = [], "", 0
+    while i < len(line):
+        end = quote_end(line, i)
+        if end > i:
+            cur += line[i:end]
+            i = end
+            continue
+        if line[i] == ";":
             parts.append(cur)
             cur = ""
         else:
-            cur += ch
+            cur += line[i]
+        i += 1
     parts.append(cur)
     return parts
 

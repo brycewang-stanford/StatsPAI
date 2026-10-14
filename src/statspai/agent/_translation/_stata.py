@@ -4815,6 +4815,47 @@ def _unabbreviate_options(
     return None
 
 
+def _factor_prefixes(toks: List[str]) -> Tuple[Optional[str], List[str]]:
+    """Factor-variable operators beyond ``i.`` / ``ib#.`` / ``ibn.`` / ``c.``.
+
+    ``ib(first).g`` is ``i.g``. ``ib(last).g`` / ``ib(freq).g`` name a level
+    of the data, which sp.stata fills in before the line gets here; a line
+    on its own cannot. ``i(2 3).g`` (Stata 18 makes the first listed level
+    the base and drops the others' indicators) and ``o.x`` (an omitted
+    term reported as 0) are refused rather than handed to the formula
+    parser.
+    """
+    out: List[str] = []
+    for tok in toks:
+        parts = []
+        for part in tok.split("#"):
+            m = re.fullmatch(r"ib\(\s*first\s*\)\.([A-Za-z_]\w*)", part, re.I)
+            parts.append(f"i.{m.group(1)}" if m else part)
+        tok = "#".join(parts)
+        if re.search(r"(?:^|#)ib\(\s*(?:last|freq)\s*\)\.", tok, re.I):
+            return (
+                f"{tok!r}: ib(last). / ib(freq). name a level of the data; "
+                "sp.stata fills it in, a line on its own cannot -- write "
+                "ib#.var with that level",
+                toks,
+            )
+        if re.search(r"(?:^|#)(?:i|ib)\(", tok) or re.match(r"[^\s(]*\)\.", tok):
+            return (
+                f"factor-variable level list in {tok!r} (i(numlist).var / "
+                "ib(...).var) is not translated; build the indicators with "
+                "`generate` and list them",
+                toks,
+            )
+        if re.search(r"(?:^|#)(?:\d+o|o\d*)\.[A-Za-z_]", tok):
+            return (
+                f"the omitted operator in {tok!r} (o.var) is not translated; "
+                "leave the variable out of the list",
+                toks,
+            )
+        out.append(tok)
+    return None, out
+
+
 def _normalise_command(
     cmd: StataCommand, columns: Optional[Sequence[str]] = None
 ) -> Tuple[Optional[str], Dict[str, Any]]:
@@ -4839,6 +4880,9 @@ def _normalise_command(
             info,
         )
     toks = _tokenise_head(joined)
+    err, toks = _factor_prefixes(toks)
+    if err is not None:
+        return err, info
     err, toks = _expand_abbreviations(toks, columns)
     if err is not None:
         return err, info
@@ -4939,6 +4983,14 @@ def _normalise_command(
 #: change the estimate (a ``**kwargs`` that swallowed them would not).
 _WEIGHTS_VIA_KWARGS = frozenset({"ivreg", "iv"})
 
+#: The likelihood estimators of ``_h_glm_like``: Stata's ``vce(robust)`` --
+#: and so a ``[pw=]`` -- carries N/(N-1) there, sp's ``robust='robust'``
+#: (Stata 18: ``logit yb x1 [pw=w]`` reports se .0980456, which HC1's
+#: N/(N-K) inflates by sqrt(59/58)).
+_ML_ROBUST = frozenset(
+    {"logit", "probit", "poisson", "nbreg", "cloglog", "ologit", "oprobit"}
+)
+
 
 def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str, Any]:
     """Attach a Stata weight to a translated call, or refuse it."""
@@ -4998,9 +5050,13 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
                 and not args.get("robust")
                 and not args.get("cluster")
             ):
-                args["robust"] = "hc1"
+                # what the same command's vce(robust) translates to: after a
+                # likelihood estimator that is N/(N-1) (robust='robust'),
+                # not regress's N/(N-K)
+                vce = "robust" if payload.get("tool") in _ML_ROBUST else "hc1"
+                args["robust"] = vce
                 code = code.replace(
-                    f"weights={var!r}", f"weights={var!r}, robust='hc1'", 1
+                    f"weights={var!r}", f"weights={var!r}, robust={vce!r}", 1
                 )
     payload["python_code"] = code
     return payload

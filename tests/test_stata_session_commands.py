@@ -53,12 +53,17 @@ def df() -> pd.DataFrame:
 
 
 # --------------------------------------------------------------- data steps
-def test_gsort_puts_missing_first_when_descending(df):
+def test_gsort_puts_missing_last_unless_mfirst(df):
     data = df.head(6).copy()
     data.loc[2, "x"] = np.nan
     s = session(data)
     s.run("gsort -x")
-    assert np.isnan(s.data["x"].iloc[0])  # missing is the largest value
+    # Stata 18: `gsort -a` lists the missing value last; `mfirst` puts it
+    # first
+    assert np.isnan(s.data["x"].iloc[-1])
+    assert s.data["x"].iloc[:-1].is_monotonic_decreasing
+    s.run("gsort -x, mfirst")
+    assert np.isnan(s.data["x"].iloc[0])
     assert s.data["x"].iloc[1:].is_monotonic_decreasing
     s.run("gsort +g -x")
     assert s.data["g"].is_monotonic_increasing

@@ -14,6 +14,7 @@ from __future__ import annotations
 import inspect
 import re
 import warnings
+from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -22,9 +23,15 @@ import pandas as pd
 from ...exceptions import MethodIncompatibility
 from ._stata_datastep import DataSteps, row_mask
 from ._stata_expr import StataExprError, coefficient_key, evaluate
-from ._stata_flow import flow_line, macro_line, macro_value
+from ._stata_flow import (
+    drop_temporaries,
+    flow_line,
+    macro_line,
+    macro_name_expanded,
+    macro_value,
+)
 from ._stata_irf import irf_line
-from ._stata_macro import display_items, display_text, tool_line
+from ._stata_macro import DisplayedNumber, display_items, display_text, tool_line
 from ._stata_matrix import matrix_line
 from ._stata_multi import file_key, multi_line
 from ._stata_postrun import record_sample
@@ -42,7 +49,12 @@ from ._stata_session import (
     teffects_before,
     xtreg_extras,
 )
-from ._stata_tsops import has_ts_operator, rewrite_ts_operators
+from ._stata_tsops import (
+    check_delta,
+    derived_column,
+    has_ts_operator,
+    rewrite_ts_operators,
+)
 
 __all__ = ["stata", "StataSession"]
 
@@ -318,6 +330,23 @@ def _e_scalars(result: Any) -> Dict[str, float]:
         if isinstance(got, (int, float, np.integer, np.floating)) and np.isfinite(got):
             out[key] = float(got)
     model = getattr(result, "model_info", None) or {}
+    # clustered: e(N_clust) is G and e(df_r) is G - 1 (Stata 18 after
+    # regress / areg / reghdfe / xtreg, fe with vce(cluster)); e(rmse)
+    # keeps N - k. A fit with z inference (logit, ivregress, xtreg, re)
+    # stores no e(df_r) at all.
+    clusters = model.get("n_clusters", info.get("n_clusters"))
+    held = getattr(result, "cluster_info", None)
+    if clusters is None and isinstance(held, dict) and held.get("n_clusters"):
+        clusters = min(held["n_clusters"])
+    if isinstance(clusters, (int, float, np.integer, np.floating)):
+        out["N_clust"] = float(clusters)
+        df_inf = info.get("df_inference", getattr(result, "df_inference", None))
+        if isinstance(df_inf, (int, float, np.integer, np.floating)) and np.isfinite(
+            df_inf
+        ):
+            out["df_r"] = float(df_inf)
+    if info.get("inference") == "z":
+        out.pop("df_r", None)
     y = info.get("y")
     weighted = info.get("weights") is not None or model.get("weights") is not None
     if (
@@ -538,12 +567,90 @@ def stata(
         if _EXIT.match(line):
             break  # `exit` ends a do-file; Stata runs nothing after it
         session.run(line)
+    # the end of the do-file: its `tempvar` variables go
+    drop_temporaries(session)
     return session.output
 
 
 _FACTOR_ARGUMENT = re.compile(
     r"C\(([A-Za-z_]\w*)(?:, Treatment\((-?\d+(?:\.\d+)?)\))?\)\Z"
 )
+
+
+_FULL_RANK_LEVEL = re.compile(r"C\((\w+)(?:, Treatment\([^)]*\))?\)\[(-?\d+)(?:\.0)?\]")
+_NAMED_BASE = re.compile(r"(?<![\w.])ib\((last|freq|first)\)\.([A-Za-z_]\w*)", re.I)
+
+
+def _named_bases(line: str, data: pd.DataFrame, stored: Dict[str, Any]) -> str:
+    """``ib(last).g`` / ``ib(freq).g`` / ``ib(first).g`` written as
+    ``ib#.g`` with the level they name in the estimation sample: the
+    largest level, the most frequent one (the smallest of several), the
+    smallest (Stata 18 reports e.g. ``1.g 2b.g 3.g`` after ``ib(freq).g``)."""
+    head = line.split(",", 1)[0]
+    sample = (
+        _qualified(line, data, stored) if re.search(r"\s(?:if|in)\s", head) else data
+    )
+    used = [n for n in dict.fromkeys(re.findall(r"[A-Za-z_]\w*", head))
+            if n in sample.columns]  # fmt: skip
+    if used:
+        sample = sample.loc[sample[used].notna().all(axis=1)]
+
+    def level(m: "re.Match[str]") -> str:
+        name = m.group(2)
+        if name not in sample.columns:
+            return m.group(0)
+        counts = pd.to_numeric(sample[name], errors="coerce").dropna().value_counts()
+        if counts.empty:
+            return m.group(0)
+        rule = m.group(1).lower()
+        if rule == "freq":
+            top = counts[counts == counts.max()]
+            value = float(min(top.index))
+        else:
+            value = float(max(counts.index) if rule == "last" else min(counts.index))
+        if value != round(value) or value < 0:
+            raise StataExprError(
+                f"{name}: factor variables may not contain noninteger or "
+                "negative values (Stata r(452))"
+            )
+        return f"ib{int(value)}.{name}"
+
+    return _NAMED_BASE.sub(level, line)
+
+
+def _check_factor_levels(data: pd.DataFrame, arguments: Dict[str, Any]) -> None:
+    """Stata refuses ``i.g`` where ``g`` takes a negative or non-integer
+    value in the sample (r(452), "factor variables may not contain
+    noninteger values" / "... negative values")."""
+    texts = [v for v in arguments.values() if isinstance(v, str)]
+    for value in arguments.values():
+        if isinstance(value, list):
+            texts.extend(v for v in value if isinstance(v, str))
+    formula = " ".join(texts)
+    factors = dict.fromkeys(re.findall(r"C\(\s*([A-Za-z_]\w*)", formula))
+    used = [n for n in dict.fromkeys(re.findall(r"[A-Za-z_]\w*", formula))
+            if n in data.columns]  # fmt: skip
+    if not factors or not used:
+        return
+    rows = data[used].notna().all(axis=1)
+    for name in factors:
+        if name not in data.columns:
+            continue
+        col = data.loc[rows, name]
+        if not pd.api.types.is_numeric_dtype(col):
+            continue
+        x = col.to_numpy(dtype=float, na_value=np.nan)
+        x = x[~np.isnan(x)]
+        if np.any(x != np.round(x)):
+            raise StataExprError(
+                f"{name}: factor variables may not contain noninteger values "
+                "(Stata r(452))"
+            )
+        if np.any(x < 0):
+            raise StataExprError(
+                f"{name}: factor variables may not contain negative values "
+                "(Stata r(452))"
+            )
 
 
 def _factor_columns(data: pd.DataFrame, arguments: Dict[str, Any]) -> pd.DataFrame:
@@ -590,6 +697,19 @@ def _factor_columns(data: pd.DataFrame, arguments: Dict[str, Any]) -> pd.DataFra
             names.extend(built[term])
         arguments[key] = names
     return data
+
+
+def _declared_delta(line: str) -> float:
+    """The ``delta(#)`` of a ``tsset`` / ``xtset`` line (1 without one)."""
+    m = re.search(r",.*\bdel(?:ta?)?\(\s*([^)]*?)\s*\)", line, re.I)
+    if m is None:
+        return 1.0
+    try:
+        return float(m.group(1))
+    except ValueError:
+        raise StataExprError(
+            f"delta({m.group(1)}) is not implemented; a number of time units is"
+        ) from None
 
 
 def _weighted_sample(data: pd.DataFrame, weights: Any) -> pd.DataFrame:
@@ -703,6 +823,7 @@ class StataSession:
         self.panel = (None, None)
         self.survival = None
         self.stored.pop("time_var", None)
+        self.stored.pop("ts_delta", None)
         self.stored.pop("panel_var", None)
 
     def append(self, other: pd.DataFrame) -> None:
@@ -771,6 +892,11 @@ class StataSession:
         for held in (b, se):
             for name in list(held):
                 held.setdefault(coefficient_key(name), held[name])
+                # a factor coded without a base (ibn.g, or i.g#c.x without
+                # i.g) is named C(g)[1.0]; Stata calls it 1.g / 1.g#c.x
+                full = _FULL_RANK_LEVEL.sub(r"\2.\1", name)
+                if full != name:
+                    held.setdefault(coefficient_key(full), held[name])
         e: Dict[str, float] = {}
         for key, attr in (("N", "nobs"), ("r2", "r2"), ("r2_a", "r2_adj")):
             got = getattr(result, attr, None)
@@ -893,7 +1019,12 @@ class StataSession:
                 # inside `program ... end`: the line belongs to the body
                 handled = program_line(self, line)
                 return bool(handled)
+            # one number per command, so that regexs() can tell whether the
+            # regexm() it reads ran in the same command
+            self.stored["_command"] = self.stored.get("_command", 0) + 1
             if self._flow is None:
+                # `local m`v' = 5`: the macro's name is built first
+                line = macro_name_expanded(self, line)
                 try:
                     tooled = tool_line(self, line)
                 except StataExprError as exc:
@@ -942,7 +1073,14 @@ class StataSession:
             if self._scratch and self._steps is not None:
                 held = [c for c in self._scratch if c in self._steps.data.columns]
                 if held:
-                    self._steps.data = self._steps.data.drop(columns=held)
+                    before = self._steps.data
+                    self._steps.data = before.drop(columns=held)
+                    sample = self.stored.get("e_sample")
+                    if sample is not None and sample[0] == id(before):
+                        # the same rows: e(sample) still describes them
+                        self.stored["e_sample"] = (id(self._steps.data),) + tuple(
+                            sample[1:]
+                        )
                 self._scratch = []
             if self.stored.pop("random_draws", False):
                 self.simulated = True
@@ -1050,6 +1188,17 @@ class StataSession:
             return matrix
         declared = panel_declaration(line)
         if declared is not None:
+            try:
+                delta = _declared_delta(line)
+                if self._steps is not None and declared[1] is not None:
+                    check_delta(self._steps.data, declared[0], declared[1], delta)
+            except StataExprError as exc:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: {exc}.",
+                    recovery_hint="Declare the step the time variable has.",
+                    diagnostics={"command": line},
+                ) from exc
+            self.stored["ts_delta"] = delta
             self.panel = declared
             self.stored["time_var"] = declared[1]
             self.stored["panel_var"] = declared[0]
@@ -1171,11 +1320,19 @@ class StataSession:
             try:
                 made = None if self._steps is None else self._steps.ts_derived
                 line, columns_added = rewrite_ts_operators(
-                    line, None if naming_only else data, self.panel, made
+                    line,
+                    None if naming_only else data,
+                    self.panel,
+                    made,
+                    self.stored.get("ts_delta", 1.0),
                 )
                 if self._steps is not None:
                     self._steps.ts_panel = self.panel
                     for name, values in columns_added.items():
+                        if name not in self._steps.data.columns:
+                            # a helper for this line only: Stata has no
+                            # variable x_L1, so `x*` must not find one
+                            self._scratch.append(name)
                         self._steps.add_column(name, values, double=True, refresh=True)
             except StataExprError as exc:
                 raise MethodIncompatibility(
@@ -1204,8 +1361,9 @@ class StataSession:
             dated = any(fmt and fmt.lstrip("%-0123456789.").startswith("t")
                         for _, fmt in numbers)  # fmt: skip
             if len(numbers) == 1 and not dated:
-                # one number, with or without text around it: the number
-                self.output = numbers[0][0]
+                # one number, with or without text around it: the number,
+                # which prints (str) as the line Stata prints
+                self.output = DisplayedNumber(numbers[0][0], display_text(items))
             else:
                 self.output = display_text(items)
             return True
@@ -1237,6 +1395,15 @@ class StataSession:
                 ) from exc
         line = self._scalars_in_restriction(line)
         line = self._boundary_points(line)
+        if data is not None and _NAMED_BASE.search(line):
+            try:
+                line = _named_bases(line, data, self.stored)
+            except StataExprError as exc:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: {exc}.",
+                    recovery_hint="Name the base level: ib#.var.",
+                    diagnostics={"command": line},
+                ) from exc
         line = self._importance_weights(line)
         key = (line, tuple(columns or ()), self.panel, self.survival)
         out = self._translations.get(key)
@@ -1257,14 +1424,22 @@ class StataSession:
                 self._translations[key] = out
         out = dict(out)
         if not out.get("ok"):
-            suggestions = out.get("suggestions") or []
+            # only a near spelling is offered as a typo (`regres` for
+            # `regress`), not a different command (`xtserial` for `tsfill`)
+            suggestions = [
+                s
+                for s in out.get("suggestions") or []
+                if SequenceMatcher(None, str(out.get("command") or ""), s).ratio()
+                >= 0.75
+            ]
             raise MethodIncompatibility(
                 f"sp.stata: cannot run {line!r}: {out.get('error')}",
                 recovery_hint=(
                     f"Did you mean: {', '.join(suggestions)}?"
                     if suggestions
-                    else "Call the sp.* function directly; sp.from_stata "
-                    "lists what it translates."
+                    else "This command is not supported by sp.stata; do the "
+                    "step in pandas or call the sp.* function directly "
+                    "(sp.from_stata lists what it translates)."
                 ),
                 diagnostics={"command": line, "translation": out},
             )
@@ -1420,6 +1595,15 @@ class StataSession:
                         diagnostics={"command": line},
                     ) from exc
             run_data = _weighted_sample(run_data, arguments.get("weights"))
+            try:
+                _check_factor_levels(run_data, arguments)
+            except StataExprError as exc:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: {exc}.",
+                    recovery_hint="Recode the variable to the integers 0, 1, "
+                    "2, ... (`egen newvar = group(var)`).",
+                    diagnostics={"command": line},
+                ) from exc
             run_data = _factor_columns(run_data, arguments)
             self.output = fn(data=run_data, **arguments)
             if out["tool"] == "pscore":
@@ -1660,6 +1844,14 @@ class StataSession:
                 column = data[term].to_numpy(dtype=float, na_value=np.nan)
             else:
                 built = _term_column(str(term), data)
+                if built is None and str(term) in self._steps.ts_derived:
+                    # L.x / D.x of the fit, read again from the data now
+                    built = derived_column(
+                        data,
+                        self.panel,
+                        *self._steps.ts_derived[str(term)],
+                        self.stored.get("ts_delta", 1.0),
+                    )
                 if built is None:
                     raise StataExprError(
                         f"`predict`: coefficient {term!r} is not built from "

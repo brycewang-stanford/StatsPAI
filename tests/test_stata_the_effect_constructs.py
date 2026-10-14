@@ -133,8 +133,10 @@ def test_date_function_on_a_string_variable_and_bad_input():
     data = pd.DataFrame({"s": ["2015-08-10", "not a date", "2015-02-30"]})
     out = evaluate('date(s, "YMD")', data, {})
     assert out[0] == 20310 and np.isnan(out[1]) and np.isnan(out[2])
+    # a century before Y is read (Stata 18: date("01/02/20", "MD19Y") is
+    # -14609, 2jan1920); a mask with # placeholders is not implemented
     with pytest.raises(ValueError, match="mask"):
-        evaluate('date(s, "DM20Y")', data, {})
+        evaluate('date(s, "YMD###")', data, {})
 
 
 # -------------------------------------------------------------- data steps

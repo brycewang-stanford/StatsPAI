@@ -89,7 +89,8 @@ def df():
         ("max(x, y)", [2, 3, -2, 0, 5]),
         ("min(x, y, .)", [1, 3, -2, 0, 1]),
         ("round(2.5)", [3] * 5),
-        ("round(-2.5)", [-3] * 5),
+        # y*floor(x/y + .5): Stata 18 `display round(-2.5)` prints -2
+        ("round(-2.5)", [-2] * 5),
         ("round(x, 2)", [2, NA, -2, 0, 6]),
         ("int(-2.7)", [-2] * 5),
         ("floor(-2.7)", [-3] * 5),
@@ -280,7 +281,6 @@ def test_post_estimation_uses_the_rows_the_model_was_fitted_on(panel):
         ('replace x = "a"', "type mismatch"),
         ("replace nope = 1", "does not exist"),
         ("gen x = 1", "already exists"),
-        ("gen int k = x", "truncates"),
         ("gen str3 k = x", "type mismatch"),
         ("gen strL2 k = x", "storage type"),
         ("keep x if year > 1984", "not both"),

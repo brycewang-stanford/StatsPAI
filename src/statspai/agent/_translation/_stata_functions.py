@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import platform
 import re
+from decimal import ROUND_HALF_UP, Context, Decimal
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
@@ -316,28 +317,137 @@ def _commas(text: str) -> str:
     return sign + whole + dot + frac
 
 
+# The numeric formats below were read off Stata 18 on a grid of values
+# (positive and negative, 1e-300 to 1e300, integers on both sides of 1e7,
+# exact binary ties) and formats (%w.dg / f / e with and without ``c``, a
+# leading ``-`` or ``0``, w from 1 to 24). The rules, as observed:
+#
+# * %g keeps one column for the sign: the magnitude gets w - 1 columns and
+#   at most S = w - 2 significant digits (min(d, w - 2) when d > 0, never
+#   fewer than 2; widths below 4 count as 4, and w <= 2 is always written
+#   with an exponent). A number of 10^S or more is written as a whole
+#   number when its digits fit in w - 2 columns, else with an exponent. A
+#   number below 1 is written in fixed notation when that shows at least as
+#   many significant digits as the exponential form would. Trailing zeros
+#   are dropped, and so is the zero before the decimal point (.5).
+# * The exponential form has two exponent digits (three from 1e100 on) and
+#   as many mantissa decimals as fit: max(1, min(S - 1, w - 7)) with two
+#   exponent digits, max(0, min(S - 1, w - 8)) with three ("2.e+300").
+# * %f writes the zero before the point; it falls back to the exponential
+#   form when the text is longer than max(w, 8). ``c`` adds commas only if
+#   the result still fits in w. A leading 0 pads %f with zeros.
+# * %g and %e round exact binary ties away from zero (%4.0g of 12.5 is 13,
+#   %8.1e of 0.125 is 1.3e-01); %f rounds them to even, as C's printf does
+#   (%9.0f of 2.5 is 2, %9.2f of 0.125 is 0.12). Either way the rounding is
+#   of the exact binary value: %4.2f of 0.285 is 0.28.
+#: wide enough for every digit of a double (1e-300 has 750 of them)
+_EXACT = Context(prec=2000, Emin=-9999, Emax=9999)
+
+
+def _exact(value: float) -> Decimal:
+    return Decimal(value)
+
+
+def _round_half_up(a: Decimal, places: int) -> Decimal:
+    unit = Decimal(1).scaleb(-places, context=_EXACT)
+    return a.quantize(unit, rounding=ROUND_HALF_UP, context=_EXACT)
+
+
+def _fixed_text(q: Decimal) -> str:
+    return format(q, "f")
+
+
+def _exponential(a: float, width: int, limit: Optional[int]) -> str:
+    """``a`` (zero or positive) as ``m.mmme+XX`` in ``width - 1`` columns,
+    with at most ``limit`` mantissa decimals (no limit when ``None``)."""
+    exact = _exact(a)
+    for three in (False, True):
+        room = (width - 1) - (7 if three else 6)
+        dec = room if limit is None else min(limit, room)
+        dec = max(dec, 0 if three else 1)
+        power = exact.adjusted() if a else 0
+        mantissa = _round_half_up(exact.scaleb(-power, context=_EXACT), dec)
+        if mantissa >= 10:
+            power += 1
+            mantissa = _round_half_up(exact.scaleb(-power, context=_EXACT), dec)
+        if (abs(power) >= 100) == three:
+            body = _fixed_text(mantissa)
+            if dec == 0:
+                body += "."
+            sign = "-" if power < 0 else "+"
+            return f"{body}e{sign}{abs(power):0{3 if three else 2}d}"
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _strip_fraction(text: str) -> str:
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    if text.startswith("0."):
+        text = text[1:]
+    return text or "0"
+
+
 def _general(value: float, width: int, digits: Optional[int]) -> str:
-    """``%w.dg``: with d = 0, as many significant digits as fit in w."""
+    """``%w.dg`` of a finite ``value`` (sign included, not padded)."""
     if value == 0:
         return "0"
-    if digits:
-        text = format(value, f".{digits}g")
-    else:
-        text = ""
-        for sig in range(min(width, 17), 0, -1):
-            text = format(value, f".{sig}g")
-            if "e" in text:
-                mantissa, _, exponent = text.partition("e")
-                if "." in mantissa:
-                    mantissa = mantissa.rstrip("0").rstrip(".")
-                text = f"{mantissa}e{exponent[0]}{int(exponent[1:]):02d}"
-            text = re.sub(r"^(-?)0\.", r"\1.", text)
-            if len(text) <= width:
-                break
-    if "e" in text:
-        mantissa, _, exponent = text.partition("e")
-        text = f"{mantissa}e{exponent[0]}{int(exponent[1:]):02d}"
-    return re.sub(r"^(-?)0\.", r"\1.", text)
+    sign = "-" if value < 0 else ""
+    a = abs(value)
+    w = max(width, 4)
+    sig = w - 2 if not digits else min(digits, w - 2)
+    sig = max(sig, 2)
+    room = w - 2
+
+    def exponential() -> str:
+        return sign + _exponential(a, w, sig - 1)
+
+    if width <= 2:
+        return exponential()
+    exact = _exact(a)
+    power = exact.adjusted()  # floor(log10(a))
+    if power + 1 > sig:
+        whole = _fixed_text(_round_half_up(exact, 0))
+        return sign + whole if len(whole) <= room else exponential()
+    if power >= 0:
+        q = _round_half_up(exact, sig - 1 - power)
+        if len(_fixed_text(q).partition(".")[0]) > sig:
+            return exponential()  # 99.5 at two digits is 1.0e+02
+        return sign + _strip_fraction(_fixed_text(q))
+    zeros = -power - 1  # zeros between the point and the first digit
+    shown = min(sig, room - zeros)
+    in_exponent = 1 + max(1, min(sig - 1, (w - 1) - 6))
+    if shown >= 1 and shown >= in_exponent:
+        q = _round_half_up(exact, zeros + shown)
+        return sign + _strip_fraction(_fixed_text(q))
+    return exponential()
+
+
+def _general_commas(value: float, width: int, digits: Optional[int]) -> str:
+    """``%w.dgc``: the commas take columns from the digits; when the number
+    cannot be written with them it is written as ``%w.dg``."""
+    whole = int(abs(value)) if abs(value) < 1e300 else 0
+    commas = (len(str(whole)) - 1) // 3 if whole else 0
+    if commas:
+        text = _general(value, width - commas, digits)
+        if "e" not in text:
+            return _commas(text)
+    return _general(value, width, digits)
+
+
+def _fixed(value: float, width: int, digits: int, commas: bool, zero: bool) -> str:
+    text = format(value, f".{digits}f")
+    if commas:
+        grouped = _commas(text)
+        if len(grouped) <= width:
+            return grouped
+    if len(text) > max(width, 8):
+        sign = "-" if value < 0 else ""
+        return sign + _exponential(abs(value), width, digits or None)
+    if zero and len(text) < width:
+        sign = "-" if text.startswith("-") else ""
+        body = text.lstrip("-")
+        text = sign + "0" * (width - len(text)) + body
+    return text
 
 
 def _civil(day: int) -> tuple:
@@ -386,20 +496,27 @@ def _format_daily(day: float, detail: str, ms: float = 0.0) -> str:
     return "".join(out)
 
 
-def stata_format(value: Any, fmt: str) -> str:
+def stata_format(value: Any, fmt: str, pad: bool = False) -> str:
     """``value`` as ``display`` prints it under the format ``fmt``.
 
     Numeric formats ``%w.df`` / ``e`` / ``g`` (with ``c`` for commas and a
     leading ``-`` or ``0``), string formats and the date formats ``%td``
-    and ``%tc`` with or without a detail string are covered; the output is
-    not padded to the width, which only matters on a screen.
+    and ``%tc`` with or without a detail string are covered. With ``pad``
+    a numeric result is padded to the width ``w`` as ``display %fmt``
+    prints it (on the left, or on the right for ``%-w...``); otherwise the
+    blanks are left out.
     """
     fmt = fmt.strip()
     if isinstance(value, str):
         return value
     value = float(value)
     if value != value:
-        return "."
+        text = "."
+        m = _FORMAT.match(fmt)
+        if pad and m is not None:
+            width = int(m.group(3) or 9)
+            return text.ljust(width) if m.group(1) else text.rjust(width)
+        return text
     dated = _DATE_FORMAT.match(fmt)
     if dated:
         unit, detail = dated.group(2), dated.group(3)
@@ -417,27 +534,36 @@ def stata_format(value: Any, fmt: str) -> str:
     if m is None:
         raise StataExprError(f"the format {fmt!r} is not implemented")
     width = int(m.group(3) or 9)
-    digits = int(m.group(4)) if m.group(4) is not None else None
-    kind = m.group(5)
+    digits = int(m.group(4)) if m.group(4) is not None else 0
+    kind, commas = m.group(5), bool(m.group(6))
+    if not np.isfinite(value):
+        raise StataExprError(f"{value} is not a Stata number")
     if kind == "f":
-        text = format(value, f".{digits or 0}f")
-        if abs(value) < 1 and text.lstrip("-").startswith("0."):
-            text = text.replace("0.", ".", 1)
+        text = _fixed(value, width, digits, commas, bool(m.group(2)))
     elif kind == "e":
-        text = format(value, f".{digits if digits is not None else 6}e")
-        mantissa, _, exponent = text.partition("e")
-        text = f"{mantissa}e{exponent[0]}{int(exponent[1:]):02d}"
+        sign = "-" if value < 0 else ""
+        text = sign + _exponential(abs(value), width, digits or None)
     elif kind == "g":
-        text = _general(value, width, digits)
+        if commas:
+            text = _general_commas(value, width, digits)
+        else:
+            text = _general(value, width, digits)
     else:
         raise StataExprError(f"the format {fmt!r} is for strings")
-    return _commas(text) if m.group(6) else text
+    if pad:
+        text = text.ljust(width) if m.group(1) else text.rjust(width)
+    return text
 
 
 def _string(value: Any, *fmt: Any) -> str:
+    """``string(x)`` / ``string(x, "%fmt")``: the text ``display`` prints,
+    without the blanks on its left; the default format is ``%9.0g``
+    (Stata 18: ``string(1/3)`` is ``.3333333``, ``string(1e10)`` is
+    ``1.00e+10``)."""
     if isinstance(value, str):
         raise StataExprError("string() needs a number")
-    return stata_format(value, _text(fmt[0], "string()") if fmt else "%10.0g")
+    fmt_text = _text(fmt[0], "string()") if fmt else "%9.0g"
+    return stata_format(value, fmt_text, pad=True).lstrip(" ")
 
 
 def _real(s: Any) -> float:

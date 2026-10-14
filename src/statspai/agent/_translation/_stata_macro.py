@@ -31,7 +31,7 @@ from ._stata_script import ScriptError
 if TYPE_CHECKING:  # pragma: no cover
     from ._stata_run import StataSession
 
-__all__ = ["extended_function", "tool_line", "ProgramExit"]
+__all__ = ["extended_function", "tool_line", "ProgramExit", "DisplayedNumber"]
 
 
 class ProgramExit(Exception):
@@ -188,7 +188,8 @@ def extended_function(session: "StataSession", text: str) -> str:
         return body.replace(old, new) if everything else body.replace(old, new, 1)
     m = re.match(r"di(?:splay)?\s+(%\S+)\s+(.+)\Z", text, re.S | re.I)
     if m:
-        return stata_format(session.value(m.group(2)), m.group(1)).strip()
+        # the padding stays: `local x : display %6.2f 2/3` is "  0.67"
+        return stata_format(session.value(m.group(2)), m.group(1), pad=True)
     m = re.match(r"di(?:splay)?\s+(.+)\Z", text, re.S | re.I)
     if m:
         body = m.group(1).strip()
@@ -538,8 +539,9 @@ def _marksample(session: "StataSession", rest: str) -> None:
 
         w = evaluate((locals_.get("exp") or "= 1")[1:], data, session.stored)
         mask &= ~np.isnan(w) & (w != 0)
-    session._temp_count += 1
-    column = f"__tempvar{session._temp_count:06d}"
+    from ._stata_flow import _new_temporary
+
+    column = _new_temporary(session, "var")  # dropped when the program ends
     locals_[name] = column
     steps._own()
     steps.data[column] = mask.astype(float)
@@ -810,6 +812,11 @@ def display_items(session: "StataSession", body: str) -> List[Any]:
         return out[0]
 
     try:
+        if body.lstrip().startswith(('"', '`"')):
+            # a leading string is a display item of its own: Stata reads
+            # `display "a" + "b"` as the text a, then `+ "b"`, and stops
+            # (r(198)); `display ("a" + "b")` is one expression
+            raise StataExprError("not one expression")
         whole = value_of(body)
         return [whole if isinstance(whole, str) else (float(whole), None)]
     except StataExprError:
@@ -858,11 +865,30 @@ def display_items(session: "StataSession", body: str) -> List[Any]:
 
 
 def display_text(items: List[Any]) -> str:
+    """The line ``display`` prints. A number under a format of its own
+    fills the format's width (Stata 18: ``display "[" %9.2f 1/3 "]"``
+    prints ``[     0.33]``); without one it is written in ``%10.0g`` with
+    no padding (``[.33333333]``, and ``.00001`` for 0.00001)."""
     out = []
     for item in items:
         if isinstance(item, str):
             out.append(item)
         else:
             value, fmt = item
-            out.append(stata_format(value, fmt or "%10.0g"))
+            out.append(stata_format(value, fmt or "%10.0g", pad=bool(fmt)))
     return "".join(out)
+
+
+class DisplayedNumber(float):
+    """The value of a ``display`` line that shows one number. It is that
+    number, and prints (``str``) as the line Stata prints."""
+
+    text: str
+
+    def __new__(cls, value: float, text: str) -> "DisplayedNumber":
+        out = super().__new__(cls, value)
+        out.text = text
+        return out
+
+    def __str__(self) -> str:
+        return self.text

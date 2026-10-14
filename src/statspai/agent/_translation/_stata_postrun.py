@@ -169,8 +169,10 @@ def _predict(session: "StataSession", line: str) -> Optional[bool]:
 def _design_rows(session: "StataSession") -> np.ndarray:
     """The design matrix of the last fit on every row of the data."""
     from ._stata_run import _term_column
+    from ._stata_tsops import derived_column
 
-    data = _steps(session).data
+    steps = _steps(session)
+    data = steps.data
     columns = []
     for term in getattr(session.last, "params").index:
         if term in ("Intercept", "const", "_cons"):
@@ -179,6 +181,14 @@ def _design_rows(session: "StataSession") -> np.ndarray:
             columns.append(data[term].to_numpy(dtype=float, na_value=np.nan))
         else:
             built = _term_column(str(term), data)
+            if built is None and str(term) in steps.ts_derived:
+                # L.x of the fit: the helper column is not kept in the data
+                built = derived_column(
+                    data,
+                    session.panel,
+                    *steps.ts_derived[str(term)],
+                    session.stored.get("ts_delta", 1.0),
+                )
             if built is None:
                 raise StataExprError(
                     f"`predict`: coefficient {term!r} is not built from "

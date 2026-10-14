@@ -9,6 +9,7 @@ both ways, ``frlink`` / ``frget``); the expected frames below are Stata's.
 
 from __future__ import annotations
 
+import re
 import warnings
 
 import numpy as np
@@ -144,7 +145,8 @@ def test_computed_macros(df):
 
 def test_tempvar_names_do_not_collide(df):
     out = held(df, "tempvar a b\ngen `a' = 1\ngen `b' = 2")
-    fresh = [c for c in out.columns if c.startswith("__var")]
+    # Stata names them __000000, __000001, ... (`display "`a'"`)
+    fresh = [c for c in out.columns if re.fullmatch(r"__\d{6}", c)]
     assert len(fresh) == 2 and out[fresh].sum().tolist() == [360.0, 720.0]
 
 

@@ -233,14 +233,17 @@ def _unary(fn: Callable[[Any], Any]) -> Callable[..., Any]:
 
 
 def _f_round(*args: Value) -> Any:
+    """``round(x, y)`` is ``y * floor(x/y + .5)`` in double precision, and
+    ``round(x, 0)`` is ``x`` ([FN]). Halves therefore go up, not away from
+    zero: Stata 18 gives -1 for round(-1.5), 0 for round(-0.5), -2 for
+    round(-3, 2), and 2.68 for round(2.675, .01) (2.675/.01 is 267.5)."""
     if len(args) not in (1, 2):
         raise StataExprError("round() takes one or two arguments")
     x = np.asarray(_num(args[0], "round()"), dtype=float)
     unit = 1.0 if len(args) == 1 else np.asarray(_num(args[1], "round()"), dtype=float)
     with np.errstate(all="ignore"):
-        # halves round away from zero, unlike numpy's round-half-even
-        scaled = x / unit
-        return _clean(np.sign(scaled) * np.floor(np.abs(scaled) + 0.5) * unit)
+        out = unit * np.floor(x / unit + 0.5)
+        return _clean(np.where(unit == 0, x, out))
 
 
 def _extreme(reducer: Callable[..., Any]) -> Callable[..., Any]:
@@ -474,18 +477,30 @@ _MONTH_NAMES = {
 }
 
 
-def _parse_date_text(text: Any, order: str) -> float:
-    """One string -> days since 01jan1960 under a three-letter mask."""
+def _parse_date_text(
+    text: Any, order: str, century: Optional[int] = None, top: float = np.nan
+) -> float:
+    """One string -> days since 01jan1960 under a three-letter mask.
+
+    A two-digit year takes the century of the mask (``"MD19Y"``) or, with
+    ``top`` (the ``topyear`` argument), the latest year not after ``top``
+    that ends in those digits; without either it is missing. A year of
+    three or four digits is read as written. Stata 18, ``date(s, "MDY",
+    2050)``: "01/02/20" is 2jan2020, "01/02/51" is 2jan1951, "01/02/2060"
+    is 2jan2060; ``date("01/02/20", "MDY")`` is missing.
+    """
     if not isinstance(text, str):
         return np.nan
     text = text.strip()
     # digits and letters are fields of their own: 31jul2015, July 31, 2015
     parts = re.findall(r"\d+|[A-Za-z]+", text)
-    if len(parts) == 1 and parts[0].isdigit() and len(parts[0]) == 8:
-        # run-together digits: the year is the four-digit field
+    if len(parts) == 1 and parts[0].isdigit() and len(parts[0]) in (6, 8):
+        # run-together digits: the year has four digits in an eight-digit
+        # string and two in a six-digit one
+        year_width = 4 if len(parts[0]) == 8 else 2
         digits, parts, pos = parts[0], [], 0
-        for field in order:
-            width = 4 if field == "Y" else 2
+        for letter in order:
+            width = year_width if letter == "Y" else 2
             parts.append(digits[pos : pos + width])
             pos += width
     if len(parts) != 3:
@@ -496,29 +511,74 @@ def _parse_date_text(text: Any, order: str) -> float:
         m_num = int(month)
     else:
         m_num = _MONTH_NAMES.get(month[:3].lower(), 0)
-    # a two-digit year needs a century in the mask, which is not read here
-    if not (field["Y"].isdigit() and len(field["Y"]) == 4 and field["D"].isdigit()):
+    year_text = field["Y"]
+    if not (year_text.isdigit() and field["D"].isdigit()):
         return np.nan
-    out = _f_mdy(float(m_num), float(field["D"]), float(field["Y"]))
+    year = int(year_text)
+    if len(year_text) == 2:
+        if century is not None and top != top:
+            year += 100 * century
+        elif century is None and top == top:
+            # the latest year ending in these digits, not after topyear
+            top_year = int(np.floor(top))
+            year = top_year - (top_year - year) % 100
+        else:
+            # no century (and Stata 18 also gives missing when the mask
+            # has one and topyear is given as well)
+            return np.nan
+    elif len(year_text) not in (3, 4):
+        return np.nan
+    if not 100 <= year <= 9999:
+        return np.nan  # Stata's dates run from 01jan0100 to 31dec9999
+    out = _f_mdy(float(m_num), float(field["D"]), float(year))
     return float(np.asarray(out))
 
 
-def _f_date(*args: Value) -> Any:
-    """``date(s, mask)`` for the masks that are a permutation of D, M, Y."""
-    if len(args) != 2 or not isinstance(args[1], str):
-        raise StataExprError("date() takes a string and a literal mask")
-    order = args[1].strip().upper()
+_DATE_MASK = re.compile(r"(?:(1\d|20)(?=Y))?([DMY])")
+
+
+def _read_date_mask(mask: str) -> Tuple[str, Optional[int]]:
+    """``"MDY"`` -> ``("MDY", None)``; ``"MD19Y"`` -> ``("MDY", 19)``."""
+    text = mask.strip().upper()
+    order, century, pos = "", None, 0
+    while pos < len(text):
+        m = _DATE_MASK.match(text, pos)
+        if m is None:
+            order = ""
+            break
+        if m.group(1):
+            century = int(m.group(1))
+        order += m.group(2)
+        pos = m.end()
     if sorted(order) != ["D", "M", "Y"]:
         raise StataExprError(
-            f"date(): the mask {args[1]!r} is not implemented (only the "
-            'orderings of D, M and Y, e.g. "YMD")'
+            f"date(): the mask {mask!r} is not implemented (only the "
+            'orderings of D, M and Y, e.g. "YMD", with an optional century '
+            'before Y, e.g. "MD19Y")'
         )
+    return order, century
+
+
+def _f_date(*args: Value) -> Any:
+    """``date(s, mask [, topyear])`` for the masks that are an ordering of
+    D, M and Y (with an optional century before Y)."""
+    if len(args) not in (2, 3) or not isinstance(args[1], str):
+        raise StataExprError("date() takes a string, a literal mask and a topyear")
+    order, century = _read_date_mask(args[1])
+    top = np.nan
+    if len(args) == 3:
+        held = np.asarray(_num(args[2], "date() topyear"), dtype=float)
+        if held.ndim:
+            raise StataExprError("date(): topyear must be a number, not a variable")
+        top = float(held)
     source = args[0]
     if isinstance(source, str):
-        return _parse_date_text(source, order)
+        return _parse_date_text(source, order, century, top)
     if not _is_str(source):
         raise StataExprError("date() needs a string, got a number")
-    return np.array([_parse_date_text(v, order) for v in source], dtype=float)
+    return np.array(
+        [_parse_date_text(v, order, century, top) for v in source], dtype=float
+    )
 
 
 def _f_periodic(per_year: int) -> Callable[..., Any]:
@@ -809,9 +869,12 @@ class _Parser:
                 return left
             right = self._multiplicative()
             if op == "+" and _is_str(left) and _is_str(right):
-                left = np.asarray(left, dtype=object) + np.asarray(right, dtype=object)
-                if left.ndim == 0:
-                    left = str(left)
+                if isinstance(left, str) and isinstance(right, str):
+                    left = left + right  # "a" + "b", "ab" + string(1)
+                else:
+                    left = np.asarray(left, dtype=object) + np.asarray(
+                        right, dtype=object
+                    )
                 continue
             a, b = _num(left, "arithmetic"), _num(right, "arithmetic")
             with np.errstate(all="ignore"):
@@ -973,8 +1036,13 @@ class _Parser:
             # the return code of the last `capture`d command (0: no error)
             return float(self.stored.get("_rc", 0.0))
         if name not in self.data.columns and name in self.stored.get("scalars", {}):
-            # a variable of that name would win, as in Stata
-            return float(self.stored["scalars"][name])
+            # Stata reads a name as a variable first, then as the unique
+            # abbreviation of one, and only then as a scalar: with variable
+            # `cl` and `scalar c = 100`, `gen z = c` copies cl (Stata 18);
+            # with two variables starting with c it takes the scalar
+            hits = [c for c in self.data.columns if str(c).startswith(name)]
+            if len(hits) != 1:
+                return float(self.stored["scalars"][name])
         column = self._column(name)
         if self._accept("["):
             index = _num(self._or(), "a subscript")
@@ -1041,7 +1109,12 @@ class _Parser:
                 f"the time-series operator {ops}.{var} needs the time variable: "
                 "put `tsset time` or `xtset id time` before it"
             )
-        clock = _Clock(self.data, self.stored.get("panel_var"), time_var)
+        clock = _Clock(
+            self.data,
+            self.stored.get("panel_var"),
+            time_var,
+            self.stored.get("ts_delta", 1.0),
+        )
         return _apply(
             clock, np.asarray(self._column(var), dtype=float), _parse_ops(ops)
         )
@@ -1120,6 +1193,8 @@ class _Parser:
                 )
             self.stored["random_draws"] = True
             return _draw(name, args, self.n, rng)
+        if name in ("regexm", "regexs"):
+            return self._regex(name, fn, args)
         if name == "sum" and len(args) == 1:
             # Stata's running sum advances on the observations the command
             # is run on: `gen s = sum(x) if d` adds up the rows where d
@@ -1131,6 +1206,36 @@ class _Parser:
                 if x.ndim == 0:
                     x = np.full(self.n, float(x))
                 return fn(np.where(np.asarray(rows, dtype=bool), x, 0.0))
+        return fn(*args)
+
+    def _regex(self, name: str, fn: Callable[..., Any], args: List[Value]) -> Value:
+        """``regexm`` / ``regexs``. Stata keeps one match: that of the last
+        ``regexm`` call. Within one command run over the data each row reads
+        its own (``gen g = regexs(1) if regexm(s, "(..)")``). In a later
+        command it is the match of whichever observation the earlier
+        command evaluated last, which depends on its ``if`` / ``in`` (Stata
+        18: after ``gen m = regexm(s, "([a-z]+)") if _n < 3``, ``gen t =
+        regexs(1)`` is the match of row 2 in every row); that case is
+        refused rather than answered with each row's own match."""
+        from ._stata_functions import _LAST_MATCH
+
+        here = (self.stored.get("_command"), self.n)
+        if name == "regexm":
+            out = fn(*args)
+            _LAST_MATCH["owner"] = here
+            return out
+        held = _LAST_MATCH["groups"]
+        if (
+            isinstance(held, list)
+            and len(held) > 1
+            and _LAST_MATCH.get("owner") != here
+        ):
+            raise StataExprError(
+                "regexs() after the regexm() of an earlier command reads the "
+                "match of the last observation that command evaluated, not "
+                "each row's; call regexm() in the same command "
+                '(gen g = regexs(1) if regexm(s, "..."))'
+            )
         return fn(*args)
 
     def _column(self, name: str) -> Value:

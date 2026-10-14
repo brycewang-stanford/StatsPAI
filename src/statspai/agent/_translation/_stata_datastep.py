@@ -32,7 +32,7 @@ reproduces Stata's digits. ``generate double`` keeps full precision.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -50,6 +50,33 @@ from ._stata_lexer import parse as _parse_stata
 __all__ = ["DataSteps", "is_data_step", "row_mask"]
 
 _INT_TYPES = ("byte", "int", "long")
+#: the values each integer type holds (Stata 18 `help data_types`)
+_INT_RANGE = {
+    "byte": (-127.0, 100.0),
+    "int": (-32767.0, 32740.0),
+    "long": (-2147483647.0, 2147483620.0),
+}
+
+
+def _str_width(value: np.ndarray, width: int) -> np.ndarray:
+    """Strings cut to ``width`` bytes, as ``generate str#`` stores them."""
+    out = value.copy()
+    for k, text in enumerate(value):
+        if not isinstance(text, str):
+            continue
+        raw = text.encode("utf-8")
+        if len(raw) <= width:
+            continue
+        try:
+            out[k] = raw[:width].decode("utf-8")
+        except UnicodeDecodeError:
+            raise StataExprError(
+                f"str{width} would cut {text!r} inside a character, which "
+                "Stata stores as an invalid byte; use a wider type"
+            ) from None
+    return out
+
+
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _ASSIGN = re.compile(r"\s*(?:(\w+)\s+)?([A-Za-z_]\w*)\s*=(?!=)\s*(.+)\Z", re.S)
 
@@ -227,7 +254,7 @@ _COLLAPSE = {
     "p50": "median",
     "sd": "std",
     "sum": "sum",
-    "rawsum": "sum",
+    "rawsum": "rawsum",
     "count": "count",
     "max": "max",
     "min": "min",
@@ -238,6 +265,22 @@ _COLLAPSE = {
     "first": "_row_first",
     "last": "_row_last",
 }
+
+
+def _frequency_rows(
+    data: pd.DataFrame, keep: np.ndarray, w: np.ndarray
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """The rows a frequency weight stands for, and the rows themselves
+    (those with a positive weight)."""
+    held = keep & ~np.isnan(w)
+    if np.any(w[held] < 0):
+        raise StataExprError("collapse: negative weights")
+    if np.any(w[held] != np.round(w[held])):
+        raise StataExprError("may not use noninteger frequency weights")
+    held &= w > 0
+    rows = data.loc[held]
+    counts = w[held].astype(np.int64)
+    return rows.loc[rows.index.repeat(counts)], rows
 
 
 def _row_end(how: str) -> Any:
@@ -356,6 +399,9 @@ class DataSteps:
         if cmd.command == "ipolate":
             self._ipolate(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
             return True
+        if cmd.command == "gsort":
+            self._gsort(cmd.varlist, cmd.if_cond or cmd.in_range, dict(cmd.options))
+            return True
         if cmd.options:
             raise StataExprError(
                 f"options {sorted(cmd.options)} of `{cmd.command}` are not "
@@ -370,8 +416,6 @@ class DataSteps:
             )
         elif cmd.command == "sort":
             self._sort(cmd.varlist, cmd.if_cond or cmd.in_range)
-        elif cmd.command == "gsort":
-            self._gsort(cmd.varlist, cmd.if_cond or cmd.in_range)
         elif cmd.command.startswith("ren"):
             self._rename(cmd.varlist, cmd.if_cond or cmd.in_range)
         elif cmd.command == "preserve":
@@ -422,6 +466,8 @@ class DataSteps:
             return
         value, mask = self._evaluate_assignment(expr, if_cond, in_range, groups)
         if groups is None and (value.dtype == object or is_str_type):
+            if is_str_type and is_str_type.group(1) != "L" and value.dtype == object:
+                value = _str_width(value, int(is_str_type.group(1)))
             self._assign_text(replace, name, value, mask, bool(is_str_type))
             return
 
@@ -429,12 +475,13 @@ class DataSteps:
         if replace and exists and self.data[name].dtype == np.float32:
             single = True
         if vtype in _INT_TYPES:
-            held = value[mask & ~np.isnan(value)]
-            if not np.all(held == np.round(held)):
-                raise StataExprError(
-                    f"`generate {vtype}` of non-integer values truncates in "
-                    "Stata; that is not implemented"
-                )
+            # Stata 18 truncates toward zero (`gen byte b = -1.7` is -1) and
+            # stores a value outside the type's range as missing (`gen byte
+            # b = 300` is .); `replace` later promotes the type instead
+            lo, hi = _INT_RANGE[vtype]
+            with np.errstate(invalid="ignore"):
+                value = np.trunc(value)
+                value = np.where((value >= lo) & (value <= hi), value, np.nan)
         if single:
             with np.errstate(over="ignore"):
                 value = value.astype(np.float32).astype(np.float64)
@@ -565,7 +612,7 @@ class DataSteps:
             from ._stata_tsops import _Clock
 
             unit, time = self.ts_panel
-            clock = _Clock(self.data, unit, time)
+            clock = _Clock(self.data, unit, time, self.stored.get("ts_delta", 1.0))
             for col in lagged:
                 ops = self.ts_derived[col][1]
                 if any(kind == "D" for kind, _ in ops):
@@ -1451,14 +1498,27 @@ class DataSteps:
             varlist, kind="stable", na_position="last"
         ).reset_index(drop=True)
 
-    def _gsort(self, varlist: List[str], qualifier: Optional[str]) -> None:
-        """``gsort [+|-]var ...``: descending on the variables marked ``-``.
+    def _gsort(
+        self, varlist: List[str], qualifier: Optional[str], options: dict
+    ) -> None:
+        """``gsort [+|-]var ... [, mfirst]``: descending on the variables
+        marked ``-``.
 
-        A missing value is the largest number, so it comes first in a
-        descending key and last in an ascending one.
+        Missing numbers come last in either direction (Stata 18: ``gsort
+        -a`` lists 6 4 3 1 . ); ``mfirst`` puts them first in a descending
+        key. The empty string is the smallest string, first ascending and
+        last descending, with or without ``mfirst``.
         """
         if qualifier:
             raise StataExprError("`gsort` with if / in is not implemented")
+        mfirst = False
+        for name in options:
+            if name and "mfirst".startswith(name) and len(name) >= 2:
+                mfirst = True
+            else:
+                raise StataExprError(
+                    f"option {name}() of `gsort` is not implemented (mfirst is)"
+                )
         keys: List[str] = []
         ascending: List[bool] = []
         for tok in varlist:
@@ -1469,15 +1529,28 @@ class DataSteps:
         unknown = [k for k in keys if k not in self.data.columns]
         if unknown:
             raise StataExprError(f"variable(s) {unknown} are not in the data")
+        for key, asc in zip(keys, ascending):
+            if not asc and key in self.coded and self.data[key].isna().any():
+                raise StataExprError(
+                    f"gsort -{key}: the variable may hold extended missing "
+                    "values (.a-.z), which a descending sort orders among "
+                    "themselves and the data keep as one"
+                )
         self._own()
         frame = self.data
         # sort by the last key first; a stable sort keeps the earlier keys' order
         for key, asc in reversed(list(zip(keys, ascending))):
+            col = frame[key]
+            text = col.dtype == object or pd.api.types.is_string_dtype(col)
+            if text:
+                last = not asc  # a missing string is "", the smallest
+            else:
+                last = asc or not mfirst
             frame = frame.sort_values(
                 key,
                 ascending=asc,
                 kind="stable",
-                na_position="last" if asc else "first",
+                na_position="last" if last else "first",
             )
         self.data = frame.reset_index(drop=True)
 
@@ -1599,7 +1672,7 @@ class DataSteps:
             new = new or source
             if not _NAME.match(new) or source not in self.data.columns:
                 raise StataExprError(f"collapse: cannot read {tok!r}")
-            if weight is not None and stat == "rawsum":
+            if weight is not None and weight[0] != "fw" and stat == "rawsum":
                 raise StataExprError(
                     "collapse: (rawsum) with weights is not implemented"
                 )
@@ -1615,20 +1688,33 @@ class DataSteps:
         if len(set(names)) != len(names) or set(names) & set(by):
             raise StataExprError("collapse: a result name is used twice")
         keep = row_mask(self.data, if_cond, in_range, self.stored)
-        if weight is not None:
+        raw = None
+        if weight is not None and weight[0] == "fw":
+            # a frequency weight stands for that many identical rows
+            # (Stata 18: rows with a zero or missing weight drop out, and
+            # (rawsum) sums the rows themselves)
+            frame, raw = _frequency_rows(self.data, keep, weight[1])
+        elif weight is not None:
             out = self._collapse_weighted(targets, by, keep, weight)
             self._own()
             self.data = out
             self._float = set()
             return
-        frame = self.data.loc[keep]
+        else:
+            frame = self.data.loc[keep]
+        if raw is None:
+            raw = frame
         if by:
             # the rows with a missing by-value are a group too, listed last
             self._missing_by_groups(by, frame)
             grouped = frame.groupby(by, sort=True, dropna=False)
             cols = {}
             for new, source, how in targets:
-                if how == "sum":
+                if how == "rawsum":
+                    cols[new] = raw.groupby(by, sort=True, dropna=False)[source].sum(
+                        min_count=0
+                    )
+                elif how == "sum":
                     cols[new] = grouped[source].sum(min_count=0)
                 elif how.startswith("_row_"):
                     cols[new] = grouped[source].agg(_row_end(how))
@@ -1643,14 +1729,20 @@ class DataSteps:
                             frame[source].sum()
                             if how == "sum"
                             else (
-                                _row_end(how)(frame[source])
-                                if how.startswith("_row_")
+                                raw[source].sum()
+                                if how == "rawsum"
                                 else (
-                                    _row_end(
-                                        "_row_first" if how == "first" else "_row_last"
-                                    )(frame[source].dropna())
-                                    if how in ("first", "last")
-                                    else getattr(frame[source], how)()
+                                    _row_end(how)(frame[source])
+                                    if how.startswith("_row_")
+                                    else (
+                                        _row_end(
+                                            "_row_first"
+                                            if how == "first"
+                                            else "_row_last"
+                                        )(frame[source].dropna())
+                                        if how in ("first", "last")
+                                        else getattr(frame[source], how)()
+                                    )
                                 )
                             )
                         )

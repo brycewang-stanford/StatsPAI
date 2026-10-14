@@ -229,6 +229,10 @@ def synth_ttest(
         "weights": dict(zip(donors, w_all)),
         "treatment_time": treatment_time,
         "treated_unit": treated_unit,
+        # for .plot(): the treated path and the full-sample synthetic control
+        "times": times,
+        "Y_treated": y1,
+        "Y_synth": Y0 @ w_all,
     }
     return CausalResult(
         method="Debiased Synthetic Control t-test (Chernozhukov et al. 2026)",

@@ -157,8 +157,41 @@ def _append(session: "StataSession", rest: str) -> bool:
             frame = frame[DataSteps(frame).expand_varlist(str(kept).split())]
         if marker is not None:
             frame[marker] = float(source)
+        frame = _matched_types(steps.data, frame, "force" in options)
         session.append(frame)
     return False
+
+
+def _is_text(col: pd.Series) -> bool:
+    return bool(col.dtype == object or pd.api.types.is_string_dtype(col))
+
+
+def _matched_types(
+    master: pd.DataFrame, using: pd.DataFrame, force: bool
+) -> pd.DataFrame:
+    """The using rows with each shared variable of the master's kind.
+
+    Stata 18 refuses a string variable appended onto a numeric one, and the
+    reverse (r(106), "variable v is float in master but str1 in using
+    data"); with ``force`` the using values become missing (``.`` or "")."""
+    out = using
+    for name in using.columns:
+        if name not in master.columns:
+            continue
+        text = _is_text(master[name])
+        if text == _is_text(using[name]):
+            continue
+        if not force:
+            kinds = ("string", "numeric") if text else ("numeric", "string")
+            raise StataExprError(
+                f"append: variable {name} is {kinds[0]} in master but "
+                f"{kinds[1]} in using data (Stata r(106)); add the force "
+                "option to read the using values as missing"
+            )
+        if out is using:
+            out = using.copy()
+        out[name] = "" if text else np.nan
+    return out
 
 
 # ------------------------------------------------------------------ merge
@@ -285,6 +318,7 @@ def _switch(session: "StataSession", name: str) -> None:
     session._steps = session.frames[name]
     session._steps.stored = session.stored
     session.panel = (None, None)
+    session.stored.pop("ts_delta", None)
 
 
 def _new_steps(session: "StataSession", data: pd.DataFrame) -> DataSteps:

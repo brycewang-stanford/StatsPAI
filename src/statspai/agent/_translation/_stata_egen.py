@@ -218,6 +218,15 @@ def _statistic(fcn: str, x: np.ndarray, options: Dict[str, Any]) -> float:
 def _combination_codes(frame: pd.DataFrame, keep_missing: bool) -> np.ndarray:
     """0, 1, ... for the distinct rows of ``frame`` in sorted order; -1 where
     a value is missing and missing values do not form groups."""
+    frame = frame.copy()
+    for name in frame.columns:
+        col = frame[name]
+        if col.dtype == object or pd.api.types.is_string_dtype(col):
+            # "" is the missing string: without `missing` it forms no group
+            # (Stata 18: group(s) is missing and tag(s) 0 where s is ""),
+            # with it "" is one group, sorted before the other strings
+            text = col.astype(object).where(col.notna(), "")
+            frame[name] = text if keep_missing else text.replace("", np.nan)
     if keep_missing:
         # a missing value sorts after every number, as in Stata
         return np.asarray(

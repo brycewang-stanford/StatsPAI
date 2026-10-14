@@ -5,6 +5,32 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.5 → next release: ⚠️ `sp.stata` results that now match Stata
+
+**What changed.** A snippet-by-snippet comparison with Stata 18 found
+places where `sp.stata` ran and printed a different number. They now
+print Stata's.
+
+| In a do-file run through `sp.stata` | Before | Now |
+| --- | --- | --- |
+| `collapse ... [fw=w]` | unweighted | frequency-weighted |
+| `logit`, `probit`, `poisson`, `nbreg`, `cloglog`, `ologit`, `oprobit` with `[pw=]` | robust SE with N/(N−k) | N/(N−1), as Stata |
+| `margins ..., post`, then `_b[]` / `test` / `lincom` | read the model | read the margins |
+| `margins, predict(xb)` | mean probability | linear index |
+| `round(x)` for negative halves, `round(x, 0)` | away from zero; missing | Stata's `y*floor(x/y + .5)`; x |
+| `string()`, `display %fmt`, numbers stored in macros | Python formatting | Stata's `%g` / `%f` / `%e` |
+| `e(df_r)` after `vce(cluster)` | N − k | G − 1 (unset after z-inference fits, as in Stata) |
+| `gsort -x` | missing first | missing last (`mfirst` for first) |
+| `gen byte` / `int` / `long` out of range, `gen strN` | value kept | missing; truncated to N bytes |
+| `egen group()` / `tag()` with empty strings | "" a group | "" missing unless `missing` |
+| `xtile, cutpoints()` with repeated cutpoints | merged | kept, as Stata |
+| `tsset t, delta(k)` | delta ignored | lags step by k |
+
+**What to do.** Re-run do-files that use these commands. Code that
+calls StatsPAI functions directly is not affected.
+
+---
+
 ## 1.39.5 → next release: ⚠️ numbers that change after the October review
 
 **What changed.** A review of the month's work fixed defects on inputs

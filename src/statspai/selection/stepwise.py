@@ -135,6 +135,36 @@ class SelectionResult(ResultProtocolMixin):
             return self._plot_lasso_path(figsize)
         return self._plot_stepwise_history(figsize)
 
+    def _plot_subset_sizes(
+        self,
+        figsize: Tuple[float, float],
+    ) -> Tuple[Any, Any]:
+        """Best-subset search: the criterion of the best model of each size."""
+        import matplotlib.pyplot as plt
+
+        hist = self.history
+        crit = str(self.method).rsplit("_", 1)[-1]
+        if crit not in hist.columns:
+            crit = next(c for c in ("bic", "aic", "cp") if c in hist.columns)
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.plot(hist["size"].values, hist[crit].values, marker="o", linewidth=2)
+        chosen = hist["size"] == len(self.selected)
+        ax.plot(
+            hist.loc[chosen, "size"].values,
+            hist.loc[chosen, crit].values,
+            marker="o",
+            markersize=12,
+            fillstyle="none",
+            linestyle="none",
+            label="selected",
+        )
+        ax.set_xlabel("Number of regressors")
+        ax.set_ylabel(crit.upper() if crit != "cp" else "Mallows Cp")
+        ax.set_title("Best subset of each size")
+        ax.legend()
+        fig.tight_layout()
+        return fig, ax
+
     def _plot_stepwise_history(
         self,
         figsize: Tuple[float, float],
@@ -145,6 +175,9 @@ class SelectionResult(ResultProtocolMixin):
         if hist.empty:
             warnings.warn("No history to plot.")
             return None, None
+
+        if "step" not in hist.columns and "size" in hist.columns:
+            return self._plot_subset_sizes(figsize)
 
         fig, ax = plt.subplots(figsize=figsize)
         steps = hist["step"].values

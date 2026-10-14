@@ -30,6 +30,79 @@ All notable changes to StatsPAI will be documented in this file.
   verdict now says the test did not reject, flags p below 0.10, and
   points to `sp.honest_did` and `sp.pretrends_power`. The same applies
   to the per-coefficient check. Pass / fail flags are unchanged.
+### `sp.stata` checked against Stata 18, snippet by snippet
+
+273 short do-file snippets were run in Stata 18 and in `sp.stata`, and
+every number compared. The textbook log replays had covered the common
+paths; these are the places they did not reach. Each fix below was
+checked in Stata before the code changed, and the tests quote Stata's
+output next to each assertion.
+
+#### ⚠️ Correctness
+
+- **`collapse ... [fw=]` ignored the frequency weights.** Means, sums,
+  standard deviations, counts and percentiles were unweighted. The
+  weight clause was stripped before `collapse` saw it.
+- **`logit`, `probit`, `poisson`, `nbreg`, `cloglog`, `ologit` and
+  `oprobit` with `[pw=]`** used the small-sample factor N/(N−k) where
+  Stata uses N/(N−1) (`logit yb x1 [pw=w]`: .0988873 against Stata's
+  .0980456). Only the translation was wrong; `sp.logit(weights=,
+  robust='robust')` called directly already matched Stata.
+- **`margins ..., post` ignored `post`**, so `_b[]`, `_se[]`, `test` and
+  `lincom` afterwards still read the model. It now posts the margins
+  under Stata's names. **`margins, predict(xb)`** after logit returned
+  the mean probability instead of the linear index. `margins` after a
+  weighted logit or probit, which was refused, now works.
+- **`round()`** rounded negative halves away from zero and returned
+  missing for `round(x, 0)`; it is Stata's `y*floor(x/y + .5)`.
+- **`string()`, `display` formats and numbers written into macros**
+  follow Stata's `%g`, `%f`, `%e`, `%0N` and comma rules, checked on a
+  grid of 2,340 values and formats. `string(1/3)` was `.333333333`
+  where Stata gives `.3333333`, and `%9.3f` dropped the leading zero.
+- **Text inside quotes is kept as written.** Double spaces collapsed to
+  one, and a comma, `//` or `;` inside a string literal was read as an
+  option separator, a comment or a command separator.
+- **`local m`v' = 5`** defined the wrong macro; macro names built from
+  macros are expanded first.
+- **`gen lx = L.x` left a helper column `x_L1`** in the data, which
+  wildcards such as `x*` then matched. **`tsset t, delta(5)`** ignored
+  `delta`, so every lag was missing. **`F.D.x` and `L.D.x`** were refused.
+- **`egen group()` and `egen tag()`** treated an empty string as a group.
+- **`e(df_r)` after a clustered regression** was N − k; it is G − 1, and
+  `e(N_clust)` is set.
+- **`gsort -x`** put missing values first. **`gen byte`, `int`, `long`**
+  stored values out of range, and **`gen strN`** did not truncate.
+- **`xtile, cutpoints()`** with repeated cutpoints gave other groups.
+- A scalar no longer shadows an unambiguous abbreviation of a variable.
+
+#### Fixed
+
+- Concatenating two string literals crashed; `capture { ... }` blocks
+  now set `_rc` and continue; `date(s, mask, topyear)` is supported;
+  `tempvar` columns are dropped when the program ends; `levelsof` of a
+  string variable feeds `foreach` with values that contain spaces.
+- `ib(last)`, `ib(first)` and `ib(freq)` are supported; `i(numlist)` and
+  `o.` are refused with a message instead of a patsy error.
+  `_b[1.g#c.x1]` and `_b[1.g]` after `ibn.` resolve.
+- Input Stata rejects is rejected: `append` of a string onto a numeric
+  variable without `force`, factor variables with negative or
+  non-integer levels, `recode` combining `else` with `missing`.
+- `regexs()` reading a match made by an earlier command is refused:
+  Stata keeps the state of the last observation that command evaluated,
+  which depends on its `if` and `in`.
+
+### Two plots and one note
+
+- `sp.best_subset(...).plot()` raised `KeyError: 'step'`; it draws the
+  criterion of the best model of each size. `sp.synth_ttest(...).plot()`
+  raised "Cannot extract trajectory data"; the result now carries the
+  treated and synthetic paths.
+- `sp.match`: the docstring says that the default standard error, which
+  reproduces `psmatch2`'s `ai(J)`, breaks ties among same-arm neighbours
+  by row order and so depends on it when the matching variable has ties
+  (1174 to 1182 over four orderings of the Lalonde data), and that
+  `se_method='abadie_imbens_2016'` does not (1126.26 on all four). The
+  default is unchanged: it is a parity row against Stata `psmatch2`.
 
 ### What an agent sees before and after a call
 
@@ -445,12 +518,7 @@ that now raise.
 #### Known and not changed
 
 - The standard error of `sp.match(ties='all')` depends on row order when
-  the matching variable has ties (1174 to 1182 over four orderings of
-  the Lalonde data; the estimate does not move). The conditional
-  variance takes exactly J same-arm neighbours and breaks ties by row,
-  which is `psmatch2`'s rule. Taking every tied neighbour removes the
-  dependence and moves the default Lalonde standard error from 1181.665
-  to 1186.871. Left for a decision.
+  the matching variable has ties; see the note on `sp.match` above.
 - The p-value of `sp.weighted_rank` with `phi='quade'` or `'u868'` moves
   in the third digit with the unit of measurement on rounded data,
   because block ranges that are equal in exact arithmetic are ranked

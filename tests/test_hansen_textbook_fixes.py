@@ -176,8 +176,10 @@ def test_lag_list_of_a_difference(df):
     session.run("reg y L(1/2).D.x1")
     assert list(session.last.params.index)[1:] == ["x1_L1D1", "x1_L2D1"]
     expected = frame["x1"].diff().shift(2)
+    # the lag columns are helpers of the fit, not variables of the data
+    assert "x1_L2D1" not in session.data.columns
     np.testing.assert_allclose(
-        session.data["x1_L2D1"].to_numpy()[3:], expected.to_numpy()[3:]
+        session.last_data["x1_L2D1"].to_numpy()[3:], expected.to_numpy()[3:]
     )
 
 

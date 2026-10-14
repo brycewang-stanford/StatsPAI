@@ -41,12 +41,21 @@ import pandas as pd
 
 from ...exceptions import MethodIncompatibility
 from ._stata_expr import StataExprError
+from ._stata_lexer import quote_end, split_words
 from ._stata_script import ScriptError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ._stata_run import StataSession
 
-__all__ = ["flow_line", "macro_line", "format_number", "call_program"]
+__all__ = [
+    "flow_line",
+    "macro_line",
+    "macro_name_expanded",
+    "format_number",
+    "call_program",
+    "captured_code",
+    "drop_temporaries",
+]
 
 _PREFIX = (
     r"(?:(?:qui(?:e(?:t(?:ly?)?)?)?|noi(?:s(?:i(?:ly?)?)?)?|"
@@ -56,6 +65,19 @@ _OPENER = re.compile(
     r"\s*" + _PREFIX + r"(forv(?:a(?:l(?:u(?:es?)?)?)?)?|foreach|while|if|else)\b"
     r"(.*)\{\s*$",
     re.I | re.S,
+)
+_QUIET_WORD = r"(?:qui(?:e(?:t(?:ly?)?)?)?|noi(?:s(?:i(?:ly?)?)?)?)"
+#: ``capture {`` (with ``quietly`` / ``noisily`` on either side)
+_CAPTURE_OPENER = re.compile(
+    rf"\s*(?:{_QUIET_WORD}\s+)*cap(?:t(?:u(?:re?)?)?)?(?:\s+{_QUIET_WORD})*\s*\{{\s*$",
+    re.I,
+)
+#: the name of ``local`` / ``global`` / ``scalar`` when a macro builds it
+_MACRO_NAME = re.compile(
+    r"(\s*(?:gl(?:o(?:b(?:al?)?)?)?|loc(?:al?)?"
+    r"|sca(?:l(?:ar?)?)?(?:\s+def(?:i(?:ne?)?)?)?)\s+)"
+    r"((?:[A-Za-z0-9_]|`[^`'\"]*'|\$\{?[A-Za-z_]\w*\}?)+)",
+    re.I,
 )
 _CONTINUE = re.compile(r"\s*continue\s*(,\s*break)?\s*$", re.I)
 _FORVALUES = re.compile(r"\s*([A-Za-z_]\w*)\s*=\s*(.+?)\s*$", re.S)
@@ -92,12 +114,14 @@ def _refuse(message: str, line: str) -> MethodIncompatibility:
 
 
 def format_number(value: float) -> str:
-    """A number as Stata writes it into a macro."""
-    if value != value:
+    """A number as Stata writes it into a macro: format ``%18.0g``. Stata
+    18: ``local a = 1/3`` is .3333333333333333, ``local b = 1e20`` is
+    1.00000000000e+20, and ``forvalues v = 0(0.1)0.35`` gives 0 .1 .2 .3."""
+    if not np.isfinite(value):
         return "."
-    if value == int(value) and abs(value) < 1e15:
-        return str(int(value))
-    return format(value, ".16g")
+    from ._stata_functions import _general
+
+    return _general(float(value), 18, 0)
 
 
 def macro_value(session: "StataSession", name: str) -> Optional[str]:
@@ -145,6 +169,53 @@ def _expand(session: "StataSession", text: str, line: str) -> str:
 
 
 # ------------------------------------------------------------------ macros
+def macro_name_expanded(session: "StataSession", line: str) -> str:
+    """``line`` with the macros in the *name* of a ``local`` / ``global`` /
+    ``scalar`` definition written out: after ``local v x``, ``local m`v' =
+    5`` defines ``mx`` (Stata 18 then shows mx=5 and leaves ``m`` alone).
+    The rest of the line is left for the definition to read."""
+    m = _MACRO_NAME.match(line)
+    if m is None or not re.search(r"[`$]", m.group(2)):
+        return line
+    name = _expand(session, m.group(2), line)
+    if not re.fullmatch(r"[A-Za-z_]\w*", name):
+        raise _refuse(f"the macro name {m.group(2)!r} expands to {name!r}", line)
+    return m.group(1) + name + line[m.end() :]
+
+
+def _new_temporary(session: "StataSession", kind: str) -> str:
+    """A name for ``tempvar`` / ``tempname`` (Stata's ``__000000``,
+    ``__000001`` ... from one counter) or ``tempfile``."""
+    count = session._temp_count
+    session._temp_count += 1
+    if kind == "file":
+        return f"__file{count:06d}"
+    name = f"__{count:06d}"
+    if kind == "var":
+        temporaries(session).append(name)
+    return name
+
+
+def temporaries(session: "StataSession") -> List[str]:
+    """The ``tempvar`` names handed out so far, oldest first."""
+    held: List[str] = session.__dict__.setdefault("_tempvars", [])
+    return held
+
+
+def drop_temporaries(session: "StataSession", since: int = 0) -> None:
+    """Drop the variables named by ``tempvar`` after the first ``since``
+    names: Stata drops them when the program or do-file that made them
+    ends."""
+    names = temporaries(session)
+    doomed, names[since:] = names[since:], []
+    steps = session._steps
+    if steps is None or not doomed:
+        return
+    held = [c for c in doomed if c in steps.data.columns]
+    if held:
+        steps.data = steps.data.drop(columns=held)
+
+
 def macro_line(session: "StataSession", line: str) -> bool:
     """Run ``line`` if it sets a macro from a value this session knows."""
     m = _STEP.match(line)
@@ -161,9 +232,8 @@ def macro_line(session: "StataSession", line: str) -> bool:
     m = _TEMP.match(line)
     if m:
         for name in m.group(2).split():
-            session._temp_count += 1
             kind = m.group(1).lower()[4:]
-            session._macros.locals[name] = f"__{kind}{session._temp_count:06d}"
+            session._macros.locals[name] = _new_temporary(session, kind)
         return True
     m = _ARGS.match(line)
     if m and session._program_depth:
@@ -259,11 +329,18 @@ def _varlist(session: "StataSession", spec: str, line: str) -> List[str]:
 
 
 def _words(text: str) -> List[str]:
-    """A macro list split as Stata splits it: blanks, with "quoted items"."""
-    return [
-        m.group(1) if m.group(1) is not None else m.group(0)
-        for m in re.finditer(r'"([^"]*)"|\S+', text)
-    ]
+    """A macro list split as Stata splits it: blanks, with "quoted items"
+    and compound-quoted items (what ``levelsof`` writes for a string
+    variable, `` `"x y"' `"z"' ``) as one word each, without the quotes."""
+    out: List[str] = []
+    for word in split_words(text):
+        end = quote_end(word, 0)
+        if end == len(word) and word.startswith('`"') and word.endswith("\"'"):
+            word = word[2:-2]
+        elif end == len(word) and len(word) >= 2 and word.endswith('"'):
+            word = word[1:-1]
+        out.append(word)
+    return out
 
 
 # ------------------------------------------------------------------ blocks
@@ -300,7 +377,42 @@ def _truth(session: "StataSession", expr: str, line: str) -> bool:
     return bool(value != 0)  # missing is not zero, so it is true
 
 
+def captured_code(exc: BaseException) -> Optional[float]:
+    """The ``_rc`` a ``capture`` sets for ``exc``, or ``None`` when ``exc``
+    is not an error Stata would have raised (a command this runner cannot
+    translate still stops the run)."""
+    if isinstance(exc, MethodIncompatibility) and isinstance(
+        exc.__cause__, StataExprError
+    ):
+        from ._stata_run import _return_code
+
+        return _return_code(str(exc))
+    if isinstance(exc, KeyError):
+        return 111.0  # a variable that is not there
+    return None
+
+
+def _run_captured(session: "StataSession", body: List[str]) -> None:
+    """``capture { ... }``: the lines run until one fails; what ran before
+    stays done, the rest is skipped and ``_rc`` holds the failure's code
+    (Stata 18: 110 for a variable that already exists, 111 for one that is
+    not there, 0 when nothing failed). The code is the one the error names
+    or, failing that, 111 / 110 / 198 as for a one-line ``capture``."""
+    try:
+        _run_body(session, body)
+    except Exception as exc:
+        code = captured_code(exc)
+        if code is None:
+            raise
+        session.stored["_rc"] = code
+        return
+    session.stored["_rc"] = 0.0
+
+
 def _run_block(session: "StataSession", head: str, body: List[str]) -> None:
+    if _CAPTURE_OPENER.match(head):
+        _run_captured(session, body)
+        return
     m = _OPENER.match(head)
     assert m is not None
     word = m.group(1).lower()
@@ -391,7 +503,7 @@ def flow_line(session: "StataSession", line: str) -> Optional[bool]:
             block["depth"] += 1
         block["body"].append(line)
         return False
-    if _OPENER.match(line):
+    if _OPENER.match(line) or _CAPTURE_OPENER.match(line):
         session._flow = {"head": line, "body": [], "depth": 1}
         return False
     m = _CONTINUE.match(line)
@@ -409,6 +521,7 @@ def call_program(
     in the local macros `` `1' ``, `` `2' `` ... (``args`` names them).
     Local macros set inside do not outlive the call."""
     outer = dict(session._macros.locals)
+    first_temporary = len(temporaries(session))
     session._macros.locals = {str(i): a for i, a in enumerate(arguments, 1)}
     session._macros.locals["0"] = " ".join(arguments)
     session._program_depth += 1
@@ -429,12 +542,7 @@ def call_program(
         session._returned = outer_returned
         session._program_depth -= 1
         # the temporary variables of the program go with it
-        temporary = [v for k, v in session._macros.locals.items()
-                     if isinstance(v, str) and v.startswith("__tempvar")]  # fmt: skip
-        if temporary and session._steps is not None:
-            held = [c for c in temporary if c in session._steps.data.columns]
-            if held:
-                session._steps.data = session._steps.data.drop(columns=held)
+        drop_temporaries(session, first_temporary)
         session._macros.locals = outer
         session._flow = None
     texts = session.stored.pop("returned_macros", None)

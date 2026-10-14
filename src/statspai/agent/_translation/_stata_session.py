@@ -90,6 +90,10 @@ def prepare_weights(session: "StataSession", line: str) -> Tuple[str, Optional[s
     m = _WEIGHT.search(line)
     if m is None or session._steps is None:
         return line, None
+    if re.match(r"\s*collapse\b", line):
+        # `collapse` reads its own weight clause; expanding the rows here
+        # would leave the command unweighted
+        return line, None
     kind = m.group("kind").lower()[:2]
     exp = m.group("exp").strip()
     data = session._steps.data
@@ -168,6 +172,7 @@ def run_session_command(session: "StataSession", line: str) -> Optional[bool]:
         session.panel = (None, None)
         session.stored.pop("time_var", None)
         session.stored.pop("panel_var", None)
+        session.stored.pop("ts_delta", None)
         return False
     if _PSTEST.match(line):
         return _pstest(session, line)

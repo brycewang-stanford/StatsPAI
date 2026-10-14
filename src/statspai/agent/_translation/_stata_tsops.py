@@ -24,12 +24,20 @@ import pandas as pd
 
 from ._stata_expr import StataExprError
 
-__all__ = ["has_ts_operator", "rewrite_ts_operators"]
+__all__ = [
+    "check_delta",
+    "derived_column",
+    "has_ts_operator",
+    "rewrite_ts_operators",
+]
 
 _OPS = r"(?:[LlFfDd]\d*)+"
+# stacked operators may be written together or each with its dot:
+# LD.x, L.D.x and F.D.x (Stata 18 reads them all)
+_CHAIN = rf"{_OPS}(?:\.{_OPS})*"
 _TERM = re.compile(
-    rf"(?<![\w.])(?:(?P<ops>{_OPS})|(?P<kind>[LlFf])\((?P<lo>\d+)/(?P<hi>\d+)\)"
-    rf"(?:\.?(?P<tail>{_OPS}))?)"
+    rf"(?<![\w.])(?:(?P<ops>{_CHAIN})|(?P<kind>[LlFf])\((?P<lo>\d+)/(?P<hi>\d+)\)"
+    rf"(?:\.?(?P<tail>{_CHAIN}))?)"
     r"\.(?P<var>[A-Za-z_]\w*)"
 )
 _ONE = re.compile(r"([LlFfDd])(\d*)")
@@ -51,7 +59,16 @@ def _name(var: str, ops: List[Tuple[str, int]]) -> str:
 class _Clock:
     """Looks a series up at another period of the same panel."""
 
-    def __init__(self, data: pd.DataFrame, unit: Optional[str], time: str) -> None:
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        unit: Optional[str],
+        time: str,
+        delta: float = 1.0,
+    ) -> None:
+        #: the period of one step, ``tsset t, delta(5)``: L.x at t is x at
+        #: t - 5 (Stata 18)
+        self.delta = float(delta)
         if time not in data.columns:
             raise StataExprError(f"the time variable {time!r} is not in the data")
         if unit is not None and unit not in data.columns:
@@ -81,7 +98,7 @@ class _Clock:
 
     def at(self, values: np.ndarray, offset: int) -> np.ndarray:
         """``values`` as observed ``offset`` periods later (negative: earlier)."""
-        source = self._keys.assign(t=self._keys["t"] - offset, v=values)
+        source = self._keys.assign(t=self._keys["t"] - offset * self.delta, v=values)
         merged = self._keys.merge(source, how="left", on=["u", "t"])
         return np.asarray(merged["v"], dtype=float)
 
@@ -99,11 +116,47 @@ def _apply(clock: _Clock, values: np.ndarray, ops: List[Tuple[str, int]]) -> np.
     return out
 
 
+def derived_column(
+    data: pd.DataFrame,
+    panel: Tuple[Optional[str], Optional[str]],
+    var: str,
+    ops: List[Tuple[str, int]],
+    delta: float = 1.0,
+) -> Optional[np.ndarray]:
+    """``var`` under the operators ``ops`` (``L.x``), from ``data`` as it is
+    now; ``None`` when ``var`` or the time declaration is gone."""
+    unit, time = panel
+    if time is None or var not in data.columns:
+        return None
+    values = data[var].to_numpy(dtype=float, na_value=np.nan)
+    return _apply(_Clock(data, unit, time, delta), values, ops)
+
+
+def check_delta(
+    data: pd.DataFrame, unit: Optional[str], time: str, delta: float
+) -> None:
+    """``tsset t, delta(#)``: Stata refuses data with two periods closer
+    than one step (r(451))."""
+    if not delta > 0:
+        raise StataExprError("delta() must be a positive number")
+    if time not in data.columns:
+        return
+    t = pd.to_numeric(data[time], errors="coerce")
+    keys = data[unit] if unit is not None and unit in data.columns else 0
+    frame = pd.DataFrame({"u": keys, "t": t}).dropna().sort_values(["u", "t"])
+    gaps = frame.groupby("u")["t"].diff().to_numpy(dtype=float)
+    if np.any((gaps > 0) & (gaps < delta)):
+        raise StataExprError(
+            "time values with period less than delta() found (Stata r(451))"
+        )
+
+
 def rewrite_ts_operators(
     line: str,
     data: Optional[pd.DataFrame],
     panel: Tuple[Optional[str], Optional[str]],
     made: Optional[Dict[str, tuple]] = None,
+    delta: float = 1.0,
 ) -> Tuple[str, Dict[str, np.ndarray]]:
     """Replace operator terms by column names.
 
@@ -122,7 +175,7 @@ def rewrite_ts_operators(
             "a time-series operator needs the time variable: put `tsset "
             "time` or `xtset id time` before it"
         )
-    clock = None if data is None else _Clock(data, unit, time)
+    clock = None if data is None else _Clock(data, unit, time, delta)
     new_columns: Dict[str, np.ndarray] = {}
 
     def column(var: str, ops: List[Tuple[str, int]]) -> Optional[str]:

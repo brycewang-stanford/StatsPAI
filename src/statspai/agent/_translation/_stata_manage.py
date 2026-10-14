@@ -216,6 +216,14 @@ def _recode(session: "StataSession", rest: str) -> bool:
     _flag(options, "test", 1)
     label_name = _valued(options, "label", 1)
     _leftover(options, "recode")
+    heads = [re.split(r"\s*=", r, maxsplit=1)[0].strip().lower() for r in rules]
+    if set(heads) & {"else", "*"} and set(heads) & {
+        "missing", "miss", "mis", "nonmissing", "nonmiss", "nonm"
+    }:  # fmt: skip
+        raise StataExprError(
+            "recode: keywords else/* and missing/nonmissing may not be "
+            "combined (Stata r(198))"
+        )
     varlist = steps.expand_varlist(varlist_text.split())
     data = steps.data
     mask = row_mask(data, cmd.if_cond, cmd.in_range, session.stored)
@@ -339,7 +347,10 @@ def _xtile(session: "StataSession", rest: str, *, pctile: bool) -> bool:
     if cutvar is not None:
         if pctile:
             raise StataExprError("pctile takes no cutpoints()")
-        cuts = sorted(set(_numeric(data, cutvar, what)[~np.isnan(data[cutvar])]))
+        # every non-missing value, repeats kept: Stata 18 numbers the
+        # categories by position in the sorted list (cutpoints 1 1 1 2 2 2
+        # give categories 1 and 4)
+        cuts = sorted(_numeric(data, cutvar, what)[~np.isnan(data[cutvar])])
     else:
         k = int(float(nq)) if nq is not None else 2
         if k < 2:

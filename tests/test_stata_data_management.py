@@ -111,7 +111,8 @@ def test_dates_clock_and_storage_helpers(df):
     s.run("display %tdCCYY-NN-DD 21989")
     assert s.output == "2020-03-15"
     s.run('display "mean " %5.2f 3.14159 " of " 2 + 2 " items"')
-    assert s.output == "mean 3.14 of 4 items"
+    # Stata 18 pads %5.2f to five columns: "mean  3.14 of 4 items"
+    assert s.output == "mean  3.14 of 4 items"
     s.run('display "the value is " 7')
     assert s.output == 7  # one number, with text around it
 
@@ -388,7 +389,9 @@ def test_extended_macro_functions(df):
     assert (got["n"], got["third"], got["lab"], got["vl"], got["one"]) == (
         "4", "c", "Outcome", "yn", "yes")  # fmt: skip
     assert (got["sub"], got["both"], got["size"]) == ("a B c d", "b c", "4")
-    assert got["kind"].startswith("str") and got["fmt"] == ".67"
+    # Stata 18: `local fmt : display %6.2f 2/3` then display "[`fmt']"
+    # prints [  0.67] (the leading zero and the padding are kept)
+    assert got["kind"].startswith("str") and got["fmt"] == "  0.67"
     assert (got["shown"], got["i"]) == ("5", "6")
     s.run("display \"`: word 2 of `list''\"")
     assert s.output == "b"
