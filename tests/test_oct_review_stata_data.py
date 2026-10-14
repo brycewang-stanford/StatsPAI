@@ -180,14 +180,16 @@ def test_margins_post_names_follow_stata():
     close(value(s, "_se[3.g]"), 0.144436, rtol=1e-5)
 
     s = run(D + "qui reg y x1 i.g\nqui margins g, post\nmatrix V = e(V)")
+    # V comes from a numerical Jacobian: Linux and macOS differ by ~6e-12,
+    # so covariance-derived checks use rtol 1e-7 (Stata prints 8 digits)
     # Stata 18: _b[1.g] 4.734945015626427889, _se[3.g] .297772665315268914,
     # V[2,1] 3.8948586420155e-06, V[3,1] -.000393380722842697
     close(value(s, "_b[1.g]"), 4.734945015626427889, rtol=1e-10)
-    close(value(s, "_se[3.g]"), 0.297772665315268914, rtol=1e-10)
+    close(value(s, "_se[3.g]"), 0.297772665315268914, rtol=1e-7)
     # a small off-diagonal term from a numerical Jacobian: Linux BLAS differs
     # from macOS by 1.7e-6 relative (6.7e-12 absolute)
     close(value(s, "el(V,2,1)"), 3.8948586420155e-06, rtol=1e-5)
-    close(value(s, "el(V,3,1)"), -0.000393380722842697, rtol=1e-8)
+    close(value(s, "el(V,3,1)"), -0.000393380722842697, rtol=1e-7)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         s.run("test 1.g = 2.g")
@@ -196,9 +198,9 @@ def test_margins_post_names_follow_stata():
         lin = s.output
     # Stata 18: F(1, 56) 5.879727562434210242; lincom 2.075730518590880536
     # se .4220379760136915293
-    close(f_stat, 5.879727562434210242, rtol=1e-8)
+    close(f_stat, 5.879727562434210242, rtol=1e-7)
     close(lin["estimate"], 2.075730518590880536, rtol=1e-10)
-    close(lin["se"], 0.4220379760136915293, rtol=1e-8)
+    close(lin["se"], 0.4220379760136915293, rtol=1e-7)
 
     s = run(D + "qui reg y c.x1##c.x1 x2\nqui margins, at(x1=(2 5)) post")
     # Stata 18: _b[1._at] 4.2473976, _b[2._at] 5.590850081505410962,
@@ -206,12 +208,12 @@ def test_margins_post_names_follow_stata():
     # 1.343452526015357584 se .2845914345900720233
     close(value(s, "_b[1._at]"), 4.2473976, rtol=1e-7)
     close(value(s, "_b[2._at]"), 5.590850081505410962, rtol=1e-10)
-    close(value(s, "_se[2._at]"), 0.255542548948249626, rtol=1e-10)
+    close(value(s, "_se[2._at]"), 0.255542548948249626, rtol=1e-7)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         s.run("lincom 2._at - 1._at")
     close(s.output["estimate"], 1.343452526015357584, rtol=1e-10)
-    close(s.output["se"], 0.2845914345900720233, rtol=1e-8)
+    close(s.output["se"], 0.2845914345900720233, rtol=1e-7)
 
     s = run(D + "qui reg y x1 x2\nqui margins, post")
     # Stata 18: _cons 5.7668333, se .1668971

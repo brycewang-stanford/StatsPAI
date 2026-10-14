@@ -339,7 +339,9 @@ class TestBoxCox:
         assert fit.boxcox == lam
         np.testing.assert_allclose(fit.params, inner.params, atol=1e-12)
         np.testing.assert_allclose(fit.fitted_values, back(inner.fitted_values))
-        np.testing.assert_allclose(fit.residuals, inner.residuals, atol=1e-12)
+        # two separate optimisations: equal to the optimiser tolerance only
+        # (Linux BLAS lands 2e-8 away on one residual)
+        np.testing.assert_allclose(fit.residuals, inner.residuals, atol=1e-6)
         np.testing.assert_allclose(fit.response_residuals, y - fit.fitted_values)
         # Quantiles commute with a monotone map: every column is the
         # back-transform of the forecast table of the transformed series.
@@ -363,7 +365,8 @@ class TestBoxCox:
         else:
             base = lam * mu + 1
             mean = base ** (1 / lam) * (1 + var * (1 - lam) / (2 * base**2))
-        np.testing.assert_allclose(fc["forecast"], mean, rtol=1e-12)
+        # the fit is an optimisation; Linux differs by 6e-9 relative
+        np.testing.assert_allclose(fc["forecast"], mean, rtol=1e-7)
         # The mean of a right-skewed forecast distribution is above its
         # median; the interval end points are not adjusted.
         assert (fc["forecast"] > median["forecast"]).all()
