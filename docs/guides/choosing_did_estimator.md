@@ -359,8 +359,11 @@ sp.robustness_report(r)
 ```
 
 Optional but highly recommended for DID papers:
-- `sp.bjs_pretrend_joint(r)`: Borusyak-Jaravel-Spiess joint pre-trend
-  test (addresses multiple-testing issue in per-lag tests).
+- `sp.bjs_pretrend_joint(imp, df, y=, group=<unit id>, time=, first_treat=)`:
+  Borusyak-Jaravel-Spiess joint pre-trend test (addresses the
+  multiple-testing issue in per-lag tests). `imp` must be a
+  `sp.did_imputation(..., horizon=[-3, ..., 3])` fit with the same
+  arguments; a Callaway-Sant'Anna result is refused.
 - `sp.bacon_decomposition`: shows *which* 2x2 comparisons drive your
   TWFE estimate.
 

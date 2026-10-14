@@ -39,6 +39,7 @@ The calls below return different numbers; recompute them.
 | `sp.bandit_allocate`, `sp.bandit_experiment` with `prob_floor > 0` | floor ignored while topping up | floor applied |
 | `sp.space_filling(qualitative=)` with a run count that is not a multiple of the level combinations | unbalanced levels | balanced to within one run |
 | `sp.gam` with `d` next to `s(x, by=d)`, or `x` next to `s(x)` | unidentified parametric term kept | omitted |
+| `sp.bjs_pretrend_joint` given a result that is not from `sp.did_imputation` (e.g. Callaway-Sant'Anna) | that estimator's leads tested against a covariance bootstrapped from `did_imputation` refits | refused (`MethodIncompatibility`); fit `sp.did_imputation` with the same arguments |
 
 **Calls that now raise.** Each of these returned a number that did not
 mean what it appeared to.

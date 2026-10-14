@@ -582,3 +582,41 @@ def test_paper_tables_renders_multiple_sprint_b_results():
     md = sp.paper_tables(main=[r_gc, r_fd]).to_markdown()
     # Two columns in the rendered main table
     assert "(1)" in md and "(2)" in md
+
+
+# ---------------------------------------------------------------- DID wording
+@pytest.mark.parametrize("p_val", [0.08, 0.60])
+def test_did_battery_never_calls_a_non_rejection_support(p_val):
+    """A pre-trend test that does not reject is not evidence of parallel trends.
+
+    Until 2026-10 the battery printed "Parallel trends supported" for any
+    p >= 0.05 while the agent summary of the same result warned below 0.10,
+    so a p of 0.098 came back both "supported" and "likely violated".
+    """
+    from types import SimpleNamespace
+
+    from statspai.diagnostics.battery import _battery_did
+
+    es = pd.DataFrame(
+        {
+            "relative_time": [-2, -1, 0, 1],
+            "estimate": [0.01, 0.0, 1.0, 1.1],
+            "se": [0.1, 0.1, 0.1, 0.1],
+        }
+    )
+    res = SimpleNamespace(
+        model_info={
+            "pretrend_test": {"statistic": 3.1, "pvalue": p_val},
+            "event_study": es,
+        },
+        estimate=1.0,
+        se=0.1,
+        pvalue=0.0,
+    )
+    checks = _battery_did(res)["checks"]
+    text = " ".join(str(c.get("interpretation", "")) for c in checks).lower()
+    assert "supported" not in text
+    assert "not evidence of parallel trends" in text
+    joint = checks[0]
+    assert joint["pass"] is True
+    assert ("p < 0.10" in joint["interpretation"]) is (p_val < 0.10)

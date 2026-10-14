@@ -4,6 +4,33 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Pre-trend messages that claimed more than the test shows
+
+#### ⚠️ Correctness
+
+- **`sp.bjs_pretrend_joint` accepted a result from any estimator.** It
+  reads the leads from the result's event-study table and tests them
+  against a covariance bootstrapped from `sp.did_imputation` refits. A
+  Callaway-Sant'Anna result has the same table, so the call returned a
+  statistic that pairs one estimator's leads with another's covariance.
+  It now requires a `sp.did_imputation` result. It also refuses a
+  `group=` that does not identify units (the cohort column, the time
+  column); that mistake used to surface only after every refit failed,
+  as "0 / 300 replications succeeded". When refits do fail, the message
+  now carries the reason. Both mistakes were in an example of the
+  packaged skill.
+
+#### Fixed
+
+- **The DID diagnostic battery called a non-rejection "Parallel trends
+  supported".** `sp.diagnose_result` printed that for any pre-trend
+  p-value above 0.05, while the agent summary of the same result warns
+  below 0.10, so a p of 0.098 came back both supported and likely
+  violated. Not rejecting is not evidence of parallel trends. The
+  verdict now says the test did not reject, flags p below 0.10, and
+  points to `sp.honest_did` and `sp.pretrends_power`. The same applies
+  to the per-coefficient check. Pass / fail flags are unchanged.
+
 ### What an agent sees before and after a call
 
 Five gaps found by using the registry and the tool layer the way an agent

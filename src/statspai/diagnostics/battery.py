@@ -398,6 +398,21 @@ def _battery_did(result: Any, alpha: float = 0.05) -> Dict[str, Any]:
 
     if pretrend is not None:
         p_val = pretrend.get("pvalue", pretrend.get("p_value"))
+        if p_val is None:
+            verdict = "No p-value recorded for the pre-trend test"
+        elif float(p_val) < alpha:
+            verdict = "Pre-trend detected — parallel trends assumption may be violated"
+        else:
+            # A test that does not reject is not evidence that trends are
+            # parallel: it may simply lack power. The agent summary warns
+            # below p = 0.10, so the wording must not call that "supported".
+            verdict = (
+                f"No pre-trend detected at the {alpha:g} level"
+                + (" (but p < 0.10)" if float(p_val) < 0.10 else "")
+                + "; not rejecting is not evidence of parallel trends. Bound the"
+                " violation with sp.honest_did and check power with"
+                " sp.pretrends_power"
+            )
         checks.append(
             {
                 "test": (
@@ -406,11 +421,7 @@ def _battery_did(result: Any, alpha: float = 0.05) -> Dict[str, Any]:
                 "statistic": pretrend.get("statistic"),
                 "pvalue": round(float(p_val), 4) if p_val is not None else None,
                 "pass": float(p_val) >= alpha if p_val is not None else None,
-                "interpretation": (
-                    "Parallel trends supported"
-                    if p_val and float(p_val) >= alpha
-                    else "Pre-trend detected — parallel trends assumption may be violated"
-                ),
+                "interpretation": verdict,
             }
         )
 
@@ -434,7 +445,8 @@ def _battery_did(result: Any, alpha: float = 0.05) -> Dict[str, Any]:
                     + (
                         " — parallel trends concern"
                         if sig_pre > 0
-                        else " — parallel trends supported"
+                        else " — none individually significant, which is not"
+                        " evidence of parallel trends"
                     ),
                 }
             )

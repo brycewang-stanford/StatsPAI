@@ -135,3 +135,52 @@ def test_joint_wald_detects_genuine_pretrend():
         f"expected joint Wald to reject under a 0.5-slope pretrend; "
         f"got p = {out['pvalue']}"
     )
+
+
+# ---------------------------------------------------------------- misuse
+# A call the packaged skill once documented passed a Callaway-Sant'Anna
+# result and the cohort column as `group`; every bootstrap refit then failed
+# and the only message was "0 / 300 replications succeeded".
+def test_refuses_a_result_from_another_estimator(bjs_no_pretrend):
+    import statspai as sp
+    from statspai.exceptions import MethodIncompatibility
+
+    df, _ = bjs_no_pretrend
+    cs = sp.callaway_santanna(
+        df, y="y", g="g", t="t", i="i", control_group="notyettreated"
+    )
+    with pytest.raises(MethodIncompatibility, match="did_imputation fit"):
+        bjs_pretrend_joint(
+            cs, data=df, y="y", group="i", time="t", first_treat="g", n_boot=5
+        )
+
+
+def test_refuses_the_cohort_column_as_group(bjs_no_pretrend):
+    from statspai.exceptions import MethodIncompatibility
+
+    df, r = bjs_no_pretrend
+    for group in ("g", "t"):
+        with pytest.raises(MethodIncompatibility, match="does not identify units"):
+            bjs_pretrend_joint(
+                r, data=df, y="y", group=group, time="t", first_treat="g", n_boot=5
+            )
+
+
+def test_failed_refits_report_their_reason(bjs_no_pretrend, monkeypatch):
+    import importlib
+
+    mod = importlib.import_module("statspai.did.bjs_inference")
+
+    df, r = bjs_no_pretrend
+
+    def _always_fails(*args, **kwargs):
+        raise ValueError("no untreated observation in this draw")
+
+    monkeypatch.setattr(mod, "did_imputation", _always_fails)
+    with pytest.raises(RuntimeError) as info:
+        bjs_pretrend_joint(
+            r, data=df, y="y", group="i", time="t", first_treat="g", n_boot=5
+        )
+    msg = str(info.value)
+    assert "Only 0 / 5" in msg
+    assert "Last refit error: ValueError: no untreated observation" in msg
