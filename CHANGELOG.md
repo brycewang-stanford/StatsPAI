@@ -36,7 +36,8 @@ what changes. The JSS manuscript stays anchored to 1.39.1.
   size). The counts now read 1,500+ functions and 90 submodules (the old
   banner said 950+ and 80+), the causal diagram shows observed (X) and
   unobserved (U) confounding of T -> Y, and the code panel uses a Python
-  prompt instead of a shell one.
+  prompt instead of a shell one. A QR code in the lower right links to
+  the GitHub repository.
 
 ### Pre-trend messages that claimed more than the test shows
 
