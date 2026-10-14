@@ -331,8 +331,9 @@ def test_xtserial_omits_a_collinear_regressor(panel):
             panel.assign(x2=2 * panel.x), "y", ["x", "x2", "w"], id="id", time="t"
         )
     short = sp.xtserial(panel, "y", ["x", "w"], id="id", time="t")
-    assert full["statistic"] == short["statistic"]
-    assert full["pvalue"] == short["pvalue"]
+    # equal up to rounding: the two fits sum in a different order
+    assert full["statistic"] == pytest.approx(short["statistic"], rel=1e-12)
+    assert full["pvalue"] == pytest.approx(short["pvalue"], rel=1e-10, abs=1e-15)
     pd.testing.assert_series_equal(full["params"], short["params"])
     pd.testing.assert_series_equal(full["std_errors"], short["std_errors"])
 

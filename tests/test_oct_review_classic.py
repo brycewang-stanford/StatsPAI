@@ -75,6 +75,7 @@ def test_numeric_value_labels_are_written_as_before(tmp_path):
 
 # ------------------------------------------------- 2. feather, tsv, types
 def test_feather_keeps_value_labels_with_integer_codes(tmp_path):
+    pytest.importorskip("pyarrow")  # feather / parquet need it
     df = pd.DataFrame({"edu": [3, 1, 2, 1]})
     labels = {1: "primary", 2: "secondary", 3: "tertiary"}
     sp.label_values(df, "edu", labels)
@@ -92,6 +93,7 @@ def test_feather_keeps_value_labels_with_integer_codes(tmp_path):
 
 
 def test_feather_matches_parquet_for_labels_passed_as_arguments(tmp_path):
+    pytest.importorskip("pyarrow")  # feather / parquet need it
     df = pd.DataFrame({"female": [0, 1, 1]})
     kwargs = dict(
         labels={"female": "Sex"}, value_labels={"female": {0: "male", 1: "female"}}

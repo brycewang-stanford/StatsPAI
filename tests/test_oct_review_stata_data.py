@@ -184,7 +184,9 @@ def test_margins_post_names_follow_stata():
     # V[2,1] 3.8948586420155e-06, V[3,1] -.000393380722842697
     close(value(s, "_b[1.g]"), 4.734945015626427889, rtol=1e-10)
     close(value(s, "_se[3.g]"), 0.297772665315268914, rtol=1e-10)
-    close(value(s, "el(V,2,1)"), 3.8948586420155e-06, rtol=1e-6)
+    # a small off-diagonal term from a numerical Jacobian: Linux BLAS differs
+    # from macOS by 1.7e-6 relative (6.7e-12 absolute)
+    close(value(s, "el(V,2,1)"), 3.8948586420155e-06, rtol=1e-5)
     close(value(s, "el(V,3,1)"), -0.000393380722842697, rtol=1e-8)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
