@@ -31,6 +31,19 @@ Rules:
 
 ## Entries
 
+### 2026-10-14 — release 1.39.6: parity tables carry the new version string
+
+- **Commits.** `b840bef4` (release 1.39.6) regenerated
+  `tests/r_parity/results/parity_table.tex` and
+  `tests/r_parity/results/parity_table_3way.tex` with
+  `python tests/r_parity/compare.py`, and refreshed
+  `tests/r_parity/TIER_A_FIXTURE_LOCK.json`.
+- **Reason.** The tables print the StatsPAI version in their caption.
+  One line changes in each; no row, estimate or standard error moves.
+- **Effect on the paper.** None. The manuscript stays anchored to 1.39.1.
+  If it is re-anchored later, the appendix parity tables read "StatsPAI
+  1.39.6".
+
 ### 2026-10-14 — call traces re-recorded after the `sp.stata` round
 
 - **Commits.** `c77464c1` re-recorded Track A module 11 in
