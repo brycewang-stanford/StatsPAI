@@ -9,11 +9,14 @@ planted answer.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.workflow._degradation import WorkflowDegradedWarning
 
 pytestmark = pytest.mark.filterwarnings("ignore")
 
@@ -636,9 +639,20 @@ def test_did_report_writes_the_summary_it_returns(staggered, tmp_path):
 
 
 def test_synth_recommend_is_the_comparison_winner(synth_panel):
-    name = sp.synth_recommend(synth_panel, **SYNTH)
-    table = sp.synth_compare(synth_panel, **SYNTH)
-    assert name == table.recommended
+    # Two separate runs of every method: a method that fails in one run
+    # only (seen once under a heavily loaded parallel run, not reproduced)
+    # is skipped there with a degradation warning, and the winners differ.
+    # Collect those warnings so a failure says which method dropped out.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        name = sp.synth_recommend(synth_panel, **SYNTH)
+        table = sp.synth_compare(synth_panel, **SYNTH)
+    dropped = [
+        str(w.message)[:160]
+        for w in caught
+        if issubclass(w.category, WorkflowDegradedWarning)
+    ]
+    assert name == table.recommended, f"methods skipped: {dropped}"
     assert name in set(table.comparison_table["method"])
 
 

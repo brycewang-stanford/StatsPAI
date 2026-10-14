@@ -93,6 +93,21 @@ class BootstrapResult(ResultProtocolMixin):
         return self.summary()
 
 
+def _too_few_replicates(n_valid: int, n_boot: int) -> str:
+    """Why a bootstrap with fewer than 10 usable replicates is refused."""
+    if n_valid == n_boot:
+        return (
+            f"bootstrap: {n_boot} replications were requested; at least 10 "
+            "are needed for a standard error. Raise the number of "
+            "replications (a few hundred is usual)."
+        )
+    return (
+        f"Only {n_valid}/{n_boot} bootstrap replications succeeded; at least "
+        "10 are needed. Check that your statistic function handles "
+        "resampled data."
+    )
+
+
 def _estimate_and_se(value: Any) -> Tuple[float, float]:
     """Read ``(estimate, se)`` from what a studentized statistic returned."""
     try:
@@ -295,10 +310,7 @@ def bootstrap(
         )
 
     if n_valid < 10:
-        raise RuntimeError(
-            f"Only {n_valid}/{n_boot} bootstrap replications succeeded. "
-            "Check that your statistic function handles resampled data."
-        )
+        raise RuntimeError(_too_few_replicates(n_valid, n_boot))
 
     # Standard error
     se = float(np.std(boot_stats, ddof=1))
@@ -478,10 +490,7 @@ def _bootstrap_vector(
         )
     draws = draws[ok]
     if len(draws) < 10:
-        raise DataInsufficient(
-            f"Only {len(draws)}/{n_boot} bootstrap replications succeeded. "
-            "Check that your statistic function handles resampled data."
-        )
+        raise DataInsufficient(_too_few_replicates(len(draws), n_boot))
     V = np.cov(draws, rowvar=False, ddof=1).reshape(p, p)
     se = np.sqrt(np.diag(V))
     pct = pd.DataFrame(

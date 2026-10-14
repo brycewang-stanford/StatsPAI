@@ -449,7 +449,9 @@ class DataSteps:
         vtype, name, expr = m.group(1), m.group(2), m.group(3)
         if replace and vtype is not None:
             raise StataExprError("`replace` does not take a storage type")
-        is_str_type = vtype is not None and re.fullmatch(r"str(\d+|L)", vtype)
+        # `str` alone: a string sized to its content (Stata 18 stores str#,
+        # or strL beyond 2045 bytes)
+        is_str_type = vtype is not None and re.fullmatch(r"str(\d*|L)", vtype)
         if (
             vtype is not None
             and not is_str_type
@@ -466,8 +468,9 @@ class DataSteps:
             return
         value, mask = self._evaluate_assignment(expr, if_cond, in_range, groups)
         if groups is None and (value.dtype == object or is_str_type):
-            if is_str_type and is_str_type.group(1) != "L" and value.dtype == object:
-                value = _str_width(value, int(is_str_type.group(1)))
+            width = is_str_type.group(1) if is_str_type else "L"
+            if width not in ("", "L") and value.dtype == object:
+                value = _str_width(value, int(width))
             self._assign_text(replace, name, value, mask, bool(is_str_type))
             return
 

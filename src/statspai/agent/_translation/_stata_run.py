@@ -22,6 +22,7 @@ import pandas as pd
 
 from ...exceptions import MethodIncompatibility
 from ._stata_datastep import DataSteps, row_mask
+from ._stata_emacros import estimation_macros
 from ._stata_expr import StataExprError, coefficient_key, evaluate
 from ._stata_flow import (
     drop_temporaries,
@@ -985,6 +986,18 @@ class StataSession:
             for name in ("df", "df1", "df2"):
                 if isinstance(out.get(name), (int, float, np.integer, np.floating)):
                     r[{"df1": "df_m", "df2": "df_r"}.get(name, name)] = float(out[name])
+        elif tool == "lincom" and isinstance(out, dict) and "estimate" in out:
+            # Stata 18: r(t) and r(df) after a fit with t inference, r(z)
+            # (and no r(df)) after logit, xtreg, re and the like
+            lb, ub = out["ci"]
+            alpha = float(arguments.get("alpha", 0.05))
+            r = {"estimate": float(out["estimate"]), "se": float(out["se"]),
+                 "p": float(out["pvalue"]), "lb": float(lb), "ub": float(ub),
+                 "level": round(100 * (1 - alpha), 8)}  # fmt: skip
+            if out.get("distribution") == "t" and out.get("df") is not None:
+                r["t"], r["df"] = float(out["statistic"]), float(out["df"])
+            else:
+                r["z"] = float(out["statistic"])
         elif tool == "ttest":
             r = {"t": float(out.statistic), "df_t": float(out.df),
                  "p": float(out.pvalue), "se": float(out.se)}  # fmt: skip
@@ -1117,13 +1130,6 @@ class StataSession:
         )
         if everything is not None:
             line = everything.group(1) + everything.group(2)  # no varlist: all
-        logistic = re.match(r"(\s*)logistic\b(.*)\Z", line, re.S | re.I)
-        if logistic is not None:
-            # the same model as `logit`; only the table shows exp(b)
-            body = logistic.group(2)
-            line = f"{logistic.group(1)}logit{body}" + (
-                ", or" if "," not in body else " or"
-            )
         simulated = run_simulate(self, line)
         if simulated is not None:
             return simulated
@@ -1150,6 +1156,14 @@ class StataSession:
                 "`local name ...` above the command, or write it out.",
                 diagnostics={"command": line},
             ) from exc
+        typed_line = line  # as written, for e(cmdline)
+        logistic = re.match(r"(\s*)logistic\b(.*)\Z", line, re.S | re.I)
+        if logistic is not None:
+            # the same model as `logit`; only the table shows exp(b)
+            body = logistic.group(2)
+            line = f"{logistic.group(1)}logit{body}" + (
+                ", or" if "," not in body else " or"
+            )
         try:
             st = survival_declaration(line)
         except ScriptError as exc:
@@ -1614,13 +1628,9 @@ class StataSession:
                 self._last_call = out
                 self._store_estimates(self.output)
                 record_sample(self, run_data)
-                fitted = str((out.get("arguments") or {}).get("formula") or "")
-                self.stored["e_macros"] = {
-                    "cmd": line.split()[0].rstrip(","),
-                    "depvar": fitted.split("~")[0].strip() if "~" in fitted else "",
-                }
                 if re.match(r"\s*(?:\w+\s*:\s*)*(?:qui\w*\s+)?xtreg\b", line):
                     xtreg_extras(self, out, run_data)
+                estimation_macros(self, typed_line, logistic is not None)
                 if out["tool"] == "hdfe_ols":
                     absorbed_constant(self, out, run_data)
                 if out["tool"] == "psmatch2":

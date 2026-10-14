@@ -123,7 +123,7 @@ class TestBootstrap:
 
     def test_too_few_surviving_replicates_is_an_error(self):
         df = _clustered()
-        with pytest.raises(RuntimeError, match="Only 5/5"):
+        with pytest.raises(RuntimeError, match="at least 10"):
             sp.bootstrap(df, _mean, n_boot=5, seed=1)
 
     def test_invalid_options(self):

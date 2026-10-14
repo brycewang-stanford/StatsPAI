@@ -769,26 +769,37 @@ _DIRECTIVE = re.compile(
 )
 _FORMAT_ITEM = re.compile(r"%-?[\d.,]*(?:t[dcCwmqhy]\S*|[a-zA-Z]+)")
 _STRING_ITEM = re.compile(r'`"(.*?)"\'|"([^"]*)"', re.S)
+#: what can begin and end an operand of an expression
+_OPERAND_START = re.compile(r"[\w.(]")
+_OPERAND_END = re.compile(r"[\w.)\]]\Z")
+#: `_N` is the number of observations; `_n` / `_newline` is a new line
+_COUNT = re.compile(r"_N\b")
 
 
 def _expression_end(body: str, start: int) -> int:
     """Where an expression item of ``display`` ends: at the next string,
-    format or directive outside parentheses and brackets."""
+    format or directive outside parentheses and brackets, or where one
+    operand follows another with only blanks between them (Stata 18:
+    ``display 1 2`` prints 12, ``display 2 (3)`` 23, ``display 1 -2`` -1
+    and ``display 1 2 == 2`` 11)."""
     depth, pos = 0, start
     while pos < len(body):
         ch = body[pos]
+        if depth == 0 and pos > start and body[pos - 1].isspace():
+            if ch == '"' or body.startswith('`"', pos) or ch == "%":
+                break
+            m = _DIRECTIVE.match(body, pos)
+            if m is not None and m.group(0) != "," and not _COUNT.match(body, pos):
+                break
+            before = body[start:pos].rstrip()
+            if _OPERAND_START.match(ch) and _OPERAND_END.search(before):
+                break
         if ch in "([":
             depth += 1
         elif ch in ")]":
             depth -= 1
         elif ch == "," and depth == 0:
             break  # a comma between items: one space (`display a, b`)
-        elif depth == 0 and pos > start and body[pos - 1].isspace():
-            if ch == '"' or body.startswith('`"', pos) or ch == "%":
-                break
-            m = _DIRECTIVE.match(body, pos)
-            if m is not None and m.group(0) != ",":
-                break
         elif ch == '"' and depth > 0:
             close = body.find('"', pos + 1)
             pos = close if close > 0 else pos
@@ -844,7 +855,7 @@ def display_items(session: "StataSession", body: str) -> List[Any]:
         if m is not None:
             fmt, pos = m.group(0), m.end()
             continue
-        m = _DIRECTIVE.match(body, pos)
+        m = None if _COUNT.match(body, pos) else _DIRECTIVE.match(body, pos)
         if m is not None:
             if m.group(0).lower().startswith("_n"):
                 items.append("\n" * int(m.group(1) or 1))

@@ -494,3 +494,107 @@ def test_numbers_in_macros_are_written_in_18_0g():
     loop = 'local s ""\nforvalues v = 0(0.1)0.35 {\n local s "`s\' `v\'"\n}'
     s = _session(loop)
     assert s._macros.locals["s"].split() == ["0", ".1", ".2", ".3"]
+
+
+# ------------------------------------- display: several expressions in a row
+_P = pd.DataFrame({"x": [3.7, 7.4], "y": [9.45, 1.0]})
+
+
+@pytest.mark.parametrize(
+    "line, shown",
+    [
+        # Stata 18 printed the right-hand column for each `display` line
+        ("display 1 2", "12"),
+        ("display 1 2 3", "123"),
+        ("display 1 -2", "-1"),  # one expression: 1 - 2
+        ("display -1 -2", "-3"),
+        ("display 2 (3)", "23"),
+        ("display (1) (2)", "12"),
+        ("display 1/3 2", ".333333332"),
+        ("display 1 + 2 3", "33"),
+        ("display 1 2 == 2", "11"),
+        ('display "x" 1==1 2', "x12"),
+        ("display 1.5 2.25", "1.52.25"),
+        ("display . 2", ".2"),
+        ("display 2 .", "2."),
+        ("display 1/7 1/9", ".14285714.11111111"),
+        ("display %5.2f 1 2", " 1.002"),  # the format is the next item's
+        ("display %5.2f 1 %5.2f 2", " 1.00 2.00"),
+        ("display 1 2, 3", "12 3"),
+        ("display 100000 2", "1000002"),
+        ("display 1e10 2", "1.000e+102"),
+        ("display cond(1, 2, 3) 4", "24"),
+        ("display 1 _n 2", "1\n2"),
+        # set obs 2 / x = 3.7, 7.4 / y = 9.45, 1 (Stata 18 output)
+        ('display x[1] " " 2', "3.7 2"),
+        ("display x[1] x[2]", "3.77.4"),
+        ("display y[1] 2 == 2", "9.451"),
+        ("display 3 x", "33.7"),
+        ("display _N 5", "25"),
+        ("display 5 _N", "52"),
+    ],
+)
+def test_display_concatenates_adjacent_expressions(line, shown):
+    assert str(_session(line, _P).output) == shown
+
+
+def test_display_of_an_operator_after_a_blank_is_still_an_error():
+    # . display 1 !0   -> 1!0 invalid name, r(198)
+    with pytest.raises(MethodIncompatibility):
+        _session("display 1 !0")
+
+
+# ------------------------------------------------- string repetition
+@pytest.mark.parametrize(
+    "line, shown",
+    [
+        # Stata 18 output on the right
+        ('display ("ab"*3) "|"', "ababab|"),
+        ('display (2*"ab") "|"', "abab|"),
+        ('display ("ab"*2.5) "|"', "abab|"),
+        ('display ("ab"*2.9) "|"', "abab|"),
+        ('display ("ab"*-1) "|"', "|"),
+        ('display ("ab"*0) "|"', "|"),
+        ('display ("ab"*.) "|"', "|"),
+        ('display ("ab"*0.4) "|"', "|"),
+        ('display ("ab"*2*2) "|"', "abababab|"),
+        ('display (2*3*"ab") "|"', "abababababab|"),
+        ('display (("a"+"b")*2) "|"', "abab|"),
+        ('display ("ab"*2 + "c") "|"', "ababc|"),
+        ('display ("c" + "ab"*2) "|"', "cabab|"),
+        ('local s = "ab"*2\ndisplay "`s\'"', "abab"),
+    ],
+)
+def test_string_times_a_number_repeats_it(line, shown):
+    assert _shown(line) == shown
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        # Stata 18: type mismatch, r(109), for each
+        'display ("ab"/2) "|"',
+        'display ("ab"*"2") "|"',
+        'display (-"ab"*2) "|"',
+        'display ("ab"^2) "|"',
+        # . display "a" * 2   -> r(198): a leading string is an item
+        'display "a" * 2',
+    ],
+)
+def test_other_arithmetic_on_strings_is_refused(line):
+    with pytest.raises(MethodIncompatibility):
+        _session(line)
+
+
+def test_generate_str_without_a_length():
+    # . gen str s2 = "ab"*2 in 1      (str4; 59 missing values generated)
+    # . display s2[1] "|" s2[2] "|"   -> abab||
+    s = _session('gen str s2 = "ab"*2 in 1')
+    assert s.data["s2"].tolist() == ["abab", ""]
+    assert _shown('gen str s2 = "ab"*2 in 1\ndisplay s2[1] "|" s2[2] "|"') == ("abab||")
+    # . gen t = _n / gen str s = "x"*t / display s[1] "|" s[2] "|"  -> x|xx|
+    s = _session('gen t = _n\ngen str s = "x"*t')
+    assert s.data["s"].tolist() == ["x", "xx"]
+    # . gen str s9 = 1   -> type mismatch, r(109)
+    with pytest.raises(MethodIncompatibility):
+        _session("gen str s9 = 1")

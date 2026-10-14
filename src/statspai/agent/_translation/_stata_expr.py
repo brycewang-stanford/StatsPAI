@@ -117,6 +117,39 @@ def _num(v: Value, what: str) -> Any:
     return v
 
 
+#: the longest text a repetition builds here (Stata's strL limit is 2e9
+#: bytes; a value that size is not built in memory)
+_REPEAT_LIMIT = 10_000_000
+
+
+def _repeat(text: Value, count: Value) -> Value:
+    """``text * count``: the text repeated ``count`` times, the count cut
+    toward zero; a count below one or missing gives "" (Stata 18: "ab"*2.9
+    is abab, "ab"*0.4, "ab"*-1 and "ab"*. are "")."""
+    n = np.trunc(np.asarray(count, dtype=float))
+    n = np.where(np.isfinite(n) & (n > 0), n, 0.0)
+    texts = np.asarray(text, dtype=object)
+    lengths = np.vectorize(lambda s: len(_text(s).encode("utf-8")), otypes=[float])
+    if (
+        texts.size
+        and n.size
+        and float(np.max(lengths(texts)) * np.max(n)) > (_REPEAT_LIMIT)
+    ):
+        raise StataExprError(
+            f"a repeated string longer than {_REPEAT_LIMIT:,} bytes is not built"
+        )
+    if isinstance(text, str) and n.ndim == 0:
+        return text * int(n)
+    texts, n = np.broadcast_arrays(texts, n)
+    return np.array([_text(s) * int(k) for s, k in zip(texts.ravel(), n.ravel())],
+                    dtype=object).reshape(texts.shape)  # fmt: skip
+
+
+def _text(value: Any) -> str:
+    """A string value; a missing one (None / NaN in the frame) is ""."""
+    return value if isinstance(value, str) else ""
+
+
 def _miss_high(v: Any) -> Any:
     """Missing sorts above every number."""
     return np.where(np.isnan(v), np.inf, v)
@@ -887,6 +920,10 @@ class _Parser:
             if op is None:
                 return left
             right = self._negation()
+            if op == "*" and _is_str(left) != _is_str(right):
+                # "ab"*2 and 2*"ab" are abab (Stata 18)
+                left = _repeat(left, right) if _is_str(left) else _repeat(right, left)
+                continue
             a, b = _num(left, "arithmetic"), _num(right, "arithmetic")
             with np.errstate(all="ignore"):
                 left = _clean(np.multiply(a, b) if op == "*" else np.divide(a, b))
@@ -968,6 +1005,9 @@ class _Parser:
                         "these rows, or they were sorted or dropped since)"
                     )
                 return np.asarray(held[2], dtype=float)
+            texts = self.stored.get(f"{name}_macros") or {}
+            if key in texts and key not in (self.stored.get(name) or {}):
+                return str(texts[key])  # e(cmd), r(levels): text results
             return self._stored(name, key, f"{name}({key})")
         if name in ("_b", "_se") and nxt == ("op", "["):
             self._expect("[")

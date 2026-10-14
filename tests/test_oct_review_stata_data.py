@@ -645,3 +645,187 @@ quietly summarize L.x
 """)
     close(value(s, "r(mean)"), 3.0)
     close(value(s, "r(N)"), 5.0)
+
+
+# --------------------------------------- e(df_m), e() macros and lincom r()
+#: a balanced panel of 15 units and 4 periods, built the same way on both
+#: sides
+P = """
+set obs 60
+gen id = ceil(_n/4)
+gen t = mod(_n-1, 4) + 1
+gen double x = mod(_n*37, 101)/10
+gen double z = mod(_n*53, 97)/10 + mod(id, 3)
+gen double y = 1 + .8*x + .3*z + mod(id*7, 5)/2 + mod(_n*13, 17)/5
+gen d = y > 9
+xtset id t
+"""
+
+
+@pytest.mark.parametrize(
+    "line, df_m, b_x",
+    [
+        # Stata 18: e(df_m) and _b[x] (%21.18f) after each line
+        ("xtreg y x z, re", 2, 0.808180545933868122),
+        ("xtreg y x z", 2, 0.808180545933868344),
+        ("xtreg y x z, fe", 16, 0.813176022243696450),  # k + G - 1
+        ("xtreg y x, fe", 15, 0.833632212583827470),
+        ("xtreg y x z, be", 2, 0.754000379556198475),
+        ("xtreg y x z, mle", 2, 0.807487324871510759),
+        ("xtreg y x z, fe vce(cluster id)", 1, 0.813176022243696450),  # k - 1
+        ("xtreg y x z, fe robust", 1, 0.813176022243696450),
+        ("xtreg y x z, re vce(robust)", 2, 0.808180545933867234),
+        ("areg y x z, absorb(id)", 2, 0.813176022243696450),
+        ("areg y x z, absorb(id) vce(cluster id)", 2, 0.813176022243696450),
+        ("reghdfe y x z, absorb(id)", 2, 0.813176022243696228),
+        ("reghdfe y x z, absorb(id t) vce(cluster id)", 2, 0.813222588081592979),
+    ],
+)
+def test_model_degrees_of_freedom_after_panel_fits(line, df_m, b_x):
+    s = run(P + line)
+    assert value(s, "e(df_m)") == df_m
+    close(value(s, "_b[x]"), b_x, rtol=1e-6)
+
+
+def test_df_m_of_xtreg_re_is_the_slope_count():
+    # was 3 (the constant counted); Stata 18: xtreg y x z, re -> e(df_m) = 2
+    s = run(P + "xtreg y x z, re")
+    assert value(s, "e(df_m)") == 2.0
+
+
+def _macros(line: str) -> dict:
+    return dict(run(P + line).stored["e_macros"])
+
+
+@pytest.mark.parametrize(
+    "line, want",
+    [
+        # Stata 18, `display "`e(cmd)'"` etc. after each line; a macro Stata
+        # leaves empty is absent
+        ("xtreg y x z, re", {"cmd": "xtreg", "cmdline": "xtreg y x z, re",
+                             "depvar": "y", "model": "re", "vce": "conventional"}),
+        ("xtreg y x z", {"cmd": "xtreg", "cmdline": "xtreg y x z", "depvar": "y",
+                         "model": "re", "vce": "conventional"}),
+        ("xtreg y x z, mle", {"cmd": "xtreg", "cmdline": "xtreg y x z, mle",
+                              "depvar": "y", "model": "ml", "vce": "oim"}),
+        ("xtreg y x z, fe robust", {
+            "cmd": "xtreg", "cmdline": "xtreg y x z, fe robust", "depvar": "y",
+            "model": "fe", "vce": "cluster", "vcetype": "Robust",
+            "clustvar": "id"}),
+        ("xtreg y x z, re vce(robust)", {
+            "cmd": "xtreg", "cmdline": "xtreg y x z, re vce(robust)",
+            "depvar": "y", "model": "re", "vce": "robust", "vcetype": "Robust",
+            "clustvar": "id"}),
+        ("areg y x z, absorb(id) vce(cluster id)", {
+            "cmd": "areg", "cmdline": "areg y x z, absorb(id) vce(cluster id)",
+            "depvar": "y", "model": "ols", "vce": "cluster", "vcetype": "Robust",
+            "clustvar": "id"}),
+        ("reghdfe y x z, absorb(id)", {
+            "cmd": "reghdfe", "cmdline": "reghdfe y x z, absorb(id)",
+            "depvar": "y", "model": "ols", "vce": "ols"}),
+        ("reg y x z", {"cmd": "regress", "cmdline": "regress y x z",
+                       "depvar": "y", "model": "ols", "vce": "ols"}),
+        ("regr y x z, r", {"cmd": "regress", "cmdline": "regress y x z, r",
+                           "depvar": "y", "model": "ols", "vce": "robust",
+                           "vcetype": "Robust"}),
+        ("qui: reg y   x z, vce(hc3)", {
+            "cmd": "regress", "cmdline": "regress y   x z, vce(hc3)",
+            "depvar": "y", "model": "ols", "vce": "hc3",
+            "vcetype": "Robust HC3"}),
+        ("reg y x z [pw=t]", {"cmd": "regress", "cmdline": "regress y x z [pw=t]",
+                              "depvar": "y", "model": "ols", "vce": "robust",
+                              "vcetype": "Robust"}),
+        ("logi d x z", {"cmd": "logit", "cmdline": "logit d x z", "depvar": "d",
+                        "vce": "oim"}),
+        ("logistic d x z, vce(cluster id)", {
+            "cmd": "logistic", "cmdline": "logistic d x z, vce(cluster id)",
+            "depvar": "d", "vce": "cluster", "vcetype": "Robust",
+            "clustvar": "id"}),
+        ("probit d x z, vce(robust)", {
+            "cmd": "probit", "cmdline": "probit d x z, vce(robust)",
+            "depvar": "d", "vce": "robust", "vcetype": "Robust"}),
+        ("ivregress 2sls y (x = z)", {
+            "cmd": "ivregress", "cmdline": "ivregress 2sls y (x = z)",
+            "depvar": "y", "vce": "unadjusted"}),
+        ("ivregress gmm y (x = z)", {
+            "cmd": "ivregress", "cmdline": "ivregress gmm y (x = z)",
+            "depvar": "y", "vce": "robust", "vcetype": "Robust"}),
+        ("glm y x z, family(gaussian)", {
+            "cmd": "glm", "cmdline": "glm y x z, family(gaussian)", "depvar": "y",
+            "vce": "oim", "vcetype": "OIM"}),
+    ],
+)  # fmt: skip
+def test_estimation_text_results(line, want):
+    assert _macros(line) == want
+
+
+def test_text_results_read_in_expressions_and_macros():
+    # Stata 18: quietly reg y x z / display e(cmd) -> regress;
+    #           display "`e(cmdline)'" -> regress y x z
+    s = run(P + "quietly reg y x z\ndisplay e(cmd)")
+    assert str(s.output) == "regress"
+    s = run(P + 'quietly reg y x z\ndisplay "`e(cmdline)\'"')
+    assert str(s.output) == "regress y x z"
+
+
+def test_unchecked_commands_leave_text_results_unset():
+    # a command whose e() strings were not read off Stata stores none
+    # (it used to store the first word of the line, `qui:` for `qui: reg`)
+    s = run(P + "tsset id t\nnewey y x z, lag(1) force")
+    assert s.stored["e_macros"] == {}
+    with pytest.raises(MethodIncompatibility):
+        run(P + "tsset id t\nnewey y x z, lag(1) force\ndisplay e(cmd)")
+
+
+def test_lincom_stores_r_after_regress():
+    # Stata 18: quietly reg y x z / lincom x - z / display %21.18f r(...)
+    #   r(estimate) 0.531708422827911864  r(se) 0.082750045796318714
+    #   r(df) 57  r(t) 6.425475873894511913  r(p) 2.86499027341752e-08
+    #   r(lb) 0.366004314366034644  r(ub) 0.697412531289789084  r(level) 95
+    s = run(P + "quietly reg y x z\nlincom x - z")
+    close(value(s, "r(estimate)"), 0.531708422827911864, rtol=1e-9)
+    close(value(s, "r(se)"), 0.082750045796318714, rtol=1e-9)
+    assert value(s, "r(df)") == 57
+    close(value(s, "r(t)"), 6.425475873894511913, rtol=1e-9)
+    close(value(s, "r(p)"), 2.86499027341752e-08, rtol=1e-7)
+    close(value(s, "r(lb)"), 0.366004314366034644, rtol=1e-9)
+    close(value(s, "r(ub)"), 0.697412531289789084, rtol=1e-9)
+    assert value(s, "r(level)") == 95
+    assert "z" not in s.stored["r"]
+    # . lincom 2*x + z, level(90)
+    #   r(estimate) 1.876184648231901786  r(lb) 1.675863932541906021
+    #   r(ub) 2.076505363921897551  r(level) 90
+    s = run(P + "quietly reg y x z\nlincom 2*x + z, level(90)")
+    close(value(s, "r(estimate)"), 1.876184648231901786, rtol=1e-9)
+    close(value(s, "r(lb)"), 1.675863932541906021, rtol=1e-9)
+    close(value(s, "r(ub)"), 2.076505363921897551, rtol=1e-9)
+    assert value(s, "r(level)") == 90
+
+
+def test_lincom_stores_z_and_no_df_after_z_fits():
+    # Stata 18: quietly logit d x z / lincom x + 2*z
+    #   r(estimate) 1.977240918801131286  r(se) 0.593977661085399733
+    #   r(z) 3.328813604181743102  r(p) .0008721675331243765
+    #   r(lb) 0.813066095452409598  r(ub) 3.141415742149852974  r(level) 95
+    #   (return list shows no r(df) and no r(t))
+    s = run(P + "quietly logit d x z\nlincom x + 2*z")
+    close(value(s, "r(estimate)"), 1.977240918801131286, rtol=1e-6)
+    close(value(s, "r(se)"), 0.593977661085399733, rtol=1e-6)
+    close(value(s, "r(z)"), 3.328813604181743102, rtol=1e-6)
+    close(value(s, "r(p)"), 0.0008721675331243765, rtol=1e-5)
+    close(value(s, "r(lb)"), 0.813066095452409598, rtol=1e-6)
+    close(value(s, "r(ub)"), 3.141415742149852974, rtol=1e-6)
+    assert value(s, "r(level)") == 95
+    assert "df" not in s.stored["r"] and "t" not in s.stored["r"]
+    # . quietly xtreg y x z, re / lincom x - z
+    #   r(estimate) 0.524023318104869240  r(z) 6.889770056015403377
+    s = run(P + "quietly xtreg y x z, re\nlincom x - z")
+    close(value(s, "r(estimate)"), 0.524023318104869240, rtol=1e-6)
+    close(value(s, "r(z)"), 6.889770056015403377, rtol=1e-6)
+    assert "df" not in s.stored["r"]
+    # . quietly xtreg y x z, fe vce(cluster id) / lincom x - z
+    #   r(estimate) 0.515729841313282478  r(t) 7.148570689631830177  r(df) 14
+    s = run(P + "quietly xtreg y x z, fe vce(cluster id)\nlincom x - z")
+    close(value(s, "r(estimate)"), 0.515729841313282478, rtol=1e-9)
+    close(value(s, "r(t)"), 7.148570689631830177, rtol=1e-7)
+    assert value(s, "r(df)") == 14

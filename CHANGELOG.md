@@ -2,6 +2,34 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### `sp.stata`: stored results after estimation, checked against Stata 18
+
+#### ⚠️ Correctness
+
+- **`e(df_m)` after `xtreg, re`** (and the default `xtreg`) was 3 where
+  Stata stores 2, the number of regressors. After `xtreg, fe` it is now
+  set to Stata's k + G − 1 (k − 1 with a clustered or robust variance,
+  as Stata does), and after `areg` and `reghdfe` to k.
+
+#### Fixed
+
+- `e(cmd)`, `e(cmdline)`, `e(depvar)`, `e(model)`, `e(vce)` and
+  `e(vcetype)` are set after 22 estimation commands with the strings
+  Stata 18 stores for each variance option (`e(cmd)` is `regress` after
+  `reg`). They were either unset or the first word typed. Commands not
+  yet checked against Stata leave them unset.
+- `lincom` stores `r(estimate)`, `r(se)`, `r(t)` or `r(z)`, `r(df)`,
+  `r(p)`, `r(lb)`, `r(ub)` and `r(level)` as Stata does.
+- `display 1 2` concatenates its items, as in Stata; `display _N 5` no
+  longer reads `_N` as `_newline`.
+- `"ab"*2` repeats a string (count truncated toward zero), and
+  `gen str name = exp` creates a string variable.
+- `sp.bootstrap` with fewer than 10 requested replications said "Only
+  5/5 bootstrap replications succeeded"; it now says that at least 10
+  are needed.
+
 ## [1.39.6] — 2026-10-14
 
 A review of everything that landed in October, and the work it found
