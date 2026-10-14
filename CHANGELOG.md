@@ -2,7 +2,25 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.39.6] — 2026-10-14
+
+A review of everything that landed in October, and the work it found
+unfinished. About two hundred functions added this month were called on
+degenerate, mistyped and reordered input and checked against identities
+that must hold; a third round of the option scan covered inference,
+`iv/`, panel and time series; and `sp.stata` was compared with Stata 18
+on 273 snippets. Results that change and should be recomputed include
+`sp.sun_abraham` and `sp.stacked_did` on integer time with gaps,
+`sp.gardner_did` with unidentified cells, the Kleibergen-Paap and
+Sanderson-Windmeijer statistics with several endogenous regressors,
+`sp.cate_gain_curve` with tied scores, the default-prior check of the
+Bayesian IV, SUR and mixed models, `predict()` on unseen factor levels,
+and `collapse [fw=]`, `[pw=]` standard errors and `margins, post` in
+`sp.stata`. New: `weights_as=` on thirteen regression functions, a
+smaller MCP tool list with an HTTP transport, and Chinese queries in
+`sp.search_functions`. Default calls on ordinary data are unchanged; all
+89 Track A modules reproduce their committed results. MIGRATION.md lists
+what changes. The JSS manuscript stays anchored to 1.39.1.
 
 ### Pre-trend messages that claimed more than the test shows
 

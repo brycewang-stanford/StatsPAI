@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.39.5 → next release: ⚠️ `sp.stata` results that now match Stata
+## 1.39.5 → 1.39.6: ⚠️ `sp.stata` results that now match Stata
 
 **What changed.** A snippet-by-snippet comparison with Stata 18 found
 places where `sp.stata` ran and printed a different number. They now
@@ -31,7 +31,7 @@ calls StatsPAI functions directly is not affected.
 
 ---
 
-## 1.39.5 → next release: ⚠️ numbers that change after the October review
+## 1.39.5 → 1.39.6: ⚠️ numbers that change after the October review
 
 **What changed.** A review of the month's work fixed defects on inputs
 off the main path. Default calls on ordinary data return what they did.
