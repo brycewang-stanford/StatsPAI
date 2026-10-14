@@ -31,6 +31,23 @@ Rules:
 
 ## Entries
 
+### 2026-10-14 — call traces re-recorded after the `sp.stata` round
+
+- **Commits.** `c77464c1` re-recorded Track A module 11 in
+  `tests/r_parity/results/_implementation_trace.json` and the 12
+  original-data modules in
+  `tests/orig_parity/results/_implementation_trace.json`.
+- **Reason.** A docstring paragraph in `src/statspai/matching/match.py`
+  (why the psmatch2-style default standard error depends on row order
+  under ties), which changed the file's digest. No code on the
+  estimation path changed.
+- **Effect on the paper.** None. Module 11 re-derived with
+  `python tests/r_parity/verify_reproduce_py.py 11_psm` reproduces its
+  committed result; only digests and `seconds` differ in the traces.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-14 — call traces re-recorded after the October review
 
 - **Commits.** `ab1786f2` re-recorded all 89 Track A modules in
