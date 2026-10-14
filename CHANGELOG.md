@@ -22,6 +22,16 @@ smaller MCP tool list with an HTTP transport, and Chinese queries in
 89 Track A modules reproduce their committed results. MIGRATION.md lists
 what changes. The JSS manuscript stays anchored to 1.39.1.
 
+### README editions
+
+#### Changed
+
+- **`README.md` is English again.** The English edition moved back from
+  `README_EN.md` to `README.md`, and the Chinese edition moved to
+  `README_CN.md`. GitHub now opens on the English text. The PyPI long
+  description is unchanged in content (`pyproject.toml` reads
+  `README.md`). Links to `README_EN.md` on GitHub no longer resolve.
+
 ### Pre-trend messages that claimed more than the test shows
 
 #### ⚠️ Correctness

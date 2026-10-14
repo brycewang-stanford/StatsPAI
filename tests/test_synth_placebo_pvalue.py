@@ -83,7 +83,7 @@ def test_scm_pvalue_is_treated_rank_over_units(readme_fit):
 
 
 def test_scm_readme_numbers(readme_fit):
-    """Pins the numbers printed in README.md / README_EN.md."""
+    """Pins the numbers printed in README.md / README_CN.md."""
     # The fit is simplex least squares on the pre-treatment path (no
     # rescaling of the periods since 1.39.0; with it the numbers were
     # -19.760541, 11.233848 and Utah 0.3768).
