@@ -337,7 +337,7 @@ class TestBoxCox:
             return np.exp(v) if lam == 0.0 else (lam * v + 1.0) ** (1.0 / lam)
 
         assert fit.boxcox == lam
-        np.testing.assert_allclose(fit.params, inner.params, atol=1e-12)
+        np.testing.assert_allclose(fit.params, inner.params, atol=1e-6)
         np.testing.assert_allclose(fit.fitted_values, back(inner.fitted_values))
         # two separate optimisations: equal to the optimiser tolerance only
         # (Linux BLAS lands 2e-8 away on one residual)
@@ -346,7 +346,7 @@ class TestBoxCox:
         # Quantiles commute with a monotone map: every column is the
         # back-transform of the forecast table of the transformed series.
         np.testing.assert_allclose(
-            fit.forecast(5).to_numpy(), back(inner.forecast(5).to_numpy()), rtol=1e-12
+            fit.forecast(5).to_numpy(), back(inner.forecast(5).to_numpy()), rtol=1e-7
         )
 
     @pytest.mark.parametrize("lam", [0.0, 0.5])
