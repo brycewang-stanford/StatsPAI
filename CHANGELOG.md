@@ -67,6 +67,20 @@ does. No estimate changes.
   (default 42) or turns it off. A direct Python call keeps the library
   default.
 
+#### Fixed
+
+- **Bayesian fits cited the probit sampler whatever model was fitted.**
+  `BayesRegressResult` declared the keys of its whole family, and the
+  result payload reports the first of them, so `sp.bayes_bootstrap`,
+  `sp.bayes_regress(model="normal")`, `sp.bayes_shrink` and the rest all
+  said `citation_key: albert1993bayesian`. `cite()` was already right. Each
+  fit now carries only the keys of its model (`rubin1981bayesian` for the
+  Bayesian bootstrap, `gelfand1990sampling` for the normal model, ...). The
+  horseshoe, which had no entry and fell back to the whole family, now
+  cites `carvalho2010horseshoe` and `makalic2016simple`, the two papers its
+  docstring already references. The payload's `method` reads
+  `Bayesian <model> regression (<sampler>)` instead of the class name.
+
 #### Changed
 
 - **An unknown name is answered with the nearest registered ones.**

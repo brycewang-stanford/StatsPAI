@@ -85,6 +85,7 @@ _CITATIONS = {
     "sur": ("zellner1962efficient", "rossi2005bayesian"),
     "lasso": ("park2008bayesian",),
     "ssvs": ("george1993variable",),
+    "horseshoe": ("carvalho2010horseshoe", "makalic2016simple"),
     "iv": ("rossi2005bayesian",),
     "stochvol": ("kastner2014ancillarity",),
     "mvprobit": ("rossi2005bayesian", "albert1993bayesian"),
@@ -563,13 +564,29 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
     _offset: Any = field(default=None, repr=False)
     _trials: Any = field(default=None, repr=False)
 
-    #: every paper a model of this family rests on; ``cite()`` returns the
-    #: ones of the fitted model
+    #: every paper a model of this family rests on; an instance carries
+    #: only the ones of its fitted model (``__post_init__``)
     _citation_keys = tuple(sorted({k for v in _CITATIONS.values() for k in v}))
+
+    def __post_init__(self) -> None:
+        # The result contract reads ``_citation_keys`` for the payload's
+        # ``citation_key``. Left at the family tuple, every fit reported the
+        # alphabetically first key (``albert1993bayesian``, the probit
+        # sampler) whatever model was fitted. A subclass that declares its
+        # own keys keeps them.
+        if type(self)._citation_keys is BayesRegressResult._citation_keys:
+            object.__setattr__(
+                self, "_citation_keys", tuple(_CITATIONS.get(self.model, ()))
+            )
+
+    @property
+    def method(self) -> str:
+        """``'Bayesian <model> regression (<sampler>)'``, the payload's name."""
+        return f"Bayesian {self.model} regression ({self.sampler})"
 
     def cite(self, format: str = "keys") -> Any:  # noqa: A002
         """The verified ``paper.bib`` keys behind the fitted model."""
-        keys = list(_CITATIONS.get(self.model, self._citation_keys))
+        keys = list(self._citation_keys)
         if format == "json":
             return {
                 "citation_keys": keys,
