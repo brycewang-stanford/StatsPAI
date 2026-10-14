@@ -105,6 +105,22 @@ does. No estimate changes.
 - `statspai-mcp --profile full` prints a warning with the size of the
   list it is about to advertise.
 
+#### Fixed
+
+- **Fits made through the MCP server could record no source revision.**
+  In a source checkout, the first fit reads the StatsPAI git revision by
+  running `git` once and caches the answer for the process. Under the
+  server that first fit runs on a worker thread, after numerical code,
+  and on macOS the forked `git` child can crash before `exec`; the
+  revision was then cached as missing and every later result's
+  provenance lacked it, with a crash dump on stderr as the only sign.
+  Both transports now read the revision when they start, before any
+  worker thread exists. Installed wheels never ran `git` and are
+  unaffected. Library code that fits in its own threads can still hit
+  this; the fix there belongs in `_build_info`, whose change would need
+  the parity traces and Track C timing re-recorded, so it is left for a
+  release window.
+
 ### The packaged skill's examples are now run, not only parsed
 
 #### Fixed

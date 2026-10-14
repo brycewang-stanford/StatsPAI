@@ -405,3 +405,33 @@ def test_sampling_is_off_under_http(server):
     )
     assert status == 200
     assert _sampling._CAPABILITY is False
+
+
+def test_the_source_revision_is_read_before_any_request_thread(monkeypatch):
+    """A fit on a request thread must not be the first to run ``git``.
+
+    ``source_revision`` forks ``git`` once and caches the answer; forked
+    from a tool thread after numerical code ran, the child can crash on
+    macOS and every result then records no revision. The server reads it
+    while it is still single-threaded.
+    """
+    from statspai import _build_info
+
+    _build_info.source_revision.cache_clear()
+    calls = []
+    real = _build_info._git
+
+    def recording_git(root, *args):
+        calls.append(threading.current_thread() is threading.main_thread())
+        return real(root, *args)
+
+    monkeypatch.setattr(_build_info, "_git", recording_git)
+    srv = ht.make_http_server("127.0.0.1", 0)
+    srv.server_close()
+    try:
+        expected = _build_info.source_revision()
+        if _build_info._checkout_root(_build_info._PKG_DIR) is not None:
+            assert calls and all(calls), calls
+        assert expected == _build_info.source_revision()
+    finally:
+        _build_info.source_revision.cache_clear()

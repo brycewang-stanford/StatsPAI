@@ -2436,6 +2436,23 @@ def _admission_refusal(
     return None
 
 
+def _prepare_for_threads() -> None:
+    """Do the process's fork-unsafe one-time work before any worker exists.
+
+    Every result records the StatsPAI source revision, which a source
+    checkout reads by running ``git`` (``_build_info.source_revision``,
+    cached after the first call). Left to the first fit, that ``git`` is
+    forked from a tool thread after numerical code ran; on macOS the
+    child can crash before ``exec``, the revision is cached as ``None``
+    and every later result silently lacks it. Reading it here, on the
+    thread that starts the server, keeps the fork single-threaded. An
+    installed wheel has no checkout and runs nothing.
+    """
+    from .._build_info import source_revision
+
+    source_revision()
+
+
 def serve_stdio(
     stdin: Optional[Iterable[str]] = None,
     stdout: Optional[TextIO] = None,
@@ -2497,6 +2514,7 @@ def serve_stdio(
     if stdout is None:
         stdout = sys.stdout
 
+    _prepare_for_threads()
     sink = _LockedSink(stdout)
 
     global _PROGRESS_SINK

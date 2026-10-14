@@ -177,6 +177,7 @@ class McpHttpServer(ThreadingHTTPServer):
         # and on macOS native libraries first loaded off the main thread
         # leave the process unable to fork safely afterwards.
         _srv._tools_list_result_json()
+        _srv._prepare_for_threads()
         super().__init__(address, _McpHandler)
 
     def server_bind(self) -> None:
