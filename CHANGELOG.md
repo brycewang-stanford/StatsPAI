@@ -65,7 +65,9 @@ what changes. The JSS manuscript stays anchored to 1.39.1.
   banner said 950+ and 80+), the causal diagram shows observed (X) and
   unobserved (U) confounding of T -> Y, and the code panel uses a Python
   prompt instead of a shell one. A QR code in the lower right links to
-  the GitHub repository.
+  the GitHub repository. In the logo, the upper-right and lower-left
+  edges of the hexagon are dimmed so the bright edges trace the S of
+  StatsPAI.
 
 ### Pre-trend messages that claimed more than the test shows
 
