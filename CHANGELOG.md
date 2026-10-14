@@ -31,6 +31,12 @@ what changes. The JSS manuscript stays anchored to 1.39.1.
   `README_CN.md`. GitHub now opens on the English text. The PyPI long
   description is unchanged in content (`pyproject.toml` reads
   `README.md`). Links to `README_EN.md` on GitHub no longer resolve.
+- **New README banner.** `docs/logo/readme-1.png` is redrawn as a vector
+  layout rendered at 3344x1882 (twice the old size, a third of the file
+  size). The counts now read 1,500+ functions and 90 submodules (the old
+  banner said 950+ and 80+), the causal diagram shows observed (X) and
+  unobserved (U) confounding of T -> Y, and the code panel uses a Python
+  prompt instead of a shell one.
 
 ### Pre-trend messages that claimed more than the test shows
 
