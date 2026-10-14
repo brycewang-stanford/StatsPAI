@@ -400,7 +400,8 @@ def _run_captured(session: "StataSession", body: List[str]) -> None:
     or, failing that, 111 / 110 / 198 as for a one-line ``capture``."""
     try:
         _run_body(session, body)
-    except Exception as exc:
+    except (MethodIncompatibility, KeyError) as exc:
+        # the only errors captured_code maps to an _rc; others propagate
         code = captured_code(exc)
         if code is None:
             raise
