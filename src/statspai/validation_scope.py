@@ -744,7 +744,7 @@ _add(
                 "weighted CR2 has two unbiased adjustments: StatsPAI and Stata "
                 "apply CR2 to the sqrt(w)-transformed design, clubSandwich "
                 "(inverse_var=TRUE) uses the Pustejovsky-Tipton symmetric form; "
-                "up to 0.4% apart here, both rebuilt from the fit to 1e-10 and "
+                "up to 0.53% apart here, both rebuilt from the fit to 1e-10 and "
                 "both satisfying A_g M_g A_g' = W_g^-1",
                 "sp.regress(F, data, vce='cr2', cluster='g', weights='w')",
             ),

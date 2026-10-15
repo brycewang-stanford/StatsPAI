@@ -219,7 +219,7 @@ def test_regress_weighted_cr2_is_the_transformed_design_form(data, ref_r):
     regress [aw=w], vce(hc2 g) reports, matched to 1e-10 in
     test_regress_vce_weights_stata_parity.py); clubSandwich's
     inverse_var=TRUE number is the Pustejovsky-Tipton form. Both are rebuilt
-    here from the same fit; the gap on this data is up to 0.4%.
+    here from the same fit; the gap on this data is up to 0.53% (x3).
     """
     fit = _quiet(sp.regress, F, data, vce="cr2", cluster="g", weights="w")
     forms = _cr2_forms(data)
