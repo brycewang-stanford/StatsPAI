@@ -5402,6 +5402,7 @@
         "tests/stata_parity/84_bjs_pretrends.do",
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/reference_parity/test_bjs_fe_covariates_parity.py",
+        "tests/reference_parity/test_bjs_options_parity.py",
         "tests/reference_parity/test_bjs_project_parity.py",
         "tests/reference_parity/test_did_imputation_autosample_Stata_parity.py",
         "tests/reference_parity/test_did_variants_parity.py",
@@ -6002,6 +6003,7 @@
         "tests/reference_parity/test_cross_estimator_parity.py",
         "tests/reference_parity/test_dml_cluster_doubleml_parity.py",
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
+        "tests/reference_parity/test_dml_options_doubleml_parity.py",
         "tests/reference_parity/test_dml_parity.py",
         "tests/reference_parity/test_dml_pliv_anderson_rubin.py",
         "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
@@ -6830,6 +6832,7 @@
       "additional_tests": [
         "tests/reference_parity/test_etwfe_glm_parity.py",
         "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
+        "tests/reference_parity/test_etwfe_options_parity.py",
         "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
         "tests/reference_parity/test_etwfe_poisson_xvar_R_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
@@ -6889,6 +6892,7 @@
       "additional_tests": [
         "tests/reference_parity/test_etwfe_glm_parity.py",
         "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
+        "tests/reference_parity/test_etwfe_options_parity.py",
         "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
         "tests/reference_parity/test_jwdid_Stata_parity.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
@@ -7100,6 +7104,7 @@
       "additional_tests": [
         "tests/external_parity/test_rebel_canal_published.py",
         "tests/reference_parity/test_event_study_grid_R_parity.py",
+        "tests/reference_parity/test_event_study_options_R_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",
@@ -8353,6 +8358,7 @@
       "additional_tests": [
         "tests/reference_parity/test_did_variants_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
+        "tests/reference_parity/test_gardner_stage2_R_parity.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
@@ -10392,6 +10398,7 @@
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_validation_entry_points.py",
+        "tests/reference_parity/test_vce_menu_parity.py",
         "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py",
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
@@ -10622,7 +10629,8 @@
         "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
         "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vce_menu_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -12627,6 +12635,7 @@
         "tests/reference_parity/test_match_fw_stata_parity.py",
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_nnmatch_teffects_parity.py",
+        "tests/reference_parity/test_psm_options_parity.py",
         "tests/reference_parity/test_psmatch2_llr_parity.py",
         "tests/reference_parity/test_psmatch2_parity.py",
         "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
@@ -18791,6 +18800,7 @@
         "tests/reference_parity/test_rdbwselect_iqr_pilot.py",
         "tests/reference_parity/test_rdms_points_parity.py",
         "tests/reference_parity/test_rdrobust_asym_bandwidth_R_parity.py",
+        "tests/reference_parity/test_rdrobust_comb_parity.py",
         "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
         "tests/reference_parity/test_rdrobust_params_parity.py",
         "tests/reference_parity/test_rdrobust_parity.py",
@@ -19112,6 +19122,7 @@
         "tests/reference_parity/test_thornton_ri_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vce_menu_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py",
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
@@ -21962,6 +21973,7 @@
         "tests/reference_parity/test_sunab_control_cohort_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
         "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",
+        "tests/reference_parity/test_sunab_options_parity.py",
         "tests/reference_parity/test_sunab_weighted_parity.py"
       ],
       "also_verified_by": [
@@ -22441,6 +22453,7 @@
         "tests/reference_parity/test_synth2_stata_parity.py",
         "tests/reference_parity/test_synth_parity.py",
         "tests/reference_parity/test_synth_regression_v_stata.py",
+        "tests/reference_parity/test_synth_unique_options_parity.py",
         "tests/reference_parity/test_texas_synth_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
@@ -23804,7 +23817,9 @@
         "tests/reference_parity/test_iv_card_aer_parity.py",
         "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",
-        "tests/reference_parity/test_validation_entry_points.py"
+        "tests/reference_parity/test_synth_unique_options_parity.py",
+        "tests/reference_parity/test_validation_entry_points.py",
+        "tests/reference_parity/test_vce_menu_parity.py"
       ],
       "tolerance": ""
     },

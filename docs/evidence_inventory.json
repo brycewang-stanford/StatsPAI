@@ -655,21 +655,21 @@
       },
       "cells": 240,
       "overall": {
-        "covered": 6,
-        "estimate_only": 12,
+        "covered": 12,
+        "estimate_only": 24,
         "stochastic_only": 1,
         "disclosure_only": 2,
-        "not_covered": 219
+        "not_covered": 201
       },
       "by_output": {
         "estimate": {
-          "reference": 18,
+          "reference": 36,
           "disclosure": 3,
-          "not_covered": 219
+          "not_covered": 201
         },
         "se": {
-          "reference": 7,
-          "not_covered": 233
+          "reference": 13,
+          "not_covered": 227
         },
         "vcov": {
           "reference": 1,
@@ -892,6 +892,117 @@
             ]
           },
           "compares": "every entry of the per-horizon covariance vs Stata did_imputation's e(V)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_bjs_options_parity.py",
+          "entry_point": "sp.did_imputation(fe=[...])",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "fe": [
+              "custom"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "horizons",
+              "overall"
+            ]
+          },
+          "compares": "fe(countyreal region#year) (overall and four horizons) and fe(region year) vs Stata did_imputation; the estimates are also the dense least-squares imputation to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_bjs_options_parity.py",
+          "entry_point": "sp.did_imputation(controls=..., time_covariates=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "fe": [
+              "unit_time"
+            ],
+            "covariates": [
+              "controls",
+              "mixed"
+            ],
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "overall"
+            ]
+          },
+          "compares": "a time-varying control, and a control next to timecontrols(), vs Stata did_imputation; next to unitcontrols() the file compares the SE at 1e-8 and holds the estimate to 5e-6 (Stata's iteration moved it 2.8e-6 between two runs), so that combination's estimate rests on the exact least-squares solution"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_bjs_options_parity.py",
+          "entry_point": "sp.did_imputation(weights=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "fe": [
+              "unit_time"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "set"
+            ],
+            "horizon": [
+              "horizons",
+              "overall"
+            ]
+          },
+          "compares": "[aw=w] overall and over four horizons vs Stata did_imputation"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_bjs_options_parity.py",
+          "entry_point": "sp.did_imputation(weights=..., fe=[...], controls=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "fe": [
+              "custom"
+            ],
+            "covariates": [
+              "controls"
+            ],
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "set"
+            ],
+            "horizon": [
+              "overall"
+            ]
+          },
+          "compares": "[aw=w] with fe(countyreal region#year) and controls(x) vs Stata did_imputation"
         }
       ]
     },
@@ -954,18 +1065,20 @@
       "invariant": {},
       "cells": 9120,
       "overall": {
-        "covered": 7,
+        "covered": 30,
+        "estimate_only": 3,
         "stochastic_only": 2,
-        "not_covered": 9111
+        "not_covered": 9085
       },
       "by_output": {
         "estimate": {
-          "reference": 7,
-          "not_covered": 9113
+          "reference": 33,
+          "not_covered": 9087
         },
         "se": {
-          "reference": 7,
-          "not_covered": 9113
+          "reference": 30,
+          "disclosure": 3,
+          "not_covered": 9087
         },
         "coverage": {
           "coverage_simulation": 2,
@@ -1211,6 +1324,435 @@
             ]
           },
           "compares": "95% CI coverage with the default learners"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/test_dml_ivtype_reference.py",
+          "entry_point": "sp.dml(model='plr', score='IV-type')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "iv-type"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "IV-type score with OLS nuisances vs doubleml-for-py on a shared partition (1e-10)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/test_dml_ivtype_reference.py",
+          "entry_point": "sp.dml(model='plr', score='IV-type')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "iv-type"
+            ],
+            "learners": [
+              "other"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "IV-type score with cross-validated lasso nuisances vs doubleml-for-py on a shared partition (1e-8)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/test_dml_ivtype_reference.py",
+          "entry_point": "sp.dml(model='irm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "ate",
+              "atte"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "trim0.01"
+            ]
+          },
+          "compares": "ATE and ATTE scores vs doubleml-for-py on a shared partition"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='plr')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "iv-type",
+              "partialling out"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "10",
+              "2",
+              "3"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "both scores at 2, 3 and 10 folds vs doubleml-for-py 0.11.3 on shared folds (7e-16)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='irm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "ate"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "10",
+              "2",
+              "3"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "trim0.01"
+            ]
+          },
+          "compares": "ATE at 2, 3 and 10 folds vs doubleml-for-py on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='irm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "atte"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "3"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "trim0.01"
+            ]
+          },
+          "compares": "ATTE at 3 folds vs doubleml-for-py on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='irm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "ate",
+              "atte"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "3"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "other"
+            ]
+          },
+          "compares": "trimming at 0.1 (binding; ATE) and normalize_ipw=True (ATE, ATTE) vs doubleml-for-py on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='pliv')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "pliv"
+            ],
+            "score": [
+              "partialling out"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "10",
+              "2",
+              "3"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "PLIV at 2, 3 and 10 folds vs doubleml-for-py on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='iivm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "iivm"
+            ],
+            "score": [
+              "late"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "10",
+              "2",
+              "3"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "trim0.01"
+            ]
+          },
+          "compares": "IIVM at 2, 3 and 10 folds vs doubleml-for-py on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='iivm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "iivm"
+            ],
+            "score": [
+              "late"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "3"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "other"
+            ]
+          },
+          "compares": "IIVM with trimming at 0.1 (binding) and normalize_ipw=True vs doubleml-for-py on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='plr', n_rep=3)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "iv-type",
+              "partialling out"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              ">1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "n_rep = 3 on sp.dml's own folds: every repetition's estimate and SE and the median estimate vs doubleml-for-py and R DoubleML"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='irm', n_rep=3)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "ate"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              ">1"
+            ],
+            "ipw": [
+              "trim0.01"
+            ]
+          },
+          "compares": "n_rep = 3 (stratified folds): every repetition's estimate and SE and the median estimate vs doubleml-for-py"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='plr', n_rep=3)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "iv-type",
+              "partialling out"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              ">1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "aggregated SE under n_rep > 1: R and Python DoubleML use different rules (1.8e-3 apart); sp.dml uses median(se_r^2 + dev_r^2); each reference's SE is rebuilt from the shared repetitions to 1e-12"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_dml_options_doubleml_parity.py",
+          "entry_point": "sp.dml(df, model='irm', n_rep=3)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "ate"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              ">1"
+            ],
+            "ipw": [
+              "trim0.01"
+            ]
+          },
+          "compares": "aggregated SE under n_rep > 1: Python DoubleML's median-upper-bound rule, rebuilt from the shared repetitions to 1e-12"
         }
       ]
     },
@@ -1252,17 +1794,17 @@
       "invariant": {},
       "cells": 128,
       "overall": {
-        "estimate_only": 7,
-        "not_covered": 121
+        "covered": 16,
+        "not_covered": 112
       },
       "by_output": {
         "estimate": {
-          "reference": 7,
-          "not_covered": 121
+          "reference": 16,
+          "not_covered": 112
         },
         "se": {
-          "disclosure": 7,
-          "not_covered": 121
+          "reference": 16,
+          "not_covered": 112
         },
         "vcov": {
           "reference": 3,
@@ -1658,6 +2200,278 @@
             ]
           },
           "compares": "SEs within 1e-5 of etwfe::emfx; R's carry marginaleffects' finite-difference Jacobian noise (up to 3.3e-6)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/test_etwfe_emfx_reference.py",
+          "entry_point": "sp.etwfe(castle, ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ]
+          },
+          "compares": "simple / event / group / calendar ATTs vs etwfe::emfx on the castle-doctrine panel: estimates to 1e-9, SEs to 1e-6 (R's forward-difference Jacobian; R's own sqrt(w' V w) agrees to 1e-13)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation",
+              "unit"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ]
+          },
+          "compares": "every emfx aggregation (simple / group / calendar / event, leads included) vs etwfe::emfx with a Richardson Jacobian: estimates to 1e-9, SEs to 1e-7 (observed 3.1e-9); unweighted, where the two agg_weights rules coincide"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "false"
+            ],
+            "cgroup": [
+              "notyet"
+            ]
+          },
+          "compares": "panel=False without cluster= (HC1) vs etwfe(vcov='hetero') + emfx, every aggregation: estimates to 1e-9, SEs to 1e-7"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "set"
+            ],
+            "agg_weights": [
+              "estimation",
+              "unit"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ]
+          },
+          "compares": "weighted fit vs etwfe(weights = ~w): agg_weights='unit' vs emfx(), agg_weights='estimation' vs emfx(wts = 'w'); every aggregation, estimates to 1e-9, SEs to 1e-7"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ]
+          },
+          "compares": "continuous moderator vs etwfe(xvar = xv) + emfx(by_xvar = FALSE), every aggregation, plus the per-cohort moderator slopes vs fixest's coefficients and vcov; a categorical moderator vs the same per-level design fitted by fixest (etwfe 0.6.2 sums the level slopes of the period term)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "set"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ]
+          },
+          "compares": "additive time-varying control (jwdid's exovar(); R etwfe interacts controls with the cells, another model) vs fixest on etwfe's cell basis + marginaleffects::slopes as emfx calls it, and vs Stata jwdid, exovar() without ivar(): estimates and SEs to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "glm"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ]
+          },
+          "compares": "family='poisson' / 'logit' vs etwfe(family=) + emfx on both scales (glm.tol = 1e-12, Richardson Jacobian): estimates to 1e-9, SEs to 1e-7"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "glm"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "notyet"
+            ]
+          },
+          "compares": "Poisson with a continuous moderator vs etwfe(family = 'poisson', xvar = xv) + emfx, both scales"
         }
       ]
     },
@@ -1712,19 +2526,19 @@
       "invariant": {},
       "cells": 2880,
       "overall": {
-        "covered": 26,
-        "estimate_only": 13,
-        "not_covered": 2841
+        "covered": 36,
+        "estimate_only": 15,
+        "not_covered": 2829
       },
       "by_output": {
         "estimate": {
-          "reference": 39,
-          "not_covered": 2841
+          "reference": 51,
+          "not_covered": 2829
         },
         "se": {
-          "reference": 26,
-          "disclosure": 2,
-          "not_covered": 2852
+          "reference": 36,
+          "disclosure": 4,
+          "not_covered": 2840
         }
       },
       "rows": [
@@ -1804,7 +2618,169 @@
               "none"
             ]
           },
-          "compares": "clustered delta-method SE: about 1e-5 from etwfe::emfx (the test budget is 1e-4), because fixest and statsmodels apply different finite-sample corrections to the clustered sandwich"
+          "compares": "clustered delta-method SE: about 1e-5 from etwfe::emfx run with fixest's defaults (the test budget is 1e-4). Not a convention: the reference's forward-difference Jacobian, glm.tol = 1e-8 and a bread taken at the penultimate IRLS iterate; with those removed the SEs agree to 1e-9 (tests/reference_parity/test_etwfe_options_parity.py)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "logit",
+              "poisson"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ],
+            "fe": [
+              "cohort"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "link",
+              "response"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "every emfx aggregation on both scales vs etwfe(family=) + emfx with a Richardson Jacobian, glm.tol = 1e-12 and a restart from the solution: estimates to 1e-9, SEs to 1e-7 (observed 9.4e-10)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "cohort"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "link",
+              "response"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson with a continuous moderator (R etwfe's design) vs etwfe(family = 'poisson', xvar = xv) + emfx, both scales"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "logit",
+              "poisson"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ],
+            "fe": [
+              "cohort"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "unconditional"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "response-scale aggregates under response_se='unconditional' vs Stata jwdid, method(poisson|logit) + estat (no ivar): 1e-9"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_etwfe_options_parity.py",
+          "entry_point": "sp.etwfe(panel, **args)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "logit",
+              "poisson"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ],
+            "fe": [
+              "cohort"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "unconditional"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "unconditional SEs vs Stata estat ..., vce(unconditional), every aggregation: equal to 1e-9 after sqrt((n - K) / (n - 1)) -- Stata's ML commands scale the clustered sandwich by G/(G-1) only, fixest and StatsPAI also by (n - 1)/(n - K); R has no unconditional variance"
         },
         {
           "kind": "T2",
@@ -2419,17 +3395,17 @@
       "invariant": {},
       "cells": 512,
       "overall": {
-        "covered": 4,
-        "not_covered": 508
+        "covered": 45,
+        "not_covered": 467
       },
       "by_output": {
         "estimate": {
-          "reference": 4,
-          "not_covered": 508
+          "reference": 45,
+          "not_covered": 467
         },
         "se": {
-          "reference": 4,
-          "not_covered": 508
+          "reference": 45,
+          "not_covered": 467
         },
         "vcov": {
           "reference": 1,
@@ -2524,13 +3500,16 @@
           ],
           "configuration": {
             "adoption": [
-              "single_date"
+              "single_date",
+              "staggered"
             ],
             "window": [
-              "-4_4"
+              "-4_4",
+              "other"
             ],
             "ref_period": [
-              "-1"
+              "-1",
+              "other"
             ],
             "covariates": [
               "none",
@@ -2553,7 +3532,482 @@
               "none"
             ]
           },
-          "compares": "with and without a time-varying covariate and unit-level weights, vs fixest::feols: every coefficient and SE to 1e-10"
+          "compares": "the full 32-cell grid (adoption x window (-4, 4) / (-3, 5) x reference -1 / -2 x a time-varying covariate x unit-level weights) vs fixest::feols: every coefficient and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "-4_4",
+              "other"
+            ],
+            "ref_period": [
+              "-1",
+              "other"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "staggered adoption with eight other windows (narrower, wider than the data, asymmetric, no leads) and five other references (-2, the clipped endpoint -4, a span, both interval forms), vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "staggered adoption, unweighted and with weights constant within a unit or varying over time, on the balanced and an unbalanced panel, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "weights": [
+              "set"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "staggered adoption with a covariate and weights, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "other"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "clustered by state (coarser than the unit) and by period, and by state with a covariate on an unbalanced panel, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "single_date"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "set"
+            ],
+            "cluster": [
+              "other"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "a single adoption date, weighted, clustered by state, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "other"
+            ],
+            "ref_period": [
+              "other"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "set"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "bins of width 2 and 3 with a bin-aligned span and an interval reference, and with a region-by-time effect absorbed, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "single_date"
+            ],
+            "window": [
+              "other"
+            ],
+            "ref_period": [
+              "other"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "set"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "bins of width 2 on a single adoption date with a covariate, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "single_date"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "set"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "intensity x period regressors from a common adoption date, unweighted and weighted, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "single_date"
+            ],
+            "window": [
+              "other"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "other"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "set"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "intensity from a common date, window (-6, 5), clustered by state, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "set"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "intensity on a staggered adoption column, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "set"
+            ]
+          },
+          "compares": "region-by-time and state-by-time effects absorbed, the latter with a covariate, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_options_R_parity.py",
+          "entry_point": "sp.event_study(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "single_date"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "set"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "set"
+            ]
+          },
+          "compares": "a region-by-time effect absorbed on a single adoption date, weighted, vs fixest::feols"
         }
       ]
     },
@@ -2737,8 +4191,8 @@
       },
       "cells": 64,
       "overall": {
-        "covered": 6,
-        "estimate_only": 18,
+        "covered": 7,
+        "estimate_only": 17,
         "not_covered": 40
       },
       "by_output": {
@@ -2747,8 +4201,8 @@
           "not_covered": 40
         },
         "se": {
-          "reference": 6,
-          "not_covered": 58
+          "reference": 7,
+          "not_covered": 57
         },
         "vcov": {
           "reference": 1,
@@ -2839,6 +4293,33 @@
             ]
           },
           "compares": "event-study coefficients and every entry of their covariance (diagonal and off-diagonal) vs did2s::did2s(i(rel_year))"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_gardner_stage2_R_parity.py",
+          "entry_point": "sp.gardner_did(vce='stage2')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "stage2"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "form": [
+              "first_treat"
+            ],
+            "event_study": [
+              "off"
+            ]
+          },
+          "compares": "the legacy second-stage-only SE vs the hand-run second stage: lm(y_tilde ~ D) with sandwich::vcovCL(type='HC1') on the county (Stata regress, vce(cluster)), first stage by dense lm"
         }
       ]
     },
@@ -2893,27 +4374,27 @@
       },
       "cells": 448,
       "overall": {
-        "covered": 27,
-        "estimate_only": 141,
-        "not_covered": 280
+        "covered": 63,
+        "estimate_only": 161,
+        "not_covered": 224
       },
       "by_output": {
         "estimate": {
-          "reference": 168,
-          "not_covered": 280
+          "reference": 224,
+          "not_covered": 224
         },
         "se": {
-          "reference": 27,
-          "disclosure": 3,
-          "not_covered": 418
+          "reference": 63,
+          "disclosure": 7,
+          "not_covered": 378
         },
         "coverage": {
           "coverage_simulation": 1,
           "not_covered": 447
         },
         "diagnostic": {
-          "reference": 1,
-          "not_covered": 447
+          "reference": 3,
+          "not_covered": 445
         },
         "joint_test": {
           "reference": 3,
@@ -3391,6 +4872,331 @@
             ]
           },
           "compares": "absorbed Fuller(1) SE within 5e-5 of ivreghdfe (same k-class meat convention)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, **opts)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical",
+              "cluster_multiway",
+              "cr1",
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "coefficients and SEs vs ivreg::ivreg + sandwich (vcov, vcovHC HC0-HC3, vcovCL) and vs fixest IV with two- and three-way clustering at its default ssc(), to 1e-9 (observed 1e-13); sp.iv zeroes negative eigenvalues of the multiway matrix, as fixest does"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, vce=..., cluster='g')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "cr2",
+              "cr3",
+              "jackknife"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "CR2 / CR3 SEs vs clubSandwich::vcovCR on ivreg::ivreg, to 1e-9; vce='jackknife' is CR3 (a fit reports vce 'cr3')"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method=..., small=True)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "liml"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata ivregress 2sls / liml, small (unadjusted, robust, cluster), to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method=..., small=False)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "liml"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc0"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "false"
+            ]
+          },
+          "compares": "the same without small (ivregress's default), to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method='liml', robust='hc0')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "liml"
+            ],
+            "vce": [
+              "hc0"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "robust='hc0' carries no finite-sample factor: its LIML SE is ivregress liml, vce(robust)'s, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method='fuller', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "fuller"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc0",
+              "hc1"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "Fuller(1) coefficients and SEs vs Stata ivreg2, fuller(1): small classical / robust / cluster, and robust without small for HC0, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, cluster=['g', 'yr'])",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "cluster_multiway"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "sp.ivreg(cluster=[a, b]) reports the raw two-way matrix and equals Stata ivreg2, cluster(g yr) small, to 1e-9; where that matrix is not PSD it differs from sp.iv's projected one (next row)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method=..., cluster=['g', 'yr'])",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "fuller",
+              "liml"
+            ],
+            "vce": [
+              "cluster_multiway"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "multiway: ivreg2 reports the raw inclusion-exclusion matrix, sp.iv zeroes its negative eigenvalues (fixest's fix). ivreg2's matrix is rebuilt from three one-way sp.iv fits to 1e-9, and its projection is sp.iv's to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, vce='conley', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "conley"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "Conley SEs (uniform kernel, 100 km) vs Stata acreg, to 1e-9; a negative variance is nan, as acreg reports it missing"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, vce='wild', cluster='g')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "wild"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "the endogenous coefficient's SE reported with the WRE bootstrap is ivreg2's one-way cluster SE (small), to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, vce='wild', cluster='g')",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "wild"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "WRE p-value of the endogenous coefficient, all 2^12 Rademacher sign vectors enumerated: equal to Stata boottest after ivreg2 exactly"
         }
       ]
     },
@@ -3445,27 +5251,27 @@
       },
       "cells": 448,
       "overall": {
-        "covered": 27,
-        "estimate_only": 141,
-        "not_covered": 280
+        "covered": 63,
+        "estimate_only": 161,
+        "not_covered": 224
       },
       "by_output": {
         "estimate": {
-          "reference": 168,
-          "not_covered": 280
+          "reference": 224,
+          "not_covered": 224
         },
         "se": {
-          "reference": 27,
-          "disclosure": 3,
-          "not_covered": 418
+          "reference": 63,
+          "disclosure": 7,
+          "not_covered": 378
         },
         "coverage": {
           "coverage_simulation": 1,
           "not_covered": 447
         },
         "diagnostic": {
-          "reference": 1,
-          "not_covered": 447
+          "reference": 3,
+          "not_covered": 445
         },
         "joint_test": {
           "reference": 3,
@@ -3943,6 +5749,331 @@
             ]
           },
           "compares": "absorbed Fuller(1) SE within 5e-5 of ivreghdfe (same k-class meat convention)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, **opts)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical",
+              "cluster_multiway",
+              "cr1",
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "coefficients and SEs vs ivreg::ivreg + sandwich (vcov, vcovHC HC0-HC3, vcovCL) and vs fixest IV with two- and three-way clustering at its default ssc(), to 1e-9 (observed 1e-13); sp.iv zeroes negative eigenvalues of the multiway matrix, as fixest does"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, vce=..., cluster='g')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "cr2",
+              "cr3",
+              "jackknife"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "CR2 / CR3 SEs vs clubSandwich::vcovCR on ivreg::ivreg, to 1e-9; vce='jackknife' is CR3 (a fit reports vce 'cr3')"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method=..., small=True)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "liml"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata ivregress 2sls / liml, small (unadjusted, robust, cluster), to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method=..., small=False)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "liml"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc0"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "false"
+            ]
+          },
+          "compares": "the same without small (ivregress's default), to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method='liml', robust='hc0')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "liml"
+            ],
+            "vce": [
+              "hc0"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "robust='hc0' carries no finite-sample factor: its LIML SE is ivregress liml, vce(robust)'s, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method='fuller', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "fuller"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc0",
+              "hc1"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "Fuller(1) coefficients and SEs vs Stata ivreg2, fuller(1): small classical / robust / cluster, and robust without small for HC0, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, cluster=['g', 'yr'])",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "cluster_multiway"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "sp.ivreg(cluster=[a, b]) reports the raw two-way matrix and equals Stata ivreg2, cluster(g yr) small, to 1e-9; where that matrix is not PSD it differs from sp.iv's projected one (next row)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.iv(IV[ident], data, method=..., cluster=['g', 'yr'])",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "fuller",
+              "liml"
+            ],
+            "vce": [
+              "cluster_multiway"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "multiway: ivreg2 reports the raw inclusion-exclusion matrix, sp.iv zeroes its negative eigenvalues (fixest's fix). ivreg2's matrix is rebuilt from three one-way sp.iv fits to 1e-9, and its projection is sp.iv's to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, vce='conley', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "conley"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "Conley SEs (uniform kernel, 100 km) vs Stata acreg, to 1e-9; a negative variance is nan, as acreg reports it missing"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, vce='wild', cluster='g')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "wild"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "the endogenous coefficient's SE reported with the WRE bootstrap is ivreg2's one-way cluster SE (small), to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.ivreg(IV[ident], data, vce='wild', cluster='g')",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "wild"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "WRE p-value of the endogenous coefficient, all 2^12 Rademacher sign vectors enumerated: equal to Stata boottest after ivreg2 exactly"
         }
       ]
     },
@@ -3994,17 +6125,17 @@
       "invariant": {},
       "cells": 1920,
       "overall": {
-        "covered": 9,
-        "not_covered": 1911
+        "covered": 17,
+        "not_covered": 1903
       },
       "by_output": {
         "estimate": {
-          "reference": 9,
-          "not_covered": 1911
+          "reference": 17,
+          "not_covered": 1903
         },
         "se": {
-          "reference": 9,
-          "not_covered": 1911
+          "reference": 17,
+          "not_covered": 1903
         }
       },
       "rows": [
@@ -4331,6 +6462,225 @@
             ]
           },
           "compares": "ATE, two matches, bias adjustment vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='nnmatch', n_matches=4)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1",
+              "4",
+              "5"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT, nneighbor(1), (4), (5) vs Stata teffects nnmatch on the tie-free option data, estimate and SE to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='nnmatch', n_matches=4)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "ate"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "4",
+              "5"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATE, nneighbor(4), (5) vs Stata teffects nnmatch, estimate and SE to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='nnmatch', vce_nn=3)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "3"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT, vce(robust, nn(3)) vs Stata teffects nnmatch, estimate and SE to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='nnmatch', vce_nn=3)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "ate"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "4"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "3"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATE, nneighbor(4) vce(robust, nn(3)) vs Stata teffects nnmatch, estimate and SE to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='nnmatch', caliper=3.0)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "4"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "set"
+            ]
+          },
+          "compares": "ATT, nneighbor(4) caliper(3) vs Stata teffects nnmatch, estimate and SE to 1e-9. teffects reads the caliper as a condition: met, nothing changes; at caliper 2 it stops, sp.match keeps fewer matches and warns"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='nnmatch', caliper=3.0)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "ate"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "set"
+            ]
+          },
+          "compares": "ATE, caliper(3) vs Stata teffects nnmatch, estimate and SE to 1e-9"
         }
       ]
     },
@@ -4756,15 +7106,13 @@
       "dimensions": {
         "method": [
           "nearest",
-          "caliper",
           "kernel",
           "radius",
           "stratify"
         ],
         "distance": [
           "propensity",
-          "mahalanobis",
-          "logit"
+          "mahalanobis"
         ],
         "n_matches": [
           "1",
@@ -4793,6 +7141,8 @@
         "se_method": [
           "abadie_imbens",
           "abadie_imbens_2016",
+          "psmatch2",
+          "analytic",
           "bootstrap"
         ]
       },
@@ -4808,20 +7158,21 @@
           "reason": "the variance estimator does not change the matches"
         }
       },
-      "cells": 3600,
+      "cells": 3200,
       "overall": {
-        "covered": 1,
-        "estimate_only": 11,
-        "not_covered": 3588
+        "covered": 29,
+        "estimate_only": 71,
+        "not_covered": 3100
       },
       "by_output": {
         "estimate": {
-          "reference": 12,
-          "not_covered": 3588
+          "reference": 100,
+          "not_covered": 3100
         },
         "se": {
-          "reference": 1,
-          "not_covered": 3599
+          "reference": 29,
+          "disclosure": 2,
+          "not_covered": 3169
         }
       },
       "rows": [
@@ -4956,6 +7307,452 @@
             ]
           },
           "compares": "Mahalanobis matching without replacement, pooled covariance, data and closest orderings: ATT vs MatchIt to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, y='y', treat='d', covariates=X, n_matches=k)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1",
+              "10",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens"
+            ]
+          },
+          "compares": "ATT and Abadie-Imbens (2006) SE vs Stata psmatch2 neighbor(k) ai(1), k = 1..10 (and ai(2) at k = 1), on tie-free data, to 1e-9; with ties the SE follows psmatch2's row-order rule"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., se_method='abadie_imbens_2016')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1",
+              "10",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens_2016"
+            ]
+          },
+          "compares": "ATT and Abadie-Imbens (2016) SE vs Stata teffects psmatch, atet nneighbor(k), k = 1..10, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., caliper=0.2, se_method='abadie_imbens_2016')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "set"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens_2016"
+            ]
+          },
+          "compares": "ATT and ATE with caliper(0.2) vs Stata teffects psmatch, to 1e-9; teffects reads the caliper as a condition (caliper 0.1 is refused on both sides), so the matches are unchanged"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., caliper=0.01, se_method='psmatch2')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none",
+              "set"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "psmatch2"
+            ]
+          },
+          "compares": "ATT and psmatch2's own SE vs Stata psmatch2 neighbor(1), with no caliper and with caliper(0.01) / caliper(0.005) that leave 5 / 15 treated unmatched, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., caliper=0.01)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "set"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens"
+            ]
+          },
+          "compares": "ATT with caliper 0.01 / 0.005 vs Stata psmatch2 caliper() and R Matching::Match(caliper=), to 1e-9"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., caliper=0.01)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "set"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens"
+            ]
+          },
+          "compares": "Abadie-Imbens SE under a caliper: psmatch2 ai(1) applies the caliper to the same-arm search and sets sigma^2 = y^2/2 when no same-arm unit is inside it; rebuilt from our matches to 1e-9. Matching::Match's caliper SE is unexplained"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., replace=False, m_order='smallest')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "false"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens"
+            ]
+          },
+          "compares": "Abadie-Imbens SE without replacement: psmatch2 noreplacement ai(1) also draws the same-arm neighbours without replacement; rebuilt from our matches to 1e-9 (Matching reports no SE)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., distance='mahalanobis')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1",
+              "3"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens"
+            ]
+          },
+          "compares": "ATT and Abadie-Imbens SE (same-arm neighbours on the Mahalanobis distance, pooled covariance) vs Stata psmatch2 mahalanobis() ai(1), k = 1 and 3, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='kernel', kernel=k)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "kernel"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "psmatch2"
+            ]
+          },
+          "compares": "kernel matching, all five kernels at bwidth 0.06 and the Epanechnikov at 0.02: ATT and SE vs Stata psmatch2 kernel, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='radius', caliper=0.02)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "radius"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "set"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "psmatch2"
+            ]
+          },
+          "compares": "radius matching, caliper 0.02 and 0.05: ATT and SE vs Stata psmatch2 radius, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., method='stratify')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "stratify"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "analytic"
+            ]
+          },
+          "compares": "five quantile classes of the score (the default strata): ATT and SE vs Stata atts with those blocks, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
+          "entry_point": "sp.match(data, ..., method='stratify', strata='b1')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "stratify"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "analytic"
+            ]
+          },
+          "compares": "the blocks of sp.pscore (strata=): ATT and SE vs Stata atts on Lalonde, to 1e-12"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_psm_options_parity.py",
+          "entry_point": "sp.match(df, ..., bias_correction=True)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "true"
+            ],
+            "se_method": [
+              "abadie_imbens"
+            ]
+          },
+          "compares": "bias-adjusted ATT (regression on the covariates over the matched controls, weighted by use) and its SE vs R Matching::Match(BiasAdjust = TRUE), to 1e-9"
         }
       ]
     },
@@ -4976,6 +7773,14 @@
         "not_covered": 1
       },
       "by_output": {
+        "estimate": {
+          "reference": 1,
+          "not_covered": 1
+        },
+        "se": {
+          "reference": 1,
+          "not_covered": 1
+        },
         "diagnostic": {
           "reference": 1,
           "not_covered": 1
@@ -4995,6 +7800,37 @@
             ]
           },
           "compares": "density-difference test statistic and p-value vs rddensity"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rddensity_parity.py",
+          "entry_point": "sp.rddensity(df, x, c)",
+          "outputs": [
+            "diagnostic",
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "three designs x p in {2, 3} vs R rddensity 2.6: the statistic (result.estimate) and p-value, the jackknife SE of the density difference (result.se) and the one-sided SEs, bandwidths, densities and the order-p fit, all within 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rddensity_all_stata.py",
+          "entry_point": "sp.rddensity(df, x)",
+          "outputs": [
+            "diagnostic",
+            "estimate"
+          ],
+          "configuration": {
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "Lee senate data vs Stata rddensity, all: robust and conventional statistics, p-values, one-sided densities and SEs, and the binomial-test table"
         }
       ]
     },
@@ -5059,17 +7895,17 @@
       "invariant": {},
       "cells": 25920,
       "overall": {
-        "covered": 129,
-        "not_covered": 25791
+        "covered": 159,
+        "not_covered": 25761
       },
       "by_output": {
         "estimate": {
-          "reference": 129,
-          "not_covered": 25791
+          "reference": 159,
+          "not_covered": 25761
         },
         "se": {
-          "reference": 129,
-          "not_covered": 25791
+          "reference": 159,
+          "not_covered": 25761
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -6007,6 +8843,161 @@
             ]
           },
           "compares": "kink (deriv = 1, p = 2): bandwidth, conventional estimate and its SE vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_comb_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "cercomb1",
+              "cercomb2",
+              "msecomb1",
+              "msecomb2"
+            ],
+            "kernel": [
+              "epanechnikov",
+              "triangular",
+              "uniform"
+            ],
+            "p": [
+              "1",
+              "2"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "24-cell comb-selector grid vs R rdrobust 4.0.0 (2.2e-12) and Stata rdrobust 10.0.0 (2.5e-9, the distance between the two references): both estimates, both SEs and h, b on each side"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_comb_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "fuzzy"
+            ],
+            "bwselect": [
+              "cercomb1",
+              "cercomb2",
+              "msecomb1",
+              "msecomb2"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "fuzzy RD with two-sided noncompliance under the four comb selectors vs R and Stata rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "kink"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1",
+              "2"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "deriv = 1, sharp and fuzzy: both estimates, both SEs, h and b vs R rdrobust(deriv = 1); p = 2 also vs Stata rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "kink"
+            ],
+            "bwselect": [
+              "manual",
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "deriv = 1, sharp and fuzzy, hc1 at the selected and at a fixed h: estimates and SEs vs R and Stata rdrobust"
         }
       ]
     },
@@ -6047,20 +9038,23 @@
       },
       "cells": 28,
       "overall": {
-        "covered": 17,
-        "estimate_only": 11
+        "covered": 26,
+        "estimate_only": 2
       },
       "by_output": {
         "estimate": {
           "reference": 28
         },
         "se": {
-          "reference": 17,
-          "disclosure": 2,
-          "not_covered": 9
+          "reference": 26,
+          "not_covered": 2
         },
         "coverage": {
           "coverage_simulation": 1,
+          "not_covered": 27
+        },
+        "diagnostic": {
+          "reference": 1,
           "not_covered": 27
         },
         "joint_test": {
@@ -6332,6 +9326,160 @@
             ]
           },
           "compares": "95% CI coverage on a known-truth RCT DGP"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.regress(F, data, weights=..., **opts)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster_multiway",
+              "cr1",
+              "cr3",
+              "hac",
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3",
+              "hc4"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "coefficients and SEs vs R on lm, unweighted and weighted: sandwich vcovHC HC0-HC4, vcovCL, NeweyWest (4 lags, with and without adjust), clubSandwich CR3, and fixest two-way clustering at its default ssc() (one G_min factor, the convention sp.regress uses), to 1e-9 (observed 1e-13). Two-way only: sp.regress refuses three-way clustering"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.regress(F, data, vce='cr2', cluster='g')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "cr2"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "CR2 SEs vs clubSandwich::vcovCR on lm, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.regress(F, data, vce='jackknife', cluster='g')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "jackknife"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "vce='jackknife' is the CR3 variance (a fit reports vce 'cr3'); equal to clubSandwich CR3, unweighted and weighted, to 1e-9"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.regress(F, data, vce='cr2', cluster='g', weights='w')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "cr2"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted CR2 has two unbiased adjustments: StatsPAI and Stata apply CR2 to the sqrt(w)-transformed design, clubSandwich (inverse_var=TRUE) uses the Pustejovsky-Tipton symmetric form; up to 0.53% apart here, both rebuilt from the fit to 1e-10 and both satisfying A_g M_g A_g' = W_g^-1"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.regress(F, data, vce='wild', cluster='g')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "wild"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "the SE reported with the wild bootstrap is the CR1 one: vs sandwich::vcovCL and Stata regress, vce(cluster g), to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.regress(F, data, vce='wild', cluster='g')",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "vce": [
+              "wild"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "WCR bootstrap p-values, 12 clusters and all 2^12 Rademacher sign vectors enumerated: equal to fwildclusterboot::boottest and Stata boottest exactly"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.regress(F, data, vce='conley', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "conley"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Conley SEs (uniform kernel, 100 km) vs Stata acreg, to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_menu_parity.py",
+          "entry_point": "sp.regress(F, data, robust='hac', hac_small=True, ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hac"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "hac_small=True vs Stata newey, lag(4), unweighted and [aw=w], to 1e-9"
         }
       ]
     },
@@ -6498,7 +9646,8 @@
       "dimensions": {
         "control_group": [
           "nevertreated",
-          "lastcohort"
+          "lastcohort",
+          "control_cohort"
         ],
         "aggregation": [
           "fixest_att",
@@ -6526,27 +9675,27 @@
           "reason": "the event-time covariance is formed before the summary aggregate is chosen"
         }
       },
-      "cells": 24,
+      "cells": 36,
       "overall": {
-        "covered": 5,
-        "not_covered": 19
+        "covered": 21,
+        "not_covered": 15
       },
       "by_output": {
         "estimate": {
-          "reference": 5,
-          "not_covered": 19
+          "reference": 21,
+          "not_covered": 15
         },
         "se": {
-          "reference": 5,
-          "not_covered": 19
+          "reference": 21,
+          "not_covered": 15
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 23
+          "not_covered": 35
         },
         "vcov": {
           "reference": 2,
-          "not_covered": 22
+          "not_covered": 34
         }
       },
       "rows": [
@@ -6669,6 +9818,85 @@
             ]
           },
           "compares": "event-time coefficients and SEs with both ends of the window pooled, on an unbalanced panel, unweighted and with weights that vary over time, vs Stata eventstudyinteract"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_sunab_options_parity.py",
+          "entry_point": "sp.sun_abraham(control_group='lastcohort')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "control_group": [
+              "control_cohort",
+              "lastcohort"
+            ],
+            "aggregation": [
+              "event_time",
+              "fixest_att"
+            ],
+            "share_variance": [
+              "estimated",
+              "fixed"
+            ],
+            "window_rule": [
+              "report"
+            ]
+          },
+          "compares": "the 2007 cohort as control on mpdta (the last cohort, and the same cohort named by control_cohort=): event-time effects and SEs vs eventstudyinteract control_cohort(c2007) with the share term and vs fixest::sunab(ref.c=2007) without it; both summary aggregates vs fixest"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_sunab_control_cohort_parity.py",
+          "entry_point": "sp.sun_abraham(control_cohort=2007)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "control_group": [
+              "control_cohort",
+              "nevertreated"
+            ],
+            "aggregation": [
+              "event_time"
+            ],
+            "share_variance": [
+              "estimated"
+            ],
+            "window_rule": [
+              "report"
+            ]
+          },
+          "compares": "event-time effects and SEs with the never-treated, and with control_cohort= naming the 2007 cohort (as a value and as a 0/1 column), vs eventstudyinteract control_cohort()"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_sunab_options_parity.py",
+          "entry_point": "sp.sun_abraham(window_rule='reference')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "control_group": [
+              "lastcohort",
+              "nevertreated"
+            ],
+            "aggregation": [
+              "event_time",
+              "fixest_att"
+            ],
+            "share_variance": [
+              "estimated",
+              "fixed"
+            ],
+            "window_rule": [
+              "reference"
+            ]
+          },
+          "compares": "windows (-3, 2) and (-2, 1) with the relative times outside them in the omitted category: event-time effects and SEs vs eventstudyinteract run on the in-window dummies only and vs fixest::sunab(ref.p=c(-1, <outside>)); both summary aggregates vs fixest"
         }
       ]
     },
@@ -6676,7 +9904,8 @@
       "dimensions": {
         "v_method": [
           "equal",
-          "nested"
+          "nested",
+          "regression"
         ],
         "weights": [
           "unique",
@@ -6691,17 +9920,21 @@
         "estimate"
       ],
       "invariant": {},
-      "cells": 8,
+      "cells": 12,
       "overall": {
-        "covered": 1,
-        "disclosure_only": 2,
-        "not_covered": 5
+        "covered": 3,
+        "disclosure_only": 1,
+        "not_covered": 8
       },
       "by_output": {
         "estimate": {
+          "reference": 3,
+          "disclosure": 1,
+          "not_covered": 8
+        },
+        "se": {
           "reference": 1,
-          "disclosure": 2,
-          "not_covered": 5
+          "not_covered": 11
         }
       },
       "rows": [
@@ -6745,34 +9978,115 @@
             ]
           },
           "compares": "Basque gap: reference implementations disagree (non-unique V, W)"
+        },
+        {
+          "kind": "T1",
+          "artifact": "tests/reference_parity/test_synth_unique_options_parity.py",
+          "entry_point": "sp.synth(method='classic', special_predictors=...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "v_method": [
+              "nested",
+              "regression"
+            ],
+            "weights": [
+              "unique"
+            ],
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "module 52's design with special predictors: true donor weights and a gap of exactly 2 under the nested V search and regression V; R Synth's nested search recovers the same to 4e-14"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_synth_unique_options_parity.py",
+          "entry_point": "sp.synth(method='classic')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "v_method": [
+              "equal"
+            ],
+            "weights": [
+              "unique"
+            ],
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "placebo SD (result.se): every placebo's weights certified as the unique simplex least-squares optimum (KKT); placebo effects vs R Synth with equal unscaled V to 1e-12 (one vertex optimum to ipop's 1e-5), the SD to 9e-7"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_synth_regression_v_stata.py",
+          "entry_point": "sp.synth(v_method='regression')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "v_method": [
+              "regression"
+            ],
+            "weights": [
+              "unique"
+            ],
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "Proposition 99 vs Stata synth: V and pre-period RMSPE to 1e-9; Stata builds its gaps from donor weights rounded to three decimals (ATT -18.70 against -18.81 at the exact weights), and rounding ours reproduces its path to 1e-9"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_synth2_stata_parity.py",
+          "entry_point": "sp.synth(method='classic', v_method='regression')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "v_method": [
+              "regression"
+            ],
+            "weights": [
+              "unique"
+            ],
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "synth2 placebo / leave-one-out reports: pre-period MSPEs to 1e-8, paths and effects reproduced from weights rounded as synth stores them"
         }
       ]
     }
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 852,
+      "reference": 1215,
       "seed_equivalence": 3,
-      "disclosure": 5,
-      "not_covered": 45532
+      "disclosure": 4,
+      "not_covered": 44788
     },
     "se": {
-      "reference": 376,
+      "reference": 638,
       "stochastic_screen": 3,
-      "disclosure": 17,
-      "not_covered": 45988
+      "disclosure": 23,
+      "not_covered": 45346
     },
     "coverage": {
       "coverage_simulation": 11,
-      "not_covered": 36885
+      "not_covered": 36897
     },
     "diagnostic": {
-      "reference": 3,
-      "not_covered": 895
+      "reference": 8,
+      "not_covered": 918
     },
     "vcov": {
       "reference": 9,
-      "not_covered": 1471
+      "not_covered": 1483
     },
     "joint_test": {
       "reference": 16,
@@ -6793,7 +10107,8 @@
       "fixture": "tests/stata_parity/option_parity/results/83_sunab_control_cohort_Stata.json",
       "sha256": "fd4d59285d8606fb03593c82df9a82b8bdb292df658ba058d08df642b4f927b0",
       "consumers": [
-        "tests/reference_parity/test_sunab_control_cohort_parity.py"
+        "tests/reference_parity/test_sunab_control_cohort_parity.py",
+        "tests/reference_parity/test_sunab_options_parity.py"
       ],
       "in_tier_a_lock": false
     },
@@ -6829,6 +10144,38 @@
         "tests/reference_parity/test_did_had_parity.py"
       ],
       "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/92_vce_menu_Stata.json",
+      "sha256": "320c9f3720262c4fd42fd83f0407fd4efd3391f6cf0edf99080b6893b61e836b",
+      "consumers": [
+        "tests/reference_parity/test_vce_menu_parity.py"
+      ],
+      "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/93_sunab_options_Stata.json",
+      "sha256": "696642f7337dbc76db0f8b1c629917618ba2d549f92e1f18cad2370fb3685275",
+      "consumers": [
+        "tests/reference_parity/test_sunab_options_parity.py"
+      ],
+      "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/94_bjs_options_Stata.json",
+      "sha256": "8f7d765f8a78ad2773b15ef3f2f6bc2186eac757833f638cd574c4513a00e083",
+      "consumers": [
+        "tests/reference_parity/test_bjs_options_parity.py"
+      ],
+      "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/95_rdrobust_comb_Stata.json",
+      "sha256": "a640f1fd0360404278ccb21480b8c2e80cb15d20d0dbabb168310cb55e8e0a4f",
+      "consumers": [
+        "tests/reference_parity/test_rdrobust_comb_parity.py"
+      ],
+      "in_tier_a_lock": false
     }
   ],
   "option_inputs": [
@@ -6843,6 +10190,10 @@
     {
       "input": "tests/stata_parity/option_parity/data_87_did_had.csv",
       "sha256": "7609daa994c6aca4023ac0f5e5f1f296e0b92fc2a32dda83d32490cceaddd52c"
+    },
+    {
+      "input": "tests/stata_parity/option_parity/data_94_bjs_options.csv",
+      "sha256": "38192ebdc07262fcdab5ffeec4ccf3606479b15e50c7a0d3fa351a06301c571b"
     }
   ],
   "translation_holdout": [

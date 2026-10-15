@@ -13,24 +13,24 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `callaway_santanna` | 512 | 70 / 512 | 35 / 512 | 1 / 512 | -- | -- | 35 / 512 |
 | `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
-| `did_imputation` | 240 | 18 / 240 | 7 / 240 | 1 / 240 | -- | -- | 6 / 240 |
-| `dml` | 9120 | 7 / 9120 | 7 / 9120 | -- | -- | -- | 7 / 9120 |
-| `etwfe` | 128 | 7 / 128 | 0 / 128 | 3 / 128 | -- | -- | 0 / 128 |
-| `etwfe_glm` | 2880 | 39 / 2880 | 26 / 2880 | -- | -- | -- | 26 / 2880 |
-| `event_study` | 512 | 4 / 512 | 4 / 512 | 1 / 512 | -- | -- | 4 / 512 |
+| `did_imputation` | 240 | 36 / 240 | 13 / 240 | 1 / 240 | -- | -- | 12 / 240 |
+| `dml` | 9120 | 33 / 9120 | 30 / 9120 | -- | -- | -- | 30 / 9120 |
+| `etwfe` | 128 | 16 / 128 | 16 / 128 | 3 / 128 | -- | -- | 16 / 128 |
+| `etwfe_glm` | 2880 | 51 / 2880 | 36 / 2880 | -- | -- | -- | 36 / 2880 |
+| `event_study` | 512 | 45 / 512 | 45 / 512 | 1 / 512 | -- | -- | 45 / 512 |
 | `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
-| `gardner_did` | 64 | 24 / 64 | 6 / 64 | 1 / 64 | -- | -- | 6 / 64 |
-| `iv` | 448 | 168 / 448 | 27 / 448 | -- | 3 / 448 | 1 / 448 | 27 / 448 |
-| `ivreg` | 448 | 168 / 448 | 27 / 448 | -- | 3 / 448 | 1 / 448 | 27 / 448 |
-| `nnmatch` | 1920 | 9 / 1920 | 9 / 1920 | -- | -- | -- | 9 / 1920 |
+| `gardner_did` | 64 | 24 / 64 | 7 / 64 | 1 / 64 | -- | -- | 7 / 64 |
+| `iv` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
+| `ivreg` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
+| `nnmatch` | 1920 | 17 / 1920 | 17 / 1920 | -- | -- | -- | 17 / 1920 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
-| `psm` | 3600 | 12 / 3600 | 1 / 3600 | -- | -- | -- | 1 / 3600 |
-| `rddensity` | 2 | -- | -- | -- | -- | 1 / 2 | 1 / 2 |
-| `rdrobust` | 25920 | 129 / 25920 | 129 / 25920 | -- | -- | -- | 129 / 25920 |
-| `regress` | 28 | 28 / 28 | 17 / 28 | -- | 5 / 28 | -- | 17 / 28 |
+| `psm` | 3200 | 100 / 3200 | 29 / 3200 | -- | -- | -- | 29 / 3200 |
+| `rddensity` | 2 | 1 / 2 | 1 / 2 | -- | -- | 1 / 2 | 1 / 2 |
+| `rdrobust` | 25920 | 159 / 25920 | 159 / 25920 | -- | -- | -- | 159 / 25920 |
+| `regress` | 28 | 28 / 28 | 26 / 28 | -- | 5 / 28 | 1 / 28 | 26 / 28 |
 | `sdid` | 288 | 52 / 288 | 24 / 288 | -- | -- | -- | 24 / 288 |
-| `sun_abraham` | 24 | 5 / 24 | 5 / 24 | 2 / 24 | -- | -- | 5 / 24 |
-| `synth` | 8 | 1 / 8 | -- | -- | -- | -- | 1 / 8 |
+| `sun_abraham` | 36 | 21 / 36 | 21 / 36 | 2 / 36 | -- | -- | 21 / 36 |
+| `synth` | 12 | 3 / 12 | 1 / 12 | -- | -- | -- | 3 / 12 |
 
 `--` means no artifact compares that output for the function at all. `Fully covered` counts cells whose primary outputs all have reference evidence.
 
@@ -47,59 +47,63 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `causal_forest` | estimate | 3 | 0 | 0 | 0 | 93 |
 | `causal_forest` | se | 0 | 1 | 0 | 0 | 95 |
 | `causal_forest` | coverage | 0 | 0 | 1 | 0 | 95 |
-| `did_imputation` | estimate | 0 | 0 | 0 | 3 | 219 |
-| `did_imputation` | se | 0 | 0 | 0 | 0 | 233 |
+| `did_imputation` | estimate | 0 | 0 | 0 | 3 | 201 |
+| `did_imputation` | se | 0 | 0 | 0 | 0 | 227 |
 | `did_imputation` | vcov | 0 | 0 | 0 | 0 | 239 |
-| `dml` | estimate | 0 | 0 | 0 | 0 | 9113 |
-| `dml` | se | 0 | 0 | 0 | 0 | 9113 |
+| `dml` | estimate | 0 | 0 | 0 | 0 | 9087 |
+| `dml` | se | 0 | 0 | 0 | 3 | 9087 |
 | `dml` | coverage | 0 | 0 | 2 | 0 | 9118 |
-| `etwfe` | estimate | 0 | 0 | 0 | 0 | 121 |
-| `etwfe` | se | 0 | 0 | 0 | 7 | 121 |
+| `etwfe` | estimate | 0 | 0 | 0 | 0 | 112 |
+| `etwfe` | se | 0 | 0 | 0 | 0 | 112 |
 | `etwfe` | vcov | 0 | 0 | 0 | 0 | 125 |
-| `etwfe_glm` | estimate | 0 | 0 | 0 | 0 | 2841 |
-| `etwfe_glm` | se | 0 | 0 | 0 | 2 | 2852 |
-| `event_study` | estimate | 0 | 0 | 0 | 0 | 508 |
-| `event_study` | se | 0 | 0 | 0 | 0 | 508 |
+| `etwfe_glm` | estimate | 0 | 0 | 0 | 0 | 2829 |
+| `etwfe_glm` | se | 0 | 0 | 0 | 4 | 2840 |
+| `event_study` | estimate | 0 | 0 | 0 | 0 | 467 |
+| `event_study` | se | 0 | 0 | 0 | 0 | 467 |
 | `event_study` | vcov | 0 | 0 | 0 | 0 | 511 |
 | `fast.feols` | estimate | 0 | 0 | 0 | 0 | 0 |
 | `fast.feols` | se | 0 | 0 | 0 | 0 | 6 |
 | `fast.feols` | coverage | 0 | 0 | 1 | 0 | 11 |
 | `gardner_did` | estimate | 0 | 0 | 0 | 0 | 40 |
-| `gardner_did` | se | 0 | 0 | 0 | 0 | 58 |
+| `gardner_did` | se | 0 | 0 | 0 | 0 | 57 |
 | `gardner_did` | vcov | 0 | 0 | 0 | 0 | 63 |
-| `iv` | estimate | 0 | 0 | 0 | 0 | 280 |
-| `iv` | se | 0 | 0 | 0 | 3 | 418 |
+| `iv` | estimate | 0 | 0 | 0 | 0 | 224 |
+| `iv` | se | 0 | 0 | 0 | 7 | 378 |
 | `iv` | coverage | 0 | 0 | 1 | 0 | 447 |
-| `iv` | diagnostic | 0 | 0 | 0 | 0 | 447 |
+| `iv` | diagnostic | 0 | 0 | 0 | 0 | 445 |
 | `iv` | joint_test | 0 | 0 | 0 | 0 | 445 |
-| `ivreg` | estimate | 0 | 0 | 0 | 0 | 280 |
-| `ivreg` | se | 0 | 0 | 0 | 3 | 418 |
+| `ivreg` | estimate | 0 | 0 | 0 | 0 | 224 |
+| `ivreg` | se | 0 | 0 | 0 | 7 | 378 |
 | `ivreg` | coverage | 0 | 0 | 1 | 0 | 447 |
-| `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 447 |
+| `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 445 |
 | `ivreg` | joint_test | 0 | 0 | 0 | 0 | 445 |
-| `nnmatch` | estimate | 0 | 0 | 0 | 0 | 1911 |
-| `nnmatch` | se | 0 | 0 | 0 | 0 | 1911 |
+| `nnmatch` | estimate | 0 | 0 | 0 | 0 | 1903 |
+| `nnmatch` | se | 0 | 0 | 0 | 0 | 1903 |
 | `panel` | estimate | 0 | 0 | 0 | 0 | 45 |
 | `panel` | se | 0 | 0 | 0 | 0 | 98 |
 | `panel` | joint_test | 0 | 0 | 0 | 1 | 138 |
-| `psm` | estimate | 0 | 0 | 0 | 0 | 3588 |
-| `psm` | se | 0 | 0 | 0 | 0 | 3599 |
+| `psm` | estimate | 0 | 0 | 0 | 0 | 3100 |
+| `psm` | se | 0 | 0 | 0 | 2 | 3169 |
+| `rddensity` | estimate | 0 | 0 | 0 | 0 | 1 |
+| `rddensity` | se | 0 | 0 | 0 | 0 | 1 |
 | `rddensity` | diagnostic | 0 | 0 | 0 | 0 | 1 |
-| `rdrobust` | estimate | 0 | 0 | 0 | 0 | 25791 |
-| `rdrobust` | se | 0 | 0 | 0 | 0 | 25791 |
+| `rdrobust` | estimate | 0 | 0 | 0 | 0 | 25761 |
+| `rdrobust` | se | 0 | 0 | 0 | 0 | 25761 |
 | `rdrobust` | coverage | 0 | 0 | 1 | 0 | 25919 |
 | `regress` | estimate | 0 | 0 | 0 | 0 | 0 |
-| `regress` | se | 0 | 0 | 0 | 2 | 9 |
+| `regress` | se | 0 | 0 | 0 | 0 | 2 |
 | `regress` | coverage | 0 | 0 | 1 | 0 | 27 |
+| `regress` | diagnostic | 0 | 0 | 0 | 0 | 27 |
 | `regress` | joint_test | 0 | 0 | 0 | 0 | 23 |
 | `sdid` | estimate | 0 | 0 | 0 | 0 | 236 |
 | `sdid` | se | 0 | 0 | 0 | 0 | 264 |
 | `sdid` | coverage | 0 | 0 | 1 | 0 | 287 |
-| `sun_abraham` | estimate | 0 | 0 | 0 | 0 | 19 |
-| `sun_abraham` | se | 0 | 0 | 0 | 0 | 19 |
-| `sun_abraham` | coverage | 0 | 0 | 1 | 0 | 23 |
-| `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 22 |
-| `synth` | estimate | 0 | 0 | 0 | 2 | 5 |
+| `sun_abraham` | estimate | 0 | 0 | 0 | 0 | 15 |
+| `sun_abraham` | se | 0 | 0 | 0 | 0 | 15 |
+| `sun_abraham` | coverage | 0 | 0 | 1 | 0 | 35 |
+| `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 34 |
+| `synth` | estimate | 0 | 0 | 0 | 1 | 8 |
+| `synth` | se | 0 | 0 | 0 | 0 | 11 |
 
 ## Artifacts per function
 
@@ -147,6 +151,10 @@ Dimensions: `fe` in {unit_time, time, none, custom}; `covariates` in {none, cont
 | T2 | se | vce=analytic; weights=none; horizon=overall; fe=unit_time; covariates=controls/time_covariates/unit_covariates | `tests/reference_parity/test_option_fixture_bindings.py` | `sp.did_imputation(controls=...|time_covariates=...|unit_covariates=...)` |
 | T2 | estimate, se | fe=unit_time; covariates=none; vce=analytic; weights=none; horizon=horizons | `tests/r_parity/84_bjs_pretrends.py` | `sp.did_imputation(horizon=[...], pretrend_method='bjs')` |
 | T2 | vcov | fe=unit_time; covariates=none; vce=analytic; weights=none; horizon=horizons | `tests/reference_parity/test_event_study_vcov_Stata_parity.py` | `sp.did_imputation(horizon=[...])` |
+| T2 | estimate, se | fe=custom; covariates=none; vce=analytic; weights=none; horizon=horizons/overall | `tests/reference_parity/test_bjs_options_parity.py` | `sp.did_imputation(fe=[...])` |
+| T2 | estimate, se | fe=unit_time; covariates=controls/mixed; vce=analytic; weights=none; horizon=overall | `tests/reference_parity/test_bjs_options_parity.py` | `sp.did_imputation(controls=..., time_covariates=...)` |
+| T2 | estimate, se | fe=unit_time; covariates=none; vce=analytic; weights=set; horizon=horizons/overall | `tests/reference_parity/test_bjs_options_parity.py` | `sp.did_imputation(weights=...)` |
+| T2 | estimate, se | fe=custom; covariates=controls; vce=analytic; weights=set; horizon=overall | `tests/reference_parity/test_bjs_options_parity.py` | `sp.did_imputation(weights=..., fe=[...], controls=...)` |
 
 `vce` is ignored for estimate: the covariance is computed after the imputation
 
@@ -164,6 +172,20 @@ Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-t
 | T2 | estimate, se | model=irm; score=ate/atte; learners=linear; n_folds=4; n_rep=1; ipw=trim0.01 | `tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py` | `sp.dml(model='irm')` |
 | B | coverage | model=plr; score=partialling out; learners=default; n_folds=5; n_rep=1; ipw=n/a | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.dml(model='plr', n_folds=5)` |
 | B | coverage | model=irm; score=ate; learners=default; n_folds=5; n_rep=1; ipw=trim0.01 | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.causal_question(design='dml')` |
+| T2 | estimate, se | model=plr; score=iv-type; learners=linear; n_folds=5; n_rep=1; ipw=n/a | `tests/test_dml_ivtype_reference.py` | `sp.dml(model='plr', score='IV-type')` |
+| T2 | estimate, se | model=plr; score=iv-type; learners=other; n_folds=5; n_rep=1; ipw=n/a | `tests/test_dml_ivtype_reference.py` | `sp.dml(model='plr', score='IV-type')` |
+| T2 | estimate, se | model=irm; score=ate/atte; learners=linear; n_folds=5; n_rep=1; ipw=trim0.01 | `tests/test_dml_ivtype_reference.py` | `sp.dml(model='irm')` |
+| T2 | estimate, se | model=plr; score=iv-type/partialling out; learners=linear; n_folds=10/2/3; n_rep=1; ipw=n/a | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='plr')` |
+| T2 | estimate, se | model=irm; score=ate; learners=linear; n_folds=10/2/3; n_rep=1; ipw=trim0.01 | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='irm')` |
+| T2 | estimate, se | model=irm; score=atte; learners=linear; n_folds=3; n_rep=1; ipw=trim0.01 | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='irm')` |
+| T2 | estimate, se | model=irm; score=ate/atte; learners=linear; n_folds=3; n_rep=1; ipw=other | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='irm')` |
+| T2 | estimate, se | model=pliv; score=partialling out; learners=linear; n_folds=10/2/3; n_rep=1; ipw=n/a | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='pliv')` |
+| T2 | estimate, se | model=iivm; score=late; learners=linear; n_folds=10/2/3; n_rep=1; ipw=trim0.01 | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='iivm')` |
+| T2 | estimate, se | model=iivm; score=late; learners=linear; n_folds=3; n_rep=1; ipw=other | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='iivm')` |
+| T2 | estimate | model=plr; score=iv-type/partialling out; learners=linear; n_folds=5; n_rep=>1; ipw=n/a | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='plr', n_rep=3)` |
+| T2 | estimate | model=irm; score=ate; learners=linear; n_folds=5; n_rep=>1; ipw=trim0.01 | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='irm', n_rep=3)` |
+| T4 | se | model=plr; score=iv-type/partialling out; learners=linear; n_folds=5; n_rep=>1; ipw=n/a | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='plr', n_rep=3)` |
+| T4 | se | model=irm; score=ate; learners=linear; n_folds=5; n_rep=>1; ipw=trim0.01 | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='irm', n_rep=3)` |
 
 ### `etwfe`
 
@@ -183,6 +205,14 @@ Dimensions: `family` in {linear, glm}; `panel` in {true, false}; `cgroup` in {no
 | T4 | se | family=linear; panel=true; cgroup=nevertreated/notyet; controls=none; xvar=none; weights=set; agg_weights=estimation | `tests/test_etwfe_weights_reference.py` | `sp.etwfe(panel, ..., weights=...)` |
 | T2 | estimate | family=linear; panel=true; cgroup=nevertreated/notyet; controls=none; xvar=none; weights=set; agg_weights=unit | `tests/test_etwfe_weights_reference.py` | `sp.etwfe(panel, ..., weights=...)` |
 | T4 | se | family=linear; panel=true; cgroup=nevertreated/notyet; controls=none; xvar=none; weights=set; agg_weights=unit | `tests/test_etwfe_weights_reference.py` | `sp.etwfe(panel, ..., weights=...)` |
+| T2 | estimate, se | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated/notyet | `tests/test_etwfe_emfx_reference.py` | `sp.etwfe(castle, ...)` |
+| T2 | estimate, se | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation/unit; panel=true; cgroup=nevertreated/notyet | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T2 | estimate, se | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=false; cgroup=notyet | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T2 | estimate, se | family=linear; controls=none; xvar=none; weights=set; agg_weights=estimation/unit; panel=true; cgroup=nevertreated/notyet | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T2 | estimate, se | family=linear; controls=none; xvar=set; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated/notyet | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T2 | estimate, se | family=linear; controls=set; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated/notyet | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T2 | estimate, se | family=glm; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated/notyet | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T2 | estimate, se | family=glm; controls=none; xvar=set; weights=none; agg_weights=estimation; panel=true; cgroup=notyet | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
 
 ### `etwfe_glm`
 
@@ -192,6 +222,10 @@ Dimensions: `family` in {poisson, logit, gaussian}; `cgroup` in {notyet, nevertr
 | --- | --- | --- | --- | --- |
 | T2 | estimate | family=logit/poisson; cgroup=notyet; fe=cohort; hettype=timecohort; scale=response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_glm_parity.py` | `sp.etwfe(family='poisson'|'logit')` |
 | T4 | se | family=logit/poisson; cgroup=notyet; fe=cohort; hettype=timecohort; scale=response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_glm_parity.py` | `sp.etwfe(family='poisson'|'logit')` |
+| T2 | estimate, se | family=logit/poisson; cgroup=nevertreated/notyet; fe=cohort; hettype=timecohort; scale=link/response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T2 | estimate, se | family=poisson; cgroup=notyet; fe=cohort; hettype=timecohort; scale=link/response; response_se=profile; controls=none; xvar=set; weights=none | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T2 | estimate | family=logit/poisson; cgroup=nevertreated/notyet; fe=cohort; hettype=timecohort; scale=response; response_se=unconditional; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
+| T4 | se | family=logit/poisson; cgroup=nevertreated/notyet; fe=cohort; hettype=timecohort; scale=response; response_se=unconditional; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_options_parity.py` | `sp.etwfe(panel, **args)` |
 | T2 | estimate, se | family=gaussian; cgroup=notyet; fe=unit; hettype=cohort/event/time/timecohort/twfe; scale=link; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_linear_jwdid_parity.py` | `sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)` |
 | T2 | estimate, se | family=gaussian; cgroup=nevertreated; fe=unit; hettype=cohort/event/timecohort; scale=link; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_linear_jwdid_parity.py` | `sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)` |
 | T2 | estimate, se | family=gaussian; cgroup=notyet; fe=unit; hettype=event/timecohort; scale=link; response_se=profile; controls=none; xvar=set; weights=none | `tests/reference_parity/test_etwfe_linear_jwdid_parity.py` | `sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)` |
@@ -215,7 +249,19 @@ Dimensions: `adoption` in {single_date, staggered}; `window` in {-4_4, other}; `
 | --- | --- | --- | --- | --- |
 | T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/r_parity/85_twfe_event_study.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
 | T2 | vcov | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
-| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none/set; weights=none/set; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_grid_R_parity.py` | `sp.event_study(covariates=..., weights=...)` |
+| T2 | estimate, se | adoption=single_date/staggered; window=-4_4/other; ref_period=-1/other; covariates=none/set; weights=none/set; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_grid_R_parity.py` | `sp.event_study(covariates=..., weights=...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4/other; ref_period=-1/other; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none; weights=none/set; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=set; weights=set; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none/set; weights=none; cluster=other; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=set; cluster=other; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=other; ref_period=other; covariates=none; weights=none; cluster=unit; bins=set; intensity=none; absorb=none/set | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=other; ref_period=other; covariates=set; weights=none; cluster=unit; bins=set; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none/set; cluster=unit; bins=none; intensity=set; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=other; ref_period=-1; covariates=none; weights=none; cluster=other; bins=none; intensity=set; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=set; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none/set; weights=none; cluster=unit; bins=none; intensity=none; absorb=set | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=set; cluster=unit; bins=none; intensity=none; absorb=set | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
 
 ### `fast.feols`
 
@@ -241,6 +287,7 @@ Dimensions: `vce` in {analytic, stage2, bootstrap, none}; `weights` in {none, se
 | T2 | estimate, se | vce=analytic; weights=none/set; covariates=none/set; event_study=off; form=general | `tests/reference_parity/test_stata_did_commands_parity.py` | `sp.gardner_did(treat=, fe=)` |
 | T2 | estimate, se | vce=analytic; weights=none; covariates=none; form=first_treat; event_study=off | `tests/r_parity/73_did2s.py` | `sp.gardner_did()` |
 | T2 | estimate, se, vcov | vce=analytic; weights=none; covariates=none; form=first_treat; event_study=on | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.gardner_did(event_study=True)` |
+| T2 | estimate, se | vce=stage2; weights=none; covariates=none; form=first_treat; event_study=off | `tests/reference_parity/test_gardner_stage2_R_parity.py` | `sp.gardner_did(vce='stage2')` |
 
 `vce` is ignored for estimate: the covariance is computed after the two stages
 
@@ -267,6 +314,17 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 | T4 | se | estimator=liml; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='liml')` |
 | T2 | estimate | estimator=fuller; vce=hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='fuller')` |
 | T4 | se | estimator=fuller; vce=hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='fuller')` |
+| T2 | estimate, se | estimator=2sls; vce=classical/cluster_multiway/cr1/hc0/hc1/hc2/hc3; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, **opts)` |
+| T2 | estimate, se | estimator=2sls; vce=cr2/cr3/jackknife; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, vce=..., cluster='g')` |
+| T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc1; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method=..., small=True)` |
+| T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc0; identification=just/over; absorb=none; small=false | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method=..., small=False)` |
+| T2 | estimate, se | estimator=liml; vce=hc0; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method='liml', robust='hc0')` |
+| T2 | estimate, se | estimator=fuller; vce=classical/cr1/hc0/hc1; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method='fuller', ...)` |
+| T2 | estimate, se | estimator=2sls; vce=cluster_multiway; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, cluster=['g', 'yr'])` |
+| T4 | se | estimator=2sls/fuller/liml; vce=cluster_multiway; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method=..., cluster=['g', 'yr'])` |
+| T2 | estimate, se | estimator=2sls; vce=conley; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, vce='conley', ...)` |
+| T2 | estimate, se | estimator=2sls; vce=wild; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, vce='wild', cluster='g')` |
+| T2 | diagnostic | estimator=2sls; vce=wild; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, vce='wild', cluster='g')` |
 
 `vce` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 
@@ -293,6 +351,17 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 | T4 | se | estimator=liml; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='liml')` |
 | T2 | estimate | estimator=fuller; vce=hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='fuller')` |
 | T4 | se | estimator=fuller; vce=hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='fuller')` |
+| T2 | estimate, se | estimator=2sls; vce=classical/cluster_multiway/cr1/hc0/hc1/hc2/hc3; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, **opts)` |
+| T2 | estimate, se | estimator=2sls; vce=cr2/cr3/jackknife; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, vce=..., cluster='g')` |
+| T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc1; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method=..., small=True)` |
+| T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc0; identification=just/over; absorb=none; small=false | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method=..., small=False)` |
+| T2 | estimate, se | estimator=liml; vce=hc0; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method='liml', robust='hc0')` |
+| T2 | estimate, se | estimator=fuller; vce=classical/cr1/hc0/hc1; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method='fuller', ...)` |
+| T2 | estimate, se | estimator=2sls; vce=cluster_multiway; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, cluster=['g', 'yr'])` |
+| T4 | se | estimator=2sls/fuller/liml; vce=cluster_multiway; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.iv(IV[ident], data, method=..., cluster=['g', 'yr'])` |
+| T2 | estimate, se | estimator=2sls; vce=conley; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, vce='conley', ...)` |
+| T2 | estimate, se | estimator=2sls; vce=wild; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, vce='wild', cluster='g')` |
+| T2 | diagnostic | estimator=2sls; vce=wild; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_vce_menu_parity.py` | `sp.ivreg(IV[ident], data, vce='wild', cluster='g')` |
 
 `vce` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 
@@ -311,6 +380,12 @@ Dimensions: `estimand` in {att, ate}; `metric` in {mahalanobis, ivariance, eucli
 | T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1; exact=none; bias_adjust=none; vce=robust; vce_nn=4; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
 | T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1; exact=set; bias_adjust=set; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
 | T2 | estimate, se | estimand=ate; metric=mahalanobis; n_matches=2; exact=none; bias_adjust=set; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1/4/5; exact=none; bias_adjust=none; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='nnmatch', n_matches=4)` |
+| T2 | estimate, se | estimand=ate; metric=mahalanobis; n_matches=4/5; exact=none; bias_adjust=none; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='nnmatch', n_matches=4)` |
+| T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1; exact=none; bias_adjust=none; vce=robust; vce_nn=3; caliper=none | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='nnmatch', vce_nn=3)` |
+| T2 | estimate, se | estimand=ate; metric=mahalanobis; n_matches=4; exact=none; bias_adjust=none; vce=robust; vce_nn=3; caliper=none | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='nnmatch', vce_nn=3)` |
+| T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=4; exact=none; bias_adjust=none; vce=robust; vce_nn=2; caliper=set | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='nnmatch', caliper=3.0)` |
+| T2 | estimate, se | estimand=ate; metric=mahalanobis; n_matches=1; exact=none; bias_adjust=none; vce=robust; vce_nn=2; caliper=set | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='nnmatch', caliper=3.0)` |
 
 ### `panel`
 
@@ -339,7 +414,7 @@ Dimensions: `method` in {fe, twoway, pooled, fd, re, be, mundlak, chamberlain}; 
 
 ### `psm`
 
-Dimensions: `method` in {nearest, caliper, kernel, radius, stratify}; `distance` in {propensity, mahalanobis, logit}; `n_matches` in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}; `replace` in {true, false}; `caliper` in {none, set}; `bias_correction` in {true, false}; `se_method` in {abadie_imbens, abadie_imbens_2016, bootstrap}.
+Dimensions: `method` in {nearest, kernel, radius, stratify}; `distance` in {propensity, mahalanobis}; `n_matches` in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}; `replace` in {true, false}; `caliper` in {none, set}; `bias_correction` in {true, false}; `se_method` in {abadie_imbens, abadie_imbens_2016, psmatch2, analytic, bootstrap}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
@@ -347,6 +422,19 @@ Dimensions: `method` in {nearest, caliper, kernel, radius, stratify}; `distance`
 | T2 | se | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=none; bias_correction=false; se_method=abadie_imbens_2016 | `tests/r_parity/11_psm.py` | `sp.psm(se_method='abadie_imbens_2016')` |
 | T2 | estimate | method=nearest; distance=propensity; n_matches=1/2; replace=false; caliper=none; bias_correction=false; se_method=abadie_imbens/abadie_imbens_2016 | `tests/reference_parity/test_matching_r_parity.py` | `sp.match(lalonde, ..., method='nearest', replace=False)` |
 | T2 | estimate | method=nearest; distance=mahalanobis; n_matches=1; replace=false; caliper=none; bias_correction=false; se_method=abadie_imbens/abadie_imbens_2016 | `tests/reference_parity/test_matching_r_parity.py` | `sp.match(lalonde, ..., distance='mahalanobis', replace=False)` |
+| T2 | estimate, se | method=nearest; distance=propensity; n_matches=1/10/2/3/4/5/6/7/8/9; replace=true; caliper=none; bias_correction=false; se_method=abadie_imbens | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, y='y', treat='d', covariates=X, n_matches=k)` |
+| T2 | estimate, se | method=nearest; distance=propensity; n_matches=1/10/2/3/4/5/6/7/8/9; replace=true; caliper=none; bias_correction=false; se_method=abadie_imbens_2016 | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., se_method='abadie_imbens_2016')` |
+| T2 | estimate, se | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=set; bias_correction=false; se_method=abadie_imbens_2016 | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., caliper=0.2, se_method='abadie_imbens_2016')` |
+| T2 | estimate, se | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=none/set; bias_correction=false; se_method=psmatch2 | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., caliper=0.01, se_method='psmatch2')` |
+| T2 | estimate | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=set; bias_correction=false; se_method=abadie_imbens | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., caliper=0.01)` |
+| T4 | se | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=set; bias_correction=false; se_method=abadie_imbens | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., caliper=0.01)` |
+| T4 | se | method=nearest; distance=propensity; n_matches=1; replace=false; caliper=none; bias_correction=false; se_method=abadie_imbens | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., replace=False, m_order='smallest')` |
+| T2 | estimate, se | method=nearest; distance=mahalanobis; n_matches=1/3; replace=true; caliper=none; bias_correction=false; se_method=abadie_imbens | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., distance='mahalanobis')` |
+| T2 | estimate, se | method=kernel; distance=propensity; n_matches=1; replace=true; caliper=none; bias_correction=false; se_method=psmatch2 | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='kernel', kernel=k)` |
+| T2 | estimate, se | method=radius; distance=propensity; n_matches=1; replace=true; caliper=set; bias_correction=false; se_method=psmatch2 | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='radius', caliper=0.02)` |
+| T2 | estimate, se | method=stratify; distance=propensity; n_matches=1; replace=true; caliper=none; bias_correction=false; se_method=analytic | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., method='stratify')` |
+| T2 | estimate, se | method=stratify; distance=propensity; n_matches=1; replace=true; caliper=none; bias_correction=false; se_method=analytic | `tests/reference_parity/test_qiu_jiaping_methods_stata.py` | `sp.match(data, ..., method='stratify', strata='b1')` |
+| T2 | estimate, se | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=none; bias_correction=true; se_method=abadie_imbens | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., bias_correction=True)` |
 
 `se_method` is ignored for estimate: the variance estimator does not change the matches
 
@@ -357,6 +445,8 @@ Dimensions: `code_path` in {native, rddensity}.
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
 | T2 | diagnostic | code_path=native | `tests/r_parity/09_rddensity.py` | `sp.rddensity(backend='native')` |
+| T2 | diagnostic, estimate, se | code_path=native | `tests/reference_parity/test_rddensity_parity.py` | `sp.rddensity(df, x, c)` |
+| T2 | diagnostic, estimate | code_path=native | `tests/reference_parity/test_rddensity_all_stata.py` | `sp.rddensity(df, x)` |
 
 ### `rdrobust`
 
@@ -389,6 +479,10 @@ Dimensions: `design` in {sharp, fuzzy, kink}; `bwselect` in {mserd, msetwo, mses
 | T2 | estimate, se | design=fuzzy; bwselect=mserd; kernel=uniform; p=1; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_fuzzy_parity.py` | `sp.rdrobust(df, y, x, c)` |
 | T2 | estimate, se | design=fuzzy; bwselect=mserd; kernel=triangular; p=1; vce=hc0/hc1/hc2/hc3; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_fuzzy_parity.py` | `sp.rdrobust(df, y, x, c)` |
 | T2 | estimate, se | design=kink; bwselect=mserd; kernel=triangular; p=2; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_params_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=sharp; bwselect=cercomb1/cercomb2/msecomb1/msecomb2; kernel=epanechnikov/triangular/uniform; p=1/2; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_comb_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=fuzzy; bwselect=cercomb1/cercomb2/msecomb1/msecomb2; kernel=triangular; p=1; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_comb_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=kink; bwselect=mserd; kernel=triangular; p=1/2; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rd_iv_rd_R_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=kink; bwselect=manual/mserd; kernel=triangular; p=1; vce=hc1; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rd_iv_rd_R_parity.py` | `sp.rdrobust(df, y, x, c)` |
 
 ### `regress`
 
@@ -410,6 +504,14 @@ Dimensions: `vce` in {classical, hc0, hc1, hc2, hc3, hc4, cr1, cr2, cr3, cluster
 | T4 | se | vce=cr3; weights=none | `tests/reference_parity/test_regress_vce_weights_stata_parity.py` | `sp.regress(FORMULA, data, vce='cr3', cluster=...)` |
 | T4 | se | vce=cluster_multiway; weights=none/set | `tests/reference_parity/test_regress_vce_weights_stata_parity.py` | `sp.regress(FORMULA, data, cluster=[a, b])` |
 | B | coverage | vce=hc1; weights=none | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.regress(robust='hc1')` |
+| T2 | estimate, se | vce=classical/cluster_multiway/cr1/cr3/hac/hc0/hc1/hc2/hc3/hc4; weights=none/set | `tests/reference_parity/test_vce_menu_parity.py` | `sp.regress(F, data, weights=..., **opts)` |
+| T2 | estimate, se | vce=cr2; weights=none | `tests/reference_parity/test_vce_menu_parity.py` | `sp.regress(F, data, vce='cr2', cluster='g')` |
+| T2 | estimate, se | vce=jackknife; weights=none/set | `tests/reference_parity/test_vce_menu_parity.py` | `sp.regress(F, data, vce='jackknife', cluster='g')` |
+| T4 | se | vce=cr2; weights=set | `tests/reference_parity/test_vce_menu_parity.py` | `sp.regress(F, data, vce='cr2', cluster='g', weights='w')` |
+| T2 | estimate, se | vce=wild; weights=none | `tests/reference_parity/test_vce_menu_parity.py` | `sp.regress(F, data, vce='wild', cluster='g')` |
+| T2 | diagnostic | vce=wild; weights=none | `tests/reference_parity/test_vce_menu_parity.py` | `sp.regress(F, data, vce='wild', cluster='g')` |
+| T2 | estimate, se | vce=conley; weights=none | `tests/reference_parity/test_vce_menu_parity.py` | `sp.regress(F, data, vce='conley', ...)` |
+| T2 | estimate, se | vce=hac; weights=none/set | `tests/reference_parity/test_vce_menu_parity.py` | `sp.regress(F, data, robust='hac', hac_small=True, ...)` |
 
 `vce` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 
@@ -427,7 +529,7 @@ Dimensions: `method` in {sdid, sc, did}; `se_method` in {placebo, bootstrap, jac
 
 ### `sun_abraham`
 
-Dimensions: `control_group` in {nevertreated, lastcohort}; `aggregation` in {fixest_att, event_time}; `share_variance` in {estimated, fixed}; `window_rule` in {report, bin, reference}.
+Dimensions: `control_group` in {nevertreated, lastcohort, control_cohort}; `aggregation` in {fixest_att, event_time}; `share_variance` in {estimated, fixed}; `window_rule` in {report, bin, reference}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
@@ -436,17 +538,24 @@ Dimensions: `control_group` in {nevertreated, lastcohort}; `aggregation` in {fix
 | B | coverage | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=report | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.sun_abraham()` |
 | T2 | vcov | control_group=nevertreated; aggregation=event_time; share_variance=fixed; window_rule=report | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.sun_abraham(share_variance=False)` |
 | T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=bin | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.sun_abraham(window_rule='bin')` |
+| T2 | estimate, se | control_group=control_cohort/lastcohort; aggregation=event_time/fixest_att; share_variance=estimated/fixed; window_rule=report | `tests/reference_parity/test_sunab_options_parity.py` | `sp.sun_abraham(control_group='lastcohort')` |
+| T2 | estimate, se | control_group=control_cohort/nevertreated; aggregation=event_time; share_variance=estimated; window_rule=report | `tests/reference_parity/test_sunab_control_cohort_parity.py` | `sp.sun_abraham(control_cohort=2007)` |
+| T2 | estimate, se | control_group=lastcohort/nevertreated; aggregation=event_time/fixest_att; share_variance=estimated/fixed; window_rule=reference | `tests/reference_parity/test_sunab_options_parity.py` | `sp.sun_abraham(window_rule='reference')` |
 
 `aggregation` is ignored for vcov: the event-time covariance is formed before the summary aggregate is chosen
 
 ### `synth`
 
-Dimensions: `v_method` in {equal, nested}; `weights` in {unique, nonunique}; `code_path` in {native, synth}.
+Dimensions: `v_method` in {equal, nested, regression}; `weights` in {unique, nonunique}; `code_path` in {native, synth}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
 | T2 | estimate | v_method=equal; weights=unique; code_path=native | `tests/r_parity/52_scm_unique.py` | `sp.synth(method='classic')` |
 | T4 | estimate | v_method=nested; weights=nonunique/unique; code_path=native | `tests/r_parity/07_scm.py` | `sp.synth(method='classic', special predictors)` |
+| T1 | estimate | v_method=nested/regression; weights=unique; code_path=native | `tests/reference_parity/test_synth_unique_options_parity.py` | `sp.synth(method='classic', special_predictors=...)` |
+| T2 | se | v_method=equal; weights=unique; code_path=native | `tests/reference_parity/test_synth_unique_options_parity.py` | `sp.synth(method='classic')` |
+| T4 | estimate | v_method=regression; weights=unique; code_path=native | `tests/reference_parity/test_synth_regression_v_stata.py` | `sp.synth(v_method='regression')` |
+| T4 | estimate | v_method=regression; weights=unique; code_path=native | `tests/reference_parity/test_synth2_stata_parity.py` | `sp.synth(method='classic', v_method='regression')` |
 
 ## Option-level Stata fixtures
 
@@ -455,11 +564,15 @@ Fixtures under `tests/stata_parity/option_parity/` pin option switches within an
 | Fixture | Read by | SHA-256 (first 16) |
 | --- | --- | --- |
 | `tests/stata_parity/option_parity/results/82_csdid_conventions_Stata.json` | `tests/reference_parity/test_csdid_conventions_stata_parity.py` | `c988134a90bb0dec` |
-| `tests/stata_parity/option_parity/results/83_sunab_control_cohort_Stata.json` | `tests/reference_parity/test_sunab_control_cohort_parity.py` | `fd4d59285d8606fb` |
+| `tests/stata_parity/option_parity/results/83_sunab_control_cohort_Stata.json` | `tests/reference_parity/test_sunab_control_cohort_parity.py`<br>`tests/reference_parity/test_sunab_options_parity.py` | `fd4d59285d8606fb` |
 | `tests/stata_parity/option_parity/results/84_bjs_fe_covariates_Stata.json` | `tests/reference_parity/test_bjs_fe_covariates_parity.py`<br>`tests/reference_parity/test_option_fixture_bindings.py` | `eead3fb4a701b770` |
 | `tests/stata_parity/option_parity/results/85_multiplegt_dyn_options_Stata.json` | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` | `a6b6c27ad860d8a7` |
 | `tests/stata_parity/option_parity/results/86_lprobust_Stata.json` | `tests/reference_parity/test_lprobust_parity.py` | `5dc6478d44596acd` |
 | `tests/stata_parity/option_parity/results/87_did_had_Stata.json` | `tests/reference_parity/test_did_had_parity.py` | `0f158aa295005c95` |
+| `tests/stata_parity/option_parity/results/92_vce_menu_Stata.json` | `tests/reference_parity/test_vce_menu_parity.py` | `320c9f3720262c4f` |
+| `tests/stata_parity/option_parity/results/93_sunab_options_Stata.json` | `tests/reference_parity/test_sunab_options_parity.py` | `696642f7337dbc76` |
+| `tests/stata_parity/option_parity/results/94_bjs_options_Stata.json` | `tests/reference_parity/test_bjs_options_parity.py` | `8f7d765f8a78ad27` |
+| `tests/stata_parity/option_parity/results/95_rdrobust_comb_Stata.json` | `tests/reference_parity/test_rdrobust_comb_parity.py` | `a640f1fd03604042` |
 
 ## Stata translation holdout
 
@@ -562,3 +675,4 @@ Inputs those do-files read (the other fixtures use `tests/orig_parity/data/02_mp
 | `tests/stata_parity/option_parity/data_85_dcdh_switch.csv` | `776bafc6c4c8e2f4` |
 | `tests/stata_parity/option_parity/data_86_lprobust.csv` | `895c4205c6d1012b` |
 | `tests/stata_parity/option_parity/data_87_did_had.csv` | `7609daa994c6aca4` |
+| `tests/stata_parity/option_parity/data_94_bjs_options.csv` | `38192ebdc07262fc` |

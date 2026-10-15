@@ -30772,7 +30772,7 @@
         },
         "autosample": {
           "default": false,
-          "description": "Stata ``did_imputation, autosample``. A treated observation whose unit (or period) has no untreated observation has no imputable fixed effect. By default that is an error, as in Stata; with ``autosample=True`` those observations are dropped from the estimation sample, with a warning and the count in ``model_info['n_obs_autosample_dropped']``. Typical case: units treated from the first period of the panel.",
+          "description": "Stata ``did_imputation, autosample``. A treated observation whose unit (or period) has no untreated observation has no imputable fixed effect; with ``fe=``, the same holds for a level of any of the fixed effects named there. By default that is an error, as in Stata; with ``autosample=True`` those observations are dropped from the estimation sample, with a warning and the count in ``model_info['n_obs_autosample_dropped']``. Typical case: units treated from the first period of the panel.",
           "type": "boolean"
         },
         "balanced": {
@@ -30808,7 +30808,7 @@
           "x-statspai-role": "dataframe"
         },
         "fe": {
-          "description": "Which fixed effects the Y(0) model carries, replacing the default two-way ``unit + time``. Mirrors Stata ``did_imputation``'s ``fe()``. Each entry is one fixed effect, written either as a bare column or Stata-style with ``#`` for the interacted cell:: fe=['time'] # period FE only fe=['unit', 'state#year'] # unit FE + state-by-year FE fe=[] # no fixed effects at all Levels are factorized over the whole panel, so a cell seen only among treated rows still gets a column and is imputed rather than silently absorbing the reference level.",
+          "description": "Which fixed effects the Y(0) model carries, replacing the default two-way ``unit + time``. Mirrors Stata ``did_imputation``'s ``fe()``. Each entry is one fixed effect, written either as a bare column or Stata-style with ``#`` for the interacted cell:: fe=['time'] # period FE only fe=['unit', 'state#year'] # unit FE + state-by-year FE fe=[] # no fixed effects at all A level carried by treated rows only (a state-year in which every unit is treated, under ``'state#year'``) has no untreated row to estimate it, so those rows cannot be imputed: the call raises, as Stata does, and ``autosample=True`` drops them.",
           "items": {
             "type": "string"
           },
@@ -30951,7 +30951,7 @@
         },
         "autosample": {
           "default": false,
-          "description": "Stata ``did_imputation, autosample``. A treated observation whose unit (or period) has no untreated observation has no imputable fixed effect. By default that is an error, as in Stata; with ``autosample=True`` those observations are dropped from the estimation sample, with a warning and the count in ``model_info['n_obs_autosample_dropped']``. Typical case: units treated from the first period of the panel.",
+          "description": "Stata ``did_imputation, autosample``. A treated observation whose unit (or period) has no untreated observation has no imputable fixed effect; with ``fe=``, the same holds for a level of any of the fixed effects named there. By default that is an error, as in Stata; with ``autosample=True`` those observations are dropped from the estimation sample, with a warning and the count in ``model_info['n_obs_autosample_dropped']``. Typical case: units treated from the first period of the panel.",
           "type": "boolean"
         },
         "balanced": {
@@ -30987,7 +30987,7 @@
           "x-statspai-role": "dataframe"
         },
         "fe": {
-          "description": "Which fixed effects the Y(0) model carries, replacing the default two-way ``unit + time``. Mirrors Stata ``did_imputation``'s ``fe()``. Each entry is one fixed effect, written either as a bare column or Stata-style with ``#`` for the interacted cell:: fe=['time'] # period FE only fe=['unit', 'state#year'] # unit FE + state-by-year FE fe=[] # no fixed effects at all Levels are factorized over the whole panel, so a cell seen only among treated rows still gets a column and is imputed rather than silently absorbing the reference level.",
+          "description": "Which fixed effects the Y(0) model carries, replacing the default two-way ``unit + time``. Mirrors Stata ``did_imputation``'s ``fe()``. Each entry is one fixed effect, written either as a bare column or Stata-style with ``#`` for the interacted cell:: fe=['time'] # period FE only fe=['unit', 'state#year'] # unit FE + state-by-year FE fe=[] # no fixed effects at all A level carried by treated rows only (a state-year in which every unit is treated, under ``'state#year'``) has no untreated row to estimate it, so those rows cannot be imputed: the call raises, as Stata does, and ``autosample=True`` drops them.",
           "items": {
             "type": "string"
           },

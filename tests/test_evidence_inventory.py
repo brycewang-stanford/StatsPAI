@@ -75,8 +75,9 @@ def test_counts_agree_with_direct_queries(built):
     # fixed shares x two summary aggregations x never-treated controls, on
     # the saturated regression (window_rule='report').
     assert sa["by_output"]["vcov"]["reference"] == 2
-    # 2 control groups x 2 aggregations x 2 share conventions x 3 window rules
-    assert sa["cells"] == 24
+    # 3 control groups (never treated, last cohort, a named cohort)
+    # x 2 aggregations x 2 share conventions x 3 window rules
+    assert sa["cells"] == 36
 
     forest = built["functions"]["causal_forest"]
     # A forest is never a same-byte reference: T3 / S / B only.

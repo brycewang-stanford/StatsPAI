@@ -215,9 +215,22 @@ def test_diagnostics_that_did_not_run_cannot_be_reported_as_passed(files):
 
 
 def test_parity_claim_follows_the_options_of_this_call(files):
-    kw = dict(formula="y_strong ~ x + (d_strong ~ z)", data_path=files["cross"])
-    default = _obligations("ivreg", **kw)
-    hc3 = _obligations("ivreg", robust="hc3", **kw)
+    # Every 2SLS variance now has a reference, so the probe is LIML: its
+    # classical SE is pinned against Stata ``ivregress liml``, its HC3 SE
+    # against nothing (R ``ivreg`` has no k-class estimator, and Stata has
+    # no HC3 for it).
+    def liml(**extra: Any) -> Set[str]:
+        return _obligations(
+            "call_function",
+            function="ivreg",
+            arguments=dict(
+                formula="y_strong ~ x + (d_strong ~ z)", method="liml", **extra
+            ),
+            data_path=files["cross"],
+        )
+
+    default = liml()
+    hc3 = liml(robust="hc3")
     assert "forbid:claim_se_parity" not in default
     assert "forbid:claim_se_parity" in hc3
     # The point estimate does not depend on the covariance option.

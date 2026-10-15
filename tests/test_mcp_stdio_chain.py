@@ -197,9 +197,20 @@ def test_full_analysis_chain_over_stdio(iv_csv):
         ev3 = fits["hc3"]["result_card"]["evidence"]
         assert ev1["level"] == ev3["level"] == "configuration"
         assert ev1["outputs"]["se"] == "reference" and ev1["status"] == "covered"
-        assert ev3["outputs"]["estimate"] == "reference"
-        assert ev3["outputs"]["se"] == "not_covered"
-        assert ev3["status"] == "estimate_only"
+        assert ev3["outputs"]["se"] == "reference" and ev3["status"] == "covered"
+        # LIML's HC3 SE has no reference (R ivreg has no k-class estimator,
+        # Stata no HC3 for it), so the same option leaves only the estimate.
+        liml = srv.tool(
+            "call_function",
+            function="ivreg",
+            arguments={"formula": formula, "method": "liml", "robust": "hc3"},
+            data_id=derived["data_id"],
+        )
+        assert liml["isError"] is False, liml["structuredContent"]
+        evl = liml["structuredContent"]["result_card"]["evidence"]
+        assert evl["outputs"]["estimate"] == "reference"
+        assert evl["outputs"]["se"] == "not_covered"
+        assert evl["status"] == "estimate_only"
 
         # -- audit: not run is not passed (review A3) -----------------
         rid = fits["hc1"]["result_id"]
