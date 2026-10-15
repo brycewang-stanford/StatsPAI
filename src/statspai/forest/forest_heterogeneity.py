@@ -20,6 +20,7 @@ effects [kattenberg2023causal] on a dyadic trade panel) on simulated data.
 
 from __future__ import annotations
 
+import re
 import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -923,11 +924,34 @@ def _run_splits(
     """
     runs: List[Dict[str, Any]] = []
     failures: List[str] = []
-    for b in range(n_splits):
-        try:
-            runs.append(run_one(b))
-        except (DataInsufficient, NumericalInstability) as exc:
-            failures.append(str(exc).splitlines()[0])
+    # Each split refits the halves, so a data condition (thin overlap, a
+    # small cluster) warns once per split: 42 identical lines from one
+    # call buried anything else. Collect them and say each once, with how
+    # many splits raised it.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        for b in range(n_splits):
+            try:
+                runs.append(run_one(b))
+            except (DataInsufficient, NumericalInstability) as exc:
+                failures.append(str(exc).splitlines()[0])
+    # Messages differ only in their numbers from split to split; group on
+    # the text with the numbers taken out and keep the first instance.
+    first: Dict[Tuple[type, str], str] = {}
+    count: Dict[Tuple[type, str], int] = {}
+    for w in caught:
+        text = str(w.message)
+        key = (w.category, re.sub(r"\d+(?:\.\d+)?", "#", text))
+        first.setdefault(key, text)
+        count[key] = count.get(key, 0) + 1
+    for key, text in first.items():
+        n = count[key]
+        if n > 1:
+            text += (
+                f" [{context}: raised {n} times over {n_splits} splits; the "
+                "numbers are from the first]"
+            )
+        warnings.warn(text, key[0], stacklevel=3)
     n_failed = len(failures)
     # Enough must survive to take a median of, but "enough" is relative to
     # what was asked for: n_splits=2 must not trip a floor of three.

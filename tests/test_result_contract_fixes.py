@@ -97,3 +97,16 @@ def test_rddensity_says_which_scale_each_field_is_on():
     assert diff / r.se == pytest.approx(r.estimate, rel=1e-12)
     assert r.ci[0] < diff < r.ci[1]
     assert "density-difference scale" in r.estimand
+
+
+def test_rate_split_says_a_repeated_warning_once():
+    nsw = sp.datasets.nsw_dw()
+    cf = sp.causal_forest(
+        data=nsw, formula="re78 ~ treat | age + education + re74 + re75", random_state=0
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        sp.rate_split(cf, n_splits=5)
+    overlap = [w for w in caught if "propensities" in str(w.message)]
+    assert len(overlap) == 1
+    assert "over 5 splits" in str(overlap[0].message)
