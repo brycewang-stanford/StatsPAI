@@ -375,12 +375,19 @@ def test_sdid_placebo_se_is_not_part_of_the_parity_row():
     assert jk["outputs"]["coverage"]["status"] == "not_covered"
 
 
-def test_psm_default_se_has_no_reference_row():
+def test_psm_default_se_is_pinned_to_psmatch2_and_no_replacement_is_not():
     df = sp.datasets.nsw_dw()
     X = ["age", "education", "black", "hispanic", "married", "re74", "re75"]
     fit = _quiet(sp.psm, df, y="re78", d="treat", X=X, method="nn")
     scope = sp.validation_scope(fit)
-    assert scope["status"] == "estimate_only"
+    # the default Abadie-Imbens (2006) SE is psmatch2 ai(1)
+    assert scope["status"] == "covered"
+    assert any("psmatch2" in e["compares"] for e in scope["outputs"]["se"]["evidence"])
+    # without replacement psmatch2's SE follows its own rule: disclosure only
+    norep = _quiet(sp.psm, df, y="re78", d="treat", X=X, method="nn", replace=False)
+    out = sp.validation_scope(norep)["outputs"]
+    assert out["estimate"]["status"] == "reference"
+    assert out["se"]["status"] == "disclosure"
     fit16 = _quiet(
         sp.psm,
         df,
@@ -784,7 +791,7 @@ def test_nnmatch_has_its_own_map_and_matchit_rows_reach_psm():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         nn = sp.match(df, method="nnmatch", **keys)
-        nn5 = sp.match(df, method="nnmatch", n_matches=5, **keys)
+        nn5 = sp.match(df, method="nnmatch", n_matches=5, metric="euclidean", **keys)
         via_match = sp.match(df, method="nearest", **keys)
         via_psm = sp.psm(df, **keys)
         no_replace = sp.match(df, method="nearest", replace=False, **keys)

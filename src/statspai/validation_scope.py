@@ -3193,17 +3193,49 @@ _add(
     )
 )
 
+_PSMOPT = _RP + "test_psm_options_parity.py"
+
+
+def _psm_cfg(
+    method: str = "nearest",
+    distance: str = "propensity",
+    n_matches: Tuple[str, ...] = ("1",),
+    replace: str = "true",
+    caliper: Tuple[str, ...] = ("none",),
+    bias_correction: str = "false",
+    se_method: Tuple[str, ...] = ("abadie_imbens",),
+) -> Dict[str, FrozenSet[str]]:
+    return {
+        "method": _vals(method),
+        "distance": _vals(distance),
+        "n_matches": _vals(*n_matches),
+        "replace": _vals(replace),
+        "caliper": _vals(*caliper),
+        "bias_correction": _vals(bias_correction),
+        "se_method": _vals(*se_method),
+    }
+
+
 _add(
     _Scope(
         "psm",
         {
-            "method": ("nearest", "caliper", "kernel", "radius", "stratify"),
-            "distance": ("propensity", "mahalanobis", "logit"),
+            # a caliper is its own axis (and the radius width); there is no
+            # method="caliper", and the score is matched on, not its logit
+            "method": ("nearest", "kernel", "radius", "stratify"),
+            "distance": ("propensity", "mahalanobis"),
             "n_matches": tuple(str(k) for k in range(1, 11)),
             "replace": ("true", "false"),
             "caliper": ("none", "set"),
             "bias_correction": ("true", "false"),
-            "se_method": ("abadie_imbens", "abadie_imbens_2016", "bootstrap"),
+            # psmatch2: the kernel / radius default; analytic: stratification
+            "se_method": (
+                "abadie_imbens",
+                "abadie_imbens_2016",
+                "psmatch2",
+                "analytic",
+                "bootstrap",
+            ),
         },
         _x_psm,
         (
@@ -3273,15 +3305,170 @@ _add(
                 "data and closest orderings: ATT vs MatchIt to 1e-9",
                 "sp.match(lalonde, ..., distance='mahalanobis', replace=False)",
             ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(n_matches=tuple(str(k) for k in range(1, 11))),
+                _EST_SE,
+                "ATT and Abadie-Imbens (2006) SE vs Stata psmatch2 neighbor(k) "
+                "ai(1), k = 1..10 (and ai(2) at k = 1), on tie-free data, to "
+                "1e-9; with ties the SE follows psmatch2's row-order rule",
+                "sp.match(df, y='y', treat='d', covariates=X, n_matches=k)",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(
+                    n_matches=tuple(str(k) for k in range(1, 11)),
+                    se_method=("abadie_imbens_2016",),
+                ),
+                _EST_SE,
+                "ATT and Abadie-Imbens (2016) SE vs Stata teffects psmatch, "
+                "atet nneighbor(k), k = 1..10, to 1e-9",
+                "sp.match(df, ..., se_method='abadie_imbens_2016')",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(caliper=("set",), se_method=("abadie_imbens_2016",)),
+                _EST_SE,
+                "ATT and ATE with caliper(0.2) vs Stata teffects psmatch, to "
+                "1e-9; teffects reads the caliper as a condition (caliper "
+                "0.1 is refused on both sides), so the matches are unchanged",
+                "sp.match(df, ..., caliper=0.2, se_method='abadie_imbens_2016')",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(caliper=("none", "set"), se_method=("psmatch2",)),
+                _EST_SE,
+                "ATT and psmatch2's own SE vs Stata psmatch2 neighbor(1), with "
+                "no caliper and with caliper(0.01) / caliper(0.005) that leave "
+                "5 / 15 treated unmatched, to 1e-9",
+                "sp.match(df, ..., caliper=0.01, se_method='psmatch2')",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(caliper=("set",)),
+                _EST,
+                "ATT with caliper 0.01 / 0.005 vs Stata psmatch2 caliper() and "
+                "R Matching::Match(caliper=), to 1e-9",
+                "sp.match(df, ..., caliper=0.01)",
+            ),
+            _Row(
+                "T4",
+                _PSMOPT,
+                _psm_cfg(caliper=("set",)),
+                ("se",),
+                "Abadie-Imbens SE under a caliper: psmatch2 ai(1) applies the "
+                "caliper to the same-arm search and sets sigma^2 = y^2/2 when "
+                "no same-arm unit is inside it; rebuilt from our matches to "
+                "1e-9. Matching::Match's caliper SE is unexplained",
+                "sp.match(df, ..., caliper=0.01)",
+            ),
+            _Row(
+                "T4",
+                _PSMOPT,
+                _psm_cfg(replace="false"),
+                ("se",),
+                "Abadie-Imbens SE without replacement: psmatch2 noreplacement "
+                "ai(1) also draws the same-arm neighbours without replacement; "
+                "rebuilt from our matches to 1e-9 (Matching reports no SE)",
+                "sp.match(df, ..., replace=False, m_order='smallest')",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(distance="mahalanobis", n_matches=("1", "3")),
+                _EST_SE,
+                "ATT and Abadie-Imbens SE (same-arm neighbours on the "
+                "Mahalanobis distance, pooled covariance) vs Stata psmatch2 "
+                "mahalanobis() ai(1), k = 1 and 3, to 1e-9",
+                "sp.match(df, ..., distance='mahalanobis')",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(method="kernel", se_method=("psmatch2",)),
+                _EST_SE,
+                "kernel matching, all five kernels at bwidth 0.06 and the "
+                "Epanechnikov at 0.02: ATT and SE vs Stata psmatch2 kernel, "
+                "to 1e-9",
+                "sp.match(df, ..., method='kernel', kernel=k)",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(method="radius", caliper=("set",), se_method=("psmatch2",)),
+                _EST_SE,
+                "radius matching, caliper 0.02 and 0.05: ATT and SE vs Stata "
+                "psmatch2 radius, to 1e-9",
+                "sp.match(df, ..., method='radius', caliper=0.02)",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(method="stratify", se_method=("analytic",)),
+                _EST_SE,
+                "five quantile classes of the score (the default strata): ATT "
+                "and SE vs Stata atts with those blocks, to 1e-9",
+                "sp.match(df, ..., method='stratify')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_qiu_jiaping_methods_stata.py",
+                _psm_cfg(method="stratify", se_method=("analytic",)),
+                _EST_SE,
+                "the blocks of sp.pscore (strata=): ATT and SE vs Stata atts "
+                "on Lalonde, to 1e-12",
+                "sp.match(data, ..., method='stratify', strata='b1')",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _psm_cfg(bias_correction="true"),
+                _EST_SE,
+                "bias-adjusted ATT (regression on the covariates over the "
+                "matched controls, weighted by use) and its SE vs R "
+                "Matching::Match(BiasAdjust = TRUE), to 1e-9",
+                "sp.match(df, ..., bias_correction=True)",
+            ),
         ),
         invariant={
             "se_method": (_EST, "the variance estimator does not change the matches")
         },
-        note="The default Abadie-Imbens (2006) SE has no reference row.",
+        note="Option values were compared one at a time on tie-free data, "
+        "not crossed. With ties in the score the default Abadie-Imbens SE "
+        "picks same-arm neighbours by row order, as psmatch2 does. No "
+        "reference reproduces the SE of matching without replacement "
+        "(psmatch2's differs by a rule documented in its T4 row; Matching "
+        "reports none); bias correction is compared on the score distance "
+        "only; the bootstrap has no row.",
     )
 )
 
 _NNMATCH = _RP + "test_nnmatch_teffects_parity.py"
+
+
+def _nn_cfg(
+    estimand: str,
+    n_matches: Tuple[str, ...] = ("1",),
+    vce_nn: Tuple[str, ...] = ("2",),
+    caliper: Tuple[str, ...] = ("none",),
+) -> Dict[str, FrozenSet[str]]:
+    """An nnmatch cell on the Mahalanobis metric with the robust variance."""
+    return {
+        "estimand": _vals(estimand),
+        "metric": _vals("mahalanobis"),
+        "n_matches": _vals(*n_matches),
+        "exact": _vals("none"),
+        "bias_adjust": _vals("none"),
+        "vce": _vals("robust"),
+        "vce_nn": _vals(*vce_nn),
+        "caliper": _vals(*caliper),
+    }
+
 
 #: sp.match(method='nnmatch') is Abadie-Imbens covariate matching with its
 #: own option axes; sp.validation_scope routes such a fit here
@@ -3460,9 +3647,66 @@ _add(
                 "estimate and SE to 1e-10",
                 "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
             ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _nn_cfg("att", n_matches=("1", "4", "5")),
+                _EST_SE,
+                "ATT, nneighbor(1), (4), (5) vs Stata teffects nnmatch on the "
+                "tie-free option data, estimate and SE to 1e-9",
+                "sp.match(df, ..., method='nnmatch', n_matches=4)",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _nn_cfg("ate", n_matches=("4", "5")),
+                _EST_SE,
+                "ATE, nneighbor(4), (5) vs Stata teffects nnmatch, estimate "
+                "and SE to 1e-9",
+                "sp.match(df, ..., method='nnmatch', n_matches=4)",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _nn_cfg("att", vce_nn=("3",)),
+                _EST_SE,
+                "ATT, vce(robust, nn(3)) vs Stata teffects nnmatch, estimate "
+                "and SE to 1e-9",
+                "sp.match(df, ..., method='nnmatch', vce_nn=3)",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _nn_cfg("ate", n_matches=("4",), vce_nn=("3",)),
+                _EST_SE,
+                "ATE, nneighbor(4) vce(robust, nn(3)) vs Stata teffects "
+                "nnmatch, estimate and SE to 1e-9",
+                "sp.match(df, ..., method='nnmatch', vce_nn=3)",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _nn_cfg("att", n_matches=("4",), caliper=("set",)),
+                _EST_SE,
+                "ATT, nneighbor(4) caliper(3) vs Stata teffects nnmatch, "
+                "estimate and SE to 1e-9. teffects reads the caliper as a "
+                "condition: met, nothing changes; at caliper 2 it stops, "
+                "sp.match keeps fewer matches and warns",
+                "sp.match(df, ..., method='nnmatch', caliper=3.0)",
+            ),
+            _Row(
+                "T2",
+                _PSMOPT,
+                _nn_cfg("ate", caliper=("set",)),
+                _EST_SE,
+                "ATE, caliper(3) vs Stata teffects nnmatch, estimate and SE to " "1e-9",
+                "sp.match(df, ..., method='nnmatch', caliper=3.0)",
+            ),
         ),
-        note="Nine Stata commands on the NSW-PSID sample, one cell each; the "
-        "options are not crossed beyond those nine.",
+        note="Nine Stata commands on the NSW-PSID sample and nine on the "
+        "tie-free option data, one cell each; the options are not crossed "
+        "beyond those. A caliper is compared only where every unit meets "
+        "it, which is the only case teffects estimates.",
     )
 )
 
