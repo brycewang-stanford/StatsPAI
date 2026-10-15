@@ -1873,6 +1873,13 @@ _ETWFE_BASE = {
 _ETWFE_NOTYET_RCS = {**_ETWFE_BASE, "panel": _vals("false"), "cgroup": _vals("notyet")}
 _ETWFE_NEVER = {**_ETWFE_BASE, "panel": _vals("true"), "cgroup": _vals("nevertreated")}
 _ETWFE_NOTYET_PANEL = {**_ETWFE_BASE, "panel": _vals("true"), "cgroup": _vals("notyet")}
+_ETWFE_OPT = _RP + "test_etwfe_options_parity.py"
+_ETWFE_OPT_PANEL = {
+    **_ETWFE_BASE,
+    "panel": _vals("true"),
+    "cgroup": _vals("notyet", "nevertreated"),
+}
+_ETWFE_EMFX_R = "tests/test_etwfe_emfx_reference.py"
 
 _add(
     _Scope(
@@ -2033,16 +2040,118 @@ _add(
                 "finite-difference Jacobian noise (up to 3.3e-6)",
                 "sp.etwfe(panel, ..., weights=...)",
             ),
+            _Row(
+                "T2",
+                _ETWFE_EMFX_R,
+                dict(_ETWFE_OPT_PANEL),
+                _EST_SE,
+                "simple / event / group / calendar ATTs vs etwfe::emfx on the "
+                "castle-doctrine panel: estimates to 1e-9, SEs to 1e-6 (R's "
+                "forward-difference Jacobian; R's own sqrt(w' V w) agrees to "
+                "1e-13)",
+                "sp.etwfe(castle, ...)",
+            ),
+            _Row(
+                "T2",
+                _ETWFE_OPT,
+                {**_ETWFE_OPT_PANEL, "agg_weights": _vals("estimation", "unit")},
+                _EST_SE,
+                "every emfx aggregation (simple / group / calendar / event, "
+                "leads included) vs etwfe::emfx with a Richardson Jacobian: "
+                "estimates to 1e-9, SEs to 1e-7 (observed 3.1e-9); unweighted, "
+                "where the two agg_weights rules coincide",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T2",
+                _ETWFE_OPT,
+                {
+                    **_ETWFE_BASE,
+                    "panel": _vals("false"),
+                    "cgroup": _vals("notyet"),
+                },
+                _EST_SE,
+                "panel=False without cluster= (HC1) vs etwfe(vcov='hetero') + "
+                "emfx, every aggregation: estimates to 1e-9, SEs to 1e-7",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T2",
+                _ETWFE_OPT,
+                {
+                    **_ETWFE_OPT_PANEL,
+                    "weights": _vals("set"),
+                    "agg_weights": _vals("estimation", "unit"),
+                },
+                _EST_SE,
+                "weighted fit vs etwfe(weights = ~w): agg_weights='unit' vs "
+                "emfx(), agg_weights='estimation' vs emfx(wts = 'w'); every "
+                "aggregation, estimates to 1e-9, SEs to 1e-7",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T2",
+                _ETWFE_OPT,
+                {**_ETWFE_OPT_PANEL, "xvar": _vals("set")},
+                _EST_SE,
+                "continuous moderator vs etwfe(xvar = xv) + emfx(by_xvar = "
+                "FALSE), every aggregation, plus the per-cohort moderator "
+                "slopes vs fixest's coefficients and vcov; a categorical "
+                "moderator vs the same per-level design fitted by fixest "
+                "(etwfe 0.6.2 sums the level slopes of the period term)",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T2",
+                _ETWFE_OPT,
+                {**_ETWFE_OPT_PANEL, "controls": _vals("set")},
+                _EST_SE,
+                "additive time-varying control (jwdid's exovar(); R etwfe "
+                "interacts controls with the cells, another model) vs fixest "
+                "on etwfe's cell basis + marginaleffects::slopes as emfx calls "
+                "it, and vs Stata jwdid, exovar() without ivar(): estimates "
+                "and SEs to 1e-9",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T2",
+                _ETWFE_OPT,
+                {**_ETWFE_OPT_PANEL, "family": _vals("glm")},
+                _EST_SE,
+                "family='poisson' / 'logit' vs etwfe(family=) + emfx on both "
+                "scales (glm.tol = 1e-12, Richardson Jacobian): estimates to "
+                "1e-9, SEs to 1e-7",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T2",
+                _ETWFE_OPT,
+                {
+                    **_ETWFE_BASE,
+                    "family": _vals("glm"),
+                    "panel": _vals("true"),
+                    "cgroup": _vals("notyet"),
+                    "xvar": _vals("set"),
+                },
+                _EST_SE,
+                "Poisson with a continuous moderator vs etwfe(family = "
+                "'poisson', xvar = xv) + emfx, both scales",
+                "sp.etwfe(panel, **args)",
+            ),
         ),
-        note="The headline SE is a documented convention difference, not a "
-        "match: the R reference differentiates numerically and Stata counts K "
-        "differently (docs/dev/r_parity_tolerances.md). The event-study "
-        "covariance is pinned to 1e-6 against a reference that extrapolates "
-        "its Jacobian. The default call (panel=True, not-yet-treated controls) "
-        "inherits the panel=False rows through a bit-identity test in "
+        note="Every option value has a same-byte (T2) row for the estimate "
+        "and the SE in "
+        + _ETWFE_OPT
+        + ", against R etwfe with marginaleffects' Richardson Jacobian (and, "
+        "for the additive control, Stata jwdid). Module 17's headline SE stays "
+        "a disclosure row: there R's forward-difference Jacobian leaves 2e-6 "
+        "and Stata counts K differently (docs/dev/r_parity_tolerances.md). The "
+        "default call (panel=True, not-yet-treated controls) also inherits the "
+        "panel=False rows through a bit-identity test in "
         + _ATTACH
-        + ". Covariates, xvar moderators, weights, agg_weights='unit' and the "
-        "GLM families have no row here; the GLM branch has its own parity file.",
+        + ". Not run: panel=False with cgroup='nevertreated' (raises), weights "
+        "with xvar (raises), and controls or weights combined with xvar or a "
+        "GLM family.",
     )
 )
 
@@ -2093,10 +2202,71 @@ _add(
                 _ETWFE_GLM,
                 dict(_ETWFE_GLM_RAN),
                 ("se",),
-                "clustered delta-method SE: about 1e-5 from etwfe::emfx (the "
-                "test budget is 1e-4), because fixest and statsmodels apply "
-                "different finite-sample corrections to the clustered sandwich",
+                "clustered delta-method SE: about 1e-5 from etwfe::emfx run "
+                "with fixest's defaults (the test budget is 1e-4). Not a "
+                "convention: the reference's forward-difference Jacobian, "
+                "glm.tol = 1e-8 and a bread taken at the penultimate IRLS "
+                "iterate; with those removed the SEs agree to 1e-9 ("
+                + _RP
+                + "test_etwfe_options_parity.py)",
                 "sp.etwfe(family='poisson'|'logit')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_etwfe_options_parity.py",
+                {
+                    **_ETWFE_GLM_RAN,
+                    "cgroup": _vals("notyet", "nevertreated"),
+                    "scale": _vals("response", "link"),
+                },
+                _EST_SE,
+                "every emfx aggregation on both scales vs etwfe(family=) + emfx "
+                "with a Richardson Jacobian, glm.tol = 1e-12 and a restart from "
+                "the solution: estimates to 1e-9, SEs to 1e-7 (observed 9.4e-10)",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_etwfe_options_parity.py",
+                {
+                    **_ETWFE_GLM_RAN,
+                    "family": _vals("poisson"),
+                    "scale": _vals("response", "link"),
+                    "xvar": _vals("set"),
+                },
+                _EST_SE,
+                "Poisson with a continuous moderator (R etwfe's design) vs "
+                "etwfe(family = 'poisson', xvar = xv) + emfx, both scales",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_etwfe_options_parity.py",
+                {
+                    **_ETWFE_GLM_RAN,
+                    "cgroup": _vals("notyet", "nevertreated"),
+                    "response_se": _vals("unconditional"),
+                },
+                _EST,
+                "response-scale aggregates under response_se='unconditional' vs "
+                "Stata jwdid, method(poisson|logit) + estat (no ivar): 1e-9",
+                "sp.etwfe(panel, **args)",
+            ),
+            _Row(
+                "T4",
+                _RP + "test_etwfe_options_parity.py",
+                {
+                    **_ETWFE_GLM_RAN,
+                    "cgroup": _vals("notyet", "nevertreated"),
+                    "response_se": _vals("unconditional"),
+                },
+                ("se",),
+                "unconditional SEs vs Stata estat ..., vce(unconditional), every "
+                "aggregation: equal to 1e-9 after sqrt((n - K) / (n - 1)) -- "
+                "Stata's ML commands scale the clustered sandwich by G/(G-1) "
+                "only, fixest and StatsPAI also by (n - 1)/(n - K); R has no "
+                "unconditional variance",
+                "sp.etwfe(panel, **args)",
             ),
             _Row(
                 "T2",
@@ -2374,10 +2544,14 @@ _add(
                 "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
             ),
         ),
-        note="Unit fixed effects, the pooled hettype designs, the link scale, "
-        "never-treated controls, covariates and weights have no reference row "
-        "here. The SE is a documented finite-sample convention difference, not "
-        "a same-byte match.",
+        note="Cohort effects (R etwfe's design): estimates and SEs are "
+        "same-byte against R etwfe for both families, both control groups and "
+        "both scales (test_etwfe_options_parity.py); the older 1e-5 SE gap of "
+        "test_etwfe_glm_parity.py is reference noise, not a convention. "
+        "response_se='unconditional' has only Stata as a reference, equal "
+        "after one documented small-sample factor. Unit effects are compared "
+        "with Stata jwdid. weights= raises on the nonlinear families (no row); "
+        "controls on the nonlinear families and the logit with xvar are not run.",
     )
 )
 

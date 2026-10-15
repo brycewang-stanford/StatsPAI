@@ -262,8 +262,9 @@ def test_etwfe_repeated_cs_with_xvar_and_controls(panel):
             controls=["xcov2"],
         )
     assert np.isfinite(r.estimate)
-    # with xvar, event_study is suppressed
-    assert r.model_info["event_study"] is None
+    # R etwfe's xvar design keeps the cohort x period cells.
+    assert isinstance(r.model_info["event_study"], pd.DataFrame)
+    assert "slope_xcov" in r.detail.columns
 
 
 def test_etwfe_repeated_cs_no_cohorts_raises():
@@ -533,10 +534,14 @@ def test_emfx_simple_treated_uses_event_cell_vcov(fit):
     assert e.model_info["weighting"] == "treated"
 
 
-def test_emfx_event_xvar_no_event_study(panel):
-    # An xvar fit suppresses event_study, so event/calendar must raise.
-    fit_x = sp.etwfe(
-        panel, y="y", group="unit", time="time", first_treat="first_treat", xvar="xcov"
-    )
-    with pytest.raises(ValueError, match="event_study"):
-        sp.etwfe_emfx(fit_x, type="event")
+def test_emfx_event_xvar_cells_equal_the_unmoderated_ones(panel):
+    # The moderator is demeaned within cohort x period cells, so it is
+    # orthogonal to the cell dummies: the event-time estimates equal the
+    # plain fit's exactly, and only the SEs move.
+    kw = dict(y="y", group="unit", time="time", first_treat="first_treat")
+    fit_x = sp.etwfe(panel, xvar="xcov", **kw)
+    plain = sp.etwfe(panel, **kw)
+    ev_x = sp.etwfe_emfx(fit_x, type="event").detail
+    ev = sp.etwfe_emfx(plain, type="event").detail
+    np.testing.assert_allclose(ev_x["estimate"], ev["estimate"], rtol=1e-10)
+    assert not np.allclose(ev_x["se"], ev["se"], rtol=1e-6)
