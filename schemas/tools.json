@@ -308,7 +308,7 @@
     "name": "aft"
   },
   {
-    "description": "Aggregate Callaway-Sant'Anna group-time ATTs into interpretable summaries -- overall ATT, event-study by relative time, group-specific ATT(g), or calendar-time ATT(t). Inference uses the multiplier bootstrap on the pre-stored influence functions, so SEs are correct under clustering at the unit level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: type='dynamic' with unbalanced cohorts and no balance_e -- the long-horizon averages mix cohorts of different composition. Cost: bstrap=True multiplier bootstrap: n_boot draws over the stacked influence functions, O(n_boot x n). Assumptions: Same identifying assumptions as the source estimator (parallel trends, no anticipation, SUTVA); For dynamic aggregation: balanced panel within the requested event-time window (use balance_e). Pre-conditions: result was produced by sp.callaway_santanna or sp.did with staggered=True; result.detail contains the per-(g, t) ATT estimates and their influence functions. Failure modes: result.detail is empty or missing influence functions -> Re-run sp.callaway_santanna; aggte requires the per-(g,t) influence functions; Empty event-time...",
+    "description": "Aggregate Callaway-Sant'Anna group-time ATTs into interpretable summaries -- overall ATT, event-study by relative time, group-specific ATT(g), or calendar-time ATT(t). Inference uses the multiplier bootstrap on the pre-stored influence functions, so SEs are correct under clustering at the unit level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: type='dynamic' with unbalanced cohorts and no balance_e -- the long-horizon averages mix cohorts of different composition. Cost: bstrap=True multiplier bootstrap: n_boot draws over the stacked influence functions, O(n_boot x n). Assumptions: Same identifying assumptions as the source estimator (parallel trends, no anticipation, SUTVA); For dynamic aggregation: the cohorts behind each event time change with e unless balance_e fixes them, so a change in composition can look like a dynamic effect. Pre-conditions: result was produced by sp.callaway_santanna, or by sp.did on a staggered design (which dispatches to Callaway-Sant'Anna); result.detail contains the per-(g, t) ATT estimates and their influence functions. Failure modes: result.detail is empty or missing influe...",
     "input_schema": {
       "properties": {
         "agg_weights": {
@@ -7929,6 +7929,7 @@
           "default": "analytical",
           "description": "inference parameter (str).",
           "enum": [
+            "none",
             "bootstrap",
             "analytical"
           ],
@@ -8956,7 +8957,7 @@
     "name": "did_misclassified"
   },
   {
-    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup. Assumptions: Parallel trends between switchers and stayers; Stable treatment effects across consecutive periods (for the DID_M weighted average interpretation); No anticipation. Pre-conditions: long-format panel with one row per unit x period; treatment is binary (0/1) and may vary over time within a unit; at...",
+    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The treatment may be binary or discrete (an effect per unit of treatment). For the dCDH (2024) intertemporal event study (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup. Assumptions: Parallel trends between switchers and stayers; Stable treatment effects across consecutive periods (for the DID_M weighted average interpretation); No anticipation. Pre-conditions: long-format panel with one row per unit x period; treatment is the current treatment, 0/1 or a discrete le...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -9049,7 +9050,7 @@
     "name": "did_multiplegt"
   },
   {
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmul...",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the default se_method is the cluster bootstrap; se_method='analytic' is the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and computes the joint tests from it; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass a...",
     "input_schema": {
       "properties": {
         "aggregation": {
@@ -10125,7 +10126,8 @@
           "enum": [
             "auto",
             "analytic",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },
@@ -11131,7 +11133,7 @@
     "name": "doubly_robust"
   },
   {
-    "description": "Doubly-robust DiD (Sant'Anna & Zhao 2020). Combines outcome regression with IPW; consistent if either model is correct. Primary estimator for 2x2 DiD with covariates. Validation: certified parity evidence. Do NOT use when: the design is staggered -- drdid is the 2x2 building block; sp.callaway_santanna(..., estimator='dr') applies it cell by cell with the right controls; no covariates are needed -- the unconditional 2x2 (sp.did) has the same estimand without nuisance models. Cost: n_boot bootstrap replications of a logit + OLS fit; O(n_boot x n). Assumptions: Conditional parallel trends given X; Overlap / positivity: 0 < P(D=1|X) < 1; Correct specification of at least one nuisance model. Pre-conditions: panel or repeated cross-section with 2 periods; group is a binary unit-level treatment indicator; covariates have non-zero variance and overlap. Failure modes: Propensity score near 0/1 (overlap violation) -> Trim extreme propensity scores or use sp.ipw_trim; Propensity scores near 0 or 1 in the treated group -> Conditional parallel trends needs overlap; trim or drop the covariate that predicts treatment almost perfectly. Alternatives: sp.did_2x2, sp.callaway_santanna, sp.wooldridg...",
+    "description": "Doubly-robust DiD (Sant'Anna & Zhao 2020). Combines outcome regression with IPW; consistent if either model is correct. Primary estimator for 2x2 DiD with covariates. Validation: certified parity evidence. Do NOT use when: the design is staggered -- drdid is the 2x2 building block; sp.callaway_santanna(..., estimator='dr') applies it cell by cell with the right controls; no covariates are needed -- the unconditional 2x2 (sp.did) has the same estimand without nuisance models. Cost: n_boot bootstrap replications of a logit + OLS fit; O(n_boot x n). Assumptions: Conditional parallel trends given X; Overlap / positivity: 0 < P(D=1|X) < 1; Correct specification of at least one nuisance model. Pre-conditions: panel or repeated cross-section with 2 periods; group is a binary unit-level treatment indicator; covariates have non-zero variance and overlap. Failure modes: Propensity score near 0/1 (overlap violation) -> Compare model_info['ps_mean_treated'] and ['ps_mean_control']; drop the covariate that predicts treatment almost perfectly or restrict the sample to common support (sp.trimming). Alternatives: sp.did_2x2, sp.callaway_santanna, sp.wooldridge_did. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -11201,8 +11203,12 @@
           "description": "est_method='ipw' only. True = Hajek-normalised (std_ipw_did_*), control arm divided by its own weight mass. False = Abadie (2005) (ipw_did_*), both arms sharing the denominator E[D].",
           "type": "boolean"
         },
+        "random_state": {
+          "description": "Inert alias of seed: no step draws random numbers",
+          "type": "integer"
+        },
         "seed": {
-          "description": "Random seed for reproducible stochastic steps.",
+          "description": "Inert: no step draws random numbers (recorded in the provenance only)",
           "type": "integer"
         },
         "time": {
@@ -13274,7 +13280,8 @@
           "description": "inference parameter (str).",
           "enum": [
             "analytical",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },
@@ -14268,9 +14275,14 @@
     "name": "functional_form_test"
   },
   {
-    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. by_arm=True is regression adjustment with a regression per arm (teffects ra); with ps_covariates= it is teffects ipwra, which is. Validation: certified parity evidence. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.ipw. Typical minimum N: 300.",
+    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. by_arm=True is regression adjustment with a regression per arm (teffects ra); with ps_covariates= it is teffects ipwra, which is. Validation: certified parity evidence. Assumptions: Unconfoundedness: no unmeasured confounding of the point treatment given the covariates; Positivity / overlap: every treatment level is observed at the covariate values the estimand averages over; otherwise the outcome model extrapolates; The outcome model is correctly specified: standardization is not doubly robust, except by_arm=True with ps_covariates= (regression adjustment with inverse-probability weights). Pre-conditions: A point treatment measured once: 0/1 for estimand='ATE' / 'ATT', numeric with treat_values= for estimand='dose_response'; Covariates measured before the treatment. Failure modes: estimand='ATE' or 'ATT' with a treatment that is not 0/1 -> Use estimand='dose_response' with treat_values= the dose levels to evaluate; estimand='dose_response' without treat_values -> Pass treat_values=, the treatment le...",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level",
+          "type": "number"
+        },
         "by_arm": {
           "default": false,
           "description": "Fit a linear outcome regression in each treatment arm (regression adjustment, Stata teffects ra) instead of one regression with the treatment as a regressor",
@@ -14294,6 +14306,10 @@
           ],
           "type": "string"
         },
+        "ml_Q": {
+          "description": "Outcome model: any estimator with .fit(X, y) / .predict(X); default OLS",
+          "type": "string"
+        },
         "n_boot": {
           "default": 500,
           "description": "Bootstrap replications for SE",
@@ -14314,6 +14330,10 @@
             "analytic"
           ],
           "type": "string"
+        },
+        "seed": {
+          "description": "Bootstrap random seed",
+          "type": "integer"
         },
         "treat": {
           "description": "Treatment variable",
@@ -14513,7 +14533,8 @@
           "description": "inference parameter (str).",
           "enum": [
             "analytical",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },
@@ -15737,7 +15758,7 @@
     "name": "group_time_plot"
   },
   {
-    "description": "Generalized Synthetic Control via interactive fixed effects. Validation: certified parity evidence. Do NOT use when: there is only one treated unit and a short pre-period -- the interactive fixed-effects factors are not identified; use sp.synth; fewer pre-treatment periods than the number of factors being fit -- factor estimation is degenerate. Cost: Cross-validating n_factors refits the factor model cv_folds x max_factors times, and placebo/bootstrap inference refits again per replication -- runtime is multiplicative in those three knobs. Pin n_factors to skip the CV sweep. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add don...",
+    "description": "Generalized Synthetic Control via interactive fixed effects. Validation: certified parity evidence. Do NOT use when: there is only one treated unit and a short pre-period -- the interactive fixed-effects factors are not identified; use sp.synth; fewer pre-treatment periods than the number of factors being fit -- factor estimation is degenerate. Cost: Cross-validating n_factors refits the factor model cv_folds x max_factors times, and placebo/bootstrap inference refits again per replication -- runtime is multiplicative in those three knobs. Pin n_factors to skip the CV sweep. Assumptions: No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date; The donor pool is not subject to the same shock as the treated unit. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Outcome observed for every unit in every period; At least min_T0 (default 5) pre-treatment periods for every treated unit, and more pre-treatment periods than factors. Failure modes: Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the ef...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -15774,7 +15795,8 @@
           "enum": [
             "auto",
             "parametric",
-            "nonparametric"
+            "nonparametric",
+            "none"
           ],
           "type": "string"
         },
@@ -17521,7 +17543,7 @@
     "name": "ips"
   },
   {
-    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Reports each arm's effective sample size and warns when the weights leave an arm less than a fifth of its size. Validation: certified parity evidence. Assumptions: The propensity model is correctly specified: IPW has no outcome model to fall back on (sp.aipw is doubly robust); Unconfoundedness: no unmeasured confounding of the point treatment given the covariates; Positivity / overlap: 0 < P(D=1 | X) < 1 on the estimand's support. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation. Typical minimum N: 300.",
+    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Reports each arm's effective sample size and warns when the weights leave an arm less than a fifth of its size. Validation: certified parity evidence. Assumptions: The propensity model is correctly specified: IPW has no outcome model to fall back on (sp.aipw is doubly robust); Unconfoundedness: no unmeasured confounding of the point treatment given the covariates; Positivity / overlap: 0 < P(D=1 | X) < 1 on the estimand's support. Pre-conditions: A binary (0/1) point treatment measured once, and covariates measured before it. Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "cluster": {
@@ -17956,7 +17978,7 @@
     "name": "iv_compare"
   },
   {
-    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: certified parity evidence. Do NOT use when: a quick point estimate is all that is needed -- this is the full reporting bundle (bootstrap SEs, tF, AR / CLR / K sets, LTZ) and costs many fits. Cost: n_boot bootstrap fits plus grid_size test inversions per confidence set; minutes on n ~ 10^5. Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates). Failure modes:...",
+    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: certified parity evidence. Do NOT use when: a quick point estimate is all that is needed -- this is the full reporting bundle (bootstrap SEs, tF, AR / CLR / K sets, LTZ) and costs many fits. Cost: n_boot bootstrap fits plus grid_size test inversions per confidence set; minutes on n ~ 10^5. Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; Exactly one endogenous regressor (endog names one column) and one or more excluded instruments....",
     "input_schema": {
       "properties": {
         "absorb": {
@@ -17999,6 +18021,11 @@
           },
           "type": "array",
           "x-statspai-role": "columns"
+        },
+        "grid_size": {
+          "default": 401,
+          "description": "Points in the AR / CLR / K grid inversion",
+          "type": "integer"
         },
         "h0": {
           "default": 0.0,
@@ -20678,6 +20705,10 @@
         "inference": {
           "default": "none",
           "description": "inference parameter (str).",
+          "enum": [
+            "none",
+            "bootstrap"
+          ],
           "type": "string"
         },
         "n_boot": {
@@ -21297,7 +21328,8 @@
           "enum": [
             "two-way",
             "unit",
-            "time"
+            "time",
+            "none"
           ],
           "type": "string"
         },
@@ -21392,7 +21424,8 @@
           "enum": [
             "two-way",
             "unit",
-            "time"
+            "time",
+            "none"
           ],
           "type": "string"
         },
@@ -21744,7 +21777,8 @@
           "description": "``'none'``: point estimates only. ``'analytical'`` (default): delta-method standard errors from the two regressions' classical OLS covariances (``s^2 (X'X)^{-1}``, ``s^2`` on ``n - p``), block-diagonal across the two models -- Stata ``paramed`` / R ``CMAverse`` ``inference = \"delta\"``. Up to 1.28.0 this option computed nothing and ``se`` was ``None``.",
           "enum": [
             "analytical",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },
@@ -26434,7 +26468,8 @@
           "description": "Small-sample factor applied to the heteroskedasticity-robust sandwich. ``\"stata\"`` multiplies by ``N/(N-1)``, the Stata ``glm``/``ppmlhdfe vce(robust)`` convention (matches ``ppmlhdfe`` at machine precision). ``\"fixest\"`` multiplies by ``(N-1)/(N-K)`` with ``K`` counting the slopes plus the absorbed fixed-effect levels (minus one per additional fixed-effect dimension for collinearity), the ``fixest::fepois`` default ``ssc(adj = TRUE, fixef.K = \"full\")``. ``\"none\"`` applies no factor. The three differ by less than ``sqrt(N/(N-K))`` and are documented, not competing, conventions; point estimates are unaffected. Clustered variances keep the ``G/(G-1)`` factor.",
           "enum": [
             "stata",
-            "fixest"
+            "fixest",
+            "none"
           ],
           "type": "string"
         },
@@ -27450,6 +27485,11 @@
           "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
           "type": "integer"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the ATT confidence interval",
+          "type": "number"
+        },
         "ate": {
           "default": false,
           "description": "Stata ate: also match controls to treated (ATU/ATE in model_info); _weight != . then marks units used as a match",
@@ -27483,7 +27523,7 @@
           "type": "string"
         },
         "covariates": {
-          "description": "Pre-treatment covariates entering the propensity-score model. Optional when ``pscore`` names a fitted score.",
+          "description": "Propensity-score covariates; required unless pscore= names a fitted score column",
           "items": {
             "type": "string"
           },
@@ -27492,6 +27532,10 @@
             "controls"
           ],
           "x-statspai-role": "columns"
+        },
+        "distance": {
+          "description": "Matching metric; 'propensity' reproduces psmatch2",
+          "type": "string"
         },
         "kernel": {
           "default": "epan",
@@ -27522,6 +27566,10 @@
           ],
           "type": "string"
         },
+        "n_matches": {
+          "description": "Alias of neighbor (number of nearest neighbours)",
+          "type": "integer"
+        },
         "neighbor": {
           "default": 1,
           "description": "Number of nearest neighbours k",
@@ -27541,6 +27589,11 @@
           ],
           "type": "string"
         },
+        "ps_poly": {
+          "default": 1,
+          "description": "Polynomial degree of the propensity-score model",
+          "type": "integer"
+        },
         "pscore": {
           "description": "Column holding a fitted score to match on (Stata pscore()); covariates= is then optional",
           "type": "string"
@@ -27553,6 +27606,11 @@
             "pairs"
           ],
           "type": "string"
+        },
+        "replace": {
+          "default": true,
+          "description": "Match with replacement (psmatch2 default)",
+          "type": "boolean"
         },
         "se": {
           "default": "psmatch2",
@@ -27574,10 +27632,14 @@
           "description": "Binary treatment column (0/1)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Alias of outcome",
+          "type": "string",
+          "x-statspai-role": "column"
         }
       },
       "required": [
-        "covariates",
         "treat"
       ],
       "type": "object"
@@ -28097,6 +28159,10 @@
         "se": {
           "default": "bootstrap",
           "description": "``'bootstrap'`` resamples **units**, preserving within-unit dependence. There is no analytic option: Canay's two-step variance depends on the first step, and a naive quantile-regression SE would understate it.",
+          "enum": [
+            "bootstrap",
+            "none"
+          ],
           "type": "string"
         },
         "seed": {
@@ -28318,6 +28384,10 @@
         "covariates": {
           "default": "none",
           "description": "Fixed-effects forests only: time-varying covariates for the untreated model behind the imputation scores. Returns dict with keys ``estimate``, ``se``, ``ci_low``, ``ci_high``, ``target``, ``toc_curve`` (``(q_grid, 2)``), ``n``, ``method``, ``priority_source``, ``n_clusters``. References [@yadlowsky2025evaluating] Examples >>> import numpy as np >>> import pandas as pd >>> import statspai as sp >>> rng = np.random.default_rng(42) >>> n = 400 >>> X = rng.normal(size=(n, 3)) >>> T = rng.binomial(1, 0.5, size=n) >>> tau = 1.0 + X[:, 0] # heterogeneous effect >>> Y = X[:, 1] + tau * T + rng.normal(scale=0.5, size=n) >>> df = pd.DataFrame({ ... \"y\": Y, \"d\": T, ... \"x0\": X[:, 0], \"x1\": X[:, 1], \"x2\": X[:, 2], ... }) >>> cf = sp.causal_forest( ... data=df, formula=\"y ~ d | x0 + x1 + x2\", ... n_estimators=50, random_state=0, ... ) >>> res = sp.rate(cf, target=\"AUTOC\") >>> sorted(res.keys()) ['ci_high', 'ci_low', 'estimate', 'method', 'n', 'n_clusters', \\ >>> res[\"toc_curve\"].shape (100, 2)",
+          "enum": [
+            "none",
+            "auto"
+          ],
           "type": "string"
         },
         "forest": {
@@ -42089,7 +42159,8 @@
           "description": "``\"bootstrap\"`` returns SEs and percentile CIs from the non-parametric (cluster-aware) bootstrap. ``\"analytic\"`` (only with ``method=\"efficient\"``) returns the efficient-influence-function SEs and Wald CIs of ``cdgd``. ``\"none\"`` skips inference.",
           "enum": [
             "bootstrap",
-            "analytic"
+            "analytic",
+            "none"
           ],
           "type": "string"
         },

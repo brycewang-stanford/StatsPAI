@@ -1393,7 +1393,7 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
             {
                 "symptom": "Passed result lacks event_study "
                 "estimates (point-estimate-only DID)",
-                "exception": "KeyError",
+                "exception": "MethodIncompatibility",
                 "remedy": "Re-run the upstream estimator with "
                 "an event-study/dynamic specification "
                 "before calling honest_did",
@@ -1402,11 +1402,21 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
             {
                 "symptom": "No pre-treatment periods so the "
                 "violation magnitude cannot be "
-                "anchored",
+                "anchored (backend='r' / 'honestdid')",
                 "exception": "DataInsufficient",
                 "remedy": "Estimate additional leads so "
                 "pre-trend slope can bound "
                 "post-treatment bias",
+                "alternative": "sun_abraham",
+            },
+            {
+                "symptom": "No pre-treatment periods with the native "
+                "backend: nothing calibrates the restriction",
+                "exception": "(none — UserWarning; a worst-case-bias "
+                "fallback interval is returned)",
+                "remedy": "Do not read the fallback as a sensitivity "
+                "result; refit with leads (e.g. sp.aggte(type='dynamic') "
+                "without min_e=0) and call honest_did again",
                 "alternative": "sun_abraham",
             },
             {
@@ -3450,14 +3460,23 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         ],
         "failure_modes": [
             {
-                "symptom": "cluster requested in se_types but "
-                "no cluster_var supplied, or subset "
-                "masks misaligned with the data "
-                "index",
-                "exception": "ValueError",
+                "symptom": "'cluster' in se_types but no "
+                "cluster_var: the clustered specifications are "
+                "dropped from the curve",
+                "exception": "(none — ValueError only when no "
+                "specification is left)",
                 "remedy": "Supply cluster_var when using "
-                "clustered SEs and align subset "
-                "boolean masks to the data index.",
+                "clustered SEs; passing cluster_var adds 'cluster' "
+                "to se_types by itself.",
+                "alternative": "",
+            },
+            {
+                "symptom": "An se_types entry other than 'nonrobust', "
+                "'hc1', 'robust' or 'cluster'",
+                "exception": "(none — silently computed as HC1, or as "
+                "the classical variance when fe= is given)",
+                "remedy": "Use only those four names; the curve labels "
+                "each specification with the name you passed.",
                 "alternative": "",
             },
             {
@@ -3824,12 +3843,16 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
     },
     "xtnbreg": {
         "assumptions": [
-            "Panel count overdispersion (NB-2): model='fe' adds "
-            "explicit entity dummies, model='re' is a "
-            "random-intercept NB model",
+            "model='fe' (the default) is the Hausman-Hall-Griliches "
+            "conditional fixed-effects NB: the variance-to-mean ratio "
+            "1 + delta_i is constant within a panel and conditioning on each "
+            "panel's outcome total removes it; no entity dummies are estimated",
+            "model='re': 1/(1 + delta_i) ~ Beta(r, s) across panels, "
+            "independent of the regressors",
+            "model='ufe' is the dummy-variable NB-2 and model='normal_re' the "
+            "normal random-intercept NB-2 (sp.menbreg); neither is what Stata "
+            "xtnbreg computes",
             "Log-linear conditional mean within panel units",
-            "RE random intercepts are normally distributed and "
-            "independent of covariates",
         ],
         "pre_conditions": [
             "Non-negative integer count outcome",
@@ -3837,24 +3860,25 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         ],
         "failure_modes": [
             {
-                "symptom": "FE with many singleton units "
-                "inflates dummy count and degrades "
-                "estimates",
-                "exception": "DataInsufficient",
-                "remedy": "Require multiple within-unit "
-                "observations or switch to the RE "
-                "model",
+                "symptom": "model='fe': panels with one observation or an "
+                "all-zero outcome carry no information",
+                "exception": "(none — dropped, as Stata drops them; the count "
+                "is model_info['n_groups_dropped'])",
+                "remedy": "Check how many panels are left; with many dropped "
+                "panels compare with model='re'",
                 "alternative": "nbreg",
             },
             {
-                "symptom": "RE model quadrature fails to " "converge",
-                "exception": "ConvergenceWarning",
-                "remedy": "Increase quadrature points/maxiter " "or use model='fe'",
+                "symptom": "robust=, cluster= or weights= with model='fe' or 're'",
+                "exception": "MethodIncompatibility",
+                "remedy": "The HHG models report the model-based (OIM) "
+                "variance only, as Stata's xtnbreg; use model='ufe' or "
+                "sp.nbreg for cluster-robust standard errors",
                 "alternative": "nbreg",
             },
             {
-                "symptom": "Entity identifier missing for fixed " "effects",
-                "exception": "ValueError",
+                "symptom": "Entity identifier missing for a panel model",
+                "exception": "MethodIncompatibility",
                 "remedy": "Pass entity= or include '| id' in " "the formula",
                 "alternative": "nbreg",
             },

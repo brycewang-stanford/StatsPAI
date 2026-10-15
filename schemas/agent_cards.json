@@ -2388,9 +2388,10 @@
       "ppmlhdfe"
     ],
     "assumptions": [
-      "Panel count overdispersion (NB-2): model='fe' adds explicit entity dummies, model='re' is a random-intercept NB model",
-      "Log-linear conditional mean within panel units",
-      "RE random intercepts are normally distributed and independent of covariates"
+      "model='fe' (the default) is the Hausman-Hall-Griliches conditional fixed-effects NB: the variance-to-mean ratio 1 + delta_i is constant within a panel and conditioning on each panel's outcome total removes it; no entity dummies are estimated",
+      "model='re': 1/(1 + delta_i) ~ Beta(r, s) across panels, independent of the regressors",
+      "model='ufe' is the dummy-variable NB-2 and model='normal_re' the normal random-intercept NB-2 (sp.menbreg); neither is what Stata xtnbreg computes",
+      "Log-linear conditional mean within panel units"
     ],
     "category": "panel",
     "cost_profile": "",
@@ -2421,21 +2422,21 @@
     "failure_modes": [
       {
         "alternative": "nbreg",
-        "exception": "DataInsufficient",
-        "remedy": "Require multiple within-unit observations or switch to the RE model",
-        "symptom": "FE with many singleton units inflates dummy count and degrades estimates"
+        "exception": "(none -- dropped, as Stata drops them; the count is model_info['n_groups_dropped'])",
+        "remedy": "Check how many panels are left; with many dropped panels compare with model='re'",
+        "symptom": "model='fe': panels with one observation or an all-zero outcome carry no information"
       },
       {
         "alternative": "nbreg",
-        "exception": "ConvergenceWarning",
-        "remedy": "Increase quadrature points/maxiter or use model='fe'",
-        "symptom": "RE model quadrature fails to converge"
+        "exception": "MethodIncompatibility",
+        "remedy": "The HHG models report the model-based (OIM) variance only, as Stata's xtnbreg; use model='ufe' or sp.nbreg for cluster-robust standard errors",
+        "symptom": "robust=, cluster= or weights= with model='fe' or 're'"
       },
       {
         "alternative": "nbreg",
-        "exception": "ValueError",
+        "exception": "MethodIncompatibility",
         "remedy": "Pass entity= or include '| id' in the formula",
-        "symptom": "Entity identifier missing for fixed effects"
+        "symptom": "Entity identifier missing for a panel model"
       }
     ],
     "inherits_from": null,
@@ -2474,8 +2475,13 @@
       "name": "xtnbreg",
       "parameters": {
         "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level",
+            "type": "number"
+          },
           "cluster": {
-            "description": "Cluster variable; defaults to entity for FE",
+            "description": "Cluster variable for model='pooled' / 'ufe' ('ufe' clusters on entity by default); refused by 'fe', 're' and 'normal_re'",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -2484,8 +2490,17 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "dispersion": {
+            "default": "mean",
+            "description": "'mean' (NB2) or 'constant' (NB1) for model='pooled' / 'ufe'; the HHG models have their own panel-constant dispersion",
+            "enum": [
+              "mean",
+              "constant"
+            ],
+            "type": "string"
+          },
           "entity": {
-            "description": "Panel/unit identifier",
+            "description": "Panel/unit identifier. Required by every model except 'pooled' unless the formula carries '| id'",
             "type": "string",
             "x-aliases": [
               "id"
@@ -2499,7 +2514,7 @@
             "x-statspai-role": "column"
           },
           "formula": {
-            "description": "Formula such as 'count ~ x1 + x2'",
+            "description": "Formula such as 'count ~ x1 + x2', or 'count ~ x1 | id' to name the panel id; pass y= and x= instead to skip it",
             "type": "string",
             "x-statspai-role": "formula"
           },
@@ -2507,6 +2522,11 @@
             "default": false,
             "description": "irr parameter (bool).",
             "type": "boolean"
+          },
+          "maxiter": {
+            "default": 100,
+            "description": "Maximum iterations",
+            "type": "integer"
           },
           "model": {
             "default": "fe",
@@ -2525,6 +2545,15 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "robust": {
+            "default": "nonrobust",
+            "description": "Standard errors for model='pooled' / 'ufe' (as sp.nbreg). The HHG models ('fe', 're') and 'normal_re' report the model-based variance only and refuse anything else",
+            "type": "string",
+            "x-aliases": [
+              "vce"
+            ],
+            "x-canonical": "vce"
+          },
           "time": {
             "description": "Optional time column",
             "type": "string",
@@ -2534,12 +2563,32 @@
             "default": false,
             "description": "Include time dummies for model='fe'",
             "type": "boolean"
+          },
+          "tol": {
+            "default": 1e-08,
+            "description": "Convergence tolerance",
+            "type": "number"
+          },
+          "weights": {
+            "description": "Weight column for model='pooled' / 'ufe'; refused by 'fe' and 're', ignored with a warning by 'normal_re'",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "x": {
+            "description": "Regressor columns (alternative to formula)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Count outcome column (alternative to formula)",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
-          "formula",
-          "data",
-          "entity"
+          "data"
         ],
         "type": "object"
       }
@@ -8413,6 +8462,11 @@
             "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
             "type": "integer"
           },
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for the ATT confidence interval",
+            "type": "number"
+          },
           "ate": {
             "default": false,
             "description": "Stata ate: also match controls to treated (ATU/ATE in model_info); _weight != . then marks units used as a match",
@@ -8446,7 +8500,7 @@
             "type": "string"
           },
           "covariates": {
-            "description": "Pre-treatment covariates entering the propensity-score model. Optional when ``pscore`` names a fitted score.",
+            "description": "Propensity-score covariates; required unless pscore= names a fitted score column",
             "items": {
               "type": "string"
             },
@@ -8460,6 +8514,10 @@
             "description": "Cross-section with one row per unit (the matching sample).",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "distance": {
+            "description": "Matching metric; 'propensity' reproduces psmatch2",
+            "type": "string"
           },
           "kernel": {
             "default": "epan",
@@ -8490,6 +8548,10 @@
             ],
             "type": "string"
           },
+          "n_matches": {
+            "description": "Alias of neighbor (number of nearest neighbours)",
+            "type": "integer"
+          },
           "neighbor": {
             "default": 1,
             "description": "Number of nearest neighbours k",
@@ -8509,6 +8571,11 @@
             ],
             "type": "string"
           },
+          "ps_poly": {
+            "default": 1,
+            "description": "Polynomial degree of the propensity-score model",
+            "type": "integer"
+          },
           "pscore": {
             "description": "Column holding a fitted score to match on (Stata pscore()); covariates= is then optional",
             "type": "string"
@@ -8521,6 +8588,11 @@
               "pairs"
             ],
             "type": "string"
+          },
+          "replace": {
+            "default": true,
+            "description": "Match with replacement (psmatch2 default)",
+            "type": "boolean"
           },
           "se": {
             "default": "psmatch2",
@@ -8542,12 +8614,16 @@
             "description": "Binary treatment column (0/1)",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Alias of outcome",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
           "data",
-          "treat",
-          "covariates"
+          "treat"
         ],
         "type": "object"
       }
@@ -24494,9 +24570,15 @@
     "failure_modes": [
       {
         "alternative": "",
-        "exception": "ValueError",
-        "remedy": "Supply cluster_var when using clustered SEs and align subset boolean masks to the data index.",
-        "symptom": "cluster requested in se_types but no cluster_var supplied, or subset masks misaligned with the data index"
+        "exception": "(none -- ValueError only when no specification is left)",
+        "remedy": "Supply cluster_var when using clustered SEs; passing cluster_var adds 'cluster' to se_types by itself.",
+        "symptom": "'cluster' in se_types but no cluster_var: the clustered specifications are dropped from the curve"
+      },
+      {
+        "alternative": "",
+        "exception": "(none -- silently computed as HC1, or as the classical variance when fe= is given)",
+        "remedy": "Use only those four names; the curve labels each specification with the name you passed.",
+        "symptom": "An se_types entry other than 'nonrobust', 'hc1', 'robust' or 'cluster'"
       },
       {
         "alternative": "diagnose_result",
@@ -24543,6 +24625,20 @@
       "name": "spec_curve",
       "parameters": {
         "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance threshold",
+            "type": "number"
+          },
+          "cluster_var": {
+            "description": "Column for clustered SEs; adds 'cluster' to se_types",
+            "type": "string",
+            "x-aliases": [
+              "cluster"
+            ],
+            "x-canonical": "cluster",
+            "x-statspai-role": "column"
+          },
           "controls": {
             "description": "Candidate control sets to sweep",
             "items": {
@@ -24567,6 +24663,23 @@
             },
             "type": "array"
           },
+          "se_types": {
+            "description": "Standard-error types to sweep (default ['nonrobust', 'hc1']); 'cluster' needs cluster_var and is dropped without it",
+            "items": {
+              "enum": [
+                "nonrobust",
+                "hc1",
+                "robust",
+                "cluster"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "subsets": {
+            "description": "Named sub-samples: label -> boolean mask aligned with data (None = full sample)",
+            "type": "object"
+          },
           "x": {
             "description": "Treatment / focal regressor",
             "type": "string",
@@ -24576,6 +24689,10 @@
             "description": "Outcome variable column name.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "y_transforms": {
+            "description": "Named outcome transformations: label -> callable on the outcome Series (None = untransformed)",
+            "type": "object"
           }
         },
         "required": [
@@ -24640,8 +24757,7 @@
     "name": "ipw",
     "not_recommended_when": [],
     "pre_conditions": [
-      "Sequentially measured covariates, (time-varying) treatment, and outcome.",
-      "Models for the treatment process and the outcome (or weights)."
+      "A binary (0/1) point treatment measured once, and covariates measured before it"
     ],
     "provenance": {
       "alternatives": "family",
@@ -25637,9 +25753,9 @@
       "ipw"
     ],
     "assumptions": [
-      "Sequential exchangeability / no unmeasured confounding at each time point.",
-      "Positivity: every treatment level is possible given the past.",
-      "Correct specification of the treatment and/or outcome models."
+      "Unconfoundedness: no unmeasured confounding of the point treatment given the covariates",
+      "Positivity / overlap: every treatment level is observed at the covariate values the estimand averages over; otherwise the outcome model extrapolates",
+      "The outcome model is correctly specified: standardization is not doubly robust, except by_arm=True with ps_covariates= (regression adjustment with inverse-probability weights)"
     ],
     "category": "causal",
     "cost_profile": "",
@@ -25665,10 +25781,19 @@
     "example": "sp.g_computation(df, y=\"wage\", treat=\"trained\", covariates=[\"age\",\"edu\"])",
     "failure_modes": [
       {
-        "alternative": "sp.hal_tmle",
-        "exception": "statspai.AssumptionViolation",
-        "remedy": "Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE).",
-        "symptom": "Stabilized weights have extreme values (positivity near-violation)"
+        "exception": "ValueError",
+        "remedy": "Use estimand='dose_response' with treat_values= the dose levels to evaluate",
+        "symptom": "estimand='ATE' or 'ATT' with a treatment that is not 0/1"
+      },
+      {
+        "exception": "ValueError",
+        "remedy": "Pass treat_values=, the treatment levels at which to evaluate the curve",
+        "symptom": "estimand='dose_response' without treat_values"
+      },
+      {
+        "exception": "MethodIncompatibility",
+        "remedy": "Add by_arm=True: both belong to the regression fitted in each treatment arm",
+        "symptom": "se_method='analytic' or ps_covariates= without by_arm=True"
       }
     ],
     "inherits_from": null,
@@ -25676,8 +25801,8 @@
     "name": "g_computation",
     "not_recommended_when": [],
     "pre_conditions": [
-      "Sequentially measured covariates, (time-varying) treatment, and outcome.",
-      "Models for the treatment process and the outcome (or weights)."
+      "A point treatment measured once: 0/1 for estimand='ATE' / 'ATT', numeric with treat_values= for estimand='dose_response'",
+      "Covariates measured before the treatment"
     ],
     "provenance": {
       "alternatives": "family",
@@ -25712,6 +25837,11 @@
       "name": "g_computation",
       "parameters": {
         "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level",
+            "type": "number"
+          },
           "by_arm": {
             "default": false,
             "description": "Fit a linear outcome regression in each treatment arm (regression adjustment, Stata teffects ra) instead of one regression with the treatment as a regressor",
@@ -25740,6 +25870,10 @@
             ],
             "type": "string"
           },
+          "ml_Q": {
+            "description": "Outcome model: any estimator with .fit(X, y) / .predict(X); default OLS",
+            "type": "string"
+          },
           "n_boot": {
             "default": 500,
             "description": "Bootstrap replications for SE",
@@ -25760,6 +25894,10 @@
               "analytic"
             ],
             "type": "string"
+          },
+          "seed": {
+            "description": "Bootstrap random seed",
+            "type": "integer"
           },
           "treat": {
             "description": "Treatment variable",
@@ -49912,9 +50050,9 @@
     "failure_modes": [
       {
         "alternative": "sp.anderson_rubin_ci",
-        "exception": "statspai.AssumptionViolation",
-        "remedy": "Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin).",
-        "symptom": "Weak first stage -- biased point estimates and unreliable conventional SEs"
+        "exception": "(none -- reported in the result)",
+        "remedy": "Report effective_F and the Anderson-Rubin / CLR sets instead of the Wald interval; an unbounded set means the data do not bound the effect",
+        "symptom": "Weak first stage: a small effective F, an infinite tF critical value, an unbounded Anderson-Rubin set"
       }
     ],
     "inherits_from": null,
@@ -49925,7 +50063,7 @@
     ],
     "pre_conditions": [
       "An instrument plausibly affecting treatment, an endogenous treatment, and an outcome.",
-      "A strong first stage (assess instrument strength before interpreting estimates)."
+      "Exactly one endogenous regressor (endog names one column) and one or more excluded instruments"
     ],
     "provenance": {
       "alternatives": "family",
@@ -50036,6 +50174,11 @@
             },
             "type": "array",
             "x-statspai-role": "columns"
+          },
+          "grid_size": {
+            "default": 401,
+            "description": "Points in the AR / CLR / K grid inversion",
+            "type": "integer"
           },
           "h0": {
             "default": 0.0,
@@ -58544,6 +58687,7 @@
       "did_imputation",
       "gardner_did",
       "wooldridge_did",
+      "did_multiplegt_dyn",
       "sdid",
       "synth"
     ],
@@ -58552,14 +58696,11 @@
       "Stable treatment effects across consecutive periods (for the DID_M weighted average interpretation)",
       "No anticipation",
       "Cluster-bootstrap validity requires G large and clusters independent",
-      "Parallel trends: treated and control groups would have followed the same trajectory absent treatment",
-      "No anticipation: outcomes in pre-treatment periods are unaffected by future treatment",
-      "SUTVA: no spillovers between units",
-      "For staggered / heterogeneous effects: use CS or SA -- TWFE can produce negative weights (Goodman-Bacon)"
+      "SUTVA: no spillovers between units"
     ],
     "category": "causal",
     "cost_profile": "n_boot cluster-bootstrap replications of the full DID_M rollup.",
-    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
+    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The treatment may be binary or discrete (an effect per unit of treatment). For the dCDH (2024) intertemporal event study (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -58587,51 +58728,27 @@
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
-        "exception": "DataInsufficient",
+        "exception": "(none -- UserWarning; the estimate is NaN)",
         "remedy": "did_multiplegt identifies effects only from treatment switches. Fall back to callaway_santanna if the design is staggered adoption.",
-        "symptom": "No switching cells (nobody changes treatment)"
+        "symptom": "No switching cell with a stayer that had the same previous treatment"
       },
       {
         "alternative": "honest_did",
-        "exception": "AssumptionViolation",
+        "exception": "(none -- reported in model_info['joint_placebo_test'])",
         "remedy": "Inspect model_info['event_study'] by placebo lag; consider honest_did sensitivity bounds or add controls.",
         "symptom": "Joint placebo test rejects -- parallel trends unlikely"
       },
       {
-        "alternative": "",
+        "alternative": "did_multiplegt_dyn",
         "exception": "",
-        "remedy": "Raise n_boot, or switch to a wild cluster bootstrap. The analytical influence-function SE from dCDH (2020) is not yet implemented -- see RFC.",
+        "remedy": "Raise n_boot. This function has only the cluster bootstrap; sp.did_multiplegt_dyn(se_method='analytic') gives the authors' influence-function variance.",
         "symptom": "Bootstrap SE unstable with small G"
-      },
-      {
-        "alternative": "sp.sensitivity_rr",
-        "exception": "AssumptionViolation",
-        "remedy": "Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna.",
-        "symptom": "Pre-trend joint test p < 0.05 (or underpowered at 0.10)"
-      },
-      {
-        "alternative": "sp.callaway_santanna",
-        "exception": "AssumptionWarning",
-        "remedy": "TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation.",
-        "symptom": "Staggered treatment timing with TWFE method"
       },
       {
         "alternative": "sp.sensitivity_rr",
         "exception": "AssumptionWarning",
         "remedy": "Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr.",
         "symptom": "Pre-trend test underpowered (Roth 2022)"
-      },
-      {
-        "alternative": "sp.wild_cluster_bootstrap",
-        "exception": "AssumptionWarning",
-        "remedy": "Use wild cluster bootstrap (sp.wild_cluster_bootstrap).",
-        "symptom": "Few clusters at unit level"
-      },
-      {
-        "alternative": "sp.did_few_treated",
-        "exception": "AssumptionWarning",
-        "remedy": "Cluster-robust SEs over-reject whatever the total cluster count; use sp.did_few_treated (Conley-Taber / Ferman-Pinto) or sp.cs_jackknife (CV3).",
-        "symptom": "Few *treated* clusters (one or a handful)"
       }
     ],
     "inherits_from": "did",
@@ -58645,12 +58762,9 @@
     ],
     "pre_conditions": [
       "long-format panel with one row per unit x period",
-      "treatment is binary (0/1) and may vary over time within a unit",
+      "treatment is the current treatment, 0/1 or a discrete level, and may move in both directions within a unit",
       "at least two periods observed per unit so a first difference can be computed",
-      "data is panel or repeated cross-section with a time column",
-      "treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered",
-      "at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study)",
-      "for staggered designs: id column identifying units across time"
+      "at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study)"
     ],
     "provenance": {
       "alternatives": "curated+family",
@@ -58683,7 +58797,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
+      "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The treatment may be binary or discrete (an effect per unit of treatment). For the dCDH (2024) intertemporal event study (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
       "name": "did_multiplegt",
       "parameters": {
         "properties": {
@@ -59046,16 +59160,10 @@
     "example": "sp.drdid(df, y=\"y\", group=\"d\", time=\"t\", covariates=[\"age\",\"edu\"])",
     "failure_modes": [
       {
-        "alternative": "",
-        "exception": "AssumptionViolation",
-        "remedy": "Trim extreme propensity scores or use sp.ipw_trim.",
+        "alternative": "trimming",
+        "exception": "(none -- control units with a propensity score at or above trim_level are dropped, as DRDID's trim.level)",
+        "remedy": "Compare model_info['ps_mean_treated'] and ['ps_mean_control']; drop the covariate that predicts treatment almost perfectly or restrict the sample to common support (sp.trimming).",
         "symptom": "Propensity score near 0/1 (overlap violation)"
-      },
-      {
-        "alternative": "sp.trimming",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Conditional parallel trends needs overlap; trim or drop the covariate that predicts treatment almost perfectly",
-        "symptom": "Propensity scores near 0 or 1 in the treated group"
       }
     ],
     "inherits_from": null,
@@ -59177,8 +59285,12 @@
             "description": "est_method='ipw' only. True = Hajek-normalised (std_ipw_did_*), control arm divided by its own weight mass. False = Abadie (2005) (ipw_did_*), both arms sharing the denominator E[D].",
             "type": "boolean"
           },
+          "random_state": {
+            "description": "Inert alias of seed: no step draws random numbers",
+            "type": "integer"
+          },
           "seed": {
-            "description": "Random seed for reproducible stochastic steps.",
+            "description": "Inert: no step draws random numbers (recorded in the provenance only)",
             "type": "integer"
           },
           "time": {
@@ -63504,15 +63616,11 @@
       "No anticipation prior to F",
       "Stable control treatment across horizon window",
       "SUTVA",
-      "Analytic SEs are the authors' U_Gg influence-function variance clustered at `cluster` (default: group)",
-      "Parallel trends: treated and control groups would have followed the same trajectory absent treatment",
-      "No anticipation: outcomes in pre-treatment periods are unaffected by future treatment",
-      "SUTVA: no spillovers between units",
-      "For staggered / heterogeneous effects: use CS or SA -- TWFE can produce negative weights (Goodman-Bacon)"
+      "Analytic SEs are the authors' U_Gg influence-function variance clustered at `cluster` (default: group)"
     ],
     "category": "causal",
     "cost_profile": "Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the default se_method is the cluster bootstrap; se_method='analytic' is the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and computes the joint tests from it; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -63540,57 +63648,33 @@
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
-        "exception": "",
-        "remedy": "did_multiplegt_dyn identifies from switch-on events. Use sp.callaway_santanna if design is standard staggered adoption.",
-        "symptom": "No units switch from 0 to 1"
+        "exception": "DataInsufficient",
+        "remedy": "Every switcher needs a not-yet-switched group with the same period-one treatment. Use continuous= when period-one treatments are continuous, or sp.callaway_santanna for a standard staggered adoption.",
+        "symptom": "No switcher can be matched with a control at any horizon"
       },
       {
         "alternative": "honest_did",
-        "exception": "AssumptionViolation",
+        "exception": "(none -- reported in model_info['joint_placebo_test'])",
         "remedy": "Parallel trends unlikely; inspect event_study, consider sp.honest_did sensitivity.",
         "symptom": "Joint placebo test rejects"
       },
       {
-        "alternative": "did_multiplegt",
-        "exception": "",
-        "remedy": "MVP silently ignores switch-off events. For full treatment-reversal handling, wait for paper-parity implementation or use sp.did_multiplegt (2020 DID_M).",
-        "symptom": "Switch-off events present"
-      },
-      {
-        "alternative": "sp.sensitivity_rr",
-        "exception": "AssumptionViolation",
-        "remedy": "Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna.",
-        "symptom": "Pre-trend joint test p < 0.05 (or underpowered at 0.10)"
-      },
-      {
-        "alternative": "sp.callaway_santanna",
-        "exception": "AssumptionWarning",
-        "remedy": "TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation.",
-        "symptom": "Staggered treatment timing with TWFE method"
+        "alternative": "",
+        "exception": "(none -- those (g, t) cells are dropped)",
+        "remedy": "Design Restriction 2 of dCDH (2024); the count is in model_info['n_dropped_bidirectional']. Use switchers='in' / 'out' to estimate each direction.",
+        "symptom": "A group has been both above and below its period-one treatment"
       },
       {
         "alternative": "sp.sensitivity_rr",
         "exception": "AssumptionWarning",
         "remedy": "Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr.",
         "symptom": "Pre-trend test underpowered (Roth 2022)"
-      },
-      {
-        "alternative": "sp.wild_cluster_bootstrap",
-        "exception": "AssumptionWarning",
-        "remedy": "Use wild cluster bootstrap (sp.wild_cluster_bootstrap).",
-        "symptom": "Few clusters at unit level"
-      },
-      {
-        "alternative": "sp.did_few_treated",
-        "exception": "AssumptionWarning",
-        "remedy": "Cluster-robust SEs over-reject whatever the total cluster count; use sp.did_few_treated (Conley-Taber / Ferman-Pinto) or sp.cs_jackknife (CV3).",
-        "symptom": "Few *treated* clusters (one or a handful)"
       }
     ],
     "inherits_from": "did",
     "limitations": [
-      "switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented",
-      "se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only",
+      "the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented",
+      "the default se_method is the cluster bootstrap; se_method='analytic' is the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and computes the joint tests from it",
       "the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package"
     ],
     "name": "did_multiplegt_dyn",
@@ -63601,17 +63685,14 @@
       "no pre-treatment period exists -- parallel trends is untestable and the event study cannot be identified"
     ],
     "pre_conditions": [
-      "long-format panel with binary time-varying treatment",
-      "at least some units switching on from d=0 to d=1",
+      "long-format panel; the treatment is time-varying, binary or discrete (a count, a level), and may switch in either direction",
+      "at least one switcher with a not-yet-switched control that had the same period-one treatment (or continuous= when no two groups share one)",
       "enough horizons pre/post to compute long differences",
-      "data is panel or repeated cross-section with a time column",
-      "treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered",
-      "at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study)",
-      "for staggered designs: id column identifying units across time"
+      "at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study)"
     ],
     "provenance": {
       "alternatives": "curated+family",
-      "assumptions": "curated+family",
+      "assumptions": "curated",
       "cost_profile": "curated",
       "example": "curated",
       "failure_modes": "curated+family",
@@ -63640,7 +63721,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the default se_method is the cluster bootstrap; se_method='analytic' is the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and computes the joint tests from it; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
       "name": "did_multiplegt_dyn",
       "parameters": {
         "properties": {
@@ -66548,7 +66629,7 @@
     ],
     "assumptions": [
       "Same identifying assumptions as the source estimator (parallel trends, no anticipation, SUTVA)",
-      "For dynamic aggregation: balanced panel within the requested event-time window (use balance_e)"
+      "For dynamic aggregation: the cohorts behind each event time change with e unless balance_e fixes them, so a change in composition can look like a dynamic effect"
     ],
     "category": "causal",
     "cost_profile": "bstrap=True multiplier bootstrap: n_boot draws over the stacked influence functions, O(n_boot x n).",
@@ -66580,7 +66661,7 @@
       },
       {
         "alternative": "",
-        "exception": "statspai.DataInsufficient",
+        "exception": "ValueError",
         "remedy": "Widen the (min_e, max_e) window or drop balance_e.",
         "symptom": "Empty event-time aggregation (no overlapping cohorts)"
       },
@@ -66598,7 +66679,7 @@
       "type='dynamic' with unbalanced cohorts and no balance_e -- the long-horizon averages mix cohorts of different composition"
     ],
     "pre_conditions": [
-      "result was produced by sp.callaway_santanna or sp.did with staggered=True",
+      "result was produced by sp.callaway_santanna, or by sp.did on a staggered design (which dispatches to Callaway-Sant'Anna)",
       "result.detail contains the per-(g, t) ATT estimates and their influence functions"
     ],
     "provenance": {
@@ -71928,7 +72009,7 @@
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
-        "exception": "KeyError",
+        "exception": "MethodIncompatibility",
         "remedy": "Re-run the upstream estimator with an event-study/dynamic specification before calling honest_did",
         "symptom": "Passed result lacks event_study estimates (point-estimate-only DID)"
       },
@@ -71936,7 +72017,13 @@
         "alternative": "sun_abraham",
         "exception": "DataInsufficient",
         "remedy": "Estimate additional leads so pre-trend slope can bound post-treatment bias",
-        "symptom": "No pre-treatment periods so the violation magnitude cannot be anchored"
+        "symptom": "No pre-treatment periods so the violation magnitude cannot be anchored (backend='r' / 'honestdid')"
+      },
+      {
+        "alternative": "sun_abraham",
+        "exception": "(none -- UserWarning; a worst-case-bias fallback interval is returned)",
+        "remedy": "Do not read the fallback as a sensitivity result; refit with leads (e.g. sp.aggte(type='dynamic') without min_e=0) and call honest_did again",
+        "symptom": "No pre-treatment periods with the native backend: nothing calibrates the restriction"
       },
       {
         "alternative": "",
@@ -73043,7 +73130,8 @@
             "description": "Standard-error mode. ``'analytic'`` is the two-stage corrected clustered variance of Butts & Gardner (2022): the Stage-2 influence function is adjusted for the estimation of the Stage-1 fixed effects (see the module docstring), which is what R ``did2s`` and Stata ``did2s`` report and what StatsPAI reproduces to ~1e-8 relative. ``'bootstrap'`` resamples whole clusters and re-runs the full two-step procedure. ``'none'`` skips inference (``se``, ``ci`` and ``pvalue`` are NaN); it is what the bootstrap uses internally. Point estimates are identical in every mode.",
             "enum": [
               "analytic",
-              "bootstrap"
+              "bootstrap",
+              "none"
             ],
             "type": "string"
           },
@@ -79480,10 +79568,11 @@
       "callaway_santanna"
     ],
     "assumptions": [
-      "A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path.",
       "No interference: the treatment does not affect the donor units (SUTVA).",
       "No anticipation before the treatment date.",
-      "The donor pool is not subject to the same shock as the treated unit."
+      "The donor pool is not subject to the same shock as the treated unit.",
+      "Untreated outcomes follow an interactive fixed-effects model: unit and period effects plus unit loadings times a few common period factors; the counterfactual is not a convex combination of donors",
+      "The number of factors is small next to the number of pre-treatment periods; it is chosen by cross-validation up to max_factors unless n_factors is given"
     ],
     "category": "causal",
     "cost_profile": "Cross-validating n_factors refits the factor model cv_folds x max_factors times, and placebo/bootstrap inference refits again per replication -- runtime is multiplicative in those three knobs. Pin n_factors to skip the CV sweep.",
@@ -79514,16 +79603,21 @@
     "example": "fit = sp.gsynth(panel, \"y\", \"id\", \"t\", treat=\"d\", n_factors=1,\n inference=\"none\")",
     "failure_modes": [
       {
-        "alternative": "sp.sdid",
-        "exception": "statspai.AssumptionViolation",
-        "remedy": "Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth).",
-        "symptom": "Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment"
-      },
-      {
         "alternative": "sp.synth_sensitivity",
         "exception": "statspai.AssumptionWarning",
         "remedy": "Report the placebo distribution honestly; the effect may not be distinguishable from noise.",
         "symptom": "Placebo / permutation inference shows the estimate is not extreme relative to donors"
+      },
+      {
+        "alternative": "sp.sdid",
+        "exception": "(none -- informational)",
+        "remedy": "Plot the fit and the pre-treatment gaps; raise max_factors, add covariates, or compare with sp.sdid",
+        "symptom": "Poor pre-treatment fit: the factor model does not track the treated units before treatment"
+      },
+      {
+        "exception": "(none -- UserWarning)",
+        "remedy": "The unit is dropped with a warning and the estimate covers the other treated units; lower min_T0 only if the factors can be estimated from fewer periods",
+        "symptom": "A treated unit has fewer than min_T0 pre-treatment periods"
       }
     ],
     "inherits_from": null,
@@ -79535,8 +79629,9 @@
     ],
     "pre_conditions": [
       "Panel of one or more treated units plus an untreated donor pool, observed over time.",
-      "Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used).",
-      "Outcome observed for every unit in every period."
+      "Outcome observed for every unit in every period.",
+      "At least min_T0 (default 5) pre-treatment periods for every treated unit, and more pre-treatment periods than factors",
+      "With treat=: a balanced panel and an absorbing 0/1 treatment column"
     ],
     "provenance": {
       "alternatives": "family",
@@ -79611,7 +79706,8 @@
             "enum": [
               "auto",
               "parametric",
-              "nonparametric"
+              "nonparametric",
+              "none"
             ],
             "type": "string"
           },
@@ -81210,7 +81306,8 @@
             "enum": [
               "two-way",
               "unit",
-              "time"
+              "time",
+              "none"
             ],
             "type": "string"
           },
@@ -84519,6 +84616,10 @@
           "covariates": {
             "default": "none",
             "description": "Fixed-effects forests only: time-varying covariates for the untreated model behind the imputation scores. Returns dict with keys ``estimate``, ``se``, ``ci_low``, ``ci_high``, ``target``, ``toc_curve`` (``(q_grid, 2)``), ``n``, ``method``, ``priority_source``, ``n_clusters``. References [@yadlowsky2025evaluating] Examples >>> import numpy as np >>> import pandas as pd >>> import statspai as sp >>> rng = np.random.default_rng(42) >>> n = 400 >>> X = rng.normal(size=(n, 3)) >>> T = rng.binomial(1, 0.5, size=n) >>> tau = 1.0 + X[:, 0] # heterogeneous effect >>> Y = X[:, 1] + tau * T + rng.normal(scale=0.5, size=n) >>> df = pd.DataFrame({ ... \"y\": Y, \"d\": T, ... \"x0\": X[:, 0], \"x1\": X[:, 1], \"x2\": X[:, 2], ... }) >>> cf = sp.causal_forest( ... data=df, formula=\"y ~ d | x0 + x1 + x2\", ... n_estimators=50, random_state=0, ... ) >>> res = sp.rate(cf, target=\"AUTOC\") >>> sorted(res.keys()) ['ci_high', 'ci_low', 'estimate', 'method', 'n', 'n_clusters', \\ >>> res[\"toc_curve\"].shape (100, 2)",
+            "enum": [
+              "none",
+              "auto"
+            ],
             "type": "string"
           },
           "forest": {
@@ -89342,7 +89443,8 @@
             "description": "Small-sample factor applied to the heteroskedasticity-robust sandwich. ``\"stata\"`` multiplies by ``N/(N-1)``, the Stata ``glm``/``ppmlhdfe vce(robust)`` convention (matches ``ppmlhdfe`` at machine precision). ``\"fixest\"`` multiplies by ``(N-1)/(N-K)`` with ``K`` counting the slopes plus the absorbed fixed-effect levels (minus one per additional fixed-effect dimension for collinearity), the ``fixest::fepois`` default ``ssc(adj = TRUE, fixef.K = \"full\")``. ``\"none\"`` applies no factor. The three differ by less than ``sqrt(N/(N-K))`` and are documented, not competing, conventions; point estimates are unaffected. Clustered variances keep the ``G/(G-1)`` factor.",
             "enum": [
               "stata",
-              "fixest"
+              "fixest",
+              "none"
             ],
             "type": "string"
           },
@@ -99998,7 +100100,8 @@
             "enum": [
               "two-way",
               "unit",
-              "time"
+              "time",
+              "none"
             ],
             "type": "string"
           },
@@ -100166,7 +100269,8 @@
             "enum": [
               "two-way",
               "unit",
-              "time"
+              "time",
+              "none"
             ],
             "type": "string"
           },
@@ -129293,6 +129397,7 @@
             "default": "analytical",
             "description": "inference parameter (str).",
             "enum": [
+              "none",
               "bootstrap",
               "analytical"
             ],
@@ -129506,6 +129611,10 @@
           "inference": {
             "default": "none",
             "description": "inference parameter (str).",
+            "enum": [
+              "none",
+              "bootstrap"
+            ],
             "type": "string"
           },
           "n_boot": {
@@ -130137,7 +130246,8 @@
             "description": "inference parameter (str).",
             "enum": [
               "analytical",
-              "bootstrap"
+              "bootstrap",
+              "none"
             ],
             "type": "string"
           },
@@ -131169,7 +131279,8 @@
             "description": "inference parameter (str).",
             "enum": [
               "analytical",
-              "bootstrap"
+              "bootstrap",
+              "none"
             ],
             "type": "string"
           },
@@ -131878,7 +131989,8 @@
             "description": "``'none'``: point estimates only. ``'analytical'`` (default): delta-method standard errors from the two regressions' classical OLS covariances (``s^2 (X'X)^{-1}``, ``s^2`` on ``n - p``), block-diagonal across the two models -- Stata ``paramed`` / R ``CMAverse`` ``inference = \"delta\"``. Up to 1.28.0 this option computed nothing and ``se`` was ``None``.",
             "enum": [
               "analytical",
-              "bootstrap"
+              "bootstrap",
+              "none"
             ],
             "type": "string"
           },
@@ -132057,7 +132169,8 @@
             "description": "``\"bootstrap\"`` returns SEs and percentile CIs from the non-parametric (cluster-aware) bootstrap. ``\"analytic\"`` (only with ``method=\"efficient\"``) returns the efficient-influence-function SEs and Wald CIs of ``cdgd``. ``\"none\"`` skips inference.",
             "enum": [
               "bootstrap",
-              "analytic"
+              "analytic",
+              "none"
             ],
             "type": "string"
           },
@@ -138851,6 +138964,10 @@
           "se": {
             "default": "bootstrap",
             "description": "``'bootstrap'`` resamples **units**, preserving within-unit dependence. There is no analytic option: Canay's two-step variance depends on the first step, and a naive quantile-regression SE would understate it.",
+            "enum": [
+              "bootstrap",
+              "none"
+            ],
             "type": "string"
           },
           "seed": {
@@ -140378,7 +140495,8 @@
             "enum": [
               "auto",
               "analytic",
-              "bootstrap"
+              "bootstrap",
+              "none"
             ],
             "type": "string"
           },
