@@ -589,8 +589,55 @@ def esttab(
     positional arguments and a non-empty store exist, positional
     arguments take precedence.
 
-    Parameters mirror the original ``esttab`` API; see the module
-    docstring for the exact mapping to ``regtable``.
+    Parameters mirror the original ``esttab`` API and are forwarded to
+    :func:`statspai.regtable`.
+
+    Parameters
+    ----------
+    *results
+        Fitted model results, one table column each. Without them the
+        models stored by :func:`eststo` are used.
+    names : sequence of str, optional
+        Column header labels (regtable's ``model_labels``); defaults to
+        ``(1), (2), ...``, or the :func:`eststo` names. Must have one
+        entry per model.
+    se, t, p, ci : bool
+        What to show beneath each coefficient: the standard error
+        (default), the t statistic, the p-value or the confidence
+        interval. When several are true the first of ``ci``, ``p``, ``t``
+        wins.
+    stars : bool, default True
+        Append significance stars.
+    star_levels : tuple of float, default (0.10, 0.05, 0.01)
+        p-value thresholds for ``*``, ``**``, ``***``.
+    keep, drop : sequence of str, optional
+        Show only these coefficients / hide these coefficients.
+    order : sequence of str, optional
+        Coefficients to list first, in this order.
+    labels : dict, optional
+        Rename coefficients ``{"raw_name": "Label"}`` (regtable's
+        ``coef_labels``).
+    stats : sequence of str, optional
+        Summary-statistic rows, as in regtable (default ``N``, ``R2``,
+        ``adj_R2``, ``F``).
+    fmt : str or int, optional
+        Numeric format for coefficients and standard errors, as in
+        regtable.
+    digits : int, optional
+        Number of decimals; ``digits=3`` is ``fmt="%.3f"``.
+    output : str, default 'text'
+        Format of ``str(result)``: ``'text'``, ``'latex'``, ``'html'``,
+        ``'markdown'`` or ``'csv'``.
+    filename : str, optional
+        Write the table to this path. With ``output='text'`` the format
+        follows the extension (``.tex``, ``.html`` / ``.htm``, ``.md``,
+        ``.csv``); otherwise ``output`` decides.
+    title : str, optional
+        Table title / caption.
+    notes : sequence of str, optional
+        Notes printed beneath the table.
+    alpha : float, default 0.05
+        Significance level of the intervals shown with ``ci=True``.
 
     Examples
     --------

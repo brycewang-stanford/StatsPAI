@@ -313,7 +313,14 @@ def sar(
     Parameters
     ----------
     W : ndarray, scipy.sparse matrix, or statspai.spatial.weights.W
-    data, formula, row_normalize, alpha : see legacy implementation.
+        n x n spatial weights matrix, rows in the order of ``data``.
+    data : pd.DataFrame
+        Data with the variables named in ``formula``.
+    formula : str
+        Model formula ``"y ~ x1 + x2"``; a constant is added.
+    row_normalize : bool, default True
+        Divide each row of ``W`` by its sum before fitting (rows that sum
+        to zero are left as they are).
 
     Examples
     --------
@@ -408,6 +415,18 @@ def sem(
     alpha: float = 0.05,
 ) -> EconometricResults:
     """Spatial Error Model: ``Y = Xβ + u, u = λWu + ε``.
+
+    Parameters
+    ----------
+    W : ndarray, scipy.sparse matrix, or statspai.spatial.weights.W
+        n x n spatial weights matrix, rows in the order of ``data``.
+    data : pd.DataFrame
+        Data with the variables named in ``formula``.
+    formula : str
+        Model formula ``"y ~ x1 + x2"``; a constant is added.
+    row_normalize : bool, default True
+        Divide each row of ``W`` by its sum before fitting (rows that sum
+        to zero are left as they are).
 
     Examples
     --------
@@ -510,6 +529,18 @@ def sdm(
 
     Reports LeSage & Pace direct / indirect / total effects in the
     diagnostics when ``n`` is small enough for the dense ``(I - ρW)^{-1}``.
+
+    Parameters
+    ----------
+    W : ndarray, scipy.sparse matrix, or statspai.spatial.weights.W
+        n x n spatial weights matrix, rows in the order of ``data``.
+    data : pd.DataFrame
+        Data with the variables named in ``formula``.
+    formula : str
+        Model formula ``"y ~ x1 + x2"``; a constant is added.
+    row_normalize : bool, default True
+        Divide each row of ``W`` by its sum before fitting (rows that sum
+        to zero are left as they are).
 
     Examples
     --------

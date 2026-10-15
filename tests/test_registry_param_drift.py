@@ -33,6 +33,14 @@ So this is a **ratchet**, matching the pattern already used by
 After deliberately fixing an entry, delete its name from the baseline by
 hand -- ``test_baseline_has_no_stale_entries`` names it. (There is no
 regeneration flag: regenerating would also accept any new drift.)
+
+October 2026: ``registry._apply_signature_param_completion`` now appends
+every omitted signature parameter to the hand-written entry, with its
+description read from the docstring (or from the function the parameter
+is forwarded to, ``registry.PARAM_DOC_FORWARDS``). The baseline shrank
+from 116 entries to the reviewed exceptions in
+``registry.SIGNATURE_PARAMS_NOT_IN_SCHEMA``; the last test below keeps the
+two in step, so hiding one more parameter takes an entry with a reason.
 """
 
 from __future__ import annotations
@@ -217,3 +225,23 @@ class TestDidOptionDepthSurface:
             f"{name}.{param} fell back to the auto-generated description, "
             "which means no ParamSpec was written for it"
         )
+
+
+def test_baseline_is_exactly_the_reviewed_exceptions(baseline):
+    """Every parameter still hidden is hidden on purpose, with a reason.
+
+    The completion pass leaves out only what
+    ``registry.SIGNATURE_PARAMS_NOT_IN_SCHEMA`` names; the Python-only
+    ``dml`` controls are consumed by ``_PYTHON_ONLY_PARAM_ALLOWLIST``.
+    """
+    expected = {}
+    for name, hidden in R.SIGNATURE_PARAMS_NOT_IN_SCHEMA.items():
+        rest = sorted(set(hidden) - set(_PYTHON_ONLY_PARAM_ALLOWLIST.get(name, ())))
+        if rest:
+            expected[name] = rest
+    assert {k: sorted(v) for k, v in baseline.items()} == expected
+    for name, hidden in R.SIGNATURE_PARAMS_NOT_IN_SCHEMA.items():
+        live = _live_params(getattr(sp, name))
+        assert set(hidden) <= live, (name, sorted(set(hidden) - live))
+        for param, reason in hidden.items():
+            assert reason.strip(), (name, param)

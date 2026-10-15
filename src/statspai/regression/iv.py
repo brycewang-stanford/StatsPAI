@@ -3309,6 +3309,13 @@ def ivreg(
         canonical alias for ``robust``.
     wild_reps, wild_weight_type, seed
         Controls for the ``vce="wild"`` path.
+    conley_lat, conley_lon : str, optional
+        With ``vce="conley"`` (2SLS only): the latitude and longitude
+        columns, in degrees. Required for that ``vce``.
+    conley_cutoff : float, optional
+        With ``vce="conley"``: the distance cutoff in km for the Conley
+        spatial HAC standard errors (uniform kernel, Stata ``acreg``
+        compatible). Required for that ``vce``.
 
     Returns
     -------

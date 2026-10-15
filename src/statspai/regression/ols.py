@@ -1866,6 +1866,13 @@ def regress(
         be in time order. Joint tests through :func:`statspai.test` use the
         rescaled statistic ``(nu - m + 1) / (nu * m) * W``, which is
         ``F(m, nu - m + 1)``.
+    conley_lat, conley_lon : str, optional
+        With ``vce='conley'``: the latitude and longitude columns, in
+        degrees. Required for that ``vce`` and ignored otherwise.
+    conley_cutoff : float, optional
+        With ``vce='conley'``: the distance cutoff in km for the Conley
+        spatial HAC standard errors (uniform kernel, Stata ``acreg``'s
+        planar 111 km-per-degree distance). Required for that ``vce``.
     **kwargs
         Additional options. Unrecognised keywords raise ``TypeError``
         rather than being ignored — a misspelled option must not

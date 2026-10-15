@@ -280,6 +280,9 @@ class FunctionSpec:
         * ``x-canonical`` -- the house-style spelling of the concept when
           it differs from the exported name (``vce`` for ``robust``). It is
           only callable when it also appears in ``x-aliases``.
+        * ``x-statspai-source`` -- ``"signature"`` when the parameter was
+          not in the hand-written entry and was read off the function's
+          signature and docstring instead.
 
         Parameters
         ----------
@@ -314,6 +317,10 @@ class FunctionSpec:
             if p.default is not None:
                 prop["default"] = p.default
             _reconcile_param_schema(prop, p)
+            if getattr(p, "_derived", False):
+                # Read off the signature + docstring, not hand-written
+                # (``_apply_signature_param_completion``).
+                prop["x-statspai-source"] = "signature"
             role = _column_role(p.name, p.type, prop["type"])
             if role:
                 prop["x-statspai-role"] = role
@@ -35174,6 +35181,9 @@ def _parse_docstring_params(doc: str) -> Dict[str, Dict[str, Any]]:
         r"^([*]{0,2}[A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[*]{0,2}[A-Za-z_][A-Za-z0-9_]*)*)\s*$"
     )
 
+    _ident = r"[*]{0,2}[A-Za-z_][A-Za-z0-9_]*"
+    typeless_re = re.compile(rf"^({_ident}(?:\s*,\s*{_ident})*)\s*:\s*$")
+
     def _next_nonblank_is_indented(idx: int) -> bool:
         for j in range(idx + 1, len(lines)):
             nxt = lines[j]
@@ -35227,6 +35237,15 @@ def _parse_docstring_params(doc: str) -> Dict[str, Dict[str, Any]]:
             current_type = g.group(2).strip()
             if g.group(3).strip():
                 current_desc.append(g.group(3).strip())
+            continue
+        # ``a, b, c :`` with the type left off (``bayes_iv``'s sampler
+        # controls). Column 0 only, so an indented ``Note:`` line inside a
+        # description never starts a new entry.
+        e = typeless_re.match(line)
+        if e and not line[:1].isspace() and _next_nonblank_is_indented(i):
+            flush()
+            current_names = [n.strip() for n in e.group(1).split(",")]
+            current_type = ""
             continue
         b = barename_re.match(line)
         if b and not line[:1].isspace() and _next_nonblank_is_indented(i):
@@ -35821,6 +35840,189 @@ def _apply_enum_seeds() -> None:
                 fill(alias, src.name, [str(v) for v in src.enum])
 
 
+#: Signature parameters deliberately kept out of a hand-written entry's
+#: agent schema, with the reason. Everything else the signature accepts is
+#: appended by :func:`_apply_signature_param_completion`. Only two kinds of
+#: reason belong here: a second spelling of a parameter the schema already
+#: lists (so an agent would see the same input twice), or an input that
+#: cannot travel as JSON (in-memory Python objects, array interfaces with a
+#: column-name equivalent). ``tests/test_registry_param_drift.py`` checks
+#: that its ratchet baseline holds exactly these names.
+SIGNATURE_PARAMS_NOT_IN_SCHEMA: Dict[str, Dict[str, str]] = {
+    "dml": {
+        "external_predictions": (
+            "Python-only: an in-memory OOFPredictions object, not JSON."
+        ),
+        "store_oof": "Python-only: keeps row-level fold predictions in memory.",
+        "observation_ids": "Python-only: row identifiers for external_predictions.",
+        "d": "positional article spelling of treat=",
+        "X": "positional article spelling of covariates=",
+    },
+    "synth": {"y": "alias of outcome= (resolve_alias)"},
+    "metalearner": {
+        "d": "alias of treat= (resolve_alias)",
+        "x": "alias of covariates= (resolve_alias)",
+    },
+    "cfrnet": {
+        "d": "alias of treat= (resolve_alias)",
+        "x": "alias of covariates= (resolve_alias)",
+    },
+    "dragonnet": {
+        "d": "alias of treat= (resolve_alias)",
+        "x": "alias of covariates= (resolve_alias)",
+    },
+    "tarnet": {
+        "d": "alias of treat= (resolve_alias)",
+        "x": "alias of covariates= (resolve_alias)",
+    },
+    "did_2x2": {"d": "alias of treat= (resolve_alias)"},
+    "causal_forest": {
+        "Y": "array interface; JSON callers use the column-name y=",
+        "T": "array interface; JSON callers use the column-name d=",
+        "X": "array interface; JSON callers use the column-name x=",
+        "W": "array interface; JSON callers use the column-name w=",
+    },
+    # Accepted by the signature but never read by the fit (intervals are
+    # always 95%); listing it would promise a choice the call ignores.
+    "sar": {"alpha": "accepted but unused by the fit"},
+    "sem": {"alpha": "accepted but unused by the fit"},
+    "sdm": {"alpha": "accepted but unused by the fit"},
+}
+
+#: Where a wrapper's parameters are documented when its own docstring does
+#: not: the callable it forwards them to (the forwarding is in the
+#: wrapper's code, so the target's ``Parameters`` entry is the meaning).
+#: ``{"name": target}`` reads the same-named entry; ``{"name":
+#: "target:other"}`` reads the target's ``other`` entry (a renamed
+#: forward); ``{"*": target}`` covers every parameter of the wrapper.
+#: ``tests/test_registry_signature_params.py`` checks every target
+#: resolves and documents what it is credited with.
+PARAM_DOC_FORWARDS: Dict[str, Dict[str, str]] = {
+    # sp.synth's docstring: "see ``_dispatch_synth_impl`` for the full
+    # docstring on methods and parameters".
+    "synth": {"*": "statspai.synth.scm._dispatch_synth_impl"},
+    # did(method='2x2') passes these through to did_2x2 unchanged.
+    "did": {
+        "vce": "statspai.did.did_2x2.did_2x2",
+        "wild_reps": "statspai.did.did_2x2.did_2x2",
+        "wild_weight_type": "statspai.did.did_2x2.did_2x2",
+    },
+    # The article alias sets ``ml_g=model_y`` / ``ml_m=model_d``.
+    "dml": {
+        "model_y": "statspai.dml.double_ml.dml:ml_g",
+        "model_d": "statspai.dml.double_ml.dml:ml_m",
+    },
+}
+# The PyMC estimators hand their sampler controls to one shared sampler.
+for _bayes_fn in ("bayes_did", "bayes_rd", "bayes_fuzzy_rd", "bayes_mte", "bayes_iv"):
+    PARAM_DOC_FORWARDS[_bayes_fn] = {
+        _arg: "statspai.bayes._base._sample_model"
+        for _arg in (
+            "inference",
+            "advi_iterations",
+            "target_accept",
+            "random_state",
+            "progressbar",
+        )
+    }
+del _bayes_fn
+
+
+def _resolve_dotted(path: str) -> Any:
+    """Import ``"pkg.mod.attr"`` and return the attribute (or ``None``)."""
+    import importlib
+
+    module_name, _, attr = path.rpartition(".")
+    try:
+        return getattr(importlib.import_module(module_name), attr, None)
+    except ImportError:
+        return None
+
+
+def _forwarded_param_doc(name: str, pname: str) -> Dict[str, Any]:
+    """The ``Parameters`` entry :data:`PARAM_DOC_FORWARDS` credits ``pname`` to."""
+    table = PARAM_DOC_FORWARDS.get(name, {})
+    target = table.get(pname) or table.get("*")
+    if not target:
+        return {}
+    path, _, other = target.partition(":")
+    obj = _resolve_dotted(path)
+    if obj is None:
+        return {}
+    return _doc_param_table(obj).get(other or pname, {})
+
+
+def _apply_signature_param_completion() -> None:
+    """Append every live signature parameter a hand-written spec omits.
+
+    Hand-written ``params=[...]`` lists are written once and then drift: a
+    keyword added to the function later never reaches
+    :func:`function_schema`, so agents cannot see it (116 entries hid 400+
+    parameters in October 2026). What is missing is read off the code --
+    name, required-ness and default from :func:`inspect.signature`, type
+    from the annotation, description from the function's own ``Parameters``
+    section (the same parser and lookup order the auto-registered tail
+    uses) -- and the derived :class:`ParamSpec` carries ``_derived = True``
+    so :func:`describe_function` and the schema can say so.
+
+    Skipped: ``*args`` / ``**kwargs``, ``self``, ``_``-prefixed names,
+    positional-only parameters, auto-registered specs (built from the
+    signature already), classes, and the reviewed exceptions in
+    :data:`SIGNATURE_PARAMS_NOT_IN_SCHEMA`. Hand-written entries win: an
+    existing ``ParamSpec`` is never touched. Idempotent per spec.
+    """
+    from ._canonical_aliases import FUNCTION_ALIAS_OF
+
+    kinds = (
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.KEYWORD_ONLY,
+    )
+    for name, spec in _REGISTRY.items():
+        if getattr(spec, "_auto", False):
+            continue
+        if getattr(spec, "_signature_completed", False):
+            continue
+        if getattr(spec, "_kind", None) == "class":
+            continue
+        obj = _live_callable(name)
+        if obj is None or inspect.isclass(obj) or not callable(obj):
+            continue
+        try:
+            sig = inspect.signature(obj)
+        except (TypeError, ValueError):
+            continue
+        object.__setattr__(spec, "_signature_completed", True)
+        have = {p.name for p in spec.params}
+        hidden = SIGNATURE_PARAMS_NOT_IN_SCHEMA.get(name, {})
+        missing = [
+            p
+            for p in sig.parameters.values()
+            if p.kind in kinds
+            and p.name != "self"
+            and not p.name.startswith("_")
+            and p.name not in have
+            and p.name not in hidden
+        ]
+        if not missing:
+            continue
+        target = FUNCTION_ALIAS_OF.get(name)
+        alias_obj = _live_callable(target) if target else None
+        docs = _doc_param_table(obj, alias_obj)
+        for p in missing:
+            meta = docs.get(p.name, {})
+            if _is_placeholder_desc(meta.get("description", "")):
+                meta = _forwarded_param_doc(name, p.name) or meta
+            derived = _param_spec_from_signature(p, meta)
+            if not derived.description.strip():
+                # Undocumented: store what the schema would show anyway
+                # (the shared vocabulary for ``alpha`` / ``seed`` / ...,
+                # else the recognisable ``<name> parameter`` placeholder),
+                # so describe_function and function_schema agree.
+                derived.description = _param_description(derived.name, derived.type)
+            derived._derived = True  # type: ignore[attr-defined]
+            spec.params.append(derived)
+
+
 def is_alias(name: str) -> bool:
     """True when ``name`` is a registered alias of another entry.
 
@@ -35849,6 +36051,34 @@ def _first_doc_line(doc: Optional[str]) -> str:
     return ""
 
 
+def _param_spec_from_signature(
+    p: inspect.Parameter, doc_meta: Dict[str, Any]
+) -> ParamSpec:
+    """One :class:`ParamSpec` read off a signature parameter and its docs.
+
+    Required-ness and default come from the signature, the type from the
+    annotation (the docstring type when there is none), the description
+    and any choice list from the parsed ``Parameters`` entry. Shared by the
+    auto-registered tail and :func:`_apply_signature_param_completion`.
+    """
+    required = p.default is inspect.Parameter.empty
+    default = None if required else p.default
+    doc_type = doc_meta.get("type") or ""
+    typ = _stringify_annotation(p.annotation)
+    if typ == "Any" and doc_type:
+        typ = str(doc_type)
+    if typ == "Any" and doc_meta.get("enum"):
+        typ = "str"
+    return ParamSpec(
+        name=p.name,
+        type=typ,
+        required=required,
+        default=default,
+        description=str(doc_meta.get("description") or ""),
+        enum=doc_meta.get("enum"),
+    )
+
+
 def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
     """Build a minimal FunctionSpec by introspecting a callable.
 
@@ -35872,25 +36102,7 @@ def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
                 inspect.Parameter.VAR_KEYWORD,
             ):
                 continue
-            required = p.default is inspect._empty
-            default = None if required else p.default
-            doc_meta = doc_params.get(p.name, {})
-            doc_type = doc_meta.get("type") or ""
-            typ = _stringify_annotation(p.annotation)
-            if typ == "Any" and doc_type:
-                typ = str(doc_type)
-            if typ == "Any" and doc_meta.get("enum"):
-                typ = "str"
-            params.append(
-                ParamSpec(
-                    name=p.name,
-                    type=typ,
-                    required=required,
-                    default=default,
-                    description=str(doc_meta.get("description") or ""),
-                    enum=doc_meta.get("enum"),
-                )
-            )
+            params.append(_param_spec_from_signature(p, doc_params.get(p.name, {})))
 
     if not params and doc_params:
         # Purely variadic signature (``*results, **kwargs``) or no signature
@@ -37016,6 +37228,7 @@ def _ensure_full_registry() -> None:
         _apply_agent_card_seeds()
         _apply_baseline_cards()
         _apply_negative_guidance_seeds()
+        _apply_signature_param_completion()
         _apply_schema_enrichment()
         _apply_docstring_examples()
         _apply_family_inheritance()
@@ -37052,6 +37265,7 @@ def _ensure_full_registry() -> None:
     _apply_agent_card_seeds()
     _apply_baseline_cards()
     _apply_negative_guidance_seeds()
+    _apply_signature_param_completion()
     _apply_schema_enrichment()
     _apply_docstring_examples()
     _apply_family_inheritance()
@@ -37300,6 +37514,10 @@ def describe_function(name: str) -> Dict[str, Any]:
             name, list(out.get("pre_conditions") or [])
         )
     out["auto_generated"] = bool(getattr(spec, "_auto", False))
+    # Parameters the hand-written entry omitted and the signature supplied.
+    for row, p in zip(out.get("params") or [], spec.params):
+        if getattr(p, "_derived", False):
+            row["source"] = "signature"
     out["evidence"] = evidence_record(name)
     # What the call returns, as data: ``{"class", "fields", ...}`` (the
     # ``returns`` key keeps the docstring sentence for backwards

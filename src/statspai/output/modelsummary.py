@@ -137,6 +137,50 @@ def modelsummary(
     (or tuple) of fitted models is accepted in place of positional
     arguments: ``sp.modelsummary([m1, m2])`` == ``sp.modelsummary(m1, m2)``.
 
+    Parameters
+    ----------
+    *models
+        Fitted model results, one table column each (or one list of them).
+    model_names : list of str, optional
+        Column header labels; defaults to ``(1), (2), ...``. Passed to
+        regtable's ``model_labels``.
+    stars : bool or dict, default True
+        Append significance stars. A dict such as
+        ``{"*": 0.10, "**": 0.05, "***": 0.01}`` sets the thresholds; only
+        its values are used, the symbols stay ``*`` / ``**`` / ``***``.
+    se_type : str, default 'parentheses'
+        Kept for compatibility: the standard error is always shown in
+        parentheses. ``'brackets'`` and ``'none'`` warn and fall back to
+        it; use ``show_ci=True`` for ``[lo, hi]`` intervals.
+    show_ci : bool, default False
+        Show the confidence interval beneath each coefficient instead of
+        the standard error.
+    stats : list of str, optional
+        Summary rows. R spellings are translated (``nobs`` -> ``N``,
+        ``r_squared`` -> ``r2``, ``adj_r_squared`` -> ``adj_r2``,
+        ``f_stat`` -> ``F``); ``method`` / ``bandwidth`` / ``estimand``
+        have no regtable equivalent and are dropped.
+    output : str, default 'text'
+        ``'text'``, ``'latex'``, ``'html'`` or ``'markdown'`` return the
+        rendered string; ``'dataframe'`` returns a DataFrame; a path ending
+        in ``.xlsx`` or ``.docx`` writes that file and returns a
+        confirmation string.
+    title : str, default ''
+        Table title / caption.
+    notes : list of str, optional
+        Notes printed beneath the table.
+    fmt : str or int, optional
+        Numeric format for coefficients and standard errors, as in
+        :func:`statspai.regtable`.
+    digits : int, optional
+        Number of decimals; ``digits=3`` is ``fmt="%.3f"``.
+    coef_map : dict, optional
+        Rename and reorder coefficients ``{"raw_name": "Label"}``; only the
+        listed coefficients are shown, as in R ``modelsummary``.
+    add_rows : dict, optional
+        Extra rows beneath the coefficients, ``{"Row label": [cell per
+        model]}``.
+
     Examples
     --------
     Render a side-by-side regression table from two fitted models:
