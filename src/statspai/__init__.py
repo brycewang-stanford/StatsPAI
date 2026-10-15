@@ -1397,6 +1397,21 @@ from .workflow import (  # noqa: F401 — ``causal`` kept for the shadowing danc
 # in recommend().
 
 
+# The synth module's top-level dataset helpers carry the provenance flag and
+# the simulated-replica warning too. ``sp.california_prop99`` is the
+# simulated synthdid-layout panel, not ``sp.datasets.california_prop99`` (the
+# real ADH data): same name, different data, so the warning names the other.
+basque_terrorism = datasets.basque_terrorism
+german_reunification = datasets.german_reunification
+california_prop99 = datasets._flagged(
+    "california_prop99",
+    california_prop99,
+    call="sp.california_prop99",
+    real_alternative=(
+        "sp.load_dataset('california_prop99'), the Abadie-Diamond-Hainmueller panel"
+    ),
+)
+
 __all__ = [
     # Core
     "EconometricResults",

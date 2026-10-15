@@ -77,7 +77,7 @@ from __future__ import annotations
 import functools
 import inspect
 import warnings
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import pandas as pd
 
@@ -276,7 +276,9 @@ def list_datasets() -> pd.DataFrame:
             1209,
             "Abadie-Diamond-Hainmueller (2010)",
             "Mean 1989-2000 ATT ≈ -19 packs/capita (JASA Fig. 2)",
-            "REAL data: SDID -17.90 = R synthdid to 1e-6; classic SCM -22.4 (non-unique V/W)",
+            "REAL data: SDID -15.60 (= Stata sdid, -15.60383); default "
+            "sp.synth classic SCM -19.51. (-17.90, the R synthdid parity "
+            "number, is on the simulated sp.california_prop99() panel.)",
         ),
         (
             "basque_terrorism",
@@ -382,7 +384,13 @@ def _quiet_load(name: str) -> pd.DataFrame:
     return df
 
 
-def _flag_source(name: str, df: pd.DataFrame, simulated_arg: Any) -> pd.DataFrame:
+def _flag_source(
+    name: str,
+    df: pd.DataFrame,
+    simulated_arg: Any,
+    call: Optional[str] = None,
+    real_alternative: Optional[str] = None,
+) -> pd.DataFrame:
     """Write ``attrs['simulated']`` / ``attrs['data_source']`` and warn once.
 
     Several replicas carry the names of famous real datasets (``mpdta``,
@@ -399,25 +407,32 @@ def _flag_source(name: str, df: pd.DataFrame, simulated_arg: Any) -> pd.DataFram
             sim = _DEFAULT_SOURCE.get(name) != "bundled CSV"
     df.attrs["simulated"] = bool(sim)
     df.attrs.setdefault("data_source", "simulated" if sim else "real")
-    if sim and name not in _WARNED:
-        _WARNED.add(name)
+    key = call or name
+    if sim and key not in _WARNED:
+        _WARNED.add(key)
         from ..exceptions import StatsPAIWarning
 
         paper = df.attrs.get("paper") or ""
         about = f" ({paper})" if isinstance(paper, str) and paper else ""
+        real = f" The real data: {real_alternative}." if real_alternative else ""
         warnings.warn(
-            f"sp.datasets.{name}() returns a SIMULATED replica{about}, not the "
-            "original data: estimates on it describe the simulation and must "
-            "not be reported as findings about the real data. "
-            "df.attrs['simulated'] is True; sp.list_datasets() shows which "
-            "datasets are real extracts.",
+            f"{call or f'sp.datasets.{name}'}() returns a SIMULATED "
+            f"replica{about}, not the original data: estimates on it describe "
+            "the simulation and must not be reported as findings about the "
+            f"real data.{real} df.attrs['simulated'] is True; "
+            "sp.list_datasets() shows which datasets are real extracts.",
             StatsPAIWarning,
             stacklevel=3,
         )
     return df
 
 
-def _flagged(name: str, fn: Callable[..., pd.DataFrame]) -> Callable[..., pd.DataFrame]:
+def _flagged(
+    name: str,
+    fn: Callable[..., pd.DataFrame],
+    call: Optional[str] = None,
+    real_alternative: Optional[str] = None,
+) -> Callable[..., pd.DataFrame]:
     sig = inspect.signature(fn)
 
     @functools.wraps(fn)
@@ -428,7 +443,7 @@ def _flagged(name: str, fn: Callable[..., pd.DataFrame]) -> Callable[..., pd.Dat
             bound = sig.bind_partial(*args, **kwargs)
             bound.apply_defaults()
             simulated_arg = bound.arguments.get("simulated")
-        return _flag_source(name, df, simulated_arg)
+        return _flag_source(name, df, simulated_arg, call, real_alternative)
 
     return loader
 

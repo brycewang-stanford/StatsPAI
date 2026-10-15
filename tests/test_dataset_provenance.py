@@ -67,6 +67,28 @@ def test_unknown_name_suggests_the_closest():
 
 
 def test_search_finds_the_catalogue():
-    for query in ("load example dataset", "示例数据"):
+    for query in ("load example dataset", "\u793a\u4f8b\u6570\u636e"):
         names = [r["name"] for r in sp.search_functions(query)][:3]
         assert "load_dataset" in names, (query, names)
+
+
+def test_top_level_helpers_with_dataset_names_are_flagged(monkeypatch):
+    # sp.california_prop99 is the simulated synthdid-layout panel while
+    # sp.datasets.california_prop99 is the real ADH data: same name,
+    # different data, so the warning names the real one.
+    monkeypatch.setattr(D, "_WARNED", set())
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        sim = sp.california_prop99()
+        sp.basque_terrorism()
+    assert sim.attrs["simulated"] is True
+    msgs = [str(w.message) for w in caught]
+    assert any(
+        m.startswith("sp.california_prop99()")
+        and "load_dataset('california_prop99')" in m
+        for m in msgs
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        real = sp.load_dataset("california_prop99")
+    assert real.attrs["simulated"] is False and "cigsale" in real.columns
