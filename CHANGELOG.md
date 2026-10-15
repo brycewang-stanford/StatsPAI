@@ -4,6 +4,103 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Agent-native review: what an agent reads, calls and is told to do next
+
+An agent was given twelve analyses and only the package's
+self-description; a second drove the MCP server; a third read every
+result class. Where one of them reached a wrong conclusion or a dead
+call, the cause is fixed below.
+
+#### ⚠️ Correctness
+
+- **`sp.evalue_from_result(measure='SMD')`** took the raw estimate as a
+  standardised mean difference, so the E-value changed with the units
+  of the outcome (a DiD on log employment got 1.21 where the
+  standardised value is about 1.67). It now divides the estimate, SE
+  and interval by `sd=` (the outcome's standard deviation) and refuses
+  without it. `sp.paper` / the robustness battery pass the SD when they
+  hold the data and otherwise mark the check as not run; the MCP
+  `sensitivity_from_result` tool takes `sd` / `measure`.
+- **`sp.honest_did(method='relative_magnitude')`** built its default
+  grid in standard-error units (0 to 3 SE, about 0.02 on a log
+  outcome), although M-bar is a unitless ratio; the table then
+  "rejected zero" everywhere while `sp.breakdown_m` was 0.74. The
+  default is now HonestDiD's `Mbarvec`, ten points from 0 to 2.
+- **`sp.sar` / `sem` / `sdm` / `slx` / `sac`** accepted `alpha=` and
+  ignored it: every interval was 95%.
+
+#### Fixed
+
+- `result.next_steps()` recommended calls that could not run or did the
+  wrong thing: `sp.rdbalance(covariates=...)` (the argument is `covs`),
+  `sp.hausman_test(result_fe, result_re)`, `sp.blp_test(result)` and
+  `sp.gate_test(result)` without their data, `sp.cate_summary` on a
+  partially linear DML fit, `sp.estat(result, 'ic')` on an IV fit, an
+  E-value of a DiD or RD estimate, and `sp.sensitivity_rr` presented as
+  the Rambachan-Roth interval (it is a linear-extrapolation heuristic;
+  the steps, the audit and the remediation text now point to
+  `sp.honest_did` / `sp.breakdown_m`). Steps now carry the fit's own
+  column names and an `executable` flag; every executable step is run
+  verbatim in a test.
+- MCP `next_calls` marked as ready failed when dispatched (6 of 11 in
+  the audit): `rdplot` / `rddensity` / `rdsensitivity` / `bacon_decomposition`
+  got a `result_id` they do not read and no dataset; follow-ups got
+  every alias of every column argument. A follow-up now gets the
+  result handle only if it reads results, the dataset handle if it
+  reads data, and only its own parameter names; readiness is checked
+  by dispatching every ready call through the server in a test. The
+  `narrative` printed Python dict reprs and never showed the interval.
+- `sp.rate` on a cross-sectional causal forest ranked units by the
+  forest's own predictions without warning. With no heterogeneity
+  (n = 800, 400 replications) that rejected a nominal 5% test 36% of
+  the time; `sp.rate_split` rejected 0%. It now warns, as the
+  fixed-effects path did (`tests/reliability/rate_cross_section.py`).
+- `sp.match` reported only the raw sample's balance, unlabelled.
+  `model_info['balance_after']` (weighted matched means, raw pooled SD)
+  and `max_abs_smd_before` / `_after` are added; the old table is
+  labelled `before matching`.
+- `sp.rddensity`: `estimate` is the CJM t statistic and `se` / `ci` are
+  on the density-difference scale; the estimand text and
+  `model_info['scale']` now say so (numbers unchanged).
+- Regression results (`sp.regress`, `sp.iv`, `sp.logit`, ...) had no
+  `estimate` / `se` / `ci` in the shared envelope. They report the
+  coefficient named in `focal_term` (single endogenous regressor,
+  recorded treatment, or only regressor) and otherwise `null` with a
+  short `coef_head`.
+- Strict JSON: hand-written `to_dict` overrides (`stochvol`, `ridge`,
+  `mswitch` and the other domain results that define their own) are
+  sanitised at the standard level;
+  `np.bool_` no longer serialises as the string "True"; `NaT` is
+  `null`; dict-subclass results (`PolicyTreeResult`) no longer export
+  `{}`.
+- `result_card()` crashed on fits without standard errors (`ridge`,
+  `ets`, `bart`, `gp_regress`, `dlm`, `boxcox`, `shrinkage`);
+  `sp.gardner_did(...).summary()` without an event window and
+  `sp.etwfe(...).tidy()` crashed; etwfe's tidy terms were duplicated
+  across cohorts and had no p-values.
+- Did-you-mean on a misspelled keyword offered `se_method` for `seed`
+  and nothing behind `reject_unknown_kwargs` (`clustr`). Synonyms
+  across Stata / R / Python come first now (`seed` -> `random_state`,
+  `cluster_var` -> `cluster`, `gvar` -> `g`). `sp.dml(model=...)` with
+  an unknown model names the closest one.
+- 402 parameters that existed in function signatures were missing from
+  `sp.function_schema()` and the MCP tool schemas (`synth(covariates=)`,
+  `dml(model_y=)`, `regtable(keep=)`, `rdrobust(vce=)`, ...). Registry
+  entries now take any signature parameter they do not list from the
+  code and its docstring; 16 deliberate exceptions remain, each with a
+  reason.
+
+#### Added
+
+- `sp.list_datasets()` and `sp.load_dataset(name)` at top level
+  (searchable in English and Chinese). Six built-in datasets are
+  simulated replicas named after real ones (`mpdta`, `nsw_dw`,
+  `basque_terrorism`, `german_reunification`, `angrist_krueger_1991`,
+  `currency_union_panel`); every frame now carries
+  `attrs['simulated']`, the catalogue lists columns, and the first
+  load of a replica in a process warns that estimates on it are not
+  findings about the real data.
+
 ### `sp.stata`: stored results after estimation, checked against Stata 18
 
 #### ⚠️ Correctness

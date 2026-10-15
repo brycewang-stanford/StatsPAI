@@ -5,6 +5,23 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ E-values, honest DiD relative magnitudes, spatial intervals
+
+**What changed.**
+
+| Call | Before | Now |
+| --- | --- | --- |
+| `sp.evalue_from_result(result)` / `measure='SMD'` or `'MD'` | raw estimate read as a standardised difference (E-value moves with the outcome's units) | needs `sd=` (the outcome's SD; `sd=1` if already standardised) and divides by it; refuses without it |
+| `sp.honest_did(method='relative_magnitude')` without `m_grid` | M-bar grid in SE units (0 to 3 SE) | HonestDiD's `Mbarvec`: ten points from 0 to 2 |
+| `sp.sar` / `sem` / `sdm` / `slx` / `sac` with `alpha=` | ignored, 95% intervals | intervals at the requested level |
+| `next_steps()` items | `action` / `reason` / `priority` / `category` | also `executable`; DiD steps name `sp.honest_did` / `sp.breakdown_m` instead of `sp.sensitivity_rr` |
+
+**What to do.** Pass `sd=df[y].std()` to `sp.evalue_from_result` for a
+mean difference. Re-run relative-magnitude sensitivity tables that
+relied on the default grid; pass `m_grid=` to keep a specific grid.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ options off the default path in DiD, matching and IV
 
 **What changed.** Comparing every option value of the core estimators
