@@ -124,7 +124,7 @@ def bjs_pretrend_joint(
                 "first_treat=, horizon=[-3, ..., 3]) and pass that result "
                 "with the same arguments."
             ),
-            alternative_functions=["did_imputation", "pretrends_summary"],
+            alternative_functions=["sp.did_imputation", "sp.pretrends_summary"],
         )
     for col in (y, group, time, first_treat):
         if col not in data.columns:

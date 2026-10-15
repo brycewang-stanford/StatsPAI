@@ -618,7 +618,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "categorical, or encode / drop the categorical ones "
             "and pass data_type='gaussian'.",
             "symptom": "hill_climb: the columns mix categorical and "
-            "numeric types (categorical: <[c for (c, f) in "
+            "numeric types (categorical: <[c for c, f in "
             "zip(cols, flags) if f]>).",
         },
     ],
@@ -820,7 +820,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass data_type='discrete' or 'gaussian'.",
             "symptom": "mmpc: the columns mix categorical and numeric types "
-            "(categorical: <[c for (c, f) in zip(cols, flags) if "
+            "(categorical: <[c for c, f in zip(cols, flags) if "
             "f]>).",
         }
     ],

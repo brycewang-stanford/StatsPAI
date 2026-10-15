@@ -45,6 +45,7 @@ import argparse
 import ast
 import inspect
 import pprint
+import re
 import sys
 import textwrap
 import warnings
@@ -96,7 +97,12 @@ def _template_text(node: Optional[ast.AST]) -> Optional[str]:
             if isinstance(piece, ast.Constant):
                 parts.append(str(piece.value))
             elif isinstance(piece, ast.FormattedValue):
-                expr = ast.unparse(piece.value)
+                # ast.unparse writes ``for (a, b) in`` on 3.10 and
+                # ``for a, b in`` on 3.11+; normalise so the table does not
+                # depend on the interpreter that generated it.
+                expr = re.sub(
+                    r"\bfor \(([^()]*)\) in\b", r"for \1 in", ast.unparse(piece.value)
+                )
                 parts.append(f"<{expr}>" if len(expr) <= 40 else "<...>")
         return "".join(parts)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
