@@ -124,9 +124,12 @@ class TestFixedEffectSpec:
     def test_interacted_fe_spec_parses(self, mpdta):
         """``a#b`` builds the interacted cell rather than two separate FEs."""
         data = mpdta.copy()
-        data["state"] = data["countyreal"] // 1000
-        interacted = sp.did_imputation(data, **KEYS, fe=["countyreal", "state#year"])
-        separate = sp.did_imputation(data, **KEYS, fe=["countyreal", "state", "year"])
+        # Groups of states: mpdta's treatment is a state minimum wage, so a
+        # state#year cell never has an untreated county next to a treated
+        # one and cannot be imputed (see test_bjs_options_parity).
+        data["region"] = (data["countyreal"] // 1000) % 5 + 1
+        interacted = sp.did_imputation(data, **KEYS, fe=["countyreal", "region#year"])
+        separate = sp.did_imputation(data, **KEYS, fe=["countyreal", "region", "year"])
         assert interacted.estimate != separate.estimate
 
     def test_fe_as_bare_string_is_rejected(self, mpdta):
