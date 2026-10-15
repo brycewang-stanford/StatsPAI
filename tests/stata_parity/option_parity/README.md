@@ -34,6 +34,7 @@ is the intended effect, not an accident.
 | `93_sunab_options_Stata.json` | `eventstudyinteract` on in-window dummies only (`window_rule='reference'`), with the never-treated and the last cohort as control | `tests/reference_parity/test_sunab_options_parity.py` |
 | `94_bjs_options_Stata.json` | `did_imputation` `fe()` cells, `controls()` with `timecontrols()` / `unitcontrols()`, `[aw=]`, `horizons()` on `data_94_bjs_options.csv` | `tests/reference_parity/test_bjs_options_parity.py` |
 | `95_rdrobust_comb_Stata.json` | `rdrobust` under `bwselect(msecomb1 / msecomb2 / cercomb1 / cercomb2)`, sharp and fuzzy | `tests/reference_parity/test_rdrobust_comb_parity.py` |
+| `96_csdid_options_Stata.json` | `csdid` cells with standard errors under `asinr` / the default not-yet rule and `method(ipw)`, and the pairwise rule on an unbalanced panel (`data_96_csdid_unbalanced.csv`) | `tests/reference_parity/test_csdid_options_stata_parity.py` |
 
 Every consumer opens its fixture; none carries the Stata numbers as
 literals. These files are not in `TIER_A_FIXTURE_LOCK.json`: their SHA-256
