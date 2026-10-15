@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Semantic audit of the agent cards of the 60 most-used entry points.
+"""Semantic audit of the agent cards of the 70 most-used entry points.
 
 The registry ratchets count *fields that are present*. This audit asks
 whether what the fields say is true, by calling the function:
 
 * **required** -- every argument the signature requires is in the
   schema's ``required`` list, and every extra argument the schema marks
-  required really is: calling without it fails.
+  required really is: calling without it fails, also by the other route
+  the function offers where it has one (``y=`` / ``x=`` for a formula,
+  ``pscore=`` for covariates; :data:`ALT_ROUTES`).
 * **result class** -- the class the card names is the class a real call
   returns.
 * **enums** -- every value a schema ``enum`` advertises is tried in a
@@ -19,7 +21,7 @@ whether what the fields say is true, by calling the function:
 * **provenance** -- how many card fields are curated, inherited from a
   family card, or inferred, so the three are not reported as one number.
 
-Forty functions is a deliberate limit: the ones an agent reaches first
+Seventy functions is a deliberate limit: the ones an agent reaches first
 (the curated MCP tools and the estimators with a validation-scope map),
 each with a hand-written call on small data that this file owns. It is
 not a sample of the registry and says nothing about the rest.
@@ -99,6 +101,8 @@ def _cross():
             "ord": pd.qcut(y, 4, labels=False),
             "cat": np.arange(n) % 3,
             "ypos": np.abs(y) + 0.1,
+            # a fitted-score column for psmatch2(pscore=), no new draws
+            "ps": 1.0 / (1.0 + np.exp(-0.6 * x1)),
         }
     )
 
@@ -123,14 +127,50 @@ def _synth_panel():
     return sp.datasets.california_prop99()
 
 
+def _two_by_two():
+    """mpdta cut to 2003 / 2004, the 2004 cohort against the never treated."""
+    df = _data("staggered")
+    df = df[df["year"].isin([2003, 2004]) & df["first_treat"].isin([0, 2004])].copy()
+    df["treat_grp"] = (df["first_treat"] == 2004).astype(int)
+    df["post"] = (df["year"] == 2004).astype(int)
+    return df.reset_index(drop=True)
+
+
+def _count_panel():
+    """mpdta with an overdispersed count outcome, for panel count models."""
+    import numpy as np
+
+    df = _data("staggered").copy()
+    rng = np.random.default_rng(20261015)
+    unit = rng.gamma(2.0, 0.5, size=df["countyreal"].nunique())
+    het = unit[df["countyreal"].astype("category").cat.codes.to_numpy()]
+    mu = het * np.exp(0.5 + 0.3 * df["treated"].to_numpy())
+    df["cnt"] = rng.poisson(rng.gamma(2.0, mu / 2.0))
+    return df
+
+
+def _cs_result():
+    """A Callaway-Sant'Anna fit, the input of the post-estimation functions."""
+    import statspai as sp
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return sp.callaway_santanna(_data("staggered"), **_CS)
+
+
 _DATA: Dict[str, Any] = {}
 
 
 def _data(kind: str):
     if kind not in _DATA:
-        _DATA[kind] = {"cross": _cross, "staggered": _staggered, "synth": _synth_panel}[
-            kind
-        ]()
+        _DATA[kind] = {
+            "cross": _cross,
+            "staggered": _staggered,
+            "synth": _synth_panel,
+            "twobytwo": _two_by_two,
+            "counts": _count_panel,
+            "cs_result": _cs_result,
+        }[kind]()
     return _DATA[kind]
 
 
@@ -308,6 +348,63 @@ FOURTH_10_CALLS: Dict[str, Tuple[str, List[Any], Dict[str, Any]]] = {
 CALLS.update(FOURTH_10_CALLS)
 FOURTH_10 = tuple(FOURTH_10_CALLS)
 
+#: Ten more, added 2026-10-15 (the CS post-estimation pair, the 2x2 doubly
+#: robust DiD, switching DiD, multi-unit synthetic control, Stata-style
+#: matching, panel counts, specification curves, IV diagnostics and the
+#: g-formula). ``"@"`` is the fitted CS result for ``aggte`` / ``honest_did``.
+FIFTH_10_CALLS: Dict[str, Tuple[str, List[Any], Dict[str, Any]]] = {
+    "aggte": ("cs_result", ["@"], dict(type="dynamic", random_state=1)),
+    "honest_did": ("cs_result", ["@"], {}),
+    "drdid": (
+        "twobytwo",
+        ["@"],
+        dict(y="lemp", group="treat_grp", time="post", id="countyreal"),
+    ),
+    "did_multiplegt": (
+        "staggered",
+        ["@"],
+        dict(
+            y="lemp",
+            group="countyreal",
+            time="year",
+            treatment="treated",
+            n_boot=20,
+            seed=1,
+        ),
+    ),
+    "gsynth": (
+        "synth",
+        ["@"],
+        dict(
+            outcome="cigsale",
+            unit="state",
+            time="year",
+            treated_unit="California",
+            treatment_time=1989,
+            seed=1,
+        ),
+    ),
+    "psmatch2": ("cross", ["@"], dict(treat="d", covariates=_X, outcome="y")),
+    "xtnbreg": ("counts", ["cnt ~ treated", "@"], dict(entity="countyreal")),
+    "spec_curve": (
+        "cross",
+        ["@"],
+        dict(y="y", x="d", controls=[["x1"], ["x1", "x2"]]),
+    ),
+    "iv_diag": (
+        "cross",
+        ["@"],
+        dict(y="y", endog="dc", instruments="z", exog="x1", n_boot=50, random_state=1),
+    ),
+    "g_computation": (
+        "cross",
+        ["@"],
+        dict(y="y", treat="d", covariates=_X, n_boot=50, seed=1),
+    ),
+}
+CALLS.update(FIFTH_10_CALLS)
+FIFTH_10 = tuple(FIFTH_10_CALLS)
+
 #: The thirty audited. CALLS may hold a few more for convenience; this is
 #: the list the document reports and the gate enforces.
 TOP_30 = (
@@ -344,7 +441,7 @@ TOP_30 = (
 )
 
 #: Everything the sweep covers.
-AUDITED = TOP_30 + NEXT_10 + THIRD_10 + FOURTH_10
+AUDITED = TOP_30 + NEXT_10 + THIRD_10 + FOURTH_10 + FIFTH_10
 
 
 #: An enum value that is valid only together with another argument, and
@@ -353,6 +450,18 @@ AUDITED = TOP_30 + NEXT_10 + THIRD_10 + FOURTH_10
 ENUM_CONTEXT: Dict[Tuple[str, str, str], Dict[str, Any]] = {
     ("dml", "score", "ATE"): {"model": "irm"},
     ("dml", "score", "ATTE"): {"model": "irm"},
+    # the native backend runs the conditional tests for relative magnitudes
+    # only, and C-F through R HonestDiD only (the description says both)
+    ("honest_did", "honestdid_method", "C-LF"): {"method": "relative_magnitude"},
+    ("honest_did", "honestdid_method", "Conditional"): {"method": "relative_magnitude"},
+    ("honest_did", "honestdid_method", "C-F"): {"backend": "r"},
+    ("psmatch2", "method", "radius"): {"caliper": 0.05},
+    ("psmatch2", "radius_weights", "pairs"): {"method": "radius", "caliper": 0.05},
+    ("g_computation", "se_method", "analytic"): {"by_arm": True},
+    ("g_computation", "estimand", "dose_response"): {
+        "treat": "dc",
+        "treat_values": [-1.0, 0.0, 1.0],
+    },
 }
 
 #: ``weights_as=`` says how to read ``weights=``, so every value of it
@@ -369,6 +478,18 @@ ENUM_CONTEXT[("hdfe_ols", "weights_as", "sampling")]["cluster"] = "countyreal"
 ENUM_CONTEXT[("glm", "weights_as", "analytic")]["family"] = "gaussian"
 # a binomial fit needs an outcome in [0, 1]; the base call is a count
 ENUM_CONTEXT[("glm", "family", "binomial")] = {"formula": "yb ~ d + x1"}
+
+
+#: ``(function, argument the schema marks required) -> keyword arguments``
+#: that replace it. The function offers this second route; if a call by it
+#: succeeds without the argument, the argument is not required. Both entries
+#: were card defects found on 2026-10-15 (``sp.xtnbreg`` listed ``formula``
+#: and ``entity`` as required, ``sp.psmatch2`` listed ``covariates``).
+ALT_ROUTES: Dict[Tuple[str, str], Dict[str, Any]] = {
+    ("xtnbreg", "formula"): {"y": "cnt", "x": ["treated"]},
+    ("xtnbreg", "entity"): {"formula": "cnt ~ treated | countyreal"},
+    ("psmatch2", "covariates"): {"pscore": "ps"},
+}
 
 
 def _invoke(name: str, overrides: Dict[str, Any] = None, drop: str = None) -> Any:
@@ -474,6 +595,22 @@ def audit_function(name: str, enums: bool = True) -> Dict[str, Any]:
             out["defects"].append(
                 f"schema marks {arg!r} required but the call succeeds without it"
             )
+    for (fname, arg), route in ALT_ROUTES.items():
+        if fname != name:
+            continue
+        try:
+            _invoke(name, overrides=route, drop=arg)
+        except Exception as exc:  # noqa: BLE001 - the route needs it after all
+            extra_checked[f"{arg} (with {sorted(route)})"] = (
+                f"fails without it ({type(exc).__name__})"
+            )
+        else:
+            extra_checked[f"{arg} (with {sorted(route)})"] = "call succeeds"
+            if arg in schema_required:
+                out["defects"].append(
+                    f"schema marks {arg!r} required but the call succeeds "
+                    f"without it when {sorted(route)} are passed"
+                )
     out["required"] = {
         "signature": sig_required,
         "schema": schema_required,
@@ -566,7 +703,7 @@ def build(enums: bool = True) -> Dict[str, Any]:
 
 def render(report: Dict[str, Any]) -> str:
     lines = [
-        "# Agent card audit: the 60 most-used entry points",
+        "# Agent card audit: the 70 most-used entry points",
         "",
         "Generated by `python scripts/agent_card_audit.py`; do not edit by hand.",
         "",
@@ -574,7 +711,7 @@ def render(report: Dict[str, Any]) -> str:
         "arguments, the result class, every value of every schema `enum`, and "
         "the functions the card recommends instead. A registry-wide field "
         "count cannot tell whether a field is true; this can, for these "
-        "sixty. It says nothing about the rest of the registry.",
+        "seventy. It says nothing about the rest of the registry.",
         "",
         f"- functions audited: **{report['n_functions']}**",
         f"- functions with a card defect: **{report['n_with_defects']}**",

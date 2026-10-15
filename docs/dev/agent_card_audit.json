@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "generated_by": "scripts/agent_card_audit.py",
-  "n_functions": 60,
+  "n_functions": 70,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 447,
-    "precondition": 55,
+    "ok": 513,
+    "precondition": 57,
     "rejected": 0
   },
   "functions": [
@@ -2906,6 +2906,9 @@
           },
           "fixest": {
             "status": "ok"
+          },
+          "none": {
+            "status": "ok"
           }
         }
       },
@@ -4012,8 +4015,8 @@
         }
       ],
       "provenance": {
-        "curated+family": 5,
-        "curated": 5
+        "curated": 6,
+        "curated+family": 4
       }
     },
     {
@@ -4682,6 +4685,748 @@
         "family": 3,
         "curated+family": 4,
         "docstring": 2
+      }
+    },
+    {
+      "function": "aggte",
+      "defects": [],
+      "required": {
+        "signature": [
+          "result"
+        ],
+        "schema": [
+          "result"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "type": {
+          "simple": {
+            "status": "ok"
+          },
+          "dynamic": {
+            "status": "ok"
+          },
+          "group": {
+            "status": "ok"
+          },
+          "calendar": {
+            "status": "ok"
+          }
+        },
+        "boot_type": {
+          "multiplier": {
+            "status": "ok"
+          }
+        },
+        "agg_weights": {
+          "did": {
+            "status": "ok"
+          },
+          "csdid": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: agg_weights='csdid' is defined here for type='simple' and type='group', the two aggregates csdid's rule was read off and rebuilt from; got t"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "callaway_santanna",
+          "exists": true
+        },
+        {
+          "name": "sun_abraham",
+          "exists": true
+        },
+        {
+          "name": "did_imputation",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 10
+      }
+    },
+    {
+      "function": "honest_did",
+      "defects": [],
+      "required": {
+        "signature": [
+          "result"
+        ],
+        "schema": [
+          "result"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "DataFrame",
+        "actual": "DataFrame",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "smoothness": {
+            "status": "ok"
+          },
+          "relative_magnitude": {
+            "status": "ok"
+          }
+        },
+        "backend": {
+          "native": {
+            "status": "ok"
+          },
+          "honestdid": {
+            "status": "ok"
+          },
+          "r": {
+            "status": "ok"
+          }
+        },
+        "honestdid_method": {
+          "C-LF": {
+            "status": "ok",
+            "with": {
+              "method": "relative_magnitude"
+            }
+          },
+          "Conditional": {
+            "status": "ok",
+            "with": {
+              "method": "relative_magnitude"
+            }
+          },
+          "FLCI": {
+            "status": "ok"
+          },
+          "C-F": {
+            "status": "precondition",
+            "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "callaway_santanna",
+          "exists": true
+        },
+        {
+          "name": "sun_abraham",
+          "exists": true
+        },
+        {
+          "name": "event_study",
+          "exists": true
+        },
+        {
+          "name": "did_imputation",
+          "exists": true
+        },
+        {
+          "name": "pretrends_power",
+          "exists": true
+        },
+        {
+          "name": "sensitivity_rr",
+          "exists": true
+        },
+        {
+          "name": "uniform_bands",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 7,
+        "docstring": 3
+      }
+    },
+    {
+      "function": "drdid",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "group",
+          "time"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "group",
+          "time"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "imp": {
+            "status": "ok"
+          },
+          "trad": {
+            "status": "ok"
+          }
+        },
+        "est_method": {
+          "dr": {
+            "status": "ok"
+          },
+          "ipw": {
+            "status": "ok"
+          },
+          "reg": {
+            "status": "ok"
+          },
+          "twfe": {
+            "status": "ok"
+          },
+          "all": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "did_2x2",
+          "exists": true
+        },
+        {
+          "name": "callaway_santanna",
+          "exists": true
+        },
+        {
+          "name": "wooldridge_did",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 10
+      }
+    },
+    {
+      "function": "did_multiplegt",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "group",
+          "time",
+          "treatment"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "group",
+          "time",
+          "treatment"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "placebo_sign": {
+          "stata": {
+            "status": "ok"
+          },
+          "r": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "callaway_santanna",
+          "exists": true
+        },
+        {
+          "name": "sun_abraham",
+          "exists": true
+        },
+        {
+          "name": "did_imputation",
+          "exists": true
+        },
+        {
+          "name": "gardner_did",
+          "exists": true
+        },
+        {
+          "name": "wooldridge_did",
+          "exists": true
+        },
+        {
+          "name": "did_multiplegt_dyn",
+          "exists": true
+        },
+        {
+          "name": "sdid",
+          "exists": true
+        },
+        {
+          "name": "synth",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated+family": 5,
+        "curated": 5
+      }
+    },
+    {
+      "function": "gsynth",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "outcome",
+          "unit",
+          "time"
+        ],
+        "schema": [
+          "data",
+          "outcome",
+          "unit",
+          "time"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "backend": {
+          "native": {
+            "status": "ok"
+          },
+          "gsynth": {
+            "status": "ok"
+          },
+          "r": {
+            "status": "ok"
+          }
+        },
+        "inference": {
+          "auto": {
+            "status": "ok"
+          },
+          "parametric": {
+            "status": "ok"
+          },
+          "nonparametric": {
+            "status": "ok"
+          },
+          "none": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "sdid",
+          "exists": true
+        },
+        {
+          "name": "augsynth",
+          "exists": true
+        },
+        {
+          "name": "callaway_santanna",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "curated": 2,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "psmatch2",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data"
+        ],
+        "schema": [
+          "data",
+          "treat"
+        ],
+        "schema_only": {
+          "treat": "fails without it (MethodIncompatibility)",
+          "covariates (with ['pscore'])": "call succeeds"
+        }
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "PSMatch2Result",
+        "actual": "PSMatch2Result",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "neighbor": {
+            "status": "ok"
+          },
+          "kernel": {
+            "status": "ok"
+          },
+          "radius": {
+            "status": "ok",
+            "with": {
+              "caliper": "0.05"
+            }
+          },
+          "llr": {
+            "status": "ok"
+          },
+          "mahalanobis": {
+            "status": "ok"
+          }
+        },
+        "kernel": {
+          "epan": {
+            "status": "ok"
+          },
+          "normal": {
+            "status": "ok"
+          },
+          "biweight": {
+            "status": "ok"
+          },
+          "uniform": {
+            "status": "ok"
+          },
+          "tricube": {
+            "status": "ok"
+          }
+        },
+        "se": {
+          "psmatch2": {
+            "status": "ok"
+          },
+          "ai": {
+            "status": "ok"
+          },
+          "abadie_imbens": {
+            "status": "ok"
+          },
+          "bootstrap": {
+            "status": "ok"
+          }
+        },
+        "common_support": {
+          "none": {
+            "status": "ok"
+          },
+          "minmax": {
+            "status": "ok"
+          }
+        },
+        "ps_model": {
+          "logit": {
+            "status": "ok"
+          },
+          "probit": {
+            "status": "ok"
+          }
+        },
+        "radius_weights": {
+          "treated": {
+            "status": "ok"
+          },
+          "pairs": {
+            "status": "ok",
+            "with": {
+              "method": "radius",
+              "caliper": "0.05"
+            }
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "match",
+          "exists": true
+        },
+        {
+          "name": "psm",
+          "exists": true
+        },
+        {
+          "name": "ebalance",
+          "exists": true
+        },
+        {
+          "name": "cbps",
+          "exists": true
+        },
+        {
+          "name": "ipw",
+          "exists": true
+        },
+        {
+          "name": "drdid",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "xtnbreg",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [
+          "data"
+        ],
+        "schema_only": {
+          "data": "fails without it (MethodIncompatibility)",
+          "formula (with ['x', 'y'])": "call succeeds",
+          "entity (with ['formula'])": "call succeeds"
+        }
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {
+        "model": {
+          "fe": {
+            "status": "ok"
+          },
+          "re": {
+            "status": "ok"
+          },
+          "pooled": {
+            "status": "ok"
+          },
+          "ufe": {
+            "status": "ok"
+          },
+          "normal_re": {
+            "status": "ok"
+          }
+        },
+        "dispersion": {
+          "mean": {
+            "status": "ok"
+          },
+          "constant": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "nbreg",
+          "exists": true
+        },
+        {
+          "name": "menbreg",
+          "exists": true
+        },
+        {
+          "name": "poisson",
+          "exists": true
+        },
+        {
+          "name": "ppmlhdfe",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 7
+      }
+    },
+    {
+      "function": "spec_curve",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "SpecCurveResult",
+        "actual": "SpecCurveResult",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "diagnose_result",
+          "exists": true
+        },
+        {
+          "name": "unified_sensitivity",
+          "exists": true
+        },
+        {
+          "name": "sensemakr",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "iv_diag",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "endog",
+          "instruments"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "endog",
+          "instruments"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "IVDiagResult",
+        "actual": "IVDiagResult",
+        "matches": true
+      },
+      "enums": {
+        "vcov": {
+          "HC0": {
+            "status": "ok"
+          },
+          "HC1": {
+            "status": "ok"
+          },
+          "classic": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "iv",
+          "exists": true
+        },
+        {
+          "name": "anderson_rubin_ci",
+          "exists": true
+        },
+        {
+          "name": "dml",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "curated": 5
+      }
+    },
+    {
+      "function": "g_computation",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "estimand": {
+          "ATE": {
+            "status": "ok"
+          },
+          "ATT": {
+            "status": "ok"
+          },
+          "dose_response": {
+            "status": "ok",
+            "with": {
+              "treat": "dc",
+              "treat_values": "[-1.0, 0.0, 1.0]"
+            }
+          }
+        },
+        "se_method": {
+          "bootstrap": {
+            "status": "ok"
+          },
+          "analytic": {
+            "status": "ok",
+            "with": {
+              "by_arm": "True"
+            }
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "tmle",
+          "exists": true
+        },
+        {
+          "name": "ipw",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "curated": 3
       }
     }
   ]

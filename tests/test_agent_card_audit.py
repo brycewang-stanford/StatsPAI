@@ -1,4 +1,4 @@
-"""The agent cards of the 60 most-used entry points say true things.
+"""The agent cards of the 70 most-used entry points say true things.
 
 ``scripts/agent_card_audit.py`` checks each card against a real call
 (review item A1). The enum sweep takes about ten minutes, so it runs
@@ -40,9 +40,9 @@ def report():
     return json.loads(REPORT.read_text(encoding="utf-8"))
 
 
-def test_sixty_functions_each_with_a_call(audit):
+def test_seventy_functions_each_with_a_call(audit):
     assert len(audit.TOP_30) == len(set(audit.TOP_30)) == 30
-    assert len(audit.AUDITED) == len(set(audit.AUDITED)) == 60
+    assert len(audit.AUDITED) == len(set(audit.AUDITED)) == 70
     assert set(audit.AUDITED) <= set(audit.CALLS)
     registered = set(sp.list_functions())
     assert set(audit.AUDITED) <= registered
@@ -68,7 +68,7 @@ def test_fast_layer_finds_no_defect(audit):
 
 
 def test_committed_enum_sweep_has_no_rejected_value(report):
-    assert report["n_functions"] == 60
+    assert report["n_functions"] == 70
     assert report["n_with_defects"] == 0
     assert report["enum_values"]["rejected"] == 0
     assert report["enum_values"]["ok"] > 200
@@ -78,7 +78,7 @@ def test_enum_values_added_since_the_sweep_are_accepted(audit, report):
     """The committed sweep may lag the schemas; a new value is tried here.
 
     Re-running the whole sweep takes about ten minutes, so a commit that
-    adds an enum value to one of the sixty is not asked to. Instead every
+    adds an enum value to one of the seventy is not asked to. Instead every
     value the committed report has not seen is called for real, now: it may
     need a precondition, it may not be refused. Regenerate the report
     (``python scripts/agent_card_audit.py``) when convenient.
@@ -328,7 +328,7 @@ def test_datasets_carry_no_borrowed_failure_mode():
 
 
 def test_no_card_lists_an_alternative_twice_or_itself():
-    """Every registered function, not only the audited sixty.
+    """Every registered function, not only the audited seventy.
 
     Until 2026-10-05, 69 cards listed one alternative under two spellings
     (``did_imputation`` from the family card, ``sp.did_imputation`` from
@@ -355,3 +355,107 @@ def test_no_card_lists_an_alternative_twice_or_itself():
         "gardner_did",
         "did_multiplegt",
     ]
+
+
+# ---------------------------------------------------------------------------
+# The fifth ten (read and probed on 2026-10-15)
+# ---------------------------------------------------------------------------
+
+
+def _pre_conditions(name):
+    return " | ".join(sp.describe_function(name)["pre_conditions"])
+
+
+def _exception_of(name, symptom_prefix):
+    for fm in sp.describe_function(name)["failure_modes"]:
+        if fm["symptom"].startswith(symptom_prefix):
+            return fm.get("exception", "")
+    raise AssertionError(f"sp.{name}: no failure mode {symptom_prefix!r}")
+
+
+def test_arguments_with_a_second_route_are_not_marked_required():
+    """``y=`` / ``x=`` replace the formula, ``| id`` the entity, ``pscore=``
+    the covariates: the schema used to call all four required."""
+    assert sp.function_schema("xtnbreg")["parameters"]["required"] == ["data"]
+    assert "covariates" not in sp.function_schema("psmatch2")["parameters"]["required"]
+    for name in ("xtnbreg", "psmatch2"):
+        props = sp.function_schema(name)["parameters"]["properties"]
+        assert "y" in props, name  # the second route is visible to the agent
+
+
+def test_quoted_none_in_a_docstring_set_is_a_choice():
+    """``{'auto', 'parametric', 'nonparametric', 'none'}`` lost ``'none'``."""
+    enum = sp.function_schema("gsynth")["parameters"]["properties"]["inference"]["enum"]
+    assert "none" in enum
+    from statspai.registry import _enum_from_text
+
+    assert _enum_from_text("{'a', 'none'}") == ["a", "none"]
+    assert _enum_from_text("{a, b, None}") == ["a", "b"]  # bare None is notation
+
+
+def test_point_treatment_g_formula_is_not_described_as_a_longitudinal_method():
+    for name in ("g_computation", "ipw"):
+        pre = _pre_conditions(name)
+        assert "Sequentially measured" not in pre and "point treatment" in pre, name
+    text = _assumptions("g_computation")
+    assert "Sequential exchangeability" not in text and "point treatment" in text
+    assert "Stabilized weights" not in _symptoms("g_computation")
+    assert _exception_of("g_computation", "estimand='dose_response'") == "ValueError"
+
+
+def test_dcdh_cards_do_not_inherit_the_twfe_dispatcher_s_statements():
+    for name in ("did_multiplegt", "did_multiplegt_dyn"):
+        assert "use CS or SA" not in _assumptions(name), name
+        assert "TWFE method" not in _symptoms(name), name
+        pre = _pre_conditions(name)
+        assert "first-treatment-period" not in pre, name
+        assert "discrete" in pre, name  # both take non-binary treatments
+        # the joint placebo test is reported, never raised
+        assert _exception_of(name, "Joint placebo test rejects").startswith("(none")
+    # stale statements: switch-offs are handled, the event study exists
+    assert "silently ignores switch-off" not in str(
+        sp.describe_function("did_multiplegt_dyn")
+    )
+    assert "on the roadmap" not in sp.describe_function("did_multiplegt")["description"]
+    assert _exception_of("did_multiplegt", "No switching cell").startswith("(none")
+    assert (
+        _exception_of("did_multiplegt_dyn", "No switcher can be matched")
+        == "DataInsufficient"
+    )
+
+
+def test_synthetic_control_template_is_scoped_off_gsynth():
+    text = _assumptions("gsynth")
+    assert "convex (or regularized) combination" not in text
+    assert "interactive fixed-effects" in text
+    assert "Large pre-treatment RMSPE" not in _symptoms("gsynth")
+    assert "min_T0" in _pre_conditions("gsynth")
+
+
+def test_diagnostic_bundle_reports_a_weak_first_stage_instead_of_raising():
+    assert "A strong first stage" not in _pre_conditions("iv_diag")
+    assert _exception_of("iv_diag", "Weak first stage").startswith("(none")
+
+
+def test_exceptions_named_on_the_fifth_ten_are_the_ones_raised():
+    assert _exception_of("aggte", "Empty event-time aggregation") == "ValueError"
+    assert (
+        _exception_of("honest_did", "Passed result lacks event_study")
+        == "MethodIncompatibility"
+    )
+    assert _exception_of("drdid", "Propensity score near 0/1").startswith("(none")
+    assert "staggered=True" not in _pre_conditions("aggte")
+    # xtnbreg's default is the conditional (HHG) model, not entity dummies
+    assert "adds explicit entity dummies" not in _assumptions("xtnbreg")
+    assert "Hausman-Hall-Griliches" in _assumptions("xtnbreg")
+
+
+def test_spec_curve_exposes_its_standard_error_axis():
+    props = sp.function_schema("spec_curve")["parameters"]["properties"]
+    assert props["se_types"]["items"]["enum"] == [
+        "nonrobust",
+        "hc1",
+        "robust",
+        "cluster",
+    ]
+    assert "cluster_var" in props
