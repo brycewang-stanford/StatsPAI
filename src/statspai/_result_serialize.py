@@ -31,6 +31,7 @@ does not define the method itself (ordinary Python MRO).
 from __future__ import annotations
 
 import warnings
+from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, TypeVar
 
@@ -64,6 +65,20 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
         out_nt: Dict[str, Any] = {k: _to_jsonable(v) for k, v in obj._asdict().items()}
         _sweep_properties(obj, out_nt)
         return out_nt
+    if isinstance(obj, Mapping) and type(obj) is not dict:
+        # Dict-subclass results (``PolicyTreeResult``) keep their fields as
+        # items, not attributes: ``__dict__`` is empty and the export used
+        # to come back as ``{}``.
+        out_map: Dict[str, Any] = {
+            str(k): _to_jsonable(v)
+            for k, v in obj.items()
+            if not str(k).startswith("_") and not callable(v)
+        }
+        for k, v in (getattr(obj, "__dict__", None) or {}).items():
+            if not k.startswith("_") and not callable(v) and k not in out_map:
+                out_map[k] = _to_jsonable(v)
+        _sweep_properties(obj, out_map)
+        return out_map
     attrs = getattr(obj, "__dict__", None)
     if attrs is None:
         raise TypeError(
@@ -597,7 +612,9 @@ def _wrap_legacy_to_dict(cls: type) -> None:
 
         check_detail(detail)
         if detail == "standard":
-            return legacy(self, *args, **kwargs)
+            # A hand-written to_dict may hold DataFrames or NaN; the
+            # documented contract is JSON-safe at every level.
+            return _to_jsonable(legacy(self, *args, **kwargs))
         base = legacy(self, *args, **kwargs) if detail == "agent" else None
         return build_payload(self, detail, base)
 

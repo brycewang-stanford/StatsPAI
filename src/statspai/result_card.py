@@ -274,8 +274,13 @@ def _inference(result: Any, mi: Dict[str, Any], di: Dict[str, Any]) -> Dict[str,
     if type(result).__name__ != "CausalResult" and isinstance(
         getattr(result, "params", None), pd.Series
     ):
-        V, _ = coefficient_covariance(result)
-        out["full_covariance"] = V is not None
+        if getattr(result, "std_errors", None) is None:
+            # Shrinkage, Bayesian and smoothing fits (ridge, ets, bart, gp,
+            # dlm) carry point estimates without a sampling covariance.
+            out["full_covariance"] = None
+        else:
+            V, _ = coefficient_covariance(result)
+            out["full_covariance"] = V is not None
     else:
         es_vcov = mi.get("event_study_vcov")
         out["joint_covariance"] = es_vcov is not None or (

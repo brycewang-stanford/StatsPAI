@@ -128,6 +128,16 @@ class TestSharedHelper:
         with pytest.raises(TypeError):
             result_to_dict({"not": "a dataclass"})
 
+    def test_dict_subclass_result_exports_its_items(self):
+        # PolicyTreeResult-style results subclass dict: the fields are
+        # items, and __dict__ is empty. The export used to be {}.
+        class _R(dict):
+            pass
+
+        r = _R(value=1.5, flag=np.bool_(True), _private=1)
+        out = result_to_dict(r)
+        assert out == {"value": 1.5, "flag": True}
+
     def test_bcf_factor_and_longitudinal_expose_method(self):
         # Avoid the slow MCMC happy path for these two — just pin the method.
         assert callable(sp.BCFFactorExposureResult.to_dict)

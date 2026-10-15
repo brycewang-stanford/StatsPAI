@@ -175,9 +175,11 @@ def _to_jsonable(value: Any, *, _depth: int = 0, _max_depth: int = 6) -> Any:
     """
     if _depth > _max_depth:
         return str(value)
-    if value is None:
+    if value is None or value is pd.NaT or value is pd.NA:
         return None
-    if isinstance(value, bool):
+    if isinstance(value, (bool, np.bool_)):
+        # ``np.bool_`` is not a ``bool``: without this branch it fell
+        # through to ``str()`` and a test verdict arrived as "True".
         return bool(value)
     if isinstance(value, (int, np.integer)):
         return int(value)
@@ -202,11 +204,37 @@ def _to_jsonable(value: Any, *, _depth: int = 0, _max_depth: int = 6) -> Any:
         return _to_jsonable(head.to_dict(orient="records"), _depth=_depth + 1)
     if isinstance(value, pd.Timestamp):
         return value.isoformat()
+    if isinstance(value, np.datetime64):
+        return None if np.isnat(value) else pd.Timestamp(value).isoformat()
     # Last resort: stringify so json.dumps doesn't blow up.
     try:
         return str(value)
     except Exception:
         return None
+
+
+def _label_value(value: Any) -> Any:
+    """``2004.0`` -> ``2004`` for labels built from float-typed id columns."""
+    if isinstance(value, (float, np.floating)) and float(value).is_integer():
+        return int(value)
+    return value
+
+
+def _event_study_columns(es: Any) -> Optional[Tuple[str, str]]:
+    """``(relative-time column, estimate column)`` of an event-study frame.
+
+    Two conventions are in use: ``(relative_time, att)`` from
+    did_imputation / callaway_santanna and ``(rel_time, estimate)`` from
+    wooldridge_did / etwfe. ``None`` when ``es`` is not a frame with an
+    ``se`` column and one of each.
+    """
+    if not isinstance(es, pd.DataFrame) or "se" not in es.columns:
+        return None
+    time_col = next((c for c in ("relative_time", "rel_time") if c in es.columns), None)
+    est_col = next((c for c in ("att", "estimate") if c in es.columns), None)
+    if time_col is None or est_col is None:
+        return None
+    return time_col, est_col
 
 
 def _filter_jsonable_scalars(d: Dict[str, Any]) -> Dict[str, Any]:
@@ -1616,6 +1644,71 @@ class EconometricResults:
     # Agent-native serialisation
     # ------------------------------------------------------------------
 
+    def _focal_term(self) -> Tuple[Optional[str], Optional[str]]:
+        """The coefficient that is the point of the regression, and why.
+
+        In order: the single endogenous regressor of an IV fit; a
+        treatment the fit recorded (``model_info['treatment' | 'treat' |
+        'focal_term']``); the only regressor besides the intercept.
+        ``(None, None)`` otherwise: with several regressors and nothing
+        recorded, picking one would be a guess.
+        """
+        try:
+            terms = [str(t) for t in self.params.index]
+        except AttributeError:
+            return None, None
+        iv = self.data_info.get("iv") if isinstance(self.data_info, dict) else None
+        endog = (
+            list((iv or {}).get("endog_names") or []) if isinstance(iv, dict) else []
+        )
+        if len(endog) == 1 and str(endog[0]) in terms:
+            return str(endog[0]), "endogenous regressor"
+        for key in ("focal_term", "treatment", "treat"):
+            value = self.model_info.get(key)
+            if isinstance(value, str) and value in terms:
+                return value, f"model_info[{key!r}]"
+        slopes = [t for t in terms if t != "Intercept"]
+        if len(slopes) == 1:
+            return slopes[0], "only regressor"
+        return None, None
+
+    def _headline_envelope(self) -> Dict[str, Any]:
+        """``estimand`` / ``estimate`` / ``se`` / ``pvalue`` / ``ci`` / ``alpha``."""
+        alpha = self.model_info.get("alpha", 0.05)
+        out: Dict[str, Any] = {
+            "estimand": None,
+            "estimate": None,
+            "se": None,
+            "pvalue": None,
+            "ci": None,
+            "alpha": _to_jsonable(alpha),
+            "citation_key": None,
+            "focal_term": None,
+        }
+        term, rule = self._focal_term()
+        if term is None:
+            return out
+        try:
+            pos = [str(t) for t in self.params.index].index(term)
+            pvals = self.pvalues
+            pv = pvals.iloc[pos] if isinstance(pvals, pd.Series) else pvals[pos]
+            out.update(
+                {
+                    "estimand": f"coefficient on {term}",
+                    "estimate": _to_jsonable(self.params.iloc[pos]),
+                    "se": _to_jsonable(self.std_errors.iloc[pos]),
+                    "pvalue": _to_jsonable(pv),
+                    "ci": _to_jsonable(
+                        [self.conf_int_lower.iloc[pos], self.conf_int_upper.iloc[pos]]
+                    ),
+                    "focal_term": term,
+                    "focal_term_rule": rule,
+                }
+            )
+        except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+            return out
+        return out
+
     def to_dict(self, *, detail: str = "standard") -> Dict[str, Any]:
         """Return a JSON-safe dict representation of the regression result.
 
@@ -1664,6 +1757,10 @@ class EconometricResults:
             "dependent_var": _to_jsonable(self.data_info.get("dependent_var")),
             "n_obs": _to_jsonable(self.data_info.get("nobs")),
         }
+        # The shared envelope (estimate / se / pvalue / ci / alpha) read
+        # off one coefficient, when the fit says which one is the point of
+        # the regression; otherwise None, never a guess.
+        base.update(self._headline_envelope())
 
         if detail == "minimal":
             # Compact subset of glance fit stats so agents can decide
@@ -1689,6 +1786,21 @@ class EconometricResults:
                     fit_stats[k] = _to_jsonable(glance_row[k])
             if fit_stats:
                 base["fit_stats"] = fit_stats
+            if base.get("focal_term") is None:
+                # No designated coefficient: carry a few so the numbers an
+                # agent asked for are not dropped at this level.
+                terms = [t for t in self.params.index if str(t) != "Intercept"]
+                se = self.std_errors
+                base["coef_head"] = {
+                    str(t): [
+                        _to_jsonable(float(f"{float(self.params[t]):.6g}")),
+                        _to_jsonable(float(f"{float(se[t]):.6g}")),
+                    ]
+                    for t in terms[:4]
+                    if t in se.index
+                }
+                if len(terms) > 4:
+                    base["n_terms"] = len(terms)
             return base
 
         # standard: + full coefficient table + diagnostics + glance
@@ -3909,30 +4021,23 @@ class CausalResult:
         # (rel_time, estimate) convention emitted by wooldridge_did /
         # etwfe. Skip the block silently when neither pair is present so a
         # bare-minimum result object still summarises cleanly.
-        if "event_study" in self.model_info:
-            es = self.model_info["event_study"]
-            time_col = (
-                "relative_time"
-                if "relative_time" in es.columns
-                else ("rel_time" if "rel_time" in es.columns else None)
-            )
-            est_col = (
-                "att"
-                if "att" in es.columns
-                else ("estimate" if "estimate" in es.columns else None)
-            )
-            if time_col and est_col and "se" in es.columns:
-                lines.append("-" * 78)
-                lines.append("  Event Study Coefficients")
-                lines.append("-" * 78)
-                for _, row in es.iterrows():
-                    e = int(row[time_col])
-                    att = row[est_col]
-                    se_v = row["se"]
-                    pv = row.get("pvalue", np.nan)
-                    s = self._stars(pv)
-                    lines.append(f"  e = {e:>3d}  |  {att:>10.4f}  ({se_v:.4f}) {s}")
-                lines.append("")
+        # The key can be present with a None value (gardner_did without an
+        # event window), so test the value, not the key.
+        es = self.model_info.get("event_study")
+        es_cols = _event_study_columns(es)
+        if es_cols is not None:
+            time_col, est_col = es_cols
+            lines.append("-" * 78)
+            lines.append("  Event Study Coefficients")
+            lines.append("-" * 78)
+            for _, row in es.iterrows():
+                e = int(row[time_col])
+                att = row[est_col]
+                se_v = row["se"]
+                pv = row.get("pvalue", np.nan)
+                s = self._stars(pv)
+                lines.append(f"  e = {e:>3d}  |  {att:>10.4f}  ({se_v:.4f}) {s}")
+            lines.append("")
 
         # Detailed estimates
         if self.detail is not None and len(self.detail) > 0:
@@ -4131,17 +4236,27 @@ class CausalResult:
 
         # Event study coefficients
         es = self.model_info.get("event_study")
-        if isinstance(es, pd.DataFrame) and len(es) > 0:
+        es_cols = _event_study_columns(es)
+        if es_cols is not None and len(es) > 0:
+            time_col, est_col = es_cols
+            # etwfe publishes cohort x relative-time cells; name the cohort
+            # so every term is unique.
+            by_cohort = "cohort" in es.columns
             for _, r in es.iterrows():
-                e = r.get("relative_time")
-                att = r.get("att")
+                e = r.get(time_col)
+                att = r.get(est_col)
                 se = r.get("se")
                 pv = r.get("pvalue", np.nan)
+                if pd.isna(pv) and pd.notna(att) and pd.notna(se) and se > 0:
+                    pv = float(2 * _scipy_stats().norm.sf(abs(att / se)))
                 lo_r = r.get("ci_lower", att - 1.96 * se if pd.notna(att) else np.nan)
                 hi_r = r.get("ci_upper", att + 1.96 * se if pd.notna(att) else np.nan)
+                term = f"event_{int(e):+d}" if pd.notna(e) else "event"
+                if by_cohort and pd.notna(r.get("cohort")):
+                    term += f"_cohort_{_label_value(r.get('cohort'))}"
                 rows.append(
                     {
-                        "term": f"event_{int(e):+d}" if pd.notna(e) else "event",
+                        "term": term,
                         "estimate": att,
                         "std_error": se,
                         "statistic": att / se if pd.notna(se) and se > 0 else np.nan,
@@ -4178,6 +4293,8 @@ class CausalResult:
                     return f"event_{int(e):+d}" if pd.notna(e) else "event"
                 if has_group:
                     return f"att(g={r.get('group')})"
+                if "cohort" in detail_cols:
+                    return f"att(g={_label_value(r.get('cohort'))})"
                 if has_time:
                     return f"att(t={r.get('time')})"
                 return "att"

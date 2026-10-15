@@ -134,8 +134,12 @@ def test_static_audit_agrees_with_runtime_walk(result_classes):
 def _check_payloads(res: Any) -> Dict[str, Any]:
     minimal = res.to_dict(detail="minimal")
     assert set(MINIMAL_KEYS) <= set(minimal)
-    json.dumps(minimal)
+    # Strict JSON at every level: NaN / Infinity are not JSON, and the
+    # standard level of hand-written to_dict overrides used to carry them.
+    json.dumps(minimal, allow_nan=False)
+    json.dumps(res.to_dict(), allow_nan=False)
     agent = res.to_dict(detail="agent")
+    json.dumps(agent, allow_nan=False)
     assert set(MINIMAL_KEYS) <= set(agent)
     assert set(AGENT_KEYS) <= set(agent)
     text = json.dumps(agent)  # strict JSON: no NaN
@@ -332,3 +336,33 @@ def test_agent_payload_records_detector_failure_instead_of_raising():
         agent = _BrokenViolations().to_dict(detail="agent")
     assert agent["violations"] == []
     assert any(d["section"] == "violations" for d in agent["degradations"])
+
+
+def test_econometric_results_carry_the_shared_envelope():
+    """regress / iv / logit: the minimal envelope names the coefficient it
+    reports (``focal_term``) and reads it straight off the coefficient
+    table; without a designated coefficient it reports none (no guess)."""
+    import statspai as sp
+
+    card = sp.datasets.card_1995()
+    nsw = sp.datasets.nsw_dw()
+    iv = sp.ivreg("lwage ~ (educ ~ nearc4) + exper", data=card)
+    one = sp.regress("re78 ~ treat", data=nsw)
+    many = sp.logit("treat ~ age + education", data=nsw)
+    for res in (iv, one, many):
+        _check_payloads(res)
+    for res, term in ((iv, "educ"), (one, "treat")):
+        m = res.to_dict(detail="minimal")
+        assert m["focal_term"] == term
+        assert m["estimate"] == float(res.params[term])
+        assert m["se"] == float(res.std_errors[term])
+        assert m["ci"] == [
+            float(res.conf_int_lower[term]),
+            float(res.conf_int_upper[term]),
+        ]
+        assert res.to_dict(detail="agent")["estimate"] == m["estimate"]
+    m = many.to_dict(detail="minimal")
+    assert m["focal_term"] is None and m["estimate"] is None
+    assert m["coef_head"]["age"][0] == pytest.approx(
+        float(many.params["age"]), rel=1e-5
+    )
