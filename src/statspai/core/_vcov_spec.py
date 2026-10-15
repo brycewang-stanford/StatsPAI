@@ -190,9 +190,14 @@ def reject_unknown_kwargs(
     """
     unknown = sorted(k for k in kwargs if k not in known)
     if unknown:
+        from .._kwarg_suggest import did_you_mean, signature_keywords
+
+        pool = list(known) + (signature_keywords(function) or [])
+        named = ", ".join(f"{k!r}{did_you_mean(k, pool)}" for k in unknown)
+        # ``function`` may already be call-shaped ("synth(method='scm')").
+        call = function if function.endswith(")") else f"{function}()"
         raise TypeError(
-            f"{function}() got unexpected keyword argument(s): "
-            f"{', '.join(repr(k) for k in unknown)}. "
+            f"{call} got unexpected keyword argument(s): {named}. "
             "Check the spelling against the function signature — "
             "unrecognised arguments are rejected rather than ignored so "
             "a typo cannot silently change your standard errors."

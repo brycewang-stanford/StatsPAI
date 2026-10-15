@@ -36,7 +36,6 @@ Examples
 
 from __future__ import annotations
 
-import difflib
 import functools
 import inspect
 import os
@@ -201,9 +200,7 @@ def accepts_formula_first(formula_param: str = "formula") -> Callable[[F], F]:
 
 def _unexpected_message(name: str, unknown: list, known: set) -> str:
     """``TypeError`` text for unknown keywords, with did-you-mean suggestions."""
-    parts = []
-    for key in unknown:
-        close = difflib.get_close_matches(key, sorted(known), n=3, cutoff=0.6)
-        hint = f" (did you mean {', '.join(repr(c) for c in close)}?)" if close else ""
-        parts.append(f"{key!r}{hint}")
+    from ._kwarg_suggest import did_you_mean
+
+    parts = [f"{key!r}{did_you_mean(key, known)}" for key in unknown]
     return f"{name}() got unexpected keyword argument(s): {'; '.join(parts)}."
