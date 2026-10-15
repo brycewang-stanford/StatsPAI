@@ -19,12 +19,14 @@ cases.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+import warnings
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
 from ..exceptions import MethodIncompatibility
+from ._psd import psd_diagnostics, se_from_vcov
 from .wild_bootstrap import _wild_weight_matrix
 
 
@@ -68,6 +70,30 @@ def _iv_cluster_vcov(
         meat += np.outer(moments_c, moments_c)
     correction = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
     return correction * bread @ meat @ bread
+
+
+def _two_way_se(V: np.ndarray, names: List[str]) -> np.ndarray:
+    """Standard errors from the raw two-way matrix; ``nan`` where negative.
+
+    The inclusion-exclusion matrix is not positive semi-definite in finite
+    samples and can carry negative variances. ``ivreg2`` reports those
+    standard errors as missing. Through 1.39.6 they were clamped to 0, which
+    reads as infinite precision (t = inf, p = 0).
+    """
+    diag = psd_diagnostics(V)
+    se = np.sqrt(np.where(diag["negative_mask"], np.nan, np.maximum(diag["diag"], 0)))
+    if diag["n_negative"]:
+        bad = [str(names[i]) for i in np.flatnonzero(diag["negative_mask"])]
+        warnings.warn(
+            "The two-way clustered 2SLS covariance has negative variances for "
+            f"{bad}; their standard errors are reported as nan, as ivreg2 "
+            "reports them as missing. sp.iv(formula, data, cluster=[a, b]) "
+            "sets the negative eigenvalues to zero (Cameron, Gelbach and "
+            "Miller 2011; fixest's default) and gives finite standard errors.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return se
 
 
 def iv_twoway_vcov(
@@ -129,7 +155,7 @@ def iv_twoway_vcov(
     g_min = min(g1, g2)
     corr = (g_min / (g_min - 1)) * ((n - 1) / (n - k))
     V = corr * bread @ meat @ bread
-    se = pd.Series(np.sqrt(np.maximum(np.diag(V), 0)), index=names)
+    se = pd.Series(_two_way_se(V, names), index=names)
     return {
         "vcov": V,
         "std_errors": se,
@@ -259,7 +285,12 @@ def iv_conley_vcov(
     score = x_hat * resid[:, None]
     core = bread @ (score.T @ weig @ score) @ bread
     vcov = 0.5 * (core + core.T)  # _makesymmetric
-    se = pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+    # The uniform kernel is not PSD: a negative variance is nan (acreg: "."),
+    # not 0. Through 1.39.6 it was clamped to 0 (t = inf, p = 0).
+    se = pd.Series(
+        se_from_vcov(vcov, names, estimator="Conley spatial HAC for 2SLS"),
+        index=names,
+    )
     return {"vcov": vcov, "std_errors": se, "var_names": names}
 
 
