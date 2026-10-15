@@ -2845,13 +2845,93 @@ _add(
                 "vs R rdrobust",
                 "sp.rdrobust(df, y, x, c)",
             ),
+            _Row(
+                "T2",
+                _RP + "test_rdrobust_comb_parity.py",
+                {
+                    "design": _vals("sharp"),
+                    "bwselect": _vals("msecomb1", "msecomb2", "cercomb1", "cercomb2"),
+                    "kernel": _vals("triangular", "epanechnikov", "uniform"),
+                    "p": _vals("1", "2"),
+                    "vce": _vals("nn"),
+                    "covariates": _vals("none"),
+                    "code_path": _vals("native"),
+                    "weights": _vals("none"),
+                },
+                _EST_SE,
+                "24-cell comb-selector grid vs R rdrobust 4.0.0 (2.2e-12) and Stata "
+                "rdrobust 10.0.0 (2.5e-9, the distance between the two references): "
+                "both estimates, both SEs and h, b on each side",
+                "sp.rdrobust(df, y, x, c)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_rdrobust_comb_parity.py",
+                {
+                    "design": _vals("fuzzy"),
+                    "bwselect": _vals("msecomb1", "msecomb2", "cercomb1", "cercomb2"),
+                    "kernel": _vals("triangular"),
+                    "p": _vals("1"),
+                    "vce": _vals("nn"),
+                    "covariates": _vals("none"),
+                    "code_path": _vals("native"),
+                    "weights": _vals("none"),
+                },
+                _EST_SE,
+                "fuzzy RD with two-sided noncompliance under the four comb selectors "
+                "vs R and Stata rdrobust",
+                "sp.rdrobust(df, y, x, c)",
+            ),
+            # The extractor reports deriv = 1 as design 'kink' for sharp and
+            # fuzzy fits alike, so only cells the artifact ran for both are
+            # listed (its uniform-kernel and clustered cells are sharp only).
+            _Row(
+                "T2",
+                _RP + "test_rd_iv_rd_R_parity.py",
+                {
+                    "design": _vals("kink"),
+                    "bwselect": _vals("mserd"),
+                    "kernel": _vals("triangular"),
+                    "p": _vals("1", "2"),
+                    "vce": _vals("nn"),
+                    "covariates": _vals("none"),
+                    "code_path": _vals("native"),
+                    "weights": _vals("none"),
+                },
+                _EST_SE,
+                "deriv = 1, sharp and fuzzy: both estimates, both SEs, h and b vs R "
+                "rdrobust(deriv = 1); p = 2 also vs Stata rdrobust",
+                "sp.rdrobust(df, y, x, c)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_rd_iv_rd_R_parity.py",
+                {
+                    "design": _vals("kink"),
+                    "bwselect": _vals("mserd", "manual"),
+                    "kernel": _vals("triangular"),
+                    "p": _vals("1"),
+                    "vce": _vals("hc1"),
+                    "covariates": _vals("none"),
+                    "code_path": _vals("native"),
+                    "weights": _vals("none"),
+                },
+                _EST_SE,
+                "deriv = 1, sharp and fuzzy, hc1 at the selected and at a fixed h: "
+                "estimates and SEs vs R and Stata rdrobust",
+                "sp.rdrobust(df, y, x, c)",
+            ),
         ),
         note="The R reference rows run on the Senate data and on two simulated "
         "designs built so that a wrong variance or a dropped covariate moves "
-        "the answer. p = 0, 3, 4, the comb selectors without weights, the "
-        "Epanechnikov kernel outside the sharp grid, and kink designs beyond "
-        "p = 2 have no reference row. Other bandwidth selectors are also "
-        "pinned for sp.rdbwselect (Track A module 88).",
+        "the answer. Kink designs with the uniform kernel or a cluster (sharp "
+        "only), kink designs at p >= 3, the Epanechnikov kernel outside the "
+        "sharp grids, and the comb selectors with covariates have no reference "
+        "row. bwselect='cct' (code_path 'port') runs the authors' own rdrobust "
+        "Python port; comparing it with R compares the reference with itself, "
+        "so it has no row and its native twin is bwselect='mserd'. Other "
+        "bandwidth selectors are also pinned for sp.rdbwselect (Track A module "
+        "88).",
     )
 )
 
