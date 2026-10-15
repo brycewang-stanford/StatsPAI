@@ -1849,12 +1849,26 @@ class MatchEstimator:
         # Expose the matched frame both as a convenience attribute and in
         # model_info (the latter survives serialisation / provenance).
         setattr(result, "matched_data", matched_data)
+        # ``detail`` / ``model_info['balance']`` is the balance of the raw
+        # sample. Say so, and give the matched sample's next to it: an
+        # agent reading the only table reported the pre-matching SMDs
+        # (age -1.20, re75 -2.17 on nsw_dw) as the balance after matching.
+        if isinstance(balance, pd.DataFrame):
+            balance.attrs["stage"] = "before matching"
+            result.model_info["balance_before"] = balance
+            covs = balance[balance["variable"] != "propensity_score"]
+            if len(covs):
+                result.model_info["max_abs_smd_before"] = float(covs["smd"].abs().max())
         if matched_data is not None:
             result.model_info["matched_data"] = matched_data
             # What sp.love_plot / sp.balanceplot need to redo the balance
             # table on the matched sample.
             result.model_info["treat"] = self.treat
             result.model_info["covariates"] = list(self.covariates)
+            after = _matched_balance(matched_data, list(self.covariates))
+            if after is not None:
+                result.model_info["balance_after"] = after
+                result.model_info["max_abs_smd_after"] = float(after["smd"].abs().max())
         return result
 
     # ==================================================================
@@ -4070,6 +4084,51 @@ class MatchEstimator:
             )
 
         return pd.DataFrame(rows)
+
+
+def _matched_balance(
+    matched: pd.DataFrame, covariates: List[str]
+) -> Optional[pd.DataFrame]:
+    """SMD of each covariate in the matched sample.
+
+    Means are weighted by the matched-frame weights (``_weight``: how often
+    a control is used, or the kernel / stratum weight). The denominator is
+    the pooled standard deviation of the *raw* sample, the one the
+    before-matching table uses, so the two tables are comparable (the
+    MatchIt / cobalt convention).
+    """
+    if not {"_weight", "_treated"} <= set(matched.columns):
+        return None
+    w = pd.to_numeric(matched["_weight"], errors="coerce").fillna(0.0).to_numpy()
+    t = matched["_treated"].to_numpy().astype(bool)
+    rows = []
+    for name in covariates:
+        if name not in matched.columns:
+            continue
+        x = pd.to_numeric(matched[name], errors="coerce").to_numpy(dtype=float)
+        ok = np.isfinite(x)
+        xt, xc = x[ok & t], x[ok & ~t]
+        if xt.size < 2 or xc.size < 2:
+            continue
+        sd_pool = np.sqrt((np.var(xt, ddof=1) + np.var(xc, ddof=1)) / 2)
+        wt, wc = w[ok & t], w[ok & ~t]
+        if wt.sum() <= 0 or wc.sum() <= 0:
+            continue
+        mean_t = float(np.average(xt, weights=wt))
+        mean_c = float(np.average(xc, weights=wc))
+        rows.append(
+            {
+                "variable": name,
+                "mean_treated": round(mean_t, 4),
+                "mean_control": round(mean_c, 4),
+                "smd": round(_standardized_difference(mean_t, mean_c, sd_pool), 4),
+            }
+        )
+    if not rows:
+        return None
+    out = pd.DataFrame(rows)
+    out.attrs["stage"] = "after matching"
+    return out
 
 
 # ======================================================================

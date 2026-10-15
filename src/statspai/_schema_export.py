@@ -63,8 +63,12 @@ RESULT_AGENT_SCHEMA: Dict[str, Any] = {
         "method": {"type": "string", "description": "Estimator / method name."},
         "model_type": {"type": "string"},
         "estimand": {
-            "type": "string",
-            "description": "ATE / ATT / LATE / CATE / ... (causal payloads).",
+            "type": ["string", "null"],
+            "description": (
+                "ATE / ATT / LATE / CATE / ... (causal payloads); "
+                "'coefficient on <term>' for a regression with a focal term; "
+                "null when the result designates none."
+            ),
         },
         "estimate": {
             "type": ["number", "null"],
@@ -81,6 +85,20 @@ RESULT_AGENT_SCHEMA: Dict[str, Any] = {
         "n_obs": {"type": ["integer", "number", "null"]},
         "dependent_var": {"type": ["string", "null"]},
         "citation_key": {"type": ["string", "null"]},
+        "focal_term": {
+            "type": ["string", "null"],
+            "description": (
+                "Regression payloads: the coefficient estimate / se / ci "
+                "report (single endogenous regressor, a recorded treatment, "
+                "or the only regressor); null when none is designated."
+            ),
+        },
+        "focal_term_rule": {"type": "string"},
+        "coef_head": {
+            "type": "object",
+            "description": "Minimal regression payloads without a focal term: "
+            "{term: [estimate, se]} for up to four terms.",
+        },
         "coefficients": {
             "type": "object",
             "description": "Regression coefficient table (regression payloads).",
@@ -133,6 +151,13 @@ RESULT_AGENT_SCHEMA: Dict[str, Any] = {
                 "priority": {"type": ["string", "integer", "number"]},
                 "category": {"type": "string"},
                 "suggest_function": {"type": "string"},
+                "executable": {
+                    "type": "boolean",
+                    "description": (
+                        "True when action runs as written with result and "
+                        "df bound; False when it keeps a '...' placeholder."
+                    ),
+                },
             },
         },
     },

@@ -34,6 +34,21 @@ from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
+#: ``estimate`` / ``pvalue`` are the CJM t-test (what rddensity and Stata
+#: report); ``se`` / ``ci`` are for the density difference f(c+) - f(c-),
+#: whose value is ``model_info['density_diff']``. Read together,
+#: ``estimate +/- z * se`` is not the interval, so both say so.
+_ESTIMAND = (
+    "T-statistic (density discontinuity); se and ci are on the density-"
+    "difference scale (model_info['density_diff'])"
+)
+_SCALE = {
+    "estimate": "t_statistic",
+    "pvalue": "t_statistic",
+    "se": "density_diff",
+    "ci": "density_diff",
+}
+
 
 def _validate_inputs(
     data: Any,
@@ -303,14 +318,14 @@ def rddensity(
 
     _result = CausalResult(
         method="CJM (2020) Density Test",
-        estimand="T-statistic (density discontinuity)",
+        estimand=_ESTIMAND,
         estimate=float(T_stat),
         se=float(se_diff),
         pvalue=pvalue,
         ci=ci,
         alpha=alpha,
         n_obs=n,
-        model_info=model_info,
+        model_info={**model_info, "scale": dict(_SCALE)},
         _citation_key="rddensity",
     )
     try:
@@ -523,14 +538,14 @@ cat(jsonlite::toJSON(out, auto_unbox = TRUE, digits = 16, null = "null"))
 
     _result = CausalResult(
         method="CJM (2020) Density Test [rddensity::rddensity]",
-        estimand="T-statistic (density discontinuity)",
+        estimand=_ESTIMAND,
         estimate=zstat,
         se=float(se_diff),
         pvalue=pvalue,
         ci=ci,
         alpha=alpha,
         n_obs=n,
-        model_info=model_info,
+        model_info={**model_info, "scale": dict(_SCALE)},
         _citation_key="rddensity",
     )
     try:

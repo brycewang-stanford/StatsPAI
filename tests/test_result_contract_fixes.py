@@ -81,3 +81,19 @@ def test_result_card_on_a_fit_without_standard_errors():
     card = r.result_card()
     assert card["inference"]["full_covariance"] is None
     json.dumps(dict(card), default=str)
+
+
+def test_rddensity_says_which_scale_each_field_is_on():
+    # estimate / pvalue are the CJM t-test; se / ci belong to the density
+    # difference. The identity ties them together.
+    r = sp.rddensity(sp.datasets.lee_2008_senate(), x="x", c=0)
+    assert r.model_info["scale"] == {
+        "estimate": "t_statistic",
+        "pvalue": "t_statistic",
+        "se": "density_diff",
+        "ci": "density_diff",
+    }
+    diff = r.model_info["density_diff"]
+    assert diff / r.se == pytest.approx(r.estimate, rel=1e-12)
+    assert r.ci[0] < diff < r.ci[1]
+    assert "density-difference scale" in r.estimand
