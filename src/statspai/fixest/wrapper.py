@@ -516,6 +516,62 @@ def _first_stage_demeaner(fml: str, pf_kwargs: Dict[str, Any]) -> Iterator[None]
             module.feols = original
 
 
+_FE_TERM = re.compile(r"__fixed_effect__\((.+?)\)$")
+
+
+def _written_order_encoder(original: Any) -> Any:
+    """Wrap pyfixest's ``_encode_fixed_effects`` to keep the written order.
+
+    pyfixest builds the fixed-effect formula from ``set(fixed_effects.split
+    ("+"))``, so the order in which the alternating projections sweep the
+    effects follows Python's string hashing and changes from one process to
+    the next (``PYTHONHASHSEED``). The projections stop at ``fixef_tol``, so
+    the residuals, and with them every standard error, then differed between
+    runs of the same call: by 4e-9 relative for a one-way clustered SE on
+    20,000 rows with two effects, and up to 1.7e-6 for two-way clustering.
+    The wrapper sorts the terms back into the order the formula writes
+    them; output it does not recognise is passed through unchanged.
+    """
+
+    @functools.wraps(original)
+    def encode(fixed_effects: str, data: pd.DataFrame) -> str:
+        out = original(fixed_effects=fixed_effects, data=data)
+        written = [
+            t.replace("^", "_")
+            for t in dict.fromkeys(re.split(r"\s*\+\s*", fixed_effects.strip()))
+        ]
+        if not out.endswith(" - 1"):
+            return out
+        terms = out[: -len(" - 1")].split(" + ")
+        names = [m.group(1) if (m := _FE_TERM.match(t)) else None for t in terms]
+        if None in names or sorted(names) != sorted(written):  # type: ignore[type-var]
+            return out
+        by_name = dict(zip(names, terms))
+        return " + ".join(by_name[w] for w in written) + " - 1"
+
+    return encode
+
+
+@contextlib.contextmanager
+def _written_fe_order() -> Iterator[None]:
+    """Run a pyfixest fit with its fixed effects in the written order."""
+    try:
+        module = importlib.import_module("pyfixest.estimation.formula.model_matrix")
+    except ImportError:
+        yield
+        return
+    with _FIRST_STAGE_PATCH_LOCK:
+        original = getattr(module, "_encode_fixed_effects", None)
+        if original is None:
+            yield
+            return
+        module._encode_fixed_effects = _written_order_encoder(original)
+        try:
+            yield
+        finally:
+            module._encode_fixed_effects = original
+
+
 # --------------------------------------------------------------------------- #
 #  feols — OLS / IV with high-dimensional fixed effects
 # --------------------------------------------------------------------------- #
@@ -1441,7 +1497,7 @@ def feols(
         pf_kwargs["ssc"] = ssc
 
     _prefer_compiled_demeaner(pf.feols, pf_kwargs)
-    with _first_stage_demeaner(pf_kwargs["fml"], pf_kwargs):
+    with _written_fe_order(), _first_stage_demeaner(pf_kwargs["fml"], pf_kwargs):
         fit = pf.feols(**pf_kwargs)
 
     # Multiple estimation returns FixestMulti
@@ -1769,7 +1825,8 @@ def fepois(
 
     try:
         _prefer_compiled_demeaner(pf.fepois, pf_kwargs)
-        fit = pf.fepois(**pf_kwargs)
+        with _written_fe_order():
+            fit = pf.fepois(**pf_kwargs)
     except ValueError as exc:
         if "Demeaning failed" not in str(exc):
             raise
@@ -1937,7 +1994,8 @@ def feglm(
         pf_kwargs["vcov"] = vcov
 
     _prefer_compiled_demeaner(pf.feglm, pf_kwargs)
-    fit = pf.feglm(**pf_kwargs)
+    with _written_fe_order():
+        fit = pf.feglm(**pf_kwargs)
 
     if hasattr(fit, "all_fitted_models"):
         return _multi_fit_to_results(fit, vcov=None)
