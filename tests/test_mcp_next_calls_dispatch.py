@@ -90,3 +90,28 @@ def test_ready_followups_dispatch_verbatim(tool, tmp_path):
     for follow in ready:
         if "result_id" not in follow["arguments"]:
             assert follow["arguments"].get("data_id") == data_id, follow
+
+
+def test_load_data_by_builtin_name_flags_a_simulated_replica():
+    out = _call("load_data", {"dataset": "mpdta", "detail": "minimal"})
+    body = out["structuredContent"]
+    assert body["simulated"] is True and "SIMULATED" in body["warning"]
+    fit = _call(
+        "callaway_santanna",
+        {
+            "data_id": body["data_id"],
+            "y": "lemp",
+            "g": "first_treat",
+            "t": "year",
+            "i": "countyreal",
+            "detail": "minimal",
+        },
+    )["structuredContent"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        direct = sp.callaway_santanna(
+            sp.datasets.mpdta(), y="lemp", g="first_treat", t="year", i="countyreal"
+        )
+    assert fit["estimate"] == direct.estimate
+    miss = _call("load_data", {"dataset": "mpdat"})["structuredContent"]
+    assert miss["error_kind"] == "unknown_dataset" and miss["did_you_mean"] == ["mpdta"]

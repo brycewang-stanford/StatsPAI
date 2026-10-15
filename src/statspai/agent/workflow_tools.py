@@ -605,6 +605,10 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "Optional label recorded with the handle.",
                 },
+                "dataset": {
+                    "type": "string",
+                    "description": "Built-in example by name (sp.list_datasets).",
+                },
             },
             "required": [],
         },
@@ -1962,11 +1966,60 @@ def _need_data(
     return data
 
 
+def _load_builtin_dataset(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """``load_data(dataset=...)``: a bundled example as a data handle."""
+    import warnings as _warnings
+
+    import statspai as sp
+
+    from ._data_cache import describe_frame, register_frame
+
+    with _warnings.catch_warnings():
+        # The simulated-replica warning is carried in the payload instead.
+        _warnings.simplefilter("ignore")
+        try:
+            frame = sp.load_dataset(name)
+        except sp.exceptions.MethodIncompatibility as exc:
+            return {
+                "error": str(exc),
+                "error_kind": "unknown_dataset",
+                "hint": exc.recovery_hint,
+                "did_you_mean": exc.diagnostics.get("did_you_mean"),
+                "available": exc.diagnostics.get("available"),
+            }
+    simulated = bool(frame.attrs.get("simulated"))
+    prov: Dict[str, Any] = {
+        "source": f"sp.load_dataset({name!r})",
+        "source_type": "builtin_dataset",
+        "statspai_version": sp.__version__,
+        "simulated": simulated,
+    }
+    label = arguments.get("name")
+    if isinstance(label, str) and label.strip():
+        prov["label"] = label.strip()
+    data_id = register_frame(frame, provenance=prov, tool="load_data")
+    out: Dict[str, Any] = {"data_id": data_id, "data_uri": f"statspai://data/{data_id}"}
+    out.update(describe_frame(frame))
+    out["provenance"] = prov
+    out["simulated"] = simulated
+    if simulated:
+        out["warning"] = (
+            f"{name} is a SIMULATED replica, not the original data: estimates "
+            "on it describe the simulation and must not be reported as "
+            "findings about the real data."
+        )
+    out["next_step"] = "Pass data_id to any estimator."
+    return out
+
+
 def _tool_load_data(
     arguments: Dict[str, Any], data: Optional[pd.DataFrame]
 ) -> Dict[str, Any]:
     from ._data_cache import describe_frame, register_frame
 
+    builtin = arguments.get("dataset")
+    if data is None and isinstance(builtin, str) and builtin:
+        return _load_builtin_dataset(builtin, arguments)
     frame = _need_data(data, tool="load_data", arguments=arguments)
     if isinstance(frame, dict):
         return frame
