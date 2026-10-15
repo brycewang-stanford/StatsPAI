@@ -242,10 +242,12 @@ def _check_running_var_continuous(
 def _check_id_column_for_staggered(
     data: pd.DataFrame, kwargs: Dict[str, Any]
 ) -> CheckResult:
-    col = kwargs.get("i") or kwargs.get("id") or kwargs.get("unit")
+    col = (
+        kwargs.get("i") or kwargs.get("id") or kwargs.get("unit") or kwargs.get("group")
+    )
     if col is None:
         return _failed(
-            "staggered DID requires a unit identifier (i / id / unit).",
+            "staggered DID requires a unit identifier (i / id / unit / group).",
             arg_name="i",
         )
     if col not in data.columns:
@@ -262,6 +264,128 @@ def _check_id_column_for_staggered(
             n_units=int(n_units),
         )
     return _passed(column=col, n_units=int(n_units))
+
+
+#: Spellings of the cohort (first-treatment period) column a staggered
+#: estimator takes: ``callaway_santanna`` / ``sun_abraham`` use ``g``
+#: (aliases ``cohort`` / ``first_treat``), ``did_imputation`` uses
+#: ``first_treat``, Stata ``csdid`` calls it ``gvar``.
+_COHORT_ARGS = ("g", "gvar", "cohort", "first_treat")
+
+
+def _check_cohort_coding(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckResult:
+    """The cohort column of a staggered design, checked against the time range.
+
+    A staggered estimator reads timing from a cohort column, not from a
+    binary treatment indicator: each unit's first treated period, with 0
+    (or missing) for never-treated units. Cohorts at or before the first
+    observed period are always treated and have no pre-period; cohorts
+    after the last observed period are never treated within the sample.
+    """
+    arg = next((a for a in _COHORT_ARGS if kwargs.get(a) is not None), None)
+    if arg is None:
+        return _failed(
+            "staggered DID requires a cohort column (first treated period, "
+            "0 or missing = never treated); pass it as "
+            + " / ".join(repr(a) for a in _COHORT_ARGS)
+            + ".",
+            arg_name="g",
+        )
+    col = kwargs[arg]
+    if col not in data.columns:
+        return _failed(
+            f"cohort column {col!r} (passed as {arg}={col!r}) not found in "
+            "DataFrame.",
+            arg_name=arg,
+            column=col,
+            available=list(data.columns)[:20],
+        )
+    series = data[col]
+    if not pd.api.types.is_numeric_dtype(series):
+        if pd.api.types.is_datetime64_any_dtype(series) or isinstance(
+            series.dtype, pd.PeriodDtype
+        ):
+            return _passed(column=col, dtype=str(series.dtype))
+        return _failed(
+            f"cohort column {col!r} has dtype {series.dtype}; it must hold "
+            "the first treated period (numeric, 0 = never treated).",
+            column=col,
+            dtype=str(series.dtype),
+        )
+    values = pd.to_numeric(series, errors="coerce")
+    never = values.isna() | (values == 0)
+    negative = int((values < 0).sum())
+    if negative:
+        return _failed(
+            f"cohort column {col!r} has {negative} negative value(s); cohorts "
+            "are first treated periods, with 0 or missing for never treated.",
+            column=col,
+            n_negative=negative,
+        )
+    unit = next(
+        (kwargs.get(a) for a in ("i", "id", "unit", "group") if kwargs.get(a)), None
+    )
+    if unit is not None and unit in data.columns:
+        varies = int((values.fillna(0).groupby(data[unit]).nunique() > 1).sum())
+        if varies:
+            return _failed(
+                f"cohort column {col!r} varies within {varies} unit(s) of "
+                f"{unit!r}; it must be each unit's first treated period, "
+                "constant over time (a 0/1 treatment indicator is not a "
+                "cohort column).",
+                column=col,
+                n_units_varying=varies,
+            )
+    cohorts = [
+        int(c) if float(c).is_integer() else float(c)
+        for c in sorted(float(v) for v in values[~never].unique())
+    ]
+    evidence: Dict[str, Any] = {
+        "column": col,
+        "cohorts": cohorts[:20],
+        "n_never_treated_rows": int(never.sum()),
+    }
+    if not cohorts:
+        return _failed(
+            f"cohort column {col!r} has no treated cohort (every value is 0 "
+            "or missing).",
+            **evidence,
+        )
+    time_col = _resolve_arg(kwargs, "time")
+    issues: List[str] = []
+    if time_col is not None and time_col in data.columns:
+        t = pd.to_numeric(data[time_col], errors="coerce")
+        if t.notna().any():
+            t_min, t_max = float(t.min()), float(t.max())
+            evidence.update(time_min=t_min, time_max=t_max)
+            early = [c for c in cohorts if c <= t_min]
+            late = [c for c in cohorts if c > t_max]
+            if early:
+                evidence["always_treated_cohorts"] = early
+                issues.append(
+                    f"cohort(s) {early} are treated from the first period "
+                    f"({t_min:g}) and have no pre-period; they are dropped"
+                )
+            if late:
+                evidence["cohorts_after_sample"] = late
+                issues.append(
+                    f"cohort(s) {late} start after the last period "
+                    f"({t_max:g}); they are never treated within the sample"
+                )
+            if len(early) + len(late) == len(cohorts):
+                return _failed(
+                    f"no cohort of {col!r} is first treated inside the time "
+                    f"range [{t_min:g}, {t_max:g}].",
+                    **evidence,
+                )
+    if not never.any():
+        issues.append(
+            "no never-treated units (0 or missing); only not-yet-treated "
+            "units can serve as controls (control_group='notyettreated')"
+        )
+    if issues:
+        return _warning("; ".join(issues) + ".", **evidence)
+    return _passed(**evidence)
 
 
 def _check_covariates_exist(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckResult:
@@ -545,7 +669,49 @@ _DID_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
 )
 
 
-_DID_STAGGERED_CHECKS: Tuple[_Check, ...] = _DID_CHECKS + (
+# Staggered estimators read timing from a cohort column (first treated
+# period), not from a binary treatment indicator, so they do not inherit
+# the binary-treat checks of ``_DID_CHECKS``: before 2026-10-16 a correct
+# ``preflight(method='callaway_santanna', y=, g=, t=, i=)`` returned FAIL
+# for a missing ``treat``.
+_DID_STAGGERED_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
+    _Check(
+        "y_column_exists",
+        "Outcome column exists?",
+        lambda d, k: _column_exists(d, k, "y"),
+    ),
+    _Check(
+        "time_column_exists",
+        "Time column exists?",
+        lambda d, k: _column_exists(d, k, "time"),
+    ),
+    _Check(
+        "time_has_two_periods",
+        "Does the time column have at least 2 distinct periods?",
+        _check_time_has_two_periods,
+    ),
+    _Check(
+        "id_column_provided",
+        "Is the unit identifier provided for staggered DID?",
+        _check_id_column_for_staggered,
+    ),
+    _Check(
+        "cohort_coding",
+        "Is the cohort column the first treated period (0 / missing = "
+        "never treated), constant within unit, with cohorts inside the "
+        "time range?",
+        _check_cohort_coding,
+    ),
+    _Check(
+        "min_n_for_did",
+        "Is n above the typical minimum for DID (50)?",
+        _make_check_min_n(50),
+    ),
+)
+
+# ``did_analysis`` takes a treatment column and derives the design from it
+# (2x2 or staggered), so it keeps the binary-treatment table plus the id.
+_DID_ANALYSIS_CHECKS: Tuple[_Check, ...] = _DID_CHECKS + (
     _Check(
         "id_column_provided",
         "Is the unit identifier provided for staggered DID?",
@@ -629,7 +795,7 @@ _METHOD_TABLES: Dict[str, Tuple[_Check, ...]] = {
     "callaway_santanna": _DID_STAGGERED_CHECKS,
     "sun_abraham": _DID_STAGGERED_CHECKS,
     "did_imputation": _DID_STAGGERED_CHECKS,
-    "did_analysis": _DID_STAGGERED_CHECKS,
+    "did_analysis": _DID_ANALYSIS_CHECKS,
     "rdrobust": _RD_CHECKS,
     "rd": _RD_CHECKS,
     "ivreg": _IV_CHECKS,
