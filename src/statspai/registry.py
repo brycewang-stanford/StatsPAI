@@ -29581,10 +29581,10 @@ def _build_registry() -> None:
             limitations=[
                 "the heteroskedastic-weights variant (dCDH 2023 EJ survey) is "
                 "not implemented",
-                "the default se_method is the cluster bootstrap; "
-                "se_method='analytic' is the authors' influence-function "
+                "the default se_method is the cluster bootstrap; only "
+                "se_method='analytic' gives the authors' influence-function "
                 "variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) "
-                "and computes the joint tests from it",
+                "and joint tests computed from it",
                 "the headline aggregation convention differs from "
                 "DIDmultiplegtDYN's Av_tot_eff: the default weights horizons "
                 "equally; pass aggregation='switchers' to match the R package",
