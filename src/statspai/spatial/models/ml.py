@@ -137,6 +137,7 @@ def _make_results(
     log_lik: float,
     extra_diag: Optional[Dict[str, Any]] = None,
     _w_sparse: Optional[sparse.csr_matrix] = None,
+    alpha: float = 0.05,
 ) -> EconometricResults:
     model_pretty = {
         "sar": "SAR (Spatial Lag)",
@@ -169,6 +170,9 @@ def _make_results(
             "method": "Maximum Likelihood",
             "spatial_param": spatial_param_name,
             "spatial_param_value": float(spatial_param_value),
+            # Read by EconometricResults for every interval it reports;
+            # through 1.39.6 the five ML fits accepted alpha= and dropped it.
+            "alpha": alpha,
         },
         data_info=data_info,
         diagnostics=diagnostics,
@@ -386,6 +390,7 @@ def sar(
     log_lik = _full_loglik(n, sigma2, _logdet(M, rho_hat, eigvals))
 
     return _make_results(
+        alpha=alpha,
         model_type="sar",
         spatial_param_name="rho",
         spatial_param_value=rho_hat,
@@ -497,6 +502,7 @@ def sem(
     log_lik = _full_loglik(n, sigma2, _logdet(M, lam_hat, eigvals))
 
     return _make_results(
+        alpha=alpha,
         model_type="sem",
         spatial_param_name="lambda",
         spatial_param_value=lam_hat,
@@ -632,6 +638,7 @@ def sdm(
         }
 
     return _make_results(
+        alpha=alpha,
         model_type="sdm",
         spatial_param_name="rho",
         spatial_param_value=rho_hat,
@@ -708,6 +715,7 @@ def slx(
     )
 
     return _make_results(
+        alpha=alpha,
         model_type="slx",
         spatial_param_name="",
         spatial_param_value=0.0,
@@ -866,6 +874,7 @@ def sac(
     ldet_lam = _logdet(M, lam_hat, eigvals)
     log_lik = _full_loglik(n, sigma2, ldet_rho + ldet_lam)
     return _make_results(
+        alpha=alpha,
         model_type="sac",
         spatial_param_name="rho,lambda",
         spatial_param_value=rho_hat,

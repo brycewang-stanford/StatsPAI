@@ -35884,9 +35884,6 @@ SIGNATURE_PARAMS_NOT_IN_SCHEMA: Dict[str, Dict[str, str]] = {
     },
     # Accepted by the signature but never read by the fit (intervals are
     # always 95%); listing it would promise a choice the call ignores.
-    "sar": {"alpha": "accepted but unused by the fit"},
-    "sem": {"alpha": "accepted but unused by the fit"},
-    "sdm": {"alpha": "accepted but unused by the fit"},
 }
 
 #: Where a wrapper's parameters are documented when its own docstring does
