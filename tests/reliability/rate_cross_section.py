@@ -58,17 +58,31 @@ def main() -> None:
             b = sp.rate_split(cf, n_splits=5, random_state=r)
             split.append([float(b["estimate"]), float(b.get("p", np.nan))])
     o, s = np.array(own), np.array(split)
+
+    def cell(method: str, rows: np.ndarray, rate: float) -> dict:
+        b = len(rows)
+        return {
+            "n": 800,
+            "method": method,
+            "B": b,
+            "rejection_rate": rate,
+            "mc_se": float(np.sqrt(rate * (1 - rate) / b)),
+            "mean_autoc": float(rows[:, 0].mean()),
+        }
+
     out = {
-        "own": {
-            "B": len(o),
-            "mean_autoc": float(o[:, 0].mean()),
-            "rejection_rate": float(np.mean(np.abs(o[:, 0] / o[:, 1]) > 1.959964)),
-        },
-        "split": {
-            "B": len(s),
-            "mean_autoc": float(s[:, 0].mean()),
-            "rejection_rate": float(np.mean(s[:, 1] < 0.05)),
-        },
+        "study": "rate_cross_section",
+        "alpha": 0.05,
+        "B": B_OWN,
+        "statspai_version": sp.__version__,
+        "cells": [
+            cell(
+                "rate_own_ranking",
+                o,
+                float(np.mean(np.abs(o[:, 0] / o[:, 1]) > 1.959964)),
+            ),
+            cell("rate_split", s, float(np.mean(s[:, 1] < 0.05))),
+        ],
     }
     path = Path(__file__).with_name("rate_cross_section_results.json")
     path.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")

@@ -1,12 +1,24 @@
 {
-  "own": {
-    "B": 400,
-    "mean_autoc": -0.10392384514846027,
-    "rejection_rate": 0.36
-  },
-  "split": {
-    "B": 100,
-    "mean_autoc": 0.009443743603723872,
-    "rejection_rate": 0.0
-  }
+  "study": "rate_cross_section",
+  "alpha": 0.05,
+  "B": 400,
+  "statspai_version": "1.39.6",
+  "cells": [
+    {
+      "n": 800,
+      "method": "rate_own_ranking",
+      "B": 400,
+      "rejection_rate": 0.36,
+      "mc_se": 0.024,
+      "mean_autoc": -0.10392384514846027
+    },
+    {
+      "n": 800,
+      "method": "rate_split",
+      "B": 100,
+      "rejection_rate": 0.0,
+      "mc_se": 0.0,
+      "mean_autoc": 0.009443743603723872
+    }
+  ]
 }

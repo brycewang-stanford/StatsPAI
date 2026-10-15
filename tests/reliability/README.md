@@ -477,3 +477,21 @@ What the table says:
   conservative (the aggregation over splits is built to be), not exact.
 - Under real heterogeneity the split estimate is below the ideal ranking's
   value because it measures the rule that was fitted on half the units.
+
+## A cross-sectional forest grading its own ranking (`rate_cross_section.py`)
+
+No treatment-effect heterogeneity at all (constant effect 1, n = 800, four
+covariates, randomised treatment), so every ranking has population RATE 0.
+`sp.rate(cf)` ranks units by the forest's own out-of-bag predictions and
+scores them with its own doubly robust scores; `sp.rate_split` fits the
+ranking on one half and scores it on the other.
+
+| method | replications | mean AUTOC | rejection rate at 5% |
+| --- | ---: | ---: | ---: |
+| `sp.rate(cf)`, own ranking | 400 | -0.104 | 0.360 |
+| `sp.rate_split(cf, n_splits=5)` | 100 | 0.009 | 0.000 |
+
+The own-ranking test rejects a true null seven times as often as it
+should, and its estimate is pulled below zero. The split version holds
+its size (conservatively, as VEIN aggregation does). `sp.rate` now warns
+on this path, as it already did for forests with fixed effects.
