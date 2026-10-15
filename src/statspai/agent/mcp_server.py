@@ -111,6 +111,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import re
 import sys
 import threading
 import time
@@ -529,11 +530,20 @@ _DATA_TOOLS = frozenset({"load_data", "describe_data", "transform_data"})
 #: every profile — the profile only shapes the advertised list.
 _PROFILES = ("core", "curated", "full")
 
+#: Every name here must be a curated tool: the profile is the
+#: intersection with the curated list, and a name outside it was filtered
+#: out silently (``synth`` / ``dml`` until 2026-10-16; both stay reachable
+#: through ``call_function``). ``load_data`` / ``describe_data`` /
+#: ``transform_data`` are here because the session instructions start the
+#: workflow with them. ``tests/test_mcp_w3_audit.py`` checks both.
 _CORE_PROFILE_TOOLS = frozenset(
     {
         "search_functions",
         "describe_function",
         "call_function",
+        "load_data",
+        "describe_data",
+        "transform_data",
         "route_estimator",
         "detect_design",
         "preflight",
@@ -543,8 +553,6 @@ _CORE_PROFILE_TOOLS = frozenset(
         "callaway_santanna",
         "rdrobust",
         "ivreg",
-        "synth",
-        "dml",
         "audit_result",
         "brief_result",
         "interpret_result",
@@ -938,7 +946,7 @@ RESULT_SCHEMA_URI = "statspai://schema/result"
 _RESULT_OUTPUT_SCHEMA_COMPACT: Dict[str, Any] = {
     "type": "object",
     "additionalProperties": True,
-    "description": f"Result object; fields in {RESULT_SCHEMA_URI}.",
+    "description": f"Fields: {RESULT_SCHEMA_URI}",
 }
 
 
@@ -1141,7 +1149,7 @@ def _common_argument_schemas(remote_ok: bool) -> Dict[str, Dict[str, Any]]:
         "as_handle": {
             "type": "boolean",
             "default": False,
-            "description": "Return a result_id so later calls can reuse the fit.",
+            "description": "Cache the fit and return its result_id.",
         },
         "detail": {
             "type": "string",
@@ -1221,9 +1229,10 @@ def _build_mcp_tools(profile: Optional[str] = None) -> List[Dict[str, Any]]:
     LLM can supply them via the standard ``tools/call`` arguments
     object:
 
-    * ``data_path`` (required for data-bound tools) — absolute path or
-      ``s3://`` / ``gs://`` / ``https://`` URL to a CSV / Parquet / Stata
-      / Feather / JSON file the server loads into a DataFrame.
+    * ``data_path`` / ``data_id`` / ``data_records`` / ``data_csv``
+      (none marked required; a data-bound call without one gets
+      ``error_kind='missing_data'``) — a file path or URL, a handle from
+      ``load_data``, or an inline table the server loads into a DataFrame.
     * ``data_columns`` (optional) — column projection for Parquet /
       Stata reads to skip loading unused columns.
     * ``data_sample_n`` (optional) — random subsample size for fast
@@ -1247,7 +1256,6 @@ def _build_mcp_tools(profile: Optional[str] = None) -> List[Dict[str, Any]]:
     remote_ok = remote_loading_enabled()
     common = _common_argument_schemas(remote_ok)
     manifest = _agent_tool_manifest()
-    dataless = _dataless_tool_names()
     profile = _normalise_profile(_ACTIVE_PROFILE if profile is None else profile)
     allowed = _profile_tool_names(profile)
     # The committed snapshot may predate a curated tool added in this
@@ -1266,12 +1274,13 @@ def _build_mcp_tools(profile: Optional[str] = None) -> List[Dict[str, Any]]:
         props = dict(schema.get("properties") or {})
         required = list(schema.get("required") or [])
         writes_files = _is_file_writing_tool(t["name"], schema)
-        # Mark ``data_path`` required ONLY for tools whose underlying
-        # function actually takes a DataFrame; dataless tools leave it
-        # optional so strict-schema MCP clients don't refuse to dispatch
-        # them.
-        if "data_path" not in props and t["name"] not in dataless:
-            required.append("data_path")
+        # No data argument is ever marked required: a data-bound tool takes
+        # one of data_path / data_id / data_records / data_csv, and a strict
+        # client refused a data_id-only call while data_path was required.
+        # JSON Schema could say "one of four" with a top-level anyOf, but
+        # several clients reject anyOf at the top level, so the server
+        # enforces it instead: a call without a dataset returns
+        # error_kind='missing_data' naming the four arguments.
         for arg in _COMMON_ARGUMENT_ORDER:
             if arg in _LOAD_ONLY_ARGUMENTS and t["name"] not in _LOAD_ARGUMENT_TOOLS:
                 continue
@@ -1880,9 +1889,73 @@ def _resolve_tool_data(
     return df, data_prov, comment
 
 
+def _ensure_headless_matplotlib() -> None:
+    """Make plots render off the main thread: select the Agg backend.
+
+    Every ``tools/call`` runs on a worker thread, and macOS's default
+    backend refuses to create a figure outside the main thread
+    (``pipeline_rd``'s bandwidth-sensitivity stage failed with "Cannot
+    create a GUI FigureManager outside the main thread"). A choice made by
+    the user is respected: ``MPLBACKEND`` in the environment, or a backend
+    already resolved by a matplotlib the host imported. Matplotlib is never
+    imported here; when it is not loaded yet, setting ``MPLBACKEND`` is
+    enough for its first import.
+    """
+    if os.environ.get("MPLBACKEND"):
+        return
+    mpl = sys.modules.get("matplotlib")
+    if mpl is None:
+        os.environ["MPLBACKEND"] = "Agg"
+        return
+    getter = getattr(getattr(mpl, "rcParams", None), "_get_backend_or_none", None)
+    try:
+        chosen = getter() if callable(getter) else "unknown"
+    except (AttributeError, TypeError, ValueError, KeyError):
+        # A private accessor that changed shape: treat the backend as
+        # chosen and leave it alone.
+        chosen = "unknown"
+    if chosen is None:
+        # Imported but no backend resolved yet: nobody has chosen one.
+        mpl.use("Agg")
+
+
+def _needs_data_error(result: Dict[str, Any]) -> bool:
+    """Whether a tool error says the call had no dataset."""
+    rem = result.get("remediation")
+    if isinstance(rem, dict) and "data" in (rem.get("missing_arguments") or []):
+        return True
+    if result.get("expected_argument") in ("data_path", "data_id", "data"):
+        return True
+    return bool(re.search(r"requires? (a )?data_path", str(result.get("error") or "")))
+
+
+def _phrase_error_for_mcp(
+    result: Dict[str, Any], name: str, *, data_given: bool
+) -> None:
+    """Rewrite Python-API remediation text in MCP terms, in place.
+
+    ``remediate`` is shared with the Python and CLI surfaces and says
+    "Pass data=... to sp.regress"; an MCP client passes the dataset as
+    data_id / data_path / data_records / data_csv and reads parameter
+    names from describe_function. A call that ran without any dataset is
+    reported as ``error_kind='missing_data'`` naming the four sources.
+    """
+    from .remediation import MCP_DATA_HINT, MCP_DATA_SOURCES, mcp_remediation
+
+    rem = result.get("remediation")
+    if isinstance(rem, dict):
+        result["remediation"] = mcp_remediation(rem, tool=name)
+    if not data_given and _needs_data_error(result):
+        result.setdefault("tool", name)
+        result["error_kind"] = "missing_data"
+        result["hint"] = MCP_DATA_HINT
+        result["data_sources"] = list(MCP_DATA_SOURCES)
+
+
 def _run_tools_call(
     name: str, arguments: Dict[str, Any], params: Dict[str, Any]
 ) -> Dict[str, Any]:
+    _ensure_headless_matplotlib()
     # Server-handled args are stripped before estimator dispatch — the
     # estimator's signature has no ``data_path`` / ``detail`` etc. and
     # would crash with a "got an unexpected keyword argument" error.
@@ -2087,11 +2160,18 @@ def _run_tools_call(
         and "called_via" not in result
         and "error" in result
     ):
-        # An unknown tool name is a protocol error per the MCP spec.
+        # An unknown tool name is a protocol error per the MCP spec; the
+        # closest dispatchable names ride in the message and error.data.
+        suggestions = list(result.get("did_you_mean") or [])
         raise _InvalidParamsError(
-            f"Unknown tool: {name!r}. tools/list (or statspai://functions) "
-            "lists the callable names."
+            f"Unknown tool: {name!r}."
+            + (f" Did you mean: {', '.join(suggestions)}?" if suggestions else "")
+            + " tools/list (or statspai://functions) lists the callable names.",
+            data={"did_you_mean": suggestions} if suggestions else None,
         )
+
+    if result.get("error"):
+        _phrase_error_for_mcp(result, name, data_given=df is not None)
 
     rid = result.get("result_id")
     if data_prov is not None:
@@ -2279,7 +2359,9 @@ def handle_request(line: str) -> Optional[str]:
         # (``-32602`` invalid params, ``-32002`` resource not found,
         # ``-32000`` generic). No traceback for these — they're
         # expected / actionable on the client side.
-        return _jsonrpc_error(request_id, exc.code, str(exc))
+        return _jsonrpc_error(
+            request_id, exc.code, str(exc), data=getattr(exc, "data", None)
+        )
     except Exception as exc:
         # Tracebacks expose internal paths and class names; only emit
         # them when the operator opts in via STATSPAI_MCP_DEBUG=1. Plain
@@ -2773,6 +2855,8 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
     )
     args = parser.parse_args(argv)
     set_tool_profile(args.profile)
+    # Tools run on worker threads; a GUI backend cannot plot there.
+    _ensure_headless_matplotlib()
     if args.profile == "full":
         size = len(_tools_list_result_json())
         print(

@@ -22,6 +22,7 @@ the MCP layer doesn't need to special-case their content blocks.
 
 from __future__ import annotations
 
+import re
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -56,16 +57,13 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "audit_result",
         "description": (
-            "Reviewer-grade audit on a previously-fitted result. Pass "
-            "the result_id returned by an earlier tool call (with "
-            "as_handle=true). Returns the same checklist sp.audit() "
-            "produces — every robustness check the literature expects "
-            "for the design, each with status "
-            "'passed|failed|missing|not_applicable' and a concrete "
-            "suggest_function for the missing ones. A not_applicable "
-            "check (e.g. an over-identification test on a just-identified "
-            "IV fit) carries a 'reason' and is excluded from the "
-            "summary's n_total."
+            "Reviewer-grade audit of a fitted result (result_id from an "
+            "as_handle=true call): every robustness check the literature "
+            "expects for the design, with status "
+            "'passed|failed|missing|not_applicable' and a suggest_function "
+            "for each missing one. not_applicable checks (an overid test "
+            "on a just-identified IV) carry a 'reason' and are left out of "
+            "n_total."
         ),
         "input_schema": _result_id_schema(
             "Handle returned by an earlier estimator call. Must be in "
@@ -85,16 +83,12 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "interpret_result",
         "description": (
-            "Natural-language interpretation of a fitted result. When the "
-            "connected MCP client advertised sampling, this REUSES the "
-            "agent's own model (no API key) to explain the estimate, its "
-            "uncertainty, and what the design does / does not identify — "
-            "optionally focused by a `question` and tuned for an "
-            "`audience`. With no sampling available it falls back to a "
-            "deterministic structured brief: it NEVER fabricates a "
-            "narrative. Every claim is grounded in the result's own "
-            "numbers — the model is told not to invent estimates. Pass "
-            "the result_id from an earlier as_handle=true call."
+            "Natural-language interpretation of a fitted result "
+            "(result_id): the estimate, its uncertainty and what the "
+            "design does / does not identify, grounded in the result's own "
+            "numbers. Uses the client's model via MCP sampling when "
+            "advertised (no API key); otherwise returns a deterministic "
+            "structured brief, never an invented narrative."
         ),
         "input_schema": {
             "type": "object",
@@ -128,10 +122,12 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "sensitivity_from_result",
         "description": (
-            "Run sp.sensitivity / sp.evalue / sp.oster_bounds / "
-            "sp.sensemakr on a cached result. Pass method='evalue' "
-            "(default) for the omitted-confounder-strength bound, "
-            "'oster' for delta/R-max, 'cinelli_hazlett' for OVB bounds."
+            "Sensitivity of a cached fit (result_id). 'evalue' (default): "
+            "E-value from the estimate. 'oster' (delta / R-max) and "
+            "'cinelli_hazlett' (OVB bounds) refit OLS of y on treat + "
+            "controls on the fit's data: from a regress formula (name the "
+            "term with treat) or passed as y / treat / controls. 'auto': "
+            "sensitivity dashboard."
         ),
         "input_schema": {
             "type": "object",
@@ -149,6 +145,9 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "Cinelli-Hazlett benchmark column (optional).",
                 },
+                "y": {"type": "string", "description": "oster / cinelli_hazlett."},
+                "treat": {"type": "string", "description": "Term to bound."},
+                "controls": {"type": "array", "items": {"type": "string"}},
                 "measure": {
                     "type": "string",
                     "enum": ["SMD", "MD", "RR", "OR", "HR"],
@@ -282,8 +281,8 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "time_col_hint": {"type": "string"},
-                "id_col_hint": {"type": "string"},
+                "time_col_hint": {"type": "string", "description": "Time column."},
+                "id_col_hint": {"type": "string", "description": "Unit id column."},
             },
             "required": [],
         },
@@ -291,14 +290,16 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "brief",
         "description": (
-            "One-line agent-friendly brief for a fitted result. "
-            "Cheaper than calling brief_result if you already have the "
-            "result object in scope."
+            "One-line brief of a fitted result (estimand, estimate, SE, "
+            "CI, N). Same output as brief_result."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "result_id": {"type": "string"},
+                "result_id": {
+                    "type": "string",
+                    "description": "Handle from a fit made with as_handle=true.",
+                },
             },
             "required": [],
         },
@@ -360,14 +361,11 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "plot_from_result",
         "description": (
-            "Render the canonical diagnostic plot for a fitted result "
-            "and return it as an inline PNG image content block. "
-            "MCP clients with vision (Claude Desktop, vision-capable "
-            "agents) get the plot for free; clients that don't support "
-            "image content see only the JSON metadata. Plot kind is "
-            "auto-selected from the result type: event-study for DID, "
-            "rdplot for RD, gap plot for synth, balance plot for "
-            "matching, ROC for classification, etc."
+            "Render the canonical diagnostic plot for a fitted result as "
+            "an inline PNG image block (clients without image support see "
+            "the JSON metadata only). The kind follows the result type: "
+            "event study for DID, rdplot for RD, gap plot for synth, "
+            "balance plot for matching, ROC for classification."
         ),
         "input_schema": {
             "type": "object",
@@ -500,13 +498,11 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
         "name": "search_functions",
         "description": (
             "Search the StatsPAI function registry by task keywords or a "
-            "short natural-language phrase (e.g. 'staggered adoption "
-            "event study', 'weak instrument robust CI', 'regression "
-            "discontinuity density test'). Returns ranked matches with "
-            "one-line descriptions, category and validation tier. Use "
-            "this first when no listed tool fits; then call "
-            "describe_function for the full parameter schema and "
-            "call_function to run it."
+            "short phrase (e.g. 'staggered adoption event study', 'weak "
+            "instrument robust CI'). Returns ranked matches with one-line "
+            "descriptions, category and validation tier. Use it when no "
+            "listed tool fits, then describe_function for the parameters "
+            "and call_function to run it."
         ),
         "input_schema": {
             "type": "object",
@@ -561,10 +557,10 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
             "arguments — the escape hatch for the ~1,200 functions that "
             "are not individually listed as tools. `arguments` follows "
             "the parameter schema from describe_function; column names "
-            "refer to the file loaded via data_path. Unknown arguments "
-            "are reported under `_unsupported_args`, never silently "
-            "dropped. Supports as_handle / result_id chaining like every "
-            "other tool."
+            "refer to the dataset passed as data_id / data_path. An "
+            "argument the function does not accept refuses the call "
+            "(error_kind unknown_argument, with did_you_mean). Supports "
+            "as_handle / result_id chaining like every other tool."
         ),
         "input_schema": {
             "type": "object",
@@ -827,7 +823,7 @@ def execute_workflow_tool(
 
     if name == "sensitivity_from_result":
         return _tool_sensitivity_from_result(
-            rid_arg, arguments, detail=detail, as_handle=as_handle
+            rid_arg, arguments, detail=detail, as_handle=as_handle, data=data
         )
 
     if name == "honest_did_from_result":
@@ -1136,12 +1132,106 @@ def _tool_interpret_result(
     return out
 
 
+#: Tools whose cached fit is an OLS written as a formula, so ``y`` and the
+#: regressors can be read off it for the OLS-based sensitivity methods.
+_OLS_FORMULA_TOOLS = frozenset({"regress", "ols"})
+_SIMPLE_TERM = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+
+
+def _ols_sensitivity_inputs(
+    rid: str,
+    method: str,
+    arguments: Dict[str, Any],
+    data: Optional[pd.DataFrame],
+) -> Dict[str, Any]:
+    """``data`` / ``y`` / ``treat`` / ``controls`` for Oster or Cinelli-Hazlett.
+
+    Both methods bound an OLS coefficient and refit the short and long
+    regressions, so they need the dataset and the variable roles, not a
+    fitted object. Explicit ``y`` / ``treat`` / ``controls`` win; otherwise
+    they are read off the cached fit when it is a ``regress`` formula of
+    plain column names. The dataset is the one passed with this call, or
+    the handle the cached fit was made on. Anything missing is an error
+    that names it.
+    """
+    entry = RESULT_CACHE.get_entry(rid)
+    fit_args: Dict[str, Any] = dict(entry.arguments) if entry is not None else {}
+    fit_tool = entry.tool if entry is not None else None
+    y = arguments.get("y")
+    treat = arguments.get("treat") or arguments.get("treatment")
+    controls = arguments.get("controls")
+    formula = fit_args.get("formula")
+    if (
+        fit_tool in _OLS_FORMULA_TOOLS
+        and isinstance(formula, str)
+        and "~" in formula
+        and (y is None or controls is None)
+    ):
+        lhs, rhs = formula.split("~", 1)
+        terms = [t.strip() for t in rhs.split("+") if t.strip() not in ("", "1")]
+        if _SIMPLE_TERM.match(lhs.strip()) and all(
+            _SIMPLE_TERM.match(t) for t in terms
+        ):
+            y = y if y is not None else lhs.strip()
+            if treat is None and len(terms) == 1:
+                treat = terms[0]
+            if controls is None and treat in terms:
+                controls = [t for t in terms if t != treat]
+    needs = [
+        k
+        for k, v in (("y", y), ("treat", treat), ("controls", controls))
+        if v in (None, "") or (k == "controls" and not v)
+    ]
+    if data is None:
+        prov = fit_args.get("_mcp_data_provenance") or {}
+        handle = prov.get("data_id") if isinstance(prov, dict) else None
+        if handle:
+            from ._data_cache import DATA_CACHE
+
+            data = DATA_CACHE.get(handle)
+        if data is None:
+            needs.append("data_id")
+    if needs:
+        compatible = fit_tool in _OLS_FORMULA_TOOLS
+        return {
+            "error": (
+                f"sensitivity_from_result(method={method!r}) bounds an OLS "
+                "coefficient and refits the short and long regressions; "
+                f"missing {needs}"
+                + (
+                    ""
+                    if compatible
+                    else f" (the cached fit is a {fit_tool} result, not an OLS)"
+                )
+                + "."
+            ),
+            "error_kind": "missing_arguments",
+            "missing_arguments": needs,
+            "hint": (
+                "Pass y (outcome), treat (the coefficient to bound), controls "
+                "(list of control columns) and data_id (the dataset) with "
+                "this call"
+                + (
+                    "; with a regress fit, treat alone names the term and the "
+                    "rest of the formula becomes the controls."
+                    if compatible
+                    else ", or use method='evalue', which works from the "
+                    "cached estimate."
+                )
+            ),
+        }
+    if isinstance(controls, str):
+        controls = [c.strip() for c in controls.split(",") if c.strip()]
+    return {"data": data, "y": y, "treat": treat, "controls": list(controls or [])}
+
+
 def _tool_sensitivity_from_result(
     rid: Optional[str],
     arguments: Dict[str, Any],
     *,
     detail: str,
     as_handle: bool,
+    data: Optional[pd.DataFrame] = None,
 ) -> Dict[str, Any]:
     obj = _need_result(rid)
     if isinstance(obj, dict) and "error" in obj:
@@ -1150,6 +1240,12 @@ def _tool_sensitivity_from_result(
     benchmark = arguments.get("benchmark_covariate")
 
     import statspai as sp
+
+    ols_inputs: Dict[str, Any] = {}
+    if method in ("oster", "cinelli_hazlett"):
+        ols_inputs = _ols_sensitivity_inputs(str(rid), method, arguments, data)
+        if "error" in ols_inputs:
+            return ols_inputs
 
     try:
         if method == "evalue":
@@ -1166,11 +1262,11 @@ def _tool_sensitivity_from_result(
             result = fn(obj, **ev_kwargs) if fn else None
         elif method == "oster":
             fn = getattr(sp, "oster_bounds", None)
-            result = fn(obj) if fn else None
+            result = fn(**ols_inputs) if fn else None
         elif method == "cinelli_hazlett":
             fn = getattr(sp, "sensemakr", None)
-            kwargs = {"benchmark_covariate": benchmark} if benchmark else {}
-            result = fn(obj, **kwargs) if fn else None
+            kwargs = {"benchmark": [benchmark]} if benchmark else {}
+            result = fn(**ols_inputs, **kwargs) if fn else None
         else:
             fn = getattr(sp, "sensitivity", None)
             # The caller already told us which column is the treatment;

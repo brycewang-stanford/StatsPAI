@@ -122,33 +122,19 @@ class TestToolsList:
             assert canonical in names
 
     def test_every_tool_has_data_path_param(self):
-        # Every tool must EXPOSE the ``data_path`` property so MCP
-        # clients can load a data file server-side. ``required``
-        # membership is conditional — dataless tools (honest_did,
-        # sensitivity, audit_result, brief_result, bibtex, …) leave
-        # it optional so strict-schema clients don't refuse to dispatch
-        # when no path is supplied. The dataless set is auto-derived
-        # from the registry (any spec without a required ``data`` param)
-        # plus a small hand-curated override list — see
-        # ``_dataless_tool_names``.
-        from statspai.agent.mcp_server import _dataless_tool_names
-
-        dataless = _dataless_tool_names()
+        # Every tool EXPOSES the data arguments so MCP clients can load a
+        # file server-side, and none of them is required: data_path,
+        # data_id, data_records and data_csv are alternatives, and a
+        # strict client refused data_id-only calls while data_path was
+        # required. The server answers a data-bound call without any of
+        # them with error_kind='missing_data' (see
+        # tests/test_mcp_w3_audit.py).
         msg = _rpc("tools/list", {})
         for t in msg["result"]["tools"]:
             schema = t["inputSchema"]
             assert "data_path" in schema["properties"]
-            if t["name"] in dataless:
-                assert "data_path" not in schema["required"], (
-                    f"{t['name']!r} is dataless but its schema still "
-                    "marks data_path required"
-                )
-            else:
-                assert "data_path" in schema["required"], (
-                    f"{t['name']!r} is data-bound (registry has a "
-                    "required ``data`` param) but its schema does not "
-                    "mark data_path required"
-                )
+            for arg in ("data_path", "data_id", "data_records", "data_csv"):
+                assert arg not in schema["required"], (t["name"], arg)
 
     def test_dataless_tools_omit_data_path_required(self):
         # Regression guard for the 1.9.1 schema fix: honest_did and

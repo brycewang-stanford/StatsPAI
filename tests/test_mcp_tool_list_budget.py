@@ -19,6 +19,10 @@ import pytest
 from statspai.agent import mcp_server as m
 
 # Measured 2026-10-14 after compaction: curated 71 KiB, core 39 KiB.
+# 2026-10-16: core gained load_data / describe_data / transform_data (the
+# session instructions start with them); shorter shared clauses paid for
+# it. core 46,802 B with the committed snapshot, 46,991 B live
+# (STATSPAI_MCP_SCHEMA_SNAPSHOT=0); curated 73,523 / 73,758 B.
 BUDGET_BYTES = {"curated": 82 * 1024, "core": 46 * 1024}
 
 

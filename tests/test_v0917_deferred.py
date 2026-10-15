@@ -578,15 +578,11 @@ class TestMCPServer:
     def test_tools_list_includes_data_path(self):
         import statspai as sp
 
-        # The schema generator marks ``data_path`` required only for tools
-        # whose registry spec has a required ``data`` parameter.  Use the
-        # same auto-derive function the schema generator does, not the
-        # hand-curated ``_DATALESS_OVERRIDES`` set, so registry-derived
-        # dataless tools (super_learner, structural_break, *_from_result,
-        # *_plot, post-estimation tests, …) don't fail this check.
-        from statspai.agent.mcp_server import _dataless_tool_names
-
-        dataless = _dataless_tool_names()
+        # Every tool exposes the four data arguments and requires none of
+        # them: a data-bound tool takes data_path OR data_id OR an inline
+        # table, and a strict client refused a data_id-only call while
+        # data_path was required (2026-10-16 audit). The server enforces
+        # "one of four" itself (``error_kind='missing_data'``).
         req = json.dumps(
             {
                 "jsonrpc": "2.0",
@@ -600,15 +596,9 @@ class TestMCPServer:
         assert len(tools) > 0
         for t in tools:
             schema = t["inputSchema"]
-            assert "data_path" in schema["properties"]
-            # Dataless tools advertise data_path as an OPTIONAL convenience
-            # but must not mark it required — strict-schema clients would
-            # otherwise refuse to dispatch the call without a CSV path the
-            # estimator never reads.
-            if t["name"] in dataless:
-                assert "data_path" not in schema["required"]
-            else:
-                assert "data_path" in schema["required"]
+            for arg in ("data_path", "data_id", "data_records", "data_csv"):
+                assert arg in schema["properties"], (t["name"], arg)
+                assert arg not in schema["required"], (t["name"], arg)
 
     def test_tools_call_runs_regress(self, mcp_csv):
         import statspai as sp

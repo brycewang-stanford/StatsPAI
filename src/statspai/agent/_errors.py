@@ -20,6 +20,11 @@ class RpcError(Exception):
 
     code: int = -32000  # generic server-defined error
 
+    def __init__(self, message: str = "", data: object = None) -> None:
+        super().__init__(message)
+        #: Optional JSON-RPC ``error.data`` (e.g. ``did_you_mean``).
+        self.data = data
+
 
 class InvalidParamsError(RpcError):
     """``-32602`` per JSON-RPC 2.0 — caller-supplied params are wrong."""

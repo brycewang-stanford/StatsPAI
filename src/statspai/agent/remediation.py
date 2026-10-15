@@ -782,6 +782,86 @@ def _structured_remediation(
     return None
 
 
+#: The four ways an MCP call names its dataset (server-handled arguments).
+MCP_DATA_SOURCES = ("data_id", "data_path", "data_records", "data_csv")
+
+MCP_DATA_HINT = (
+    "Pass the dataset with one of data_id (a handle from load_data), "
+    "data_path (a file on the server), data_records (inline row objects) "
+    "or data_csv (inline CSV text)."
+)
+
+#: Python-API phrasings and their MCP equivalents.
+_MCP_REWRITES: Tuple[Tuple[str, str], ...] = (
+    (r"sp\.function_schema\((['\"]?)([\w.]+)\1\)", r"describe_function(name='\2')"),
+    (r"sp\.function_schema\(name\)", "describe_function(name=...)"),
+    (r"sp\.agent\.tool_manifest\(\)", "tools/list"),
+    (
+        r"`help\(sp\.<fn>\)` or\s+`sp\.<fn>\?` in IPython\.\s+Tool-manifest JSON "
+        r"schemas list\s+every accepted argument\.",
+        "describe_function(name=<tool>) lists every accepted argument.",
+    ),
+    (r"the target function's help string", "describe_function(name=<tool>)"),
+)
+
+
+def mcp_remediation(remediation: Dict[str, Any], *, tool: str = "") -> Dict[str, Any]:
+    """Rephrase a :func:`remediate` payload for an MCP client.
+
+    :func:`remediate` speaks to a Python caller ("Pass data=... to
+    sp.regress", "sp.agent.tool_manifest()"). Over MCP the dataset is a
+    server argument (``data_id`` / ``data_path`` / ``data_records`` /
+    ``data_csv``), the schema is in ``tools/list`` and a function's
+    parameters come from ``describe_function``. The original sentence is
+    kept under ``python_fix``; ``fix`` is replaced.
+    """
+    if not isinstance(remediation, dict):
+        return remediation
+    out = dict(remediation)
+    fix = out.get("fix")
+    if not isinstance(fix, str):
+        return out
+    name = out.get("function") or tool or "<tool>"
+    new_fix = fix
+    category = out.get("category")
+    if category == "missing_arguments":
+        missing = [str(m) for m in out.get("missing_arguments") or []]
+        parts = []
+        if "data" in missing:
+            parts.append(MCP_DATA_HINT)
+            out["data_sources"] = list(MCP_DATA_SOURCES)
+        rest = [m for m in missing if m != "data"]
+        if rest:
+            parts.append(
+                "Add "
+                + ", ".join(f"`{m}`" for m in rest)
+                + f" to the {name} arguments."
+            )
+        if parts:
+            new_fix = " ".join(parts)
+    elif category == "unknown_argument":
+        dym = out.get("did_you_mean") or {}
+        if isinstance(dym, dict) and dym:
+            new_fix = (
+                "Rename in the tool arguments: "
+                + "; ".join(f"{k} -> {v}" for k, v in dym.items())
+                + "."
+            )
+        else:
+            new_fix = f"describe_function(name={name!r}) lists the accepted parameters."
+    for pattern, repl in _MCP_REWRITES:
+        new_fix = re.sub(pattern, repl.replace("<tool>", repr(str(name))), new_fix)
+    if new_fix != fix:
+        out["python_fix"] = fix
+        out["fix"] = new_fix
+    if re.search(r"\bsp\.[A-Za-z_]\w*", new_fix):
+        out["mcp_note"] = (
+            "sp.<name> refers to a StatsPAI function: call it as the tool "
+            "<name>, or through call_function(function='<name>')."
+        )
+    return out
+
+
 def remediate(
     error: BaseException, context: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:

@@ -96,13 +96,18 @@ def dispatch_registry_tool(
     kwargs = dict(arguments)
     unsupported: list = []
     if allowed is not None:
-        # Unknown kwargs are dropped so a typo does not crash a chained
-        # workflow — but NEVER silently: the dropped names ride along
-        # under ``_unsupported_args`` (mirroring the curated path) so the
-        # agent can see that, e.g., a misspelt ``cluster=`` never reached
-        # the estimator and the standard errors are not the ones it asked
-        # for (CLAUDE.md §3.7).
+        # An argument the function cannot bind refuses the call with an
+        # ``unknown_argument`` error and did_you_mean (mirroring the
+        # curated path): running without a misspelt ``cluster=`` would
+        # return standard errors the agent did not ask for (CLAUDE.md
+        # §3.7). Server-handled names a Python caller left in
+        # ``arguments`` are reported under ``_unsupported_args`` instead.
+        from .tools._dispatch import _SERVER_HANDLED_ARGS, unknown_argument_error
+
         unsupported = sorted(k for k in kwargs if k not in allowed)
+        unknown = [k for k in unsupported if k not in _SERVER_HANDLED_ARGS]
+        if unknown:
+            return unknown_argument_error(name, unknown, allowed, arguments=arguments)
         kwargs = {k: v for k, v in kwargs.items() if k in allowed}
 
     if data is not None and "data" not in kwargs:

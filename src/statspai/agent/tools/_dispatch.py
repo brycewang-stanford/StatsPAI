@@ -170,35 +170,144 @@ def _filter_to_signature(
     fn: Callable[..., Any],
     kwargs: Dict[str, Any],
 ) -> "tuple[Dict[str, Any], List[str]]":
-    """Drop kwargs the resolved function cannot bind.
+    """Split kwargs into those ``fn`` can bind and those it cannot.
 
-    Mirrors the auto-dispatch path (``dispatch_registry_tool``) so the
-    curated branch is equally robust to schema↔signature drift: a
-    hand-written tool schema that advertises a parameter the estimator
-    no longer accepts (e.g. a legacy ``betas``/``sigma`` honest-DiD
-    schema kept after the estimator moved to a ``result`` object) would
-    otherwise raise an opaque ``TypeError: got an unexpected keyword
-    argument`` mid-workflow.
+    A name binds when it is a parameter of the live signature or one of
+    the function's ``@accepts_aliases`` spellings (``id=`` for ``i=``,
+    ``cluster=`` for ``clustervars=``): the alias wrapper renames them
+    before the estimator runs. Before 2026-10-16 the aliases were not
+    consulted here, so ``callaway_santanna(cluster=...)`` was dropped and
+    the fit came back with unclustered standard errors.
 
-    Returns the filtered kwargs plus the sorted list of dropped names so
-    the caller can surface them under ``_unsupported_args`` — the
-    degradation is transparent, never silent (CLAUDE.md §3.7).
+    Returns the bindable kwargs plus the sorted list of names that do not
+    bind; :func:`execute_tool` turns the latter into an
+    ``unknown_argument`` error rather than running without them.
 
     Functions whose signature cannot be introspected, or that declare
     ``**kwargs``, are left untouched (they accept anything).
     """
+    accepted = _bindable_names(fn)
+    if accepted is None:
+        return kwargs, []
+    kept = {k: v for k, v in kwargs.items() if k in accepted}
+    dropped = sorted(k for k in kwargs if k not in accepted)
+    return kept, dropped
+
+
+def _bindable_names(fn: Callable[..., Any]) -> "Optional[set]":
+    """Keyword names ``fn`` binds (parameters + aliases); ``None`` = any."""
     import inspect
 
     try:
         params = inspect.signature(fn).parameters
     except (TypeError, ValueError):
-        return kwargs, []
+        return None
     if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
-        return kwargs, []
-    accepted = set(params)
-    kept = {k: v for k, v in kwargs.items() if k in accepted}
-    dropped = sorted(k for k in kwargs if k not in accepted)
-    return kept, dropped
+        return None
+    names = set(params)
+    names.update(getattr(fn, "__statspai_aliases__", {}) or {})
+    return names
+
+
+def unknown_argument_error(
+    tool: str,
+    unknown: List[str],
+    vocabulary: "Any",
+    *,
+    arguments: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Error envelope for arguments the target function cannot bind.
+
+    Running the call without them would answer a different question than
+    the one asked (a misspelt ``cluster=`` silently gives unclustered
+    standard errors), so the call is refused. ``did_you_mean`` maps each
+    unknown name to its closest accepted spellings (difflib), and
+    ``accepted_parameters`` lists every name the function binds.
+    """
+    import difflib
+
+    vocab = sorted(str(v) for v in vocabulary if str(v) != "data")
+    did_you_mean: Dict[str, List[str]] = {}
+    for name in unknown:
+        close = difflib.get_close_matches(name, vocab, n=3, cutoff=0.6)
+        if not close:
+            # ``cluster_var`` -> ``clustervars``: compare without separators.
+            squashed = {v.replace("_", ""): v for v in vocab}
+            close = [
+                squashed[c]
+                for c in difflib.get_close_matches(
+                    name.replace("_", ""), list(squashed), n=3, cutoff=0.6
+                )
+            ]
+        if close:
+            did_you_mean[name] = close
+    fixes = "; ".join(f"{k} -> {v[0]}" for k, v in did_you_mean.items())
+    envelope: Dict[str, Any] = {
+        "error": (
+            f"{tool} does not accept argument(s) {unknown}; the call was " "not run."
+        ),
+        "error_kind": "unknown_argument",
+        "tool": tool,
+        "unknown_arguments": list(unknown),
+        "did_you_mean": did_you_mean,
+        "accepted_parameters": vocab,
+        "hint": (
+            (f"Rename: {fixes}. " if fixes else "")
+            + f"describe_function(name={tool!r}) lists the accepted "
+            "parameters; arguments are never dropped silently."
+        ),
+    }
+    if arguments is not None:
+        envelope["arguments"] = {
+            k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
+        }
+    return envelope
+
+
+#: Arguments the MCP server consumes itself (data source, handles, output
+#: controls). A Python / CLI caller that leaves one inside ``arguments``
+#: is not refused for it: the name is reported under ``_unsupported_args``.
+_SERVER_HANDLED_ARGS = frozenset(
+    {
+        "data_path",
+        "data_id",
+        "data_records",
+        "data_csv",
+        "data_columns",
+        "data_sample_n",
+        "result_id",
+        "max_output_bytes",
+        "as_handle",
+        "detail",
+    }
+)
+
+
+def known_tool_names() -> List[str]:
+    """Every name ``tools/call`` / ``call_function`` can dispatch."""
+    names = {t["name"] for t in TOOL_REGISTRY}
+    try:
+        from ..pipeline_tools import PIPELINE_TOOL_NAMES
+        from ..workflow_tools import WORKFLOW_TOOL_NAMES
+
+        names |= set(WORKFLOW_TOOL_NAMES) | set(PIPELINE_TOOL_NAMES)
+    except ImportError:  # pragma: no cover - same package
+        pass
+    try:
+        from ...registry import _REGISTRY, _ensure_full_registry
+
+        _ensure_full_registry()
+        names |= set(_REGISTRY)
+    except (ImportError, AttributeError):  # pragma: no cover - defensive
+        pass
+    return sorted(names)
+
+
+def suggest_tool_names(name: str, n: int = 5) -> List[str]:
+    """Closest dispatchable names to ``name`` (difflib), best first."""
+    import difflib
+
+    return difflib.get_close_matches(str(name), known_tool_names(), n=n, cutoff=0.6)
 
 
 def _accepts_param(fn: Callable[..., Any], name: str) -> bool:
@@ -301,13 +410,16 @@ def execute_tool(
                 result_id=result_id,
             )
         except KeyError:
+            suggestions = suggest_tool_names(name)
             return {
-                "error": f"Unknown tool: {name!r}",
+                "error": f"Unknown tool: {name!r}"
+                + (f"; did you mean {suggestions[0]!r}?" if suggestions else ""),
                 "error_kind": "unknown_tool",
+                "did_you_mean": suggestions,
                 "available_tools": [t["name"] for t in TOOL_REGISTRY],
                 "hint": (
-                    "Read statspai://functions for the full "
-                    "machine-readable index of registered tools."
+                    "search_functions(query=...) finds a function by task; "
+                    "statspai://functions is the full machine-readable index."
                 ),
             }
 
@@ -374,12 +486,19 @@ def execute_tool(
         elif "result" not in kwargs:
             result_ignored = True
 
-    # Drop kwargs the resolved function cannot bind (schema↔signature
-    # drift guard). Surfaced transparently below via ``_unsupported_args``.
-    # ``data`` is a server-side injection, not an agent-advertised arg, so
-    # dropping it (for tools that take a ``result`` handle instead of a
-    # frame) is not reported as drift.
+    # An argument the function cannot bind is refused (``unknown_argument``
+    # with did_you_mean), never dropped: running without a misspelt
+    # ``cluster=`` returns standard errors the caller did not ask for.
+    # ``data`` is a server-side injection, so dropping it (for tools that
+    # take a ``result`` handle instead of a frame) is not an error; nor is
+    # a server-handled argument left in ``arguments`` by a Python caller,
+    # which is reported under ``_unsupported_args``.
     kwargs, _dropped = _filter_to_signature(fn, kwargs)
+    _unknown = [k for k in _dropped if k != "data" and k not in _SERVER_HANDLED_ARGS]
+    if _unknown:
+        return unknown_argument_error(
+            name, _unknown, _bindable_names(fn) or (), arguments=arguments
+        )
     _unsupported_args = [k for k in _dropped if k != "data"]
     if result_ignored:
         _unsupported_args = sorted(_unsupported_args + ["result_id"])
