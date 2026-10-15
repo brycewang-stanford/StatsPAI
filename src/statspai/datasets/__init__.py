@@ -218,6 +218,15 @@ def list_datasets() -> pd.DataFrame:
     For the strict numerical neighbourhood proofs see
     ``tests/external_parity/test_published_replications.py`` and
     ``tests/external_parity/PUBLISHED_REFERENCE_VALUES.md``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> table = sp.list_datasets()
+    >>> bool(table.set_index("name").loc["mpdta", "simulated"])
+    True
+    >>> table.set_index("name").loc["card_1995", "source"]
+    'bundled CSV'
     """
     registry = [
         # (name, design, n_obs, paper, paper_original, expected_main)

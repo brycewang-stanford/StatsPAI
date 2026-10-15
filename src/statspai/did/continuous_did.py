@@ -20,7 +20,7 @@ estimand.
 .. deprecated:: 1.21.0
    ``method='cgs'`` is superseded by :func:`statspai.cgs_continuous_did`.
    It was an outcome-regression MVP with a bootstrap standard error and
-   unresolved ``[待核验]`` formula details; the replacement is the real
+   formula details not verified against the paper; the replacement is the real
    estimator with parity evidence. It warns and will be removed after one
    minor release.
 
@@ -106,7 +106,7 @@ def continuous_did(
         - ``'dose_response'``: local-linear regression of ΔY on baseline
           dose; the SE is a unit bootstrap of the average derivative.
         - ``'cgs'``: Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) /
-          ACRT(d|g,t) MVP with ``[待核验]`` markers on paper formulas;
+          ACRT(d|g,t) MVP whose paper formulas are not yet verified;
           see ``docs/rfc/continuous_did_cgs.md``. **Not yet reference-
           parity** with R ``contdid``; OR only, no DR/IPW, bootstrap SE.
     n_quantiles : int, default 5
@@ -189,7 +189,7 @@ def continuous_did(
             "Goodman-Bacon & Sant'Anna estimator and IS pinned against the "
             "authors' contdid package (curves and both overall quantities at "
             "1e-12). This mode is an outcome-regression MVP with a bootstrap "
-            "SE and unresolved [待核验] formula details; it will be removed "
+            "SE and unresolved [formulas unverified] formula details; it will be removed "
             "after one minor release. See MIGRATION.md.",
             DeprecationWarning,
             stacklevel=2,
@@ -672,10 +672,10 @@ def _continuous_did_cgs(
 
     **This is an MVP, not paper-parity.** See
     ``docs/rfc/continuous_did_cgs.md`` for the full design + test plan.
-    All paper-specific identification formulas are flagged [待核验]
+    All paper-specific identification formulas are flagged [formulas unverified]
     below.
 
-    MVP identification [待核验 — CGS 2024 §3-§4]
+    MVP identification [formulas unverified — CGS 2024 §3-§4]
     -------------------------------------------
     Assumes a 2-period design (pre, post) with continuous dose d ∈ [0, ∞)
     on the treated arm and d = 0 on the untreated arm. Under strong
@@ -717,7 +717,7 @@ def _continuous_did_cgs(
     )
     if merged.empty:
         return CausalResult(
-            method="Continuous DID (CGS 2024 MVP) [待核验]",
+            method="Continuous DID (CGS 2024 MVP) [formulas unverified]",
             estimand="ATT(d) averaged over treated dose support",
             estimate=np.nan,
             se=np.nan,
@@ -733,7 +733,7 @@ def _continuous_did_cgs(
 
     if len(untreated) < 2:
         return CausalResult(
-            method="Continuous DID (CGS 2024 MVP) [待核验]",
+            method="Continuous DID (CGS 2024 MVP) [formulas unverified]",
             estimand="ATT(d) averaged over treated dose support",
             estimate=np.nan,
             se=np.nan,
@@ -747,7 +747,7 @@ def _continuous_did_cgs(
         )
     if len(treated) < 3:
         return CausalResult(
-            method="Continuous DID (CGS 2024 MVP) [待核验]",
+            method="Continuous DID (CGS 2024 MVP) [formulas unverified]",
             estimand="ATT(d) averaged over treated dose support",
             estimate=np.nan,
             se=np.nan,
@@ -837,7 +837,7 @@ def _continuous_did_cgs(
     )
 
     return CausalResult(
-        method="Continuous DID (CGS 2024 MVP) [待核验 — OR only, 2-period design]",
+        method="Continuous DID (CGS 2024 MVP) [formulas unverified — OR only, 2-period design]",
         estimand="ATT(d) averaged over treated support",
         estimate=att_overall,
         se=se_att,

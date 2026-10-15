@@ -326,7 +326,7 @@ class IVDiagResult(ResultProtocolMixin):
         if tf_defined:
             lines.append(
                 f"  LMMP 2022 tF adjusted crit. : {d.tF_critical_value:10.4f}"
-                f"   (F = {d.first_stage_F:.2f})"
+                f"   (effective F = {d.effective_F:.2f})"
             )
         else:
             lines.append(

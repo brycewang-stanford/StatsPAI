@@ -26521,7 +26521,7 @@ def _build_registry() -> None:
                 "with bootstrap SE (heuristic); (iii) 'dose_response' local-"
                 "linear regression of ΔY=Y_post−Y_pre on baseline dose; (iv) "
                 "'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP "
-                "— 2-period design, OR only, bootstrap SE, [待核验] markers "
+                "— 2-period design, OR only, bootstrap SE, [formulas unverified] markers "
                 "on paper formulas. Full CGS parity (cohort aggregation, DR/"
                 "IPW, analytical IF variance) is on the roadmap — see "
                 "docs/rfc/continuous_did_cgs.md."
@@ -29202,7 +29202,7 @@ def _build_registry() -> None:
             ),
             tags=["did", "overlap", "propensity", "weighted", "causal"],
             reference="Li, Morgan & Zaslavsky (2018) JASA on overlap weights; "
-            "applied to DiD by several authors [待核验 — specific "
+            "applied to DiD by several authors [formulas unverified — specific "
             "citation to be confirmed].",
             pre_conditions=[
                 "2 periods, binary treat",
@@ -29295,7 +29295,7 @@ def _build_registry() -> None:
             ],
             reference="de Chaisemartin & D'Haultfœuille (2020) negative-weight "
             "diagnostic [@dechaisemartin2020two]; design-robust "
-            "specifications [待核验 — specific citation to be "
+            "specifications [formulas unverified — specific citation to be "
             "confirmed].",
             alternatives=[
                 "sun_abraham",
@@ -29355,7 +29355,7 @@ def _build_registry() -> None:
             reference=(
                 "Measurement-error DiD literature — adjustment follows "
                 "a standard attenuation-correction pattern; specific "
-                "citation [待核验]."
+                "citation [formulas unverified]."
             ),
             pre_conditions=[
                 "pi_misclass is between 0 and 0.5 (else identification flips)",
@@ -29558,7 +29558,7 @@ def _build_registry() -> None:
             ],
             returns=(
                 "CausalResult with event_study in model_info + joint placebo "
-                "and overall Wald tests + [待核验] MVP warning"
+                "and overall Wald tests + [formulas unverified] MVP warning"
             ),
             example=(
                 'sp.did_multiplegt_dyn(df, y="y", group="i", time="t", '
@@ -35260,7 +35260,12 @@ def _parse_docstring_params(doc: str) -> Dict[str, Dict[str, Any]]:
     return out
 
 
-_DOC_SECTION_RE = re.compile(r"^(?P<name>[A-Z][A-Za-z ]{2,30})\n-{3,}\s*$", re.M)
+# A header and its underline share an indentation. Usually it is none, but
+# one flush-left line anywhere (a wrapped doctest output) leaves inspect.getdoc
+# nothing to dedent, and every header keeps the source indentation.
+_DOC_SECTION_RE = re.compile(
+    r"^(?P<ind>[ \t]*)(?P<name>[A-Z][A-Za-z ]{2,30})\n(?P=ind)-{3,}\s*$", re.M
+)
 
 
 def _doc_sections(doc: str) -> Dict[str, str]:
@@ -35352,15 +35357,33 @@ def _harvest_example(
                 cur = []
     if cur:
         stmts.append("\n".join(cur))
-    call_re = re.compile(rf"\bsp\.(?:[A-Za-z_]\w*\.)*{re.escape(name)}\(")
+    # An alias's docstring calls the function under its own name
+    # (``sp.bjs`` is ``did_imputation``), so accept either.
+    names = {name}
+    own = getattr(obj, "__name__", None)
+    if isinstance(own, str) and own.isidentifier():
+        names.add(own)
+    alt = "|".join(re.escape(n) for n in sorted(names))
+    call_re = re.compile(rf"\bsp\.(?:[A-Za-z_]\w*\.)*(?:{alt})\(")
     candidates = [s.strip() for s in stmts if call_re.search(s)]
     if not candidates and require_call:
         return ""
-    if not candidates:
+    if not candidates and inspect.isclass(obj):
+        # A result / exception class is shown by the call that produces it.
         candidates = [
             s.strip()
             for s in stmts
             if not s.startswith(("import ", "from ")) and ("=" in s or "(" in s)
+        ]
+    elif not candidates:
+        # A setup line (``n = 400``, ``rows = []``) is not an example of
+        # a function; fall back only to a statement that calls it some
+        # other way (``cf.test_calibration()``, ``rate(cf)``).
+        other_call = re.compile(rf"(?:\.|\b){re.escape(name)}\(")
+        candidates = [
+            s.strip()
+            for s in stmts
+            if not s.startswith(("import ", "from ")) and other_call.search(s)
         ]
     # Prefer the shortest statement that survives the same static check
     # the registry example audit applies (parses; keywords bind to the
@@ -35396,13 +35419,14 @@ def _example_binds(example: str, name: str, obj: Any) -> bool:
         # the accepted set is the signature plus the recorded aliases.
         if not aliases:
             return True
+    names = {name, getattr(obj, "__name__", name)}
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         fn = node.func
         if not (
             isinstance(fn, ast.Attribute)
-            and fn.attr == name
+            and fn.attr in names
             and isinstance(fn.value, ast.Name)
             and fn.value.id == "sp"
         ):
