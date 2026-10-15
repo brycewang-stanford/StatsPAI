@@ -518,6 +518,8 @@ _R = "tests/r_parity/"
 _RP = "tests/reference_parity/"
 _B = "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json"
 _DML_PY = "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py"
+_DML_IVT = "tests/test_dml_ivtype_reference.py"
+_DML_OPT = "tests/reference_parity/test_dml_options_doubleml_parity.py"
 _VCE = _RP + "test_vce_grammar_stata_parity.py"
 _ATTACH = _RP + "test_validation_entry_points.py"
 _JOINT = _RP + "test_joint_wald_stata_parity.py"
@@ -549,6 +551,25 @@ _VCE_INVARIANT = (
 )
 
 SCOPES: Dict[str, _Scope] = {}
+
+
+def _dml_cfg(
+    model: str,
+    scores: Tuple[str, ...],
+    learners: str,
+    n_folds: Tuple[str, ...],
+    n_rep: str,
+    ipw: str,
+) -> Dict[str, FrozenSet[str]]:
+    """One ``sp.dml`` row's configuration, every dimension spelled out."""
+    return {
+        "model": _vals(model),
+        "score": _vals(*scores),
+        "learners": _vals(learners),
+        "n_folds": _vals(*n_folds),
+        "n_rep": _vals(n_rep),
+        "ipw": _vals(ipw),
+    }
 
 
 def _add(scope: _Scope) -> None:
@@ -3231,10 +3252,151 @@ _add(
                 "95% CI coverage with the default learners",
                 "sp.causal_question(design='dml')",
             ),
+            _Row(
+                "T2",
+                _DML_IVT,
+                _dml_cfg("plr", ("iv-type",), "linear", ("5",), "1", "n/a"),
+                _EST_SE,
+                "IV-type score with OLS nuisances vs doubleml-for-py on a shared "
+                "partition (1e-10)",
+                "sp.dml(model='plr', score='IV-type')",
+            ),
+            _Row(
+                "T2",
+                _DML_IVT,
+                _dml_cfg("plr", ("iv-type",), "other", ("5",), "1", "n/a"),
+                _EST_SE,
+                "IV-type score with cross-validated lasso nuisances vs doubleml-for-"
+                "py on a shared partition (1e-8)",
+                "sp.dml(model='plr', score='IV-type')",
+            ),
+            _Row(
+                "T2",
+                _DML_IVT,
+                _dml_cfg("irm", ("ate", "atte"), "linear", ("5",), "1", "trim0.01"),
+                _EST_SE,
+                "ATE and ATTE scores vs doubleml-for-py on a shared partition",
+                "sp.dml(model='irm')",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg(
+                    "plr",
+                    ("partialling out", "iv-type"),
+                    "linear",
+                    ("2", "3", "10"),
+                    "1",
+                    "n/a",
+                ),
+                _EST_SE,
+                "both scores at 2, 3 and 10 folds vs doubleml-for-py 0.11.3 on "
+                "shared folds (7e-16)",
+                "sp.dml(df, model='plr')",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg("irm", ("ate",), "linear", ("2", "3", "10"), "1", "trim0.01"),
+                _EST_SE,
+                "ATE at 2, 3 and 10 folds vs doubleml-for-py on shared folds",
+                "sp.dml(df, model='irm')",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg("irm", ("atte",), "linear", ("3",), "1", "trim0.01"),
+                _EST_SE,
+                "ATTE at 3 folds vs doubleml-for-py on shared folds",
+                "sp.dml(df, model='irm')",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg("irm", ("ate", "atte"), "linear", ("3",), "1", "other"),
+                _EST_SE,
+                "trimming at 0.1 (binding; ATE) and normalize_ipw=True (ATE, ATTE) "
+                "vs doubleml-for-py on shared folds",
+                "sp.dml(df, model='irm')",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg(
+                    "pliv", ("partialling out",), "linear", ("2", "3", "10"), "1", "n/a"
+                ),
+                _EST_SE,
+                "PLIV at 2, 3 and 10 folds vs doubleml-for-py on shared folds",
+                "sp.dml(df, model='pliv')",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg(
+                    "iivm", ("late",), "linear", ("2", "3", "10"), "1", "trim0.01"
+                ),
+                _EST_SE,
+                "IIVM at 2, 3 and 10 folds vs doubleml-for-py on shared folds",
+                "sp.dml(df, model='iivm')",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg("iivm", ("late",), "linear", ("3",), "1", "other"),
+                _EST_SE,
+                "IIVM with trimming at 0.1 (binding) and normalize_ipw=True vs "
+                "doubleml-for-py on shared folds",
+                "sp.dml(df, model='iivm')",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg(
+                    "plr", ("partialling out", "iv-type"), "linear", ("5",), ">1", "n/a"
+                ),
+                _EST,
+                "n_rep = 3 on sp.dml's own folds: every repetition's estimate and SE "
+                "and the median estimate vs doubleml-for-py and R DoubleML",
+                "sp.dml(df, model='plr', n_rep=3)",
+            ),
+            _Row(
+                "T2",
+                _DML_OPT,
+                _dml_cfg("irm", ("ate",), "linear", ("5",), ">1", "trim0.01"),
+                _EST,
+                "n_rep = 3 (stratified folds): every repetition's estimate and SE "
+                "and the median estimate vs doubleml-for-py",
+                "sp.dml(df, model='irm', n_rep=3)",
+            ),
+            _Row(
+                "T4",
+                _DML_OPT,
+                _dml_cfg(
+                    "plr", ("partialling out", "iv-type"), "linear", ("5",), ">1", "n/a"
+                ),
+                ("se",),
+                "aggregated SE under n_rep > 1: R and Python DoubleML use different "
+                "rules (1.8e-3 apart); sp.dml uses median(se_r^2 + dev_r^2); each "
+                "reference's SE is rebuilt from the shared repetitions to 1e-12",
+                "sp.dml(df, model='plr', n_rep=3)",
+            ),
+            _Row(
+                "T4",
+                _DML_OPT,
+                _dml_cfg("irm", ("ate",), "linear", ("5",), ">1", "trim0.01"),
+                ("se",),
+                "aggregated SE under n_rep > 1: Python DoubleML's median-upper-bound "
+                "rule, rebuilt from the shared repetitions to 1e-12",
+                "sp.dml(df, model='irm', n_rep=3)",
+            ),
         ),
         note="With default (flexible) learners the estimate depends on the learner, so "
         "deterministic parity exists only for fixed learners and folds; the default-"
-        "learner PLR interval under-covers (0.883) on the Track B design.",
+        "learner PLR interval under-covers (0.883) on the Track B design. ipw 'other' "
+        "rows ran trimming at 0.1 and normalize_ipw=True at the 0.01 threshold. "
+        "n_folds 6-9 and 11-20 have no row. Under n_rep > 1 the per-repetition "
+        "estimates and SEs and the median estimate match DoubleML, but the "
+        "aggregated SE is a convention the two DoubleML ports disagree on.",
     )
 )
 

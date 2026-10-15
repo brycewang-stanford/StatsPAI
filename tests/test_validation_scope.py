@@ -242,11 +242,37 @@ def test_linear_learner_dml_on_other_folds_is_not_covered(card):
         model="plr",
         model_y=LinearRegression(),
         model_d=LinearRegression(),
-        n_folds=3,
+        n_folds=7,
     )
     scope = sp.validation_scope(fit)
-    assert scope["configuration"]["n_folds"] == "3"
+    assert scope["configuration"]["n_folds"] == "7"
     assert scope["status"] == "not_covered"
+    # 2, 3 and 10 folds were run against DoubleML; 7 was not
+    three = sp.validation_scope(
+        function="dml",
+        model="plr",
+        score="partialling out",
+        learners="linear",
+        n_folds="3",
+        n_rep="1",
+        ipw="n/a",
+    )
+    assert three["status"] == "covered"
+
+
+def test_repeated_dml_se_is_a_disclosure_and_its_estimate_is_covered():
+    scope = sp.validation_scope(
+        function="dml",
+        model="plr",
+        score="partialling out",
+        learners="linear",
+        n_folds="5",
+        n_rep=">1",
+        ipw="n/a",
+    )
+    assert scope["status"] == "estimate_only"
+    assert scope["outputs"]["estimate"]["status"] == "reference"
+    assert scope["outputs"]["se"]["status"] == "disclosure"
 
 
 def test_callaway_santanna_default_dr_is_covered_by_the_grid_not_module_04():
