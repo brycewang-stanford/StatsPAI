@@ -269,7 +269,12 @@ def _scope_attrs(
         "target": _target_kind(l_vec),
         "window": "full" if window is None else "restricted",
         "alpha": float(alpha),
-        "m_grid": "zero" if bool((out["M"] == 0).any()) else "positive",
+        # 'zero_only' / 'zero' (with positive M too) / 'positive'
+        "m_grid": (
+            "zero_only"
+            if bool((out["M"] == 0).all())
+            else ("zero" if bool((out["M"] == 0).any()) else "positive")
+        ),
         "rm_grid": rm_grid,
         "source": source,
     }

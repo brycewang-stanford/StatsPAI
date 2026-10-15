@@ -289,6 +289,7 @@ class _FLCIProgram:
         n_grid: int = 100,
     ) -> None:
         self.betahat = betahat
+        self.sigma = sigma
         self.n_pre = n_pre
         self.l_post = l_post
         a_quad, a_lin, a_const = _variance_matrices(sigma, n_pre, l_post)
@@ -409,7 +410,63 @@ class _FLCIProgram:
             return np.inf
         return folded_normal_quantile(1 - alpha, m_bar * b / h) * h
 
+    def ci_m0(self, alpha: float) -> Optional[FLCIResult]:
+        """The FLCI at ``M = 0`` in closed form, or ``None`` if ``Sigma_pre``
+        is singular.
+
+        Under ``Delta^SD(0)`` the violation is linear through the omitted
+        reference period, ``delta_t = s r_t`` (``r = -K..-1`` before, ``1..S``
+        after), so the worst-case bias of ``l_pre' b_pre + l_post' b_post`` is
+        zero exactly when ``l_pre' r_pre = -l_post' r_post``, and infinite
+        otherwise. The half-length ``z_{1-alpha/2} sd`` is then minimised by
+        the minimum-variance such estimator:
+
+            l_pre = Sigma_pp^{-1} (lambda r_pre - Sigma_p,post l_post),
+
+        with ``lambda`` set by the constraint. The program's SLSQP solve
+        reaches the same half-length but, its flat directions unconverged,
+        not the same centre: up to 1.4e-3 of the half-length on HonestDiD's
+        BCdata (tests/reference_parity/test_honest_did_options_R_parity.py).
+        """
+        k = self.n_pre
+        s_post = self.l_post.size
+        r_pre = np.arange(-k, 0, dtype=float)
+        r_post = np.arange(1, s_post + 1, dtype=float)
+        s_pp = self.sigma[:k, :k]
+        g = self.sigma[:k, k:] @ self.l_post
+        try:
+            si_r = np.linalg.solve(s_pp, r_pre)
+            si_g = np.linalg.solve(s_pp, g)
+        except np.linalg.LinAlgError:
+            return None
+        denom = float(r_pre @ si_r)
+        if not np.isfinite(denom) or denom <= 0.0:
+            return None
+        lam = (-float(self.l_post @ r_post) + float(r_pre @ si_g)) / denom
+        l_pre = lam * si_r - si_g
+        var = float(
+            l_pre @ s_pp @ l_pre
+            + 2.0 * l_pre @ g
+            + self.l_post @ self.sigma[k:, k:] @ self.l_post
+        )
+        sd = float(np.sqrt(max(var, 0.0)))
+        half = float(special.ndtri(1.0 - alpha / 2.0)) * sd
+        estimate = float(l_pre @ self.betahat[:k] + self.l_post @ self.betahat[k:])
+        return FLCIResult(
+            estimate=estimate,
+            half_length=half,
+            ci_lower=estimate - half,
+            ci_upper=estimate + half,
+            pre_period_weights=l_pre,
+            h=sd,
+            worst_case_bias=0.0,
+        )
+
     def ci(self, m_bar: float, alpha: float, refine: bool = True) -> FLCIResult:
+        if m_bar == 0.0:
+            closed = self.ci_m0(alpha)
+            if closed is not None:
+                return closed
         halves = np.array([self.half_length(h, m_bar, alpha) for h in self.grid])
         if not np.isfinite(halves).any():  # pragma: no cover - pathological sigma
             raise ConvergenceFailure(
