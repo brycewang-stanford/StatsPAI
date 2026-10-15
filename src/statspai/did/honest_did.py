@@ -170,6 +170,111 @@ def _coerce_l_vec(l_vec: Any, post_times: np.ndarray) -> np.ndarray:
     return lv
 
 
+_MOMENTS_METHOD = "Event study (user-supplied moments)"
+
+
+def _target_kind(l_vec: Any) -> str:
+    """``'single'`` / ``'average'`` / ``'weights'`` for a target as given."""
+    if l_vec is None:
+        return "single"
+    if isinstance(l_vec, str):
+        return "average"
+    lv = np.asarray(l_vec, dtype=float).ravel()
+    nonzero = np.flatnonzero(lv)
+    if nonzero.size == 1 and lv[nonzero[0]] == 1.0:
+        return "single"
+    if np.allclose(lv, lv[0]) and np.isclose(lv.sum(), 1.0):
+        return "average"
+    return "weights"
+
+
+#: (token in the result's method / estimator label, estimator) -- the event
+#: studies sp.event_study_vcov reads, named as sp.validation_scope names them.
+#: Kept here rather than imported from validation_scope so that editing the
+#: evidence map does not touch the Track A estimation path of this module.
+_SOURCE_TOKENS = (
+    ("callaway and sant'anna", "callaway_santanna"),
+    ("sun and abraham", "sun_abraham"),
+    ("sun-abraham", "sun_abraham"),
+    ("ols event study (twfe)", "event_study"),
+    ("etwfe", "etwfe"),
+    ("gardner", "gardner_did"),
+    ("imputation estimator", "did_imputation"),
+    ("bjs imputation", "did_imputation"),
+)
+
+
+def _vcov_source(result: Any) -> str:
+    """The estimator whose event study (and covariance) is being analysed."""
+    method = str(getattr(result, "method", None) or "")
+    if method == _MOMENTS_METHOD:
+        return "moments"
+    info = getattr(result, "model_info", None) or {}
+    label = " ".join(
+        str(v or "").lower()
+        for v in (method, info.get("estimator_label"), info.get("estimator"))
+    )
+    for token, name in _SOURCE_TOKENS:
+        if token in label:
+            return name
+    return "supplied" if info.get("event_study_vcov") is not None else "other"
+
+
+_INTERVAL_OF_METHOD = {
+    "FLCI": "flci",
+    "CONDITIONAL": "arp_conditional",
+    "C-LF": "arp_c_lf",
+    "CLF": "arp_c_lf",
+    "C-F": "arp_c_f",
+    "CF": "arp_c_f",
+}
+
+
+def _scope_attrs(
+    out: pd.DataFrame,
+    *,
+    method: str,
+    alpha: float,
+    l_vec: Any,
+    window: Optional[tuple],
+    code_path: str,
+    source: str,
+    honestdid_method: Optional[str],
+    custom_grid: bool,
+) -> Dict[str, Any]:
+    """The configuration of a sensitivity table, for ``sp.validation_scope``."""
+    restriction = (
+        "relative_magnitude"
+        if method.lower().replace("-", "_").rstrip("s") == "relative_magnitude"
+        else "smoothness"
+    )
+    interval = out.attrs.get("interval")
+    if interval is None:  # backend='r': the method HonestDiD ran
+        default = "C-LF" if restriction == "relative_magnitude" else "FLCI"
+        key = str(honestdid_method or default).upper().replace("_", "-")
+        interval = _INTERVAL_OF_METHOD.get(key, key.lower())
+    if restriction == "smoothness":
+        rm_grid = "n/a"
+    elif custom_grid:
+        rm_grid = "user"
+    elif out.attrs.get("grid_extended_at"):
+        rm_grid = "extended"
+    else:
+        rm_grid = "honestdid"
+    return {
+        "function": "honest_did",
+        "restriction": restriction,
+        "interval": interval,
+        "code_path": code_path,
+        "target": _target_kind(l_vec),
+        "window": "full" if window is None else "restricted",
+        "alpha": float(alpha),
+        "m_grid": "zero" if bool((out["M"] == 0).any()) else "positive",
+        "rm_grid": rm_grid,
+        "source": source,
+    }
+
+
 def honest_did(
     result: CausalResult,
     e: int = 0,
@@ -348,19 +453,44 @@ def honest_did(
     backend = _require_string(backend, argument="backend")
     backend_norm = backend.lower().replace("-", "_")
     win = _coerce_window(window)
+    source = _vcov_source(result)
+    method_given = method
+
+    def _stamp(out: pd.DataFrame, code_path: str) -> pd.DataFrame:
+        # What sp.validation_scope reads back from the table.
+        out.attrs.update(
+            _scope_attrs(
+                out,
+                method=method_given,
+                alpha=alpha,
+                l_vec=l_vec,
+                window=win,
+                code_path=code_path,
+                source=source,
+                honestdid_method=honestdid_method,
+                custom_grid=(
+                    grid_lb is not None or grid_ub is not None or grid_points != 1000
+                ),
+            )
+        )
+        return out
+
     if backend_norm in {"r", "honestdid", "honest_did", "honestdid_r"}:
-        return _honest_did_r_backend(
-            result=result,
-            e=e,
-            m_grid=m_grid,
-            method=method,
-            alpha=alpha,
-            honestdid_method=honestdid_method,
-            l_vec=l_vec,
-            window=win,
-            grid_lb=grid_lb,
-            grid_ub=grid_ub,
-            grid_points=grid_points,
+        return _stamp(
+            _honest_did_r_backend(
+                result=result,
+                e=e,
+                m_grid=m_grid,
+                method=method,
+                alpha=alpha,
+                honestdid_method=honestdid_method,
+                l_vec=l_vec,
+                window=win,
+                grid_lb=grid_lb,
+                grid_ub=grid_ub,
+                grid_points=grid_points,
+            ),
+            "r",
         )
     if backend_norm not in {"native", "statspai"}:
         raise MethodIncompatibility(
@@ -486,7 +616,7 @@ def honest_did(
                     )
                 _out = pd.DataFrame(rows)
                 _out.attrs["interval"] = "flci"
-                return _out
+                return _stamp(_out, "native")
 
         warnings.warn(
             "honest_did(method='smoothness'): the event-study covariance is "
@@ -536,7 +666,7 @@ def honest_did(
             grid_expand=grid_expand,
         )
         if _rm is not None:
-            return _rm
+            return _stamp(_rm, "native")
 
         warnings.warn(
             "honest_did(method='relative_magnitude'): the event-study "
@@ -579,7 +709,7 @@ def honest_did(
 
     _out = pd.DataFrame(rows)
     _out.attrs["interval"] = "worst_case_bias"
-    return _out
+    return _stamp(_out, "native")
 
 
 def _rm_inputs(
@@ -1348,7 +1478,7 @@ def event_study_from_moments(
     se = np.sqrt(np.clip(np.diag(S), 0.0, None))
     detail = pd.DataFrame({"relative_time": times, "att": b, "se": se})
     res = CausalResult(
-        method="Event study (user-supplied moments)",
+        method=_MOMENTS_METHOD,
         estimand="ATT",
         estimate=float(b[times >= 0][0]),
         se=float(se[times >= 0][0]),
