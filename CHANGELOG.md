@@ -201,6 +201,18 @@ defects below. Default calls on the main path return what they did.
   standard error (0.2904) is not reproduced by any variant tried
   (ours 0.3047, psmatch2 0.3186).
 
+### README banners
+
+#### Changed
+
+- `docs/logo/readme-1.png` at the top of both READMEs is the full
+  banner again (3344x1882) with the new logo: wordmark, tagline, causal
+  diagram, code sample, six feature tiles, method strip and QR code.
+  The compact banner with the new logo and a "Star on GitHub" QR code
+  is added as `docs/logo/readme-footer.png` above the License section.
+- The language switcher reads "English" without "(default)" in both
+  READMEs.
+
 ### CI
 
 - The nightly full test matrix had failed since 2026-10-13 on three
