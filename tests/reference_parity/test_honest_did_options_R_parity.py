@@ -37,10 +37,12 @@ rather than a bisection with step ``|h0| eps^(1/3)``.
 * At ``M = 0`` the FLCI has a closed form -- the minimum-variance estimator
   unbiased under a linear trend through the reference period, plus or minus
   ``z`` standard deviations -- computed in R with base linear algebra. The
-  half-length agrees to 4e-7. The native centre misses it by up to 1.4e-3 of
-  the half-length (``BCdata``, ``e = 0``): the minimum-variance subproblem is
-  solved by SLSQP, whose flat directions are not converged. That is an open
-  item of the native solver, pinned here so it cannot grow.
+  native FLCI computes the same closed form (``_FLCIProgram.ci_m0``) and
+  agrees to 1e-12, centre and half-length (T1). Until 1.39 it ran the SLSQP
+  program there too: the half-length agreed to 4e-7 but, the flat
+  directions of the minimum-variance solve unconverged, the centre missed
+  by up to 1.4e-3 of the half-length (``BCdata``, ``e = 0``); the old
+  half-length is asserted unchanged.
 
 Fixture ``_fixtures/honest_did_options_R.json`` from
 ``_fixtures/_generate_honest_did_options_R.R``.
@@ -172,7 +174,7 @@ def test_flci_half_length_is_the_programs_optimum(cs, cid):
     m = np.asarray(case["M"])
     # M = 0 is the closed form, M > 0 HonestDiD's program at tight tolerance.
     np.testing.assert_allclose(
-        half[m == 0], np.asarray(case["half"])[m == 0], rtol=1e-6
+        half[m == 0], np.asarray(case["half"])[m == 0], rtol=1e-12
     )
     np.testing.assert_allclose(half[m > 0], np.asarray(case["half"])[m > 0], rtol=1e-7)
 
@@ -186,11 +188,32 @@ def test_flci_centre_within_the_flat_optimum(cs, cid):
     gap = np.abs(centre - ref_centre) / np.asarray(case["half"])
     m = np.asarray(case["M"])
     assert np.all(gap[m > 0] <= 2e-5), (cid, gap)
-    # The M = 0 closed form is exact; the native minimum-variance solve is
-    # not (open item, see the module docstring).
-    assert np.all(gap[m == 0] <= 2e-3), (cid, gap)
     scope = sp.validation_scope(out)
     assert scope["outputs"]["diagnostic"]["status"] == "disclosure", cid
+
+
+@pytest.mark.parametrize("cid", _FLCI)
+def test_flci_at_zero_is_the_closed_form_blue(cs, cid, monkeypatch):
+    """M = 0: the centre and half-length equal R's closed form to 1e-12, on
+    BCdata and on the mpdta CS pipeline; the half-length is the one the
+    SLSQP program reached before (unchanged, to its 4e-7 precision)."""
+    case = _CASES[cid]
+    zero = {**case, "M": [0.0]}
+    out = _run(cs, zero)
+    i = case["M"].index(0.0)
+    lo, hi = case["lb"][i], case["ub"][i]
+    assert out["ci_lower"].iloc[0] == pytest.approx(lo, rel=1e-12, abs=1e-14)
+    assert out["ci_upper"].iloc[0] == pytest.approx(hi, rel=1e-12, abs=1e-14)
+    scope = sp.validation_scope(out)
+    assert scope["configuration"]["m_grid"] == "zero_only"
+    assert scope["outputs"]["diagnostic"]["status"] == "reference", cid
+    from statspai.did import _flci
+
+    monkeypatch.setattr(_flci._FLCIProgram, "ci_m0", lambda self, alpha: None)
+    old = _run(cs, zero)
+    old_half = (old["ci_upper"] - old["ci_lower"]).iloc[0] / 2
+    new_half = (out["ci_upper"] - out["ci_lower"]).iloc[0] / 2
+    assert new_half == pytest.approx(old_half, rel=1e-6)
 
 
 def test_targets_and_alpha_change_the_answer(cs):

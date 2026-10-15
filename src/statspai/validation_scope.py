@@ -5177,7 +5177,7 @@ _HD_BASE = {
     "target": ("single",),
     "window": ("full",),
     "alpha": ("0.05",),
-    "m_grid": ("zero", "positive"),
+    "m_grid": ("zero_only", "zero", "positive"),
     "rm_grid": ("n/a",),
     "source": ("supplied",),
 }
@@ -5211,7 +5211,7 @@ _add(
             "target": ("single", "average", "weights"),
             "window": ("full", "restricted"),
             "alpha": ("0.05", "other"),
-            "m_grid": ("zero", "positive"),
+            "m_grid": ("zero_only", "zero", "positive"),
             "rm_grid": ("honestdid", "extended", "user", "n/a"),
             "source": _HONEST_SOURCES,
         },
@@ -5336,6 +5336,22 @@ _add(
                 "sp.honest_did(cs, **kw)",
             ),
             _Row(
+                "T1",
+                _HD_OPT,
+                _hd(
+                    target=("single", "average", "weights"),
+                    window=("full", "restricted"),
+                    alpha=("0.05", "other"),
+                    m_grid=("zero_only",),
+                    source=("moments", "callaway_santanna"),
+                ),
+                ("diagnostic",),
+                "the FLCI at M = 0 on correlated covariances: the closed form "
+                "(minimum-variance estimator unbiased under a linear trend, "
+                "+/- z sd), computed in R with base linear algebra, to 1e-12",
+                "sp.honest_did(cs, **kw)",
+            ),
+            _Row(
                 "T4",
                 _HD_OPT,
                 _hd(
@@ -5347,10 +5363,9 @@ _add(
                 ("diagnostic",),
                 "FLCI on correlated covariances vs HonestDiD's program at tight "
                 "tolerance: the half-length (the program's optimum) agrees to "
-                "3e-10 and the closed form at M = 0 to 4e-7, but the centre only "
-                "to 1e-5 of the half-length at M > 0 (the half-length is flat "
-                "in h, so each solver's noise moves the centre) and to 1.4e-3 at "
-                "M = 0 (native minimum-variance solve, an open item)",
+                "3e-10, the centre only to 1e-5 of the half-length at M > 0 "
+                "(the half-length is flat in h, so each solver's noise moves "
+                "the centre); M = 0 is the closed form",
                 "sp.honest_did(cs, **kw)",
             ),
             _Row(
@@ -5419,8 +5434,8 @@ _add(
         "interval='worst_case_bias' is the warned fallback when no joint "
         "covariance is available and has no reference. The FLCI's half-length "
         "is pinned to 3e-10 on correlated covariances, its centre only to 1e-5 "
-        "of the half-length (T4); the M = 0 closed form is open on the native "
-        "side.",
+        "of the half-length (T4); at M = 0 it is a closed form (T1). m_grid "
+        "'zero_only' is a grid of M = 0 alone; 'zero' also has M > 0.",
     )
 )
 
