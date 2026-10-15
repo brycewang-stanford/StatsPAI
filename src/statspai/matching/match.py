@@ -43,6 +43,7 @@ from scipy.spatial.distance import cdist
 
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
+from . import _metric_tree
 from ._ai2016 import abadie_imbens_2016_ate_se, abadie_imbens_2016_se, caliper_deficient
 from ._binary_fit import fit_binary_index
 from ._matched_frame import (
@@ -683,9 +684,14 @@ class _LazyDistance:
     #: fewer rows as the control pool grows.
     _CELLS = 1 << 24
 
-    def __init__(self, compute: Any, shape: Tuple[int, int]) -> None:
+    def __init__(
+        self, compute: Any, shape: Tuple[int, int], points: Any = None
+    ) -> None:
         self._compute = compute
         self.shape = shape
+        #: Builds the k-d tree search over the same distances
+        #: (:mod:`._metric_tree`); returns ``None`` where it does not apply.
+        self.points = points
         self._BLOCK = max(1, min(2048, self._CELLS // max(shape[1], 1)))
         self._start = -1
         self._rows: Optional[np.ndarray] = None
@@ -2557,8 +2563,33 @@ class MatchEstimator:
             return _LazyDistance(
                 lambda rows: self._distance_block(X, idx_from[rows], idx_to, pscore),
                 (len(idx_from), len(idx_to)),
+                points=lambda: self._metric_points(X, idx_from, idx_to),
             )
         return self._distance_block(X, idx_from, idx_to, pscore)
+
+    def _metric_points(
+        self, X: np.ndarray, idx_from: np.ndarray, idx_to: np.ndarray
+    ) -> Optional[_metric_tree.MetricPoints]:
+        """The k-d tree search over :meth:`_distance_block`'s distances.
+
+        ``None`` for the propensity score (searched on the sorted score) and
+        wherever :func:`._metric_tree.metric_points` cannot guarantee the
+        same matches.
+        """
+        if self.distance == "mahalanobis":
+            cov = self._mahalanobis_cov_matrix(X)
+            if cov.ndim == 0:
+                cov = np.array([[cov]])
+            return _metric_tree.metric_points(
+                X[idx_from], X[idx_to], "mahalanobis", VI=_mahalanobis_inverse(cov)
+            )
+        if self.distance == "euclidean":
+            sd = np.std(X, axis=0, ddof=1)
+            sd[sd == 0] = 1.0
+            return _metric_tree.metric_points(
+                X[idx_from], X[idx_to], "euclidean", sd=sd
+            )
+        return None
 
     def _distance_block(
         self,
@@ -3182,6 +3213,13 @@ class MatchEstimator:
         self_y = np.full(len(Y), np.nan)
         for g in (0, 1):
             idx = np.flatnonzero(T == g)
+            points = None if origin is not None else self._metric_points(X, idx, idx)
+            if points is not None:
+                for pos, near in _metric_tree.same_arm_neighbours(
+                    points, j, self.ties == "all"
+                ):
+                    self_y[idx[pos]] = float(np.mean(Y[idx[near]]))
+                continue
             for start in range(0, len(idx), 512):
                 rows = idx[start : start + 512]
                 d = self._distance_block(X, rows, idx, pscore)
@@ -3541,12 +3579,23 @@ class MatchEstimator:
             and bool(np.all(np.isfinite(pscore_target)))
             and bool(np.all(np.isfinite(pscore_pool)))
         )
+        points = None
+        if not on_score and getattr(dist, "points", None) is not None:
+            points = dist.points()
         if on_score:
             chunks = self._score_candidates(
                 np.asarray(pscore_target, dtype=float),
                 np.asarray(pscore_pool, dtype=float),
                 caliper,
                 scale,
+            )
+        elif points is not None:
+            chunks = _metric_tree.nearest_candidates(
+                points,
+                self.n_matches,
+                self._kth_distance,
+                lambda kth: self._candidate_radius(kth, caliper, scale),
+                caliper,
             )
         else:
             chunks = self._block_candidates(dist, caliper, scale)
