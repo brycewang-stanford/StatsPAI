@@ -13,7 +13,25 @@ dict to :data:`PROMPTS`. Required arguments must declare a
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List
+
+#: Every data-bound prompt takes the dataset either as a file
+#: (``data_path``) or as a handle from ``load_data`` (``data_id``); exactly
+#: one is required, checked in :func:`handle_prompts_get`. Templates write
+#: ``{data_source}``, which renders as ``data_id=...`` or ``data_path=...``.
+_DATA_ARGS: List[Dict[str, Any]] = [
+    {
+        "name": "data_id",
+        "required": False,
+        "description": "Dataset handle (d_...) from load_data; or give data_path.",
+    },
+    {
+        "name": "data_path",
+        "required": False,
+        "description": "Absolute path or URL of the data file; or give data_id.",
+    },
+]
 
 PROMPTS: List[Dict[str, Any]] = [
     {
@@ -26,11 +44,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "+ honest-DID + Bacon into one call."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path to the data file.",
-            },
+            *_DATA_ARGS,
             {"name": "y", "required": True, "description": "Outcome column."},
             {
                 "name": "treat",
@@ -40,7 +54,7 @@ PROMPTS: List[Dict[str, Any]] = [
             {"name": "time", "required": True, "description": "Time column."},
         ],
         "_template": (
-            "Call `pipeline_did` with data_path={data_path}, y={y}, "
+            "Call `pipeline_did` with {data_source}, y={y}, "
             "treat={treat}, time={time}. The pipeline returns a "
             "markdown narrative with the canonical reviewer-grade "
             "DID workflow already executed (preflight, estimator, "
@@ -60,11 +74,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "wrapped in pipeline_iv."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path to the data file.",
-            },
+            *_DATA_ARGS,
             {
                 "name": "formula",
                 "required": True,
@@ -72,7 +82,7 @@ PROMPTS: List[Dict[str, Any]] = [
             },
         ],
         "_template": (
-            "Call `pipeline_iv` with data_path={data_path}, "
+            "Call `pipeline_iv` with {data_source}, "
             "formula='{formula}'. Read `effective_F` from the "
             "response: < 10 means the Staiger-Stock weak-IV threshold "
             "is breached and you should foreground the "
@@ -90,11 +100,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "sensitivity via pipeline_rd."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path to the data file.",
-            },
+            *_DATA_ARGS,
             {"name": "y", "required": True, "description": "Outcome column."},
             {"name": "x", "required": True, "description": "Running variable column."},
             {
@@ -104,8 +110,9 @@ PROMPTS: List[Dict[str, Any]] = [
             },
         ],
         "_template": (
-            "Call `pipeline_rd` with data_path={data_path}, y={y}, "
-            "x={x}, c={c}. Use the `rdplot` image content block (PNG) "
+            "Call `pipeline_rd` with {data_source}, y={y}, "
+            "x={x}[[, c={c}]] (cutoff 0 unless given). Use the `rdplot` "
+            "image content block (PNG) "
             "to anchor your reply visually. If the McCrary-style "
             "density test rejects (`rddensity` p < 0.05) flag "
             "manipulation; recommend `rdplacebo` and `rdrbounds` "
@@ -120,11 +127,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "it with diagnostics."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path to the data file.",
-            },
+            *_DATA_ARGS,
             {"name": "outcome", "required": True, "description": "Outcome column."},
             {
                 "name": "treatment",
@@ -133,10 +136,11 @@ PROMPTS: List[Dict[str, Any]] = [
             },
         ],
         "_template": (
-            "1. Call `detect_design` with data_path={data_path}.\n"
-            "2. Call `recommend` with y={outcome} (and "
-            "treatment={treatment} when supplied). Read the top "
-            "recommendation's `reasoning`.\n"
+            "1. Call `detect_design` with {data_source}.\n"
+            "2. Call `recommend` with {data_source}, y={outcome}"
+            "[[, treatment={treatment}]]. Read the top "
+            "recommendation's `reasoning`; its `next_calls` entry is the "
+            "fit to run.\n"
             "3. If the recommendation is DID/CS, call `pipeline_did`. "
             "If RD, call `pipeline_rd`. If IV, call `pipeline_iv`. "
             "Otherwise, call the recommended estimator with "
@@ -168,8 +172,8 @@ PROMPTS: List[Dict[str, Any]] = [
             "status='missing' AND importance in {{'high', 'critical'}}.\n"
             "2. For each, dispatch the `suggest_function` it names. "
             "If the function takes a fitted result, pass "
-            "result_id={result_id}; otherwise re-load the data via "
-            "data_path.\n"
+            "result_id={result_id}; otherwise pass the dataset "
+            "(data_id or data_path) it was fitted on.\n"
             "3. For each follow-up result, call `brief_result` and "
             "report whether the new estimate overturns the original "
             "conclusion (sign change / CI exclusion of zero)."
@@ -197,7 +201,8 @@ PROMPTS: List[Dict[str, Any]] = [
             "Given result_id={result_id}:\n"
             "1. Call `brief_result` for a one-paragraph summary.\n"
             "2. Call `audit_result`; pull the audit's items with "
-            "status='present' (the diagnostics that DID run) into a "
+            "status='passed' (the diagnostics that ran and passed) into a "
+            "bulleted list, and those with status='failed' into a second "
             "bulleted list.\n"
             "3. Call `plot_from_result` (auto-detects the right plot) "
             "and embed the resulting image.\n"
@@ -215,11 +220,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "and compare conclusions side by side."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path to the data file.",
-            },
+            *_DATA_ARGS,
             {"name": "y", "required": True, "description": "Outcome column."},
             {
                 "name": "treat",
@@ -233,7 +234,8 @@ PROMPTS: List[Dict[str, Any]] = [
             },
         ],
         "_template": (
-            "Run all three: `did`, `callaway_santanna` (if cohort/id "
+            "On {data_source} with y={y}, treat={treat}[[, time={time}]], "
+            "run all three: `did`, `callaway_santanna` (if cohort/id "
             "available), `did_imputation`. Use as_handle=true for "
             "each so you collect three result_ids. Then call "
             "`brief_result` on each, and report a markdown table "
@@ -249,11 +251,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "a candidate policy."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path to the data file.",
-            },
+            *_DATA_ARGS,
             {
                 "name": "formula",
                 "required": True,
@@ -261,8 +259,8 @@ PROMPTS: List[Dict[str, Any]] = [
             },
         ],
         "_template": (
-            "1. Call `causal_forest` with formula='{formula}' and "
-            "as_handle=true.\n"
+            "1. Call `causal_forest` with {data_source}, "
+            "formula='{formula}' and as_handle=true.\n"
             "2. Call `cate_summary` with the result_id; report ATE + "
             "the CATE quantiles.\n"
             "3. Call `blp_test` to test whether heterogeneity is "
@@ -278,11 +276,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "fit + placebo + synthdid + permutation."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path to the data file.",
-            },
+            *_DATA_ARGS,
             {"name": "outcome", "required": True, "description": "Outcome column."},
             {
                 "name": "unit",
@@ -302,7 +296,9 @@ PROMPTS: List[Dict[str, Any]] = [
             },
         ],
         "_template": (
-            "1. Call `synth` with the canonical args; as_handle=true.\n"
+            "1. Call `synth` with {data_source}, outcome={outcome}, "
+            "unit={unit}, time={time}, treated_unit={treated_unit}, "
+            "treatment_time={treatment_time}, as_handle=true.\n"
             "2. Call `synthdid_estimate` for the synthetic-DID "
             "alternative — the two estimates should bracket the truth.\n"
             "3. Call `synthdid_placebo` for in-space placebo "
@@ -317,11 +313,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "RIF / FFL / Oaxaca-Blinder decomposition of " "an outcome gap."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path to the data file.",
-            },
+            *_DATA_ARGS,
             {"name": "y", "required": True, "description": "Outcome column."},
             {
                 "name": "group",
@@ -335,7 +327,9 @@ PROMPTS: List[Dict[str, Any]] = [
             },
         ],
         "_template": (
-            "Call `decompose` with method='oaxaca' (or method='rif' "
+            "Call `decompose` with {data_source}, y={y}, group={group}"
+            "[[, x=<list of the columns {covariates}>]], method='oaxaca' "
+            "(or method='rif' "
             "for distributional decomposition). Report explained vs "
             "unexplained share. If the user mentions wage gap, also "
             "run method='ffl' for the Firpo-Fortin-Lemieux variant."
@@ -350,11 +344,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "rdrobust, ivreg2, synth, psmatch2, or teffects workflows."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path or URL to the data file.",
-            },
+            *_DATA_ARGS,
             {
                 "name": "command",
                 "required": True,
@@ -366,7 +356,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "returns ok=false, report the error and its suggestions; "
             "do not guess a replacement command.\n"
             "2. If ok=true, take the returned tool name and arguments, "
-            "merge in data_path={data_path}, as_handle=true, and "
+            "merge in {data_source}, as_handle=true, and "
             "detail='agent', then dispatch that tool.\n"
             "3. Call `audit_result` with the returned result_id. Run "
             "the first high-importance next call only when it is "
@@ -385,11 +375,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "result. Use for users migrating R code into the MCP loop."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path or URL to the data file.",
-            },
+            *_DATA_ARGS,
             {
                 "name": "expression",
                 "required": True,
@@ -401,7 +387,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "returns ok=false, report the supported alternatives from "
             "the response; do not fabricate an R parser result.\n"
             "2. If ok=true, dispatch the returned StatsPAI tool with "
-            "data_path={data_path}, as_handle=true, and detail='agent'.\n"
+            "{data_source}, as_handle=true, and detail='agent'.\n"
             "3. Call `audit_result` and `brief_result` on the result_id.\n"
             "4. In the final answer, show the translated Python/StatsPAI "
             "call, the estimate, key diagnostics, and any missing "
@@ -417,11 +403,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "estimands or covariance conventions."
         ),
         "arguments": [
-            {
-                "name": "data_path",
-                "required": True,
-                "description": "Absolute path or URL to the shared data file.",
-            },
+            *_DATA_ARGS,
             {
                 "name": "stata_command",
                 "required": True,
@@ -443,7 +425,7 @@ PROMPTS: List[Dict[str, Any]] = [
             "If the estimands or covariance conventions differ, report "
             "that as a convention mismatch before fitting.\n"
             "4. If the translated calls are comparable, dispatch both "
-            "StatsPAI tools with data_path={data_path}, as_handle=true, "
+            "StatsPAI tools with {data_source}, as_handle=true, "
             "detail='standard', then call `brief_result` for each. If "
             "you call `cross_validate`, inspect "
             "`can_claim_cross_engine_agreement` before saying the result "
@@ -467,6 +449,26 @@ class SafeDict(dict):
 
     def __missing__(self, key: str) -> str:  # type: ignore[override]
         return "{" + key + "}"
+
+
+#: ``[[ ... ]]`` marks a template fragment kept only when every
+#: placeholder inside it was supplied (optional arguments).
+_OPTIONAL = re.compile(r"\[\[(.*?)\]\]", re.S)
+_PLACEHOLDER = re.compile(r"(?<!\{)\{([A-Za-z_]\w*)\}(?!\})")
+
+
+def _drop_unfilled_fragments(template: str, args: Dict[str, Any]) -> str:
+    """Resolve ``[[...]]`` fragments against the supplied arguments.
+
+    Runs on the template only (before substitution), so a user value
+    that happens to contain ``[[`` or ``{x}`` is never re-parsed.
+    """
+
+    def _keep(m: "re.Match[str]") -> str:
+        names = _PLACEHOLDER.findall(m.group(1))
+        return m.group(1) if all(args.get(n) not in (None, "") for n in names) else ""
+
+    return _OPTIONAL.sub(_keep, template)
 
 
 def handle_prompts_list(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -502,7 +504,11 @@ def handle_prompts_get(
             f"Unknown prompt: {name!r}. Read prompts/list for the "
             "available templates."
         )
-    args = dict(params.get("arguments") or {})
+    args = {
+        k: v
+        for k, v in dict(params.get("arguments") or {}).items()
+        if v not in (None, "")
+    }
     # Validate required arguments (omit MCP would otherwise leave the
     # template with literal ``{x}`` placeholders).
     missing = [
@@ -514,6 +520,15 @@ def handle_prompts_get(
         raise InvalidParamsError(
             f"prompt {name!r} missing required arguments: {missing}"
         )
+    declared = {a["name"] for a in spec["arguments"]}
+    if {"data_id", "data_path"} <= declared:
+        given = [k for k in ("data_id", "data_path") if k in args]
+        if len(given) != 1:
+            raise InvalidParamsError(
+                f"prompt {name!r} needs exactly one of data_id (a handle from "
+                f"load_data) or data_path; got {given or 'neither'}"
+            )
+        args["data_source"] = f"{given[0]}={args[given[0]]}"
     # Fill the template safely. ``str.format_map`` is single-pass —
     # it scans the *template* once for placeholders and substitutes
     # values verbatim without re-parsing the substituted text. So a
@@ -521,7 +536,15 @@ def handle_prompts_get(
     # the output (verified by ``test_get_with_brace_in_user_value...``).
     # ``SafeDict`` keeps unknown placeholders literal so missing
     # required-arg bugs surface instead of being silently dropped.
-    template = spec["_template"]
+    template = _drop_unfilled_fragments(spec["_template"], args)
+    # Every placeholder left in the template must have a value: an optional
+    # argument is only referenced inside a ``[[...]]`` fragment, so a
+    # literal ``c={c}`` can no longer reach the client.
+    unfilled = sorted(set(_PLACEHOLDER.findall(template)) - set(args))
+    if unfilled:
+        raise InvalidParamsError(
+            f"prompt {name!r} cannot be rendered without {unfilled}"
+        )
     try:
         rendered = template.format_map(SafeDict(args))
     except Exception as e:
