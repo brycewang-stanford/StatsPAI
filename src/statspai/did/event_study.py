@@ -958,6 +958,32 @@ def _group_means(
     return out
 
 
+def _one_sweep_is_exact(
+    units: np.ndarray, times: np.ndarray, w: Optional[np.ndarray]
+) -> bool:
+    """Whether unit means then time means are the two-way projection.
+
+    True when every unit is observed exactly once in every period and the
+    weights, if any, are constant within each unit: the unit-demeaned data
+    are then orthogonal to the unit effects after the time sweep too.
+    """
+    u_codes, u_lev = pd.factorize(units)
+    t_codes, t_lev = pd.factorize(times)
+    n_u, n_t = len(u_lev), len(t_lev)
+    if len(units) != n_u * n_t:
+        return False
+    if np.unique(u_codes * n_t + t_codes).size != len(units):
+        return False
+    if w is None:
+        return True
+    w = np.asarray(w, dtype=float)
+    lo = np.full(n_u, np.inf)
+    hi = np.full(n_u, -np.inf)
+    np.minimum.at(lo, u_codes, w)
+    np.maximum.at(hi, u_codes, w)
+    return bool(np.all(lo == hi))
+
+
 def _demean_twfe(
     df: pd.DataFrame,
     y_col: str,
@@ -973,10 +999,44 @@ def _demean_twfe(
     cols = [y_col] + x_cols
     data_mat = df[cols].values.astype(np.float64)
 
-    # Entity means, then time means on the entity-demeaned data: one sweep
-    # each, in that order (the historical definition of this path).
-    for ids in (df[unit_col].values, df[time_col].values):
-        data_mat -= _group_means(data_mat, ids, w)
+    if _one_sweep_is_exact(df[unit_col].values, df[time_col].values, w):
+        # Entity means, then time means on the entity-demeaned data: one
+        # sweep each, in that order (the historical definition of this path,
+        # kept so balanced-panel results do not move in the last bit).
+        for ids in (df[unit_col].values, df[time_col].values):
+            data_mat -= _group_means(data_mat, ids, w)
+    else:
+        # ⚠️ correctness fix (2026-10-15): one sweep of each set of means is
+        # the two-way projection only on a balanced panel with weights that
+        # are constant within a unit. On an unbalanced panel, or with weights
+        # that vary over time, it left part of the fixed effects in the data
+        # (event-time coefficients off by up to 0.035 and 0.15 against
+        # fixest::feols on tests/reference_parity/
+        # test_event_study_options_R_parity.py). The exact weighted
+        # projection is the one sp.sun_abraham uses.
+        from ._sa_within import TwoWayFE
+
+        # Rows of zero weight carry no information and the projection
+        # cannot divide by a unit's zero weight mass; they enter the fit
+        # and the cluster scores multiplied by sqrt(w) = 0, so they are
+        # left at zero.
+        keep = (
+            np.ones(len(df), dtype=bool)
+            if w is None
+            else np.asarray(w, dtype=float) > 0
+        )
+        u_codes, u_lev = pd.factorize(df[unit_col].values[keep])
+        t_codes, t_lev = pd.factorize(df[time_col].values[keep])
+        proj = TwoWayFE(
+            u_codes.astype(np.int64),
+            t_codes.astype(np.int64),
+            len(u_lev),
+            len(t_lev),
+            np.ones(int(keep.sum())) if w is None else np.asarray(w, float)[keep],
+        )
+        out = np.zeros_like(data_mat)
+        out[keep] = proj.demean(data_mat[keep])
+        data_mat = out
 
     Y = data_mat[:, 0]
     X = data_mat[:, 1:]

@@ -255,8 +255,19 @@ def _x_cs(r: Any) -> Dict[str, Optional[str]]:
 
 def _x_sa(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
+    # ``control_group`` is recorded as passed, and is ignored when
+    # ``control_cohort=`` names the control; the label says which ran.
+    label = str(mi.get("control_cohort") or "")
+    if label == "nevertreated":
+        control = "nevertreated"
+    elif label.startswith("lastcohort"):
+        control = "lastcohort"
+    elif label:
+        control = "control_cohort"
+    else:
+        control = _lower(mi.get("control_group"))
     return {
-        "control_group": _lower(mi.get("control_group")),
+        "control_group": control,
         "aggregation": _lower(mi.get("summary_aggregation")),
         "share_variance": {True: "estimated", False: "fixed"}.get(
             mi.get("share_variance")
@@ -1770,7 +1781,7 @@ _add(
     _Scope(
         "sun_abraham",
         {
-            "control_group": ("nevertreated", "lastcohort"),
+            "control_group": ("nevertreated", "lastcohort", "control_cohort"),
             "aggregation": ("fixest_att", "event_time"),
             "share_variance": ("estimated", "fixed"),
             "window_rule": ("report", "bin", "reference"),
@@ -1849,6 +1860,55 @@ _add(
                 "that vary over time, vs Stata eventstudyinteract",
                 "sp.sun_abraham(window_rule='bin')",
             ),
+            _Row(
+                "T2",
+                _RP + "test_sunab_options_parity.py",
+                {
+                    "control_group": _vals("lastcohort", "control_cohort"),
+                    "aggregation": _vals("event_time", "fixest_att"),
+                    "share_variance": _vals("estimated", "fixed"),
+                    "window_rule": _vals("report"),
+                },
+                _EST_SE,
+                "the 2007 cohort as control on mpdta (the last cohort, and the "
+                "same cohort named by control_cohort=): event-time effects "
+                "and SEs vs eventstudyinteract control_cohort(c2007) with the "
+                "share term and vs fixest::sunab(ref.c=2007) without it; both "
+                "summary aggregates vs fixest",
+                "sp.sun_abraham(control_group='lastcohort')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_sunab_control_cohort_parity.py",
+                {
+                    "control_group": _vals("nevertreated", "control_cohort"),
+                    "aggregation": _vals("event_time"),
+                    "share_variance": _vals("estimated"),
+                    "window_rule": _vals("report"),
+                },
+                _EST_SE,
+                "event-time effects and SEs with the never-treated, and with "
+                "control_cohort= naming the 2007 cohort (as a value and as a "
+                "0/1 column), vs eventstudyinteract control_cohort()",
+                "sp.sun_abraham(control_cohort=2007)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_sunab_options_parity.py",
+                {
+                    "control_group": _vals("nevertreated", "lastcohort"),
+                    "aggregation": _vals("event_time", "fixest_att"),
+                    "share_variance": _vals("estimated", "fixed"),
+                    "window_rule": _vals("reference"),
+                },
+                _EST_SE,
+                "windows (-3, 2) and (-2, 1) with the relative times outside "
+                "them in the omitted category: event-time effects and SEs vs "
+                "eventstudyinteract run on the in-window dummies only and vs "
+                "fixest::sunab(ref.p=c(-1, <outside>)); both summary "
+                "aggregates vs fixest",
+                "sp.sun_abraham(window_rule='reference')",
+            ),
         ),
         invariant={
             "aggregation": (
@@ -1860,8 +1920,11 @@ _add(
         defaults={"share_variance": "estimated"},
         note="window_rule only matters with event_window=; 'report' fits the "
         "saturated regression and is what every row without a window runs. "
-        "'reference' (the behaviour before 1.39.0) has no reference "
-        "implementation and is kept to reproduce earlier output. "
+        "'reference' (the behaviour before 1.39.0) is kept to reproduce "
+        "earlier output; it is what eventstudyinteract computes when only "
+        "the in-window dummies are passed, and is pinned against it. "
+        "control_group='control_cohort' is any explicit control_cohort=; "
+        "the evidence ran the 2007 cohort of mpdta. "
         "share_variance changes the per-period SEs only (module 05 pins both "
         "conventions: fixest for fixed shares, eventstudyinteract for the Prop. 3 "
         "term); the overall aggregate's SE treats cohort shares as fixed on both "
@@ -1878,6 +1941,7 @@ _BJS_BASE = {
 }
 _BJS_OPT = _RP + "test_bjs_fe_covariates_parity.py"
 _BJS_SE = _RP + "test_option_fixture_bindings.py"
+_BJS_94 = _RP + "test_bjs_options_parity.py"
 
 _add(
     _Scope(
@@ -2003,14 +2067,83 @@ _add(
                 "did_imputation's e(V)",
                 "sp.did_imputation(horizon=[...])",
             ),
+            _Row(
+                "T2",
+                _BJS_94,
+                {
+                    "fe": _vals("custom"),
+                    "covariates": _vals("none"),
+                    "vce": _vals("analytic"),
+                    "weights": _vals("none"),
+                    "horizon": _vals("overall", "horizons"),
+                },
+                _EST_SE,
+                "fe(countyreal region#year) (overall and four horizons) and "
+                "fe(region year) vs Stata did_imputation; the estimates are "
+                "also the dense least-squares imputation to 1e-10",
+                "sp.did_imputation(fe=[...])",
+            ),
+            _Row(
+                "T2",
+                _BJS_94,
+                {
+                    "fe": _vals("unit_time"),
+                    "covariates": _vals("controls", "mixed"),
+                    "vce": _vals("analytic"),
+                    "weights": _vals("none"),
+                    "horizon": _vals("overall"),
+                },
+                _EST_SE,
+                "a time-varying control, and a control next to timecontrols(), "
+                "vs Stata did_imputation; next to unitcontrols() the file "
+                "compares the SE at 1e-8 and holds the estimate to 5e-6 "
+                "(Stata's iteration moved it 2.8e-6 between two runs), so "
+                "that combination's estimate rests on the exact "
+                "least-squares solution",
+                "sp.did_imputation(controls=..., time_covariates=...)",
+            ),
+            _Row(
+                "T2",
+                _BJS_94,
+                {
+                    "fe": _vals("unit_time"),
+                    "covariates": _vals("none"),
+                    "vce": _vals("analytic"),
+                    "weights": _vals("set"),
+                    "horizon": _vals("overall", "horizons"),
+                },
+                _EST_SE,
+                "[aw=w] overall and over four horizons vs Stata did_imputation",
+                "sp.did_imputation(weights=...)",
+            ),
+            _Row(
+                "T2",
+                _BJS_94,
+                {
+                    "fe": _vals("custom"),
+                    "covariates": _vals("controls"),
+                    "vce": _vals("analytic"),
+                    "weights": _vals("set"),
+                    "horizon": _vals("overall"),
+                },
+                _EST_SE,
+                "[aw=w] with fe(countyreal region#year) and controls(x) vs "
+                "Stata did_imputation",
+                "sp.did_imputation(weights=..., fe=[...], controls=...)",
+            ),
         ),
         invariant={
             "vce": (_EST, "the covariance is computed after the imputation"),
         },
         note="The Stata rows for the Y(0)-model options were regenerated in "
         "double precision on 2026-10-02; in single precision Stata sat 2e-6 "
-        "from the exact answer. Weighted fits, custom fixed-effect specs and "
-        "the bootstrap SE have no reference row.",
+        "from the exact answer. Stata's estimates come from reghdfe's "
+        "fixed-effect solver (tolerance 1e-8, not exposed) and sit up to "
+        "9e-7 from the exact imputation, which StatsPAI equals. "
+        "unitcontrols() stays a disclosure for the estimate (Stata's "
+        "iteration does not settle below 1e-6 there; fixture 94's run with "
+        "controls() next to it moved 2.8e-6 between two runs). The "
+        "bootstrap SE has no reference row.",
     )
 )
 
@@ -2068,16 +2201,32 @@ _add(
                 "(diagonal and off-diagonal) vs did2s::did2s(i(rel_year))",
                 "sp.gardner_did(event_study=True)",
             ),
+            _Row(
+                "T2",
+                _RP + "test_gardner_stage2_R_parity.py",
+                {**_DID2S_BASE, "vce": _vals("stage2"), "event_study": _vals("off")},
+                _EST_SE,
+                "the legacy second-stage-only SE vs the hand-run second stage: "
+                "lm(y_tilde ~ D) with sandwich::vcovCL(type='HC1') on the "
+                "county (Stata regress, vce(cluster)), first stage by dense lm",
+                "sp.gardner_did(vce='stage2')",
+            ),
         ),
         invariant={
             "vce": (_EST, "the covariance is computed after the two stages"),
         },
-        note="vce='stage2' is the pre-correction convention and understates; "
-        "module 73 records its size as a diagnostic, not as a reference row. "
+        note="vce='stage2' is the pre-correction convention and understates "
+        "(it treats the first stage as known). Its reference row pins that "
+        "the number is the hand-run second-stage SE it documents, not that "
+        "it is a valid SE; the static form only, since the event-study "
+        "headline under stage2 treats the horizons as independent and has "
+        "no counterpart (its per-horizon SEs are compared in the same file). "
         "The bootstrap SE has no reference row; covariates and weights have "
         "one in the general form (treat= / fe=) only, one at a time.",
     )
 )
+
+_ES_OPT = _RP + "test_event_study_options_R_parity.py"
 
 _TWFE_ES_RAN = {
     "adoption": _vals("single_date"),
@@ -2129,9 +2278,9 @@ _add(
                 "T2",
                 _RP + "test_event_study_grid_R_parity.py",
                 {
-                    "adoption": _vals("single_date"),
-                    "window": _vals("-4_4"),
-                    "ref_period": _vals("-1"),
+                    "adoption": _vals("single_date", "staggered"),
+                    "window": _vals("-4_4", "other"),
+                    "ref_period": _vals("-1", "other"),
                     "covariates": _vals("none", "set"),
                     "weights": _vals("none", "set"),
                     "cluster": _vals("unit"),
@@ -2140,21 +2289,258 @@ _add(
                     "absorb": _vals("none"),
                 },
                 _EST_SE,
-                "with and without a time-varying covariate and unit-level "
-                "weights, vs fixest::feols: every coefficient and SE to 1e-10",
+                "the full 32-cell grid (adoption x window (-4, 4) / (-3, 5) x "
+                "reference -1 / -2 x a time-varying covariate x unit-level "
+                "weights) vs fixest::feols: every coefficient and SE to 1e-10",
                 "sp.event_study(covariates=..., weights=...)",
             ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("-4_4", "other"),
+                    "ref_period": _vals("-1", "other"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("none"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "staggered adoption with eight other windows (narrower, wider "
+                "than the data, asymmetric, no leads) and five other "
+                "references (-2, the clipped endpoint -4, a span, both "
+                "interval forms), vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("none", "set"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "staggered adoption, unweighted and with weights constant "
+                "within a unit or varying over time, on the balanced and an "
+                "unbalanced panel, vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("set"),
+                    "weights": _vals("set"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "staggered adoption with a covariate and weights, vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none", "set"),
+                    "weights": _vals("none"),
+                    "cluster": _vals("other"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "clustered by state (coarser than the unit) and by period, "
+                "and by state with a covariate on an unbalanced panel, vs "
+                "fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("single_date"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("set"),
+                    "cluster": _vals("other"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "a single adoption date, weighted, clustered by state, vs "
+                "fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("other"),
+                    "ref_period": _vals("other"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("none"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("set"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none", "set"),
+                },
+                _EST_SE,
+                "bins of width 2 and 3 with a bin-aligned span and an "
+                "interval reference, and with a region-by-time effect "
+                "absorbed, vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("single_date"),
+                    "window": _vals("other"),
+                    "ref_period": _vals("other"),
+                    "covariates": _vals("set"),
+                    "weights": _vals("none"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("set"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "bins of width 2 on a single adoption date with a covariate, "
+                "vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("single_date"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("none", "set"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("set"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "intensity x period regressors from a common adoption date, "
+                "unweighted and weighted, vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("single_date"),
+                    "window": _vals("other"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("none"),
+                    "cluster": _vals("other"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("set"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "intensity from a common date, window (-6, 5), clustered by "
+                "state, vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("none"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("set"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "intensity on a staggered adoption column, vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none", "set"),
+                    "weights": _vals("none"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("set"),
+                },
+                _EST_SE,
+                "region-by-time and state-by-time effects absorbed, the "
+                "latter with a covariate, vs fixest::feols",
+                "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_OPT,
+                {
+                    "adoption": _vals("single_date"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("set"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("set"),
+                },
+                _EST_SE,
+                "a region-by-time effect absorbed on a single adoption date, "
+                "weighted, vs fixest::feols",
+                "sp.event_study(...)",
+            ),
         ),
-        note="The registered rows are non-staggered by construction: a "
-        "saturated dynamic TWFE regression on a staggered panel is the "
-        "contaminated estimator the heterogeneity-robust methods replace, and "
-        "matching a reference there would certify the specification, not the "
-        "estimand. tests/reference_parity/test_event_study_grid_R_parity.py "
-        "also checks a staggered panel, the window (-3, 5) and the reference "
-        "period -2 against fixest (28 more cells). Those are not credited "
-        "here: the staggered ones for the reason above, the others because "
-        "one other window and one other reference period are not evidence "
-        "for every 'other'.",
+        note="On a staggered panel this saturated dynamic TWFE regression is "
+        "the contaminated estimator the heterogeneity-robust methods "
+        "replace: the staggered rows pin that sp.event_study computes the "
+        "regression it documents (every coefficient and SE as fixest::feols "
+        "computes it), not that its coefficients are clean dynamic effects. "
+        "'other' windows and references are credited on the evidence of "
+        "thirteen other windows and six other reference specifications "
+        "(-2, -3, the clipped endpoint -4, a span, both interval forms), "
+        "not one. With absorb= the SE follows reghdfe's count of redundant "
+        "fixed effects; fixest's nested K does not detect that a^time spans "
+        "the time effects, so its reference fit drops the redundant term "
+        "(same coefficients, exact K). Before 2026-10-15 unbalanced panels "
+        "and weights varying within a unit were demeaned by one pass of "
+        "unit and time means, which is not the two-way projection; the "
+        "option fixture pins the corrected fit.",
     )
 )
 

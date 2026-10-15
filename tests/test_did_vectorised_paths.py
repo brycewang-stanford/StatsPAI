@@ -109,14 +109,8 @@ def test_a_missing_cluster_label_counts_as_a_cluster_with_no_score():
     np.testing.assert_array_equal(sums[2], [0.0, 0.0])
 
 
-@pytest.mark.parametrize("weighted", [False, True])
-def test_twfe_demeaning_is_one_unit_sweep_then_one_period_sweep(weighted):
-    d = _panel(seed=2, drop=0.2)
-    w = d["w"].to_numpy().copy() if weighted else None
-    if weighted:
-        w[d["id"].to_numpy() == 3] = 0.0  # zero-weight unit: plain mean
-    cols = ["y", "x1", "treated"]
-
+def _sweeps(d, cols, w):
+    """One unit sweep then one period sweep, written out per group."""
     # a copy: under copy-on-write (pandas 3) to_numpy can hand back a
     # read-only view of the frame, and the loop below demeans in place
     want = d[cols].to_numpy(dtype=float).copy()
@@ -128,18 +122,70 @@ def test_twfe_demeaning_is_one_unit_sweep_then_one_period_sweep(weighted):
             else:
                 mean = want[m].mean(axis=0)
             want[m] -= mean
+    return want
 
+
+@pytest.mark.parametrize("weighted", [False, True])
+def test_twfe_demeaning_on_a_balanced_panel_is_one_sweep_each(weighted):
+    """With unit-level weights one sweep each is the two-way projection, and
+    the fast path keeps the historical arithmetic (module 85's numbers)."""
+    d = _panel(seed=2)
+    w = None
+    if weighted:
+        w = d.groupby("id")["w"].transform("first").to_numpy().copy()
+        w[d["id"].to_numpy() == 3] = 0.0  # zero-weight unit: plain mean
+    cols = ["y", "x1", "treated"]
+    want = _sweeps(d, cols, w)
     Y, X, names = es._demean_twfe(d, "y", ["x1", "treated"], "id", "t", w=w)
     assert names == ["x1", "treated"]
     np.testing.assert_allclose(Y, want[:, 0], rtol=RTOL, atol=1e-13)
     np.testing.assert_allclose(X, want[:, 1:], rtol=RTOL, atol=1e-13)
 
 
+@pytest.mark.parametrize("weighted", [False, True])
+def test_twfe_demeaning_on_an_unbalanced_panel_is_the_two_way_projection(weighted):
+    """⚠️ correctness fix (2026-10-15): one sweep each is not the projection
+    on an unbalanced panel, or with weights varying within a unit. The
+    result must be orthogonal to every unit and every period dummy in the
+    weighted inner product; zero-weight rows are left at zero."""
+    d = _panel(seed=2, drop=0.2)
+    w = d["w"].to_numpy().copy() if weighted else None
+    if weighted:
+        w[d["id"].to_numpy() == 3] = 0.0
+    cols = ["y", "x1", "treated"]
+    Y, X, _ = es._demean_twfe(d, "y", ["x1", "treated"], "id", "t", w=w)
+    Z = np.column_stack([Y, X])
+    wv = np.ones(len(d)) if w is None else w
+    for ids in (d["id"].to_numpy(), d["t"].to_numpy()):
+        for g in np.unique(ids):
+            m = ids == g
+            np.testing.assert_allclose(
+                (wv[m][:, None] * Z[m]).sum(axis=0), 0.0, atol=1e-10
+            )
+    # it is the residual of the dummy-variable regression
+    D = np.column_stack(
+        [
+            pd.get_dummies(d["id"]).to_numpy(float),
+            pd.get_dummies(d["t"]).to_numpy(float)[:, 1:],
+        ]
+    )
+    raw = d[cols].to_numpy(dtype=float)
+    pos = wv > 0
+    sw = np.sqrt(wv[pos])
+    coef = np.linalg.lstsq(D[pos] * sw[:, None], raw[pos] * sw[:, None], rcond=None)[0]
+    np.testing.assert_allclose(Z[pos], raw[pos] - D[pos] @ coef, atol=1e-10)
+    if weighted:
+        assert np.all(Z[~pos] == 0.0)
+    # and the historical single sweep is not
+    assert np.abs(Z - _sweeps(d, cols, w)).max() > 1e-3
+
+
 def test_event_study_matches_dummy_variable_ols_on_an_unbalanced_panel():
-    # On an unbalanced panel one unit sweep and one period sweep is not the
-    # two-way projection, so the reference here is the estimator's own
-    # definition: OLS of the swept outcome on the swept event-time dummies,
-    # CR1 by unit with the unit effects nested in the cluster.
+    # The reference is the estimator's definition: OLS on unit and period
+    # dummies and the event-time dummies, CR1 by unit with the unit effects
+    # nested in the cluster. (Until 2026-10-15 this test swept unit then
+    # period means once each, which is not that regression on an unbalanced
+    # panel; it pinned the defect it should have caught.)
     d = _panel(n_units=80, seed=3, drop=0.1)
     r = sp.event_study(d, "y", "tt", "t", "id", window=(-2, 2))
     tab = r.model_info["event_study"]
@@ -147,11 +193,14 @@ def test_event_study_matches_dummy_variable_ols_on_an_unbalanced_panel():
 
     rel = (d["t"] - d["tt"]).clip(-2, 2)
     dums = np.column_stack([(rel == k).to_numpy(dtype=float) for k in (-2, 0, 1, 2)])
+    D = np.column_stack(
+        [
+            pd.get_dummies(d["id"]).to_numpy(float),
+            pd.get_dummies(d["t"]).to_numpy(float)[:, 1:],
+        ]
+    )
     Z = np.column_stack([d["y"].to_numpy(), dums])
-    for ids in (d["id"].to_numpy(), d["t"].to_numpy()):
-        for g in np.unique(ids):
-            m = ids == g
-            Z[m] -= Z[m].mean(axis=0)
+    Z = Z - D @ np.linalg.lstsq(D, Z, rcond=None)[0]
     yv, X = Z[:, 0], Z[:, 1:]
     bread = np.linalg.inv(X.T @ X)
     beta = bread @ X.T @ yv

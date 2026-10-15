@@ -6,15 +6,15 @@ time-varying) x weights (none, unit-level). Each cell is a two-way
 fixed-effects regression on event-time dummies clustered on the unit,
 fitted by ``fixest::feols`` in ``_fixtures/_generate_event_study_grid_R.R``.
 
-Four cells are registered in ``sp.validation_scope``: a single adoption
-date at the default window and reference period, with and without the
-covariate and the weights. The rest are checked here and deliberately not
-registered. On a staggered panel this regression is the contaminated
+All 32 cells are registered in ``sp.validation_scope`` (since
+2026-10-15). On a staggered panel this regression is the contaminated
 estimator that the heterogeneity-robust methods replace, and agreeing
 with a reference there shows the arithmetic is right, not that the
-estimand is. And one other window and one other reference period are not
-evidence for every other one, which is what the map's ``other`` value
-would claim.
+estimand is; the map's note says so. The map's ``other`` window and
+reference values rest on this grid together with
+``test_event_study_options_R_parity.py``, which runs a dozen more windows
+and five more reference specifications, rather than on the one
+alternative each that this grid runs.
 """
 
 from __future__ import annotations

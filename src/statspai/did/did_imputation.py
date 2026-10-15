@@ -172,9 +172,10 @@ def did_imputation(
             fe=['unit', 'state#year']    # unit FE + state-by-year FE
             fe=[]                        # no fixed effects at all
 
-        Levels are factorized over the whole panel, so a cell seen only
-        among treated rows still gets a column and is imputed rather than
-        silently absorbing the reference level.
+        A level carried by treated rows only (a state-year in which every
+        unit is treated, under ``'state#year'``) has no untreated row to
+        estimate it, so those rows cannot be imputed: the call raises, as
+        Stata does, and ``autosample=True`` drops them.
     horizon : list of int, optional
         Relative time periods for event study estimates,
         e.g. ``list(range(-5, 6))``. If ``None``, reports only the
@@ -282,7 +283,9 @@ def did_imputation(
     autosample : bool, default False
         Stata ``did_imputation, autosample``. A treated observation whose
         unit (or period) has no untreated observation has no imputable
-        fixed effect. By default that is an error, as in Stata; with
+        fixed effect; with ``fe=``, the same holds for a level of any of
+        the fixed effects named there. By default that is an error, as in
+        Stata; with
         ``autosample=True`` those observations are dropped from the
         estimation sample, with a warning and the count in
         ``model_info['n_obs_autosample_dropped']``. Typical case: units
@@ -558,11 +561,9 @@ def did_imputation(
         raise MethodIncompatibility(
             f"autosample must be True or False, got {autosample!r}"
         )
+    fe_specs = _fe_spec_columns(df, fe, group, time)
     if autosample:
-        untr = df["_untreated_obs"]
-        unit_ok = df[group].isin(df.loc[untr, group].unique())
-        time_ok = df[time].isin(df.loc[untr, time].unique())
-        bad = df["_treated_obs"] & ~(unit_ok & time_ok)
+        bad = _unimputable_treated_rows(df, fe_specs)
         n_autosample_dropped = int(bad.sum())
         if n_autosample_dropped:
             warnings.warn(
@@ -574,6 +575,25 @@ def did_imputation(
                 stacklevel=2,
             )
             df = df[~bad].copy()
+    elif fe is not None:
+        # ⚠️ correctness fix (2026-10-15): a level of a custom fixed effect
+        # carried by treated rows only (a state-year in which every county
+        # is treated, under fe=['unit', 'state#year']) has no untreated row
+        # to estimate it. The design gave it no column, so those rows were
+        # imputed at the reference level's effect: on mpdta with
+        # fe=['countyreal', 'state#year'] the ATT came back -1.118 with no
+        # warning, where Stata did_imputation stops ("Could not impute FE
+        # for 291 observations"). The default two-way model is checked
+        # below with its own messages.
+        bad = _unimputable_treated_rows(df, fe_specs)
+        if bad.any():
+            raise ValueError(
+                f"did_imputation: could not impute the fixed effects of "
+                f"{int(bad.sum())} treated observation(s): a level of "
+                f"fe={list(fe)} that they carry has no untreated observation "
+                "(Stata did_imputation stops here too). Pass autosample=True "
+                "to drop those observations, or use coarser fixed effects."
+            )
 
     n_treated = df["_treated_obs"].sum()
     n_untreated = df["_untreated_obs"].sum()
@@ -607,11 +627,18 @@ def did_imputation(
     treated_mask = df["_treated_obs"].values
     treated_uids = np.unique(df.loc[treated_mask, "_uid"].values)
     treated_tids = np.unique(df.loc[treated_mask, "_tid"].values)
+    # The two-way default model needs both effects of every treated row. A
+    # custom fe= was checked level by level above, and may not carry a unit
+    # or a period effect at all (fe=['year'], fe=[]).
     missing_units = [
-        unit_ids[int(ui)] for ui in treated_uids if unit_adj_count[int(ui)] <= 0
+        unit_ids[int(ui)]
+        for ui in treated_uids
+        if fe is None and unit_adj_count[int(ui)] <= 0
     ]
     missing_times = [
-        time_ids[int(ti)] for ti in treated_tids if time_resid_count[int(ti)] <= 0
+        time_ids[int(ti)]
+        for ti in treated_tids
+        if fe is None and time_resid_count[int(ti)] <= 0
     ]
     if missing_units:
         preview = ", ".join(map(str, missing_units[:5]))
@@ -1237,6 +1264,51 @@ def _ols_coef(X: np.ndarray, y: np.ndarray) -> np.ndarray:
         return np.zeros(X.shape[1])
 
 
+def _fe_spec_columns(
+    df: pd.DataFrame, fe: Optional[Sequence[str]], group: str, time: str
+) -> List[List[str]]:
+    """The columns of each fixed effect of the Y(0) model.
+
+    ``fe=None`` is the two-way ``[[group], [time]]``; an entry ``'a#b'`` is
+    the cell ``['a', 'b']``. Column names are checked as in
+    :func:`_build_fe_blocks`.
+    """
+    if fe is None:
+        return [[group], [time]]
+    out: List[List[str]] = []
+    for spec in fe:
+        if not isinstance(spec, str) or not spec.strip():
+            raise ValueError(
+                f"fe entries must be non-empty strings, got {spec!r}. Use "
+                "'state' for a single factor or 'state#year' for the "
+                "interacted cell."
+            )
+        parts = [p.strip() for p in spec.split("#") if p.strip()]
+        missing = [p for p in parts if p not in df.columns]
+        if missing:
+            raise ValueError(
+                f"fe='{spec}' names column(s) {missing} that are not in the "
+                f"data. Available: {sorted(df.columns)[:12]}..."
+            )
+        out.append(parts)
+    return out
+
+
+def _unimputable_treated_rows(
+    df: pd.DataFrame, fe_specs: Sequence[Sequence[str]]
+) -> pd.Series:
+    """Treated rows carrying a fixed-effect level no untreated row has."""
+    untr = df["_untreated_obs"].to_numpy(dtype=bool)
+    bad = np.zeros(len(df), dtype=bool)
+    for cols in fe_specs:
+        key = pd.MultiIndex.from_arrays([df[c].to_numpy() for c in cols])
+        codes, _ = pd.factorize(key)
+        seen = np.zeros(int(codes.max()) + 1 if len(codes) else 0, dtype=bool)
+        seen[codes[untr]] = True
+        bad |= ~seen[codes]
+    return pd.Series(bad & df["_treated_obs"].to_numpy(dtype=bool), index=df.index)
+
+
 def _build_fe_blocks(
     df: pd.DataFrame,
     untreated: pd.DataFrame,
@@ -1251,12 +1323,11 @@ def _build_fe_blocks(
     requests in Stata.
 
     Levels are factorized over the **full** panel, not the untreated
-    subsample, so that a level appearing only among treated rows still
-    receives a column and its Y(0) is imputed rather than silently taking
-    the reference level's value. Levels never seen untreated end up
-    unidentified; ``lsqr`` returns the minimum-norm solution there, and
-    the caller's untreated-coverage check is what rejects the genuinely
-    unimputable cases.
+    subsample, so codes are comparable between the untreated fit and the
+    all-rows prediction. A level never seen untreated gets no column; the
+    caller rejects (or, under ``autosample``, drops) the treated rows that
+    carry one before the fit (``_unimputable_treated_rows``), since they
+    would otherwise be imputed at the reference level's effect.
 
     Returns ``(blocks, codes_over_full_panel)`` where each block is
     ``(name, codes_on_untreated, n_levels)``.
