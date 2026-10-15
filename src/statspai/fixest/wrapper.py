@@ -465,12 +465,16 @@ def _prefer_compiled_demeaner(pf_fn: Any, pf_kwargs: Dict[str, Any]) -> None:
     converges slowly with many sparse fixed-effect levels: on 400,000 rows
     with 100,000 firm effects it took 41 s where ``demeaner_backend='rust'``
     took 0.2 s, with the same coefficients and standard errors (both stop
-    at ``fixef_tol``). Older pyfixest releases without the option or without
-    the compiled core keep their default.
+    at ``fixef_tol``). pyfixest 0.60 made the compiled demeaner its default
+    and turned ``demeaner_backend`` into a deprecated legacy argument that
+    may not be combined with its typed ``demeaner=``, so nothing is added
+    when the function takes ``demeaner``. Releases without the option or
+    without the compiled core keep their default.
     """
-    if "demeaner_backend" in pf_kwargs:
+    if "demeaner_backend" in pf_kwargs or "demeaner" in pf_kwargs:
         return
-    if "demeaner_backend" not in inspect.signature(pf_fn).parameters:
+    params = inspect.signature(pf_fn).parameters
+    if "demeaner" in params or "demeaner_backend" not in params:
         return
     if importlib.util.find_spec("pyfixest.core._core_impl") is None:
         return
@@ -506,14 +510,16 @@ def _first_stage_demeaner(fml: str, pf_kwargs: Dict[str, Any]) -> Iterator[None]
         return
     with _FIRST_STAGE_PATCH_LOCK:
         original = getattr(module, "feols", None)
-        if original is None:
+        if original is None or "demeaner" in inspect.signature(original).parameters:
+            # pyfixest 0.60+ hands the first stage the model's resolved
+            # ``demeaner=``; adding the legacy argument would be refused.
             yield
             return
-        module.feols = functools.partial(original, demeaner_backend=backend)
+        setattr(module, "feols", functools.partial(original, demeaner_backend=backend))
         try:
             yield
         finally:
-            module.feols = original
+            setattr(module, "feols", original)
 
 
 _FE_TERM = re.compile(r"__fixed_effect__\((.+?)\)$")
@@ -535,7 +541,7 @@ def _written_order_encoder(original: Any) -> Any:
 
     @functools.wraps(original)
     def encode(fixed_effects: str, data: pd.DataFrame) -> str:
-        out = original(fixed_effects=fixed_effects, data=data)
+        out = str(original(fixed_effects=fixed_effects, data=data))
         written = [
             t.replace("^", "_")
             for t in dict.fromkeys(re.split(r"\s*\+\s*", fixed_effects.strip()))
@@ -565,11 +571,11 @@ def _written_fe_order() -> Iterator[None]:
         if original is None:
             yield
             return
-        module._encode_fixed_effects = _written_order_encoder(original)
+        setattr(module, "_encode_fixed_effects", _written_order_encoder(original))
         try:
             yield
         finally:
-            module._encode_fixed_effects = original
+            setattr(module, "_encode_fixed_effects", original)
 
 
 # --------------------------------------------------------------------------- #

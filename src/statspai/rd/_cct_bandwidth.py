@@ -226,7 +226,7 @@ def _nn_residuals(
     run_of_row = np.repeat(np.arange(n_runs), counts)
     total = sums[run_of_row]
     ji = (width - 1)[run_of_row].astype(float)
-    return np.sqrt(ji / (ji + 1.0)) * (y - (total - y) / ji)
+    return np.asarray(np.sqrt(ji / (ji + 1.0)) * (y - (total - y) / ji))
 
 
 _VCE_KINDS = frozenset({"nn", "hc0", "hc1", "hc2", "hc3"})

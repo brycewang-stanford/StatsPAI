@@ -239,7 +239,7 @@
    "result_sha256": "b89cab74aaedc16e8b571d753b9af9747d7cfc6c950dfb9773885d4cd8d1d526"
   },
   "05_lee_original": {
-   "seconds": 0.73,
+   "seconds": 0.74,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -262,7 +262,7 @@
     "src/statspai/exceptions.py": "f08449b52d42502943e06847ace55f0b97c35f61c9e3b7e8c70fd11c46a0a859",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
-    "src/statspai/rd/_cct_bandwidth.py": "c6a7cbd6ef273538dede61c858d119857c14070782e7be7a05aa6b94a2efff70",
+    "src/statspai/rd/_cct_bandwidth.py": "d512a42a94fd85a47eab2b0ea2a82eb25d9ef2a9768e69d6f0ae0ed1013c67b7",
     "src/statspai/rd/_core.py": "3c5ad051e6e4cf17cdee86ff845d76dbc955f61ee1a21e9ee5ef32f977a126de",
     "src/statspai/rd/rdrobust.py": "328513ce3fe3572c44a4c0a10856c9954e99d1fdf95bf176d354c84107254a1e"
    },

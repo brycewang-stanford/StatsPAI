@@ -69,7 +69,7 @@ def _iv_cluster_vcov(
         moments_c = (AX[idx] * resid[idx, None]).sum(axis=0)
         meat += np.outer(moments_c, moments_c)
     correction = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
-    return correction * bread @ meat @ bread
+    return np.asarray(correction * bread @ meat @ bread)
 
 
 def _two_way_se(V: np.ndarray, names: List[str]) -> np.ndarray:
@@ -93,7 +93,7 @@ def _two_way_se(V: np.ndarray, names: List[str]) -> np.ndarray:
             RuntimeWarning,
             stacklevel=3,
         )
-    return se
+    return np.asarray(se)
 
 
 def iv_twoway_vcov(

@@ -7,6 +7,7 @@ choice wins, and that the estimates do not depend on it.
 """
 
 import functools
+import inspect
 
 import numpy as np
 import pandas as pd
@@ -57,10 +58,17 @@ def _capture(monkeypatch, name):
 def test_compiled_demeaner_is_requested(monkeypatch, panel, name, call):
     seen = _capture(monkeypatch, name)
     call(panel)
-    assert seen["demeaner_backend"] == "rust"
+    if "demeaner" in inspect.signature(getattr(pf, name)).parameters:
+        # pyfixest >= 0.60: the compiled demeaner is the default and the
+        # legacy argument must not be combined with its typed ``demeaner=``.
+        assert "demeaner_backend" not in seen
+    else:
+        assert seen["demeaner_backend"] == "rust"
 
 
 def test_explicit_backend_wins_and_estimates_agree(monkeypatch, panel):
+    if "demeaner" in inspect.signature(pf.feols).parameters:
+        pytest.skip("pyfixest >= 0.60 takes a typed demeaner= instead")
     seen = _capture(monkeypatch, "feols")
     numba = sp.feols(
         "y ~ x | firm + year",

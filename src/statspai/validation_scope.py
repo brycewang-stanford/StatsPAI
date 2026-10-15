@@ -134,6 +134,13 @@ def _mi(result: Any) -> Dict[str, Any]:
     return dict(getattr(result, "model_info", None) or {})
 
 
+#: Boolean ``model_info`` flags to their domain labels; a missing flag maps
+#: to None (typed ``Any`` keys because ``model_info`` values are untyped).
+_TRUE_FALSE: Dict[Any, str] = {True: "true", False: "false"}
+_SHARE_VARIANCE: Dict[Any, str] = {True: "estimated", False: "fixed"}
+_HORIZON: Dict[Any, str] = {True: "horizons", False: "overall"}
+
+
 def _lower(v: Any) -> Optional[str]:
     return None if v is None else str(v).lower()
 
@@ -296,6 +303,7 @@ def _x_sa(r: Any) -> Dict[str, Optional[str]]:
     # ``control_group`` is recorded as passed, and is ignored when
     # ``control_cohort=`` names the control; the label says which ran.
     label = str(mi.get("control_cohort") or "")
+    control: Optional[str]
     if label == "nevertreated":
         control = "nevertreated"
     elif label.startswith("lastcohort"):
@@ -307,9 +315,7 @@ def _x_sa(r: Any) -> Dict[str, Optional[str]]:
     return {
         "control_group": control,
         "aggregation": _lower(mi.get("summary_aggregation")),
-        "share_variance": {True: "estimated", False: "fixed"}.get(
-            mi.get("share_variance")
-        ),
+        "share_variance": _SHARE_VARIANCE.get(mi.get("share_variance")),
         "window_rule": _lower(mi.get("window_rule")),
     }
 
@@ -321,9 +327,7 @@ def _x_bjs(r: Any) -> Dict[str, Optional[str]]:
         "covariates": _lower(mi.get("y0_covariates")),
         "vce": _lower(mi.get("vce")),
         "weights": _set(mi.get("weights")),
-        "horizon": {True: "horizons", False: "overall"}.get(
-            mi.get("horizon_requested")
-        ),
+        "horizon": _HORIZON.get(mi.get("horizon_requested")),
     }
 
 
@@ -370,7 +374,7 @@ def _x_etwfe(r: Any) -> Dict[str, Optional[str]]:
         "family": (
             None if family is None else ("linear" if family == "linear" else "glm")
         ),
-        "panel": {True: "true", False: "false"}.get(mi.get("panel")),
+        "panel": _TRUE_FALSE.get(mi.get("panel")),
         "cgroup": _lower(mi.get("cgroup")),
         "controls": None if "controls" not in mi else _set(mi.get("controls")),
         "xvar": None if "xvar" not in mi else _set(mi.get("xvar")),
@@ -399,6 +403,7 @@ def _x_etwfe_glm(r: Any) -> Dict[str, Optional[str]]:
 
 def _x_rd(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
+    vce: Optional[str]
     if mi.get("cluster") is not None:
         vce = "cluster"
     else:
@@ -454,7 +459,7 @@ def _x_dcdh_dyn(r: Any) -> Dict[str, Optional[str]]:
     n_placebo = sum(1 for h in horizons if h < 0)
     group, cluster = mi.get("group"), mi.get("cluster_var")
     balanced = mi.get("balanced_panel")
-    flag = {True: "true", False: "false"}
+    flag: Dict[Any, str] = {True: "true", False: "false"}
     return {
         "se_method": _lower(mi.get("se_method")),
         "aggregation": _lower(mi.get("aggregation")),
@@ -6046,9 +6051,9 @@ def validation_scope(
             }
             if ok:
                 evidence.append(rec)
-                key = (row.kind, row.artifact, row.compares)
+                row_key = (row.kind, row.artifact, row.compares)
                 entry = matched.setdefault(
-                    key,
+                    row_key,
                     {
                         **rec,
                         "configuration": {k: sorted(v) for k, v in row.config.items()},
