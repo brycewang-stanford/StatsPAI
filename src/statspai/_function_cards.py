@@ -184,15 +184,6 @@ FUNCTION_CARDS: Dict[str, Card] = {
             "no covariates are needed — the unconditional 2x2 (sp.did) has the "
             "same estimand without nuisance models",
         ],
-        "failure_modes": [
-            _fm(
-                "Propensity scores near 0 or 1 in the treated group",
-                "statspai.exceptions.AssumptionWarning",
-                "Conditional parallel trends needs overlap; trim or drop the "
-                "covariate that predicts treatment almost perfectly",
-                "sp.trimming",
-            ),
-        ],
         "cost_profile": "n_boot bootstrap replications of a logit + OLS fit; O(n_boot x n).",
     },
     "ddd": {

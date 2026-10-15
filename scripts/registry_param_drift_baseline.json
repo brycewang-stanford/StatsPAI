@@ -261,9 +261,6 @@
       "weight_decay",
       "x"
     ],
-    "drdid": [
-      "random_state"
-    ],
     "dyadic_regression": [
       "intercept"
     ],
@@ -317,11 +314,6 @@
       "n_mc",
       "seed"
     ],
-    "g_computation": [
-      "alpha",
-      "ml_Q",
-      "seed"
-    ],
     "gformula_ice_fn": [
       "seed"
     ],
@@ -337,9 +329,6 @@
       "n_bootstrap",
       "normalize",
       "seed"
-    ],
-    "iv_diag": [
-      "grid_size"
     ],
     "ivreg": [
       "conley_cutoff",
@@ -511,14 +500,6 @@
       "alpha",
       "random_state"
     ],
-    "psmatch2": [
-      "alpha",
-      "distance",
-      "n_matches",
-      "ps_poly",
-      "replace",
-      "y"
-    ],
     "qdid": [
       "method",
       "seed"
@@ -586,13 +567,6 @@
     "sequential_sdid": [
       "alpha",
       "seed"
-    ],
-    "spec_curve": [
-      "alpha",
-      "cluster_var",
-      "se_types",
-      "subsets",
-      "y_transforms"
     ],
     "spillover": [
       "random_state"
@@ -671,16 +645,6 @@
       "alpha",
       "gmm_lags",
       "robust"
-    ],
-    "xtnbreg": [
-      "alpha",
-      "dispersion",
-      "maxiter",
-      "robust",
-      "tol",
-      "weights",
-      "x",
-      "y"
     ]
   }
 }

@@ -1340,14 +1340,22 @@ def family_members() -> Dict[str, List[str]]:
 #: the statement (an assumption string, or a failure mode's symptom).
 #:
 #: Entries come from reading the cards of the 30 entry points audited by
-#: ``scripts/agent_card_audit.py`` (2026-10-03). The rest of the registry
-#: has not been read this way.
+#: ``scripts/agent_card_audit.py`` (2026-10-03), and of the fifth ten
+#: (2026-10-15). The rest of the registry has not been read this way.
+#: ``drop`` / ``add`` take ``assumptions``, ``failure_modes`` (added as
+#: whole dicts) and ``pre_conditions`` (:func:`apply_precondition_overrides`).
 _ORDERED = "Ordered models (ologit / oprobit)"
 _IIA = "Multinomial logit: independence of irrelevant alternatives"
 _USE_CS = "For staggered / heterogeneous effects: use CS or SA"
 _TWFE_STAGGERED = "Staggered treatment timing with TWFE method"
+# Pre-conditions of the longitudinal g-methods template and of `did`.
+_SEQUENTIAL_DATA = "Sequentially measured covariates, (time-varying) treatment"
+_SEQUENTIAL_MODELS = "Models for the treatment process and the outcome"
+_DID_TREAT_SHAPE = "treat column is binary (0/1) for 2x2, or first-treatment"
+_DID_ID_COLUMN = "for staggered designs: id column"
+_DID_PANEL_OR_RCS = "data is panel or repeated cross-section"
 
-VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[str]]]] = {
+VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[Any]]]] = {
     # These estimators ARE the remedy the parent `did` card recommends; on
     # their own cards the advice and the TWFE failure mode do not apply.
     "callaway_santanna": {
@@ -1444,6 +1452,7 @@ VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[str]]]] = {
                 "Positivity: every treatment level is possible given the past",
                 "Correct specification of the treatment and/or outcome models",
             ],
+            "pre_conditions": [_SEQUENTIAL_DATA, _SEQUENTIAL_MODELS],
         },
         "add": {
             "assumptions": [
@@ -1453,6 +1462,168 @@ VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[str]]]] = {
                 "point treatment given the covariates",
                 "Positivity / overlap: 0 < P(D=1 | X) < 1 on the estimand's " "support",
             ],
+            "pre_conditions": [
+                "A binary (0/1) point treatment measured once, and covariates "
+                "measured before it",
+            ],
+        },
+    },
+    # ---- read on 2026-10-15 with the fifth ten of the audit ------------ #
+    # The point-treatment g-formula, filed under the longitudinal g-methods
+    # template like ``ipw``; it has no weights and no treatment model.
+    "g_computation": {
+        "drop": {
+            "assumptions": [
+                "Sequential exchangeability",
+                "Positivity: every treatment level is possible given the past",
+                "Correct specification of the treatment and/or outcome models",
+            ],
+            "failure_modes": ["Stabilized weights have extreme values"],
+            "pre_conditions": [_SEQUENTIAL_DATA, _SEQUENTIAL_MODELS],
+        },
+        "add": {
+            "assumptions": [
+                "Unconfoundedness: no unmeasured confounding of the point "
+                "treatment given the covariates",
+                "Positivity / overlap: every treatment level is observed at the "
+                "covariate values the estimand averages over; otherwise the "
+                "outcome model extrapolates",
+                "The outcome model is correctly specified: standardization is "
+                "not doubly robust, except by_arm=True with ps_covariates= "
+                "(regression adjustment with inverse-probability weights)",
+            ],
+            "failure_modes": [
+                {
+                    "symptom": "estimand='ATE' or 'ATT' with a treatment that is "
+                    "not 0/1",
+                    "exception": "ValueError",
+                    "remedy": "Use estimand='dose_response' with treat_values= "
+                    "the dose levels to evaluate",
+                },
+                {
+                    "symptom": "estimand='dose_response' without treat_values",
+                    "exception": "ValueError",
+                    "remedy": "Pass treat_values=, the treatment levels at which "
+                    "to evaluate the curve",
+                },
+                {
+                    "symptom": "se_method='analytic' or ps_covariates= without "
+                    "by_arm=True",
+                    "exception": "MethodIncompatibility",
+                    "remedy": "Add by_arm=True: both belong to the regression "
+                    "fitted in each treatment arm",
+                },
+            ],
+            "pre_conditions": [
+                "A point treatment measured once: 0/1 for estimand='ATE' / "
+                "'ATT', numeric with treat_values= for estimand='dose_response'",
+                "Covariates measured before the treatment",
+            ],
+        },
+    },
+    # Interactive fixed effects, filed under the synthetic-control template:
+    # no convex donor weights, and no exception on a poor pre-period fit.
+    "gsynth": {
+        "drop": {
+            "assumptions": ["A convex (or regularized) combination of donor units"],
+            "failure_modes": ["Large pre-treatment RMSPE"],
+            "pre_conditions": ["Pre-treatment window long enough to fit donor"],
+        },
+        "add": {
+            "assumptions": [
+                "Untreated outcomes follow an interactive fixed-effects model: "
+                "unit and period effects plus unit loadings times a few common "
+                "period factors; the counterfactual is not a convex combination "
+                "of donors",
+                "The number of factors is small next to the number of "
+                "pre-treatment periods; it is chosen by cross-validation up to "
+                "max_factors unless n_factors is given",
+            ],
+            "failure_modes": [
+                {
+                    "symptom": "Poor pre-treatment fit: the factor model does not "
+                    "track the treated units before treatment",
+                    "exception": "(none — informational)",
+                    "remedy": "Plot the fit and the pre-treatment gaps; raise "
+                    "max_factors, add covariates, or compare with sp.sdid",
+                    "alternative": "sp.sdid",
+                },
+                {
+                    "symptom": "A treated unit has fewer than min_T0 "
+                    "pre-treatment periods",
+                    "exception": "(none — UserWarning)",
+                    "remedy": "The unit is dropped with a warning and the "
+                    "estimate covers the other treated units; lower min_T0 only "
+                    "if the factors can be estimated from fewer periods",
+                },
+            ],
+            "pre_conditions": [
+                "At least min_T0 (default 5) pre-treatment periods for every "
+                "treated unit, and more pre-treatment periods than factors",
+                "With treat=: a balanced panel and an absorbing 0/1 treatment "
+                "column",
+            ],
+        },
+    },
+    # A reporting bundle: it measures instrument strength, so a weak first
+    # stage is a result it reports, not a precondition or an exception.
+    "iv_diag": {
+        "drop": {
+            "failure_modes": ["Weak first stage — biased point estimates"],
+            "pre_conditions": ["A strong first stage"],
+        },
+        "add": {
+            "failure_modes": [
+                {
+                    "symptom": "Weak first stage: a small effective F, an "
+                    "infinite tF critical value, an unbounded Anderson-Rubin set",
+                    "exception": "(none — reported in the result)",
+                    "remedy": "Report effective_F and the Anderson-Rubin / CLR "
+                    "sets instead of the Wald interval; an unbounded set means "
+                    "the data do not bound the effect",
+                    "alternative": "sp.anderson_rubin_ci",
+                },
+            ],
+            "pre_conditions": [
+                "Exactly one endogenous regressor (endog names one column) and "
+                "one or more excluded instruments",
+            ],
+        },
+    },
+    # dCDH estimators inherit the `did` dispatcher's card: its TWFE advice,
+    # its 2x2 / first-treatment-period data shape and its pre-trend failure
+    # mode (which neither raises) do not describe them.
+    "did_multiplegt": {
+        "drop": {
+            "assumptions": [
+                _USE_CS,
+                "Parallel trends: treated and control groups",
+                "No anticipation: outcomes in pre",
+            ],
+            "failure_modes": [
+                _TWFE_STAGGERED,
+                "Pre-trend joint test p < 0.05",
+                "Few clusters at unit level",
+                "Few *treated* clusters",
+            ],
+            "pre_conditions": [_DID_TREAT_SHAPE, _DID_ID_COLUMN, _DID_PANEL_OR_RCS],
+        },
+    },
+    "did_multiplegt_dyn": {
+        "drop": {
+            "assumptions": [
+                _USE_CS,
+                "Parallel trends: treated and control groups",
+                "No anticipation: outcomes in pre",
+                "SUTVA: no spillovers",
+            ],
+            "failure_modes": [
+                _TWFE_STAGGERED,
+                "Pre-trend joint test p < 0.05",
+                "Few clusters at unit level",
+                "Few *treated* clusters",
+            ],
+            "pre_conditions": [_DID_TREAT_SHAPE, _DID_ID_COLUMN, _DID_PANEL_OR_RCS],
         },
     },
 }
@@ -2315,7 +2486,28 @@ def apply_variant_overrides(
         for fm in failure_modes
         if not (drop_f and str(fm.get("symptom", "")).startswith(drop_f))
     ]
+    seen_f = {str(fm.get("symptom", "")) for fm in modes}
+    for fm in add.get("failure_modes", ()):
+        if fm["symptom"] not in seen_f:
+            modes.append(dict(fm))
     return kept, modes
+
+
+def apply_precondition_overrides(name: str, pre_conditions: List[str]) -> List[str]:
+    """``VARIANT_OVERRIDES`` for ``pre_conditions``; no-op without an entry.
+
+    Kept apart from :func:`apply_variant_overrides` so its two-list
+    signature stays as callers use it.
+    """
+    override = VARIANT_OVERRIDES.get(name)
+    if not override:
+        return pre_conditions
+    drop = tuple(override.get("drop", {}).get("pre_conditions", ()))
+    kept = [p for p in pre_conditions if not (drop and str(p).startswith(drop))]
+    for text in override.get("add", {}).get("pre_conditions", ()):
+        if text not in kept:
+            kept.append(text)
+    return kept
 
 
 __all__ = [
@@ -2324,6 +2516,7 @@ __all__ = [
     "MEMBER_FAILURE_MODES",
     "STATEMENT_SCOPE",
     "VARIANT_OVERRIDES",
+    "apply_precondition_overrides",
     "apply_variant_overrides",
     "expand_family_cards",
     "family_members",

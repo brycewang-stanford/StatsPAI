@@ -204,6 +204,45 @@ def test_rcs_clustervars_analytic_and_bootstrap():
     assert r.model_info["se_method"] == "multiplier"
 
 
+def test_rcs_bootstrap_reaches_the_headline_and_aggte():
+    """⚠️ Through 1.39 the repeated cross-section path bootstrapped the
+    ATT(g, t) cells but kept the analytic SE for the headline aggregate and
+    the convenience event study, while ``se_method`` said ``'multiplier'``;
+    and since its ``model_info`` had no ``bstrap`` key, ``sp.aggte(fit)``
+    did not inherit the bootstrap (R ``did``'s ``aggte`` does). The panel
+    path did both. Now the headline is the same multiplier draw as
+    ``sp.aggte(type='simple')`` with the fit's seed, as on a panel."""
+    df = _rcs_panel(seed=5)
+    kw = dict(y="y", g="g", t="t", i="obs", estimator="dr", panel=False)
+    analytic = callaway_santanna(df, **kw)
+    boot = callaway_santanna(df, bstrap=True, biters=499, random_state=7, **kw)
+    assert boot.estimate == analytic.estimate
+    assert boot.se != pytest.approx(analytic.se, rel=1e-6)
+    same_draw = aggte(boot, type="simple", random_state=7)
+    assert same_draw.model_info["bstrap"] is True  # inherited from the fit
+    assert boot.se == pytest.approx(same_draw.se, rel=1e-12)
+    es = boot.model_info["event_study"].set_index("relative_time")
+    es_analytic = analytic.model_info["event_study"].set_index("relative_time")
+    assert not np.allclose(es["se"], es_analytic["se"], rtol=1e-6)
+    for key in ("weights", "weighted", "covariates", "clustervars", "bstrap"):
+        assert key in boot.model_info, key
+    assert boot.model_info["biters"] == 499
+
+
+@pytest.mark.parametrize("estimator", ["stdipw", "ipw_abadie"])
+def test_rcs_ipw_variants_are_not_the_cell_mean_regression(estimator):
+    """⚠️ On panel=False 'stdipw' and 'ipw_abadie' used to fall through to
+    the cell-mean outcome regression; R parity is in
+    tests/reference_parity/test_cs_options_R_parity.py."""
+    df = _rcs_panel(seed=2)
+    df["x1"] = np.random.default_rng(0).normal(size=len(df))
+    kw = dict(y="y", g="g", t="t", i="obs", x=["x1"], panel=False)
+    r = callaway_santanna(df, estimator=estimator, **kw)
+    assert "Sant'Anna-Zhao" in r.model_info["estimator"]
+    cell_mean = callaway_santanna(df, estimator="reg", **{**kw, "x": None})
+    assert r.estimate != pytest.approx(cell_mean.estimate, rel=1e-6)
+
+
 # --------------------------------------------------------------------------- #
 # Comparison with panel mode                                                  #
 # --------------------------------------------------------------------------- #

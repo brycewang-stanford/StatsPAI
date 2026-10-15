@@ -1059,8 +1059,13 @@
     "name": "xtnbreg",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level",
+          "type": "number"
+        },
         "cluster": {
-          "description": "Cluster variable; defaults to entity for FE",
+          "description": "Cluster variable for model='pooled' / 'ufe' ('ufe' clusters on entity by default); refused by 'fe', 're' and 'normal_re'",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -1069,8 +1074,17 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "dispersion": {
+          "default": "mean",
+          "description": "'mean' (NB2) or 'constant' (NB1) for model='pooled' / 'ufe'; the HHG models have their own panel-constant dispersion",
+          "enum": [
+            "mean",
+            "constant"
+          ],
+          "type": "string"
+        },
         "entity": {
-          "description": "Panel/unit identifier",
+          "description": "Panel/unit identifier. Required by every model except 'pooled' unless the formula carries '| id'",
           "type": "string",
           "x-aliases": [
             "id"
@@ -1084,7 +1098,7 @@
           "x-statspai-role": "column"
         },
         "formula": {
-          "description": "Formula such as 'count ~ x1 + x2'",
+          "description": "Formula such as 'count ~ x1 + x2', or 'count ~ x1 | id' to name the panel id; pass y= and x= instead to skip it",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -1092,6 +1106,11 @@
           "default": false,
           "description": "irr parameter (bool).",
           "type": "boolean"
+        },
+        "maxiter": {
+          "default": 100,
+          "description": "Maximum iterations",
+          "type": "integer"
         },
         "model": {
           "default": "fe",
@@ -1110,6 +1129,15 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "robust": {
+          "default": "nonrobust",
+          "description": "Standard errors for model='pooled' / 'ufe' (as sp.nbreg). The HHG models ('fe', 're') and 'normal_re' report the model-based variance only and refuse anything else",
+          "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
+          "x-canonical": "vce"
+        },
         "time": {
           "description": "Optional time column",
           "type": "string",
@@ -1119,12 +1147,32 @@
           "default": false,
           "description": "Include time dummies for model='fe'",
           "type": "boolean"
+        },
+        "tol": {
+          "default": 1e-08,
+          "description": "Convergence tolerance",
+          "type": "number"
+        },
+        "weights": {
+          "description": "Weight column for model='pooled' / 'ufe'; refused by 'fe' and 're', ignored with a warning by 'normal_re'",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "x": {
+          "description": "Regressor columns (alternative to formula)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Count outcome column (alternative to formula)",
+          "type": "string",
+          "x-statspai-role": "column"
         }
       },
       "required": [
-        "formula",
-        "data",
-        "entity"
+        "data"
       ],
       "type": "object"
     }
@@ -3942,6 +3990,11 @@
           "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
           "type": "integer"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the ATT confidence interval",
+          "type": "number"
+        },
         "ate": {
           "default": false,
           "description": "Stata ate: also match controls to treated (ATU/ATE in model_info); _weight != . then marks units used as a match",
@@ -3975,7 +4028,7 @@
           "type": "string"
         },
         "covariates": {
-          "description": "Pre-treatment covariates entering the propensity-score model. Optional when ``pscore`` names a fitted score.",
+          "description": "Propensity-score covariates; required unless pscore= names a fitted score column",
           "items": {
             "type": "string"
           },
@@ -3989,6 +4042,10 @@
           "description": "Cross-section with one row per unit (the matching sample).",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "distance": {
+          "description": "Matching metric; 'propensity' reproduces psmatch2",
+          "type": "string"
         },
         "kernel": {
           "default": "epan",
@@ -4019,6 +4076,10 @@
           ],
           "type": "string"
         },
+        "n_matches": {
+          "description": "Alias of neighbor (number of nearest neighbours)",
+          "type": "integer"
+        },
         "neighbor": {
           "default": 1,
           "description": "Number of nearest neighbours k",
@@ -4038,6 +4099,11 @@
           ],
           "type": "string"
         },
+        "ps_poly": {
+          "default": 1,
+          "description": "Polynomial degree of the propensity-score model",
+          "type": "integer"
+        },
         "pscore": {
           "description": "Column holding a fitted score to match on (Stata pscore()); covariates= is then optional",
           "type": "string"
@@ -4050,6 +4116,11 @@
             "pairs"
           ],
           "type": "string"
+        },
+        "replace": {
+          "default": true,
+          "description": "Match with replacement (psmatch2 default)",
+          "type": "boolean"
         },
         "se": {
           "default": "psmatch2",
@@ -4071,12 +4142,16 @@
           "description": "Binary treatment column (0/1)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Alias of outcome",
+          "type": "string",
+          "x-statspai-role": "column"
         }
       },
       "required": [
         "data",
-        "treat",
-        "covariates"
+        "treat"
       ],
       "type": "object"
     }
@@ -10411,6 +10486,20 @@
     "name": "spec_curve",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance threshold",
+          "type": "number"
+        },
+        "cluster_var": {
+          "description": "Column for clustered SEs; adds 'cluster' to se_types",
+          "type": "string",
+          "x-aliases": [
+            "cluster"
+          ],
+          "x-canonical": "cluster",
+          "x-statspai-role": "column"
+        },
         "controls": {
           "description": "Candidate control sets to sweep",
           "items": {
@@ -10435,6 +10524,23 @@
           },
           "type": "array"
         },
+        "se_types": {
+          "description": "Standard-error types to sweep (default ['nonrobust', 'hc1']); 'cluster' needs cluster_var and is dropped without it",
+          "items": {
+            "enum": [
+              "nonrobust",
+              "hc1",
+              "robust",
+              "cluster"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "subsets": {
+          "description": "Named sub-samples: label -> boolean mask aligned with data (None = full sample)",
+          "type": "object"
+        },
         "x": {
           "description": "Treatment / focal regressor",
           "type": "string",
@@ -10444,6 +10550,10 @@
           "description": "Outcome variable column name.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "y_transforms": {
+          "description": "Named outcome transformations: label -> callable on the outcome Series (None = untransformed)",
+          "type": "object"
         }
       },
       "required": [
@@ -10801,6 +10911,11 @@
     "name": "g_computation",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level",
+          "type": "number"
+        },
         "by_arm": {
           "default": false,
           "description": "Fit a linear outcome regression in each treatment arm (regression adjustment, Stata teffects ra) instead of one regression with the treatment as a regressor",
@@ -10829,6 +10944,10 @@
           ],
           "type": "string"
         },
+        "ml_Q": {
+          "description": "Outcome model: any estimator with .fit(X, y) / .predict(X); default OLS",
+          "type": "string"
+        },
         "n_boot": {
           "default": 500,
           "description": "Bootstrap replications for SE",
@@ -10849,6 +10968,10 @@
             "analytic"
           ],
           "type": "string"
+        },
+        "seed": {
+          "description": "Bootstrap random seed",
+          "type": "integer"
         },
         "treat": {
           "description": "Treatment variable",
@@ -20717,6 +20840,11 @@
           "type": "array",
           "x-statspai-role": "columns"
         },
+        "grid_size": {
+          "default": 401,
+          "description": "Points in the AR / CLR / K grid inversion",
+          "type": "integer"
+        },
         "h0": {
           "default": 0.0,
           "description": "Null hypothesis for AR/CLR/K",
@@ -24428,7 +24556,7 @@
     }
   },
   {
-    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
+    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The treatment may be binary or discrete (an effect per unit of treatment). For the dCDH (2024) intertemporal event study (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
     "name": "did_multiplegt",
     "parameters": {
       "properties": {
@@ -24669,8 +24797,12 @@
           "description": "est_method='ipw' only. True = Hajek-normalised (std_ipw_did_*), control arm divided by its own weight mass. False = Abadie (2005) (ipw_did_*), both arms sharing the denominator E[D].",
           "type": "boolean"
         },
+        "random_state": {
+          "description": "Inert alias of seed: no step draws random numbers",
+          "type": "integer"
+        },
         "seed": {
-          "description": "Random seed for reproducible stochastic steps.",
+          "description": "Inert: no step draws random numbers (recorded in the provenance only)",
           "type": "integer"
         },
         "time": {
@@ -26743,7 +26875,7 @@
     }
   },
   {
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the default se_method is the cluster bootstrap; se_method='analytic' is the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and computes the joint tests from it; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "name": "did_multiplegt_dyn",
     "parameters": {
       "properties": {
@@ -31215,7 +31347,8 @@
           "description": "Standard-error mode. ``'analytic'`` is the two-stage corrected clustered variance of Butts & Gardner (2022): the Stage-2 influence function is adjusted for the estimation of the Stage-1 fixed effects (see the module docstring), which is what R ``did2s`` and Stata ``did2s`` report and what StatsPAI reproduces to ~1e-8 relative. ``'bootstrap'`` resamples whole clusters and re-runs the full two-step procedure. ``'none'`` skips inference (``se``, ``ci`` and ``pvalue`` are NaN); it is what the bootstrap uses internally. Point estimates are identical in every mode.",
           "enum": [
             "analytic",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },
@@ -34876,7 +35009,8 @@
           "enum": [
             "auto",
             "parametric",
-            "nonparametric"
+            "nonparametric",
+            "none"
           ],
           "type": "string"
         },
@@ -35714,7 +35848,8 @@
           "enum": [
             "two-way",
             "unit",
-            "time"
+            "time",
+            "none"
           ],
           "type": "string"
         },
@@ -36944,6 +37079,10 @@
         "covariates": {
           "default": "none",
           "description": "Fixed-effects forests only: time-varying covariates for the untreated model behind the imputation scores. Returns dict with keys ``estimate``, ``se``, ``ci_low``, ``ci_high``, ``target``, ``toc_curve`` (``(q_grid, 2)``), ``n``, ``method``, ``priority_source``, ``n_clusters``. References [@yadlowsky2025evaluating] Examples >>> import numpy as np >>> import pandas as pd >>> import statspai as sp >>> rng = np.random.default_rng(42) >>> n = 400 >>> X = rng.normal(size=(n, 3)) >>> T = rng.binomial(1, 0.5, size=n) >>> tau = 1.0 + X[:, 0] # heterogeneous effect >>> Y = X[:, 1] + tau * T + rng.normal(scale=0.5, size=n) >>> df = pd.DataFrame({ ... \"y\": Y, \"d\": T, ... \"x0\": X[:, 0], \"x1\": X[:, 1], \"x2\": X[:, 2], ... }) >>> cf = sp.causal_forest( ... data=df, formula=\"y ~ d | x0 + x1 + x2\", ... n_estimators=50, random_state=0, ... ) >>> res = sp.rate(cf, target=\"AUTOC\") >>> sorted(res.keys()) ['ci_high', 'ci_low', 'estimate', 'method', 'n', 'n_clusters', \\ >>> res[\"toc_curve\"].shape (100, 2)",
+          "enum": [
+            "none",
+            "auto"
+          ],
           "type": "string"
         },
         "forest": {
@@ -40757,7 +40896,8 @@
           "description": "Small-sample factor applied to the heteroskedasticity-robust sandwich. ``\"stata\"`` multiplies by ``N/(N-1)``, the Stata ``glm``/``ppmlhdfe vce(robust)`` convention (matches ``ppmlhdfe`` at machine precision). ``\"fixest\"`` multiplies by ``(N-1)/(N-K)`` with ``K`` counting the slopes plus the absorbed fixed-effect levels (minus one per additional fixed-effect dimension for collinearity), the ``fixest::fepois`` default ``ssc(adj = TRUE, fixef.K = \"full\")``. ``\"none\"`` applies no factor. The three differ by less than ``sqrt(N/(N-K))`` and are documented, not competing, conventions; point estimates are unaffected. Clustered variances keep the ``G/(G-1)`` factor.",
           "enum": [
             "stata",
-            "fixest"
+            "fixest",
+            "none"
           ],
           "type": "string"
         },
@@ -45087,7 +45227,8 @@
           "enum": [
             "two-way",
             "unit",
-            "time"
+            "time",
+            "none"
           ],
           "type": "string"
         },
@@ -60057,6 +60198,7 @@
           "default": "analytical",
           "description": "inference parameter (str).",
           "enum": [
+            "none",
             "bootstrap",
             "analytical"
           ],
@@ -60171,6 +60313,10 @@
         "inference": {
           "default": "none",
           "description": "inference parameter (str).",
+          "enum": [
+            "none",
+            "bootstrap"
+          ],
           "type": "string"
         },
         "n_boot": {
@@ -60420,7 +60566,8 @@
           "description": "inference parameter (str).",
           "enum": [
             "analytical",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },
@@ -60824,7 +60971,8 @@
           "description": "inference parameter (str).",
           "enum": [
             "analytical",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },
@@ -61116,7 +61264,8 @@
           "description": "``'none'``: point estimates only. ``'analytical'`` (default): delta-method standard errors from the two regressions' classical OLS covariances (``s^2 (X'X)^{-1}``, ``s^2`` on ``n - p``), block-diagonal across the two models -- Stata ``paramed`` / R ``CMAverse`` ``inference = \"delta\"``. Up to 1.28.0 this option computed nothing and ``se`` was ``None``.",
           "enum": [
             "analytical",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },
@@ -61189,7 +61338,8 @@
           "description": "``\"bootstrap\"`` returns SEs and percentile CIs from the non-parametric (cluster-aware) bootstrap. ``\"analytic\"`` (only with ``method=\"efficient\"``) returns the efficient-influence-function SEs and Wald CIs of ``cdgd``. ``\"none\"`` skips inference.",
           "enum": [
             "bootstrap",
-            "analytic"
+            "analytic",
+            "none"
           ],
           "type": "string"
         },
@@ -64146,6 +64296,10 @@
         "se": {
           "default": "bootstrap",
           "description": "``'bootstrap'`` resamples **units**, preserving within-unit dependence. There is no analytic option: Canay's two-step variance depends on the first step, and a naive quantile-regression SE would understate it.",
+          "enum": [
+            "bootstrap",
+            "none"
+          ],
           "type": "string"
         },
         "seed": {
@@ -64785,7 +64939,8 @@
           "enum": [
             "auto",
             "analytic",
-            "bootstrap"
+            "bootstrap",
+            "none"
           ],
           "type": "string"
         },

@@ -127,8 +127,8 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         "bias_correction=True follows a different convention",
     ],
     "did_multiplegt_dyn": [
-        "switch-off events are handled, but the",
-        "se_method='analytic' reproduces DIDmultiplegtDYN's variance only",
+        "the heteroskedastic-weights variant (dCDH 2023 EJ survey)",
+        "the default se_method is the cluster bootstrap",
         # Documented parity boundary, not a code path that raises: the
         # headline weights differ from DIDmultiplegtDYN's Av_tot_eff and
         # both are reachable. Pinned in Track A module 78.

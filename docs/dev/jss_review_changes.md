@@ -3871,3 +3871,34 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/orig_parity/results/04_lalonde_original_py.json`
   - `tests/orig_parity/results/04b_nsw_psid_original_py.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-15 — honest_did FLCI centre at M = 0
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** This entry's commit.
+- **Reason.** At `M = 0` the FLCI under `Delta^SD` is a closed form: the
+  minimum-variance estimator unbiased under a linear trend through the
+  reference period, plus or minus `z` standard deviations. The native
+  solver ran its SLSQP program there too; it reached the half-length but
+  not the centre, which on correlated covariances missed the closed form by
+  up to 1.4e-3 of the half-length (HonestDiD's `BCdata_EventStudy`,
+  `e = 0`; `tests/reference_parity/test_honest_did_options_R_parity.py`).
+  `M = 0` now uses the closed form; `M > 0` is unchanged.
+- **Effect on the paper.** Track A module 10 only, its `M = 0` rows: every
+  `M = 0` bound moves by 2.19e-9 (`ci_lower_M_0` 0.301547089171849 to
+  0.301547091360523, `ci_upper_M_0` 0.697024335022253 to
+  0.697024337210905; the `shipped_` and `analytic_` copies of the same two
+  numbers move identically; `breakdown_m_e0` moves by 1e-16). The headline
+  `analytic_ci_*_M_0` gap to R's closed form falls from 2.2e-9 to 4.4e-16;
+  module 10's headline maximum is still the `M > 0` rows' 1.4e-8, so the
+  table entry, the PASS verdict and the 1e-6 budget are unchanged. The
+  Stata column of the non-headline `ci_*_M_0` rows moves in the third digit
+  (1.82e-6 to 1.83e-6, 7.89e-7 to 7.92e-7). Module 21 reproduces byte for
+  byte.
+- **Paths.**
+  - `tests/r_parity/results/10_honest_did_py.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/results/_implementation_trace.json`

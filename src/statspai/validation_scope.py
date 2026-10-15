@@ -236,12 +236,50 @@ def _x_feols(r: Any) -> Dict[str, Optional[str]]:
     }
 
 
+def _cs_estimator(label: Any) -> Optional[str]:
+    """The ATT(g, t) estimator behind a recorded label.
+
+    The panel path records ``estimator.upper()``; the repeated cross-section
+    path appends the engine (``"DR (RCS, Sant'Anna-Zhao)"``, ``"REG (RCS,
+    cell-mean)"``, `` -- unbalanced panel``). ``'stdipw'`` is ``'ipw'`` under
+    Stata's name (the same code path).
+    """
+    name = _lower(label)
+    if name is None:
+        return None
+    name = name.split(" ", 1)[0]
+    return "ipw" if name == "stdipw" else name
+
+
+def _cs_sample(r: Any, mi: Mapping[str, Any]) -> Optional[str]:
+    if mi.get("allow_unbalanced_panel"):
+        return "unbalanced_panel"
+    if mi.get("panel") is False:
+        return "rcs"
+    units, periods = mi.get("n_units"), mi.get("n_periods")
+    n_obs = getattr(r, "n_obs", None)
+    if mi.get("balance") == "pair" and units and periods and n_obs is not None:
+        # balance='pair' on a panel with missing unit-periods: each cell uses
+        # the units seen in both of its periods (csdid 1.8x's rule).
+        if int(n_obs) < int(units) * int(periods):
+            return "unbalanced_pair"
+    return "panel"
+
+
 def _x_cs(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
     anticipation = mi.get("anticipation")
     return {
-        "estimator": _lower(mi.get("estimator")),
+        "sample": _cs_sample(r, mi),
+        "estimator": _cs_estimator(mi.get("estimator")),
         "control_group": _lower(mi.get("control_group")),
+        # Consulted only under the not-yet-treated comparison set; under the
+        # never-treated one every value runs the same estimator.
+        "notyet_cutoff": (
+            "period"
+            if _lower(mi.get("control_group")) == "nevertreated"
+            else _lower(mi.get("notyet_cutoff", "period"))
+        ),
         "weights": "weighted" if mi.get("weighted") else "none",
         "covariates": None if "covariates" not in mi else _set(mi.get("covariates")),
         "inference": "bootstrap" if mi.get("bstrap") else "analytic",
@@ -518,6 +556,41 @@ def _x_nnmatch(r: Any) -> Dict[str, Optional[str]]:
         "vce": vce,
         "vce_nn": "na" if vce == "iid" else (None if vce_nn is None else str(vce_nn)),
         "caliper": "none" if mi.get("caliper") is None else "set",
+    }
+
+
+_HONEST_SOURCES = (
+    "callaway_santanna",
+    "sun_abraham",
+    "event_study",
+    "etwfe",
+    "gardner_did",
+    "did_imputation",
+    "moments",
+    "supplied",
+    "other",
+)
+
+
+def _x_honest(r: Any) -> Dict[str, Optional[str]]:
+    """``sp.honest_did`` returns a table; its configuration is in ``attrs``."""
+    at = dict(getattr(r, "attrs", None) or {})
+    alpha = at.get("alpha")
+    source = at.get("source")
+    return {
+        "restriction": at.get("restriction"),
+        "interval": at.get("interval"),
+        "code_path": at.get("code_path"),
+        "target": at.get("target"),
+        "window": at.get("window"),
+        "alpha": None if alpha is None else ("0.05" if alpha == 0.05 else "other"),
+        "m_grid": at.get("m_grid"),
+        "rm_grid": at.get("rm_grid"),
+        "source": (
+            None
+            if source is None
+            else (source if source in _HONEST_SOURCES else "other")
+        ),
     }
 
 
@@ -1543,8 +1616,10 @@ _add(
 )
 
 _CS_DOMAINS = {
-    "estimator": ("dr", "drimp", "reg", "ipw"),
+    "sample": ("panel", "unbalanced_panel", "rcs", "unbalanced_pair"),
+    "estimator": ("dr", "drimp", "reg", "ipw", "ipw_abadie"),
     "control_group": ("nevertreated", "notyettreated"),
+    "notyet_cutoff": ("period", "asinr", "cohort"),
     "weights": ("none", "weighted"),
     "covariates": ("none", "set"),
     "inference": ("analytic", "bootstrap"),
@@ -1552,6 +1627,29 @@ _CS_DOMAINS = {
     "anticipation": ("0", ">0"),
     "clustering": ("none", "set"),
 }
+#: The values most CS rows run; ``_cs(...)`` overrides them per row.
+_CS_BASE = {
+    "sample": ("panel",),
+    "estimator": ("dr",),
+    "control_group": ("nevertreated",),
+    "notyet_cutoff": ("period",),
+    "weights": ("none",),
+    "covariates": ("none",),
+    "inference": ("analytic",),
+    "base_period": ("universal",),
+    "anticipation": ("0",),
+    "clustering": ("none",),
+}
+
+
+def _cs(**over: Tuple[str, ...]) -> Dict[str, FrozenSet[str]]:
+    return {k: _vals(*over.get(k, v)) for k, v in _CS_BASE.items()}
+
+
+_CS_OPT = _RP + "test_cs_options_R_parity.py"
+_CS_96 = _RP + "test_csdid_options_stata_parity.py"
+_CS_GAPS = _RP + "test_cs_gaps_parity.py"
+_CS_NONEVER = _RP + "test_cs_no_never_unbalanced_parity.py"
 _add(
     _Scope(
         "callaway_santanna",
@@ -1561,16 +1659,7 @@ _add(
             _Row(
                 "T2",
                 _R + "04_csdid.py",
-                {
-                    "estimator": _vals("reg"),
-                    "control_group": _vals("nevertreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("none"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none"),
-                },
+                _cs(estimator=("reg",)),
                 _EST_SE,
                 "simple / dynamic / group ATT and analytic SEs vs did and csdid",
                 "sp.callaway_santanna(estimator='reg') + sp.aggte(bstrap=False)",
@@ -1578,16 +1667,12 @@ _add(
             _Row(
                 "T2",
                 _RP + "test_cs_weighted_parity.py",
-                {
-                    "estimator": _vals("dr", "reg", "ipw"),
-                    "control_group": _vals("nevertreated", "notyettreated"),
-                    "weights": _vals("none", "weighted"),
-                    "covariates": _vals("none", "set"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none"),
-                },
+                _cs(
+                    estimator=("dr", "reg", "ipw"),
+                    control_group=("nevertreated", "notyettreated"),
+                    weights=("none", "weighted"),
+                    covariates=("none", "set"),
+                ),
                 _EST_SE,
                 "simple / dynamic / group ATT and analytic SE vs did::att_gt over "
                 "dr/reg/ipw x never/not-yet x weights x covariates (72 cells)",
@@ -1595,17 +1680,18 @@ _add(
             ),
             _Row(
                 "T2",
+                _RP + "test_aggte_mpdta_parity.py",
+                _cs(base_period=("varying",)),
+                _EST_SE,
+                "did::mpdta: the simple, dynamic, group and calendar aggregates "
+                "and their analytic SEs vs did::aggte at its default varying "
+                "base period, to 1e-9 absolute",
+                "sp.aggte(cs_result, type=agg_type, bstrap=False)",
+            ),
+            _Row(
+                "T2",
                 _RP + "test_aggte_vcov_r_parity.py",
-                {
-                    "estimator": _vals("dr"),
-                    "control_group": _vals("nevertreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("none"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none"),
-                },
+                _cs(),
                 ("vcov",),
                 "every entry of the dynamic event-study covariance (off-diagonal "
                 "blocks included) vs did::aggte influence functions; the matrix "
@@ -1614,17 +1700,252 @@ _add(
             ),
             _Row(
                 "T2",
+                _CS_GAPS,
+                _cs(base_period=("universal", "varying"), anticipation=("0", ">0")),
+                _EST_SE,
+                "every ATT(g, t) and its analytic SE at anticipation 0, 1 and 2 "
+                "under both base periods vs did::att_gt, to 1e-7 (the (g, t) "
+                "grid itself is compared)",
+                "sp.callaway_santanna(panel, ...)",
+            ),
+            _Row(
+                "T2",
+                _CS_GAPS,
+                _cs(
+                    sample=("unbalanced_panel",),
+                    estimator=("dr", "ipw", "reg"),
+                    covariates=("none", "set"),
+                    base_period=("varying",),
+                ),
+                _EST_SE,
+                "allow_unbalanced_panel=True: every ATT(g, t) and its analytic SE "
+                "vs did::att_gt(allow_unbalanced_panel = TRUE) for dr / ipw / reg "
+                "with and without a covariate, to 1e-7",
+                "sp.callaway_santanna(unbalanced, ...)",
+            ),
+            _Row(
+                "T2",
+                _CS_NONEVER,
+                _cs(
+                    sample=("panel", "rcs"),
+                    estimator=("reg", "dr"),
+                    control_group=("notyettreated",),
+                    base_period=("universal", "varying"),
+                    anticipation=("0", ">0"),
+                ),
+                _EST_SE,
+                "a design without never-treated units: every ATT(g, t), the "
+                "simple aggregate and their analytic SEs vs did 2.5.1 on panel "
+                "and repeated cross-section data, both base periods, "
+                "anticipation 0 and 1, to 1e-8",
+                "sp.callaway_santanna(df, **kw)",
+            ),
+            _Row(
+                "T2",
+                _CS_NONEVER,
+                _cs(
+                    sample=("unbalanced_panel",),
+                    estimator=("reg", "dr"),
+                    control_group=("nevertreated", "notyettreated"),
+                    base_period=("varying",),
+                ),
+                _EST_SE,
+                "allow_unbalanced_panel=True under both control groups: every "
+                "ATT(g, t), the simple aggregate and their SEs vs did 2.5.1, "
+                "to 1e-8",
+                "sp.callaway_santanna(df, **kw)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_cs_notyet_cutoff_parity.py",
+                _cs(
+                    sample=("panel", "rcs"),
+                    control_group=("notyettreated",),
+                    covariates=("none", "set"),
+                    base_period=("universal", "varying"),
+                    anticipation=("0", ">0"),
+                ),
+                _EST_SE,
+                "not-yet-treated comparison set at the default notyet_cutoff: "
+                "every ATT(g, t) and its SE vs did 2.5.1 on panel and repeated "
+                "cross-section data, both base periods, anticipation 0 and 1, "
+                "with and without a covariate, to 1e-8",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_cs_rcs_parity.py",
+                _cs(
+                    sample=("rcs",),
+                    estimator=("dr", "ipw", "reg"),
+                    control_group=("nevertreated", "notyettreated"),
+                    covariates=("set",),
+                    base_period=("varying",),
+                ),
+                _EST_SE,
+                "did::mpdta as repeated cross-sections with lpop: the simple "
+                "aggregate and its SE vs did 2.5.1 (panel = FALSE) for dr / ipw "
+                "/ reg under both control groups",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_rcs_aggregation_conventions.py",
+                _cs(sample=("rcs",), estimator=("reg",)),
+                _EST,
+                "repeated cross-sections: the four overall aggregates and the "
+                "cohort cells vs did::aggte, and agg_weights='csdid' vs Stata "
+                "csdid, to 1e-12 (point estimates only)",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_csdid_conventions_stata_parity.py",
+                _cs(
+                    estimator=("reg",),
+                    control_group=("notyettreated",),
+                    notyet_cutoff=("period", "asinr", "cohort"),
+                ),
+                _EST,
+                "every ATT(g, t) vs Stata csdid method(reg) notyet long2 under "
+                "notyet_cutoff 'asinr', 'cohort' and the default, to 1e-9 "
+                "(fixture 82; point estimates only)",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_csdid_conventions_stata_parity.py",
+                _cs(estimator=("ipw", "ipw_abadie"), covariates=("set",)),
+                _EST,
+                "every ATT(g, t) vs Stata csdid method(stdipw) and method(ipw) "
+                "(Abadie) with lpop, to 1e-9 (fixture 82; point estimates only)",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_96,
+                _cs(
+                    estimator=("reg",),
+                    control_group=("notyettreated",),
+                    notyet_cutoff=("asinr", "cohort"),
+                ),
+                _EST_SE,
+                "notyet_cutoff 'asinr' and 'cohort': every ATT(g, t) and its "
+                "SE vs Stata csdid notyet long2 [asinr] method(reg), to 1e-8 "
+                "(fixture 96; R did has only the 'period' rule)",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_96,
+                _cs(estimator=("ipw_abadie",), covariates=("set",)),
+                _EST_SE,
+                "every ATT(g, t) and its SE vs Stata csdid method(ipw) with "
+                "lpop, to 1e-7 (fixture 96)",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_96,
+                _cs(sample=("unbalanced_pair",), covariates=("set",)),
+                _EST_SE,
+                "the default balance='pair' on an unbalanced panel (each cell "
+                "uses the units seen in both of its periods): every ATT(g, t) "
+                "and its SE vs Stata csdid 1.81 method(dripw) with lpop, to "
+                "1e-7 (fixture 96)",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_96,
+                _cs(
+                    sample=("unbalanced_pair",),
+                    estimator=("reg",),
+                    control_group=("notyettreated",),
+                    notyet_cutoff=("cohort",),
+                ),
+                _EST_SE,
+                "the default balance='pair' on an unbalanced panel: every "
+                "ATT(g, t) and its SE vs Stata csdid 1.81 notyet long2 "
+                "method(reg), to 1e-8 (fixture 96)",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_OPT,
+                _cs(
+                    sample=("panel", "rcs"),
+                    estimator=("drimp", "ipw_abadie"),
+                    covariates=("set",),
+                ),
+                _EST_SE,
+                "the improved doubly robust and the Abadie IPW estimators "
+                "(DRDID::drdid_imp_* / ipw_did_* as att_gt's est_method) on "
+                "panel and repeated cross-section data: every ATT(g, t), the four "
+                "aggregates, their per-cell rows and SEs vs did 2.5.1, to 1e-7",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_OPT,
+                _cs(
+                    estimator=("drimp",),
+                    control_group=("notyettreated",),
+                    covariates=("set",),
+                    base_period=("varying",),
+                ),
+                _EST_SE,
+                "drimp under the not-yet-treated comparison and the varying "
+                "base: cells, four aggregates and SEs vs did 2.5.1, to 1e-7",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_OPT,
+                _cs(estimator=("ipw",), covariates=("set",), clustering=("set",)),
+                _EST_SE,
+                "'ipw' and 'stdipw' with lpop and a 29-state cluster: cells, four "
+                "aggregates and analytic clustered SEs vs did 2.5.1, to 1e-7",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_OPT,
+                _cs(sample=("rcs",), estimator=("ipw",), covariates=("set",)),
+                _EST_SE,
+                "'ipw' and 'stdipw' on repeated cross-sections: cells, four "
+                "aggregates and SEs vs did 2.5.1 (std_ipw_did_rc), to 1e-7",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_OPT,
+                _cs(weights=("weighted",), covariates=("set",), anticipation=(">0",)),
+                _EST_SE,
+                "anticipation = 1 with unit weights and lpop: cells, four "
+                "aggregates, per-cell rows and SEs vs did 2.5.1, to 1e-7",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_OPT,
+                _cs(
+                    estimator=("reg",),
+                    control_group=("notyettreated",),
+                    base_period=("varying",),
+                    anticipation=(">0",),
+                    clustering=("set",),
+                ),
+                _EST_SE,
+                "anticipation = 1, not-yet-treated, varying base, 29-state "
+                "cluster: cells, four aggregates and clustered SEs vs did 2.5.1, "
+                "to 1e-7",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
                 _RP + "test_cs_rc_cluster_csdid_parity.py",
-                {
-                    "estimator": _vals("dr"),
-                    "control_group": _vals("nevertreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("none"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("set"),
-                },
+                _cs(sample=("panel", "rcs"), clustering=("set",)),
                 _EST_SE,
                 "clustered analytic SEs vs Stata csdid (v1) cluster() to 1e-9: "
                 "every ATT(g,t), group and simple aggregates, on a panel with "
@@ -1635,16 +1956,11 @@ _add(
             _Row(
                 "T2",
                 _RP + "test_cs_rc_weighted_aggte_did_parity.py",
-                {
-                    "estimator": _vals("dr"),
-                    "control_group": _vals("nevertreated"),
-                    "weights": _vals("weighted"),
-                    "covariates": _vals("none"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none", "set"),
-                },
+                _cs(
+                    sample=("rcs",),
+                    weights=("weighted",),
+                    clustering=("none", "set"),
+                ),
                 _EST_SE,
                 "weighted repeated cross-sections (panel=False): simple, "
                 "dynamic, group and calendar aggregates and their analytic "
@@ -1654,16 +1970,7 @@ _add(
             _Row(
                 "T2",
                 _RP + "test_cs_balance_full_did_parity.py",
-                {
-                    "estimator": _vals("dr"),
-                    "control_group": _vals("nevertreated", "notyettreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("none"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none"),
-                },
+                _cs(control_group=("nevertreated", "notyettreated")),
                 _EST_SE,
                 "unbalanced panel under balance='full' (drop units not "
                 "observed in every period): every ATT(g,t) and the four "
@@ -1674,16 +1981,12 @@ _add(
             _Row(
                 "T2",
                 _RP + "test_cs_cluster_analytic_parity.py",
-                {
-                    "estimator": _vals("dr"),
-                    "control_group": _vals("nevertreated", "notyettreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("none"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal", "varying"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("set"),
-                },
+                _cs(
+                    sample=("panel", "unbalanced_panel"),
+                    control_group=("nevertreated", "notyettreated"),
+                    base_period=("universal", "varying"),
+                    clustering=("set",),
+                ),
                 _EST_SE,
                 "clustered analytic SEs vs R did (>= 2.5.0) clustervars= to "
                 "1e-8 on nine clusters of unequal size: every ATT(g,t) and "
@@ -1694,55 +1997,37 @@ _add(
             _Row(
                 "T2",
                 _RP + "test_stata_did_commands_parity.py",
-                {
-                    "estimator": _vals("dr", "drimp"),
-                    "control_group": _vals("nevertreated", "notyettreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("set"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal", "varying"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none"),
-                },
+                _cs(
+                    control_group=("nevertreated", "notyettreated"),
+                    covariates=("set",),
+                    base_period=("universal", "varying"),
+                ),
                 _EST_SE,
-                "every ATT(g,t) and the simple / group / calendar / event "
-                "aggregates vs Stata csdid method(dripw) and method(drimp), "
-                "the improved doubly robust estimator, to 1e-5 (the logit "
-                "stopping rule); with a covariate that varies over time, vs "
-                "csdid and vs R did::att_gt to 1e-7",
-                "sp.callaway_santanna(estimator='drimp')",
+                "a covariate that varies over time, read in the earlier period "
+                "of each cell: every ATT(g, t) and its SE vs R did::att_gt, "
+                "to 1e-7",
+                "sp.callaway_santanna(",
             ),
             _Row(
-                "T2",
+                "T4",
                 _RP + "test_stata_did_commands_parity.py",
-                {
-                    "estimator": _vals("reg"),
-                    "control_group": _vals("notyettreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("set"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none"),
-                },
+                _cs(
+                    estimator=("dr", "drimp"),
+                    control_group=("nevertreated", "notyettreated"),
+                    covariates=("set",),
+                    base_period=("universal", "varying"),
+                ),
                 _EST_SE,
-                "every ATT(g,t) vs Stata csdid method(reg) notyet long2 with a "
-                "covariate that varies over time",
-                "sp.callaway_santanna(estimator='reg')",
+                "csdid lines run through sp.stata vs Stata csdid method(dripw) / "
+                "method(drimp): cells and estat aggregates agree to 2e-6, held "
+                "to 1e-5 because Stata's logit stops at its default tolerance "
+                "(a documented optimiser difference, not a 1e-6 parity row)",
+                "sp.stata(",
             ),
             _Row(
                 "S",
                 _RP + "test_cs_inference_parity.py",
-                {
-                    "estimator": _vals("dr"),
-                    "control_group": _vals("nevertreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("none"),
-                    "inference": _vals("bootstrap"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none", "set"),
-                },
+                _cs(inference=("bootstrap",), clustering=("none", "set")),
                 ("se",),
                 "multiplier-bootstrap SEs within 8-10% and uniform critical values "
                 "within 5% of did at 9,999 draws (one seed per side; a tolerance "
@@ -1752,16 +2037,7 @@ _add(
             _Row(
                 "B",
                 _B,
-                {
-                    "estimator": _vals("reg"),
-                    "control_group": _vals("nevertreated"),
-                    "weights": _vals("none"),
-                    "covariates": _vals("none"),
-                    "inference": _vals("analytic"),
-                    "base_period": _vals("universal"),
-                    "anticipation": _vals("0"),
-                    "clustering": _vals("none"),
-                },
+                _cs(estimator=("reg",)),
                 _COV,
                 "95% CI coverage of the simple ATT on a staggered DGP",
                 "sp.callaway_santanna(estimator='reg')",
@@ -1772,8 +2048,23 @@ _add(
                 _EST,
                 "the multiplier bootstrap resamples influence functions for SEs "
                 "and bands; the ATT(g,t) and their aggregates are unchanged",
-            )
+            ),
+            "base_period": (
+                _EST_SE,
+                "the headline is the simple aggregate of the post-treatment "
+                "cells, whose base period is g - 1 - anticipation under both "
+                "schemes; only the pre-treatment placebos (and so the event-"
+                "study covariance) differ (asserted equal in "
+                "tests/test_validation_scope.py)",
+            ),
         },
+        defaults={"sample": "panel", "notyet_cutoff": "period"},
+        note="'stdipw' is read as 'ipw' (the same estimator). sample="
+        "'unbalanced_pair' is an unbalanced panel fitted under the default "
+        "balance='pair' (csdid 1.8x's pairwise rule); R did drops incomplete "
+        "units instead (balance='full'), so its references are Stata csdid's. "
+        "The headline is the simple ATT of the fit; sp.aggte results do not "
+        "carry the fit's configuration and read as unchecked.",
     )
 )
 
@@ -4879,6 +5170,275 @@ _add(
     )
 )
 
+_HD_BASE = {
+    "restriction": ("smoothness",),
+    "interval": ("flci",),
+    "code_path": ("native",),
+    "target": ("single",),
+    "window": ("full",),
+    "alpha": ("0.05",),
+    "m_grid": ("zero_only", "zero", "positive"),
+    "rm_grid": ("n/a",),
+    "source": ("supplied",),
+}
+
+
+def _hd(**over: Tuple[str, ...]) -> Dict[str, FrozenSet[str]]:
+    cfg = dict(_HD_BASE, **over)
+    if "relative_magnitude" in cfg["restriction"] and "rm_grid" not in over:
+        cfg["rm_grid"] = ("honestdid",)
+    return {k: _vals(*v) for k, v in cfg.items()}
+
+
+_HD_RM = {"restriction": ("relative_magnitude",), "interval": ("arp_conditional",)}
+_HD_OPT = _RP + "test_honest_did_options_R_parity.py"
+_HD_MOM = _RP + "test_honest_did_moments_R_parity.py"
+_HD_STATA = _RP + "test_honest_did_lvec_window_Stata_parity.py"
+_HD_BACKEND = _RP + "test_honest_did_backend_parity.py"
+_add(
+    _Scope(
+        "honest_did",
+        {
+            "restriction": ("smoothness", "relative_magnitude"),
+            "interval": (
+                "flci",
+                "arp_conditional",
+                "arp_c_lf",
+                "arp_c_f",
+                "worst_case_bias",
+            ),
+            "code_path": ("native", "r"),
+            "target": ("single", "average", "weights"),
+            "window": ("full", "restricted"),
+            "alpha": ("0.05", "other"),
+            "m_grid": ("zero_only", "zero", "positive"),
+            "rm_grid": ("honestdid", "extended", "user", "n/a"),
+            "source": _HONEST_SOURCES,
+        },
+        _x_honest,
+        (
+            _Row(
+                "T2",
+                _R + "10_honest_did.py",
+                _hd(),
+                ("diagnostic",),
+                "FLCI bounds at five M on a diagonal covariance vs HonestDiD with "
+                "the exact folded-normal quantile (M > 0, 1.4e-8) and vs the "
+                "closed form at M = 0 (2.2e-9); Stata honestdid joins the rows",
+                "sp.honest_did(res, e=0, m_grid=M_GRID, method='smoothness')",
+            ),
+            _Row(
+                "T2",
+                _R + "21_honest_relmags.py",
+                _hd(**_HD_RM),
+                ("diagnostic",),
+                "relative-magnitudes Conditional set at five Mbar vs "
+                "HonestDiD::createSensitivityResults_relativeMagnitudes: the same "
+                "accepted grid points",
+                "sp.honest_did(res, method='relative_magnitude')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_honest_rm_R_parity.py",
+                _hd(**_HD_RM),
+                ("diagnostic",),
+                "through the public entry point on a supplied event study and "
+                "covariance: the Conditional set equals HonestDiD's to 1e-12 "
+                "(the engine alone also on correlated covariances and an "
+                "average target)",
+                "sp.honest_did(res, method='relative_magnitude')",
+            ),
+            _Row(
+                "S",
+                _RP + "test_honest_rm_R_parity.py",
+                _hd(
+                    restriction=("relative_magnitude",),
+                    interval=("arp_c_lf",),
+                    target=("single", "average"),
+                ),
+                ("diagnostic",),
+                "the conditional least-favourable hybrid (HonestDiD's default) "
+                "within one grid step of HonestDiD: its first-stage critical "
+                "value is simulated with each side's own RNG",
+                "sp.honest_did(res, method='relative_magnitude')",
+            ),
+            _Row(
+                "T2",
+                _HD_MOM,
+                _hd(**_HD_RM, target=("single", "average"), source=("moments",)),
+                ("diagnostic",),
+                "BCdata_EventStudy as raw arrays: the Conditional set for the "
+                "first post period and the post-period average equals "
+                "HonestDiD's to 1e-10",
+                "sp.honest_did_from_moments(",
+            ),
+            _Row(
+                "T4",
+                _HD_MOM,
+                _hd(
+                    **_HD_RM,
+                    target=("single", "average"),
+                    rm_grid=("extended",),
+                    source=("moments",),
+                ),
+                ("diagnostic",),
+                "where HonestDiD's set reaches the end of its +/-20 SD grid it "
+                "reports the grid end; the default native grid extends and "
+                "closes further out (asserted wider, a documented departure)",
+                "sp.honest_did_from_moments(",
+            ),
+            _Row(
+                "T2",
+                _HD_OPT,
+                _hd(
+                    **_HD_RM,
+                    target=("single", "average", "weights"),
+                    alpha=("0.05", "other"),
+                    rm_grid=("honestdid", "user"),
+                    source=("moments",),
+                ),
+                ("diagnostic",),
+                "BCdata_EventStudy: the Conditional set for a later post period, "
+                "the average, arbitrary weights, alpha = 0.10 and a user grid "
+                "(grid_lb / grid_ub / grid_points) equals HonestDiD's to 2e-13",
+                "sp.honest_did_from_moments(",
+            ),
+            _Row(
+                "T2",
+                _HD_OPT,
+                _hd(
+                    **_HD_RM,
+                    target=("single", "average", "weights"),
+                    window=("full", "restricted"),
+                    alpha=("0.05", "other"),
+                    source=("callaway_santanna",),
+                ),
+                ("diagnostic",),
+                "did::mpdta through sp.callaway_santanna vs did::att_gt + aggte "
+                "+ HonestDiD (the README pipeline): the event study and its "
+                "covariance to 1e-14, then the Conditional set for e = 0, 1, the "
+                "average and weights, alpha = 0.10 and window (-3, 2) to 2e-13",
+                "sp.honest_did(cs, **kw)",
+            ),
+            _Row(
+                "S",
+                _HD_OPT,
+                _hd(
+                    restriction=("relative_magnitude",),
+                    interval=("arp_c_lf",),
+                    target=("single", "average"),
+                    source=("callaway_santanna",),
+                ),
+                ("diagnostic",),
+                "did::mpdta through sp.callaway_santanna: the default C-LF hybrid "
+                "for e = 0 and the average within one grid step of HonestDiD "
+                "(each side simulates the critical value with its own RNG)",
+                "sp.honest_did(cs, **kw)",
+            ),
+            _Row(
+                "T1",
+                _HD_OPT,
+                _hd(
+                    target=("single", "average", "weights"),
+                    window=("full", "restricted"),
+                    alpha=("0.05", "other"),
+                    m_grid=("zero_only",),
+                    source=("moments", "callaway_santanna"),
+                ),
+                ("diagnostic",),
+                "the FLCI at M = 0 on correlated covariances: the closed form "
+                "(minimum-variance estimator unbiased under a linear trend, "
+                "+/- z sd), computed in R with base linear algebra, to 1e-12",
+                "sp.honest_did(cs, **kw)",
+            ),
+            _Row(
+                "T4",
+                _HD_OPT,
+                _hd(
+                    target=("single", "average", "weights"),
+                    window=("full", "restricted"),
+                    alpha=("0.05", "other"),
+                    source=("moments", "callaway_santanna"),
+                ),
+                ("diagnostic",),
+                "FLCI on correlated covariances vs HonestDiD's program at tight "
+                "tolerance: the half-length (the program's optimum) agrees to "
+                "3e-10, the centre only to 1e-5 of the half-length at M > 0 "
+                "(the half-length is flat in h, so each solver's noise moves "
+                "the centre); M = 0 is the closed form",
+                "sp.honest_did(cs, **kw)",
+            ),
+            _Row(
+                "T4",
+                _HD_MOM,
+                _hd(
+                    target=("single", "average"),
+                    m_grid=("positive",),
+                    source=("moments",),
+                ),
+                ("diagnostic",),
+                "FLCI vs HonestDiD as shipped: within 1e-3, its Monte Carlo "
+                "folded-normal quantile",
+                "sp.honest_did_from_moments(",
+            ),
+            _Row(
+                "T2",
+                _HD_STATA,
+                _hd(
+                    **_HD_RM,
+                    target=("single", "average", "weights"),
+                    window=("restricted",),
+                    source=("etwfe",),
+                ),
+                ("diagnostic",),
+                "a windowed Poisson ETWFE event study: the native Conditional set "
+                "for e = 1, the average and weights equals R HonestDiD run on "
+                "the same windowed inputs to 1e-10 (needs R; marked slow)",
+                "sp.honest_did(fit, backend='r', ...) vs sp.honest_did(fit, ...)",
+            ),
+            _Row(
+                "T4",
+                _HD_STATA,
+                _hd(
+                    restriction=("smoothness", "relative_magnitude"),
+                    interval=("flci", "arp_conditional"),
+                    target=("single", "average"),
+                    window=("restricted",),
+                    rm_grid=("n/a", "honestdid"),
+                    source=("etwfe",),
+                ),
+                ("diagnostic",),
+                "vs Stata honestdid 1.3.0: the FLCI to 1e-5 (Stata simulates the "
+                "folded-normal quantile) and the Conditional set to one grid "
+                "step (the port lays its grid out from the estimates)",
+                "sp.honest_did(fit, method=...)",
+            ),
+            _Row(
+                "T2",
+                _HD_BACKEND,
+                _hd(
+                    **_HD_RM,
+                    source=("callaway_santanna",),
+                ),
+                ("diagnostic",),
+                "did::mpdta Callaway-Sant'Anna fit: the native Conditional set "
+                "equals R HonestDiD run through backend='r' on the same "
+                "covariance to 1e-10 (needs R)",
+                "sp.honest_did(cs_result, method='relative_magnitude')",
+            ),
+        ),
+        primary=("diagnostic",),
+        note="The diagnostic is the confidence set [ci_lower, ci_upper] at each M. "
+        "backend='r' (code_path 'r') runs HonestDiD itself, so a comparison with "
+        "R would compare the reference with itself; it has no row. "
+        "interval='worst_case_bias' is the warned fallback when no joint "
+        "covariance is available and has no reference. The FLCI's half-length "
+        "is pinned to 3e-10 on correlated covariances, its centre only to 1e-5 "
+        "of the half-length (T4); at M = 0 it is a closed form (T1). m_grid "
+        "'zero_only' is a grid of M = 0 alone; 'zero' also has M > 0.",
+    )
+)
+
 #: Functions with a configuration map.
 SCOPE_FUNCTIONS = tuple(sorted(SCOPES))
 
@@ -5174,6 +5734,10 @@ _METHOD_TO_FUNCTION = (
 def _function_of(result: Any) -> Optional[str]:
     if result is None:
         return None
+    if type(result).__name__ == "DataFrame":
+        # sp.honest_did returns its sensitivity table, labelled in attrs.
+        at = getattr(result, "attrs", None) or {}
+        return "honest_did" if at.get("function") == "honest_did" else None
     if type(result).__name__ == "CausalForest":
         return "causal_forest"
     if type(result).__name__ == "FeolsResult":

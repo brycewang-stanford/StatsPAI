@@ -496,11 +496,12 @@ class FunctionSpec:
 
         # Statements a family card or a parent makes that are not true of
         # this variant are removed, and the variant's own are added.
-        from ._family_cards import apply_variant_overrides
+        from ._family_cards import apply_precondition_overrides, apply_variant_overrides
 
         assumptions, failure_modes = apply_variant_overrides(
             self.name, assumptions, failure_modes
         )
+        pre_conditions = apply_precondition_overrides(self.name, pre_conditions)
 
         signature = self.to_openai_schema()
 
@@ -2244,11 +2245,34 @@ def _build_registry() -> None:
                 ParamSpec(
                     "formula",
                     "str",
-                    True,
-                    description="Formula such as 'count ~ x1 + x2'",
+                    False,
+                    description=(
+                        "Formula such as 'count ~ x1 + x2', or 'count ~ x1 | id' "
+                        "to name the panel id; pass y= and x= instead to skip it"
+                    ),
                 ),
                 ParamSpec("data", "DataFrame", True),
-                ParamSpec("entity", "str", True, description="Panel/unit identifier"),
+                ParamSpec(
+                    "y",
+                    "str",
+                    False,
+                    description="Count outcome column (alternative to formula)",
+                ),
+                ParamSpec(
+                    "x",
+                    "list",
+                    False,
+                    description="Regressor columns (alternative to formula)",
+                ),
+                ParamSpec(
+                    "entity",
+                    "str",
+                    False,
+                    description=(
+                        "Panel/unit identifier. Required by every model except "
+                        "'pooled' unless the formula carries '| id'"
+                    ),
+                ),
                 ParamSpec("time", "str", False, description="Optional time column"),
                 ParamSpec(
                     "model",
@@ -2266,14 +2290,49 @@ def _build_registry() -> None:
                     "Include time dummies for model='fe'",
                 ),
                 ParamSpec(
+                    "robust",
+                    "str",
+                    False,
+                    "nonrobust",
+                    "Standard errors for model='pooled' / 'ufe' (as sp.nbreg). "
+                    "The HHG models ('fe', 're') and 'normal_re' report the "
+                    "model-based variance only and refuse anything else",
+                ),
+                ParamSpec(
                     "cluster",
                     "str",
                     False,
-                    description="Cluster variable; defaults to entity for FE",
+                    description=(
+                        "Cluster variable for model='pooled' / 'ufe' ('ufe' "
+                        "clusters on entity by default); refused by 'fe', 're' "
+                        "and 'normal_re'"
+                    ),
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    description=(
+                        "Weight column for model='pooled' / 'ufe'; refused by "
+                        "'fe' and 're', ignored with a warning by 'normal_re'"
+                    ),
                 ),
                 ParamSpec("offset", "str", False),
                 ParamSpec("exposure", "str", False),
                 ParamSpec("irr", "bool", False, False),
+                ParamSpec(
+                    "dispersion",
+                    "str",
+                    False,
+                    "mean",
+                    "'mean' (NB2) or 'constant' (NB1) for model='pooled' / "
+                    "'ufe'; the HHG models have their own panel-constant "
+                    "dispersion",
+                    ["mean", "constant"],
+                ),
+                ParamSpec("maxiter", "int", False, 100, "Maximum iterations"),
+                ParamSpec("tol", "float", False, 1e-8, "Convergence tolerance"),
+                ParamSpec("alpha", "float", False, 0.05, "Significance level"),
             ],
             returns="EconometricResults or MEGLMResult",
             example='sp.xtnbreg("visits ~ age + income", data=df, entity="person", model="fe")',
@@ -6333,7 +6392,56 @@ def _build_registry() -> None:
                 ParamSpec(
                     "treat", "str", True, description="Binary treatment column (0/1)"
                 ),
-                ParamSpec("covariates", "list", True),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Propensity-score covariates; required unless pscore= "
+                    "names a fitted score column",
+                ),
+                ParamSpec(
+                    "y",
+                    "str",
+                    False,
+                    None,
+                    "Alias of outcome",
+                ),
+                ParamSpec(
+                    "n_matches",
+                    "int",
+                    False,
+                    None,
+                    "Alias of neighbor (number of nearest neighbours)",
+                ),
+                ParamSpec(
+                    "distance",
+                    "str",
+                    False,
+                    None,
+                    "Matching metric; 'propensity' reproduces psmatch2",
+                ),
+                ParamSpec(
+                    "ps_poly",
+                    "int",
+                    False,
+                    1,
+                    "Polynomial degree of the propensity-score model",
+                ),
+                ParamSpec(
+                    "replace",
+                    "bool",
+                    False,
+                    True,
+                    "Match with replacement (psmatch2 default)",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for the ATT confidence interval",
+                ),
                 ParamSpec(
                     "outcome",
                     "str",
@@ -13922,6 +14030,43 @@ def _build_registry() -> None:
                     None,
                     "Candidate fixed-effect sets to sweep (reghdfe-style absorption)",
                 ),
+                # The four names are the branches of
+                # robustness/spec_curve.py::_run_single_spec ('robust' is
+                # HC1); any other string is silently computed as HC1.
+                ParamSpec(
+                    "se_types",
+                    "list",
+                    False,
+                    None,
+                    "Standard-error types to sweep (default ['nonrobust', "
+                    "'hc1']); 'cluster' needs cluster_var and is dropped "
+                    "without it",
+                    ["nonrobust", "hc1", "robust", "cluster"],
+                ),
+                ParamSpec(
+                    "cluster_var",
+                    "str",
+                    False,
+                    None,
+                    "Column for clustered SEs; adds 'cluster' to se_types",
+                ),
+                ParamSpec(
+                    "subsets",
+                    "dict",
+                    False,
+                    None,
+                    "Named sub-samples: label -> boolean mask aligned with data "
+                    "(None = full sample)",
+                ),
+                ParamSpec(
+                    "y_transforms",
+                    "dict",
+                    False,
+                    None,
+                    "Named outcome transformations: label -> callable on the "
+                    "outcome Series (None = untransformed)",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Significance threshold"),
             ],
             returns="SpecCurveResult",
             example='sp.spec_curve(df, y="outcome", x="treat", controls=[[], ["x1"], ["x1", "x2"]])',
@@ -14312,6 +14457,16 @@ def _build_registry() -> None:
                     "estimating equations, the SE teffects reports",
                     ["bootstrap", "analytic"],
                 ),
+                ParamSpec(
+                    "ml_Q",
+                    "object",
+                    False,
+                    None,
+                    "Outcome model: any estimator with .fit(X, y) / .predict(X); "
+                    "default OLS",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Significance level"),
+                ParamSpec("seed", "int", False, None, "Bootstrap random seed"),
             ],
             returns="CausalResult",
             example='sp.g_computation(df, y="wage", treat="trained", covariates=["age","edu"])',
@@ -22936,6 +23091,13 @@ def _build_registry() -> None:
                 ParamSpec("include_clr_ci", "bool", False, False),
                 ParamSpec("include_k_ci", "bool", False, False),
                 ParamSpec(
+                    "grid_size",
+                    "int",
+                    False,
+                    401,
+                    "Points in the AR / CLR / K grid inversion",
+                ),
+                ParamSpec(
                     "ltz_gamma_sd",
                     "float",
                     False,
@@ -26497,9 +26659,9 @@ def _build_registry() -> None:
                 "which assumes staggered adoption). Supports placebo lags, "
                 "dynamic horizons, cluster bootstrap SE, joint placebo test "
                 "and average-cumulative-effect summary from dCDH (2024). The "
-                "heteroskedastic-weights variant and full dCDH (2024) "
-                "intertemporal event-study (did_multiplegt_dyn Stata) are on "
-                "the roadmap — see docs/rfc/multiplegt_dyn.md."
+                "treatment may be binary or discrete (an effect per unit of "
+                "treatment). For the dCDH (2024) intertemporal event study "
+                "(Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -26585,7 +26747,8 @@ def _build_registry() -> None:
             ),
             pre_conditions=[
                 "long-format panel with one row per unit × period",
-                "treatment is binary (0/1) and may vary over time within a unit",
+                "treatment is the current treatment, 0/1 or a discrete level, "
+                "and may move in both directions within a unit",
                 "at least two periods observed per unit so a first difference "
                 "can be computed",
             ],
@@ -26599,8 +26762,11 @@ def _build_registry() -> None:
             ],
             failure_modes=[
                 FailureMode(
-                    symptom="No switching cells (nobody changes treatment)",
-                    exception="DataInsufficient",
+                    symptom=(
+                        "No switching cell with a stayer that had the same "
+                        "previous treatment"
+                    ),
+                    exception="(none — UserWarning; the estimate is NaN)",
                     remedy=(
                         "did_multiplegt identifies effects only from treatment "
                         "switches. Fall back to callaway_santanna if the "
@@ -26612,7 +26778,7 @@ def _build_registry() -> None:
                     symptom=(
                         "Joint placebo test rejects — parallel trends " "unlikely"
                     ),
-                    exception="AssumptionViolation",
+                    exception="(none — reported in model_info['joint_placebo_test'])",
                     remedy=(
                         "Inspect model_info['event_study'] by placebo lag; "
                         "consider honest_did sensitivity bounds or add "
@@ -26624,11 +26790,12 @@ def _build_registry() -> None:
                     symptom=("Bootstrap SE unstable with small G"),
                     exception="",
                     remedy=(
-                        "Raise n_boot, or switch to a wild cluster bootstrap. "
-                        "The analytical influence-function SE from dCDH "
-                        "(2020) is not yet implemented — see RFC."
+                        "Raise n_boot. This function has only the cluster "
+                        "bootstrap; sp.did_multiplegt_dyn(se_method="
+                        "'analytic') gives the authors' influence-function "
+                        "variance."
                     ),
-                    alternative="",
+                    alternative="did_multiplegt_dyn",
                 ),
             ],
             alternatives=[
@@ -26637,6 +26804,7 @@ def _build_registry() -> None:
                 "did_imputation",
                 "gardner_did",
                 "wooldridge_did",
+                "did_multiplegt_dyn",
             ],
             typical_n_min=50,
         )
@@ -26837,7 +27005,21 @@ def _build_registry() -> None:
                     "Deprecated / inert: standard errors come from the "
                     "Sant'Anna-Zhao influence function on every path.",
                 ),
-                ParamSpec("seed", "int", False, None),
+                ParamSpec(
+                    "seed",
+                    "int",
+                    False,
+                    None,
+                    "Inert: no step draws random numbers (recorded in the "
+                    "provenance only)",
+                ),
+                ParamSpec(
+                    "random_state",
+                    "int",
+                    False,
+                    None,
+                    "Inert alias of seed: no step draws random numbers",
+                ),
             ],
             returns="CausalResult",
             example=(
@@ -26860,9 +27042,17 @@ def _build_registry() -> None:
             failure_modes=[
                 FailureMode(
                     symptom="Propensity score near 0/1 (overlap violation)",
-                    exception="AssumptionViolation",
-                    remedy="Trim extreme propensity scores or use sp.ipw_trim.",
-                    alternative="",
+                    exception=(
+                        "(none — control units with a propensity score at or "
+                        "above trim_level are dropped, as DRDID's trim.level)"
+                    ),
+                    remedy=(
+                        "Compare model_info['ps_mean_treated'] and "
+                        "['ps_mean_control']; drop the covariate that predicts "
+                        "treatment almost perfectly or restrict the sample to "
+                        "common support (sp.trimming)."
+                    ),
+                    alternative="trimming",
                 ),
             ],
             alternatives=["did_2x2", "callaway_santanna", "wooldridge_did"],
@@ -29389,20 +29579,23 @@ def _build_registry() -> None:
             ),
             stability="experimental",
             limitations=[
-                "switch-off events are handled, but the "
-                "heteroskedastic-weights variant (dCDH 2023 EJ survey) is "
+                "the heteroskedastic-weights variant (dCDH 2023 EJ survey) is "
                 "not implemented",
-                "se_method='analytic' reproduces DIDmultiplegtDYN's variance "
-                "only for the options implemented here: controls=, trends and "
-                "normalized/continuous variants are not implemented, and the "
-                "joint placebo/overall tests come from the bootstrap only",
+                "the default se_method is the cluster bootstrap; only "
+                "se_method='analytic' gives the authors' influence-function "
+                "variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) "
+                "and joint tests computed from it",
                 "the headline aggregation convention differs from "
                 "DIDmultiplegtDYN's Av_tot_eff: the default weights horizons "
                 "equally; pass aggregation='switchers' to match the R package",
             ],
             pre_conditions=[
-                "long-format panel with binary time-varying treatment",
-                "at least some units switching on from d=0 to d=1",
+                "long-format panel; the treatment is time-varying, binary or "
+                "discrete (a count, a level), and may switch in either "
+                "direction",
+                "at least one switcher with a not-yet-switched control that "
+                "had the same period-one treatment (or continuous= when no "
+                "two groups share one)",
                 "enough horizons pre/post to compute long differences",
             ],
             assumptions=[
@@ -29415,27 +29608,30 @@ def _build_registry() -> None:
             ],
             failure_modes=[
                 FailureMode(
-                    symptom="No units switch from 0 to 1",
-                    exception="",
-                    remedy="did_multiplegt_dyn identifies from switch-on events. "
-                    "Use sp.callaway_santanna if design is standard "
-                    "staggered adoption.",
+                    symptom="No switcher can be matched with a control at any "
+                    "horizon",
+                    exception="DataInsufficient",
+                    remedy="Every switcher needs a not-yet-switched group with "
+                    "the same period-one treatment. Use continuous= when "
+                    "period-one treatments are continuous, or "
+                    "sp.callaway_santanna for a standard staggered adoption.",
                     alternative="callaway_santanna",
                 ),
                 FailureMode(
                     symptom="Joint placebo test rejects",
-                    exception="AssumptionViolation",
+                    exception="(none — reported in "
+                    "model_info['joint_placebo_test'])",
                     remedy="Parallel trends unlikely; inspect event_study, "
                     "consider sp.honest_did sensitivity.",
                     alternative="honest_did",
                 ),
                 FailureMode(
-                    symptom="Switch-off events present",
-                    exception="",
-                    remedy="MVP silently ignores switch-off events. For full "
-                    "treatment-reversal handling, wait for paper-parity "
-                    "implementation or use sp.did_multiplegt (2020 DID_M).",
-                    alternative="did_multiplegt",
+                    symptom="A group has been both above and below its "
+                    "period-one treatment",
+                    exception="(none — those (g, t) cells are dropped)",
+                    remedy="Design Restriction 2 of dCDH (2024); the count is "
+                    "in model_info['n_dropped_bidirectional']. Use "
+                    "switchers='in' / 'out' to estimate each direction.",
                 ),
             ],
             alternatives=[
@@ -30674,16 +30870,17 @@ def _build_registry() -> None:
             tags=["did", "aggregation", "event_study", "callaway_santanna", "causal"],
             reference="Callaway & Sant'Anna (2021) JoE [@callaway2021difference]",
             pre_conditions=[
-                "result was produced by sp.callaway_santanna or sp.did with "
-                "staggered=True",
+                "result was produced by sp.callaway_santanna, or by sp.did on a "
+                "staggered design (which dispatches to Callaway-Sant'Anna)",
                 "result.detail contains the per-(g, t) ATT estimates and their "
                 "influence functions",
             ],
             assumptions=[
                 "Same identifying assumptions as the source estimator (parallel "
                 "trends, no anticipation, SUTVA)",
-                "For dynamic aggregation: balanced panel within the requested "
-                "event-time window (use balance_e)",
+                "For dynamic aggregation: the cohorts behind each event time "
+                "change with e unless balance_e fixes them, so a change in "
+                "composition can look like a dynamic effect",
             ],
             failure_modes=[
                 FailureMode(
@@ -30697,7 +30894,7 @@ def _build_registry() -> None:
                 ),
                 FailureMode(
                     symptom="Empty event-time aggregation (no overlapping cohorts)",
-                    exception="statspai.DataInsufficient",
+                    exception="ValueError",
                     remedy="Widen the (min_e, max_e) window or drop balance_e.",
                     alternative="",
                 ),
@@ -34888,7 +35085,10 @@ def _enum_from_text(text: str) -> Optional[List[str]]:
         val = item.strip().strip("`'\"")
         if not val:
             continue
-        if val.lower() in {"none", "optional", "default"}:
+        # Bare ``None`` / ``optional`` in a set are type notation; a quoted
+        # ``'none'`` is a string the function accepts (``sp.gsynth(
+        # inference='none')`` lost it from its schema before 2026-10-15).
+        if not quoted and val.lower() in {"none", "optional", "default"}:
             continue
         if not re.fullmatch(r"[A-Za-z0-9_.:+/\-]+", val):
             continue
@@ -37089,12 +37289,15 @@ def describe_function(name: str) -> Dict[str, Any]:
     else:
         # No parent, but a family card may still have seeded statements
         # that are not true of this variant.
-        from ._family_cards import apply_variant_overrides
+        from ._family_cards import apply_precondition_overrides, apply_variant_overrides
 
         out["assumptions"], out["failure_modes"] = apply_variant_overrides(
             name,
             list(out.get("assumptions") or []),
             list(out.get("failure_modes") or []),
+        )
+        out["pre_conditions"] = apply_precondition_overrides(
+            name, list(out.get("pre_conditions") or [])
         )
     out["auto_generated"] = bool(getattr(spec, "_auto", False))
     out["evidence"] = evidence_record(name)

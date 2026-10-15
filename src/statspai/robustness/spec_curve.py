@@ -629,6 +629,11 @@ def _run_one_fe_spec(
 # ---------------------------------------------------------------------------
 
 
+_SE_TYPES = frozenset({"nonrobust", "hc1", "robust", "cluster"})
+#: Spellings the rest of the package uses for the same variances.
+_SE_ALIASES = {"classical": "nonrobust", "iid": "nonrobust"}
+
+
 @accepts_aliases(cluster="cluster_var", covariates="controls")
 def spec_curve(
     data: pd.DataFrame,
@@ -664,7 +669,8 @@ def spec_curve(
         If *None*, defaults to ``[[]]`` (no controls only).
     se_types : list of str, optional
         Standard-error types to iterate over.
-        Options: ``'nonrobust'``, ``'hc1'`` (or ``'robust'``),
+        Options: ``'nonrobust'`` (or ``'classical'`` / ``'iid'``),
+        ``'hc1'`` (or ``'robust'``),
         ``'cluster'`` (requires *cluster_var*).
         Default: ``['nonrobust', 'hc1']``.
     subsets : dict[str, Series | None], optional
@@ -749,13 +755,27 @@ def spec_curve(
             diagnostics={"missing": missing_fe},
         )
 
+    se_types = [_SE_ALIASES.get(str(s).lower(), str(s).lower()) for s in se_types]
+    unknown = sorted({s for s in se_types if s not in _SE_TYPES})
+    if unknown:
+        # An unknown name used to fall through to HC1 (classical with fe=).
+        raise MethodIncompatibility(
+            f"spec_curve: unknown se_types {unknown}.",
+            diagnostics={"unknown": unknown, "allowed": sorted(_SE_TYPES)},
+            recovery_hint=(
+                "Use 'nonrobust' (or 'classical'), 'hc1' (or 'robust') or " "'cluster'."
+            ),
+        )
+    if "cluster" in se_types and not cluster_var:
+        # It used to be dropped without a word.
+        raise MethodIncompatibility(
+            "spec_curve: se_types includes 'cluster' but cluster_var is not set.",
+            recovery_hint="Pass cluster_var=<column>, or drop 'cluster'.",
+        )
+
     # Auto-add cluster SE type
     if cluster_var and "cluster" not in se_types:
         se_types = list(se_types) + ["cluster"]
-
-    # Remove 'cluster' if no cluster_var
-    if not cluster_var:
-        se_types = [s for s in se_types if s != "cluster"]
 
     # ---- enumerate all combinations -------------------------------------
     all_results = []

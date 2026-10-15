@@ -2841,7 +2841,7 @@ def _estimate_single_att_rcs_sz(
     ``n_obs / n_rel`` rescaling the panel path uses, so cross-(g, t)
     aggregation in :func:`sp.aggte` sees influence functions on a common scale.
     """
-    from ._rcs import drdid_imp_rc, drdid_rc, reg_did_rc, std_ipw_did_rc
+    from ._rcs import drdid_imp_rc, drdid_rc, ipw_did_rc, reg_did_rc, std_ipw_did_rc
 
     is_treated = g_arr == g_val
     is_control = _rcs_control_mask(
@@ -2880,6 +2880,8 @@ def _estimate_single_att_rcs_sz(
         "dr": drdid_rc,
         "drimp": drdid_imp_rc,
         "ipw": std_ipw_did_rc,
+        "stdipw": std_ipw_did_rc,
+        "ipw_abadie": ipw_did_rc,
         "reg": reg_did_rc,
     }[estimator]
     try:
@@ -3102,7 +3104,14 @@ def _callaway_santanna_rcs(
     # consume raw covariates directly; the legacy cell-mean path residualises
     # first and then differences means, so the two must not be mixed.
     x_mat = df[list(x)].to_numpy(dtype=float) if x else None
-    use_sz = estimator in {"dr", "drimp", "ipw"} or (estimator == "reg" and bool(x))
+    # Every propensity-score estimator goes through its DRDID port. Through
+    # 1.39 'stdipw' and 'ipw_abadie' were missing from this set and fell
+    # through to the cell-mean outcome regression below, so on repeated
+    # cross-sections they returned the unconditional 2x2 means under an IPW
+    # name (tests/reference_parity/test_cs_options_R_parity.py).
+    use_sz = estimator in {"dr", "drimp", "ipw", "stdipw", "ipw_abadie"} or (
+        estimator == "reg" and bool(x)
+    )
 
     for g_val, t_val, base_val in gt_pairs:
         if use_sz:
@@ -3185,6 +3194,7 @@ def _callaway_santanna_rcs(
     # under allow_unbalanced_panel -- so the cluster vector is mapped to
     # the same space.
     crit_val_uniform: Optional[float] = None
+    boot_cfg: Optional[Dict[str, Any]] = None
     rc_cluster_ids: Optional[np.ndarray] = None
     if clustervar is not None:
         if unit_codes is not None:
@@ -3248,6 +3258,15 @@ def _callaway_santanna_rcs(
             else:
                 cluster_ids = df[clustervar].to_numpy()
 
+        # The aggregates below draw from the same multiplier bootstrap, as on
+        # the panel path; through 1.39 they kept the analytic SE here while
+        # model_info said se_method='multiplier'.
+        boot_cfg = {
+            "n_boot": biters,
+            "random_state": random_state,
+            "weight_type": boot_weight_type,
+            "cluster_ids": cluster_ids,
+        }
         se_boot, crit = _core_multiplier_bootstrap(
             inf_matrix,
             n_scale,
@@ -3319,6 +3338,7 @@ def _callaway_santanna_rcs(
         cohort_sizes,
         n_scale,
         alpha,
+        boot_cfg=boot_cfg,
         unit_cohorts=cohort_by_slot,
         unit_weights=slot_weights,
         cluster_ids=rc_cluster_ids,
@@ -3329,6 +3349,7 @@ def _callaway_santanna_rcs(
         cohort_sizes,
         n_scale,
         alpha,
+        boot_cfg=boot_cfg,
         unit_cohorts=cohort_by_slot,
         unit_weights=slot_weights,
         cluster_ids=rc_cluster_ids,
@@ -3351,6 +3372,7 @@ def _callaway_santanna_rcs(
         )
         + (" — unbalanced panel" if unbalanced else ""),
         "control_group": control_group,
+        "notyet_cutoff": notyet_cutoff,
         "base_period": base_period,
         "anticipation": anticipation,
         # An unbalanced panel keeps its panel identity: the estimator is the
@@ -3366,6 +3388,17 @@ def _callaway_santanna_rcs(
         ),
         "n_units": n_scale,  # the "n" for aggte / the bootstrap
         "n_obs": n_obs,
+        # The same configuration keys as the panel path: sp.aggte inherits
+        # bstrap / biters / cband from them (as R did's aggte does from
+        # att_gt), and sp.validation_scope reads the fitted configuration.
+        "weights": weights_col,
+        "weighted": weights_col is not None,
+        "covariates": list(x) if x else None,
+        "clustervars": clustervar,
+        "bstrap": bstrap,
+        "biters": biters if bstrap else 0,
+        "cband": cband,
+        "boot_weight_type": boot_weight_type if bstrap else None,
         "n_periods": len(time_periods),
         "n_cohorts": len(cohorts),
         "cohorts": cohorts,

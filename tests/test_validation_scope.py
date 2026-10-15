@@ -317,11 +317,15 @@ def test_callaway_santanna_default_dr_is_covered_by_the_grid_not_module_04():
     scope = sp.validation_scope(fit)
     assert scope["configuration"]["estimator"] == "dr"
     assert scope["status"] == "covered"
-    # The second artifact runs the same panel estimator on the complete
-    # units of an unbalanced panel (balance='full'), also against did.
+    assert scope["configuration"]["sample"] == "panel"
+    # The headline simple ATT does not depend on the base period, so the
+    # varying-base mpdta row joins the universal-base rows; module 04 (reg)
+    # does not.
     assert {e["artifact"] for e in scope["outputs"]["se"]["evidence"]} == {
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_cs_balance_full_did_parity.py",
+        "tests/reference_parity/test_cs_gaps_parity.py",
+        "tests/reference_parity/test_aggte_mpdta_parity.py",
     }
 
 
@@ -344,7 +348,7 @@ def test_callaway_santanna_bootstrap_se_is_a_stochastic_screen():
     assert scope["status"] == "estimate_only"
 
 
-def test_callaway_santanna_anticipation_is_not_covered():
+def test_callaway_santanna_anticipation_is_covered_by_the_did_rows():
     m = sp.datasets.mpdta()
     fit = _quiet(
         sp.callaway_santanna,
@@ -355,7 +359,95 @@ def test_callaway_santanna_anticipation_is_not_covered():
         i="countyreal",
         anticipation=1,
     )
-    assert sp.validation_scope(fit)["status"] == "not_covered"
+    scope = sp.validation_scope(fit)
+    assert scope["configuration"]["anticipation"] == ">0"
+    assert scope["status"] == "covered"
+    assert "tests/reference_parity/test_cs_gaps_parity.py" in {
+        e["artifact"] for e in scope["outputs"]["se"]["evidence"]
+    }
+
+
+@pytest.mark.parametrize(
+    "kw, sample, estimator",
+    [
+        ({"panel": False}, "rcs", "dr"),
+        ({"panel": False, "estimator": "stdipw"}, "rcs", "ipw"),
+        ({"estimator": "ipw_abadie"}, "panel", "ipw_abadie"),
+    ],
+)
+def test_callaway_santanna_reads_the_sample_and_estimator(kw, sample, estimator):
+    """Repeated cross-section fits record their engine in the estimator label
+    ("DR (RCS, Sant'Anna-Zhao)"), which used to fall outside the map's domain,
+    so no repeated cross-section fit could match a row; 'stdipw' is 'ipw'."""
+    m = pd.read_csv(ROOT / "tests" / "orig_parity" / "data" / "02_mpdta_original.csv")
+    fit = _quiet(
+        sp.callaway_santanna,
+        m,
+        y="lemp",
+        g="first_treat",
+        t="year",
+        i="countyreal",
+        x=["lpop"],
+        **kw,
+    )
+    scope = sp.validation_scope(fit)
+    assert scope["configuration"]["sample"] == sample
+    assert scope["configuration"]["estimator"] == estimator
+    assert scope["status"] == "covered"
+
+
+@pytest.mark.parametrize(
+    "kw",
+    [
+        {},
+        {"panel": False},
+        {"control_group": "notyettreated", "anticipation": 1},
+        {"panel": False, "control_group": "notyettreated", "estimator": "reg"},
+        {"allow_unbalanced_panel": True, "estimator": "ipw"},
+    ],
+)
+def test_callaway_santanna_headline_does_not_depend_on_the_base_period(kw):
+    """Backs the map's base_period invariant for the estimate and its SE."""
+    m = pd.read_csv(ROOT / "tests" / "orig_parity" / "data" / "02_mpdta_original.csv")
+    m = m.drop(index=m.index[::41]) if kw.get("allow_unbalanced_panel") else m
+    fits = [
+        _quiet(
+            sp.callaway_santanna,
+            m,
+            y="lemp",
+            g="first_treat",
+            t="year",
+            i="countyreal",
+            x=["lpop"],
+            base_period=base,
+            **kw,
+        )
+        for base in ("universal", "varying")
+    ]
+    assert fits[0].estimate == fits[1].estimate
+    assert fits[0].se == fits[1].se
+    assert not fits[0].detail[["group", "time"]].equals(
+        fits[1].detail[["group", "time"]]
+    ) or not np.allclose(fits[0].detail["att"], fits[1].detail["att"])
+
+
+def test_callaway_santanna_pairwise_unbalanced_panel_is_its_own_sample():
+    m = sp.datasets.mpdta()
+    m = m.drop(index=m.index[::37])
+    fit = _quiet(
+        sp.callaway_santanna, m, y="lemp", g="first_treat", t="year", i="countyreal"
+    )
+    assert sp.validation_scope(fit)["configuration"]["sample"] == "unbalanced_pair"
+    full = _quiet(
+        sp.callaway_santanna,
+        m,
+        y="lemp",
+        g="first_treat",
+        t="year",
+        i="countyreal",
+        balance="full",
+    )
+    assert sp.validation_scope(full)["configuration"]["sample"] == "panel"
 
 
 def test_forest_rows_are_specific_to_the_tree_counts_that_ran():
@@ -949,3 +1041,132 @@ def test_nnmatch_has_its_own_map_and_matchit_rows_reach_psm():
     out = sp.validation_scope(no_replace)["outputs"]
     assert out["estimate"]["status"] == "reference"
     assert any("MatchIt" in e["compares"] for e in out["estimate"]["evidence"])
+
+
+# --------------------------------------------------------------------------- #
+#  sp.honest_did: the map reads the sensitivity table's attrs
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope="module")
+def mpdta_cs():
+    m = pd.read_csv(ROOT / "tests" / "orig_parity" / "data" / "02_mpdta_original.csv")
+    return _quiet(
+        sp.callaway_santanna, m, y="lemp", g="first_treat", t="year", i="countyreal"
+    )
+
+
+def test_honest_did_relative_magnitudes_conditional_is_covered(mpdta_cs):
+    out = _quiet(
+        sp.honest_did,
+        mpdta_cs,
+        e=0,
+        method="relative_magnitude",
+        honestdid_method="Conditional",
+        m_grid=[0.0, 0.5, 1.0],
+    )
+    scope = sp.validation_scope(out)
+    assert scope["function"] == "honest_did"
+    assert scope["configuration"] == {
+        "restriction": "relative_magnitude",
+        "interval": "arp_conditional",
+        "code_path": "native",
+        "target": "single",
+        "window": "full",
+        "alpha": "0.05",
+        "m_grid": "zero",
+        "rm_grid": "honestdid",
+        "source": "callaway_santanna",
+    }
+    assert scope["status"] == "covered"
+
+
+def test_honest_did_defaults_read_as_what_their_evidence_is(mpdta_cs):
+    """The default smoothness call is the FLCI, whose centre is pinned only
+    to the flat optimum (a disclosure); the default relative-magnitudes call
+    is the C-LF hybrid, a stochastic screen; a user grid with weights on a
+    CS fit has no row."""
+    flci = sp.validation_scope(_quiet(sp.honest_did, mpdta_cs, e=0))
+    assert flci["configuration"]["interval"] == "flci"
+    assert flci["status"] == "disclosure_only"
+    clf = sp.validation_scope(
+        _quiet(
+            sp.honest_did,
+            mpdta_cs,
+            e=0,
+            method="relative_magnitude",
+            m_grid=[0.0, 0.5],
+        )
+    )
+    assert clf["configuration"]["interval"] == "arp_c_lf"
+    assert clf["status"] == "stochastic_only"
+    user = sp.validation_scope(
+        _quiet(
+            sp.honest_did,
+            mpdta_cs,
+            l_vec=[0.4, 0.3, 0.2, 0.1],
+            method="relative_magnitude",
+            honestdid_method="Conditional",
+            m_grid=[0.5],
+            grid_lb=-0.5,
+            grid_ub=0.5,
+        )
+    )
+    assert user["configuration"]["target"] == "weights"
+    assert user["configuration"]["rm_grid"] == "user"
+    assert user["status"] == "not_covered"
+
+
+def test_honest_did_from_moments_and_the_fallback_are_read():
+    b = np.array([0.01, -0.02, 0.0, 0.5, 0.4])
+    v = np.diag([0.05, 0.05, 0.05, 0.1, 0.1]) ** 2
+    out = sp.honest_did_from_moments(
+        b, v, event_times=[-4, -3, -2, 0, 1], l_vec="average", m_grid=[0.1]
+    )
+    cfg = sp.validation_scope(out)["configuration"]
+    assert (cfg["source"], cfg["target"], cfg["m_grid"]) == (
+        "moments",
+        "average",
+        "positive",
+    )
+    es = pd.DataFrame(
+        {"relative_time": [-2, -1, 0], "att": [0.01, 0.0, 0.3], "se": [0.05] * 3}
+    )
+    res = sp.CausalResult(
+        method="x",
+        estimand="ATT",
+        estimate=0.3,
+        se=0.05,
+        pvalue=0.0,
+        ci=(0.2, 0.4),
+        alpha=0.05,
+        n_obs=100,
+        model_info={"event_study": es},
+    )
+    fallback = sp.validation_scope(_quiet(sp.honest_did, res, e=0, alpha=0.1))
+    assert fallback["configuration"]["interval"] == "worst_case_bias"
+    assert fallback["configuration"]["alpha"] == "other"
+    assert fallback["configuration"]["source"] == "other"
+    assert fallback["status"] == "not_covered"
+
+
+def test_honest_did_source_names_are_the_maps_function_names(mpdta_cs):
+    """honest_did keeps its own copy of the method tokens (validation_scope is
+    not on its Track A path); the two must name the same estimators."""
+    from statspai.did.honest_did import _vcov_source
+    from statspai.validation_scope import _HONEST_SOURCES, _function_of
+
+    m = pd.read_csv(ROOT / "tests" / "orig_parity" / "data" / "02_mpdta_original.csv")
+    keys = dict(y="lemp", group="countyreal", time="year", first_treat="first_treat")
+    fits = [
+        mpdta_cs,
+        sp.aggte(mpdta_cs, type="dynamic"),
+        _quiet(sp.sun_abraham, m, y="lemp", g="first_treat", t="year", i="countyreal"),
+        _quiet(sp.etwfe, m, **keys),
+        _quiet(sp.gardner_did, m, event_study=True, **keys),
+        _quiet(sp.did_imputation, m, horizon=[0, 1], **keys),
+    ]
+    for fit in fits:
+        name = _vcov_source(fit)
+        assert name in _HONEST_SOURCES
+        assert name == _function_of(fit), fit.method
