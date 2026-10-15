@@ -12,11 +12,19 @@ Each recommendation is a dict with keys:
 - ``reason`` : str — why this step matters
 - ``priority`` : str — "essential", "recommended", or "optional"
 - ``category`` : str — "diagnostics", "robustness", "export", "alternative", "sensitivity"
+- ``executable`` : bool — ``True`` when ``action`` runs as written with
+  ``result`` bound to the fitted result and ``df`` to the data it was fitted
+  on. Column names the fit recorded are filled in; a step that still needs
+  something the result does not know (another fit, a cohort column, the
+  covariates to balance on) keeps a ``'...'`` placeholder and is ``False``.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import re
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 # ====================================================================== #
 #  Step data structure
@@ -26,7 +34,7 @@ from typing import Any, Dict, List
 class Step:
     """One recommended next step."""
 
-    __slots__ = ("action", "reason", "priority", "category")
+    __slots__ = ("action", "reason", "priority", "category", "executable")
 
     def __init__(
         self,
@@ -34,11 +42,13 @@ class Step:
         reason: str,
         priority: str = "recommended",
         category: str = "diagnostics",
+        executable: Optional[bool] = None,
     ):
         self.action = action
         self.reason = reason
         self.priority = priority
         self.category = category
+        self.executable = ("..." not in action) if executable is None else executable
 
     def __repr__(self) -> str:
         icon = {"essential": "❗", "recommended": "→", "optional": "○"}.get(
@@ -46,13 +56,97 @@ class Step:
         )
         return f"{icon} {self.action}\n   {self.reason}"
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "action": self.action,
             "reason": self.reason,
             "priority": self.priority,
             "category": self.category,
+            "executable": self.executable,
         }
+
+
+# ====================================================================== #
+#  Filling actions from the fit's own call
+# ====================================================================== #
+
+#: Recorded argument names that mean the same column, mapped to one key.
+_CTX_ALIASES = {
+    "y": ("y", "outcome", "dep_var", "depvar"),
+    "treat": ("treat", "treatment", "d", "D"),
+    "covariates": ("covariates", "controls", "x_controls", "X"),
+    "time": ("time", "t", "tvar"),
+    "id": ("id", "i", "unit", "ivar"),
+    "cohort": ("g", "gvar", "cohort", "first_treat"),
+    "running": ("x", "running", "running_var"),
+    "cutoff": ("c", "cutoff"),
+    "covs": ("covs",),
+    "formula": ("formula",),
+    "treated_unit": ("treated_unit",),
+    "treatment_time": ("treatment_time",),
+}
+
+
+def _is_column_name(value: Any) -> bool:
+    # Internal helper columns (``sp.did`` routes through a synthetic
+    # ``_statspai_cohort``) are not in the caller's frame.
+    return isinstance(value, str) and bool(value) and not value.startswith("_statspai")
+
+
+def _fit_context(result: Any) -> Dict[str, Any]:
+    """Arguments the fit recorded, keyed by role (``y``, ``treat``, ...)."""
+    prov = getattr(result, "_provenance", None)
+    params = dict(getattr(prov, "params", None) or {})
+    mi = getattr(result, "model_info", None) or {}
+    ctx: Dict[str, Any] = {}
+    for role, names in _CTX_ALIASES.items():
+        for name in names:
+            value = params.get(name)
+            if value is None:
+                continue
+            if role == "cutoff":
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    ctx[role] = float(value)
+                    break
+                continue
+            if role in ("covariates", "covs"):
+                if (
+                    isinstance(value, (list, tuple))
+                    and value
+                    and all(_is_column_name(v) for v in value)
+                ):
+                    ctx[role] = list(value)
+                    break
+                continue
+            if role == "treatment_time":
+                if isinstance(value, (int, float, str)) and not isinstance(value, bool):
+                    ctx[role] = value
+                    break
+                continue
+            if _is_column_name(value):
+                ctx[role] = value
+                break
+    if "running" in ctx and "cutoff" not in ctx:
+        c = mi.get("cutoff", mi.get("c"))
+        if isinstance(c, (int, float)) and not isinstance(c, bool):
+            ctx["cutoff"] = float(c)
+    if "y" not in ctx:
+        dep = (getattr(result, "data_info", None) or {}).get("dependent_var")
+        if _is_column_name(dep):
+            ctx["y"] = dep
+    return ctx
+
+
+def _q(ctx: Dict[str, Any], role: str, *, kind: str = "str") -> str:
+    """Python literal for ``ctx[role]``, or a ``'...'`` placeholder."""
+    value = ctx.get(role)
+    if value is None or value == [] or value == "":
+        return "[...]" if kind == "list" else "'...'"
+    if kind == "list":
+        return repr(list(value))
+    if kind == "num" and isinstance(value, float) and value.is_integer():
+        return repr(int(value)) if abs(value) < 1e15 else repr(value)
+    return repr(value)
 
 
 # ====================================================================== #
@@ -175,9 +269,21 @@ def _steps_repr_html(steps: List[Step], title: str = "Suggested Next Steps") -> 
 # ====================================================================== #
 
 
+def _has_log_likelihood(result: Any) -> bool:
+    """Whether ``sp.estat(result, 'ic')`` has a likelihood to work from."""
+    mi = getattr(result, "model_info", None) or {}
+    diag = getattr(result, "diagnostics", None) or {}
+    ll = mi.get("ll", diag.get("Log-Likelihood", diag.get("log_likelihood")))
+    try:
+        return ll is not None and bool(np.isfinite(float(ll)))
+    except (TypeError, ValueError):
+        return False
+
+
 def econometric_next_steps(result: Any) -> List[Step]:
     """Generate next steps for an EconometricResults object."""
     steps: List[Step] = []
+    ctx = _fit_context(result)
     model_type = (result.model_info.get("model_type", "") or "").lower()
     robust = result.model_info.get("robust", "nonrobust")
     has_residuals = result.data_info.get("residuals") is not None
@@ -195,7 +301,7 @@ def econometric_next_steps(result: Any) -> List[Step]:
                 category="diagnostics",
             )
         )
-    else:
+    elif _has_log_likelihood(result):
         steps.append(
             Step(
                 "sp.estat(result, 'ic')",
@@ -212,9 +318,10 @@ def econometric_next_steps(result: Any) -> List[Step]:
         refit = (
             "sp.iv" if ("iv" in model_type or "2sls" in model_type) else "sp.regress"
         )
+        formula = ctx.get("formula") or f"{dep_var} ~ ..."
         steps.append(
             Step(
-                f"{refit}('{dep_var} ~ ...', data=df, robust='hc1')",
+                f"{refit}({formula!r}, data=df, robust='hc1')",
                 "Re-estimate with heteroskedasticity-robust standard errors",
                 priority="recommended",
                 category="robustness",
@@ -234,7 +341,8 @@ def econometric_next_steps(result: Any) -> List[Step]:
     # ── Robustness ─────────────────────────────────────────────────── #
     steps.append(
         Step(
-            "sp.oster_delta(data=df, y='...', x_base=[...], x_controls=[...])",
+            f"sp.oster_delta(data=df, y={_q(ctx, 'y')}, x_base=[...], "
+            "x_controls=[...])",
             "Oster (2019) coefficient stability — assess sensitivity to unobservables",
             priority="recommended",
             category="sensitivity",
@@ -246,7 +354,7 @@ def econometric_next_steps(result: Any) -> List[Step]:
     if n_params >= 5:
         steps.append(
             Step(
-                "sp.stepwise(data=df, y='...', x=[...], criterion='bic')",
+                f"sp.stepwise(data=df, y={_q(ctx, 'y')}, x=[...], criterion='bic')",
                 f"Variable selection: {n_params} regressors — "
                 "check if BIC prefers a more parsimonious model",
                 priority="optional",
@@ -257,7 +365,7 @@ def econometric_next_steps(result: Any) -> List[Step]:
     # ── Export ─────────────────────────────────────────────────────── #
     steps.append(
         Step(
-            "sp.esttab(result1, result2, result3)",
+            "sp.esttab(result)",
             "Create publication-quality comparison table (text/LaTeX/Word/Excel)",
             priority="recommended",
             category="export",
@@ -316,7 +424,8 @@ def econometric_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.kitagawa_test(data=df, y='...', treatment='...', instrument='...')",
+                f"sp.kitagawa_test(data=df, y={_q(ctx, 'y')}, treatment='...', "
+                "instrument='...')",
                 "Test LATE validity (Kitagawa 2015 — necessary conditions for LATE)",
                 priority="recommended",
                 category="sensitivity",
@@ -327,7 +436,8 @@ def econometric_next_steps(result: Any) -> List[Step]:
     if any(k in model_type for k in ("panel", "fe", "fixed")):
         steps.append(
             Step(
-                "sp.hausman_test(result_fe, result_re)",
+                f"sp.hausman_test(data=df, y={_q(ctx, 'y')}, x=[...], "
+                f"id={_q(ctx, 'id')}, time={_q(ctx, 'time')})",
                 "Hausman test: fixed effects vs random effects",
                 priority="recommended",
                 category="diagnostics",
@@ -362,6 +472,7 @@ def causal_next_steps(result: Any) -> List[Step]:
     )
 
     method_family = _detect_family(method)
+    ctx = _fit_context(result)
 
     # ── DID-family ─────────────────────────────────────────────────── #
     if method_family == "did":
@@ -385,17 +496,27 @@ def causal_next_steps(result: Any) -> List[Step]:
             )
             steps.append(
                 Step(
-                    "sp.sensitivity_rr(result)",
+                    "sp.honest_did(result)",
                     "Rambachan & Roth (2023) — honest CI under bounded "
                     "parallel trends violations",
                     priority="essential",
                     category="sensitivity",
                 )
             )
+            steps.append(
+                Step(
+                    "sp.breakdown_m(result)",
+                    "Rambachan & Roth (2023) — largest violation of parallel "
+                    "trends under which the effect stays significant",
+                    priority="recommended",
+                    category="sensitivity",
+                )
+            )
         else:
             steps.append(
                 Step(
-                    "sp.event_study(data=df, ...)",
+                    f"sp.event_study(data=df, y={_q(ctx, 'y')}, treat_time='...', "
+                    f"time={_q(ctx, 'time')}, unit={_q(ctx, 'id')})",
                     "Estimate event study to visualize pre-trends and dynamic effects",
                     priority="essential",
                     category="diagnostics",
@@ -415,7 +536,9 @@ def causal_next_steps(result: Any) -> List[Step]:
         if "2x2" in method or "twfe" in method.replace(" ", ""):
             steps.append(
                 Step(
-                    "sp.bacon_decomposition(data=df, ...)",
+                    f"sp.bacon_decomposition(data=df, y={_q(ctx, 'y')}, "
+                    f"treat={_q(ctx, 'treat')}, time={_q(ctx, 'time')}, "
+                    f"id={_q(ctx, 'id')})",
                     "Goodman-Bacon decomposition: check for negative weights in TWFE",
                     priority="recommended",
                     category="diagnostics",
@@ -423,7 +546,9 @@ def causal_next_steps(result: Any) -> List[Step]:
             )
             steps.append(
                 Step(
-                    "sp.did_imputation(data=df, ...)",
+                    f"sp.did_imputation(data=df, y={_q(ctx, 'y')}, "
+                    f"group={_q(ctx, 'id')}, time={_q(ctx, 'time')}, "
+                    "first_treat='...')",
                     "Try BJS (2024) imputation estimator — robust to heterogeneous "
                     "effects",
                     priority="recommended",
@@ -432,7 +557,8 @@ def causal_next_steps(result: Any) -> List[Step]:
             )
             steps.append(
                 Step(
-                    "sp.callaway_santanna(data=df, ...)",
+                    f"sp.callaway_santanna(data=df, y={_q(ctx, 'y')}, g='...', "
+                    f"t={_q(ctx, 'time')}, i={_q(ctx, 'id')})",
                     "Try Callaway-Sant'Anna — group-time ATT with flexible aggregation",
                     priority="recommended",
                     category="alternative",
@@ -453,7 +579,8 @@ def causal_next_steps(result: Any) -> List[Step]:
     elif method_family == "rd":
         steps.append(
             Step(
-                "sp.mccrary_test(data=df, x='...', c=cutoff)",
+                f"sp.mccrary_test(data=df, x={_q(ctx, 'running')}, "
+                f"c={_q(ctx, 'cutoff', kind='num')})",
                 "McCrary density test: check for manipulation at the cutoff",
                 priority="essential",
                 category="diagnostics",
@@ -461,7 +588,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.rd_honest(data=df, y='...', x='...', c=cutoff)",
+                f"sp.rd_honest(data=df, y={_q(ctx, 'y')}, x={_q(ctx, 'running')}, "
+                f"c={_q(ctx, 'cutoff', kind='num')})",
                 "Armstrong-Kolesár honest CI — valid uniformly over smooth functions",
                 priority="essential",
                 category="sensitivity",
@@ -469,7 +597,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.rdbalance(data=df, covariates=[...], x='...', c=cutoff)",
+                f"sp.rdbalance(data=df, x={_q(ctx, 'running')}, "
+                f"c={_q(ctx, 'cutoff', kind='num')}, covs={_q(ctx, 'covs', kind='list')})",
                 "Covariate balance test at the cutoff",
                 priority="essential",
                 category="diagnostics",
@@ -477,7 +606,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.rdbwsensitivity(data=df, y='...', x='...', c=cutoff)",
+                f"sp.rdbwsensitivity(data=df, y={_q(ctx, 'y')}, "
+                f"x={_q(ctx, 'running')}, c={_q(ctx, 'cutoff', kind='num')})",
                 "Bandwidth sensitivity: check stability at h/2, h, 2h",
                 priority="recommended",
                 category="robustness",
@@ -485,7 +615,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.rdplacebo(data=df, y='...', x='...', c=cutoff)",
+                f"sp.rdplacebo(data=df, y={_q(ctx, 'y')}, x={_q(ctx, 'running')}, "
+                f"c={_q(ctx, 'cutoff', kind='num')})",
                 "Placebo cutoff test: should find no effect at false cutoffs",
                 priority="recommended",
                 category="robustness",
@@ -512,7 +643,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.anderson_rubin_test(data=df, ...)",
+                f"sp.anderson_rubin_test(data=df, y={_q(ctx, 'y')}, endog='...', "
+                "instruments=[...])",
                 "Anderson-Rubin test: valid inference even with weak instruments",
                 priority="recommended",
                 category="diagnostics",
@@ -520,7 +652,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.kitagawa_test(data=df, y='...', treatment='...', instrument='...')",
+                f"sp.kitagawa_test(data=df, y={_q(ctx, 'y')}, "
+                f"treatment={_q(ctx, 'treat')}, instrument='...')",
                 "Kitagawa (2015) LATE validity test",
                 priority="recommended",
                 category="sensitivity",
@@ -528,7 +661,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.iv_bounds(data=df, y='...', treatment='...', instrument='...')",
+                f"sp.iv_bounds(data=df, y={_q(ctx, 'y')}, "
+                f"treatment={_q(ctx, 'treat')}, instrument='...')",
                 "Nevo-Rosen (2012) bounds under imperfect instruments",
                 priority="optional",
                 category="sensitivity",
@@ -539,7 +673,8 @@ def causal_next_steps(result: Any) -> List[Step]:
     elif method_family == "matching":
         steps.append(
             Step(
-                "sp.ps_balance(data=df, treatment='...', covariates=[...])",
+                f"sp.ps_balance(data=df, treatment={_q(ctx, 'treat')}, "
+                f"covariates={_q(ctx, 'covariates', kind='list')})",
                 "Check covariate balance after matching/weighting (SMD < 0.1)",
                 priority="essential",
                 category="diagnostics",
@@ -547,7 +682,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.overlap_plot(data=df, treatment='...', covariates=[...])",
+                f"sp.overlap_plot(data=df, treatment={_q(ctx, 'treat')}, "
+                f"covariates={_q(ctx, 'covariates', kind='list')})",
                 "Propensity score overlap plot — check common support",
                 priority="essential",
                 category="diagnostics",
@@ -555,7 +691,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.love_plot(data=df, treatment='...', covariates=[...])",
+                f"sp.love_plot(data=df, treatment={_q(ctx, 'treat')}, "
+                f"covariates={_q(ctx, 'covariates', kind='list')})",
                 "Love plot: before/after balance visualization",
                 priority="recommended",
                 category="diagnostics",
@@ -563,7 +700,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.trimming(data=df, treatment='...', covariates=[...])",
+                f"sp.trimming(data=df, treatment={_q(ctx, 'treat')}, "
+                f"covariates={_q(ctx, 'covariates', kind='list')})",
                 "Crump (2009) optimal trimming for improved overlap",
                 priority="recommended",
                 category="robustness",
@@ -571,7 +709,8 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.sensemakr(data=df, ...)",
+                f"sp.sensemakr(data=df, y={_q(ctx, 'y')}, treat={_q(ctx, 'treat')}, "
+                f"controls={_q(ctx, 'covariates', kind='list')})",
                 "Cinelli & Hazlett (2020) sensitivity to unobserved confounding",
                 priority="recommended",
                 category="sensitivity",
@@ -598,7 +737,10 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.conformal_synth(data=df, ...)",
+                f"sp.conformal_synth(data=df, outcome={_q(ctx, 'y')}, "
+                f"unit={_q(ctx, 'id')}, time={_q(ctx, 'time')}, "
+                f"treated_unit={_q(ctx, 'treated_unit')}, "
+                f"treatment_time={_q(ctx, 'treatment_time', kind='num')})",
                 "Conformal inference for valid p-values (Chernozhukov et al.)",
                 priority="recommended",
                 category="sensitivity",
@@ -618,10 +760,11 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.cate_summary(result)",
-                "Summarize treatment effect heterogeneity across subgroups",
+                "sp.dml_sensitivity(result)",
+                "Chernozhukov et al. (2022) omitted-variable-bias bounds "
+                "for the DML estimate",
                 priority="recommended",
-                category="diagnostics",
+                category="sensitivity",
             )
         )
 
@@ -637,7 +780,7 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.gate_test(result)",
+                "sp.gate_test(result, data=df, by='...')",
                 "GATES test: are treatment effect differences across groups real?",
                 priority="essential",
                 category="diagnostics",
@@ -645,7 +788,9 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.blp_test(result)",
+                f"sp.blp_test(result, data=df, y={_q(ctx, 'y')}, "
+                f"treat={_q(ctx, 'treat')}, "
+                f"covariates={_q(ctx, 'covariates', kind='list')})",
                 "BLP test: is there systematic heterogeneity? (Chernozhukov et al.)",
                 priority="essential",
                 category="diagnostics",
@@ -661,7 +806,9 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.compare_metalearners(data=df, ...)",
+                f"sp.compare_metalearners(data=df, y={_q(ctx, 'y')}, "
+                f"treat={_q(ctx, 'treat')}, "
+                f"covariates={_q(ctx, 'covariates', kind='list')})",
                 "Compare S/T/X/R/DR-Learners for robustness",
                 priority="recommended",
                 category="alternative",
@@ -680,7 +827,7 @@ def causal_next_steps(result: Any) -> List[Step]:
         )
         steps.append(
             Step(
-                "sp.sensemakr(data=df, ...)",
+                "sp.sensemakr(data=df, y='...', treat='...', controls=[...])",
                 "Sensitivity to unobserved confounding of the mediator",
                 priority="recommended",
                 category="sensitivity",
@@ -689,11 +836,14 @@ def causal_next_steps(result: Any) -> List[Step]:
 
     # ── Universal steps (all causal methods) ───────────────────────── #
 
-    # Bounds / sensitivity
-    if method_family not in ("synth",):  # synth has own sensitivity
+    # E-value: a bound on unmeasured confounding, so only for designs that
+    # assume no unmeasured confounding. DiD / RD / IV / synth rest on
+    # other assumptions, and a mean difference needs the outcome SD to be
+    # put on the risk-ratio scale (sp.evalue_from_result refuses without).
+    if method_family in ("matching", "dml", "hte", "mediation", "generic"):
         steps.append(
             Step(
-                "sp.evalue(result.estimate, result.se)",
+                f"sp.evalue_from_result(result, sd=df[{_q(ctx, 'y')}].std())",
                 "E-value: minimum confounding strength to explain away the effect",
                 priority="recommended",
                 category="sensitivity",
@@ -703,7 +853,7 @@ def causal_next_steps(result: Any) -> List[Step]:
     # Subgroup analysis
     steps.append(
         Step(
-            "sp.subgroup_analysis(data=df, ...)",
+            "sp.subgroup_analysis(data=df, formula='...', x='...', by={...})",
             "Test for heterogeneous effects across subgroups (with Wald test)",
             priority="optional",
             category="robustness",
@@ -713,7 +863,7 @@ def causal_next_steps(result: Any) -> List[Step]:
     # Export
     steps.append(
         Step(
-            "sp.regtable(result1, result2, ...)",
+            "sp.regtable(result)",
             "Publication-quality comparison table (LaTeX / Word / Excel)",
             priority="optional",
             category="export",
@@ -785,8 +935,6 @@ def _detect_family(method: str) -> str:
     # --- IV (match bare "iv" and "iv ..." via word boundary) ---
     if any(k in m for k in ("2sls", "instrumental", "bartik", "deepiv", "shift-share")):
         return "iv"
-    import re
-
     if re.search(r"\biv\b", m):
         return "iv"
 
@@ -811,8 +959,11 @@ def _detect_family(method: str) -> str:
         return "dml"
 
     # --- HTE / Meta-learners ---
+    # Compare without spaces / hyphens: methods print as
+    # "Meta-Learner (T-Learner)".
+    compact = re.sub(r"[\s_\-]", "", m)
     if any(
-        k in m
+        k in m or k.replace(" ", "") in compact
         for k in (
             "metalearner",
             "slearner",

@@ -361,8 +361,38 @@ def test_evalue_from_result_with_se_path():
         ci = None
         alpha = 0.05
 
-    out = sp.evalue_from_result(_R(), measure="SMD")
+    out = sp.evalue_from_result(_R(), measure="SMD", sd=1.0)
     assert out["evalue_estimate"] == pytest.approx(1.956110, rel=RTOL)
+
+
+def test_evalue_from_result_standardises_by_the_outcome_sd():
+    # A mean difference of 600 on an outcome with SD 2000 is SMD 0.3:
+    # same E-value as the standardised case above, whatever the units.
+    class _R:
+        estimate = 600.0
+        se = 200.0
+        ci = (600.0 - 1.959963984540054 * 200.0, 600.0 + 1.959963984540054 * 200.0)
+        alpha = 0.05
+
+    out = sp.evalue_from_result(_R(), measure="SMD", sd=2000.0)
+    ref = sp.evalue(estimate=0.3, se=0.1, measure="SMD")
+    assert out["evalue_estimate"] == pytest.approx(1.956110, rel=RTOL)
+    assert out["evalue_ci"] == pytest.approx(ref["evalue_ci"], rel=1e-12)
+    assert out["outcome_sd"] == 2000.0
+
+
+def test_evalue_from_result_refuses_an_unstandardised_mean_difference():
+    class _R:
+        estimate = 600.0
+        se = 200.0
+        ci = None
+        alpha = 0.05
+
+    with pytest.raises(sp.exceptions.MethodIncompatibility) as ei:
+        sp.evalue_from_result(_R(), measure="SMD")
+    assert "sd=" in ei.value.recovery_hint
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.evalue_from_result(_R(), measure="SMD", sd=0.0)
 
 
 def test_threshold_none_and_nan():

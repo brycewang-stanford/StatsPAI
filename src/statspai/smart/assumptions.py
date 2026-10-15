@@ -695,8 +695,8 @@ def _audit_did(
                 statistic=None,
                 p_value=p,
                 detail="Critical — core identifying assumption of DID.",
-                remedy="Use sp.honest_did() for sensitivity to violations, "
-                "or sp.sensitivity_rr() for Rambachan-Roth analysis.",
+                remedy="Use sp.honest_did() / sp.breakdown_m() for "
+                "Rambachan-Roth (2023) sensitivity to violations.",
             )
         )
     else:

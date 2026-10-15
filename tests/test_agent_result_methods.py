@@ -43,7 +43,7 @@ class TestCausalViolations:
         assert v["test"] == "pretrend"
         assert v["severity"] == "error"
         assert v["value"] == pytest.approx(0.01)
-        assert "sp.sensitivity_rr" in v["alternatives"]
+        assert "sp.honest_did" in v["alternatives"]
         assert "Rambachan" in v["recovery_hint"]
 
     def test_pretrend_warning_when_borderline(self):

@@ -32672,13 +32672,13 @@ def _build_registry() -> None:
             name="sensitivity_rr",
             category="causal",
             description=(
-                "Rambachan-Roth (2023) honest-DiD sensitivity analysis: "
-                "computes the largest violation of parallel trends "
-                "(parametrised by Mbar — relative magnitude of the "
-                "post-period violation versus the worst observed pre-"
-                "period one) under which the post-treatment ATT is still "
-                "different from zero at level alpha.  Reports both the "
-                "robust confidence sets and the breakdown Mbar."
+                "Quick linear-extrapolation sensitivity band for DiD in the "
+                "spirit of Rambachan-Roth (2023): the post-period violation "
+                "is bounded by the fitted pre-trend slope plus Mbar of "
+                "slack, giving a symmetric conservative interval and a "
+                "breakdown Mbar. A heuristic, not the Rambachan-Roth "
+                "confidence set; use sp.honest_did / sp.breakdown_m for "
+                "the FLCI and the conditional / hybrid sets."
             ),
             params=[
                 ParamSpec(
@@ -32694,8 +32694,8 @@ def _build_registry() -> None:
                     "ndarray",
                     False,
                     None,
-                    "Grid of relative-magnitude bounds; default is np.linspace(0, 2, "
-                    "n_grid)",
+                    "Grid of slack values on the pre-trend slope; default is "
+                    "np.linspace(0, 3 * |fitted pre-trend slope|, n_grid)",
                 ),
                 ParamSpec(
                     "method", "str", False, "C-LF", "Identification method", ["C-LF"]

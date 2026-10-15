@@ -110,16 +110,27 @@ def test_full_did_agent_transcript():
     ), "a missing check must name the function that would satisfy it"
 
     # 5. Design-agnostic sensitivity off the same handle.
-    sens = execute_tool(
+    # The E-value of a mean difference needs the outcome SD; without it
+    # the tool refuses with a recovery hint instead of a unit-dependent number.
+    refused = execute_tool(
         "sensitivity_from_result",
         {"result_id": rid, "method": "evalue"},
+        data=None,
+    )
+    assert refused.get("error") and "sd=" in str(refused)
+    sd = float(df["y"].std())
+    sens = execute_tool(
+        "sensitivity_from_result",
+        {"result_id": rid, "method": "evalue", "sd": sd},
         data=None,
     )
     assert _ok(sens), sens
     assert sens.get("source_result_id") == rid
     # The handle assertion alone passed while this tool returned an empty
     # payload. Check the E-value against sp.evalue_from_result.
-    expected = sp.evalue_from_result(sp.did(df, y="y", treat="treat", time="post"))
+    expected = sp.evalue_from_result(
+        sp.did(df, y="y", treat="treat", time="post"), sd=sd
+    )
     assert sens["evalue_estimate"] == pytest.approx(
         expected["evalue_estimate"], rel=1e-9
     )
@@ -145,7 +156,7 @@ def test_handle_is_reusable_and_stale_handle_errors_cleanly():
     assert _ok(
         execute_tool(
             "sensitivity_from_result",
-            {"result_id": rid, "method": "evalue"},
+            {"result_id": rid, "method": "evalue", "sd": float(df["y"].std())},
             data=None,
         )
     )

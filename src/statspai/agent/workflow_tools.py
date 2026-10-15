@@ -149,6 +149,22 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                     "type": "string",
                     "description": "Cinelli-Hazlett benchmark column (optional).",
                 },
+                "measure": {
+                    "type": "string",
+                    "enum": ["SMD", "MD", "RR", "OR", "HR"],
+                    "default": "SMD",
+                    "description": (
+                        "evalue: scale of the estimate. SMD / MD (a mean "
+                        "difference) need sd; RR / OR / HR are ratios."
+                    ),
+                },
+                "sd": {
+                    "type": "number",
+                    "description": (
+                        "evalue with SMD / MD: the outcome's standard "
+                        "deviation (1 if already standardised)."
+                    ),
+                },
             },
             "required": ["result_id"],
         },
@@ -1142,7 +1158,12 @@ def _tool_sensitivity_from_result(
                 "evalue",
                 None,
             )
-            result = fn(obj) if fn else None
+            ev_kwargs = {
+                k: arguments[k]
+                for k in ("measure", "sd")
+                if arguments.get(k) is not None
+            }
+            result = fn(obj, **ev_kwargs) if fn else None
         elif method == "oster":
             fn = getattr(sp, "oster_bounds", None)
             result = fn(obj) if fn else None

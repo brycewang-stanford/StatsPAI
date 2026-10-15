@@ -338,6 +338,27 @@ def _short_estimate(
 # ----------------------------------------------------------------------
 
 
+def _evalue_followup(
+    rid: Optional[str], data: Optional[pd.DataFrame], y: Optional[str]
+) -> Dict[str, Any]:
+    """``sensitivity_from_result(method='evalue')`` with the outcome SD filled in.
+
+    The E-value of a mean difference depends on the outcome's SD; the
+    pipeline holds the data, so it supplies it rather than leaving the
+    agent a call that refuses without it.
+    """
+    args: Dict[str, Any] = {"result_id": rid, "method": "evalue", "measure": "SMD"}
+    if data is not None and y in getattr(data, "columns", ()):
+        sd = pd.to_numeric(data[y], errors="coerce").std()
+        if pd.notna(sd) and float(sd) > 0:
+            args["sd"] = float(sd)
+    return {
+        "tool": "sensitivity_from_result",
+        "arguments": args,
+        "rationale": "E-value bound on omitted-confounder strength.",
+    }
+
+
 def _pipeline_did(
     arguments: Dict[str, Any],
     data: Optional[pd.DataFrame],
@@ -566,11 +587,7 @@ def _pipeline_did(
             "arguments": {"result_id": primary_rid, "kind": "event_study"},
             "rationale": "Event-study plot for the executive summary.",
         },
-        {
-            "tool": "sensitivity_from_result",
-            "arguments": {"result_id": primary_rid, "method": "evalue"},
-            "rationale": "E-value bound on omitted-confounder strength.",
-        },
+        _evalue_followup(primary_rid, data, y),
         {
             "tool": "spec_curve",
             "arguments": {
@@ -902,12 +919,9 @@ def _pipeline_iv(
         "effective_F": fF,
         "stages": stages,
         "narrative": "\n".join(narrative_lines).strip(),
-        "next_calls": [
-            {
-                "tool": "sensitivity_from_result",
-                "arguments": {"result_id": rid, "method": "evalue"},
-            },
-        ],
+        # No E-value follow-up: an IV fit carries a coefficient vector,
+        # not the single causal estimate evalue_from_result takes.
+        "next_calls": [],
     }
     if ar_payload:
         out["anderson_rubin"] = ar_payload
@@ -1069,12 +1083,7 @@ def _pipeline_rd(
         "primary_summary": summary,
         "stages": stages,
         "narrative": "\n".join(narrative_lines).strip(),
-        "next_calls": [
-            {
-                "tool": "sensitivity_from_result",
-                "arguments": {"result_id": rid, "method": "evalue"},
-            },
-        ],
+        "next_calls": [_evalue_followup(rid, data, y)],
     }
     if plot_png is not None:
         out["_plot_png"] = plot_png

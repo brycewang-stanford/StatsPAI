@@ -213,8 +213,8 @@ REMEDIATIONS: List[Dict[str, Any]] = [
             "are likely biased."
         ),
         "fix": (
-            "Run sp.sensitivity_rr(result) for Rambachan-Roth (2023) "
-            "honest CIs.  Or switch to sp.callaway_santanna / "
+            "Run sp.honest_did(result) / sp.breakdown_m(result) for "
+            "Rambachan-Roth (2023) honest CIs.  Or switch to sp.callaway_santanna / "
             "sp.did_imputation which are robust to heterogeneous "
             "effects.  Consider dropping the longest-pre-period cohorts."
         ),

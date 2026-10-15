@@ -361,7 +361,7 @@ FUNCTION_CARDS: Dict[str, Card] = {
             "simulation per grid point; the FLCI path is a closed-form "
             "optimisation per M. Cost is linear in len(m_grid)."
         ),
-        "alternatives": ["sp.pretrends_power", "sp.sensitivity_rr", "sp.uniform_bands"],
+        "alternatives": ["sp.pretrends_power", "sp.breakdown_m", "sp.uniform_bands"],
     },
     "sun_abraham": {
         "failure_modes": [

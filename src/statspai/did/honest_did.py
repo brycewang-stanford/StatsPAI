@@ -86,8 +86,24 @@ def _require_int(value: Any, *, argument: str) -> int:
         ) from exc
 
 
-def _coerce_m_grid(m_grid: Optional[Sequence[float]], *, se_hat: float) -> List[float]:
+#: ``HonestDiD::createSensitivityResults_relativeMagnitudes`` default
+#: (0.2.8): ``Mbarvec = seq(from = 0, to = 2, length.out = 10)``.
+_RM_DEFAULT_GRID = tuple(float(m) for m in np.linspace(0.0, 2.0, 10))
+
+
+def _coerce_m_grid(
+    m_grid: Optional[Sequence[float]],
+    *,
+    se_hat: float,
+    relative_magnitude: bool = False,
+) -> List[float]:
     if m_grid is None:
+        # M-bar under relative magnitudes is a unitless ratio to the
+        # largest pre-period violation; a grid in SE units (0.01-0.02 on a
+        # log outcome) would evaluate only near-zero ratios and report the
+        # effect as robust everywhere.
+        if relative_magnitude:
+            return list(_RM_DEFAULT_GRID)
         sigma = float(se_hat)
         return [0.0, 0.5 * sigma, sigma, 1.5 * sigma, 2.0 * sigma, 3.0 * sigma]
     try:
@@ -313,7 +329,10 @@ def honest_did(
         0 = on-impact effect, 1 = one period after, etc.
     m_grid : list of float, optional
         Grid of M values (maximum violation magnitude) to evaluate.
-        Default: [0, 0.5σ, 1σ, 1.5σ, 2σ] where σ is the SE at e.
+        Default for ``'smoothness'``: [0, 0.5σ, 1σ, 1.5σ, 2σ, 3σ] where σ
+        is the SE at e. Default for ``'relative_magnitude'``: ten equally
+        spaced M̄ from 0 to 2 (``HonestDiD``'s ``Mbarvec``), since M̄ is a
+        unitless ratio to the largest pre-period violation.
     method : str, default 'smoothness'
         Type of restriction on violations:
         - ``'smoothness'``: |Δδ_t| ≤ M (bounded change in violation)
@@ -596,8 +615,11 @@ def honest_did(
     pre = es[es["relative_time"] < 0].sort_values("relative_time")
     pre_atts = pre["att"].values
 
-    # Default M grid: multiples of SE
-    m_grid = _coerce_m_grid(m_grid, se_hat=se_hat)
+    # Default M grid: multiples of SE (smoothness) or HonestDiD's M-bar
+    # grid (relative magnitudes).
+    m_grid = _coerce_m_grid(
+        m_grid, se_hat=se_hat, relative_magnitude=(method == "relative_magnitude")
+    )
 
     rows = []
 
@@ -945,7 +967,11 @@ def _honest_did_r_backend(
                 diagnostics={"e": e, "available": es["relative_time"].tolist()},
             )
         se_hat = float(target_row["se"].iloc[0])
-    m_grid = _coerce_m_grid(m_grid, se_hat=se_hat)
+    m_grid = _coerce_m_grid(
+        m_grid,
+        se_hat=se_hat,
+        relative_magnitude=method_norm in {"relative_magnitude", "relative_magnitudes"},
+    )
     if len(pre) == 0:
         raise DataInsufficient(
             "backend='honestdid' requires at least one pre-treatment period.",

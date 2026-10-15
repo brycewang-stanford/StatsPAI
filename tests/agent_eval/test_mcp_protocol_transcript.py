@@ -148,7 +148,7 @@ def test_mcp_agent_empirical_analysis_transcript(tmp_path: Path) -> None:
 
     sensitivity = _call_tool(
         "sensitivity_from_result",
-        {"result_id": rid, "method": "evalue"},
+        {"result_id": rid, "method": "evalue", "sd": float(frame["y"].std())},
         request_id=14,
     )
     assert sensitivity["isError"] is False
@@ -158,7 +158,7 @@ def test_mcp_agent_empirical_analysis_transcript(tmp_path: Path) -> None:
     # serialised to an empty payload — and the handle assertion above stayed
     # green through it. Check the number, against sp.evalue_from_result.
     expected_ev = sp.evalue_from_result(
-        sp.did(frame, y="y", treat="treat", time="post")
+        sp.did(frame, y="y", treat="treat", time="post"), sd=float(frame["y"].std())
     )
     assert spayload["evalue_estimate"] == pytest.approx(
         expected_ev["evalue_estimate"], rel=1e-9

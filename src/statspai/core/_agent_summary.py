@@ -690,12 +690,12 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
                     f"< {_PRETREND_ALPHA} — parallel trends is likely violated."
                 ),
                 "recovery_hint": (
-                    "Run sp.sensitivity_rr(result) for Rambachan & Roth (2023) "
-                    "honest CIs, and consider sp.callaway_santanna or "
+                    "Run sp.honest_did(result) / sp.breakdown_m(result) for "
+                    "Rambachan & Roth (2023) honest CIs, and consider sp.callaway_santanna or "
                     "sp.did_imputation (robust to heterogeneous effects)."
                 ),
                 "alternatives": [
-                    "sp.sensitivity_rr",
+                    "sp.honest_did",
                     "sp.callaway_santanna",
                     "sp.did_imputation",
                 ],

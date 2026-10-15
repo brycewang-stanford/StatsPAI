@@ -215,7 +215,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         evidence_paths=_p("honest_did"),
         threshold=None,
         compare="exists",
-        suggest_function="sp.sensitivity_rr",
+        suggest_function="sp.honest_did",
         importance="medium",
         rationale="Pre-trend tests are low-power; Rambachan-Roth (2023) "
         "honest CIs quantify how much violation the estimate "

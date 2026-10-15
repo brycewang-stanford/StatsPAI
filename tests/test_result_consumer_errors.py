@@ -37,7 +37,7 @@ def test_evalue_from_result_rejects_non_causal_result(data):
 
 def test_evalue_from_result_works_on_causal_result(data):
     ml = sp.metalearner(data, y="y", treat="t", covariates=["x1", "x2"], learner="t")
-    ev = sp.evalue_from_result(ml)
+    ev = sp.evalue_from_result(ml, sd=data["y"].std())
     assert ev["evalue_estimate"] >= 1.0  # E-values are always >= 1
 
 

@@ -3,17 +3,17 @@ Tests for Phase 9-14: E-value, Dose-Response, Bounds, Interference,
 Dynamic Treatment Regimes, Multi-valued Treatment.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
-from statspai.diagnostics.evalue import evalue, evalue_from_result
-from statspai.dose_response import dose_response, DoseResponse
 from statspai.bounds import lee_bounds, manski_bounds
-from statspai.interference import spillover, SpilloverEstimator
-from statspai.dtr import g_estimation, GEstimation
-from statspai.multi_treatment import multi_treatment, MultiTreatment
 from statspai.core.results import CausalResult
+from statspai.diagnostics.evalue import evalue, evalue_from_result
+from statspai.dose_response import DoseResponse, dose_response
+from statspai.dtr import GEstimation, g_estimation
+from statspai.interference import SpilloverEstimator, spillover
+from statspai.multi_treatment import MultiTreatment, multi_treatment
 
 # ======================================================================
 # Fixtures
@@ -154,7 +154,7 @@ class TestEvalue:
             alpha=0.05,
             n_obs=100,
         )
-        result = evalue_from_result(cr, measure="SMD")
+        result = evalue_from_result(cr, measure="SMD", sd=1.0)
         assert result["evalue_estimate"] > 1.0
 
     def test_invalid_measure_raises(self):

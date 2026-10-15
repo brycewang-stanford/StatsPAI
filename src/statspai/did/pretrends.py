@@ -1279,10 +1279,17 @@ def sensitivity_rr(
     alpha: float = 0.05,
     n_grid: int = 20,
 ) -> SensitivityResult:
-    """Rambachan & Roth (2023) honest confidence intervals.
+    """Linear-extrapolation sensitivity band in the spirit of Rambachan & Roth (2023).
 
-    Computes confidence intervals for the ATT that are valid under
-    bounded departures from parallel trends.  The *conditional
+    This is a quick, conservative heuristic, **not** the Rambachan-Roth
+    confidence set: for the fixed-length CI under smoothness
+    restrictions or the conditional / hybrid set under relative
+    magnitudes use :func:`sp.honest_did` (and :func:`sp.breakdown_m` for
+    the breakdown value), which solve the actual Rambachan-Roth
+    programs. The two can disagree, sometimes in sign of the conclusion.
+
+    Computes intervals for the ATT under bounded departures from
+    parallel trends.  The *conditional
     linear-in-relative-time* (C-LF) restriction assumes the
     post-treatment violation is bounded by a linear extrapolation of the
     pre-trend plus an additional M-bar of slack on its slope. With a

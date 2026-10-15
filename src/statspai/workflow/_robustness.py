@@ -308,7 +308,7 @@ def run_robustness_battery(
 
     # --- 4. E-value (observational + DID)
     if d_norm in ("did", "observational"):
-        _add_evalue(result, findings)
+        _add_evalue(result, findings, data=data, outcome=outcome)
 
     # --- 5. Oster bounds + sensemakr (observational with covariates)
     if d_norm == "observational":
@@ -574,11 +574,48 @@ def _add_rd_checks(result: Any, findings: List[RobustnessFinding]) -> None:
         )
 
 
-def _add_evalue(result: Any, findings: List[RobustnessFinding]) -> None:
+def _outcome_sd(
+    data: Optional[pd.DataFrame], outcome: Optional[str]
+) -> Optional[float]:
+    """Standard deviation of the outcome column, or ``None`` if unavailable."""
+    if data is None or not outcome or outcome not in getattr(data, "columns", ()):
+        return None
+    try:
+        sd = float(pd.to_numeric(data[outcome], errors="coerce").std())
+    except (TypeError, ValueError):
+        return None
+    return sd if np.isfinite(sd) and sd > 0 else None
+
+
+def _add_evalue(
+    result: Any,
+    findings: List[RobustnessFinding],
+    *,
+    data: Optional[pd.DataFrame] = None,
+    outcome: Optional[str] = None,
+) -> None:
+    # The estimate is a mean difference on the outcome's scale; its
+    # E-value needs the outcome SD. Without the data there is no honest
+    # number to report, so the check is marked as not run.
+    sd = _outcome_sd(data, outcome)
+    if sd is None:
+        findings.append(
+            RobustnessFinding(
+                name="evalue",
+                label="E-value (VanderWeele-Ding)",
+                value=None,
+                severity="info",
+                interpretation=(
+                    "not computed: needs the outcome's standard deviation "
+                    "(pass data= and outcome=)"
+                ),
+            )
+        )
+        return
     try:
         from .. import evalue_from_result  # type: ignore
 
-        ev = evalue_from_result(result)
+        ev = evalue_from_result(result, sd=sd)
         # statspai 1.x returns a dict with ``evalue_estimate`` (point
         # estimate's e-value) and ``evalue_ci`` (CI-limit e-value, which
         # is the more conservative read).  Older callers may pass an

@@ -22,7 +22,7 @@ result object lacks the expected fields.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 # ----------------------------------------------------------------------
 # next_calls: pre-built JSON-RPC payloads
@@ -90,11 +90,6 @@ _FOLLOWUP_BY_TOOL: Dict[str, List[Dict[str, Any]]] = {
             "tool": "anderson_rubin_test",
             "rationale": "Weak-instrument-robust CI / test.",
         },
-        {
-            "tool": "sensitivity_from_result",
-            "arguments": {"method": "evalue"},
-            "rationale": "E-value bound on omitted-confounder strength.",
-        },
     ],
     "iv": [
         {"tool": "effective_f_test"},
@@ -113,7 +108,6 @@ _FOLLOWUP_BY_TOOL: Dict[str, List[Dict[str, Any]]] = {
             "tool": "het_test",
             "rationale": "Heteroskedasticity test (Breusch-Pagan / White).",
         },
-        {"tool": "sensitivity_from_result", "arguments": {"method": "evalue"}},
     ],
     "dml": [
         {"tool": "audit_result"},
@@ -160,17 +154,29 @@ _FOLLOWUP_BY_TOOL: Dict[str, List[Dict[str, Any]]] = {
 
 
 @lru_cache(maxsize=1)
-def _required_args_by_tool() -> Dict[str, Set[str]]:
-    """Return required manifest args for advertised tools.
+def _tool_schema_index() -> Dict[str, Tuple[Set[str], Set[str]]]:
+    """Return ``{tool: (required args, accepted args)}`` for advertised tools.
 
     Prefer the generated ``schemas/tools.json`` snapshot because this is
     the offline contract agents inspect and it avoids importing the full
-    live registry inside result enrichment. If the snapshot is absent,
-    fall back to the live manifest. Enrichment must never make the
-    primary estimator fail merely because readiness metadata could not
-    be built.
+    live registry inside result enrichment. If the snapshot is absent
+    (an installed wheel), fall back to the live manifest. Enrichment must
+    never make the primary estimator fail merely because readiness
+    metadata could not be built.
     """
-    required_by_tool: Dict[str, Set[str]] = {}
+
+    def _index(
+        manifest: Iterable[Dict[str, Any]],
+    ) -> Dict[str, Tuple[Set[str], Set[str]]]:
+        out: Dict[str, Tuple[Set[str], Set[str]]] = {}
+        for tool in manifest:
+            schema = tool.get("input_schema") or tool.get("inputSchema") or {}
+            out[str(tool.get("name"))] = (
+                set(schema.get("required") or []),
+                set((schema.get("properties") or {}).keys()),
+            )
+        return out
+
     try:
         import json
         from pathlib import Path
@@ -178,27 +184,40 @@ def _required_args_by_tool() -> Dict[str, Set[str]]:
         repo_root = Path(__file__).resolve().parents[3]
         snapshot = repo_root / "schemas" / "tools.json"
         if snapshot.exists():
-            manifest = json.loads(snapshot.read_text(encoding="utf-8"))
-            for tool in manifest:
-                schema = tool.get("input_schema") or tool.get("inputSchema") or {}
-                required_by_tool[str(tool.get("name"))] = set(
-                    schema.get("required") or []
-                )
-            return required_by_tool
+            return _index(json.loads(snapshot.read_text(encoding="utf-8")))
     except (OSError, TypeError, ValueError, AttributeError):
-        required_by_tool = {}
+        pass
 
     try:
         from .tools import tool_manifest
 
-        manifest = tool_manifest()
+        return _index(tool_manifest())
     except (ImportError, TypeError, ValueError, AttributeError):
-        return required_by_tool
+        return {}
 
-    for tool in manifest:
-        schema = tool.get("input_schema") or tool.get("inputSchema") or {}
-        required_by_tool[str(tool.get("name"))] = set(schema.get("required") or [])
-    return required_by_tool
+
+def _required_args_by_tool() -> Dict[str, Set[str]]:
+    """Return required manifest args for advertised tools."""
+    return {name: req for name, (req, _props) in _tool_schema_index().items()}
+
+
+#: Arguments the MCP server adds to every tool's schema at ``tools/list``
+#: time (``mcp_server._COMMON_ARGUMENT_ORDER``); the offline snapshot
+#: does not carry them.
+_SERVER_COMMON_ARGS = frozenset(
+    {
+        "data_path",
+        "data_id",
+        "data_records",
+        "data_csv",
+        "data_columns",
+        "data_sample_n",
+        "result_id",
+        "max_output_bytes",
+        "as_handle",
+        "detail",
+    }
+)
 
 
 def _followup_base_args(base_args: Dict[str, Any]) -> Dict[str, Any]:
@@ -226,18 +245,70 @@ def _followup_base_args(base_args: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _own_args(tool: str) -> Optional[Set[str]]:
+    """The tool's own arguments (no server-injected ones), or ``None``."""
+    entry = _tool_schema_index().get(tool)
+    return None if entry is None else set(entry[1])
+
+
+def _accepted_args(tool: str) -> Optional[Set[str]]:
+    """Arguments ``tool`` accepts, or ``None`` when its schema is unknown."""
+    own = _own_args(tool)
+    return None if own is None else own | _SERVER_COMMON_ARGS
+
+
+def _reads_result(tool: str, own: Optional[Set[str]]) -> bool:
+    """Whether ``tool`` works from a fitted result (``result_id`` / ``result``)."""
+    return own is not None and bool({"result_id", "result"} & own)
+
+
+@lru_cache(maxsize=1)
+def _dataless_tools() -> "frozenset[str]":
+    try:
+        from .mcp_server import _dataless_tool_names
+
+        return frozenset(_dataless_tool_names())
+    except Exception:  # noqa: BLE001 - readiness metadata must not break a fit
+        return frozenset()
+
+
+def _needs_data(tool: str, own: Optional[Set[str]]) -> bool:
+    """Whether a call to ``tool`` needs a dataset (``data_id`` / ``data_path``)."""
+    if own is None or _reads_result(tool, own):
+        return False
+    return tool not in _dataless_tools()
+
+
+#: Server arguments that name the dataset a follow-up should run on.
+_DATA_SOURCE_ARGS = ("data_id", "data_path")
+
+
 def _annotate_readiness(out: Dict[str, Any]) -> Dict[str, Any]:
-    """Mark whether a follow-up payload has all required manifest args."""
+    """Mark whether a follow-up payload can be dispatched as written.
+
+    Ready means: every required argument of the tool is present (a
+    ``result`` parameter counts as present when ``result_id`` is, since the
+    server resolves the handle), and a tool that reads a dataset has one.
+    """
     tool = str(out.get("tool") or "")
-    required = _required_args_by_tool().get(tool, set())
+    required = set(_required_args_by_tool().get(tool, set()))
     args = out.get("arguments") or {}
+    if "result_id" in args:
+        required.discard("result")
     missing = sorted(required - set(args))
+    if _needs_data(tool, _own_args(tool)) and not any(
+        k in args for k in _DATA_SOURCE_ARGS
+    ):
+        missing.append("data_id")
+    out.pop("missing_arguments", None)
+    out.pop("hint", None)
     if missing:
         out["ready"] = False
         out["missing_arguments"] = missing
-        out.setdefault(
-            "hint",
-            "Supply missing_arguments before dispatching this follow-up.",
+        out["hint"] = "Supply missing_arguments before dispatching this follow-up" + (
+            " (data_id: the dataset handle from load_data)."
+            if "data_id" in missing
+            else "."
         )
     else:
         out["ready"] = True
@@ -255,14 +326,23 @@ def _instantiate_followup(
         "tool": template["tool"],
         "arguments": dict(template.get("arguments") or {}),
     }
-    if result_id and "result_id" not in out["arguments"]:
+    own = _own_args(out["tool"])
+    # The handle goes only to tools that read a fitted result; ``rdplot``
+    # given a result_id still needs the data and reports the handle as an
+    # unsupported argument.
+    if (
+        result_id
+        and "result_id" not in out["arguments"]
+        and _reads_result(out["tool"], own)
+    ):
         out["arguments"]["result_id"] = result_id
     if "rationale" in template:
         out["rationale"] = template["rationale"]
-    # Pass through select base args that any chained call may reuse
-    # (e.g. agents commonly want the same outcome / treatment / time
-    # column names without restating them). We never overwrite an
-    # explicit value the template carries.
+    # Pass through the fit's column arguments under the target tool's own
+    # parameter names. We never overwrite an explicit value the template
+    # carries, and a name the tool does not take is not copied: a client
+    # that validates against the schema rejects the call, and the server
+    # reports it under ``_unsupported_args``.
     normalized_base_args = _followup_base_args(base_args)
     for key in (
         "y",
@@ -277,16 +357,51 @@ def _instantiate_followup(
         "cohort",
         "g",
         "covariates",
-        "data_path",
         "running_var",
+        "c",
         "instrument",
         "instruments",
         "endog",
         "formula",
     ):
         if key in normalized_base_args and key not in out["arguments"]:
+            if own is not None and key not in own:
+                continue
             out["arguments"][key] = normalized_base_args[key]
+    if _needs_data(out["tool"], own):
+        for key in _DATA_SOURCE_ARGS:
+            if base_args.get(key):
+                out["arguments"].setdefault(key, base_args[key])
+                break
     return _annotate_readiness(out)
+
+
+def attach_data_source(payload: Dict[str, Any], data_args: Dict[str, Any]) -> None:
+    """Give the dataset handle to follow-ups that need data, then re-check them.
+
+    The MCP server strips ``data_id`` / ``data_path`` from the arguments
+    before the estimator (and the enrichment) sees them; it calls this
+    afterwards with the source it resolved, so a follow-up such as
+    ``rdplot`` arrives with the same dataset instead of a missing ``data``.
+    """
+    calls = payload.get("next_calls") if isinstance(payload, dict) else None
+    if not calls:
+        return
+    source = {k: data_args[k] for k in _DATA_SOURCE_ARGS if data_args.get(k)}
+    for call in calls:
+        if not isinstance(call, dict):
+            continue
+        tool = str(call.get("tool") or "")
+        args = call.setdefault("arguments", {})
+        if (
+            source
+            and _needs_data(tool, _own_args(tool))
+            and not any(k in args for k in _DATA_SOURCE_ARGS)
+        ):
+            key = "data_id" if "data_id" in source else "data_path"
+            args[key] = source[key]
+        if tool in _tool_schema_index():
+            _annotate_readiness(call)
 
 
 def build_next_calls(
@@ -441,18 +556,33 @@ def build_narrative(
         header_bits.append(f"({estimand})")
     parts.append(" ".join(header_bits))
 
+    def _first(*keys: str) -> Any:
+        # ``0.0`` is a legitimate p-value / estimate: test for presence,
+        # not truthiness.
+        for key in keys:
+            value = payload.get(key)
+            if value is not None:
+                return value
+        return None
+
     est = payload.get("estimate")
-    se = payload.get("std_error") or payload.get("se")
-    p = payload.get("p_value") or payload.get("pvalue")
-    lo = payload.get("conf_low")
-    hi = payload.get("conf_high")
-    if est is not None:
+    se = _first("std_error", "se")
+    p = _first("p_value", "pvalue")
+    lo, hi = payload.get("conf_low"), payload.get("conf_high")
+    ci = payload.get("ci")
+    if (lo is None or hi is None) and isinstance(ci, (list, tuple)) and len(ci) == 2:
+        lo, hi = ci
+    alpha = payload.get("alpha")
+    level = 95.0
+    if isinstance(alpha, (int, float)) and 0 < alpha < 1:
+        level = 100.0 * (1.0 - float(alpha))
+    if isinstance(est, (int, float)):
         line = f"Point estimate: {est:.4g}"
-        if se is not None:
+        if isinstance(se, (int, float)):
             line += f" (SE {se:.3g})"
-        if lo is not None and hi is not None:
-            line += f"; 95% CI [{lo:.3g}, {hi:.3g}]"
-        if p is not None:
+        if isinstance(lo, (int, float)) and isinstance(hi, (int, float)):
+            line += f"; {level:g}% CI [{lo:.3g}, {hi:.3g}]"
+        if isinstance(p, (int, float)):
             line += f"; p={p:.3g}"
         parts.append(line)
 
@@ -465,8 +595,17 @@ def build_narrative(
 
     next_steps = payload.get("next_steps") or []
     if next_steps:
-        head = "; ".join(str(s) for s in list(next_steps)[:2])
-        parts.append(f"Next steps: {head}")
+        actions = []
+        for step in list(next_steps)[:2]:
+            if isinstance(step, dict):
+                actions.append(
+                    f"`{step.get('action')}`"
+                    if step.get("action")
+                    else str(step.get("reason", ""))
+                )
+            else:
+                actions.append(str(step))
+        parts.append("Next steps: " + "; ".join(a for a in actions if a))
 
     return "  \n".join(parts)
 
@@ -494,7 +633,19 @@ def enrich_payload(
         return payload
 
     if "next_calls" not in payload:
-        nc = build_next_calls(tool_name, result_id=result_id, base_args=base_args or {})
+        try:
+            nc = build_next_calls(
+                tool_name, result_id=result_id, base_args=base_args or {}
+            )
+        except Exception as exc:  # noqa: BLE001 - the fit itself succeeded
+            from ..workflow._degradation import record_degradation
+
+            degradations = payload.setdefault("degradations", [])
+            if isinstance(degradations, list):
+                record_degradation(
+                    degradations, section="next_calls", exc=exc, detail=tool_name
+                )
+            nc = []
         if nc:
             payload["next_calls"] = nc
 

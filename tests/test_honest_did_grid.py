@@ -260,3 +260,37 @@ def test_fitted_regression_goes_straight_in():
         sp.honest_did_from_moments(fit, event_times=[-3, -2, 0])
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="not in the fit"):
         sp.honest_did_from_moments(fit, event_times={"nope": -2, "f0": 0})
+
+
+def test_relative_magnitude_default_grid_is_honestdid_mbarvec():
+    """M-bar is a unitless ratio; the default grid must not be in SE units.
+
+    HonestDiD 0.2.8 ``createSensitivityResults_relativeMagnitudes`` uses
+    ``Mbarvec = seq(0, 2, length.out = 10)``. A grid of SE multiples (about
+    0.01 on a log outcome) evaluated only near-zero ratios, and the table
+    then contradicted ``sp.breakdown_m``.
+    """
+    import warnings
+
+    import numpy as np
+
+    import statspai as sp
+
+    mp = sp.datasets.mpdta()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cs = sp.callaway_santanna(
+            mp, y="lemp", g="first_treat", t="year", i="countyreal"
+        )
+        es = sp.aggte(cs, type="dynamic")
+        table = sp.honest_did(es, e=0, method="relative_magnitude")
+        explicit = sp.honest_did(
+            es, e=0, method="relative_magnitude", m_grid=np.linspace(0, 2, 10)
+        )
+        m_star = sp.breakdown_m(es, e=0, method="relative_magnitude")
+    np.testing.assert_allclose(table["M"], np.linspace(0, 2, 10), rtol=0, atol=1e-15)
+    np.testing.assert_allclose(table["ci_lower"], explicit["ci_lower"], rtol=0, atol=0)
+    # The table and the breakdown value describe the same set.
+    rejects = table.set_index("M")["rejects_zero"]
+    assert all(rejects[rejects.index < m_star])
+    assert not any(rejects[rejects.index > m_star])

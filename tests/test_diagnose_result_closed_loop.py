@@ -91,7 +91,7 @@ class TestClosedLoop:
         )
         pretrend = next(v for v in out["violations"] if v["test"] == "pretrend")
         assert pretrend["recovery_hint"]
-        assert "sp.sensitivity_rr" in pretrend["alternatives"]
+        assert "sp.honest_did" in pretrend["alternatives"]
 
     def test_clean_result_has_empty_violations(self):
         out = sp.diagnose_result(_clean_did_result(), print_results=False)

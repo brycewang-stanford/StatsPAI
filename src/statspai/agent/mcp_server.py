@@ -2100,6 +2100,16 @@ def _run_tools_call(
             from ._result_cache import RESULT_CACHE
 
             RESULT_CACHE.annotate(rid, {"_mcp_data_provenance": data_prov})
+        # Follow-ups that need data run on the same dataset: hand them the
+        # handle (or the file) this call was resolved from.
+        from ._enrichment import attach_data_source
+
+        source: Dict[str, Any] = {}
+        if data_prov.get("data_id"):
+            source["data_id"] = data_prov["data_id"]
+        elif data_prov.get("source_type") == "local" and data_prov.get("source"):
+            source["data_path"] = data_prov["source"]
+        attach_data_source(result, source)
     replay = result.get("replay")
     if isinstance(replay, str) and replay_comment and "  # data = " not in replay:
         result["replay"] = replay + replay_comment

@@ -17,11 +17,11 @@ import pytest
 
 from statspai.core.next_steps import (
     Step,
+    _detect_family,
     _format_steps,
     _steps_repr_html,
-    econometric_next_steps,
     causal_next_steps,
-    _detect_family,
+    econometric_next_steps,
 )
 
 # ======================================================================
@@ -257,11 +257,15 @@ class TestEconometricNextSteps:
         assert any("sp.esttab" in a for a in actions)
 
     def test_ols_no_residuals(self):
-        """Without residuals/X, estat shortcut to IC."""
-        steps = econometric_next_steps(
-            _mock_econ_result(has_residuals=False, has_X=False)
-        )
-        actions = [s.action for s in steps]
+        """Without residuals/X, estat shortcut to IC — only if there is a
+        likelihood for it to read (an IV fit has neither, and the call
+        would raise)."""
+        bare = _mock_econ_result(has_residuals=False, has_X=False)
+        actions = [s.action for s in econometric_next_steps(bare)]
+        assert not any("sp.estat(result, 'ic')" in a for a in actions)
+        with_ll = _mock_econ_result(has_residuals=False, has_X=False)
+        with_ll.model_info["ll"] = -123.4
+        actions = [s.action for s in econometric_next_steps(with_ll)]
         assert any("sp.estat(result, 'ic')" in a for a in actions)
 
     def test_nonrobust_triggers_robust_se(self):
@@ -319,7 +323,8 @@ class TestCausalNextSteps:
         )
         actions = [s.action for s in steps]
         assert any("pretrends_test" in a for a in actions)
-        assert any("sensitivity_rr" in a for a in actions)
+        assert any("sp.honest_did(result)" in a for a in actions)
+        assert not any("sensitivity_rr" in a for a in actions)
         assert not any("event_study(data=df" in a for a in actions)
 
     def test_did_twfe_suggests_alternatives(self):
@@ -366,7 +371,9 @@ class TestCausalNextSteps:
         steps = causal_next_steps(_mock_causal_result(method="dml"))
         actions = [s.action for s in steps]
         assert any("diagnose_result" in a for a in actions)
-        assert any("cate_summary" in a for a in actions)
+        # A DML fit estimates one parameter, not unit-level effects.
+        assert not any("cate_summary" in a for a in actions)
+        assert any("dml_sensitivity" in a for a in actions)
 
     def test_hte_family(self):
         steps = causal_next_steps(_mock_causal_result(method="causal forest"))
@@ -383,11 +390,15 @@ class TestCausalNextSteps:
         assert any("sensemakr" in a for a in actions)
 
     def test_universal_evalue(self):
-        """E-value appears for all families except synth."""
-        for method in ("did", "rd", "iv", "psm", "dml", "causal_forest", "mediation"):
+        """E-value appears only where the design assumes no unmeasured
+        confounding, and always with the outcome SD."""
+        for method in ("psm", "dml", "causal_forest", "mediation"):
             steps = causal_next_steps(_mock_causal_result(method=method))
             actions = [s.action for s in steps]
-            assert any("evalue" in a for a in actions), f"{method} missing evalue"
+            assert any("evalue_from_result(result, sd=" in a for a in actions), method
+        for method in ("did", "rd", "iv"):
+            steps = causal_next_steps(_mock_causal_result(method=method))
+            assert not any("evalue" in s.action for s in steps), method
         # Synth should NOT have evalue (has own sensitivity)
         steps_synth = causal_next_steps(_mock_causal_result(method="synth"))
         actions_synth = [s.action for s in steps_synth]

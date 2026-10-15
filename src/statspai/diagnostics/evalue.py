@@ -38,7 +38,8 @@ Web Site and R Package for Computing E-values. *Epidemiology* 29(5),
 e45-e47.
 """
 
-from typing import Optional, Dict, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 from scipy import stats as sp_stats
 
@@ -489,6 +490,8 @@ def evalue_from_result(
     rare: Optional[bool] = None,
     rare_outcome: Optional[bool] = None,
     true: Optional[float] = None,
+    *,
+    sd: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Compute an E-value from a StatsPAI CausalResult object.
 
@@ -498,11 +501,18 @@ def evalue_from_result(
         Result from any StatsPAI causal estimator exposing a scalar
         ``estimate`` (and ideally ``se`` / ``ci``).
     measure : str, default 'SMD'
-        How to interpret ``result.estimate`` (for ATE/ATT on continuous
-        outcomes ``'SMD'`` is appropriate; pass ``'RR'`` / ``'OR'`` /
-        ``'HR'`` for ratio estimates).
+        How to interpret ``result.estimate``. ``'SMD'`` / ``'MD'`` read it
+        as a difference in means on the outcome's scale and divide it
+        (with its SE and CI) by ``sd`` before converting to the risk-ratio
+        scale; pass ``'RR'`` / ``'OR'`` / ``'HR'`` for ratio estimates.
     rare, rare_outcome, true :
         Passed through to :func:`evalue`.
+    sd : float, optional
+        Standard deviation of the outcome, required for ``'SMD'`` /
+        ``'MD'``: the E-value of a mean difference depends on it, and the
+        raw ATT is not a standardised difference unless the outcome
+        already has unit variance (then pass ``sd=1``). Usually
+        ``df[y].std()``. Ignored for ratio measures.
 
     Returns
     -------
@@ -526,7 +536,7 @@ def evalue_from_result(
     ...                      "treated": treated, "post": post})
     >>> df = pd.DataFrame(rows)
     >>> res = sp.did(df, y="y", treat="treated", time="post")
-    >>> ev = sp.evalue_from_result(res, measure="SMD")
+    >>> ev = sp.evalue_from_result(res, measure="SMD", sd=df["y"].std())
     >>> ev["measure"]
     'SMD'
     >>> ev["evalue_estimate"] > 1.0
@@ -546,16 +556,52 @@ def evalue_from_result(
             },
             alternative_functions=["sp.evalue"],
         )
-    return evalue(
-        estimate=result.estimate,
-        se=getattr(result, "se", None),
-        ci=getattr(result, "ci", None),
+    estimate = result.estimate
+    se = getattr(result, "se", None)
+    ci = getattr(result, "ci", None)
+    if str(measure).upper() in ("SMD", "MD"):
+        if sd is None:
+            raise MethodIncompatibility(
+                f"evalue_from_result(measure={measure!r}) needs the outcome's "
+                "standard deviation: the estimate is a difference in means on "
+                "the outcome's own scale, and its E-value changes with the "
+                "units of the outcome unless it is standardised first.",
+                recovery_hint=(
+                    "Pass sd=df[<outcome>].std() (sd=1 if the outcome is "
+                    "already standardised), or measure='RR' / 'OR' / 'HR' "
+                    "when the estimate is a ratio."
+                ),
+                diagnostics={
+                    "context": "evalue_from_result",
+                    "measure": measure,
+                    "estimate": estimate,
+                },
+                alternative_functions=["sp.evalue"],
+            )
+        sd = float(sd)
+        if not np.isfinite(sd) or sd <= 0:
+            raise MethodIncompatibility(
+                f"sd must be a positive finite number, got {sd!r}.",
+                recovery_hint="Pass the outcome's standard deviation, e.g. df[y].std().",
+                diagnostics={"context": "evalue_from_result", "sd": sd},
+            )
+        estimate = float(estimate) / sd
+        se = None if se is None else float(se) / sd
+        if ci is not None:
+            ci = (float(ci[0]) / sd, float(ci[1]) / sd)
+    out = evalue(
+        estimate=estimate,
+        se=se,
+        ci=ci,
         measure=measure,
         rare=rare,
         rare_outcome=rare_outcome,
         true=true,
         alpha=getattr(result, "alpha", 0.05),
     )
+    if str(measure).upper() in ("SMD", "MD"):
+        out["outcome_sd"] = sd
+    return out
 
 
 # ======================================================================
