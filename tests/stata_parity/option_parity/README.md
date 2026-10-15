@@ -34,6 +34,7 @@ is the intended effect, not an accident.
 | `93_sunab_options_Stata.json` | `eventstudyinteract` on in-window dummies only (`window_rule='reference'`), with the never-treated and the last cohort as control | `tests/reference_parity/test_sunab_options_parity.py` |
 | `94_bjs_options_Stata.json` | `did_imputation` `fe()` cells, `controls()` with `timecontrols()` / `unitcontrols()`, `[aw=]`, `horizons()` on `data_94_bjs_options.csv` | `tests/reference_parity/test_bjs_options_parity.py` |
 | `95_rdrobust_comb_Stata.json` | `rdrobust` under `bwselect(msecomb1 / msecomb2 / cercomb1 / cercomb2)`, sharp and fuzzy | `tests/reference_parity/test_rdrobust_comb_parity.py` |
+| `97_dcdh_options_Stata.json` | `did_multiplegt_dyn` one option value at a time on `data_97_dcdh_options.csv`: `switchers()`, `same_switchers`, `only_never_switchers`, `trends_nonparam()`, `normalized`, `weight()`, `cluster()`, `controls()`, `effects(1)`, `effects_equal(all)`, `continuous(1\|2)`, an unbalanced panel, one combined fit; effects, placebos, analytic SEs, `Av_tot_eff`, `e(V)`, Wald p-values; `bootstrap(200, s)` SEs at five seeds (S screen only) | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` |
 
 Every consumer opens its fixture; none carries the Stata numbers as
 literals. These files are not in `TIER_A_FIXTURE_LOCK.json`: their SHA-256
