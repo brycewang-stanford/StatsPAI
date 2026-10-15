@@ -1,4 +1,4 @@
-[简体中文](https://github.com/brycewang-stanford/statspai/blob/main/README_CN.md) | English (default)
+[简体中文](https://github.com/brycewang-stanford/statspai/blob/main/README_CN.md) | English
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/readme-1.png" alt="StatsPAI - Python-native Stata and R replacement for applied causal inference" width="780">
@@ -901,6 +901,10 @@ many result objects expose estimator-level citation helpers.
   license = {MIT}
 }
 ```
+
+<p align="center">
+  <a href="https://github.com/brycewang-stanford/StatsPAI"><img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/readme-footer.png" alt="StatsPAI - Agent-Native Causal Inference for Python. Scan the QR code to star the repository on GitHub" width="640"></a>
+</p>
 
 ---
 

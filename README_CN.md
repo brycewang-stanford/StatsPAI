@@ -1,4 +1,4 @@
-[English（默认）](https://github.com/brycewang-stanford/statspai/blob/main/README.md) | 简体中文
+[English](https://github.com/brycewang-stanford/statspai/blob/main/README.md) | 简体中文
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/readme-1.png" alt="StatsPAI - Stata 与 R 的 Python 平替工具包" width="780">
@@ -700,6 +700,10 @@ StatsPAI 的同行评审论文已发表于 *Journal of Open Source Software*（2
   license = {MIT}
 }
 ```
+
+<p align="center">
+  <a href="https://github.com/brycewang-stanford/StatsPAI"><img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/readme-footer.png" alt="StatsPAI - 面向 Agent 的 Python 因果推断工具包，扫码在 GitHub 上关注本仓库" width="640"></a>
+</p>
 
 ---
 
