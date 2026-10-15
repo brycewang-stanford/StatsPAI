@@ -559,6 +559,39 @@ def test_sun_abraham_joint_covariance_has_a_reference_only_with_fixed_shares():
     assert by_name["configuration"]["share_variance"] == "estimated"
 
 
+def test_sun_abraham_control_and_window_rule_are_read_from_the_fit():
+    """An explicit control_cohort= is its own value, not the default it
+    leaves in control_group; lastcohort and the reference rule have rows."""
+    mp = pd.read_csv(ROOT / "tests/orig_parity/data/02_mpdta_original.csv")
+    keys = dict(y="lemp", g="first_treat", t="year", i="countyreal")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        last = sp.validation_scope(
+            sp.sun_abraham(mp, **keys, control_group="lastcohort")
+        )
+        named = sp.validation_scope(sp.sun_abraham(mp, **keys, control_cohort=2007))
+        ref = sp.validation_scope(
+            sp.sun_abraham(mp, **keys, event_window=(-3, 2), window_rule="reference")
+        )
+        # the bin rule with lastcohort: a combination no artifact ran
+        last_bin = sp.validation_scope(
+            sp.sun_abraham(
+                mp,
+                **keys,
+                control_group="lastcohort",
+                event_window=(-3, 2),
+                window_rule="bin",
+            )
+        )
+    assert last["configuration"]["control_group"] == "lastcohort"
+    assert last["status"] == "covered"
+    assert named["configuration"]["control_group"] == "control_cohort"
+    assert named["status"] == "covered"
+    assert ref["configuration"]["window_rule"] == "reference"
+    assert ref["status"] == "covered"
+    assert last_bin["status"] == "not_covered"
+
+
 @pytest.fixture(scope="module")
 def mpdta():
     return pd.read_csv(ROOT / "tests/orig_parity/data/02_mpdta_original.csv")
@@ -578,10 +611,11 @@ def test_did_imputation_scope_follows_the_y0_specification(mpdta):
         warnings.simplefilter("ignore")
         default = sp.did_imputation(mpdta, **_BJS)
         time_only = sp.did_imputation(mpdta, **_BJS, fe=["year"])
-        custom = sp.did_imputation(
-            mpdta.assign(st=mpdta["countyreal"] // 1000),
-            **_BJS,
-            fe=["countyreal", "st#year"],
+        regions = mpdta.assign(region=(mpdta["countyreal"] // 1000) % 5 + 1)
+        custom = sp.did_imputation(regions, **_BJS, fe=["countyreal", "region#year"])
+        # A custom fixed effect next to timecontrols(): no artifact ran it.
+        custom_tc = sp.did_imputation(
+            regions, **_BJS, fe=["countyreal", "region#year"], time_covariates=["lpop"]
         )
         horizons = sp.did_imputation(mpdta, **_BJS, horizon=[0, 1, 2, 3])
     scope, out = _scope_of(default)
@@ -599,7 +633,9 @@ def test_did_imputation_scope_follows_the_y0_specification(mpdta):
         "not_covered",
     )
     assert _scope_of(time_only)[0]["status"] == "covered"
-    assert _scope_of(custom)[0]["status"] == "not_covered"
+    assert _scope_of(custom)[0]["configuration"]["fe"] == "custom"
+    assert _scope_of(custom)[0]["status"] == "covered"
+    assert _scope_of(custom_tc)[0]["status"] == "not_covered"
     # The joint covariance is pinned only where horizons were requested.
     assert _scope_of(horizons)[1]["vcov"] == "reference"
 
@@ -622,38 +658,59 @@ def test_gardner_scope_separates_the_corrected_and_the_legacy_variance(mpdta):
         warnings.simplefilter("ignore")
         default = sp.gardner_did(mpdta, **_BJS)
         stage2 = sp.gardner_did(mpdta, **_BJS, vce="stage2")
+        stage2_dynamic = sp.gardner_did(mpdta, **_BJS, vce="stage2", event_study=True)
         dynamic = sp.gardner_did(mpdta, **_BJS, event_study=True)
         controls = sp.gardner_did(mpdta, **_BJS, controls=["lpop"])
     scope, out = _scope_of(default)
     assert scope["function"] == "gardner_did" and scope["status"] == "covered"
     assert out["vcov"] == "not_covered"
-    # Same point estimate, but module 73 pins the corrected variance only.
+    # The legacy SE has its own row (the hand-run second stage), static only:
+    # its event-study headline treats the horizons as independent.
     scope, out = _scope_of(stage2)
+    assert scope["status"] == "covered"
+    assert out["se"] == "reference"
+    assert scope["outputs"]["se"]["evidence"][0]["artifact"].endswith(
+        "test_gardner_stage2_R_parity.py"
+    )
+    scope, out = _scope_of(stage2_dynamic)
     assert scope["status"] == "estimate_only" and out["se"] == "not_covered"
     assert _scope_of(dynamic)[1]["vcov"] == "reference"
     assert _scope_of(controls)[0]["status"] == "not_covered"
 
 
-def test_twfe_event_study_is_covered_only_where_module_85_ran(mpdta):
-    """A staggered panel, or another window, is not what the reference pinned."""
+def test_twfe_event_study_is_covered_only_where_a_reference_ran(mpdta):
+    """Staggered panels and other windows now have fixest rows; a
+    combination no artifact ran is still not covered."""
     twfe = pd.read_csv(ROOT / "tests/r_parity/data/85_twfe_event_study.csv")
     twfe["g_nan"] = twfe["g"].where(twfe["g"] > 0)
     keys = dict(y="y", treat_time="g_nan", time="time", unit="unit")
     staggered = mpdta.assign(g=mpdta["first_treat"].where(mpdta["first_treat"] > 0))
+    stag_keys = dict(y="lemp", treat_time="g", time="year", unit="countyreal")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         ran = sp.event_study(twfe, **keys, window=(-4, 4), cluster="unit")
         narrow = sp.event_study(twfe, **keys, window=(-3, 3))
-        stag = sp.event_study(
-            staggered, y="lemp", treat_time="g", time="year", unit="countyreal"
+        stag = sp.event_study(staggered, **stag_keys)
+        # bins with a covariate on a staggered panel: no artifact ran it
+        stag_bins_cov = sp.event_study(
+            staggered.assign(x=staggered["lpop"] * staggered["year"]),
+            **stag_keys,
+            window=(-4, 3),
+            bin_width=2,
+            ref_period=[-2, -1],
+            covariates=["x"],
         )
     scope, out = _scope_of(ran)
     assert scope["function"] == "event_study" and scope["unchecked"] == []
     assert (out["estimate"], out["se"], out["vcov"]) == ("reference",) * 3
-    assert _scope_of(narrow)[0]["configuration"]["window"] == "other"
-    assert _scope_of(narrow)[0]["status"] == "not_covered"
+    scope, out = _scope_of(narrow)
+    assert scope["configuration"]["window"] == "other"
+    assert scope["status"] == "covered" and out["vcov"] == "not_covered"
     scope, _ = _scope_of(stag)
     assert scope["configuration"]["adoption"] == "staggered"
+    assert scope["status"] == "covered"
+    scope, _ = _scope_of(stag_bins_cov)
+    assert scope["configuration"]["bins"] == "set"
     assert scope["status"] == "not_covered"
 
 

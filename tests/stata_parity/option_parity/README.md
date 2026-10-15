@@ -30,6 +30,8 @@ is the intended effect, not an accident.
 | `85_multiplegt_dyn_options_Stata.json` | `did_multiplegt_dyn` `switchers()` / `same_switchers` | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` |
 | `86_lprobust_Stata.json` | `lprobust` at supplied bandwidths | `tests/reference_parity/test_lprobust_parity.py` |
 | `87_did_had_Stata.json` | `did_had` | `tests/reference_parity/test_did_had_parity.py` |
+| `93_sunab_options_Stata.json` | `eventstudyinteract` on in-window dummies only (`window_rule='reference'`), with the never-treated and the last cohort as control | `tests/reference_parity/test_sunab_options_parity.py` |
+| `94_bjs_options_Stata.json` | `did_imputation` `fe()` cells, `controls()` with `timecontrols()` / `unitcontrols()`, `[aw=]`, `horizons()` on `data_94_bjs_options.csv` | `tests/reference_parity/test_bjs_options_parity.py` |
 
 Every consumer opens its fixture; none carries the Stata numbers as
 literals. These files are not in `TIER_A_FIXTURE_LOCK.json`: their SHA-256
