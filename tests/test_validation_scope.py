@@ -704,7 +704,20 @@ def test_sdid_treat_path_has_its_own_rows():
         design="staggered",
         covariates="none",
     )
-    assert boot["outputs"]["se"]["status"] == "not_covered"
+    assert boot["outputs"]["se"]["status"] == "stochastic_screen"
+    assert boot["status"] == "estimate_only"
+    # the placebo SE of the treated_unit= call is screened against synthdid
+    assert legacy["outputs"]["se"]["status"] == "stochastic_screen"
+    # the treated_unit= jackknife SE is a reference row (synthdid, 1e-9)
+    jk = sp.validation_scope(
+        function="sdid", method="sc", se_method="jackknife", code_path="native"
+    )
+    assert jk["status"] == "covered"
+    # delegating to R synthdid has no row by design
+    r = sp.validation_scope(
+        function="sdid", method="sdid", se_method="placebo", code_path="synthdid"
+    )
+    assert r["status"] == "not_covered"
 
 
 def test_sun_abraham_joint_covariance_has_a_reference_only_with_fixed_shares():
@@ -1170,3 +1183,45 @@ def test_honest_did_source_names_are_the_maps_function_names(mpdta_cs):
         name = _vcov_source(fit)
         assert name in _HONEST_SOURCES
         assert name == _function_of(fit), fit.method
+
+
+def test_did_multiplegt_dyn_scope_is_read_from_the_fit():
+    """Option values are read off the fit; each is graded by what ran on it."""
+    df = pd.read_csv(ROOT / "tests/stata_parity/option_parity/data_97_dcdh_options.csv")
+    keys = dict(group="g", time="t", dynamic=2, placebo=1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cont = sp.did_multiplegt_dyn(
+            df, "yc", treatment="dc", continuous=1, se_method="analytic", **keys
+        )
+        default = sp.did_multiplegt_dyn(
+            df, "y", treatment="d", n_boot=20, seed=0, **keys
+        )
+        boot = sp.did_multiplegt_dyn(
+            df, "y", treatment="d", aggregation="switchers", n_boot=20, seed=0, **keys
+        )
+        untested = sp.did_multiplegt_dyn(
+            df,
+            "y",
+            treatment="d",
+            se_method="analytic",
+            same_switchers=True,
+            weights="w",
+            **keys,
+        )
+    scope = sp.validation_scope(cont)
+    assert scope["function"] == "did_multiplegt_dyn"
+    assert scope["configuration"]["treatment"] == "continuous"
+    assert scope["status"] == "covered"
+    assert scope["outputs"]["vcov"]["status"] == "reference"
+    # the default call: the bootstrap SE of the equal-weight mean has no row
+    d = sp.validation_scope(default)
+    assert d["configuration"]["aggregation"] == "simple"
+    assert d["outputs"]["estimate"]["status"] == "reference"
+    assert d["status"] == "estimate_only"
+    # the switcher-weighted bootstrap SE is screened, never a reference
+    assert sp.validation_scope(boot)["outputs"]["se"]["status"] == "stochastic_screen"
+    # a combination no artifact ran is not covered, although each value was
+    u = sp.validation_scope(untested)
+    assert u["status"] == "not_covered"
+    assert {n["differs_in"] for n in u["near_misses"]} >= {"weights", "same_switchers"}

@@ -60,6 +60,9 @@ class EventPanel:
     labels: Optional[pd.Index] = None
     cluster_codes: Optional[np.ndarray] = None
     one_per_cluster: bool = True
+    #: the treatment the changes are measured on, when it is not ``D``
+    #: (``continuous=``: ``D`` is the switch indicator)
+    Dd: Optional[np.ndarray] = None
 
     def col(self, t: Any) -> int:
         """Column of period ``t``; the pad column when it is out of range."""
@@ -89,6 +92,7 @@ def build_panel(
     weights: Optional[str],
     cluster: Optional[str],
     controls: Optional[List[str]] = None,
+    dose: Optional[str] = None,
 ) -> Optional[EventPanel]:
     """The matrices for ``df``, or ``None`` when the frame code must be used."""
     n_rows = len(df)
@@ -184,6 +188,7 @@ def build_panel(
         labels=pd.Index(df[group]).take(first_row).rename(group),
         cluster_codes=cluster_codes,
         one_per_cluster=int(cluster_codes.max()) + 1 == n,
+        Dd=matrix(dose) if dose is not None and dose != treatment else None,
     )
 
 
@@ -230,6 +235,7 @@ class Resampler:
             Y=p.Y[take],
             y_ok=p.y_ok[take],
             D=p.D[take],
+            Dd=p.Dd[take] if p.Dd is not None else None,
             obs=p.obs[take],
             W=p.W[take] if p.W is not None else None,
             X=(),
@@ -285,7 +291,8 @@ def _dose(
     seen = p.obs[np.ix_(idx, js)]
     if not seen.any():
         return float("nan")
-    inc = np.abs(p.D[np.ix_(idx, js)] - base_level)
+    D = p.Dd if p.Dd is not None else p.D
+    inc = np.abs(D[np.ix_(idx, js)] - base_level)
     # the compensated (Kahan) sum of pandas' group_sum, period by period
     total: np.ndarray = np.zeros(idx.size)
     comp: np.ndarray = np.zeros(idx.size)
@@ -432,18 +439,19 @@ def one_event(
 
     lag_dose = np.zeros(max(h, 0) + 1)
     dose_now = float("nan")
+    D_dose = p.Dd if p.Dd is not None else p.D
     if h >= 0:
         periods = [t for t in range(f_int, t_post + 1) if p.col(t) >= 0]
         js = np.array([p.col(t) for t in periods], dtype=np.intp)
         rp = p.rowpos[np.ix_(sw_idx, js)]
-        gap_all = p.D[np.ix_(sw_idx, js)] - base_level
+        gap_all = D_dose[np.ix_(sw_idx, js)] - base_level
         value = sw_w[:, None] * np.abs(gap_all)
         lags = np.broadcast_to(t_post - np.asarray(periods, dtype=int), rp.shape)
         ok_gap = (rp >= 0) & np.isfinite(gap_all)
         in_rows = np.argsort(rp[ok_gap], kind="stable")
         np.add.at(lag_dose, lags[ok_gap][in_rows], value[ok_gap][in_rows])
 
-        gap = np.abs(p.D[sw_idx, j_post] - base_level)
+        gap = np.abs(D_dose[sw_idx, j_post] - base_level)
         ok = np.isfinite(gap)
         if ok.any():
             dose_now = float(np.sum(sw_w[ok] * gap[ok]) / np.sum(sw_w[ok]))

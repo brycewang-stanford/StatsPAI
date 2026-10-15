@@ -22,7 +22,7 @@ simulated inputs; the Track A mpdta and Prop. 99 bytes are reused as is):
     ``synthdid::vcov`` (warm start from the renormalised full-sample weights,
     frozen regularisation constants, which units play treated, divisor ``r``).
     The end-to-end seeded SE is compared with R's only within pooled
-    Monte-Carlo error (T3).
+    Monte-Carlo error: a stochastic screen (S), not T3 -- one seed per side.
 
 ``did_synth_twfew_R.json`` -- ``_generate_did_synth_twfew_R.R``,
 TwoWayFEWeights 2.1.0 and bacondecomp 0.1.1
@@ -158,6 +158,33 @@ def test_synthdid_estimate_and_weights_match_r(ds, method):
 
 @pytest.mark.parametrize("ds", ["prop99", "panel"])
 @pytest.mark.parametrize("method", ["sdid", "sc", "did"])
+def test_wrappers_are_sp_sdid(ds, method):
+    """The pins above run through the wrappers; they are sp.sdid(method=...).
+
+    ``sp.validation_scope`` credits these rows to ``sp.sdid(treated_unit=)``,
+    which rests on the two being one fit, bit for bit.
+    """
+    meta = _DATASETS[ds]
+    df, _, _, _, treated, first = _panel(ds)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        direct = sp.sdid(
+            df,
+            outcome=meta["y"],
+            unit=meta["unit"],
+            time=meta["time"],
+            treated_unit=treated if len(treated) > 1 else treated[0],
+            treatment_time=first,
+            method=method,
+            se_method="jackknife",
+        )
+    wrapped = _fit(ds, method, se_method="jackknife")
+    assert direct.estimate == wrapped.estimate
+    assert direct.se == wrapped.se or (np.isnan(direct.se) and np.isnan(wrapped.se))
+
+
+@pytest.mark.parametrize("ds", ["prop99", "panel"])
+@pytest.mark.parametrize("method", ["sdid", "sc", "did"])
 def test_synthdid_regularisation_constants_match_r(ds, method):
     """zeta.omega / zeta.lambda / min.decrease -- the first thing to bisect."""
     ref = SD[ds][method]
@@ -242,7 +269,7 @@ def test_synthdid_bootstrap_replications_match_r_draw_for_draw(method):
 
 @pytest.mark.parametrize("method", ["sdid", "did"])
 def test_synthdid_placebo_se_within_monte_carlo_error_of_r(method):
-    """T3 only: two independent 200-draw Monte-Carlo estimates of one SE.
+    """S screen only: two independent 200-draw Monte-Carlo estimates of one SE.
 
     The SE of a placebo SE estimated from r draws is roughly se / sqrt(2 r)
     (normal-theory approximation); the pooled error of the difference of two

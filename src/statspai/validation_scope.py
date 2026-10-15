@@ -448,6 +448,40 @@ def _x_sdid(r: Any) -> Dict[str, Optional[str]]:
     }
 
 
+def _x_dcdh_dyn(r: Any) -> Dict[str, Optional[str]]:
+    mi = _mi(r)
+    horizons = list(mi.get("horizons") or [])
+    n_placebo = sum(1 for h in horizons if h < 0)
+    group, cluster = mi.get("group"), mi.get("cluster_var")
+    balanced = mi.get("balanced_panel")
+    flag = {True: "true", False: "false"}
+    return {
+        "se_method": _lower(mi.get("se_method")),
+        "aggregation": _lower(mi.get("aggregation")),
+        "control": _lower(mi.get("control")),
+        "switchers": (
+            None if "switchers" not in mi else (_lower(mi["switchers"]) or "both")
+        ),
+        "same_switchers": flag.get(mi.get("same_switchers")),
+        "controls": None if "controls" not in mi else _set(mi.get("controls")),
+        "trends_nonparam": (
+            None if "trends_nonparam" not in mi else _set(mi.get("trends_nonparam"))
+        ),
+        "normalized": flag.get(mi.get("normalized")),
+        "weights": _set(mi.get("weights")),
+        "cluster": (
+            None
+            if group is None or cluster is None
+            else ("group" if cluster == group else "coarser")
+        ),
+        "treatment": _lower(mi.get("treatment_kind")),
+        "panel": (
+            None if balanced is None else ("balanced" if balanced else "unbalanced")
+        ),
+        "placebo": None if not horizons else ("0" if n_placebo == 0 else ">0"),
+    }
+
+
 _LINEAR_LEARNERS = {"LinearRegression", "LogisticRegression"}
 
 
@@ -4233,6 +4267,286 @@ _add(
     )
 )
 
+_DYN_DOMAINS = {
+    "se_method": ("analytic", "bootstrap"),
+    "aggregation": ("simple", "switchers"),
+    "control": ("not_yet_treated", "never_treated"),
+    "switchers": ("both", "in", "out"),
+    "same_switchers": ("false", "true"),
+    "controls": ("none", "set"),
+    "trends_nonparam": ("none", "set"),
+    "normalized": ("false", "true"),
+    "weights": ("none", "set"),
+    "cluster": ("group", "coarser"),
+    "treatment": ("binary", "discrete", "continuous"),
+    "panel": ("balanced", "unbalanced"),
+    "placebo": ("0", ">0"),
+}
+_DYN_BASE = {
+    "se_method": "analytic",
+    "aggregation": "switchers",
+    "control": "not_yet_treated",
+    "switchers": "both",
+    "same_switchers": "false",
+    "controls": "none",
+    "trends_nonparam": "none",
+    "normalized": "false",
+    "weights": "none",
+    "cluster": "group",
+    "treatment": "binary",
+    "panel": "balanced",
+    "placebo": ">0",
+}
+
+
+def _dyn_cfg(**over: Any) -> Dict[str, FrozenSet[str]]:
+    """One ``did_multiplegt_dyn`` configuration: the base, with overrides."""
+    cfg = {k: _vals(v) for k, v in _DYN_BASE.items()}
+    for k, v in over.items():
+        cfg[k] = _vals(*v) if isinstance(v, tuple) else _vals(v)
+    return cfg
+
+
+_DYN97 = _RP + "test_dcdh_option_values_stata_parity.py"
+_DYN85 = _RP + "test_multiplegt_dyn_options_parity.py"
+_DYN_R = _RP + "test_multiplegt_dyn_parity.py"
+_DYN_ROPT = _RP + "test_dcdh_options_parity.py"
+_DYN_TB = _RP + "test_dcdh_textbook_stata_parity.py"
+_DYN_CASTLE = "tests/test_did_multiplegt_dyn_castle_reference.py"
+_DYN_EP = "sp.did_multiplegt_dyn()"
+_DYN_ALL = ("estimate", "se", "vcov", "joint_test")
+_DYN_EST_SE_JOINT = ("estimate", "se", "joint_test")
+_BOTH_AGG = ("simple", "switchers")
+_DYN97_TEXT = (
+    "every effect and placebo, its analytic SE, the switcher count, "
+    "Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values "
+    "vs Stata did_multiplegt_dyn (option fixture 97, double precision, "
+    "1e-6; observed 1e-13); the 'simple' headline and SE against the mean "
+    "of Stata's effects and the quadratic form in its e(V)"
+)
+
+
+def _dyn97(note: str, outputs: Tuple[str, ...] = _DYN_ALL, **over: Any) -> _Row:
+    """A row of option fixture 97: one option value at a time vs Stata."""
+    return _Row(
+        "T2",
+        _DYN97,
+        _dyn_cfg(aggregation=_BOTH_AGG, **over),
+        outputs,
+        _DYN97_TEXT + "; " + note,
+        _DYN_EP,
+    )
+
+
+def _dyn_tb(note: str, **over: Any) -> _Row:
+    """A row of the textbook-shaped panel vs Stata (count treatment)."""
+    over.setdefault("treatment", "discrete")
+    return _Row(
+        "T2",
+        _DYN_TB,
+        _dyn_cfg(**over),
+        _DYN_EST_SE_JOINT,
+        "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald "
+        "p-values vs Stata did_multiplegt_dyn; " + note,
+        _DYN_EP,
+    )
+
+
+def _dyn_ropt(note: str, **over: Any) -> _Row:
+    """A row of the DIDmultiplegtDYN 2.3.4 option panel (estimates, 1e-12)."""
+    return _Row(
+        "T2",
+        _DYN_ROPT,
+        _dyn_cfg(aggregation="simple", **over),
+        _EST,
+        "vs DIDmultiplegtDYN 2.3.4 at 1e-12: " + note,
+        _DYN_EP,
+    )
+
+
+def _dyn85(note: str, **over: Any) -> _Row:
+    """A row of option fixture 85 (sample options vs Stata, estimates)."""
+    return _Row(
+        "T2",
+        _DYN85,
+        _dyn_cfg(**over),
+        _EST,
+        "effects, placebos, switcher counts and Av_tot_eff vs Stata "
+        "did_multiplegt_dyn on a switch-in / switch-out panel; " + note,
+        _DYN_EP,
+    )
+
+
+_add(
+    _Scope(
+        "did_multiplegt_dyn",
+        _DYN_DOMAINS,
+        _x_dcdh_dyn,
+        (
+            _dyn97("base fit, with and without effects_equal(all)"),
+            _dyn97("switchers(in)", switchers="in"),
+            _dyn97("switchers(out)", switchers="out"),
+            _dyn97("same_switchers", same_switchers="true"),
+            _dyn97("only_never_switchers", control="never_treated"),
+            _dyn97("trends_nonparam(reg)", trends_nonparam="set"),
+            _dyn97("normalized", normalized="true"),
+            _dyn97("weight(w), time-varying", weights="set"),
+            _dyn97("cluster(cl), six groups per cluster", cluster="coarser"),
+            _dyn97("controls(x)", controls="set"),
+            _dyn97(
+                "effects(1) placebo(1), no joint test to form",
+                ("estimate", "se", "vcov"),
+            ),
+            _dyn97(
+                "trends_nonparam, normalized, weight, cluster and switchers(in) "
+                "together",
+                switchers="in",
+                trends_nonparam="set",
+                normalized="true",
+                weights="set",
+                cluster="coarser",
+            ),
+            _dyn97(
+                "continuous(1) and continuous(2), placebo(1), with "
+                "never-switchers and switches both ways",
+                treatment="continuous",
+            ),
+            _dyn97("unbalanced panel, 4% of rows dropped", panel="unbalanced"),
+            _Row(
+                "S",
+                _DYN97,
+                _dyn_cfg(se_method="bootstrap"),
+                ("se",),
+                "bootstrap(200, s) SEs of every horizon and of Av_tot_eff: mean "
+                "over five seeds vs Stata's mean over five seeds within four "
+                "pooled Monte Carlo SEs (Stata's random stream cannot be "
+                "reproduced)",
+                _DYN_EP,
+            ),
+            _dyn85("pooled"),
+            _dyn85("switchers(in) / switchers(out)", switchers=("in", "out")),
+            _dyn85("same_switchers", same_switchers="true"),
+            _Row(
+                "T2",
+                _R + "78_multiplegt_dyn.py",
+                _dyn_cfg(se_method="bootstrap", aggregation=_BOTH_AGG),
+                _EST,
+                "every effect and placebo and Av_tot_eff vs DIDmultiplegtDYN on "
+                "an absorbing staggered panel and a switch-on / switch-off "
+                "panel (SEs not compared)",
+                _DYN_EP,
+            ),
+            _Row(
+                "T2",
+                _DYN_R,
+                _dyn_cfg(),
+                ("estimate", "se"),
+                "every effect and placebo, its analytic SE, Av_tot_eff and its "
+                "SE vs DIDmultiplegtDYN on Track A module 78's panel",
+                _DYN_EP,
+            ),
+            _Row(
+                "T2",
+                _DYN_R,
+                _dyn_cfg(aggregation="simple"),
+                _EST,
+                "every effect and placebo vs DIDmultiplegtDYN (the 'simple' "
+                "headline is their mean; its SE needs the covariance, which is "
+                "not compared here)",
+                _DYN_EP,
+            ),
+            _dyn_ropt("every effect and placebo, no option"),
+            _dyn_ropt("every effect and placebo, controls", controls="set"),
+            _dyn_ropt(
+                "every effect and placebo, trends_nonparam", trends_nonparam="set"
+            ),
+            _dyn_ropt("every effect and placebo, normalized", normalized="true"),
+            _dyn_ropt(
+                "the effects (not the placebo), continuous=1 and 2, on a panel "
+                "where every group switches",
+                treatment="continuous",
+            ),
+            _dyn_tb("count treatment, periods four years apart, effects_equal(all)"),
+            _dyn_tb(
+                "count treatment, normalized, effects_equal(all)", normalized="true"
+            ),
+            _dyn_tb(
+                "count treatment, same_switchers", same_switchers="true", placebo="0"
+            ),
+            _dyn_tb(
+                "count treatment, weight() cluster(state)",
+                weights="set",
+                cluster="coarser",
+            ),
+            _dyn_tb(
+                "count treatment, controls(x) with the slope-estimation term",
+                controls="set",
+            ),
+            _dyn_tb(
+                "count treatment, controls(x) weight() cluster(state)",
+                controls="set",
+                weights="set",
+                cluster="coarser",
+            ),
+            _dyn_tb(
+                "count treatment, controls(x) normalized",
+                controls="set",
+                normalized="true",
+                placebo="0",
+            ),
+            _dyn_tb(
+                "count treatment, controls(x) trends_nonparam(cohort)",
+                controls="set",
+                trends_nonparam="set",
+                placebo="0",
+            ),
+            _dyn_tb(
+                "count treatment, controls(x) switchers(in)",
+                controls="set",
+                switchers="in",
+                placebo="0",
+            ),
+            _dyn_tb(
+                "binary treatment, missing outcomes, controls(x)",
+                treatment="binary",
+                controls="set",
+                panel="unbalanced",
+            ),
+            _Row(
+                "T2",
+                _DYN_CASTLE,
+                _dyn_cfg(cluster=("group", "coarser"), weights=("none", "set")),
+                ("estimate", "se"),
+                "castle-doctrine panel: every effect and placebo, analytic SEs "
+                "and Av_tot_eff vs DIDmultiplegtDYN and Stata, unweighted and "
+                "weight(popwt); cluster(region) vs Stata",
+                _DYN_EP,
+            ),
+        ),
+        invariant={
+            "se_method": (
+                _EST,
+                "the effects are computed before, and independently of, the "
+                "variance; the bootstrap resamples afterwards",
+            ),
+            "cluster": (_EST, "the cluster enters the variance only"),
+        },
+        note="The 'simple' headline (the default) is the equal-weight mean of "
+        "the effects; no reference reports it, so a row covers it only when it "
+        "compared every effect, and its SE only with the joint covariance "
+        "(fixture 97). On an unbalanced panel where a period in the middle has "
+        "no not-yet-switched control, the reference drops a group StatsPAI "
+        "keeps as a control (the departure documented in the module "
+        "docstring); no row runs that design. design= / by_path= / "
+        "normalized_weights= describe the treatment paths and are not "
+        "dimensions; by_path is pinned in test_dcdh_textbook_stata_parity.py. "
+        "Bootstrap SEs are only screened (S). The number of effects is not a "
+        "dimension (every row runs several, fixture 97 also one); "
+        "effects_equal= only adds a Wald test, compared where a row lists "
+        "joint_test and ran it (fixture 97's base fit, the textbook rows).",
+    )
+)
+
 _add(
     _Scope(
         "sdid",
@@ -4292,6 +4606,91 @@ _add(
                 "placebo-SE CI coverage, one treated unit",
                 "sp.sdid()",
             ),
+            _Row(
+                "T2",
+                _RP + "test_did_synth_R_parity.py",
+                {
+                    "method": _vals("sdid", "sc", "did"),
+                    "se_method": _vals("jackknife"),
+                    "code_path": _vals("native"),
+                    "interface": _vals("treated_unit"),
+                    "design": _vals("block"),
+                    "covariates": _vals("none"),
+                },
+                _EST_SE,
+                "ATT, unit and time weights at 1e-9 and the fixed-weight "
+                "jackknife SE at 1e-9 vs synthdid 0.0.9 (Prop. 99 replica, one "
+                "treated unit, where the jackknife is undefined on both sides; "
+                "a panel with five treated units); also replays R's own placebo "
+                "and bootstrap index vectors draw for draw at 1e-9",
+                "sp.sdid(treated_unit=...)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_sdid_parity.py",
+                {
+                    "method": _vals("sdid"),
+                    "se_method": _vals("placebo"),
+                    "code_path": _vals("native"),
+                    "interface": _vals("treated_unit"),
+                    "design": _vals("block"),
+                    "covariates": _vals("none"),
+                },
+                _EST,
+                "point ATT vs synthdid on the shipped Prop. 99 panel",
+                "sp.sdid()",
+            ),
+            _Row(
+                "S",
+                _RP + "test_sdid_resampling_screen.py",
+                {
+                    "method": _vals("sdid", "sc", "did"),
+                    "se_method": _vals("placebo", "bootstrap"),
+                    "code_path": _vals("native"),
+                    "interface": _vals("treated_unit"),
+                    "design": _vals("block"),
+                    "covariates": _vals("none"),
+                },
+                ("se",),
+                "placebo and bootstrap SEs, mean over five seeds x 200 draws vs "
+                "synthdid_se's mean over five seeds, within four pooled Monte "
+                "Carlo SEs (one and five treated units; the bootstrap only with "
+                "five, it is undefined with one)",
+                "sp.sdid(treated_unit=...)",
+            ),
+            _Row(
+                "S",
+                _RP + "test_sdid_resampling_screen.py",
+                {
+                    "method": _vals("sdid", "sc", "did"),
+                    "se_method": _vals("placebo"),
+                    "code_path": _vals("native"),
+                    "interface": _vals("treat"),
+                    "design": _vals("block"),
+                    "covariates": _vals("none"),
+                },
+                ("se",),
+                "vce(placebo) SE on the Prop. 99 block design, mean over five "
+                "seeds x 200 draws vs Stata sdid 2.0.2 over five seeds",
+                "sp.sdid(treat=...)",
+            ),
+            _Row(
+                "S",
+                _RP + "test_sdid_resampling_screen.py",
+                {
+                    "method": _vals("sdid"),
+                    "se_method": _vals("placebo", "bootstrap"),
+                    "code_path": _vals("native"),
+                    "interface": _vals("treat"),
+                    "design": _vals("staggered"),
+                    "covariates": _vals("none"),
+                },
+                ("se",),
+                "vce(placebo) and vce(bootstrap) SEs on the staggered quota "
+                "panel, mean over five seeds x 200 draws vs Stata sdid 2.0.2 "
+                "over five seeds",
+                "sp.sdid(treat=...)",
+            ),
         ),
         invariant={
             "se_method": (
@@ -4300,6 +4699,11 @@ _add(
                 "solved; the ATT is unchanged",
             )
         },
+        note="Placebo and bootstrap SEs are Monte Carlo draws whose random "
+        "stream no reference shares: the replication map is pinned draw for "
+        "draw against R (test_did_synth_R_parity.py), the end-to-end SE only "
+        "screened (S). backend='synthdid' / 'r' (code_path 'synthdid' / 'r') "
+        "runs R synthdid itself and has no row by design.",
         # added with sp.sdid(treat=...); an older by-name query means the
         # treated_unit= block design without covariates
         defaults={"interface": "treated_unit", "design": "block", "covariates": "none"},
@@ -5714,6 +6118,7 @@ def validation_scope(
 
 
 _METHOD_TO_FUNCTION = (
+    ("did_multiplegt_dyn", "did_multiplegt_dyn"),
     ("callaway and sant'anna", "callaway_santanna"),
     ("sun and abraham", "sun_abraham"),
     ("sun-abraham", "sun_abraham"),
