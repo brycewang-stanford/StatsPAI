@@ -96,7 +96,7 @@ def test_no_function_is_fully_covered_on_its_whole_grid(built):
 
 
 def test_joint_covariance_evidence_is_counted_where_it_exists(built):
-    """The six entries whose full event-study matrix is pinned."""
+    """The seven entries whose full event-study matrix is pinned."""
     with_vcov = {
         name: inv["by_output"]["vcov"].get("reference", 0)
         for name, inv in built["functions"].items()
@@ -105,6 +105,8 @@ def test_joint_covariance_evidence_is_counted_where_it_exists(built):
     assert with_vcov == {
         "callaway_santanna": 1,
         "did_imputation": 1,
+        # grid cells pinned to Stata e(V) by option fixture 97
+        "did_multiplegt_dyn": 26,
         "etwfe": 3,
         "event_study": 1,
         "gardner_did": 1,
