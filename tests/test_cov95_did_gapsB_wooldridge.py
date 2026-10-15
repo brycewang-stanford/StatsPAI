@@ -155,8 +155,10 @@ def test_repeated_cs_never_needs_never_treated(panel):
 
 def test_repeated_cs_xvar_incompatibilities(panel):
     kw = dict(y="y", time="time", first_treat="first_treat", xvar=["x"])
-    with pytest.raises(MethodIncompatibility, match="xvar with cgroup"):
-        _etwfe_repeated_cs(panel, cgroup="never", **kw)
+    # Never-treated controls with a moderator are R etwfe's design (after
+    # 1.39.6); weights with a moderator still refuse.
+    never = _etwfe_repeated_cs(panel, cgroup="never", **kw)
+    assert never.model_info["xvar"] == ["x"] and never.model_info["cgroup"] == "never"
     with pytest.raises(MethodIncompatibility, match="not yet supported together"):
         _etwfe_repeated_cs(panel, weights="w", **kw)
 

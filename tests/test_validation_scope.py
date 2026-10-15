@@ -801,7 +801,7 @@ def test_twfe_event_study_is_covered_only_where_a_reference_ran(mpdta):
     assert scope["status"] == "not_covered"
 
 
-def test_etwfe_headline_se_is_a_disclosure_and_the_default_call_is_attached():
+def test_etwfe_se_is_referenced_and_the_default_call_is_attached():
     data = pd.read_csv(ROOT / "tests/r_parity/data/17_etwfe.csv")
     keys = dict(y="lemp", group="countyreal", time="year", first_treat="first_treat")
     with warnings.catch_warnings():
@@ -822,17 +822,23 @@ def test_etwfe_headline_se_is_a_disclosure_and_the_default_call_is_attached():
         scope, out = _scope_of(fit)
         assert scope["function"] == "etwfe"
         assert out["estimate"] == "reference" and out["vcov"] == "reference"
-        # 2e-6 from etwfe::emfx, 6e-4 from jwdid: documented, not same-byte.
-        assert out["se"] == "disclosure"
-        assert scope["status"] == "estimate_only"
+        # Module 17's headline SE stays a disclosure row (R's forward-
+        # difference Jacobian, jwdid's K); the option panel pins the SE
+        # same-byte against R with a Richardson Jacobian.
+        assert out["se"] == "reference"
+        se_rows = scope["outputs"]["se"]["evidence"]
+        assert {e["artifact"] for e in se_rows} >= {
+            "tests/reference_parity/test_etwfe_options_parity.py"
+        }
+        assert scope["status"] == "covered"
     attached = _scope_of(default)[0]["outputs"]["estimate"]["evidence"]
-    assert [e["artifact"] for e in attached] == [
-        "tests/reference_parity/test_validation_entry_points.py"
+    assert "tests/reference_parity/test_validation_entry_points.py" in [
+        e["artifact"] for e in attached
     ]
-    assert _scope_of(unit_w)[0]["status"] == "not_covered"
+    assert _scope_of(unit_w)[0]["status"] == "covered"
     # A GLM family is routed to its own map rather than failing this one.
     scope, _ = _scope_of(logit)
-    assert scope["function"] == "etwfe_glm" and scope["status"] == "estimate_only"
+    assert scope["function"] == "etwfe_glm" and scope["status"] == "covered"
 
 
 def test_wooldridge_did_does_not_borrow_the_etwfe_map():
@@ -865,8 +871,9 @@ def test_nonlinear_etwfe_has_its_own_map():
     scope, out = _scope_of(poisson)
     assert scope["function"] == "etwfe_glm" and scope["unchecked"] == []
     assert out["estimate"] == "reference"
-    # ~1e-5 from etwfe::emfx: a finite-sample convention, not same-byte.
-    assert out["se"] == "disclosure"
+    # Same-byte against etwfe::emfx once the reference is converged and
+    # differentiated by Richardson extrapolation (test_etwfe_options_parity).
+    assert out["se"] == "reference"
     # Unit effects: Stata jwdid is the reference. The response-scale SE
     # under the default response_se='profile' is not compared with it; on
     # the link scale both the estimate and the SE are.
@@ -883,7 +890,7 @@ def test_nonlinear_etwfe_has_its_own_map():
     assert never_scope["status"] == "covered"
     assert _scope_of(linear)[0]["function"] == "etwfe"
     # The result card goes through the same routing.
-    assert sp.result_card(poisson)["evidence"]["outputs"]["se"] == "disclosure"
+    assert sp.result_card(poisson)["evidence"]["outputs"]["se"] == "reference"
 
 
 def test_panel_clustered_joint_test_depends_on_the_small_sample_convention():
