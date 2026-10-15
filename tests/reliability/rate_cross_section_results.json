@@ -1,0 +1,12 @@
+{
+  "own": {
+    "B": 400,
+    "mean_autoc": -0.10392384514846027,
+    "rejection_rate": 0.36
+  },
+  "split": {
+    "B": 100,
+    "mean_autoc": 0.009443743603723872,
+    "rejection_rate": 0.0
+  }
+}

@@ -1378,6 +1378,20 @@ def rate(
         priority_source = "out_of_bag"
     else:
         priority_source = "in_sample"
+    if priorities is None:
+        warnings.warn(
+            "rate(): ranking units by this same forest's own CATE predictions "
+            "and scoring them with its own doubly-robust scores is not a valid "
+            "test of heterogeneity. On a design with no heterogeneity at all "
+            "(n = 800, 400 replications) AUTOC averaged -0.10 instead of 0 and "
+            "a nominal 5% test rejected 36% of the time; sp.rate_split(), which "
+            "fits the ranking on one half and scores it on the other, averaged "
+            "0.009 and rejected 0% (tests/reliability/rate_cross_section.py). "
+            "Use sp.rate_split(forest), or pass priorities= from a rule fitted "
+            "on other data.",
+            AssumptionWarning,
+            stacklevel=2,
+        )
     return {
         "estimate": estimate,
         "se": se,
