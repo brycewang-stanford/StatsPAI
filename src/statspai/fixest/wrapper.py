@@ -6,6 +6,8 @@ StatsPAI's ``EconometricResults``, making them compatible with
 ``outreg2`` and the rest of the StatsPAI ecosystem.
 """
 
+import importlib.util
+import inspect
 import re
 import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -451,6 +453,25 @@ def _check_pyfixest() -> Any:
         extra="fixest",
         purpose="high-dimensional fixed effects estimation",
     )
+
+
+def _prefer_compiled_demeaner(pf_fn: Any, pf_kwargs: Dict[str, Any]) -> None:
+    """Ask pyfixest for its compiled demeaner unless the caller chose one.
+
+    pyfixest's default is the numba alternating-projection demeaner, which
+    converges slowly with many sparse fixed-effect levels: on 400,000 rows
+    with 100,000 firm effects it took 41 s where ``demeaner_backend='rust'``
+    took 0.2 s, with the same coefficients and standard errors (both stop
+    at ``fixef_tol``). Older pyfixest releases without the option or without
+    the compiled core keep their default.
+    """
+    if "demeaner_backend" in pf_kwargs:
+        return
+    if "demeaner_backend" not in inspect.signature(pf_fn).parameters:
+        return
+    if importlib.util.find_spec("pyfixest.core._core_impl") is None:
+        return
+    pf_kwargs["demeaner_backend"] = "rust"
 
 
 # --------------------------------------------------------------------------- #
@@ -1377,6 +1398,7 @@ def feols(
     if ssc is not None:
         pf_kwargs["ssc"] = ssc
 
+    _prefer_compiled_demeaner(pf.feols, pf_kwargs)
     fit = pf.feols(**pf_kwargs)
 
     # Multiple estimation returns FixestMulti
@@ -1699,6 +1721,7 @@ def fepois(
         pf_kwargs["ssc"] = ssc
 
     try:
+        _prefer_compiled_demeaner(pf.fepois, pf_kwargs)
         fit = pf.fepois(**pf_kwargs)
     except ValueError as exc:
         if "Demeaning failed" not in str(exc):
@@ -1866,6 +1889,7 @@ def feglm(
     if vcov is not None:
         pf_kwargs["vcov"] = vcov
 
+    _prefer_compiled_demeaner(pf.feglm, pf_kwargs)
     fit = pf.feglm(**pf_kwargs)
 
     if hasattr(fit, "all_fitted_models"):

@@ -2472,14 +2472,14 @@
    "result_sha256": "adc43cac6900fb9fca20405e77f37d18d0bce00047decb040f3061b08f06db5c"
   },
   "67_panel_glm": {
-   "seconds": 12.14,
+   "seconds": 7.11,
    "error": null,
    "boundary_calls": [
     {
      "package": "pyfixest",
      "callee": "pyfixest.__getattr__",
      "caller": "fixest/wrapper.py",
-     "n": 2
+     "n": 4
     },
     {
      "package": "pyfixest",
@@ -2564,7 +2564,7 @@
     "src/statspai/core/results.py": "2aa865e53f12fdceb23b765fec73d00b1d83ef2e54e3d85cc9358b8c2f39e4f6",
     "src/statspai/core/utils.py": "b0638b973a9d4444d28c80b6d65c4746ebe9966642beff0c1bbc5ae1d1c3b458",
     "src/statspai/fixest/adapter.py": "36694abec69c847085e9a904ab73b7292eb2e7d64c206941c20f60d77f99678e",
-    "src/statspai/fixest/wrapper.py": "621352324e8698d3c56ed24f396efa9206c7ca79a46c7f7e41289545983138a8",
+    "src/statspai/fixest/wrapper.py": "8130179a6a2069909c7d757ebd60dc6a6a82f82e1abde777ea339818cc1487d0",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/plots/themes.py": "c8e76fb18bee144bd1660fac01953ce4e4eb7ba20e645c97abae1c328f722820",
