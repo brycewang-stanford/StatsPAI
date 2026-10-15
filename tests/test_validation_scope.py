@@ -386,6 +386,26 @@ def test_scm_disclosure_is_not_stochastic_evidence():
         function="synth", v_method="equal", weights="unique", code_path="native"
     )
     assert ok["status"] == "covered"
+    assert ok["outputs"]["se"]["status"] == "reference"
+
+
+def test_scm_regression_v_is_in_the_domain_and_graded_by_identification():
+    reg = sp.validation_scope(
+        function="synth", v_method="regression", weights="unique", code_path="native"
+    )
+    assert reg["status"] == "covered"
+    assert reg["outputs"]["se"]["status"] == "not_covered"
+    bad = sp.validation_scope(
+        function="synth",
+        v_method="regression",
+        weights="nonunique",
+        code_path="native",
+    )
+    assert bad["status"] == "not_covered"
+    bridge = sp.validation_scope(
+        function="synth", v_method="equal", weights="unique", code_path="synth"
+    )
+    assert bridge["status"] == "not_covered"
 
 
 def test_sdid_placebo_se_is_not_part_of_the_parity_row():

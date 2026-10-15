@@ -1,0 +1,86 @@
+{
+  "nested": {
+    "weights": {
+      "donor0": 0.499999999999998,
+      "donor1": 0.300000000000034,
+      "donor2": 0.199999999999958,
+      "donor3": 4.2158991560452e-15,
+      "donor4": 5.54086505065279e-15
+    },
+    "att": 2.00000000000006,
+    "pre_rmspe": 1.9220394426624e-14,
+    "sigf_ipop": 20,
+    "margin_ipop": 1e-12
+  },
+  "placebo_equal_v": {
+    "placebos": {
+      "donor0": {
+        "att": -3.50461489900102,
+        "weights": {
+          "donor1": 2.15163135033844e-08,
+          "donor2": 1.58498128102291e-07,
+          "donor3": 6.70549811910008e-07,
+          "donor4": 6.61121320741701e-07,
+          "treated": 0.999998488312762
+        },
+        "sigf_ipop": 7,
+        "margin_ipop": 0.0005
+      },
+      "donor1": {
+        "att": -1.65996216788402,
+        "weights": {
+          "donor0": 2.23177711546908e-22,
+          "donor2": 0.123365154086224,
+          "donor3": 2.57922462481111e-13,
+          "donor4": 2.54113373952033e-13,
+          "treated": 0.876634845913264
+        },
+        "sigf_ipop": 12,
+        "margin_ipop": 1e-10
+      },
+      "donor2": {
+        "att": 1.07659838614047,
+        "weights": {
+          "donor0": 9.40779301249889e-14,
+          "donor1": 0.683973119439251,
+          "donor3": 0.316026880560424,
+          "donor4": 1.62477489365405e-16,
+          "treated": 2.31251859837949e-13
+        },
+        "sigf_ipop": 12,
+        "margin_ipop": 1e-10
+      },
+      "donor3": {
+        "att": 0.841956922918064,
+        "weights": {
+          "donor0": 2.71328513923677e-14,
+          "donor1": 1.76909819055875e-16,
+          "donor2": 0.569107937570969,
+          "donor4": 0.430892062428999,
+          "treated": 4.91679565409132e-15
+        },
+        "sigf_ipop": 12,
+        "margin_ipop": 1e-10
+      },
+      "donor4": {
+        "att": 0.93796397249512,
+        "weights": {
+          "donor0": 6.03974361497841e-18,
+          "donor1": 4.94308079374541e-18,
+          "donor2": 3.80908234838421e-18,
+          "donor3": 1,
+          "treated": 5.34674989575496e-18
+        },
+        "sigf_ipop": 12,
+        "margin_ipop": 1e-10
+      }
+    },
+    "sd_population": 1.82866649774141
+  },
+  "_meta": {
+    "generated_by": "_generate_synth_unique_R.R",
+    "data": "tests/r_parity/data/52_scm_unique.csv",
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "synth_version": "1.1.10"
+  }
+}

@@ -3004,7 +3004,7 @@ _add(
     _Scope(
         "synth",
         {
-            "v_method": ("equal", "nested"),
+            "v_method": ("equal", "nested", "regression"),
             "weights": ("unique", "nonunique"),
             "code_path": ("native", "synth"),
         },
@@ -3035,10 +3035,76 @@ _add(
                 "Basque gap: reference implementations disagree (non-unique V, W)",
                 "sp.synth(method='classic', special predictors)",
             ),
+            _Row(
+                "T1",
+                _RP + "test_synth_unique_options_parity.py",
+                {
+                    "v_method": _vals("nested", "regression"),
+                    "weights": _vals("unique"),
+                    "code_path": _vals("native"),
+                },
+                _EST,
+                "module 52's design with special predictors: true donor weights and "
+                "a gap of exactly 2 under the nested V search and regression V; R "
+                "Synth's nested search recovers the same to 4e-14",
+                "sp.synth(method='classic', special_predictors=...)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_synth_unique_options_parity.py",
+                {
+                    "v_method": _vals("equal"),
+                    "weights": _vals("unique"),
+                    "code_path": _vals("native"),
+                },
+                ("se",),
+                "placebo SD (result.se): every placebo's weights certified as the "
+                "unique simplex least-squares optimum (KKT); placebo effects vs R "
+                "Synth with equal unscaled V to 1e-12 (one vertex optimum to ipop's "
+                "1e-5), the SD to 9e-7",
+                "sp.synth(method='classic')",
+            ),
+            _Row(
+                "T4",
+                _RP + "test_synth_regression_v_stata.py",
+                {
+                    "v_method": _vals("regression"),
+                    "weights": _vals("unique"),
+                    "code_path": _vals("native"),
+                },
+                _EST,
+                "Proposition 99 vs Stata synth: V and pre-period RMSPE to 1e-9; "
+                "Stata builds its gaps from donor weights rounded to three decimals "
+                "(ATT -18.70 against -18.81 at the exact weights), and rounding ours "
+                "reproduces its path to 1e-9",
+                "sp.synth(v_method='regression')",
+            ),
+            _Row(
+                "T4",
+                _RP + "test_synth2_stata_parity.py",
+                {
+                    "v_method": _vals("regression"),
+                    "weights": _vals("unique"),
+                    "code_path": _vals("native"),
+                },
+                _EST,
+                "synth2 placebo / leave-one-out reports: pre-period MSPEs to 1e-8, "
+                "paths and effects reproduced from weights rounded as synth stores "
+                "them",
+                "sp.synth(method='classic', v_method='regression')",
+            ),
         ),
         primary=("estimate",),
         note="Classical SCM only; other sp.synth methods have their own modules. "
-        "Placebo p-values are not part of any row.",
+        "Placebo p-values are not part of any row. backend='synth' (code_path "
+        "'synth') runs R Synth itself, so it has no row. Equal V with non-unique "
+        "weights returns the minimum-norm optimum, a selection no reference "
+        "shares; it has no row. Regression V (Stata synth's default) is "
+        "certified only on the identified design, because Stata reports gaps "
+        "from rounded weights. The identified design has a zero-loss solution, "
+        "where V does not move W: its nested row checks the nested code path end "
+        "to end, not that the outer search finds the global V on a design "
+        "without one.",
     )
 )
 
