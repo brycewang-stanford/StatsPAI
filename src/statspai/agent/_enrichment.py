@@ -264,12 +264,13 @@ def _reads_result(tool: str, own: Optional[Set[str]]) -> bool:
 
 @lru_cache(maxsize=1)
 def _dataless_tools() -> "frozenset[str]":
+    # ``_dataless_tool_names`` handles its own registry failures (it falls
+    # back to the hand-written override set); only the import can fail here.
     try:
         from .mcp_server import _dataless_tool_names
-
-        return frozenset(_dataless_tool_names())
-    except Exception:  # noqa: BLE001 - readiness metadata must not break a fit
+    except ImportError:
         return frozenset()
+    return frozenset(_dataless_tool_names())
 
 
 def _needs_data(tool: str, own: Optional[Set[str]]) -> bool:
