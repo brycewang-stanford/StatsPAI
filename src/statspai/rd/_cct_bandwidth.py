@@ -174,35 +174,59 @@ def _nn_residuals(
     ``i`` and ``dupsid[i]`` the 1-based position within that run.  Ties are
     consumed whole, which is why the two arrays are needed rather than a plain
     k-NN search.
+
+    Because ties are consumed whole, the neighbour window of a row depends
+    only on its tie run, so the search runs once per run, vectorised over
+    runs (at most ``matches`` growth steps).
     """
     n = len(y)
-    res = np.empty(n)
     limit = min(matches, n - 1)
-    for pos in range(n):
-        rpos = dups[pos] - dupsid[pos]
-        lpos = dupsid[pos] - 1
-        while lpos + rpos < limit:
-            if pos - lpos - 1 < 0:
-                rpos += dups[pos + rpos + 1]
-            elif pos + rpos + 1 > n - 1:
-                lpos += dups[pos - lpos - 1]
-            else:
-                dl = x[pos] - x[pos - lpos - 1]
-                dr = x[pos + rpos + 1] - x[pos]
-                if dl > dr:
-                    rpos += dups[pos + rpos + 1]
-                elif dl < dr:
-                    lpos += dups[pos - lpos - 1]
-                else:
-                    rpos += dups[pos + rpos + 1]
-                    lpos += dups[pos - lpos - 1]
-        lo = max(0, pos - lpos)
-        hi = min(n - 1, pos + rpos)
-        idx = np.arange(lo, hi + 1)
-        y_j = y[idx].sum() - y[pos]
-        ji = len(idx) - 1
-        res[pos] = np.sqrt(ji / (ji + 1.0)) * (y[pos] - y_j / ji)
-    return res
+    starts = np.flatnonzero(dupsid == 1)
+    counts = np.asarray(dups[starts], dtype=np.int64)
+    ends = starts + counts - 1
+    n_runs = len(starts)
+    ux = x[starts]
+    left = np.arange(n_runs)
+    right = left.copy()
+    taken = counts - 1
+    active = taken < limit
+    while active.any():
+        g = np.flatnonzero(active)
+        lg, rg = left[g], right[g]
+        has_l = lg > 0
+        has_r = rg < n_runs - 1
+        dl = np.where(has_l, ux[g] - ux[np.maximum(lg - 1, 0)], np.inf)
+        dr = np.where(has_r, ux[np.minimum(rg + 1, n_runs - 1)] - ux[g], np.inf)
+        grow_l = has_l & (~has_r | (dl <= dr))
+        grow_r = has_r & (~has_l | (dl >= dr))
+        add_l = np.where(grow_l, counts[np.maximum(lg - 1, 0)], 0)
+        add_r = np.where(grow_r, counts[np.minimum(rg + 1, n_runs - 1)], 0)
+        left[g] = lg - grow_l
+        right[g] = rg + grow_r
+        taken[g] += add_l + add_r
+        active[g] = taken[g] < limit
+    lo = starts[left]
+    width = ends[right] - lo + 1
+    # Window sums in row order, left to right, which is how ``ndarray.sum``
+    # adds fewer than eight terms. Padding zeros after the last term leave a
+    # running sum unchanged, so this is bit-identical to summing each window.
+    sums = np.empty(n_runs)
+    narrow = width < 8
+    if narrow.any():
+        cols = np.arange(int(width[narrow].max()))
+        idx = lo[narrow, None] + cols
+        inside = cols < width[narrow, None]
+        block = np.where(inside, y[np.minimum(idx, n - 1)], 0.0)
+        acc = block[:, 0].copy()
+        for j in range(1, block.shape[1]):
+            acc += block[:, j]
+        sums[narrow] = acc
+    for r in np.flatnonzero(~narrow):
+        sums[r] = y[lo[r] : lo[r] + width[r]].sum()
+    run_of_row = np.repeat(np.arange(n_runs), counts)
+    total = sums[run_of_row]
+    ji = (width - 1)[run_of_row].astype(float)
+    return np.sqrt(ji / (ji + 1.0)) * (y - (total - y) / ji)
 
 
 _VCE_KINDS = frozenset({"nn", "hc0", "hc1", "hc2", "hc3"})
