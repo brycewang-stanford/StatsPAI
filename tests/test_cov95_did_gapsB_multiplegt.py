@@ -139,7 +139,7 @@ def test_dyn_effects_equal_range_must_cover_two_effects(panel):
 
 
 def test_dyn_continuous_needs_enough_not_yet_switched_rows(panel):
-    with pytest.raises(DataInsufficient, match="degree-3 polynomial"):
+    with pytest.raises(DataInsufficient, match="continuous=: too few not-yet"):
         dyn(panel[panel["u"] < 3], continuous=3)
 
 

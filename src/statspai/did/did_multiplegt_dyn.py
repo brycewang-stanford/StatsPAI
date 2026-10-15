@@ -98,14 +98,22 @@ Options
 ``controls=``, ``trends_nonparam=``, ``normalized=`` and ``continuous=``
 reproduce ``DIDmultiplegtDYN`` 2.3.4 to machine precision (2e-16 to 9e-16
 relative on every effect and placebo); see
-``tests/reference_parity/test_dcdh_options_parity.py``.
+``tests/reference_parity/test_dcdh_options_parity.py``. Every option value
+is also pinned on its own against Stata ``did_multiplegt_dyn`` -- effects,
+placebos, analytic standard errors, ``Av_tot_eff``, the joint covariance
+``e(V)`` and the Wald tests -- in
+``tests/reference_parity/test_dcdh_option_values_stata_parity.py``.
 
 ``continuous=k`` is the escape hatch for Design Restriction 1(i): when every
 group has a different period-one treatment there is no group to match a
 switcher against, so the status-quo outcome *evolution* is modelled as a
-degree-``k`` polynomial in the period-one treatment instead, fitted per
-period on the not-yet-switched cells and residualised out. The treatment may
-then be non-binary, which is the one case where that check is relaxed.
+degree-``k`` polynomial in the period-one treatment instead. The reference
+gives every group the same baseline, replaces the treatment by the indicator
+``S_g 1{t >= F_g}`` of having switched (``S_g`` the direction), and adds
+``1{t >= j} D_{g,1}^k`` for every later period ``j`` to the controls; the
+treatment changes behind ``normalized=`` and ``Av_tot_eff`` stay on the
+original treatment. ``_continuous_design`` builds exactly that. The treatment
+may then be non-binary, which is the one case where that check is relaxed.
 
 Discrete treatments
 -------------------
@@ -421,13 +429,32 @@ def did_multiplegt_dyn(
         status-quo outcome evolution with. Use it when groups' period-one
         treatments are continuous, so that no two groups share one and the
         baseline match the other estimators rely on is impossible (Design
-        Restriction 1(i) of dCDH 2024). The polynomial is fitted per period
-        on the (g, t)s that have not switched yet and residualised out of the
-        outcome's first difference; with it, ``treatment`` need not be
-        binary, and controls are no longer required to share the switcher's
-        baseline.
+        Restriction 1(i) of dCDH 2024). As in the reference, every group
+        then shares one baseline and the events are defined by who switched,
+        when and which way; the polynomial, one per period, enters as
+        controls (``controls=`` mechanics, fitted on the (g, t)s that have
+        not switched yet, with the slope-estimation term in the analytic
+        variance); and ``normalized=`` and the ``Av_tot_eff`` divisor
+        measure treatment changes on the original treatment. With it,
+        ``treatment`` need not be binary, and controls are no longer
+        required to share the switcher's baseline. The authors recommend
+        bootstrap standard errors here, because the analytic ones can be
+        liberal.
 
         .. versionadded:: 1.31.0
+
+        .. versionchanged:: 1.39.7
+           ⚠️ The polynomial was residualised out separately, so the
+           estimates were the reference's only on panels where every group
+           switches, the analytic variance lacked the slope-estimation term,
+           the ``Av_tot_eff`` divisor read every switcher's treatment change
+           off one switcher's baseline, and cells on both sides of the
+           period-one treatment were kept. On the option fixture
+           (``data_97_dcdh_options.csv``, ``continuous=1``, three effects)
+           the effects moved from 0.6098 / 0.6432 / 0.6496 to Stata's and R's
+           0.6203 / 0.6205 / 0.5966, their standard errors from 0.0857 /
+           0.0934 / 0.0988 to 0.0653 / 0.0732 / 0.0788, and ``Av_tot_eff``
+           from 0.7202 to 0.7879.
     normalized : bool, default False
         Report effects per unit of treatment: each horizon's effect is
         divided by the average cumulative treatment change its switchers
@@ -583,22 +610,33 @@ def did_multiplegt_dyn(
     time = "_tidx"
     df = df.sort_values([group, time]).reset_index(drop=True)
     cluster_var = cluster if cluster is not None else group
+    # The shape of the input, recorded for sp.validation_scope: whether
+    # every group has its outcome and treatment at every period, and the
+    # kind of treatment.
+    seen = df.loc[df[y].notna() & df[treatment].notna(), [group, time]]
+    balanced_panel = bool(
+        seen.drop_duplicates().shape[0] == df[group].nunique() * df[time].nunique()
+    )
+    if continuous is not None:
+        treatment_kind = "continuous"
+    else:
+        levels = np.unique(df[treatment].dropna().to_numpy(dtype=float))
+        treatment_kind = "binary" if set(levels) <= {0.0, 1.0} else "discrete"
 
     # Design Restriction 2 of dCDH (2024): drop the (g, t) cells at which
     # the group has by then had both a strictly higher and a strictly lower
     # treatment than its period-one treatment. Their effect is a mix of an
     # increase and a decrease and has no sign. A binary treatment can never
     # be on both sides of its starting value, so nothing is dropped there.
-    n_bidirectional = 0
-    if continuous is None:
-        d_num = df[treatment].astype(float)
-        first_d = d_num.groupby(df[group]).transform("first")
-        above = (d_num > first_d).groupby(df[group]).cummax()
-        below = (d_num < first_d).groupby(df[group]).cummax()
-        both = (above & below).to_numpy()
-        n_bidirectional = int(both.sum())
-        if n_bidirectional:
-            df = df.loc[~both].reset_index(drop=True)
+    # The reference drops them with continuous= as well.
+    d_num = df[treatment].astype(float)
+    first_d = d_num.groupby(df[group]).transform("first")
+    above = (d_num > first_d).groupby(df[group]).cummax()
+    below = (d_num < first_d).groupby(df[group]).cummax()
+    both = (above & below).to_numpy()
+    n_bidirectional = int(both.sum())
+    if n_bidirectional:
+        df = df.loc[~both].reset_index(drop=True)
 
     controls = list(controls) if controls else None
     trends_nonparam = list(trends_nonparam) if trends_nonparam else None
@@ -630,10 +668,13 @@ def did_multiplegt_dyn(
     df = df.merge(switch_dir, on=group, how="left")
     df = df.merge(baseline, on=group, how="left")
 
-    # controls= works by changing the outcome the estimator differences,
-    # so it is applied once, here, and the rest of the pipeline is
-    # untouched.
-    y_work = y
+    # The estimator below reads two treatment columns: ``treatment_core``
+    # decides who switched, when, which way and against whom, and
+    # ``dose_col`` measures how much treatment changed (normalized=, the
+    # Av_tot_eff divisor). Without continuous= both are the treatment.
+    treatment_core = treatment
+    dose_col = treatment
+    controls_work = controls
     if continuous is not None:
         if (
             isinstance(continuous, bool)
@@ -646,25 +687,29 @@ def did_multiplegt_dyn(
                 f"{continuous!r}.",
                 diagnostics={"continuous": repr(continuous)},
             )
-        df, y_work = _residualise_on_baseline_polynomial(
-            df, y=y_work, group=group, time=time, degree=int(continuous)
+        df, poly_cols = _continuous_design(
+            df, group=group, time=time, treatment=treatment, degree=int(continuous)
         )
+        treatment_core, dose_col = "_dbin", "_dchange"
+        controls_work = list(controls or []) + poly_cols
+
+    # controls= works by changing the outcome the estimator differences,
+    # so it is applied once, here, and the rest of the pipeline is
+    # untouched.
+    y_work = y
     controls_info: Optional[Dict[float, Dict[str, Any]]] = None
-    if controls:
+    if controls_work:
         df, y_work, controls_info = _residualise_on_controls(
             df,
             y=y,
             group=group,
             time=time,
-            treatment=treatment,
-            controls=controls,
+            treatment=treatment_core,
+            controls=controls_work,
             weights=weights,
             cluster=cluster_var,
+            option="controls=" if continuous is None else "continuous=",
         )
-        if continuous is not None:
-            # the polynomial in the period-one treatment replaces the
-            # baseline match; the slope-estimation term is not derived there
-            controls_info = None
     # Horizons list: placebo (negative) + dynamic (0..H).
     horizons = list(range(-placebo, dynamic + 1))
     # l = -1 is a genuine placebo, not a mechanical zero: it is
@@ -677,7 +722,7 @@ def did_multiplegt_dyn(
         y=y_work,
         group=group,
         time=time,
-        treatment=treatment,
+        treatment=treatment_core,
         horizons=horizons,
         control=control,
         switchers=switchers,
@@ -685,9 +730,9 @@ def did_multiplegt_dyn(
         weights=weights,
         cluster=cluster_var,
         normalized=normalized,
-        match_baseline=continuous is None,
-        controls=controls,
+        controls=controls_work,
         controls_info=controls_info,
+        dose_column=dose_col,
     )
 
     if not any(c["n_events"] for c in main["cell_estimates"]):
@@ -727,9 +772,10 @@ def did_multiplegt_dyn(
             y=y_work,
             group=group,
             time=time,
-            treatment=treatment,
+            treatment=treatment_core,
             weights=weights,
             cluster=cluster_var,
+            dose=dose_col,
         )
     if boot_panel is not None:
         resampler = _arr.Resampler(boot_panel, df, cluster_var)
@@ -743,7 +789,7 @@ def did_multiplegt_dyn(
                         horizons=horizons,
                         control=control,
                         directions=directions,
-                        match_baseline=continuous is None,
+                        match_baseline=True,
                     )
                 deltas = _arr.point_estimates(
                     draw,
@@ -751,7 +797,7 @@ def did_multiplegt_dyn(
                     control=control,
                     directions=directions,
                     normalized=normalized,
-                    match_baseline=continuous is None,
+                    match_baseline=True,
                 )["delta"]
                 if deltas is not None:
                     boot_hist[b, :] = deltas
@@ -783,7 +829,7 @@ def did_multiplegt_dyn(
                 columns=[c for c in ("_F", "_dir", "_base") if c in bdf.columns]
             )
             fs_b, dir_b, base_b = _first_switch(
-                bdf, group=group, time=time, treatment=treatment
+                bdf, group=group, time=time, treatment=treatment_core
             )
             bdf = bdf.merge(fs_b, on=group, how="left")
             bdf = bdf.merge(dir_b, on=group, how="left")
@@ -793,7 +839,7 @@ def did_multiplegt_dyn(
                 y=y_work,
                 group=group,
                 time=time,
-                treatment=treatment,
+                treatment=treatment_core,
                 horizons=horizons,
                 control=control,
                 switchers=switchers,
@@ -801,7 +847,7 @@ def did_multiplegt_dyn(
                 weights=weights,
                 cluster=cluster_var,
                 normalized=normalized,
-                match_baseline=continuous is None,
+                dose_column=dose_col,
             )
             for j, h in enumerate(horizons):
                 # Align by h
@@ -1154,6 +1200,7 @@ def did_multiplegt_dyn(
             "aggregation": aggregation,
             "se_method": se_method,
             "n_boot": n_boot,
+            "group": group,
             "cluster_var": cluster_var,
             "weights": weights,
             "n_groups": int(main["n_groups"]),
@@ -1170,6 +1217,12 @@ def did_multiplegt_dyn(
             # module docstring.
             "group_effects": main.get("group_effects", {}),
             "same_switchers": same_switchers,
+            "controls": controls,
+            "trends_nonparam": trends_nonparam,
+            "normalized": bool(normalized),
+            "continuous": continuous,
+            "treatment_kind": treatment_kind,
+            "balanced_panel": balanced_panel,
             "time": time_label,
             # (g, t) cells removed by Design Restriction 2: the group had by
             # then been both above and below its period-one treatment.
@@ -1396,55 +1449,56 @@ def _clustered_if_se(
     return float(np.sqrt(np.sum(sums**2)) / n_groups)
 
 
-def _residualise_on_baseline_polynomial(
+def _continuous_design(
     df: pd.DataFrame,
     *,
-    y: str,
     group: str,
     time: str,
+    treatment: str,
     degree: int,
-) -> Tuple[pd.DataFrame, str]:
-    """Take a polynomial in the period-one treatment out of the outcome path.
+) -> Tuple[pd.DataFrame, List[str]]:
+    """The reference's ``continuous`` option, as columns for the estimator.
 
     The baseline estimator compares a switcher with groups that had the same
     period-one treatment. With a genuinely continuous period-one treatment no
     two groups share one -- Design Restriction 1(i) of dCDH (2024) fails --
     so the authors replace that comparison with a modelling assumption: the
     status-quo outcome *evolution* is a polynomial of the given degree in the
-    period-one treatment. Residualising the outcome's first difference on that
-    polynomial, with time fixed effects, on the (g, t)s that have not switched
-    yet is what implements it, and the control set then no longer has to match
-    on the baseline.
+    period-one treatment. ``DIDmultiplegtDYN`` / Stata ``did_multiplegt_dyn``
+    implement it in three steps, reproduced here:
+
+    * every group gets the same baseline, and the treatment the estimator
+      sees becomes ``S_g * 1{t >= F_g}`` (``_dbin``), ``S_g`` = +1 for a
+      switch up and -1 for a switch down: who switched, when and which way
+      is all that defines the events, the control sets and the variance
+      cells;
+    * the polynomial enters as controls, ``1{t >= j} * D_{g,1}^k`` for every
+      period ``j`` after the first and ``k = 1..degree``, so the outcome's
+      first difference is residualised on a period-specific polynomial in the
+      period-one treatment, fitted on the (g, t)s that have not switched yet,
+      and the analytic variance carries the slope-estimation term;
+    * treatment changes (``normalized=``, the ``Av_tot_eff`` divisor) are
+      measured on the original treatment, ``D_{g,t} - D_{g,1}``
+      (``_dchange``).
+
+    Returns the frame with those columns and the names of the polynomial
+    columns.
     """
     work = df.sort_values([group, time]).copy()
-    dy = work.groupby(group)[y].diff().to_numpy(dtype=float)
-    d1 = work["_base"].to_numpy(dtype=float)
-    poly = np.column_stack([d1**k for k in range(1, degree + 1)])
-    period_codes, periods = pd.factorize(work[time], sort=True)
-    not_yet = (work["_F"].isna() | (work[time] < work["_F"])).to_numpy()
-    usable = np.isfinite(dy) & np.all(np.isfinite(poly), axis=1)
-    fit_rows = not_yet & usable
-    if int(fit_rows.sum()) <= poly.shape[1] + len(periods):
-        raise DataInsufficient(
-            "continuous=: too few not-yet-switched observations to fit a "
-            f"degree-{degree} polynomial in the period-one treatment with "
-            "time fixed effects.",
-            diagnostics={"degree": degree, "n_rows": int(fit_rows.sum())},
-        )
-    fe = np.eye(len(periods))[period_codes]
-    # One polynomial per period: the status-quo *evolution* is allowed to
-    # depend on the period-one treatment differently at each date, which a
-    # pooled polynomial plus time effects would forbid.
-    design = np.column_stack([fe] + [fe * poly[:, [j]] for j in range(poly.shape[1])])
-    coef, *_ = np.linalg.lstsq(design[fit_rows], dy[fit_rows], rcond=None)
-    resid = np.where(usable, dy - design @ coef, np.nan)
-    work["_yres_cont"] = resid
-    work["_yadj_cont"] = (
-        work.groupby(group)["_yres_cont"]
-        .apply(lambda col: col.fillna(0.0).cumsum())
-        .reset_index(level=0, drop=True)
-    )
-    return work, "_yadj_cont"
+    d1 = work.groupby(group)[treatment].transform("first").to_numpy(dtype=float)
+    t = work[time].to_numpy()
+    switched = (work["_F"].notna() & (work[time] >= work["_F"])).to_numpy()
+    work["_dbin"] = np.where(switched, work["_dir"].to_numpy(dtype=float), 0.0)
+    work["_dchange"] = work[treatment].to_numpy(dtype=float) - d1
+    work.loc[work["_F"].notna(), "_base"] = 0.0
+    cols: List[str] = []
+    for j in range(2, int(np.max(t)) + 1):
+        step = (t >= j).astype(float)
+        for k in range(1, degree + 1):
+            name = f"_cont_t{j}_k{k}"
+            work[name] = step * d1**k
+            cols.append(name)
+    return work, cols
 
 
 def _residualise_on_controls(
@@ -1457,6 +1511,7 @@ def _residualise_on_controls(
     controls: List[str],
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
+    option: str = "controls=",
 ) -> Tuple[pd.DataFrame, str, Dict[float, Dict[str, Any]]]:
     """Adjust the outcome for the controls, and keep what the variance needs.
 
@@ -1548,9 +1603,9 @@ def _residualise_on_controls(
         fit = in_base & not_yet & usable & (n_gt > 0)
         if fit.sum() <= n_x + 1:
             raise DataInsufficient(
-                "controls=: too few not-yet-switched observations at "
-                f"baseline treatment {base!r} to fit the first-difference "
-                "regression the option is defined by.",
+                f"{option}: too few not-yet-switched observations at "
+                f"baseline treatment {float(base)!r} to fit the "
+                "first-difference regression the option is defined by.",
                 diagnostics={"baseline": float(base), "n_rows": int(fit.sum())},
             )
         w_fit = np.bincount(cell[fit], weights=n_gt[fit], minlength=n_cells)
@@ -1643,6 +1698,7 @@ def _estimate_all_horizons(
     eligible: Optional[set] = None,
     controls: Optional[List[str]] = None,
     controls_info: Optional[Dict[float, Dict[str, Any]]] = None,
+    dose_column: Optional[str] = None,
 ) -> Dict[str, Any]:
     """δ_l, its influence function and its pieces at every horizon.
 
@@ -1659,6 +1715,7 @@ def _estimate_all_horizons(
         weights=weights,
         cluster=cluster,
         controls=controls if controls_info else None,
+        dose=dose_column,
     )
     if panel is None:
         return _estimate_all_horizons_frame(
@@ -1678,6 +1735,7 @@ def _estimate_all_horizons(
             eligible=eligible,
             controls=controls,
             controls_info=controls_info,
+            dose_column=dose_column,
         )
     assert panel.units is not None and panel.labels is not None
     assert panel.cluster_codes is not None
@@ -1829,6 +1887,7 @@ def _estimate_all_horizons_frame(
     eligible: Optional[set] = None,
     controls: Optional[List[str]] = None,
     controls_info: Optional[Dict[float, Dict[str, Any]]] = None,
+    dose_column: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Compute δ_l for each horizon h using long-difference event-study.
 
@@ -1981,6 +2040,7 @@ def _estimate_all_horizons_frame(
                         match_baseline=match_baseline,
                         base=base,
                         controls=controls if controls_info else None,
+                        dose_column=dose_column,
                     )
                     if _cell is None:
                         continue
@@ -2102,6 +2162,7 @@ def _one_event(
     match_baseline: bool = True,
     base: Optional[float] = None,
     controls: Optional[List[str]] = None,
+    dose_column: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """One (switch period, direction, baseline) event at horizon ``h``.
 
@@ -2233,11 +2294,13 @@ def _one_event(
                 float(np.sum(sw_w * xs)) - (w_s / w_c) * float(np.sum(c_w * xc))
             )
 
+    # ``dose`` names the column the treatment changes are read from
+    dose_col = dose_column if dose_column is not None else treatment
     dose = _event_dose(
         df,
         group=group,
         time=time,
-        treatment=treatment,
+        treatment=dose_col,
         ids=sw_ids,
         weights=sw_w,
         F=F,
@@ -2249,7 +2312,7 @@ def _one_event(
     lag_dose = np.zeros(max(h, 0) + 1)
     if h >= 0:
         sub = df[df[group].isin(set(sw_ids)) & (df[time] >= F) & (df[time] <= t_post)]
-        gap_all = sub[treatment].to_numpy(dtype=float) - base_level
+        gap_all = sub[dose_col].to_numpy(dtype=float) - base_level
         w_of = pd.Series(sw_w, index=sw_ids).reindex(sub[group]).to_numpy()
         lags = (t_post - sub[time].to_numpy()).astype(int)
         ok_gap = np.isfinite(gap_all)
@@ -2259,7 +2322,7 @@ def _one_event(
     if h >= 0:
         d_now = (
             df[(df[time] == t_post) & df[group].isin(set(sw_ids))]
-            .set_index(group)[treatment]
+            .set_index(group)[dose_col]
             .reindex(sw_ids)
             .to_numpy(dtype=float)
         )
