@@ -104,6 +104,17 @@ defects below. Default calls on the main path return what they did.
   trend, ± z·sd). The numerical search reached the half-length but missed
   the centre by up to 1.4e-3 of it on correlated covariances; Track A
   module 10 moves by 2.2e-9, now 4e-16 from R's closed form.
+- **`sp.did_multiplegt_dyn(continuous=)`** now follows `DIDmultiplegtDYN`
+  and Stata `did_multiplegt_dyn`: groups share one baseline and the
+  treatment becomes the switch indicator, the baseline polynomial enters
+  as controls (so the analytic variance carries the slope-estimation
+  term), `normalized=` and the `Av_tot_eff` divisor read the original
+  treatment, and Design Restriction 2 applies. Estimates used to match
+  only when every group switched. On option fixture 97 the effects move
+  from 0.6098 / 0.6432 / 0.6496 to 0.6203 / 0.6205 / 0.5966, the SEs from
+  0.0857 / 0.0934 / 0.0988 to 0.0653 / 0.0732 / 0.0788, and `Av_tot_eff`
+  from 0.7202 to 0.7879, equal to Stata and R. Calls without
+  `continuous=` are unchanged.
 - **`sp.ivreg(vce='conley')` and `sp.ivreg(cluster=[a, b])`** reported
   a standard error of 0 (t = inf, p = 0) when the non-positive-definite
   covariance had a negative variance. They now report NaN with a
@@ -144,6 +155,12 @@ defects below. Default calls on the main path return what they did.
   `did_multiplegt` / `did_multiplegt_dyn` / `xtnbreg` text, and family
   statements that did not apply; a quoted `'none'` in a docstring choice
   set is kept as a choice (`gsynth(inference='none')` and 14 more).
+- Every `sp.did_multiplegt_dyn` option value is pinned against Stata
+  (option fixture 97: effects, placebos, analytic SEs, `e(V)`, Wald tests,
+  `control='never_treated'` for the first time), with a new
+  `sp.validation_scope` map. `sp.sdid` placebo and bootstrap SEs are
+  screened (S, five seeds on each side) against R `synthdid` and Stata
+  `sdid`; the `treated_unit=` jackknife SE is registered as T2.
 - `sp.validation_scope` gains an `honest_did` map and per-value R / Stata
   references for `callaway_santanna` (`drimp`, `ipw_abadie`,
   `notyet_cutoff` SEs, anticipation, the pairwise unbalanced-panel rule);

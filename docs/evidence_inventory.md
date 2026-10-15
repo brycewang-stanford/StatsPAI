@@ -14,6 +14,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `callaway_santanna` | 7680 | 268 / 7680 | 132 / 7680 | 1 / 7680 | -- | -- | 132 / 7680 |
 | `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
 | `did_imputation` | 240 | 36 / 240 | 13 / 240 | 1 / 240 | -- | -- | 12 / 240 |
+| `did_multiplegt_dyn` | 18432 | 136 / 18432 | 37 / 18432 | 26 / 18432 | 36 / 18432 | -- | 37 / 18432 |
 | `dml` | 9120 | 33 / 9120 | 30 / 9120 | -- | -- | -- | 30 / 9120 |
 | `etwfe` | 128 | 16 / 128 | 16 / 128 | 3 / 128 | -- | -- | 16 / 128 |
 | `etwfe_glm` | 2880 | 51 / 2880 | 36 / 2880 | -- | -- | -- | 36 / 2880 |
@@ -29,7 +30,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `rddensity` | 2 | 1 / 2 | 1 / 2 | -- | -- | 1 / 2 | 1 / 2 |
 | `rdrobust` | 25920 | 159 / 25920 | 159 / 25920 | -- | -- | -- | 159 / 25920 |
 | `regress` | 28 | 28 / 28 | 26 / 28 | -- | 5 / 28 | 1 / 28 | 26 / 28 |
-| `sdid` | 288 | 52 / 288 | 24 / 288 | -- | -- | -- | 24 / 288 |
+| `sdid` | 288 | 60 / 288 | 27 / 288 | -- | -- | -- | 27 / 288 |
 | `sun_abraham` | 36 | 21 / 36 | 21 / 36 | 2 / 36 | -- | -- | 21 / 36 |
 | `synth` | 12 | 3 / 12 | 1 / 12 | -- | -- | -- | 3 / 12 |
 
@@ -51,6 +52,10 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `did_imputation` | estimate | 0 | 0 | 0 | 3 | 201 |
 | `did_imputation` | se | 0 | 0 | 0 | 0 | 227 |
 | `did_imputation` | vcov | 0 | 0 | 0 | 0 | 239 |
+| `did_multiplegt_dyn` | estimate | 0 | 0 | 0 | 0 | 18296 |
+| `did_multiplegt_dyn` | se | 0 | 1 | 0 | 0 | 18394 |
+| `did_multiplegt_dyn` | vcov | 0 | 0 | 0 | 0 | 18406 |
+| `did_multiplegt_dyn` | joint_test | 0 | 0 | 0 | 0 | 18396 |
 | `dml` | estimate | 0 | 0 | 0 | 0 | 9087 |
 | `dml` | se | 0 | 0 | 0 | 3 | 9087 |
 | `dml` | coverage | 0 | 0 | 2 | 0 | 9118 |
@@ -97,8 +102,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `regress` | coverage | 0 | 0 | 1 | 0 | 27 |
 | `regress` | diagnostic | 0 | 0 | 0 | 0 | 27 |
 | `regress` | joint_test | 0 | 0 | 0 | 0 | 23 |
-| `sdid` | estimate | 0 | 0 | 0 | 0 | 236 |
-| `sdid` | se | 0 | 0 | 0 | 0 | 264 |
+| `sdid` | estimate | 0 | 0 | 0 | 0 | 228 |
+| `sdid` | se | 0 | 11 | 0 | 0 | 250 |
 | `sdid` | coverage | 0 | 0 | 1 | 0 | 287 |
 | `sun_abraham` | estimate | 0 | 0 | 0 | 0 | 15 |
 | `sun_abraham` | se | 0 | 0 | 0 | 0 | 15 |
@@ -181,6 +186,54 @@ Dimensions: `fe` in {unit_time, time, none, custom}; `covariates` in {none, cont
 | T2 | estimate, se | fe=custom; covariates=controls; vce=analytic; weights=set; horizon=overall | `tests/reference_parity/test_bjs_options_parity.py` | `sp.did_imputation(weights=..., fe=[...], controls=...)` |
 
 `vce` is ignored for estimate: the covariance is computed after the imputation
+
+### `did_multiplegt_dyn`
+
+Dimensions: `se_method` in {analytic, bootstrap}; `aggregation` in {simple, switchers}; `control` in {not_yet_treated, never_treated}; `switchers` in {both, in, out}; `same_switchers` in {false, true}; `controls` in {none, set}; `trends_nonparam` in {none, set}; `normalized` in {false, true}; `weights` in {none, set}; `cluster` in {group, coarser}; `treatment` in {binary, discrete, continuous}; `panel` in {balanced, unbalanced}; `placebo` in {0, >0}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=in; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=out; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=true; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=never_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=set; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=true; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=set; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=coarser; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=set; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=in; same_switchers=false; controls=none; trends_nonparam=set; normalized=true; weights=set; cluster=coarser; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=continuous; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, vcov, joint_test | se_method=analytic; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=unbalanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| S | se | se_method=bootstrap; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=in/out; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=true; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=bootstrap; aggregation=simple/switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/r_parity/78_multiplegt_dyn.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_multiplegt_dyn_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=simple; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_multiplegt_dyn_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=simple; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_options_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=simple; control=not_yet_treated; switchers=both; same_switchers=false; controls=set; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_options_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=simple; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=set; normalized=false; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_options_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=simple; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=true; weights=none; cluster=group; treatment=binary; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_options_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate | se_method=analytic; aggregation=simple; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=continuous; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_options_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=discrete; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=true; weights=none; cluster=group; treatment=discrete; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=true; controls=none; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=discrete; panel=balanced; placebo=0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=set; cluster=coarser; treatment=discrete; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=set; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=discrete; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=set; trends_nonparam=none; normalized=false; weights=set; cluster=coarser; treatment=discrete; panel=balanced; placebo=>0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=set; trends_nonparam=none; normalized=true; weights=none; cluster=group; treatment=discrete; panel=balanced; placebo=0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=set; trends_nonparam=set; normalized=false; weights=none; cluster=group; treatment=discrete; panel=balanced; placebo=0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=in; same_switchers=false; controls=set; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=discrete; panel=balanced; placebo=0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se, joint_test | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=set; trends_nonparam=none; normalized=false; weights=none; cluster=group; treatment=binary; panel=unbalanced; placebo=>0 | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.did_multiplegt_dyn()` |
+| T2 | estimate, se | se_method=analytic; aggregation=switchers; control=not_yet_treated; switchers=both; same_switchers=false; controls=none; trends_nonparam=none; normalized=false; weights=none/set; cluster=coarser/group; treatment=binary; panel=balanced; placebo=>0 | `tests/test_did_multiplegt_dyn_castle_reference.py` | `sp.did_multiplegt_dyn()` |
+
+`se_method` is ignored for estimate: the effects are computed before, and independently of, the variance; the bootstrap resamples afterwards
+
+`cluster` is ignored for estimate: the cluster enters the variance only
 
 ### `dml`
 
@@ -570,6 +623,11 @@ Dimensions: `method` in {sdid, sc, did}; `se_method` in {placebo, bootstrap, jac
 | T2 | estimate | method=sdid; se_method=placebo; code_path=native; interface=treated_unit; design=block; covariates=none | `tests/r_parity/12_sdid.py` | `sp.sdid(backend='native')` |
 | T2 | estimate, se | method=did/sc/sdid; se_method=jackknife/noinference; code_path=native; interface=treat; design=block/staggered; covariates=none/projected | `tests/reference_parity/test_sdid_staggered_parity.py` | `sp.sdid(treat=...)` |
 | B | coverage | method=sdid; se_method=placebo; code_path=native; interface=treated_unit; design=block; covariates=none | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.sdid()` |
+| T2 | estimate, se | method=did/sc/sdid; se_method=jackknife; code_path=native; interface=treated_unit; design=block; covariates=none | `tests/reference_parity/test_did_synth_R_parity.py` | `sp.sdid(treated_unit=...)` |
+| T2 | estimate | method=sdid; se_method=placebo; code_path=native; interface=treated_unit; design=block; covariates=none | `tests/reference_parity/test_sdid_parity.py` | `sp.sdid()` |
+| S | se | method=did/sc/sdid; se_method=bootstrap/placebo; code_path=native; interface=treated_unit; design=block; covariates=none | `tests/reference_parity/test_sdid_resampling_screen.py` | `sp.sdid(treated_unit=...)` |
+| S | se | method=did/sc/sdid; se_method=placebo; code_path=native; interface=treat; design=block; covariates=none | `tests/reference_parity/test_sdid_resampling_screen.py` | `sp.sdid(treat=...)` |
+| S | se | method=sdid; se_method=bootstrap/placebo; code_path=native; interface=treat; design=staggered; covariates=none | `tests/reference_parity/test_sdid_resampling_screen.py` | `sp.sdid(treat=...)` |
 
 `se_method` is ignored for estimate: the SE method resamples after the unit and time weights are solved; the ATT is unchanged
 
@@ -620,6 +678,7 @@ Fixtures under `tests/stata_parity/option_parity/` pin option switches within an
 | `tests/stata_parity/option_parity/results/94_bjs_options_Stata.json` | `tests/reference_parity/test_bjs_options_parity.py` | `8f7d765f8a78ad27` |
 | `tests/stata_parity/option_parity/results/95_rdrobust_comb_Stata.json` | `tests/reference_parity/test_rdrobust_comb_parity.py` | `a640f1fd03604042` |
 | `tests/stata_parity/option_parity/results/96_csdid_options_Stata.json` | `tests/reference_parity/test_csdid_options_stata_parity.py` | `f54b8457546789eb` |
+| `tests/stata_parity/option_parity/results/97_dcdh_options_Stata.json` | `tests/reference_parity/test_dcdh_option_values_stata_parity.py` | `f26a2a96ef115c11` |
 
 ## Stata translation holdout
 
@@ -724,3 +783,4 @@ Inputs those do-files read (the other fixtures use `tests/orig_parity/data/02_mp
 | `tests/stata_parity/option_parity/data_87_did_had.csv` | `7609daa994c6aca4` |
 | `tests/stata_parity/option_parity/data_94_bjs_options.csv` | `38192ebdc07262fc` |
 | `tests/stata_parity/option_parity/data_96_csdid_unbalanced.csv` | `e63036296fd3fcb1` |
+| `tests/stata_parity/option_parity/data_97_dcdh_options.csv` | `dc79c9f35475ab39` |

@@ -40,7 +40,7 @@ Options and evidence for the flagship estimators, read from their signatures and
 | `sp.sun_abraham` | `weights` | `cluster` | — | native | core | certified | yes | — |
 | `sp.did_imputation` | `weights` | `cluster` | `vce='analytic'`, `se_method=None` | native | core | certified | yes | 1 |
 | `sp.etwfe` | `weights` | `cluster` | — | native | core | certified | yes | 8 |
-| `sp.did_multiplegt_dyn` | `weights` | `cluster` | `se_method='bootstrap'` | native | research | experimental | — | 3 |
+| `sp.did_multiplegt_dyn` | `weights` | `cluster` | `se_method='bootstrap'` | native | research | experimental | yes | 3 |
 | `sp.honest_did` | — | — | — | native (`backend='native'`) | core | certified | yes | — |
 
 ## RD

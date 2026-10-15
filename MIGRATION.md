@@ -26,6 +26,7 @@ numbers or now refuse; recompute them.
 | `sp.honest_did(method='smoothness')` FLCI at `M = 0` | numerical centre (up to 1.4e-3 of the half-length off) | closed form |
 | `sp.honest_did` with no pre-treatment coefficient | θ ± z·SE fallback | raises `DataInsufficient` |
 | `sp.spec_curve(se_types=[...])` with an unknown name, or `'cluster'` without `cluster_var` | HC1 under the unknown label; cluster dropped | raises; `'classical'` / `'iid'` are the nonrobust variance |
+| `sp.did_multiplegt_dyn(continuous=...)` | polynomial residualised separately; matched only when every group switched | the reference design (= `DIDmultiplegtDYN` / Stata) |
 | `sp.ivreg(vce='conley')`, `sp.ivreg(cluster=[a, b])` with a negative variance | SE 0, t = inf, p = 0 | NaN with a warning (= `acreg` / `ivreg2`) |
 
 **What to do.** Re-run analyses that use these options. `sp.feols`,

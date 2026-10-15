@@ -1956,6 +1956,2040 @@
         }
       ]
     },
+    "did_multiplegt_dyn": {
+      "dimensions": {
+        "se_method": [
+          "analytic",
+          "bootstrap"
+        ],
+        "aggregation": [
+          "simple",
+          "switchers"
+        ],
+        "control": [
+          "not_yet_treated",
+          "never_treated"
+        ],
+        "switchers": [
+          "both",
+          "in",
+          "out"
+        ],
+        "same_switchers": [
+          "false",
+          "true"
+        ],
+        "controls": [
+          "none",
+          "set"
+        ],
+        "trends_nonparam": [
+          "none",
+          "set"
+        ],
+        "normalized": [
+          "false",
+          "true"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "cluster": [
+          "group",
+          "coarser"
+        ],
+        "treatment": [
+          "binary",
+          "discrete",
+          "continuous"
+        ],
+        "panel": [
+          "balanced",
+          "unbalanced"
+        ],
+        "placebo": [
+          "0",
+          ">0"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "se_method": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the effects are computed before, and independently of, the variance; the bootstrap resamples afterwards"
+        },
+        "cluster": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the cluster enters the variance only"
+        }
+      },
+      "cells": 18432,
+      "overall": {
+        "covered": 37,
+        "estimate_only": 99,
+        "not_covered": 18296
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 136,
+          "not_covered": 18296
+        },
+        "se": {
+          "reference": 37,
+          "stochastic_screen": 1,
+          "not_covered": 18394
+        },
+        "vcov": {
+          "reference": 26,
+          "not_covered": 18406
+        },
+        "joint_test": {
+          "reference": 36,
+          "not_covered": 18396
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); base fit, with and without effects_equal(all)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "in"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); switchers(in)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "out"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); switchers(out)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "true"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); same_switchers"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "never_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); only_never_switchers"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "set"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); trends_nonparam(reg)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "true"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); normalized"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "set"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); weight(w), time-varying"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "coarser"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); cluster(cl), six groups per cluster"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "set"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); controls(x)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); effects(1) placebo(1), no joint test to form"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "in"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "set"
+            ],
+            "normalized": [
+              "true"
+            ],
+            "weights": [
+              "set"
+            ],
+            "cluster": [
+              "coarser"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); trends_nonparam, normalized, weight, cluster and switchers(in) together"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "continuous"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); continuous(1) and continuous(2), placebo(1), with never-switchers and switches both ways"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "unbalanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, the switcher count, Av_tot_eff and its SE, every entry of e(V) and the joint Wald p-values vs Stata did_multiplegt_dyn (option fixture 97, double precision, 1e-6; observed 1e-13); the 'simple' headline and SE against the mean of Stata's effects and the quadratic form in its e(V); unbalanced panel, 4% of rows dropped"
+        },
+        {
+          "kind": "S",
+          "artifact": "tests/reference_parity/test_dcdh_option_values_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "se_method": [
+              "bootstrap"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "bootstrap(200, s) SEs of every horizon and of Av_tot_eff: mean over five seeds vs Stata's mean over five seeds within four pooled Monte Carlo SEs (Stata's random stream cannot be reproduced)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_multiplegt_dyn_options_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, switcher counts and Av_tot_eff vs Stata did_multiplegt_dyn on a switch-in / switch-out panel; pooled"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_multiplegt_dyn_options_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "in",
+              "out"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, switcher counts and Av_tot_eff vs Stata did_multiplegt_dyn on a switch-in / switch-out panel; switchers(in) / switchers(out)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_multiplegt_dyn_options_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "true"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, switcher counts and Av_tot_eff vs Stata did_multiplegt_dyn on a switch-in / switch-out panel; same_switchers"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/78_multiplegt_dyn.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "bootstrap"
+            ],
+            "aggregation": [
+              "simple",
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo and Av_tot_eff vs DIDmultiplegtDYN on an absorbing staggered panel and a switch-on / switch-off panel (SEs not compared)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_multiplegt_dyn_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo, its analytic SE, Av_tot_eff and its SE vs DIDmultiplegtDYN on Track A module 78's panel"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_multiplegt_dyn_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "every effect and placebo vs DIDmultiplegtDYN (the 'simple' headline is their mean; its SE needs the covariance, which is not compared here)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_options_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "vs DIDmultiplegtDYN 2.3.4 at 1e-12: every effect and placebo, no option"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_options_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "set"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "vs DIDmultiplegtDYN 2.3.4 at 1e-12: every effect and placebo, controls"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_options_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "set"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "vs DIDmultiplegtDYN 2.3.4 at 1e-12: every effect and placebo, trends_nonparam"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_options_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "true"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "vs DIDmultiplegtDYN 2.3.4 at 1e-12: every effect and placebo, normalized"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_options_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "simple"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "continuous"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "vs DIDmultiplegtDYN 2.3.4 at 1e-12: the effects (not the placebo), continuous=1 and 2, on a panel where every group switches"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, periods four years apart, effects_equal(all)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "true"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, normalized, effects_equal(all)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "true"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              "0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, same_switchers"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "set"
+            ],
+            "cluster": [
+              "coarser"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, weight() cluster(state)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "set"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, controls(x) with the slope-estimation term"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "set"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "set"
+            ],
+            "cluster": [
+              "coarser"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, controls(x) weight() cluster(state)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "set"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "true"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              "0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, controls(x) normalized"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "set"
+            ],
+            "trends_nonparam": [
+              "set"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              "0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, controls(x) trends_nonparam(cohort)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "in"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "set"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "discrete"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              "0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; count treatment, controls(x) switchers(in)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "set"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "unbalanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "effects, placebos, analytic SEs, Av_tot_eff and the joint Wald p-values vs Stata did_multiplegt_dyn; binary treatment, missing outcomes, controls(x)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/test_did_multiplegt_dyn_castle_reference.py",
+          "entry_point": "sp.did_multiplegt_dyn()",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "se_method": [
+              "analytic"
+            ],
+            "aggregation": [
+              "switchers"
+            ],
+            "control": [
+              "not_yet_treated"
+            ],
+            "switchers": [
+              "both"
+            ],
+            "same_switchers": [
+              "false"
+            ],
+            "controls": [
+              "none"
+            ],
+            "trends_nonparam": [
+              "none"
+            ],
+            "normalized": [
+              "false"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ],
+            "cluster": [
+              "coarser",
+              "group"
+            ],
+            "treatment": [
+              "binary"
+            ],
+            "panel": [
+              "balanced"
+            ],
+            "placebo": [
+              ">0"
+            ]
+          },
+          "compares": "castle-doctrine panel: every effect and placebo, analytic SEs and Av_tot_eff vs DIDmultiplegtDYN and Stata, unweighted and weight(popwt); cluster(region) vs Stata"
+        }
+      ]
+    },
     "dml": {
       "dimensions": {
         "model": [
@@ -11178,18 +13212,19 @@
       },
       "cells": 288,
       "overall": {
-        "covered": 24,
-        "estimate_only": 28,
-        "not_covered": 236
+        "covered": 27,
+        "estimate_only": 33,
+        "not_covered": 228
       },
       "by_output": {
         "estimate": {
-          "reference": 52,
-          "not_covered": 236
+          "reference": 60,
+          "not_covered": 228
         },
         "se": {
-          "reference": 24,
-          "not_covered": 264
+          "reference": 27,
+          "stochastic_screen": 11,
+          "not_covered": 250
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -11289,6 +13324,160 @@
             ]
           },
           "compares": "placebo-SE CI coverage, one treated unit"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_did_synth_R_parity.py",
+          "entry_point": "sp.sdid(treated_unit=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "did",
+              "sc",
+              "sdid"
+            ],
+            "se_method": [
+              "jackknife"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "interface": [
+              "treated_unit"
+            ],
+            "design": [
+              "block"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "ATT, unit and time weights at 1e-9 and the fixed-weight jackknife SE at 1e-9 vs synthdid 0.0.9 (Prop. 99 replica, one treated unit, where the jackknife is undefined on both sides; a panel with five treated units); also replays R's own placebo and bootstrap index vectors draw for draw at 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_sdid_parity.py",
+          "entry_point": "sp.sdid()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "method": [
+              "sdid"
+            ],
+            "se_method": [
+              "placebo"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "interface": [
+              "treated_unit"
+            ],
+            "design": [
+              "block"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "point ATT vs synthdid on the shipped Prop. 99 panel"
+        },
+        {
+          "kind": "S",
+          "artifact": "tests/reference_parity/test_sdid_resampling_screen.py",
+          "entry_point": "sp.sdid(treated_unit=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "did",
+              "sc",
+              "sdid"
+            ],
+            "se_method": [
+              "bootstrap",
+              "placebo"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "interface": [
+              "treated_unit"
+            ],
+            "design": [
+              "block"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "placebo and bootstrap SEs, mean over five seeds x 200 draws vs synthdid_se's mean over five seeds, within four pooled Monte Carlo SEs (one and five treated units; the bootstrap only with five, it is undefined with one)"
+        },
+        {
+          "kind": "S",
+          "artifact": "tests/reference_parity/test_sdid_resampling_screen.py",
+          "entry_point": "sp.sdid(treat=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "did",
+              "sc",
+              "sdid"
+            ],
+            "se_method": [
+              "placebo"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "interface": [
+              "treat"
+            ],
+            "design": [
+              "block"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "vce(placebo) SE on the Prop. 99 block design, mean over five seeds x 200 draws vs Stata sdid 2.0.2 over five seeds"
+        },
+        {
+          "kind": "S",
+          "artifact": "tests/reference_parity/test_sdid_resampling_screen.py",
+          "entry_point": "sp.sdid(treat=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "sdid"
+            ],
+            "se_method": [
+              "bootstrap",
+              "placebo"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "interface": [
+              "treat"
+            ],
+            "design": [
+              "staggered"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "vce(placebo) and vce(bootstrap) SEs on the staggered quota panel, mean over five seeds x 200 draws vs Stata sdid 2.0.2 over five seeds"
         }
       ]
     },
@@ -11715,16 +13904,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 1413,
+      "reference": 1557,
       "seed_equivalence": 3,
       "disclosure": 4,
-      "not_covered": 51758
+      "not_covered": 70046
     },
     "se": {
-      "reference": 735,
-      "stochastic_screen": 5,
+      "reference": 775,
+      "stochastic_screen": 17,
       "disclosure": 23,
-      "not_covered": 52415
+      "not_covered": 70795
     },
     "coverage": {
       "coverage_simulation": 11,
@@ -11737,13 +13926,13 @@
       "not_covered": 26619
     },
     "vcov": {
-      "reference": 9,
-      "not_covered": 8651
+      "reference": 35,
+      "not_covered": 27057
     },
     "joint_test": {
-      "reference": 16,
+      "reference": 52,
       "disclosure": 1,
-      "not_covered": 1051
+      "not_covered": 19447
     }
   },
   "option_fixtures": [
@@ -11836,6 +14025,14 @@
         "tests/reference_parity/test_csdid_options_stata_parity.py"
       ],
       "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/97_dcdh_options_Stata.json",
+      "sha256": "f26a2a96ef115c1177332dcdbdd77157b1719e8c5bc7071389206f81f906eab9",
+      "consumers": [
+        "tests/reference_parity/test_dcdh_option_values_stata_parity.py"
+      ],
+      "in_tier_a_lock": false
     }
   ],
   "option_inputs": [
@@ -11858,6 +14055,10 @@
     {
       "input": "tests/stata_parity/option_parity/data_96_csdid_unbalanced.csv",
       "sha256": "e63036296fd3fcb1863fe72528ccc481d18fef15acfa246f0517083d22448b74"
+    },
+    {
+      "input": "tests/stata_parity/option_parity/data_97_dcdh_options.csv",
+      "sha256": "dc79c9f35475ab3900e915243a3b85de972cf077becbbf7aca3156905694ecec"
     }
   ],
   "translation_holdout": [
