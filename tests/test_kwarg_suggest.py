@@ -58,3 +58,13 @@ def test_call_shaped_function_names_are_not_doubled():
             bogus=1,
         )
     assert ")()" not in str(ei.value)
+
+
+def test_dml_unknown_model_suggests_the_closest():
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        nsw = sp.datasets.nsw_dw()
+    with pytest.raises(sp.exceptions.MethodIncompatibility) as ei:
+        sp.dml(nsw, y="re78", treat="treat", covariates=["age"], model="plm")
+    assert ei.value.diagnostics["did_you_mean"] == ["plr"]
+    assert "model='plr'" in ei.value.recovery_hint

@@ -286,10 +286,23 @@ def dml(
     """
     key = str(model).lower()
     if key not in _MODEL_REGISTRY:
+        import difflib
+
+        close = difflib.get_close_matches(key, list(_MODEL_REGISTRY), n=1, cutoff=0.5)
         raise MethodIncompatibility(
             f"dml: model must be one of {tuple(_MODEL_REGISTRY.keys())}, "
             f"got '{model}'",
-            diagnostics={"model": model, "supported_models": tuple(_MODEL_REGISTRY)},
+            recovery_hint=(
+                (f"Did you mean model={close[0]!r}? " if close else "")
+                + "plr: partially linear (continuous or binary treatment); "
+                "irm: interactive (binary treatment, heterogeneous effects); "
+                "pliv / iivm: the instrumental-variable versions."
+            ),
+            diagnostics={
+                "model": model,
+                "supported_models": tuple(_MODEL_REGISTRY),
+                "did_you_mean": close,
+            },
         )
     estimator_cls = _MODEL_REGISTRY[key]
     estimator = estimator_cls(
