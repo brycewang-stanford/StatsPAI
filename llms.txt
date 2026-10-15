@@ -1,6 +1,6 @@
 # StatsPAI
 
-> Agent-native causal inference and applied econometrics in Python: one `import statspai as sp` over 1,200+ registered functions (DiD, RD, IV, synthetic control, DML, meta-learners, matching, panel, spatial, time series, survival, decomposition), numerically aligned with Stata / R reference implementations, with self-describing schemas, structured results and Word / Excel / LaTeX export.
+> Agent-native causal inference and applied econometrics in Python: one `import statspai as sp` over 1,100+ functions (DiD, RD, IV, synthetic control, DML, meta-learners, matching, panel, spatial, time series, survival, decomposition), numerically aligned with Stata / R reference implementations, with self-describing schemas, structured results and Word / Excel / LaTeX export.
 
 Install: `pip install statspai` (`pip install "statspai[fixest,plotting]"` for high-dimensional fixed effects and figures). MCP server: `statspai-mcp`. CLI: `statspai`.
 
