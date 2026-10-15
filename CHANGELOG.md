@@ -30,6 +30,125 @@ All notable changes to StatsPAI will be documented in this file.
   5/5 bootstrap replications succeeded"; it now says that at least 10
   are needed.
 
+### Option values checked against R and Stata
+
+`sp.validation_scope` showed which configurations of the core
+estimators had been compared with a reference. Counted per option value
+rather than per grid cell, most gaps were in options users reach for
+after the default: every `sp.etwfe` standard error, the
+caliper / kernel / radius / stratify forms of `sp.match`, the HC2 / HC3
+/ CR2 / jackknife / Conley / wild variances of `sp.regress` and
+`sp.iv`, and the binned, absorbed and staggered forms of
+`sp.event_study`. These now have reference fixtures produced by running
+R 4.5 and Stata 18 on committed data, and comparing them found the
+defects below. Default calls on the main path return what they did.
+
+#### ⚠️ Correctness
+
+- **`sp.etwfe(xvar=...)`** on the linear model fit a pooled
+  cohort × post model with unit effects, ignored
+  `cgroup='nevertreated'`, had no event or calendar aggregation and
+  treated a categorical moderator as continuous. It now fits R
+  `etwfe`'s design (moderator demeaned within cohort × period cells,
+  interacted with every treatment cell and every period; one slope per
+  level of a categorical moderator). On the option fixture the simple
+  ATT moves from 1.4957 (SE 0.0906, both control groups) to 1.5691
+  (SE 0.1016) with not-yet-treated and 1.5248 (SE 0.1469) with
+  never-treated controls, equal to `etwfe::emfx` to 1e-14 (SE 1e-10).
+- **`sp.event_study`** removed the two-way fixed effects with one pass
+  of unit means and one of time means, which is the two-way projection
+  only on a balanced panel with weights constant within a unit. On
+  unbalanced panels the event-time coefficients were off by up to 0.035
+  against `fixest::feols`, and by up to 0.15 with time-varying weights.
+  Those cases now use the exact weighted projection; balanced-panel
+  results are unchanged to the bit.
+- **`sp.did_imputation(fe=...)`** imputed a treated row whose
+  fixed-effect level has no untreated observation at the reference
+  level's effect (mpdta, `fe=['countyreal', 'state#year']`: ATT −1.118,
+  no warning). It now raises, as Stata `did_imputation` does;
+  `autosample=True` drops those rows. A custom `fe=` without a unit
+  effect no longer trips the unit-coverage check.
+- **`sp.match(bias_correction=True)`** fitted the bias-adjustment
+  regression unweighted on all controls. It now uses the matched
+  controls weighted by how often each is used (Abadie-Imbens;
+  `Matching::Match(BiasAdjust=TRUE)`): 1.740 → 1.700 on the fixture.
+- **`sp.match` with a caliper**: the psmatch2 and Abadie-Imbens
+  standard errors counted treated units left unmatched. At caliper
+  0.01 the psmatch2 SE goes from 0.3546 to 0.3636, Stata's number.
+- **`sp.match(se_method='abadie_imbens_2016', caliper=...)`** now
+  requires, as `teffects psmatch` does, max(m, h) opposite-arm and h
+  same-arm units within the caliper for every unit (ATT and ATE), and
+  raises otherwise; it used to report a standard error where Stata
+  refuses.
+- **`sp.ivreg(vce='conley')` and `sp.ivreg(cluster=[a, b])`** reported
+  a standard error of 0 (t = inf, p = 0) when the non-positive-definite
+  covariance had a negative variance. They now report NaN with a
+  warning, as Stata `acreg` and `ivreg2` report it missing. Finite
+  standard errors are unchanged.
+
+#### Changed
+
+- `sp.feols`, `sp.fepois` and `sp.feglm` ask pyfixest for its compiled
+  demeaner unless `demeaner_backend=` is given. The default numba
+  demeaner took 108 s on 2 million rows with 100,000 firm effects; the
+  compiled one takes 2.6 s, with the coefficient R `fixest` gives to
+  1e-15 (SE 2e-11).
+- The nearest-neighbour residuals in the `rdrobust` bandwidth selector
+  are computed once per tie run, vectorised; results are bit-identical
+  (checked on 1,500 designs with and without ties). `sp.rdrobust` on 1
+  million observations takes 5.3 s, from 15 s (R `rdrobust`: 6.4 s).
+- `sp.match(method='nnmatch', caliper=...)` warns when a unit has fewer
+  than `n_matches` admissible matches (`teffects nnmatch` stops there).
+
+#### Added (evidence)
+
+- Reference fixtures, each read by a test and registered in
+  `sp.validation_scope`:
+  - `sp.etwfe` / `sp.etwfe_glm`: estimate and SE for every option value
+    (both control groups, `panel=False`, weights under both
+    `agg_weights` rules, `xvar`, controls, poisson / logit) against R
+    `etwfe`, and `response_se='unconditional'` / `exovar()` controls
+    against Stata `jwdid`. The 1e-5 GLM SE gap previously filed as a
+    small-sample convention was reference noise (fixest's `glm.tol`,
+    its penultimate-iterate bread, a forward-difference Jacobian); the
+    SEs agree to 1e-9.
+  - `sp.match` / `sp.psmatch2`: 1 to 10 neighbours, Mahalanobis,
+    kernel (five kernels), radius, stratification, caliper and bias
+    correction against Stata `psmatch2`, `teffects psmatch` /
+    `nnmatch`, `atts` and R `Matching` (48 Stata fits at 1e-9).
+  - `sp.regress` / `sp.iv` variances: HC0–HC4, CR1–CR3, jackknife,
+    Newey-West, two- and three-way clustering, Conley, enumerated wild
+    bootstrap, LIML / Fuller with and without `small`, against
+    sandwich, clubSandwich, fixest, fwildclusterboot and Stata
+    `ivregress` / `ivreg2` / `acreg` / `newey` / `boottest`.
+  - `sp.event_study` (staggered adoption, other windows and reference
+    periods, bins, intensity, absorbed effects) against fixest;
+    `sp.did_imputation` custom FE, mixed covariates and weights against
+    Stata `did_imputation`; `sp.sun_abraham` last-cohort control and
+    `window_rule='reference'` against `eventstudyinteract` and fixest;
+    `sp.gardner_did(vce='stage2')` against R.
+  - `sp.rdrobust` comb bandwidth selectors (sharp and fuzzy) against R
+    and Stata `rdrobust`; `sp.rddensity` standard errors against R;
+    `sp.dml` at 2 / 3 / 10 folds, IV-type and ATTE scores, trimming and
+    `n_rep=3` against DoubleML; classical `sp.synth` with nested and
+    regression V on the identified design.
+- Documented differences, not changed: weighted CR2 follows Stata,
+  0.53% from clubSandwich's Pustejovsky-Tipton form; for multiway
+  clustered IV `sp.iv` zeroes negative eigenvalues (as fixest) while
+  `sp.ivreg` reports ivreg2's raw matrix; under `n_rep > 1` the
+  aggregated DML standard error is a convention on which R and Python
+  DoubleML disagree with each other; with a caliper, R `Matching`'s
+  standard error (0.2904) is not reproduced by any variant tried
+  (ours 0.3047, psmatch2 0.3186).
+
+### CI
+
+- The nightly full test matrix had failed since 2026-10-13 on three
+  generated tables: the failure-mode table depended on how
+  `ast.unparse` writes comprehension targets (3.10 against 3.11+), a
+  recovery hint named functions without `sp.`, and the silent-except
+  baseline was looser than the code.
+
 ## [1.39.6] — 2026-10-14
 
 A review of everything that landed in October, and the work it found

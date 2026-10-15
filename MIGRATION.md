@@ -5,6 +5,30 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ options off the default path in DiD, matching and IV
+
+**What changed.** Comparing every option value of the core estimators
+with R and Stata found defects in non-default options. Default calls on
+the main path return what they did. The calls below return different
+numbers or now refuse; recompute them.
+
+| Call | Before | Now |
+| --- | --- | --- |
+| `sp.etwfe(xvar=...)`, linear model | pooled cohort × post fit with unit effects; same number under both `cgroup`; categorical moderator as continuous | R `etwfe`'s moderated design (1.4957 → 1.5691 not-yet / 1.5248 never on the option fixture) |
+| `sp.event_study` on an unbalanced panel or with weights varying within a unit | one pass of unit and time means (up to 0.035 / 0.15 off `fixest`) | exact two-way projection; balanced panels unchanged |
+| `sp.did_imputation(fe=...)` with a treated fixed-effect level that has no untreated row | imputed at the reference level, no warning | raises, as Stata; `autosample=True` drops those rows |
+| `sp.match(bias_correction=True)` | unweighted regression on all controls | matched controls weighted by use (= `Matching`) |
+| `sp.match(caliper=...)`, psmatch2 / Abadie-Imbens SE | counted unmatched treated units | excludes them (= Stata `psmatch2`) |
+| `sp.match(se_method='abadie_imbens_2016', caliper=...)` where a unit lacks max(m, h) / h matches in the caliper | a standard error | raises, as `teffects psmatch` |
+| `sp.ivreg(vce='conley')`, `sp.ivreg(cluster=[a, b])` with a negative variance | SE 0, t = inf, p = 0 | NaN with a warning (= `acreg` / `ivreg2`) |
+
+**What to do.** Re-run analyses that use these options. `sp.feols`,
+`sp.fepois` and `sp.feglm` now request pyfixest's compiled demeaner;
+pass `demeaner_backend='numba'` to keep the old one (results agree to
+pyfixest's `fixef_tol`).
+
+---
+
 ## 1.39.5 → 1.39.6: ⚠️ `sp.stata` results that now match Stata
 
 **What changed.** A snippet-by-snippet comparison with Stata 18 found
