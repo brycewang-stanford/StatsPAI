@@ -186,14 +186,19 @@ class TestDiscoveryMetaTools:
 
 
 class TestNothingSilent:
-    def test_auto_dispatch_reports_unsupported_args(self):
+    def test_auto_dispatch_refuses_unsupported_args(self):
+        # An argument the function cannot bind refuses the call (it used to
+        # be dropped and listed under ``_unsupported_args``, so a misspelt
+        # ``cluster=`` ran unclustered).
         from statspai.agent.tools import execute_tool
 
         out = execute_tool(
             "adjust_pvalues",
             {"pvalues": [0.01, 0.04], "clusterr": "id"},
         )
-        assert out.get("_unsupported_args") == ["clusterr"]
+        assert out["error_kind"] == "unknown_argument"
+        assert out["unknown_arguments"] == ["clusterr"]
+        assert out["accepted_parameters"] == ["method", "pvalues"]
 
     def test_auto_dispatch_accepts_signature_params_missing_from_registry(self):
         # Registry entries can lag the live signature; the live signature

@@ -138,7 +138,7 @@ return, beyond `estimate / se / pvalue / ci / n_obs / method / estimand`:
 | `degradations` | a diagnostic that *crashed* while building the payload (`section`, `error_type`, `message`) | an empty `violations` with a non-empty `degradations` is not a clean result |
 | `next_steps` / `suggested_functions` | the estimator's own checklist | run the `essential` ones |
 | `runtime_warnings` (MCP / CLI) | Python warnings raised during the call (`ConvergenceWarning`, `AssumptionWarning`, few-cluster, weak-IV, LIML→2SLS fallback) | read them; they never reach stdout otherwise |
-| `_unsupported_args` (MCP / CLI) | arguments the function could not bind and did **not** apply | a misspelt `cluster=` changed the standard errors — fix and re-run |
+| `error_kind: unknown_argument` (MCP / CLI) | an argument the function cannot bind; the call is refused, with `did_you_mean` and `accepted_parameters` | rename it (a misspelt `cluster=` would have changed the standard errors) |
 | `data_provenance` | file hash / inline hash / handle lineage | cite it in the replication stamp |
 | `result_card` | estimand, sample, specification, inference, provenance, evidence tier | attach to the appendix |
 

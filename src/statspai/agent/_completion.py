@@ -9,8 +9,8 @@ names are out of scope here; what the server can enumerate is
 * function names, for ``statspai://function/{name}``;
 * estimator families, for ``statspai://guide/{family}``;
 * live handles, for ``statspai://data/{id}``, ``statspai://result/{id}``
-  and its ``/bundle`` form, and for the ``result_id`` argument of the
-  prompts that take one.
+  and its ``/bundle`` form, and for the ``result_id`` / ``data_id``
+  arguments of the prompts that take one.
 
 Any other argument of a known reference completes to an empty list,
 which is a valid answer. An unknown prompt or template is ``-32602``.
@@ -100,6 +100,8 @@ def handle_completion_complete(
         declared = {a["name"] for a in prompt.get("arguments") or []}
         if arg_name == "result_id" and arg_name in declared:
             candidates = _result_ids()
+        elif arg_name == "data_id" and arg_name in declared:
+            candidates = _data_ids()
     elif kind == "ref/resource":
         sources = _template_sources().get(str(ref.get("uri")))
         if sources is None:

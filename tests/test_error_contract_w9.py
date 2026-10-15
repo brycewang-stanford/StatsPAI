@@ -341,13 +341,14 @@ class TestCLIContract:
             "--arg",
             "vcee=hc1",
         )
-        # The dispatcher drops unbindable kwargs and reports them; either
-        # way the run must not crash and stdout must stay JSON.
-        if proc.returncode == 0:
-            assert json.loads(proc.stdout)["_unsupported_args"] == ["vcee"]
-        else:
-            assert proc.returncode == 4
-            assert json.loads(proc.stderr)["error_kind"] == "unknown_argument"
+        # An argument the function cannot bind refuses the call (it is not
+        # dropped and run without it); the error names the close spelling.
+        # ``regress`` takes **kwargs and rejects the name itself, so the
+        # suggestion arrives through the remediation block.
+        assert proc.returncode == 4
+        payload = json.loads(proc.stderr)
+        assert payload["error_kind"] == "unknown_argument"
+        assert payload["remediation"]["did_you_mean"] == {"vcee": "vce"}
 
     def test_generic_estimator_error_still_exit_3(self, panel_csv):
         proc = _run_cli(

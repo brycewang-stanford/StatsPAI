@@ -195,11 +195,19 @@ class TestMethodDispatch:
         )
 
     def test_callaway_santanna_passes_with_id(self, good_did_df):
-        out = sp.preflight(
-            good_did_df, "callaway_santanna", y="y", treat="treated", time="t", i="i"
-        )
+        # A staggered method reads timing from a cohort column (first
+        # treated period, 0 = never treated), not from the 0/1 indicator.
+        df = good_did_df.assign(g=good_did_df["treated"])
+        out = sp.preflight(df, "callaway_santanna", y="y", g="g", t="t", i="i")
         # Either PASS (if all good) or WARN on n_obs; never FAIL.
         assert out["verdict"] in ("PASS", "WARN")
+        cohort = next(c for c in out["checks"] if c["name"] == "cohort_coding")
+        assert cohort["evidence"]["cohorts"] == [1]
+        # The indicator alone is not a cohort column.
+        alone = sp.preflight(
+            good_did_df, "callaway_santanna", y="y", treat="treated", time="t", i="i"
+        )
+        assert alone["verdict"] == "FAIL"
 
     def test_rdrobust_needs_continuous_running_var(self):
         rng = np.random.default_rng(0)

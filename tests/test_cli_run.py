@@ -90,7 +90,8 @@ class TestRun:
             0.5, abs=0.3
         )
 
-    def test_unsupported_args_are_reported_not_dropped(self, panel_csv, capsys):
+    def test_unsupported_args_refuse_the_call(self, panel_csv, capsys):
+        # Not dropped and run without them: refused with did_you_mean.
         rc = main(
             [
                 "run",
@@ -98,14 +99,16 @@ class TestRun:
                 "--arg",
                 "pvalues=[0.01, 0.04]",
                 "--arg",
-                "clusterr=id",
+                "methd=holm",
                 "--indent",
                 "0",
             ]
         )
-        assert rc == 0
-        payload = _json_out(capsys)
-        assert payload["_unsupported_args"] == ["clusterr"]
+        assert rc == 4
+        _, err = capsys.readouterr()
+        payload = json.loads(err)
+        assert payload["error_kind"] == "unknown_argument"
+        assert payload["did_you_mean"] == {"methd": ["method"]}
 
     def test_unknown_function_is_usage_error_with_suggestions(self, capsys):
         rc = main(["run", "calaway_santana", "--arg", "y=y"])

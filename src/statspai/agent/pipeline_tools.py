@@ -382,7 +382,9 @@ def _pipeline_did(
     stages: List[Dict[str, Any]] = []
     degradations: List[Dict[str, Any]] = []
 
-    # Stage 1: preflight
+    staggered = bool(cohort and unit_id)
+
+    # Stage 1: preflight (the staggered table checks the cohort coding)
     preflight_fn = getattr(sp, "preflight", None)
     if preflight_fn is not None:
         verdict_args = {"y": y, "treatment": treat, "time": time}
@@ -390,7 +392,14 @@ def _pipeline_did(
             verdict_args["id"] = unit_id
         if covariates:
             verdict_args["covariates"] = covariates
-        result, err = _safe_call(preflight_fn, data, "did", **verdict_args)
+        if staggered:
+            verdict_args["cohort"] = cohort
+        result, err = _safe_call(
+            preflight_fn,
+            data,
+            "callaway_santanna" if staggered else "did",
+            **verdict_args,
+        )
         if err:
             stages.append(_stage("preflight", "failed", err))
         else:
@@ -408,10 +417,12 @@ def _pipeline_did(
         stages.append(_stage("preflight", "skipped", "sp.preflight not available"))
 
     # Stage 2: estimator dispatch
-    if cohort and unit_id:
+    if staggered:
         fit_fn = getattr(sp, "callaway_santanna", None)
         if fit_fn is not None:
-            est_args = {"y": y, "g": cohort, "t": time, "i": unit_id}
+            est_args: Dict[str, Any] = {"y": y, "g": cohort, "t": time, "i": unit_id}
+            if covariates:
+                est_args["x"] = list(covariates)
             primary, err = _safe_call(fit_fn, data, **est_args)
             method = "callaway_santanna"
         else:
@@ -420,7 +431,14 @@ def _pipeline_did(
     else:
         fit_fn = getattr(sp, "did", None)
         if fit_fn is not None:
+            # ``id`` lets sp.did see the panel: without it a multi-period
+            # panel was fitted as a 2x2 design and failed on the 5 periods
+            # of mpdta.
             est_args = {"y": y, "treat": treat, "time": time}
+            if unit_id:
+                est_args["id"] = unit_id
+            if covariates:
+                est_args["covariates"] = list(covariates)
             primary, err = _safe_call(fit_fn, data, **est_args)
             method = "did"
         else:
@@ -515,7 +533,7 @@ def _pipeline_did(
                 )
 
     # Stage 5: Bacon decomposition (only meaningful for staggered TWFE)
-    if cohort and unit_id:
+    if staggered:
         bacon_fn = getattr(sp, "bacon_decomposition", None)
         if bacon_fn is not None:
             bacon, err = _safe_call(
