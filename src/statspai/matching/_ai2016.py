@@ -112,6 +112,41 @@ def _set_stats(
     return cnt, ybar, var, cov
 
 
+def caliper_deficient(
+    pscore: np.ndarray,
+    treated: np.ndarray,
+    caliper: float,
+    n_matches: int,
+    h: int,
+    chunk: int = 256,
+) -> int:
+    """Units that miss Stata ``teffects psmatch``'s caliper condition.
+
+    ``teffects psmatch ..., caliper()`` does not restrict the matches; it is
+    a condition on every observation, of either arm and for the ATET as for
+    the ATE: ``max(m, h)`` opposite-arm units (the ``m`` matches and the
+    ``h`` behind the estimated-score correction) and ``h`` other same-arm
+    units within the caliper, or the command stops ("fewer than 2
+    propensity-score matches for observation ... within caliper"). Both
+    counts were pinned on Stata 18 (``psm_options_Stata.json``).
+    """
+    p = np.asarray(pscore, dtype=float)
+    t = np.asarray(treated, dtype=int)
+    deficient = 0
+    for g in (1, 0):
+        own, other = np.flatnonzero(t == g), np.flatnonzero(t != g)
+        need_opp = min(max(int(n_matches), int(h)), len(other))
+        need_own = min(int(h) + 1, len(own))  # the unit itself is at 0
+        for start in range(0, len(own), chunk):
+            rows = own[start : start + chunk]
+            d_opp = np.abs(p[rows][:, None] - p[other][None, :])
+            d_own = np.abs(p[rows][:, None] - p[own][None, :])
+            near = (d_opp <= caliper).sum(axis=1) >= need_opp
+            near &= (d_own <= caliper).sum(axis=1) >= need_own
+            deficient += int((~near).sum())
+    return deficient
+
+
 def abadie_imbens_2016_se(
     outcome: np.ndarray,
     treated: np.ndarray,
@@ -359,10 +394,11 @@ def abadie_imbens_2016_ate_se(
     matches are found here, on the unclipped score, for both arms.
 
     ``caliper`` is a feasibility condition, as in Stata: every unit must
-    have ``m`` opposite-arm units and ``h`` other same-arm units within
-    it, and then the sets are the ones found without a
-    caliper. When a unit does not, Stata stops; here the standard error is
-    ``nan`` and ``components['caliper_deficient']`` counts those units.
+    have ``max(m, h)`` opposite-arm units and ``h`` other same-arm units
+    within it (:func:`caliper_deficient`), and then the sets are the ones
+    found without a caliper. When a unit does not, Stata stops; here the
+    standard error is ``nan`` and ``components['caliper_deficient']``
+    counts those units.
 
     Returns
     -------
@@ -400,7 +436,9 @@ def abadie_imbens_2016_ate_se(
     if len(idx_t) < 2 or len(idx_c) < 2:
         return float("nan"), nan_components
 
-    deficient = 0
+    deficient = (
+        0 if caliper is None else caliper_deficient(p, t, caliper, n_matches, h, chunk)
+    )
     K = np.zeros(n)
     Kp = np.zeros(n)
     y_opp = np.full(n, np.nan)  # mean outcome of the m nearest opposite units
@@ -419,12 +457,6 @@ def abadie_imbens_2016_ate_se(
             # weight each of them receives
             d_opp = np.abs(p[rows][:, None] - p_oth[None, :])
             mask_m = _tie_inclusive_mask(d_opp, n_matches)
-            if caliper is not None:
-                near = (d_opp <= caliper).sum(axis=1) >= min(n_matches, len(other))
-                d_own = np.abs(p[rows][:, None] - p_own[None, :])
-                # h same-arm units besides the unit itself
-                near &= (d_own <= caliper).sum(axis=1) >= min(h + 1, len(own))
-                deficient += int((~near).sum())
             cnt, ybar_m, _, _ = _set_stats(mask_m, y_oth, Z_oth)
             y_opp[rows] = ybar_m
             share = mask_m / cnt[:, None]
