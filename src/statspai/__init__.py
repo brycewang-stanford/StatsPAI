@@ -736,6 +736,7 @@ from .dag import swig
 
 # Data-source ingestion normalisers, also surfaced at top level so an agent can
 # reshape a World Bank / FRED / OECD-SDMX payload with one call before fitting.
+from .datasets import list_datasets, load_dataset
 from .datasets.ingest import from_fred, from_sdmx, from_worldbank
 from .decomposition import (  # Tier C additions
     GelbachResult,
@@ -2412,6 +2413,8 @@ __all__ = [
     "from_worldbank",
     "from_fred",
     "from_sdmx",
+    "list_datasets",
+    "load_dataset",
     "assumption_audit",
     "AssumptionResult",
     "audit",

@@ -22,6 +22,14 @@ from typing import Tuple
 #: ``(Chinese term, English query text)``. Longer terms are applied first, so
 #: a term may contain a shorter one.
 ZH_TERMS: Tuple[Tuple[str, str], ...] = (
+    # 示例数据集
+    ("\u793a\u4f8b\u6570\u636e\u96c6", "load example dataset"),
+    # 示例数据
+    ("\u793a\u4f8b\u6570\u636e", "load example dataset"),
+    # 内置数据
+    ("\u5185\u7f6e\u6570\u636e", "load example dataset"),
+    # 数据集
+    ("\u6570\u636e\u96c6", "dataset"),
     # 双重差分
     ("\u53cc\u91cd\u5dee\u5206", "difference in differences"),
     # 倍差法

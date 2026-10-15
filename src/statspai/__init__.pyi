@@ -271,6 +271,8 @@ from .dag.llm_evaluator import llm_causal_assess as llm_causal_assess
 from .dag.llm_evaluator import pairwise_causal_benchmark as pairwise_causal_benchmark
 from .dag.swig import SWIGGraph as SWIGGraph
 from .dag.swig import swig as swig
+from .datasets import list_datasets as list_datasets
+from .datasets import load_dataset as load_dataset
 from .datasets.ingest import from_fred as from_fred
 from .datasets.ingest import from_sdmx as from_sdmx
 from .datasets.ingest import from_worldbank as from_worldbank

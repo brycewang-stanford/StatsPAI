@@ -74,6 +74,11 @@ Public health / epidemiology (REAL data)
 
 from __future__ import annotations
 
+import functools
+import inspect
+import warnings
+from typing import Any, Callable
+
 import pandas as pd
 
 # Re-export synth-shipped datasets (unchanged DGPs; this is the
@@ -191,7 +196,7 @@ def list_datasets() -> pd.DataFrame:
     """Return a DataFrame describing all available datasets.
 
     Columns: name, design, n_obs, paper, paper_original, expected_main,
-    source.
+    source, simulated, columns.
 
     Every dataset here loads from disk — none of them touches the
     network, so the whole catalogue works offline. ``source`` says which
@@ -352,7 +357,149 @@ def list_datasets() -> pd.DataFrame:
     # loaders (card_1995, lee_2008_senate, california_prop99,
     # nsw_lalonde) also accept ``simulated=`` to pick the other one.
     table["source"] = table["name"].map(_DEFAULT_SOURCE).fillna("simulated")
+    table["simulated"] = table["source"] == "simulated"
+    table["columns"] = [list(_quiet_load(name).columns) for name in table["name"]]
     return table
+
+
+# ----------------------------------------------------------------------
+# Provenance flags and the simulated-data warning
+# ----------------------------------------------------------------------
+
+#: Datasets whose simulated-replica warning this process already issued.
+_WARNED: set = set()
+
+
+def _quiet_load(name: str) -> pd.DataFrame:
+    """Load ``name`` for the catalogue, leaving the once-per-process
+    warning for the first real use of the data."""
+    already = name in _WARNED
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        df = globals()[name]()
+    if not already:
+        _WARNED.discard(name)
+    return df
+
+
+def _flag_source(name: str, df: pd.DataFrame, simulated_arg: Any) -> pd.DataFrame:
+    """Write ``attrs['simulated']`` / ``attrs['data_source']`` and warn once.
+
+    Several replicas carry the names of famous real datasets (``mpdta``,
+    ``nsw_dw``, ``basque_terrorism``). An estimate on them is a property
+    of the simulation, and an agent that reads only the name reports it
+    as a finding about the real data. The flag is on every frame; the
+    warning fires the first time a process loads each replica.
+    """
+    sim = df.attrs.get("simulated")
+    if sim is None:
+        if isinstance(simulated_arg, bool):
+            sim = simulated_arg
+        else:
+            sim = _DEFAULT_SOURCE.get(name) != "bundled CSV"
+    df.attrs["simulated"] = bool(sim)
+    df.attrs.setdefault("data_source", "simulated" if sim else "real")
+    if sim and name not in _WARNED:
+        _WARNED.add(name)
+        from ..exceptions import StatsPAIWarning
+
+        paper = df.attrs.get("paper") or ""
+        about = f" ({paper})" if isinstance(paper, str) and paper else ""
+        warnings.warn(
+            f"sp.datasets.{name}() returns a SIMULATED replica{about}, not the "
+            "original data: estimates on it describe the simulation and must "
+            "not be reported as findings about the real data. "
+            "df.attrs['simulated'] is True; sp.list_datasets() shows which "
+            "datasets are real extracts.",
+            StatsPAIWarning,
+            stacklevel=3,
+        )
+    return df
+
+
+def _flagged(name: str, fn: Callable[..., pd.DataFrame]) -> Callable[..., pd.DataFrame]:
+    sig = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def loader(*args: Any, **kwargs: Any) -> pd.DataFrame:
+        df = fn(*args, **kwargs)
+        simulated_arg = None
+        if "simulated" in sig.parameters:
+            bound = sig.bind_partial(*args, **kwargs)
+            bound.apply_defaults()
+            simulated_arg = bound.arguments.get("simulated")
+        return _flag_source(name, df, simulated_arg)
+
+    return loader
+
+
+_LOADERS = (
+    "mpdta",
+    "card_1995",
+    "nsw_lalonde",
+    "nsw_dw",
+    "lee_2008_senate",
+    "angrist_krueger_1991",
+    "castle_doctrine",
+    "texas_prison",
+    "sasp_panel",
+    "thornton_hiv",
+    "california_prop99",
+    "basque_terrorism",
+    "german_reunification",
+    "nhefs",
+    "currency_union_panel",
+)
+for _name in _LOADERS:
+    globals()[_name] = _flagged(_name, globals()[_name])
+teen_employment = mpdta
+load_nhefs = nhefs
+del _name
+
+
+def load_dataset(name: str, **kwargs: Any) -> pd.DataFrame:
+    """Load a bundled example dataset by name.
+
+    Parameters
+    ----------
+    name : str
+        One of the names in :func:`list_datasets` (``"mpdta"``,
+        ``"card_1995"``, ``"nsw_dw"``, ``"lee_2008_senate"``, ...).
+    **kwargs
+        Passed to the dataset's loader (e.g. ``simulated=False`` for
+        ``nsw_dw``, ``seed=`` for the simulated replicas).
+
+    Returns
+    -------
+    pd.DataFrame
+        ``df.attrs['simulated']`` says whether it is a simulated replica
+        or the real extract; ``df.attrs['paper']`` names the source study.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.load_dataset("card_1995")
+    >>> df.attrs["simulated"]
+    False
+    """
+    if name not in _LOADERS and name not in ("teen_employment", "load_nhefs"):
+        import difflib
+
+        from ..exceptions import MethodIncompatibility
+
+        close = difflib.get_close_matches(str(name), _LOADERS, n=3, cutoff=0.5)
+        hint = f"Did you mean {close[0]!r}? " if close else ""
+        raise MethodIncompatibility(
+            f"Unknown dataset {name!r}.",
+            recovery_hint=hint + "sp.list_datasets() lists the available names.",
+            diagnostics={
+                "name": name,
+                "available": list(_LOADERS),
+                "did_you_mean": close,
+            },
+            alternative_functions=["sp.list_datasets"],
+        )
+    return globals()[name](**kwargs)
 
 
 __all__ = [
@@ -376,6 +523,7 @@ __all__ = [
     "load_nhefs",
     "currency_union_panel",
     "list_datasets",
+    "load_dataset",
     "from_worldbank",
     "from_fred",
     "from_sdmx",

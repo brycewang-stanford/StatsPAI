@@ -536,7 +536,11 @@ def test_list_datasets_returns_dataframe():
         # Which variant a bare name() call returns — "bundled CSV" for the
         # real extract, "simulated" for the calibrated replica.
         "source",
+        # The same as a boolean, and each frame's column names.
+        "simulated",
+        "columns",
     }
+    assert (registry["simulated"] == (registry["source"] == "simulated")).all()
 
 
 def test_all_registered_datasets_loadable():
