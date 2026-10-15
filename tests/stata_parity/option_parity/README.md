@@ -30,6 +30,7 @@ is the intended effect, not an accident.
 | `85_multiplegt_dyn_options_Stata.json` | `did_multiplegt_dyn` `switchers()` / `same_switchers` | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` |
 | `86_lprobust_Stata.json` | `lprobust` at supplied bandwidths | `tests/reference_parity/test_lprobust_parity.py` |
 | `87_did_had_Stata.json` | `did_had` | `tests/reference_parity/test_did_had_parity.py` |
+| `92_vce_menu_Stata.json` | `ivregress 2sls\|liml` with and without `small`; `ivreg2` `fuller(1)` and `cluster(g yr)`; `acreg` Conley; `newey`; `boottest` (WCR / WRE, every sign vector enumerated); two designs with negative variances | `tests/reference_parity/test_vce_menu_parity.py` |
 | `95_rdrobust_comb_Stata.json` | `rdrobust` under `bwselect(msecomb1 / msecomb2 / cercomb1 / cercomb2)`, sharp and fuzzy | `tests/reference_parity/test_rdrobust_comb_parity.py` |
 
 Every consumer opens its fixture; none carries the Stata numbers as

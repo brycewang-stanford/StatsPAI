@@ -524,6 +524,7 @@ _VCE = _RP + "test_vce_grammar_stata_parity.py"
 _ATTACH = _RP + "test_validation_entry_points.py"
 _JOINT = _RP + "test_joint_wald_stata_parity.py"
 _REGW = _RP + "test_regress_vce_weights_stata_parity.py"
+_MENU = _RP + "test_vce_menu_parity.py"
 _EST_SE = ("estimate", "se")
 _EST = ("estimate",)
 _COV = ("coverage",)
@@ -711,6 +712,98 @@ _add(
                 _COV,
                 "95% CI coverage on a known-truth RCT DGP",
                 "sp.regress(robust='hc1')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "vce": _vals(
+                        "classical",
+                        "hc0",
+                        "hc1",
+                        "hc2",
+                        "hc3",
+                        "hc4",
+                        "cr1",
+                        "cr3",
+                        "hac",
+                        "cluster_multiway",
+                    ),
+                    "weights": _vals("none", "set"),
+                },
+                _EST_SE,
+                "coefficients and SEs vs R on lm, unweighted and weighted: "
+                "sandwich vcovHC HC0-HC4, vcovCL, NeweyWest (4 lags, with and "
+                "without adjust), clubSandwich CR3, and fixest two-way "
+                "clustering at its default ssc() (one G_min factor, the "
+                "convention sp.regress uses), to 1e-9 (observed 1e-13). "
+                "Two-way only: sp.regress refuses three-way clustering",
+                "sp.regress(F, data, weights=..., **opts)",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {"vce": _vals("cr2"), "weights": _vals("none")},
+                _EST_SE,
+                "CR2 SEs vs clubSandwich::vcovCR on lm, to 1e-9",
+                "sp.regress(F, data, vce='cr2', cluster='g')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {"vce": _vals("jackknife"), "weights": _vals("none", "set")},
+                _EST_SE,
+                "vce='jackknife' is the CR3 variance (a fit reports vce 'cr3'); "
+                "equal to clubSandwich CR3, unweighted and weighted, to 1e-9",
+                "sp.regress(F, data, vce='jackknife', cluster='g')",
+            ),
+            _Row(
+                "T4",
+                _MENU,
+                {"vce": _vals("cr2"), "weights": _vals("set")},
+                ("se",),
+                "weighted CR2 has two unbiased adjustments: StatsPAI and Stata "
+                "apply CR2 to the sqrt(w)-transformed design, clubSandwich "
+                "(inverse_var=TRUE) uses the Pustejovsky-Tipton symmetric form; "
+                "up to 0.53% apart here, both rebuilt from the fit to 1e-10 and "
+                "both satisfying A_g M_g A_g' = W_g^-1",
+                "sp.regress(F, data, vce='cr2', cluster='g', weights='w')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {"vce": _vals("wild"), "weights": _vals("none")},
+                _EST_SE,
+                "the SE reported with the wild bootstrap is the CR1 one: vs "
+                "sandwich::vcovCL and Stata regress, vce(cluster g), to 1e-9",
+                "sp.regress(F, data, vce='wild', cluster='g')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {"vce": _vals("wild"), "weights": _vals("none")},
+                ("diagnostic",),
+                "WCR bootstrap p-values, 12 clusters and all 2^12 Rademacher "
+                "sign vectors enumerated: equal to fwildclusterboot::boottest "
+                "and Stata boottest exactly",
+                "sp.regress(F, data, vce='wild', cluster='g')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {"vce": _vals("conley"), "weights": _vals("none")},
+                _EST_SE,
+                "Conley SEs (uniform kernel, 100 km) vs Stata acreg, to 1e-9",
+                "sp.regress(F, data, vce='conley', ...)",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {"vce": _vals("hac"), "weights": _vals("none", "set")},
+                _EST_SE,
+                "hac_small=True vs Stata newey, lag(4), unweighted and [aw=w], "
+                "to 1e-9",
+                "sp.regress(F, data, robust='hac', hac_small=True, ...)",
             ),
         ),
         invariant={"vce": _VCE_INVARIANT},
@@ -982,6 +1075,187 @@ _add(
                 "absorbed Fuller(1) SE within 5e-5 of ivreghdfe (same k-class meat "
                 "convention)",
                 "sp.iv(formula, data, absorb=[...], method='fuller')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals(
+                        "classical",
+                        "hc0",
+                        "hc1",
+                        "hc2",
+                        "hc3",
+                        "cr1",
+                        "cluster_multiway",
+                    ),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "coefficients and SEs vs ivreg::ivreg + sandwich (vcov, vcovHC "
+                "HC0-HC3, vcovCL) and vs fixest IV with two- and three-way "
+                "clustering at its default ssc(), to 1e-9 (observed 1e-13); "
+                "sp.iv zeroes negative eigenvalues of the multiway matrix, as "
+                "fixest does",
+                "sp.iv(IV[ident], data, **opts)",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals("cr2", "cr3", "jackknife"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "CR2 / CR3 SEs vs clubSandwich::vcovCR on ivreg::ivreg, to 1e-9; "
+                "vce='jackknife' is CR3 (a fit reports vce 'cr3')",
+                "sp.ivreg(IV[ident], data, vce=..., cluster='g')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("2sls", "liml"),
+                    "vce": _vals("classical", "hc1", "cr1"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "coefficients and SEs vs Stata ivregress 2sls / liml, small "
+                "(unadjusted, robust, cluster), to 1e-9",
+                "sp.iv(IV[ident], data, method=..., small=True)",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("2sls", "liml"),
+                    "vce": _vals("classical", "hc0", "cr1"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("false"),
+                },
+                _EST_SE,
+                "the same without small (ivregress's default), to 1e-9",
+                "sp.iv(IV[ident], data, method=..., small=False)",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("liml"),
+                    "vce": _vals("hc0"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "robust='hc0' carries no finite-sample factor: its LIML SE is "
+                "ivregress liml, vce(robust)'s, to 1e-9",
+                "sp.iv(IV[ident], data, method='liml', robust='hc0')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("fuller"),
+                    "vce": _vals("classical", "hc0", "hc1", "cr1"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "Fuller(1) coefficients and SEs vs Stata ivreg2, fuller(1): "
+                "small classical / robust / cluster, and robust without small "
+                "for HC0, to 1e-9",
+                "sp.iv(IV[ident], data, method='fuller', ...)",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals("cluster_multiway"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "sp.ivreg(cluster=[a, b]) reports the raw two-way matrix and "
+                "equals Stata ivreg2, cluster(g yr) small, to 1e-9; where that "
+                "matrix is not PSD it differs from sp.iv's projected one (next "
+                "row)",
+                "sp.ivreg(IV[ident], data, cluster=['g', 'yr'])",
+            ),
+            _Row(
+                "T4",
+                _MENU,
+                {
+                    "estimator": _vals("2sls", "liml", "fuller"),
+                    "vce": _vals("cluster_multiway"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                ("se",),
+                "multiway: ivreg2 reports the raw inclusion-exclusion matrix, "
+                "sp.iv zeroes its negative eigenvalues (fixest's fix). ivreg2's "
+                "matrix is rebuilt from three one-way sp.iv fits to 1e-9, and "
+                "its projection is sp.iv's to 1e-9",
+                "sp.iv(IV[ident], data, method=..., cluster=['g', 'yr'])",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals("conley"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "Conley SEs (uniform kernel, 100 km) vs Stata acreg, to 1e-9; "
+                "a negative variance is nan, as acreg reports it missing",
+                "sp.ivreg(IV[ident], data, vce='conley', ...)",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals("wild"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "the endogenous coefficient's SE reported with the WRE bootstrap "
+                "is ivreg2's one-way cluster SE (small), to 1e-9",
+                "sp.ivreg(IV[ident], data, vce='wild', cluster='g')",
+            ),
+            _Row(
+                "T2",
+                _MENU,
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals("wild"),
+                    "identification": _vals("just", "over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                ("diagnostic",),
+                "WRE p-value of the endogenous coefficient, all 2^12 Rademacher "
+                "sign vectors enumerated: equal to Stata boottest after ivreg2 "
+                "exactly",
+                "sp.ivreg(IV[ident], data, vce='wild', cluster='g')",
             ),
         ),
         invariant={"vce": _VCE_INVARIANT},
@@ -4160,7 +4434,8 @@ def validation_scope(
     >>> import statspai as sp
     >>> card = sp.datasets.card_1995()
     >>> fit = sp.iv("lwage ~ exper + expersq + black + south + smsa"
-    ...             " + (educ ~ nearc4)", data=card, robust="hc3")
+    ...             " + (educ ~ nearc4)", data=card, method="liml",
+    ...             robust="hc3")
     >>> scope = sp.validation_scope(fit)
     >>> scope["status"]
     'estimate_only'
