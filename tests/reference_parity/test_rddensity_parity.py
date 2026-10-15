@@ -15,6 +15,13 @@ bandwidths and both one-sided density estimates::
     h_left/right  max rel 9.8e-11
     f_left/right  max rel 1.3e-10
 
+The standard errors the statistic is built from (``se``, the jackknife
+SE of the difference, and the one-sided SEs) and the order-p fit that
+``model_info['conventional']`` reports are pinned against a second
+fixture, ``rddensity_se_R.json`` (``_generate_rddensity_se_R.R``, R
+``rddensity(..., all = TRUE)`` on the same CSVs). Measured 2026-10-15:
+``se`` max rel 4.9e-9, one-sided SEs 8.0e-9, order-p statistic 3.8e-10.
+
 Three designs, chosen so the suite can distinguish a working test from one
 that merely always agrees:
 
@@ -155,6 +162,50 @@ def test_effective_sample_sizes_match_r(rjson, designs, design):
     assert int(mi["n_eff_right"]) == int(ref["Nr"])
     assert mi["n_eff_left"] <= mi["n_left"]
     assert mi["n_eff_right"] <= mi["n_right"]
+
+
+# ── standard errors (rddensity_se_R.json) ──────────────────────────────── #
+
+
+@pytest.fixture(scope="module")
+def rse():
+    return json.loads((_FIX / "rddensity_se_R.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("p", _ORDERS)
+@pytest.mark.parametrize("design", _DESIGNS)
+def test_standard_errors_match_r(rse, designs, design, p):
+    """``se`` is the jackknife SE of the density difference (R ``sd_jk$diff``).
+
+    The statistic is the bias-corrected difference over this SE, so the
+    statistic agreeing with R does not by itself pin the SE: a common
+    factor in numerator and denominator would cancel.
+    """
+    ref = rse[f"{design}_p{p}"]
+    res = sp.rddensity(designs[design], x="x", c=0, p=p)
+    assert float(res.estimate) == pytest.approx(ref["T_jk"], rel=RTOL)
+    assert float(res.se) == pytest.approx(ref["se_diff"], rel=RTOL)
+    assert res.model_info["se_left"] == pytest.approx(ref["se_left"], rel=RTOL)
+    assert res.model_info["se_right"] == pytest.approx(ref["se_right"], rel=RTOL)
+
+
+@pytest.mark.parametrize("p", _ORDERS)
+@pytest.mark.parametrize("design", _DESIGNS)
+def test_order_p_fit_matches_r(rse, designs, design, p):
+    """``model_info['conventional']`` is R's order-p fit (``all = TRUE``)."""
+    ref = rse[f"{design}_p{p}"]
+    conv = sp.rddensity(designs[design], x="x", c=0, p=p).model_info["conventional"]
+    pairs = {
+        "density_left": "conv_density_left",
+        "density_right": "conv_density_right",
+        "se_left": "conv_se_left",
+        "se_right": "conv_se_right",
+        "se": "conv_se",
+        "statistic": "conv_T",
+        "pvalue": "conv_p",
+    }
+    for ours, theirs in pairs.items():
+        assert conv[ours] == pytest.approx(ref[theirs], rel=RTOL), ours
 
 
 # ── behaviour, no reference needed ─────────────────────────────────────── #

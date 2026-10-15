@@ -2949,8 +2949,33 @@ _add(
                 "density-difference test statistic and p-value vs rddensity",
                 "sp.rddensity(backend='native')",
             ),
+            _Row(
+                "T2",
+                _RP + "test_rddensity_parity.py",
+                {"code_path": _vals("native")},
+                ("diagnostic", "estimate", "se"),
+                "three designs x p in {2, 3} vs R rddensity 2.6: the statistic "
+                "(result.estimate) and p-value, the jackknife SE of the density "
+                "difference (result.se) and the one-sided SEs, bandwidths, "
+                "densities and the order-p fit, all within 1e-8",
+                "sp.rddensity(df, x, c)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_rddensity_all_stata.py",
+                {"code_path": _vals("native")},
+                ("diagnostic", "estimate"),
+                "Lee senate data vs Stata rddensity, all: robust and conventional "
+                "statistics, p-values, one-sided densities and SEs, and the "
+                "binomial-test table",
+                "sp.rddensity(df, x)",
+            ),
         ),
         primary=("diagnostic",),
+        note="backend='r' (code_path 'rddensity') runs R rddensity itself through "
+        "Rscript, so a comparison with R would compare the reference with itself; "
+        "it has no row. result.estimate is the test statistic and result.se the "
+        "jackknife SE of the density difference.",
     )
 )
 
