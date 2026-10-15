@@ -7348,7 +7348,7 @@
               "abadie_imbens"
             ]
           },
-          "compares": "ATT and Abadie-Imbens (2006) SE vs Stata psmatch2 neighbor(k) ai(1), k = 1..10 (and ai(2) at k = 1), on tie-free data, to 1e-9; with ties the SE follows psmatch2's row-order rule"
+          "compares": "ATT and Abadie-Imbens (2006) SE vs Stata psmatch2 neighbor(k) ai(1), k = 1..10 (and ai(2) at k = 1), on tie-free data, to 1e-9; with ties see test_psm_ties_se_parity.py (psmatch2 ai(1) ties, every row order)"
         },
         {
           "kind": "T2",

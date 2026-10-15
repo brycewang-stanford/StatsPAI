@@ -17292,7 +17292,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_match_fw_stata_parity.py"
+        "tests/reference_parity/test_match_fw_stata_parity.py",
+        "tests/reference_parity/test_psm_ties_se_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -17344,6 +17345,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_psm_ties_se_parity.py",
         "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py",
         "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
         "tests/reference_parity/test_teffects_probit_stata.py"

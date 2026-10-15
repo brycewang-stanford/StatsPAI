@@ -122,7 +122,7 @@ def main() -> None:
             "1e-9). StatsPAI's default for nearest-neighbour "
             "matching stays the Abadie-Imbens (2006, eq. 14) "
             "sample-ATT SE that Stata psmatch2 reports under "
-            "ai(J) (se_abadie_imbens = 643.35, 3.4% above): "
+            "ai(J) ties (se_abadie_imbens = 640.41, 3.0% above): "
             "different estimand (sample vs population ATT) "
             "and no estimated-score term, a documented "
             "convention, not a gap. MatchIt documents no "

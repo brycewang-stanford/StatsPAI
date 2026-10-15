@@ -3845,3 +3845,29 @@ only the recorded source hashes move.
   - `tests/perf/results/perf_table.tex`
   - `tests/perf/figures/track_c_loglog.pdf`
   - `tests/perf/figures/track_c_loglog.png`
+
+### 2026-10-15 — matching SE under ties; option-parity round
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** This entry's commit (the matching change) and the
+  option-parity merges up to `54996e2e`, which re-recorded call traces
+  only.
+- **Reason.** With `ties='all'` the Abadie-Imbens standard error took the
+  same-arm neighbours in row order, so it moved when rows were shuffled.
+  It now keeps every tied neighbour, which is Stata `psmatch2 , ai(1)
+  ties` to the last digit (`tests/reference_parity/test_psm_ties_se_parity.py`).
+- **Effect on the paper.** Standard errors only; no estimate moves.
+  Track A module 11 (`se_abadie_imbens`, a side-specific row that does not
+  join) goes from 643.35 to 640.41. Original-data module 04 (`psm_att`)
+  goes from 1181.66 to 1178.21 and 04b from 981.65 to 978.13; the
+  original-data table prints estimates only, so it does not change.
+- **Paths.**
+  - `tests/r_parity/results/11_psm_py.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/04_lalonde_original_py.json`
+  - `tests/orig_parity/results/04b_nsw_psid_original_py.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

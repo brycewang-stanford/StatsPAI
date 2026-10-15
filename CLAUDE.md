@@ -399,7 +399,7 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
   - **预测时没见过的因子水平必须拒绝**：检查在 `core/results.py::_prediction_design`（`postestimation/_design.reject_unseen_levels`），它读 `data_info['factor_levels']`。参照水平没有哑变量，所以只能靠拟合时记录（`fitted_factor_levels`）。已接 regress / logit / probit / glm / poisson / nbreg；**新增支持 `predict(newdata)` 的公式型估计器要在拟合时写这一项**，否则拼错的水平静默得到参照水平的预测。
   - **整数时间有间隔**：`sun_abraham` / `stacked_did` 的参照期是相对时间 −1，间隔面板上它不存在；两者经 `calendar_time_aware(numeric_gaps=True)` 按观测期的秩编号。新增以"相对时间 −1"为参照的估计器照此办理，并加"间隔编码等于连续编码"的测试。
   - **默认先验是否够 vague 的事后检查只有一份**：`mcmc/_core.note_default_prior`，所有带固定默认先验的采样器都要调用（1.39 时只有 `bayes_regress` 调了，IV 系数被压到真值的六分之一而无告警）。告警不得消耗随机数。
-  - **并列**：凡是"按得分排序后取前若干"或"取 k 近邻"的统计量，并列的单位必须一起进入（`cate_gain_curve`、`factor_importance`），否则结果随行序变。`sp.match(ties='all')` 的**标准误**仍按 psmatch2 的规则在同臂并列邻居里取行序靠前的 J 个，因而随行序变（Lalonde 上 1174–1182）；改成全取会把默认 Lalonde 标准误从 1181.665 变成 1186.871，尚未决定，不要顺手改。
+  - **并列**：凡是"按得分排序后取前若干"或"取 k 近邻"的统计量，并列的单位必须一起进入（`cate_gain_curve`、`factor_importance`），否则结果随行序变。`sp.match(ties='all')` 的**标准误**（2026-10-15 起）同臂邻居也全取并列者，即 Stata `psmatch2 , ai(1) ties`：Lalonde 1178.209472851439、NSW 640.4053566440037，任意行序都逐位一致（`test_psm_ties_se_parity.py`；Stata 要 `set type double`，默认 float 存条件方差时差 1e-8）。`ties='first'` 仍是不带 `ties` 的 psmatch2（随行序变，Stata 本身也如此）。此前记的 1186.871 是 J/(J+1) 换成 K/(K+1) 的错误候选。
   - **`.loc[y_df.index]` 是 bug**：索引标签重复时（`pd.concat` 不带 `ignore_index`）按标签取行会把行数翻倍。按位置取行；这一轮在 gam / gee / threshold / series / xthtaylor / abnormal_returns / dlm / mcmc 各入口都修过一遍。
   - **`sp.ljungbox(lags ≤ model_df)` 的 p 值缺失是约定**（R `Box.test(fitdf=)`、statsmodels 相同），只告警、不拒绝。
   - **探测代理的简报里要写明**：zsh 下未加引号的 `$(grep -rl ...)` 会作为**一个**参数传给 pytest，跑 0 条测试而不报错；用 `files=("${(@f)$(...)}")`，并核对报告里的测试条数。

@@ -368,12 +368,79 @@ def _within_group_self_outcome(
     return self_y
 
 
+def _within_group_self_outcome_all_ties(
+    outcome: np.ndarray,
+    treated: np.ndarray,
+    pscore: np.ndarray,
+    n_ai_matches: int,
+) -> np.ndarray:
+    """``_self_y`` keeping every same-arm unit tied with the ``J``-th nearest.
+
+    The neighbours of a unit are all other units of its arm whose distance
+    is at most that of its ``J``-th nearest, so no unit is left out by its
+    position in the data and the result does not depend on row order. With
+    ``J = 1`` this is ``psmatch2 , ai(1) ties``: on ``MatchIt::lalonde`` the
+    per-unit means equal its ``_self_re78`` to 2e-16
+    (``tests/reference_parity/test_psm_ties_se_parity.py``). For ``J > 1``
+    psmatch2 counts the ``J``-th neighbour twice when it is tied; this keeps
+    each tied unit once.
+
+    Units with the same score share every neighbour outside their own score
+    group, so the outward walk runs once per group.
+    """
+    y = np.asarray(outcome, dtype=float)
+    t = np.asarray(treated)
+    ps = np.asarray(pscore, dtype=float)
+    self_y = np.full(len(y), np.nan)
+    j = max(int(n_ai_matches), 1)
+    for g in (0, 1):
+        idx = np.where(t == g)[0]
+        m = len(idx)
+        if m < 2:
+            continue
+        order = np.argsort(ps[idx], kind="stable")
+        s_idx = idx[order]
+        s_ps = ps[s_idx]
+        s_y = y[s_idx]
+        is_new = np.empty(m, dtype=bool)
+        is_new[0] = True
+        np.not_equal(s_ps[1:], s_ps[:-1], out=is_new[1:])
+        starts = np.flatnonzero(is_new)
+        ends = np.append(starts[1:], m)
+        vals = s_ps[starts]
+        sizes = ends - starts
+        sums = np.add.reduceat(s_y, starts)
+        n_grp = len(starts)
+        for gi in range(n_grp):
+            own = int(sizes[gi]) - 1
+            need = min(j, m - 1) - own
+            ext_sum, ext_n = 0.0, 0
+            left, right = gi - 1, gi + 1
+            while need > 0:
+                d_left = (vals[gi] - vals[left]) if left >= 0 else np.inf
+                d_right = (vals[right] - vals[gi]) if right < n_grp else np.inf
+                if d_left <= d_right:
+                    ext_sum += sums[left]
+                    ext_n += int(sizes[left])
+                    need -= int(sizes[left])
+                    left -= 1
+                if d_right <= d_left:
+                    ext_sum += sums[right]
+                    ext_n += int(sizes[right])
+                    need -= int(sizes[right])
+                    right += 1
+            rows = slice(int(starts[gi]), int(ends[gi]))
+            self_y[s_idx[rows]] = (sums[gi] - s_y[rows] + ext_sum) / (own + ext_n)
+    return self_y
+
+
 def _self_outcome_distinct_origin(
     outcome: np.ndarray,
     treated: np.ndarray,
     pscore: np.ndarray,
     n_ai_matches: int,
     origin: np.ndarray,
+    ties: str = "first",
 ) -> np.ndarray:
     """``_self_y`` when rows are replicas of fewer original observations.
 
@@ -419,6 +486,15 @@ def _self_outcome_distinct_origin(
             cand = np.flatnonzero(d <= kth)
             cand = cand[np.argsort(d[cand], kind="stable")]
             need = float(min(j, u_freq.sum() - u_freq[r]))
+            if ties == "all":
+                # every observation within the distance at which the
+                # replicas reach J, each with all its replicas
+                reach = int(np.searchsorted(np.cumsum(u_freq[cand]), need))
+                keep = cand[d[cand] <= d[cand[min(reach, len(cand) - 1)]]]
+                u_self[r] = float(
+                    np.sum(u_freq[keep] * u_y[keep]) / np.sum(u_freq[keep])
+                )
+                continue
             got = np.minimum(
                 u_freq[cand],
                 np.maximum(need - np.cumsum(u_freq[cand]) + u_freq[cand], 0.0),
@@ -437,6 +513,7 @@ def abadie_imbens_se(
     n_ai_matches: int = 1,
     origin: Optional[np.ndarray] = None,
     self_outcome: Optional[np.ndarray] = None,
+    ties: str = "first",
 ) -> float:
     """Abadie-Imbens (2006) heteroskedasticity-robust ATT standard error.
 
@@ -472,6 +549,12 @@ def abadie_imbens_se(
         by the caller in the metric the matching ran on (a Mahalanobis or
         Euclidean distance). Omitted, they are found on ``pscore``, which
         is the matching metric of ``psmatch2 , ai(J)``.
+    ties : {'first', 'all'}, default 'first'
+        Same-arm units tied with the ``J``-th nearest: ``'first'`` keeps
+        the earliest rows, as ``psmatch2 , ai(J)`` does, so the result
+        depends on row order when there are ties; ``'all'`` keeps every
+        tied unit (``psmatch2 , ai(J) ties``; see
+        :func:`_within_group_self_outcome_all_ties`).
 
     Returns
     -------
@@ -498,7 +581,7 @@ def abadie_imbens_se(
         return float("nan")
 
     if self_outcome is None:
-        shat = _conditional_variance(y, t, pscore, j, origin)
+        shat = _conditional_variance(y, t, pscore, j, origin, ties)
     else:
         shat = (j / (j + 1.0)) * (y - np.asarray(self_outcome, dtype=float)) ** 2
     w_pos = np.where(np.isfinite(w), np.maximum(w, 0.0), 0.0)
@@ -521,15 +604,18 @@ def _conditional_variance(
     pscore: np.ndarray,
     j: int,
     origin: Optional[np.ndarray],
+    ties: str = "first",
 ) -> np.ndarray:
     """``J/(J+1) (Y_i - mean of the J nearest same-arm outcomes)^2``.
 
     The Abadie-Imbens (2006, eq. 14) estimate of :math:`\\sigma^2(X_i)`.
     """
-    if origin is None:
-        self_y = _within_group_self_outcome(y, t, pscore, j)
+    if origin is not None:
+        self_y = _self_outcome_distinct_origin(y, t, pscore, j, origin, ties)
+    elif ties == "all":
+        self_y = _within_group_self_outcome_all_ties(y, t, pscore, j)
     else:
-        self_y = _self_outcome_distinct_origin(y, t, pscore, j, origin)
+        self_y = _within_group_self_outcome(y, t, pscore, j)
     return np.asarray((j / (j + 1.0)) * (y - self_y) ** 2, dtype=float)
 
 
@@ -541,6 +627,7 @@ def abadie_imbens_linear_se(
     n_ai_matches: int = 1,
     origin: Optional[np.ndarray] = None,
     self_outcome: Optional[np.ndarray] = None,
+    ties: str = "first",
 ) -> float:
     """Abadie-Imbens (2006) conditional standard error of ``sum_i c_i Y_i``.
 
@@ -568,7 +655,7 @@ def abadie_imbens_linear_se(
     c = np.asarray(coef, dtype=float)
     j = max(int(n_ai_matches), 1)
     if self_outcome is None:
-        shat = _conditional_variance(y, t, pscore, j, origin)
+        shat = _conditional_variance(y, t, pscore, j, origin, ties)
     else:
         shat = (j / (j + 1.0)) * (y - np.asarray(self_outcome, dtype=float)) ** 2
     used = c != 0

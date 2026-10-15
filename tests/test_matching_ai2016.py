@@ -31,8 +31,10 @@ STATA_TEFFECTS_SE_NN2 = 621.79324512017217
 # Same command with vce(robust, nn(3)), Stata 18 MP, `set type double`
 # (the _common.do import setting), captured 2026-09-22.
 STATA_TEFFECTS_SE_NN3 = 630.128055520342
-# tests/r_parity/results/11_psm_py.json :: se_abadie_imbens (psmatch2 ai(1))
-PSMATCH2_AI1_SE = 643.3456988917197
+# Stata 18 psmatch2 , ai(1) ties on the score sp.psm fits, `set type double`
+# (= tests/r_parity/results/11_psm_py.json :: se_abadie_imbens). Before
+# 1.39.7 the same-arm neighbours were taken in row order: 643.3456988917197.
+PSMATCH2_AI1_SE = 640.4053566440037
 NSW_ATT = 2277.6907208768525
 
 

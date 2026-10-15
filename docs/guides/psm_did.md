@@ -116,8 +116,8 @@ m = sp.psmatch2(df, treat='d', outcome='y', covariates=X, ai=2)      # ai(2): 2 
   variance corrected for the sampling variability of the logit
   coefficients. `ai_matches=J` is `teffects ... vce(robust, nn(J+1))`
   (Stata counts the unit itself). On the NSW-DW replica it reproduces
-  `teffects psmatch ..., atet` at rel 6e-8: 621.79 against 643.35 for
-  `psmatch2, ai(1)` — the two Stata commands differ because they target
+  `teffects psmatch ..., atet` at rel 6e-8: 621.79 against 640.41 for
+  `psmatch2, ai(1) ties` — the two Stata commands differ because they target
   different estimands (population vs sample ATT) and only `teffects`
   charges for the estimated score (that term is *negative* here). The
   formula's terms are in `result.model_info['ai2016_components']`.

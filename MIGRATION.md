@@ -20,6 +20,7 @@ numbers or now refuse; recompute them.
 | `sp.match(bias_correction=True)` | unweighted regression on all controls | matched controls weighted by use (= `Matching`) |
 | `sp.match(caliper=...)`, psmatch2 / Abadie-Imbens SE | counted unmatched treated units | excludes them (= Stata `psmatch2`) |
 | `sp.match(se_method='abadie_imbens_2016', caliper=...)` where a unit lacks max(m, h) / h matches in the caliper | a standard error | raises, as `teffects psmatch` |
+| `sp.match` / `sp.psm` default SE with tied scores (`ties='all'`) | same-arm neighbours in row order (Lalonde 1181.665, moves with row order) | every tied neighbour, = `psmatch2 , ai(1) ties` (1178.209 in any order) |
 | `sp.ivreg(vce='conley')`, `sp.ivreg(cluster=[a, b])` with a negative variance | SE 0, t = inf, p = 0 | NaN with a warning (= `acreg` / `ivreg2`) |
 
 **What to do.** Re-run analyses that use these options. `sp.feols`,

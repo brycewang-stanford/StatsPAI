@@ -196,7 +196,7 @@ harness machine tier `1e-6`. **No value was loosened.**
 | `03_hdfe` | `rel_se` | 1e-2 | 1e-6 | 8.4e-15 | The "1-df convention gap" comment was stale: with `ssc='fixest'`, IID SEs match `fixest::feols`/`reghdfe` at machine level on both sides. |
 | `15_hdfe_cluster` | `rel_se` | 5e-2 | 1e-6 | 1.25e-11 | Stale "ssc convention": CR1 nested-FE cluster SEs now match on both sides. |
 | `30_oaxaca` | `rel_se` | 1.0 | 0.05 | 1.25e-2 | Grade-A delta-vs-bootstrap gap; 3× observed ≈ 0.0375, rounded to 0.05. |
-| `11_psm` | `rel_se` | 5.0 | 1e-6 | sentinel (no joined `se` field) | `att_psm` carries `se=None` on all three sides *by design*; see "Sentinel entries". Since 2026-09-22 the point-valued `se_teffects_ai` row joins Stata under `rel_est` at 7e-8 (`se_method='abadie_imbens_2016'`, the Abadie-Imbens 2016 estimated-score variance `teffects psmatch` reports); the default `se_abadie_imbens` (psmatch2 `ai(1)`, 643.35 vs 621.79) is a documented convention -- sample- vs population-ATT target and no estimated-score term. |
+| `11_psm` | `rel_se` | 5.0 | 1e-6 | sentinel (no joined `se` field) | `att_psm` carries `se=None` on all three sides *by design*; see "Sentinel entries". Since 2026-09-22 the point-valued `se_teffects_ai` row joins Stata under `rel_est` at 7e-8 (`se_method='abadie_imbens_2016'`, the Abadie-Imbens 2016 estimated-score variance `teffects psmatch` reports); the default `se_abadie_imbens` (psmatch2 `ai(1) ties`, 640.41 vs 621.79) is a documented convention -- sample- vs population-ATT target and no estimated-score term. |
 | `12_sdid` | `rel_se` | 5e-2 | 1e-6 | sentinel | Point-only ATT row (`arkhangelsky2021synthetic`); placebo SEs are backend-native diagnostics under distinct names. |
 | `16_bjs` | `rel_se` | 0.25 | 1e-6 | sentinel | BJS imputation (`borusyak2024revisiting`); SE rows are side-specific (`se_cluster_if` / `se_didimputation` / `se_stata_did_imputation`). |
 | `07_scm` | `rel_se` | 1.0 | 1e-6 | sentinel | All SCM rows are point-only. |
@@ -275,8 +275,8 @@ Several modules are *point-only* by design: their SE estimators differ
 by construction, so the harness stores them as side-specific diagnostic
 rows with distinct statistic names that never join, and the headline
 row carries `se=None`. Example — module `11_psm`: StatsPAI reports the
-Abadie–Imbens (2006, eq. 14) sample-ATT SE (`se_abadie_imbens` = 643.35),
-the estimator Stata `psmatch2, ai(J)` reports; `MatchIt::matchit`
+Abadie–Imbens (2006, eq. 14) sample-ATT SE (`se_abadie_imbens` = 640.41),
+the estimator Stata `psmatch2, ai(J) ties` reports; `MatchIt::matchit`
 documents no canonical analytic SE for nearest-neighbor matching with
 replacement, so the R fixture records a weighted-`lm`-on-matched-data
 diagnostic (`se_matchit_lm`); Stata `teffects psmatch` reports its own

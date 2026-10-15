@@ -80,6 +80,15 @@ defects below. Default calls on the main path return what they did.
   same-arm units within the caliper for every unit (ATT and ATE), and
   raises otherwise; it used to report a standard error where Stata
   refuses.
+- **`sp.match` / `sp.psm` default standard error with ties in the
+  score.** The matches kept every tied control (`ties='all'`), but the
+  same-arm neighbours that estimate sigma^2(X) were taken in row order, so
+  shuffling the rows moved the standard error (1176 to 1198 on
+  `MatchIt::lalonde`, estimate fixed). They now keep every tied unit too,
+  which is Stata `psmatch2 , ai(1) ties`: 1181.665 → 1178.209 on Lalonde
+  and 643.346 → 640.405 on NSW-DW, equal to Stata (`set type double`) to
+  the last digit and the same in every row order. `ties='first'` still
+  reproduces `psmatch2 , ai(1)` without `ties`.
 - **`sp.ivreg(vce='conley')` and `sp.ivreg(cluster=[a, b])`** reported
   a standard error of 0 (t = inf, p = 0) when the non-positive-definite
   covariance had a negative variance. They now report NaN with a

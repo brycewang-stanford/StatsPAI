@@ -8556,6 +8556,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003) [Stata 18 MP, psmatch2 4.0.12]; tolerance Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9). -- tests/reference_parity/test_psmatch2_parity.py",
+      "tests/reference_parity/test_psm_ties_se_parity.py",
       "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py",
       "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
       "tests/reference_parity/test_teffects_probit_stata.py"
@@ -135358,7 +135359,8 @@
       "R parity module 11_psm",
       "Stata parity module 11_psm",
       "Cross-language parity (bit-exact) vs MatchIt::matchit [MatchIt 4.7.2, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 11_psm -- tests/r_parity/11_psm.py",
-      "tests/reference_parity/test_match_fw_stata_parity.py"
+      "tests/reference_parity/test_match_fw_stata_parity.py",
+      "tests/reference_parity/test_psm_ties_se_parity.py"
     ],
     "validation_status": "certified"
   },

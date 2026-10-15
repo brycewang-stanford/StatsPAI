@@ -4479,7 +4479,8 @@ _add(
                 _EST_SE,
                 "ATT and Abadie-Imbens (2006) SE vs Stata psmatch2 neighbor(k) "
                 "ai(1), k = 1..10 (and ai(2) at k = 1), on tie-free data, to "
-                "1e-9; with ties the SE follows psmatch2's row-order rule",
+                "1e-9; with ties see test_psm_ties_se_parity.py (psmatch2 "
+                "ai(1) ties, every row order)",
                 "sp.match(df, y='y', treat='d', covariates=X, n_matches=k)",
             ),
             _Row(
@@ -4607,7 +4608,8 @@ _add(
         },
         note="Option values were compared one at a time on tie-free data, "
         "not crossed. With ties in the score the default Abadie-Imbens SE "
-        "picks same-arm neighbours by row order, as psmatch2 does. No "
+        "keeps every tied same-arm neighbour, as psmatch2 , ai(1) ties does "
+        "(test_psm_ties_se_parity.py, Lalonde and NSW to the last digit). No "
         "reference reproduces the SE of matching without replacement "
         "(psmatch2's differs by a rule documented in its T4 row; Matching "
         "reports none); bias correction is compared on the score distance "

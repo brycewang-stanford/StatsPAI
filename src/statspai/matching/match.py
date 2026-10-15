@@ -482,13 +482,20 @@ def match(
         the ATE, and for every distance, so that one rule applies.
 
         The default estimates each unit's conditional variance from its
-        ``J`` nearest same-arm units and, as ``psmatch2``'s ``ai(J)`` does,
-        breaks ties among them by row order. When the matching variable has
-        ties the default standard error therefore depends on the order of
-        the rows (1174 to 1182 over four orderings of the Lalonde data,
-        with the estimate fixed). It reproduces ``psmatch2`` on the order
-        Stata sees. ``'abadie_imbens_2016'`` keeps every tied same-arm
-        unit and does not depend on row order (1126.26 on all four).
+        ``J`` nearest same-arm units. Same-arm units tied with the ``J``-th
+        nearest follow ``ties``, as the matches do: under ``ties='all'``
+        (the default) every tied unit counts, which is ``psmatch2 , ai(J)
+        ties``, and the standard error does not depend on row order
+        (1178.209 on ``MatchIt::lalonde`` in any order, Stata's number under
+        ``set type double``; under Stata's default ``float`` storage of the
+        conditional variance it differs by 1e-8). Under ``ties='first'``
+        the earliest rows are kept, which is ``psmatch2 , ai(J)`` without
+        ``ties``.
+
+        .. versionchanged:: 1.39.7
+           Through 1.39.6 the same-arm units were always taken in row
+           order, even under ``ties='all'``, so the default standard error
+           changed with the order of the rows (1174 to 1198 on Lalonde).
 
         .. versionchanged:: 1.22
            ``'auto'`` resolved to ``'ai'`` before 1.22, so **default
@@ -1493,6 +1500,7 @@ class MatchEstimator:
                     frame[COL_WEIGHT].to_numpy(dtype=float),
                     n_ai_matches=self.ai_matches,
                     origin=origin,
+                    ties=self.ties,
                     # sigma^2(X_i) is estimated from the nearest same-arm
                     # units in the metric the matching ran on. On a
                     # covariate distance the neighbours used to be taken on
@@ -1657,6 +1665,7 @@ class MatchEstimator:
                     self._ate_coefficients(a, m_ct, w_ct),
                     n_ai_matches=self.ai_matches,
                     origin=origin,
+                    ties=self.ties,
                     self_outcome=(
                         None
                         if self.distance == "propensity"
@@ -3164,9 +3173,10 @@ class MatchEstimator:
         ``sigma^2(X_i)`` asks for: two units close in a Mahalanobis metric
         have close covariates, two units close on the propensity score need
         not, and the squared gap between their outcomes then carries the
-        covariate differences as well. Ties go to the earlier row; under
-        frequency weights a copy of the same observation is not a
-        neighbour (``origin``).
+        covariate differences as well. Units tied with the ``J``-th nearest
+        all count under ``ties='all'`` and go to the earlier row under
+        ``ties='first'``; under frequency weights a copy of the same
+        observation is not a neighbour (``origin``).
         """
         j = self.ai_matches
         self_y = np.full(len(Y), np.nan)
@@ -3184,7 +3194,8 @@ class MatchEstimator:
                         continue
                     kth = np.partition(d[r], k - 1)[k - 1]
                     cand = np.flatnonzero(d[r] <= kth)
-                    cand = cand[np.argsort(d[r][cand], kind="stable")][:k]
+                    if self.ties != "all":
+                        cand = cand[np.argsort(d[r][cand], kind="stable")][:k]
                     self_y[row] = float(np.mean(Y[idx[cand]]))
         return self_y
 
