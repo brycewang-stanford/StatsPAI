@@ -90,8 +90,44 @@ call, the cause is fixed below.
   code and its docstring; 16 deliberate exceptions remain, each with a
   reason.
 
+- MCP server: an argument the estimator cannot bind is refused with a
+  did-you-mean (`cluster_var` was dropped and the fit returned
+  unclustered SEs with `isError: false`), and alias spellings
+  (`cluster=`, `id=`) on the curated tools bind instead of being dropped;
+  `execute_tool` and `statspai run` refuse them too (CLI exit 4).
+  `preflight` checks the cohort column of staggered methods instead of
+  failing the canonical Callaway-Sant'Anna call on a missing `treat`;
+  `recommend` keeps its reasoning and gives a ready call for the top
+  pick; `pipeline_did` passes `id`; no data argument is marked required
+  (a call with none names the four sources); the `core` profile lists
+  the data tools; matplotlib is headless in the server (the
+  `rdbwsensitivity` stage of `pipeline_rd` failed on macOS); unknown
+  function and tool names get suggestions; remediation is phrased in
+  MCP arguments; prompts take `data_id` and leave no literal
+  placeholders; private keys are stripped and per-observation arrays
+  capped (arima 87 KB -> 5 KB); dict, dict-subclass and array returns
+  honour `detail` (`pc_algorithm` returned a serialisation error,
+  `policy_tree` 37 KB at `minimal`); `sensitivity_from_result` with
+  `oster` / `cinelli_hazlett` works from a `regress` handle and says
+  what else it needs otherwise.
+- `sp.california_prop99()` (top level) is the simulated synthdid-layout
+  panel and `sp.datasets.california_prop99()` the real ADH data; the
+  top-level helper now carries the simulated flag and warns, naming the
+  real one. The catalogue quoted the simulated panel's SDID parity
+  number (-17.90) for the real data, where SDID is -15.60.
+- Auto-generated card examples were setup lines when the docstring
+  called the function under another name (`test_calibration`:
+  `n = 400`); they are now calls of the function.
+- `sp.rate_split` / `sp.forest_policy_tree` repeated a data warning
+  once per half of every split (42 times per call); each is now shown
+  once with its count.
+- `sp.iv.iv_diag` labels the tF critical value with the effective F it
+  is computed from, not the classical first-stage F.
+
 #### Added
 
+- `load_data(dataset=...)` in the MCP server loads a built-in example
+  as a data handle, flagged when it is simulated.
 - `sp.list_datasets()` and `sp.load_dataset(name)` at top level
   (searchable in English and Chinese). Six built-in datasets are
   simulated replicas named after real ones (`mpdta`, `nsw_dw`,
