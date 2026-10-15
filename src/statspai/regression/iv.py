@@ -915,8 +915,10 @@ def _psd_project(V: np.ndarray) -> np.ndarray:
     """Project a symmetric matrix onto the PSD cone (Cameron-Gelbach-Miller).
 
     The multiway inclusion-exclusion variance is not guaranteed PSD in
-    finite samples; the standard fix (and what ``ivreg2``/``reghdfe`` do)
-    is to zero out negative eigenvalues.
+    finite samples; ``fixest`` zeroes the negative eigenvalues, as here.
+    ``ivreg2`` 4.1.12 reports the raw matrix instead (pinned in
+    ``tests/reference_parity/test_vce_menu_parity.py``), which is what
+    ``sp.ivreg`` returns.
     """
     V = 0.5 * (V + V.T)
     evals, evecs = np.linalg.eigh(V)

@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 1.13,
+   "seconds": 1.1,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -64,7 +64,7 @@
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
-    "src/statspai/regression/iv.py": "c1384681898c003b07f9c86d8b76ed4872c352b99e2294f673acd090e00a01a0",
+    "src/statspai/regression/iv.py": "bbe86155ef8434250a9836281fa749feb4dc7d7bcb60595fcd2b08aeb7c69731",
     "src/statspai/regression/ols.py": "a284b156f12f3842fceb1f2da95019859dd16bb2843843ed3a0e69a7bf791c1f"
    },
    "dependency_versions": {
