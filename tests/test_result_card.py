@@ -59,6 +59,7 @@ def test_iv_card_reports_se_gap_not_just_function_tier():
     fit = sp.iv(
         "lwage ~ exper + expersq + black + south + smsa + (educ ~ nearc4)",
         data=card_df,
+        method="liml",
         robust="hc3",
     )
     ev = sp.result_card(fit)["evidence"]

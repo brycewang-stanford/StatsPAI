@@ -122,14 +122,32 @@ def card():
     return sp.datasets.card_1995()
 
 
-@pytest.mark.parametrize("robust", ["hc2", "hc3", "hc0"])
-def test_untested_iv_covariance_does_not_borrow_the_card_row(card, robust):
-    scope = sp.validation_scope(_quiet(sp.iv, CARD_IV, data=card, robust=robust))
+_MENU = "test_vce_menu_parity.py"
+
+
+@pytest.mark.parametrize(
+    "method,robust", [("liml", "hc2"), ("liml", "hc3"), ("fuller", "hc3")]
+)
+def test_untested_iv_covariance_does_not_borrow_the_card_row(card, method, robust):
+    """LIML / Fuller with HC2 / HC3 run, but neither R's ivreg (no k-class)
+    nor Stata (no HC2 / HC3 after ivregress or ivreg2) defines them."""
+    scope = sp.validation_scope(
+        _quiet(sp.iv, CARD_IV, data=card, method=method, robust=robust)
+    )
     assert scope["configuration"]["vce"] == robust
     assert scope["status"] == "estimate_only"
     assert scope["outputs"]["estimate"]["status"] == "reference"
     assert scope["outputs"]["se"]["status"] == "not_covered"
     assert not scope["outputs"]["se"]["evidence"]
+
+
+@pytest.mark.parametrize("robust", ["hc2", "hc3", "hc0"])
+def test_2sls_hc_covariances_are_covered_by_the_vce_menu_row(card, robust):
+    scope = sp.validation_scope(_quiet(sp.iv, CARD_IV, data=card, robust=robust))
+    assert scope["configuration"]["vce"] == robust
+    assert scope["status"] == "covered"
+    se_rows = [e["artifact"] for e in scope["outputs"]["se"]["evidence"]]
+    assert se_rows and all(a.endswith(_MENU) for a in se_rows)
 
 
 @pytest.mark.parametrize("robust,expected", [(None, "covered"), ("hc1", "covered")])
@@ -149,7 +167,10 @@ def test_iv_small_sample_cluster_vce_is_not_the_cr1_row(card):
         _quiet(sp.iv, CARD_IV, data=df, vce="cr2", cluster="cl")
     )
     assert scope["configuration"]["vce"] == "cr2"
-    assert scope["outputs"]["se"]["status"] == "not_covered"
+    se_rows = [e["artifact"] for e in scope["outputs"]["se"]["evidence"]]
+    # covered by the clubSandwich CR2 row, not by any CR1 artifact
+    assert se_rows and all(a.endswith(_MENU) for a in se_rows)
+    assert all("CR2" in e["compares"] for e in scope["outputs"]["se"]["evidence"])
 
 
 def test_values_outside_a_domain_are_refused():
@@ -175,17 +196,19 @@ def test_regress_hc1_is_covered_and_names_its_coverage_row(card):
     assert scope["outputs"]["coverage"]["status"] == "coverage_simulation"
 
 
-def test_regress_cr2_has_a_stata_reference_and_hc0_does_not(card):
+def test_regress_cr2_has_a_stata_reference_and_hc0_an_r_one(card):
     df = card.assign(cl=np.arange(len(card)) % 40)
     scope = sp.validation_scope(
         sp.regress("lwage ~ educ", data=df, vce="cr2", cluster="cl")
     )
     assert scope["configuration"]["vce"] == "cr2"
     assert scope["status"] == "covered"
-    # Stata has no HC0 and no R row runs it: the SE has no reference.
+    # Stata has no HC0; its reference is sandwich::vcovHC(type = "HC0").
     scope = sp.validation_scope(sp.regress("lwage ~ educ", data=df, vce="hc0"))
     assert scope["configuration"]["vce"] == "hc0"
-    assert scope["status"] == "estimate_only"
+    assert scope["status"] == "covered"
+    se_rows = [e["artifact"] for e in scope["outputs"]["se"]["evidence"]]
+    assert se_rows and all(a.endswith(_MENU) for a in se_rows)
 
 
 def test_a_weighted_regress_is_its_own_cell(card):
@@ -193,10 +216,21 @@ def test_a_weighted_regress_is_its_own_cell(card):
     scope = sp.validation_scope(sp.regress("lwage ~ educ", data=df, weights="w"))
     assert scope["configuration"]["weights"] == "set"
     assert scope["status"] == "covered"
-    hac = sp.validation_scope(
-        sp.regress("lwage ~ educ", data=df, weights="w", vce="hac", hac_lags=2)
+    # weighted CR2 is a disclosure next to its Stata reference: the
+    # clubSandwich number is a different, equally unbiased adjustment
+    df = df.assign(cl=np.arange(len(card)) % 40)
+    cr2 = sp.validation_scope(
+        _quiet(
+            sp.regress, "lwage ~ educ", data=df, weights="w", vce="cr2", cluster="cl"
+        )
     )
-    assert hac["status"] == "estimate_only"
+    kinds = {e["kind"] for e in cr2["outputs"]["se"]["evidence"]}
+    assert cr2["configuration"]["weights"] == "set" and kinds == {"T2", "T4"}
+    # the weighted wild cell (sp.regress refuses it) is not the unweighted one's
+    unweighted = sp.validation_scope(function="regress", vce="wild", weights="none")
+    weighted = sp.validation_scope(function="regress", vce="wild", weights="set")
+    assert unweighted["status"] == "covered"
+    assert weighted["outputs"]["se"]["status"] == "not_covered"
 
 
 def test_default_learner_dml_is_stochastic_only_and_the_linear_row_is_a_near_miss(card):
