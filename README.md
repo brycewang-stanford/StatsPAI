@@ -98,6 +98,10 @@ import statspai as sp
 print(sp.datasets.list_datasets()[["name", "design", "source"]])
 ```
 
+`sp` is the convention used throughout these docs, but the alias is your
+choice. If `sp` is already taken in your code (for example by
+`import scipy as sp`), `import statspai as si` works just as well.
+
 StatsPAI bundles 14 datasets that load offline. Most are real published
 extracts (`source == "bundled CSV"`): Card (1995) NLSYM schooling data,
 LaLonde/NSW with a PSID comparison group, the U.S. Senate RD data distributed
