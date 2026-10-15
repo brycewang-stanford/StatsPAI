@@ -1,0 +1,42 @@
+{
+  "match_nn1": {
+    "est": 1.663642123270211,
+    "se": 0.30728240907401827,
+    "n_treated_matched": 190,
+    "n_dropped": 0,
+    "cmd": "Match(X = ps)"
+  },
+  "match_nn1_biasadj": {
+    "est": 1.7000194338353438,
+    "se": 0.30728240907401827,
+    "n_treated_matched": 190,
+    "n_dropped": 0,
+    "cmd": "Match(X = ps, Z = covariates, BiasAdjust = TRUE)"
+  },
+  "match_nn1_cal0p01": {
+    "est": 1.7316155608992025,
+    "se": 0.29037435532382933,
+    "n_treated_matched": 185,
+    "n_dropped": 5,
+    "cmd": "Match(X = ps, caliper = 0.01 / sd(ps))"
+  },
+  "match_nn1_cal0p005": {
+    "est": 1.7887855998945952,
+    "se": 0.27022179848200151,
+    "n_treated_matched": 175,
+    "n_dropped": 15,
+    "cmd": "Match(X = ps, caliper = 0.005 / sd(ps))"
+  },
+  "match_nn1_norepl": {
+    "est": 2.1431325635705898,
+    "se": null,
+    "n_treated_matched": 190,
+    "n_dropped": 0,
+    "cmd": "Match(X = ps, replace = FALSE)"
+  },
+  "_meta": {
+    "matching_version": "4.10.15",
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "sd_ps": 0.16263517395664892
+  }
+}

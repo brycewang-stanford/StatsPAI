@@ -43,7 +43,7 @@ from scipy.spatial.distance import cdist
 
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
-from ._ai2016 import abadie_imbens_2016_ate_se, abadie_imbens_2016_se
+from ._ai2016 import abadie_imbens_2016_ate_se, abadie_imbens_2016_se, caliper_deficient
 from ._binary_fit import fit_binary_index
 from ._matched_frame import (
     COL_WEIGHT,
@@ -314,7 +314,12 @@ def match(
         be and still count as tied.
     bias_correction : bool, default False
         Apply Abadie-Imbens (2011) bias correction via regression
-        adjustment on the matching discrepancy.
+        adjustment on the matching discrepancy. The regression of the
+        outcome on ``covariates`` is fitted on the units used as matches,
+        weighted by the number of times each is used, as in
+        ``Matching::Match(BiasAdjust = TRUE)``; through 1.39.6 it was an
+        unweighted fit on the whole pool. The standard error is the
+        conditional one of ``se_method`` and does not change.
     ps_model : {'logit', 'probit'}, default 'logit'
         The binary model for the propensity score. ``'probit'`` is the
         treatment model of Stata ``teffects psmatch (y) (d x, probit)`` and
@@ -409,9 +414,12 @@ def match(
         the ATE counterpart ``sigma^2 - c'V_gamma c`` that ``teffects
         psmatch, ate`` reports (estimating the score can only lower the
         variance of the ATE); that needs ``ties='all'`` and matching with
-        replacement, and a caliper is a condition every unit has to meet
-        (as in Stata, the call stops when one does not).  Not on the
-        coverage grid above.
+        replacement. For the ATT and the ATE alike a caliper is a
+        condition every unit of either arm has to meet --
+        ``max(n_matches, ai_matches + 1)`` opposite-arm units and
+        ``ai_matches + 1`` other same-arm units within it -- and, as in
+        Stata, the call stops when one does not.  Not on the coverage grid
+        above.
         ``'bootstrap'`` is an arm-stratified nonparametric bootstrap that
         re-estimates the propensity score in every replication, so unlike the
         analytic options it accounts for the sampling variability of the
@@ -1458,11 +1466,19 @@ class MatchEstimator:
             # Stata psmatch2 analytic / Abadie-Imbens robust standard error.
             se_method = self._resolve_se_method()
             model_info["se_method"] = se_method
+            # The estimate averages over the treated units that found a
+            # match; a treated unit the caliper (or an exhausted pool) left
+            # without one is not in it, and psmatch2 sets its _support to 0.
+            # Through 1.39.6 the standard errors below still counted it, in
+            # N1 and with a variance term of its own.
+            se_support = np.asarray(a["support"], dtype=bool).copy()
+            no_match = [len(m) == 0 for m in a["matches"]]
+            se_support[np.asarray(a["idx_t"])[np.asarray(no_match, dtype=bool)]] = False
             if se_method == "psmatch2":
                 se_p = psmatch2_se(
                     a["outcome"],
                     a["treated"],
-                    a["support"],
+                    se_support,
                     frame[COL_WEIGHT].to_numpy(dtype=float),
                 )
                 if np.isfinite(se_p):
@@ -1473,7 +1489,7 @@ class MatchEstimator:
                     a["outcome"],
                     a["treated"],
                     a["pscore"],
-                    a["support"],
+                    se_support,
                     frame[COL_WEIGHT].to_numpy(dtype=float),
                     n_ai_matches=self.ai_matches,
                     origin=origin,
@@ -1507,6 +1523,34 @@ class MatchEstimator:
             elif se_method == "abadie_imbens_2016":
                 model_info["ai_matches"] = self.ai_matches
                 ps_fit = a["ps_fit"]
+                cal = self._resolve_caliper(a["pscore"])
+                n_short = (
+                    0
+                    if cal is None
+                    else caliper_deficient(
+                        ps_fit["p_raw"],
+                        a["treated"],
+                        cal,
+                        self.n_matches,
+                        self.ai_matches + 1,
+                    )
+                )
+                if n_short:
+                    # As for the ATE: teffects psmatch reads caliper() as a
+                    # condition on every observation of either arm, not as
+                    # a restriction on the matches, and stops when it fails.
+                    # Through 1.39.6 the ATT variance was computed anyway.
+                    raise MethodIncompatibility(
+                        f"match: {n_short} observation(s) have too few "
+                        f"propensity-score matches within caliper "
+                        f"{self.caliper} (max(n_matches, ai_matches + 1) in "
+                        "the opposite arm, ai_matches + 1 others in its "
+                        "own). The Abadie-Imbens (2016) variance is the one "
+                        "of Stata teffects psmatch, which stops here too.",
+                        recovery_hint="Widen the caliper, drop it, or use "
+                        "se_method='abadie_imbens'.",
+                        diagnostics={"caliper_deficient": n_short},
+                    )
                 se_2016, comps = abadie_imbens_2016_se(
                     a["outcome"],
                     a["treated"],
@@ -1642,15 +1686,15 @@ class MatchEstimator:
                     n_matches=self.n_matches,
                     h=self.ai_matches + 1,
                     density=ps_fit["density"],
-                    caliper=self.caliper,
+                    caliper=self._resolve_caliper(a["pscore"]),
                 )
                 if comps.get("caliper_deficient"):
                     raise MethodIncompatibility(
                         f"match: {comps['caliper_deficient']} observation(s) "
                         "have too few propensity-score matches within "
-                        f"caliper {self.caliper} (opposite arm, or same arm "
-                        "for the robust variance). Stata teffects psmatch "
-                        "stops here too.",
+                        f"caliper {self.caliper} (max(n_matches, ai_matches "
+                        "+ 1) in the opposite arm, ai_matches + 1 others in "
+                        "its own). Stata teffects psmatch stops here too.",
                         recovery_hint="Widen the caliper, drop it, or drop "
                         "the observations without a match.",
                     )
@@ -3794,9 +3838,14 @@ class MatchEstimator:
         Compute matching estimate, optionally with Abadie-Imbens (2011)
         bias correction.
 
-        Bias correction estimates mu_0(x) via OLS on the matched control
-        group, then adjusts each matched pair:
+        Bias correction estimates mu_0(x) by least squares on the matched
+        pool units, each weighted by the number of times it is used as a
+        match (``K_M``; Abadie and Imbens 2011, Section 3), then adjusts
+        each matched pair:
             tau_i^BC = (Y_i - Y_j) - (mu_hat(X_i) - mu_hat(X_j))
+        This is the regression of R ``Matching::Match(BiasAdjust = TRUE)``
+        and of Stata ``teffects nnmatch, biasadj()``. Through 1.39.6 it was
+        an unweighted regression on every pool unit, matched or not.
         """
         effects = self._matched_effects(Y, idx_target, idx_pool, matches, weights)
 
@@ -3828,15 +3877,34 @@ class MatchEstimator:
             return raw_att
 
         # --- Abadie-Imbens (2011) bias correction ---
-        # Estimate conditional mean function on pool group via OLS
-        X_pool = X[idx_pool]
-        Y_pool = Y[idx_pool]
-        X_pool_aug = np.column_stack([np.ones(len(X_pool)), X_pool])
-
-        try:
-            beta_pool = np.linalg.lstsq(X_pool_aug, Y_pool, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            return raw_att  # fallback to uncorrected
+        # mu(x) on the pool units that serve as matches, each weighted by
+        # K_M, the number of times it is used (a target's matches share a
+        # unit of weight).
+        K = np.zeros(len(idx_pool))
+        for m, w in zip(matches, weights):
+            if len(m):
+                w = np.asarray(w, dtype=float)
+                np.add.at(K, m, w / w.sum())
+        used = K > 0
+        if int(used.sum()) <= X.shape[1]:
+            raise DataInsufficient(
+                f"match: bias_correction=True regresses the outcome on "
+                f"{X.shape[1]} covariate(s) over the matched units, but only "
+                f"{int(used.sum())} distinct unit(s) serve as matches.",
+                recovery_hint=(
+                    "Use fewer covariates, more matches (n_matches), or "
+                    "bias_correction=False."
+                ),
+                diagnostics={
+                    "n_matched_pool": int(used.sum()),
+                    "n_covariates": int(X.shape[1]),
+                },
+            )
+        sw = np.sqrt(K[used])
+        X_pool_aug = np.column_stack([np.ones(int(used.sum())), X[idx_pool[used]]])
+        beta_pool = np.linalg.lstsq(
+            X_pool_aug * sw[:, None], Y[idx_pool[used]] * sw, rcond=None
+        )[0]
 
         # Compute bias correction for each matched pair
         corrections = []

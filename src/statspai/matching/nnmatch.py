@@ -49,6 +49,7 @@ abadie2006large, abadie2011bias
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -258,7 +259,11 @@ def nnmatch(
         Covariates on which a match must agree exactly, ``ematch()``. They
         need not be among ``covariates``.
     caliper : float, optional
-        Largest admissible distance, in units of the metric.
+        Largest admissible distance, in units of the metric. A unit with
+        fewer than ``n_matches`` admissible units keeps the ones it has,
+        with a warning: Stata reads ``caliper()`` as a condition and
+        stops there, so with a caliper every unit meets the two agree and
+        otherwise Stata reports nothing.
     bias_adjust : bool, str or list of str, optional
         Covariates of the bias-adjustment regression, ``biasadj()``.
         ``True`` uses the matching covariates.
@@ -515,6 +520,21 @@ def nnmatch(
     balance = _balance_table(X, t, w_matched, cov_cols)
 
     counts = n_set[np.concatenate([arms[g] for g in targets])]
+    n_pool_min = min(len(arms[1 - g]) for g in targets)
+    n_short = int(np.sum(counts < min(m, n_pool_min)))
+    if cal is not None and n_short:
+        # teffects nnmatch stops here ("fewer than m nearest-neighbor
+        # matches for observation ... within caliper"); its caliper is a
+        # condition, not a restriction (pinned in psm_options_Stata.json).
+        warnings.warn(
+            f"nnmatch: {n_short} unit(s) have fewer than n_matches={m} "
+            f"admissible matches within caliper={cal:g} and are matched to "
+            "the ones they have. Stata teffects nnmatch refuses this "
+            "configuration, so the estimate is not one it reports; widen the "
+            "caliper to reproduce it.",
+            UserWarning,
+            stacklevel=3,
+        )
     model_info: Dict[str, Any] = {
         "estimator": "nnmatch",
         "reference": "Stata teffects nnmatch",
