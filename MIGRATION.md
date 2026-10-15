@@ -21,6 +21,11 @@ numbers or now refuse; recompute them.
 | `sp.match(caliper=...)`, psmatch2 / Abadie-Imbens SE | counted unmatched treated units | excludes them (= Stata `psmatch2`) |
 | `sp.match(se_method='abadie_imbens_2016', caliper=...)` where a unit lacks max(m, h) / h matches in the caliper | a standard error | raises, as `teffects psmatch` |
 | `sp.match` / `sp.psm` default SE with tied scores (`ties='all'`) | same-arm neighbours in row order (Lalonde 1181.665, moves with row order) | every tied neighbour, = `psmatch2 , ai(1) ties` (1178.209 in any order) |
+| `sp.callaway_santanna(panel=False, estimator='stdipw' \| 'ipw_abadie')` | unconditional cell-mean DiD | DRDID repeated-cross-section estimators (= R `did`) |
+| `sp.callaway_santanna(panel=False, bstrap=True)` headline / event study / `sp.aggte` | analytic SE | multiplier bootstrap |
+| `sp.honest_did(method='smoothness')` FLCI at `M = 0` | numerical centre (up to 1.4e-3 of the half-length off) | closed form |
+| `sp.honest_did` with no pre-treatment coefficient | θ ± z·SE fallback | raises `DataInsufficient` |
+| `sp.spec_curve(se_types=[...])` with an unknown name, or `'cluster'` without `cluster_var` | HC1 under the unknown label; cluster dropped | raises; `'classical'` / `'iid'` are the nonrobust variance |
 | `sp.ivreg(vce='conley')`, `sp.ivreg(cluster=[a, b])` with a negative variance | SE 0, t = inf, p = 0 | NaN with a warning (= `acreg` / `ivreg2`) |
 
 **What to do.** Re-run analyses that use these options. `sp.feols`,

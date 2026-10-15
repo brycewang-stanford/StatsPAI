@@ -89,6 +89,21 @@ defects below. Default calls on the main path return what they did.
   and 643.346 → 640.405 on NSW-DW, equal to Stata (`set type double`) to
   the last digit and the same in every row order. `ties='first'` still
   reproduces `psmatch2 , ai(1)` without `ties`.
+- **`sp.callaway_santanna(panel=False)` with `estimator='stdipw'` or
+  `'ipw_abadie'`** never reached the DRDID repeated-cross-section
+  estimators and returned the unconditional cell-mean DiD (mpdta with
+  `lpop`: simple ATT −0.03995, SE 0.0474 for both). They now return
+  −0.04178 (SE 0.1672) and −0.04184 (SE 0.7218), as R `did`.
+- **`sp.callaway_santanna(panel=False, bstrap=True)`** bootstrapped the
+  ATT(g, t) cells but kept the analytic SE for the headline and the event
+  study while reporting `se_method='multiplier'`; `sp.aggte` did not
+  inherit the bootstrap. Both now use the same multiplier bootstrap, as on
+  panels.
+- **`sp.honest_did(method='smoothness')` at `M = 0`** now returns the
+  closed-form FLCI (the minimum-variance estimator unbiased under a linear
+  trend, ± z·sd). The numerical search reached the half-length but missed
+  the centre by up to 1.4e-3 of it on correlated covariances; Track A
+  module 10 moves by 2.2e-9, now 4e-16 from R's closed form.
 - **`sp.ivreg(vce='conley')` and `sp.ivreg(cluster=[a, b])`** reported
   a standard error of 0 (t = inf, p = 0) when the non-positive-definite
   covariance had a negative variance. They now report NaN with a
@@ -97,6 +112,42 @@ defects below. Default calls on the main path return what they did.
 
 #### Changed
 
+- `sp.honest_did` raises `DataInsufficient` when the event study has no
+  pre-treatment coefficient; it returned θ ± z·SE with a warning that
+  named the wrong cause. `backend='r'` with `honestdid_method='C-F'`
+  works (R printed a line before the JSON) and unreadable R output raises
+  `ConvergenceFailure` with R's output.
+- `sp.spec_curve` refuses an unknown `se_types` name (it was computed as
+  HC1, or classical with `fe=`, under the unknown label, so
+  `se_types=['classical', 'hc1']` reported HC1 twice) and `'cluster'`
+  without `cluster_var` (dropped silently). `'classical'` and `'iid'` now
+  mean the nonrobust variance.
+- `sp.feols`, `sp.fepois` and `sp.feglm` give the same numbers in every
+  process. pyfixest orders the fixed effects through a set of names, so
+  the sweep order of its projections followed `PYTHONHASHSEED` and
+  clustered standard errors differed between runs of one call (4e-9
+  relative one-way, up to 1.7e-6 two-way); the written order is now kept.
+- `sp.feols` IV fits are about 10× faster on large panels: the first
+  stage uses the model's compiled demeaner and is fitted once (1,000,000
+  rows, two fixed effects: 21.6 s → 2.1 s). Coefficients, SEs, Sargan and
+  Wu-Hausman are unchanged bit for bit; the first-stage F moves by at
+  most 5e-15 relative.
+- `sp.match(distance='mahalanobis' | 'euclidean')` finds neighbours with a
+  k-d tree instead of the full distance matrix (100,000 units, five
+  covariates: 173 s → 5 s; R `Matching::Match` 100 s). Every reported
+  number is bit-identical on 1,495 designs with ties, calipers, multiple
+  matches, ATT / ATE and bias correction.
+- Agent cards: the real-call audit covers 70 entry points and also calls
+  each by its alternative route. It fixed arguments wrongly marked
+  required (`xtnbreg` `formula` / `entity`, `psmatch2` `covariates`), 13
+  failure modes naming exceptions that are never raised, stale
+  `did_multiplegt` / `did_multiplegt_dyn` / `xtnbreg` text, and family
+  statements that did not apply; a quoted `'none'` in a docstring choice
+  set is kept as a choice (`gsynth(inference='none')` and 14 more).
+- `sp.validation_scope` gains an `honest_did` map and per-value R / Stata
+  references for `callaway_santanna` (`drimp`, `ipw_abadie`,
+  `notyet_cutoff` SEs, anticipation, the pairwise unbalanced-panel rule);
+  the map had not matched any repeated-cross-section fit.
 - `sp.feols`, `sp.fepois` and `sp.feglm` ask pyfixest for its compiled
   demeaner unless `demeaner_backend=` is given. The default numba
   demeaner took 108 s on 2 million rows with 100,000 firm effects; the

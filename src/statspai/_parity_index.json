@@ -275,6 +275,7 @@
         "tests/reference_parity/test_cs_base_period_parity.py",
         "tests/reference_parity/test_cs_cluster_analytic_parity.py",
         "tests/reference_parity/test_cs_no_never_unbalanced_parity.py",
+        "tests/reference_parity/test_cs_options_R_parity.py",
         "tests/reference_parity/test_cs_rc_cluster_csdid_parity.py",
         "tests/reference_parity/test_cs_rc_weighted_aggte_did_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
@@ -2616,17 +2617,20 @@
         "tests/reference_parity/test_cs_inference_parity.py",
         "tests/reference_parity/test_cs_no_never_unbalanced_parity.py",
         "tests/reference_parity/test_cs_notyet_cutoff_parity.py",
+        "tests/reference_parity/test_cs_options_R_parity.py",
         "tests/reference_parity/test_cs_rc_cluster_csdid_parity.py",
         "tests/reference_parity/test_cs_rc_weighted_aggte_did_parity.py",
         "tests/reference_parity/test_cs_rcs_options_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_csdid_conventions_stata_parity.py",
+        "tests/reference_parity/test_csdid_options_stata_parity.py",
         "tests/reference_parity/test_did_synth_R_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_fect_equivalence_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
         "tests/reference_parity/test_honest_did_moments_R_parity.py",
+        "tests/reference_parity/test_honest_did_options_R_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_rcs_aggregation_conventions.py",
         "tests/reference_parity/test_staggered_rollout_parity.py",
@@ -7163,7 +7167,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
-        "tests/reference_parity/test_honest_did_moments_R_parity.py"
+        "tests/reference_parity/test_honest_did_moments_R_parity.py",
+        "tests/reference_parity/test_honest_did_options_R_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -9516,6 +9521,7 @@
         "tests/reference_parity/test_honest_did_backend_parity.py",
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
         "tests/reference_parity/test_honest_did_moments_R_parity.py",
+        "tests/reference_parity/test_honest_did_options_R_parity.py",
         "tests/reference_parity/test_honest_rm_R_parity.py"
       ],
       "also_in_modules": [
@@ -9592,7 +9598,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_honest_did_moments_R_parity.py"
+        "tests/reference_parity/test_honest_did_moments_R_parity.py",
+        "tests/reference_parity/test_honest_did_options_R_parity.py"
       ],
       "tolerance": ""
     },
@@ -23816,6 +23823,9 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_cs_options_R_parity.py",
+        "tests/reference_parity/test_csdid_options_stata_parity.py",
+        "tests/reference_parity/test_honest_did_options_R_parity.py",
         "tests/reference_parity/test_iv_card_aer_parity.py",
         "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",

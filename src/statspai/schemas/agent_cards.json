@@ -63620,7 +63620,7 @@
     ],
     "category": "causal",
     "cost_profile": "Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the default se_method is the cluster bootstrap; se_method='analytic' is the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and computes the joint tests from it; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the default se_method is the cluster bootstrap; only se_method='analytic' gives the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and joint tests computed from it; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -63674,7 +63674,7 @@
     "inherits_from": "did",
     "limitations": [
       "the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented",
-      "the default se_method is the cluster bootstrap; se_method='analytic' is the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and computes the joint tests from it",
+      "the default se_method is the cluster bootstrap; only se_method='analytic' gives the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and joint tests computed from it",
       "the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package"
     ],
     "name": "did_multiplegt_dyn",
@@ -63721,7 +63721,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the default se_method is the cluster bootstrap; se_method='analytic' is the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and computes the joint tests from it; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het. Validation status: experimental. Known limitations: the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the default se_method is the cluster bootstrap; only se_method='analytic' gives the authors' influence-function variance (DIDmultiplegtDYN / Stata did_multiplegt_dyn to 1e-6) and joint tests computed from it; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
       "name": "did_multiplegt_dyn",
       "parameters": {
         "properties": {
@@ -67370,7 +67370,8 @@
       "tests/test_es_inference.py: the diagonal reproduces every estimator's reported SEs to 1e-12; cross-horizon blocks checked against a cluster bootstrap",
       "Cross-language parity (bit-exact) vs did::aggte(type='dynamic') 2.5.1 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation (Borusyak, SSC, 2023-11-22) [R version 4.5.2 (2025-10-31), Stata 18, did 2.5.1, did2s 1.2.1, etwfe 0.6.2, fixest 0.14.0, marginaleffects 0.32.0]; tolerance full joint covariance (every off-diagonal entry) 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 6.7e-11 did2s), 1e-8 did_imputation (observed 1.2e-9), 1e-6 etwfe (observed 3.4e-9 not-yet / 8.1e-8 never); coefficients 1e-9 (observed <= 3.3e-10) -- tests/reference_parity/test_event_study_vcov_R_parity.py",
       "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
-      "tests/reference_parity/test_honest_did_moments_R_parity.py"
+      "tests/reference_parity/test_honest_did_moments_R_parity.py",
+      "tests/reference_parity/test_honest_did_options_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -104924,6 +104925,9 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_cs_options_R_parity.py",
+        "tests/reference_parity/test_csdid_options_stata_parity.py",
+        "tests/reference_parity/test_honest_did_options_R_parity.py",
         "tests/reference_parity/test_iv_card_aer_parity.py",
         "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",
@@ -104975,7 +104979,7 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_iv_card_aer_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_cs_options_R_parity.py"
     ],
     "validation_status": "validated"
   },

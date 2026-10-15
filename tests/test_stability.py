@@ -80,7 +80,9 @@ class TestStabilityFlowsThroughRegistry:
             ("rdrobust", "weights"),
             ("continuous_did", "method='cgs'"),
             ("etwfe", "panel=False"),
-            ("did_multiplegt_dyn", "switch-off"),
+            # Switch-off events are handled since the 2026-10 dCDH pass;
+            # the remaining gap is the heteroskedastic-weights variant.
+            ("did_multiplegt_dyn", "heteroskedastic-weights"),
         ],
     )
     def test_high_priority_limitations_are_machine_readable(self, name, needle):
