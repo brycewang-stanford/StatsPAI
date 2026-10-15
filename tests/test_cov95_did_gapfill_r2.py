@@ -509,16 +509,12 @@ def test_honest_did_bad_m_grid_raises(cs_result):
 
 
 def test_honest_did_relative_magnitude_without_pre_periods(cs_result):
-    # With no pre-treatment coefficients, max|δ_pre| = 0 and the bound
-    # falls back to M̄ × SE. At M̄=0 the robust CI equals the plain CI.
+    # With no pre-treatment coefficients nothing calibrates the restriction;
+    # the old theta +/- z*SE fallback read like a robustness result.
     es = cs_result.model_info["event_study"]
     r = _clone(cs_result, es_new=es[es["relative_time"] >= 0].copy())
-    tab = sp.honest_did(r, e=0, method="relative_magnitude", m_grid=[0.0, 1.0, 2.0])
-    widths = (tab["ci_upper"] - tab["ci_lower"]).to_numpy()
-    assert len(tab) == 3
-    assert np.all(np.diff(widths) > 0)  # CI widens with M̄
-    theta = float(es.loc[es["relative_time"] == 0, "att"].iloc[0])
-    assert tab["ci_lower"].iloc[0] < theta < tab["ci_upper"].iloc[0]
+    with pytest.raises(DataInsufficient, match="pre-treatment"):
+        sp.honest_did(r, e=0, method="relative_magnitude", m_grid=[0.0, 1.0, 2.0])
 
 
 def test_honest_did_event_study_missing_se_column(cs_result):
@@ -585,10 +581,14 @@ def rscript_stub(tmp_path, monkeypatch):
     windows = os.name == "nt"
     stub = tmp_path / ("Rscript.bat" if windows else "Rscript")
 
-    def program(stdout="", stderr="", returncode=0):
-        """Install a stub that emits *stdout* / *stderr* and exits *returncode*."""
+    def program(stdout="", stderr="", returncode=0, result=None):
+        """Install a stub that emits *stdout* / *stderr*, writes *result* where
+        the backend's R script writes its table (``result.json`` next to the
+        input CSV, the script's second argument) and exits *returncode*."""
         if windows:
             lines = ["@echo off"]
+            if result:
+                lines.append(f'echo {result}> "%~dp2result.json"')
             if stdout:
                 lines.append(f"echo {stdout}")
             if stderr:
@@ -597,6 +597,8 @@ def rscript_stub(tmp_path, monkeypatch):
             stub.write_text("\r\n".join(lines) + "\r\n", encoding="ascii")
         else:
             lines = ["#!/bin/sh"]
+            if result:
+                lines.append(f'echo \'{result}\' > "$(dirname "$2")/result.json"')
             if stdout:
                 lines.append(f"echo '{stdout}'")
             if stderr:
@@ -605,7 +607,8 @@ def rscript_stub(tmp_path, monkeypatch):
             stub.write_text("\n".join(lines) + "\n", encoding="utf-8")
             os.chmod(stub, 0o755)
 
-    program(stdout=_STUB_JSON)
+    # HonestDiD's solvers print to stdout; the table comes from the file.
+    program(stdout="Polishing not needed", result=_STUB_JSON)
     monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
     return program
 

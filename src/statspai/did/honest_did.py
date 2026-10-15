@@ -532,6 +532,26 @@ def honest_did(
     es = _extract_event_study(result)
     if win is not None:
         es = es[(es["relative_time"] >= win[0]) & (es["relative_time"] <= win[1])]
+    if not (es["relative_time"] < 0).any():
+        # Both restrictions are calibrated by the pre-treatment coefficients.
+        # Without any, the old fallback returned theta +/- z*SE (relative
+        # magnitudes) under a "covariance unavailable" warning, which reads
+        # as a robustness result. The R backend raises the same error.
+        raise DataInsufficient(
+            "honest_did needs at least one pre-treatment event-study "
+            "coefficient; this event study has none"
+            + (f" inside window={win}" if win is not None else "")
+            + ".",
+            recovery_hint=(
+                "Refit the event study with leads (e.g. callaway_santanna with "
+                "base_period='universal', or an event study that reports "
+                "pre-periods), or widen `window`."
+            ),
+            diagnostics={
+                "available": sorted(int(t) for t in es["relative_time"].tolist()),
+                "window": win,
+            },
+        )
     z_crit = stats.norm.ppf(1 - alpha / 2)
     moments = _window_filter(event_study_moments(result), win)
 
@@ -1031,8 +1051,11 @@ if (method == "relative_magnitude") {
   )
   out <- data.frame(M = sens$M, ci_lower = sens$lb, ci_upper = sens$ub)
 }
+# To a file, not stdout: HonestDiD's solvers print to stdout ("Polishing not
+# needed ..." from the C-F path), which corrupted the JSON read through 1.39.
 cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
-                     digits = 16, null = "null"))
+                     digits = 16, null = "null"),
+    file = file.path(dirname(input), "result.json"))
 """
 
     with tempfile.TemporaryDirectory(prefix="statspai-honestdid-") as tmp:
@@ -1090,6 +1113,10 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
             capture_output=True,
             text=True,
         )
+        result_path = tmp_path / "result.json"
+        result_text = (
+            result_path.read_text(encoding="utf-8") if result_path.exists() else None
+        )
 
     if proc.returncode != 0:
         raise ConvergenceFailure(
@@ -1102,7 +1129,26 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
             diagnostics={"backend": "honestdid", "returncode": proc.returncode},
         )
 
-    out = json.loads(proc.stdout)
+    try:
+        out = json.loads(result_text) if result_text is not None else None
+    except json.JSONDecodeError:
+        out = None
+    if not isinstance(out, list):
+        raise ConvergenceFailure(
+            "backend='honestdid': R HonestDiD exited without error but did not "
+            "return a readable sensitivity table. R stdout (tail): "
+            f"{proc.stdout.strip()[-500:]!r}; stderr (tail): "
+            f"{proc.stderr.strip()[-500:]!r}",
+            recovery_hint=(
+                "Run the same HonestDiD call in R to see its output, check the "
+                "R HonestDiD/jsonlite installation, or use backend='native'."
+            ),
+            diagnostics={
+                "backend": "honestdid",
+                "honestdid_method": honestdid_method_arg,
+                "returncode": proc.returncode,
+            },
+        )
     rows = []
     for item in out:
         ci_lower = float(item["ci_lower"])

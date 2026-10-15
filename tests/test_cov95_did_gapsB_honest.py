@@ -18,7 +18,11 @@ from scipy import stats
 import statspai as sp
 import statspai.did.honest_did  # noqa: F401  (registers the submodule)
 from statspai.core.results import CausalResult
-from statspai.exceptions import ConvergenceFailure, MethodIncompatibility
+from statspai.exceptions import (
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 H = sys.modules["statspai.did.honest_did"]
 
@@ -104,17 +108,10 @@ def test_l_vec_without_covariance_uses_independent_se(no_cov):
 
 
 def test_relative_magnitude_fallback_without_pre_periods(with_cov):
+    """No lead to calibrate on: raise rather than return theta +/- z*SE."""
     post_only = _bare(with_cov.detail.query("relative_time >= 0"))
-    with pytest.warns(UserWarning, match="worst-case-bias"):
-        out = sp.honest_did(
-            post_only, e=0, method="relative_magnitude", m_grid=[0.0, 0.5]
-        )
-    se0 = float(np.sqrt(SIGMA[2, 2]))
-    assert out.loc[0, "ci_lower"] == pytest.approx(1.0 - Z * se0)
-    assert out.loc[0, "ci_upper"] == pytest.approx(1.0 + Z * se0)
-    # the bound is nested in Mbar even with no lead to calibrate on
-    assert out.loc[1, "ci_lower"] <= out.loc[0, "ci_lower"]
-    assert out.loc[1, "ci_upper"] >= out.loc[0, "ci_upper"]
+    with pytest.raises(DataInsufficient, match="pre-treatment"):
+        sp.honest_did(post_only, e=0, method="relative_magnitude", m_grid=[0.0, 0.5])
 
 
 def test_breakdown_relative_magnitude_fallback_formula(no_cov, with_cov):
