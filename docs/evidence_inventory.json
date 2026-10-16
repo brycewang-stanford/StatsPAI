@@ -7307,6 +7307,366 @@
         }
       ]
     },
+    "glm": {
+      "dimensions": {
+        "family_link": [
+          "gaussian_identity",
+          "gaussian_log",
+          "binomial_logit",
+          "binomial_probit",
+          "binomial_cloglog",
+          "binomial_cauchit",
+          "poisson_log",
+          "gamma_log",
+          "inverse_gaussian_log",
+          "other"
+        ],
+        "vce": [
+          "classical",
+          "robust",
+          "hc0",
+          "hc1",
+          "hc2",
+          "hc3",
+          "hac",
+          "cluster"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "information": [
+          "observed",
+          "expected"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        },
+        "information": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 320,
+      "overall": {
+        "covered": 32,
+        "estimate_only": 112,
+        "not_covered": 176
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 144,
+          "not_covered": 176
+        },
+        "se": {
+          "reference": 32,
+          "not_covered": 288
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_grammar_stata_parity.py",
+          "entry_point": "sp.glm(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family_link": [
+              "binomial_cloglog",
+              "binomial_logit",
+              "binomial_probit",
+              "gaussian_identity",
+              "gaussian_log",
+              "poisson_log"
+            ],
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ],
+            "information": [
+              "observed"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata glm, vce(oim | robust | cluster g), six family/link pairs, 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_glm_parity.py",
+          "entry_point": "sp.glm(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family_link": [
+              "binomial_logit",
+              "poisson_log"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "information": [
+              "observed"
+            ]
+          },
+          "compares": "coefficients (1e-9) and SEs (1e-3) vs R glm"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_glm_dispersion_stata_r_parity.py",
+          "entry_point": "sp.glm(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family_link": [
+              "gamma_log",
+              "inverse_gaussian_log"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "information": [
+              "expected",
+              "observed"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata glm (observed information) and R summary.glm (expected information), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_linear_model_extensions_parity.py",
+          "entry_point": "sp.glm(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family_link": [
+              "binomial_cauchit"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "information": [
+              "expected"
+            ]
+          },
+          "compares": "cauchit coefficients and SEs vs R glm, 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ml_sandwich_r_parity.py",
+          "entry_point": "sp.glm(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family_link": [
+              "binomial_logit",
+              "poisson_log"
+            ],
+            "vce": [
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3"
+            ],
+            "weights": [
+              "none"
+            ],
+            "information": [
+              "observed"
+            ]
+          },
+          "compares": "HC0-HC3 sandwich SEs vs R sandwich::vcovHC on glm, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ml_sandwich_r_parity.py",
+          "entry_point": "sp.glm(...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "family_link": [
+              "binomial_probit"
+            ],
+            "vce": [
+              "hc0"
+            ],
+            "weights": [
+              "none"
+            ],
+            "information": [
+              "expected"
+            ]
+          },
+          "compares": "probit HC0 with expected-information bread vs R sandwich::vcovHC, 1e-8"
+        }
+      ]
+    },
+    "heckman": {
+      "dimensions": {
+        "method": [
+          "twostep",
+          "ml"
+        ],
+        "vce": [
+          "classical",
+          "robust",
+          "cluster"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 12,
+      "overall": {
+        "covered": 6,
+        "estimate_only": 3,
+        "not_covered": 3
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 9,
+          "not_covered": 3
+        },
+        "se": {
+          "reference": 6,
+          "not_covered": 6
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/43_heckman.py",
+          "entry_point": "sp.heckman(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "twostep"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "two-step coefficients and SEs vs sampleSelection::heckit and Stata heckman, twostep, 1e-6"
+        },
+        {
+          "kind": "T1",
+          "artifact": "tests/reference_parity/test_heckman_se_parity.py",
+          "entry_point": "sp.heckman(...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "twostep"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "two-step SEs equal a hand-computed Heckman (1979) variance, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_design_stata_parity.py",
+          "entry_point": "sp.heckman(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "ml"
+            ],
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "ML coefficients and SEs vs Stata heckman, vce(oim | robust | cluster g), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_design_stata_parity.py",
+          "entry_point": "sp.heckman(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "ml"
+            ],
+            "vce": [
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted ML coefficients and SEs vs Stata heckman [pw], 1e-6"
+        }
+      ]
+    },
     "honest_did": {
       "dimensions": {
         "restriction": [
@@ -9761,6 +10121,352 @@
         }
       ]
     },
+    "logit": {
+      "dimensions": {
+        "vce": [
+          "classical",
+          "robust",
+          "hc0",
+          "hc1",
+          "cluster"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 10,
+      "overall": {
+        "covered": 10
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 10
+        },
+        "se": {
+          "reference": 10
+        },
+        "joint_test": {
+          "reference": 3,
+          "not_covered": 7
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/57_logit.py",
+          "entry_point": "sp.logit(formula=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and model-based SEs vs R glm(binomial) and Stata logit, 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_grammar_stata_parity.py",
+          "entry_point": "sp.logit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata logit, vce(oim | robust | cluster g), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_count_weights_stata_parity.py",
+          "entry_point": "sp.logit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted coefficients and SEs vs Stata logit [iw] / [fw] (model-based) and [pw] (robust, cluster), 1e-6"
+        },
+        {
+          "kind": "T1",
+          "artifact": "tests/reference_parity/test_count_weights_stata_parity.py",
+          "entry_point": "sp.logit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "frequency weights equal the expanded data, 2e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ml_sandwich_r_parity.py",
+          "entry_point": "sp.logit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hc0",
+              "hc1"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "HC0 / HC1 sandwich SEs vs R sandwich::vcovHC on glm, unweighted and weighted, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.logit(...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Wald chi2, df and p-value of joint hypotheses vs Stata test after logit, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_postestimation_stata_parity.py",
+          "entry_point": "sp.logit(...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Wald test and lincom vs Stata after logit, 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
+          "entry_point": "sp.logit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs after Stata's perfect-prediction drop, vs Stata logit"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_regression_stories_r_parity.py",
+          "entry_point": "sp.logit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs R glm(binomial)"
+        }
+      ]
+    },
+    "nbreg": {
+      "dimensions": {
+        "vce": [
+          "classical",
+          "robust",
+          "cluster"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "dispersion": [
+          "nb2",
+          "nb1"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 12,
+      "overall": {
+        "covered": 7,
+        "estimate_only": 2,
+        "not_covered": 3
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 9,
+          "not_covered": 3
+        },
+        "se": {
+          "reference": 7,
+          "not_covered": 5
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/42_nbreg.py",
+          "entry_point": "sp.nbreg(formula=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "dispersion": [
+              "nb2"
+            ]
+          },
+          "compares": "coefficients vs R MASS::glm.nb and coefficients and SEs vs Stata nbreg"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/r_parity/42_nbreg.py",
+          "entry_point": "sp.nbreg(formula=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "dispersion": [
+              "nb2"
+            ]
+          },
+          "compares": "glm.nb's SEs are conditional on the dispersion estimate; this package's (and Stata's) are joint (1.4e-3 apart)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_grammar_stata_parity.py",
+          "entry_point": "sp.nbreg(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ],
+            "dispersion": [
+              "nb1",
+              "nb2"
+            ]
+          },
+          "compares": "NB2 and NB1 coefficients and SEs vs Stata nbreg, vce(oim | robust | cluster g), 1e-6"
+        },
+        {
+          "kind": "T1",
+          "artifact": "tests/reference_parity/test_count_weights_stata_parity.py",
+          "entry_point": "sp.nbreg(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "set"
+            ],
+            "dispersion": [
+              "nb2"
+            ]
+          },
+          "compares": "frequency weights equal the expanded data"
+        }
+      ]
+    },
     "nnmatch": {
       "dimensions": {
         "estimand": [
@@ -10786,6 +11492,394 @@
         }
       ]
     },
+    "poisson": {
+      "dimensions": {
+        "vce": [
+          "classical",
+          "robust",
+          "hc0",
+          "hc1",
+          "cluster"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "exposure": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 20,
+      "overall": {
+        "covered": 12,
+        "estimate_only": 3,
+        "not_covered": 5
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 15,
+          "not_covered": 5
+        },
+        "se": {
+          "reference": 12,
+          "not_covered": 8
+        },
+        "joint_test": {
+          "reference": 2,
+          "not_covered": 18
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/58_poisson.py",
+          "entry_point": "sp.poisson(formula=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "exposure": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs R glm(poisson) and Stata poisson, 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_grammar_stata_parity.py",
+          "entry_point": "sp.poisson(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ],
+            "exposure": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata poisson, vce(oim | robust | cluster g), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_count_weights_stata_parity.py",
+          "entry_point": "sp.poisson(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "set"
+            ],
+            "exposure": [
+              "none"
+            ]
+          },
+          "compares": "weighted coefficients, SEs and log-likelihood vs Stata poisson [iw] / [fw] / [pw], 1e-6"
+        },
+        {
+          "kind": "T1",
+          "artifact": "tests/reference_parity/test_count_weights_stata_parity.py",
+          "entry_point": "sp.poisson(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "set"
+            ],
+            "exposure": [
+              "none"
+            ]
+          },
+          "compares": "frequency weights equal the expanded data"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_accounting_research_parity.py",
+          "entry_point": "sp.poisson(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "hc1"
+            ],
+            "weights": [
+              "none"
+            ],
+            "exposure": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs R glm and sandwich::vcovHC(type = 'HC1'), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ml_sandwich_r_parity.py",
+          "entry_point": "sp.poisson(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hc0",
+              "hc1"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ],
+            "exposure": [
+              "none"
+            ]
+          },
+          "compares": "HC0 / HC1 sandwich SEs vs R sandwich::vcovHC on glm, unweighted and weighted, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ml_sandwich_r_parity.py",
+          "entry_point": "sp.poisson(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "hc0"
+            ],
+            "weights": [
+              "none"
+            ],
+            "exposure": [
+              "set"
+            ]
+          },
+          "compares": "coefficients and SEs with exposure= vs R glm(offset = log(exposure)), model-based and HC0, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.poisson(...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ],
+            "exposure": [
+              "none"
+            ]
+          },
+          "compares": "Wald chi2 of joint hypotheses vs Stata test after poisson"
+        }
+      ]
+    },
+    "probit": {
+      "dimensions": {
+        "vce": [
+          "classical",
+          "robust",
+          "hc0",
+          "hc1",
+          "cluster"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 10,
+      "overall": {
+        "covered": 6,
+        "estimate_only": 4
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 10
+        },
+        "se": {
+          "reference": 6,
+          "disclosure": 4
+        },
+        "joint_test": {
+          "reference": 2,
+          "not_covered": 8
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/48_probit.py",
+          "entry_point": "sp.probit(formula=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients vs R glm(binomial(probit)) and coefficients and observed-information SEs vs Stata probit, 1e-6"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/r_parity/48_probit.py",
+          "entry_point": "sp.probit(formula=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "R glm reports expected-information SEs, Stata and this package observed-information; they differ on a non-canonical link (budget 1e-2)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_grammar_stata_parity.py",
+          "entry_point": "sp.probit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata probit, vce(oim | robust | cluster g), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_count_weights_stata_parity.py",
+          "entry_point": "sp.probit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted coefficients and SEs vs Stata probit [iw] / [fw] / [pw], 1e-6"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_ml_sandwich_r_parity.py",
+          "entry_point": "sp.probit(...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hc0",
+              "hc1"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "R sandwich::vcovHC builds its bread from glm's expected information, this package (like Stata) from the observed one: 2-3% apart on probit; sp.glm(information='expected') reproduces R to 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_postestimation_stata_parity.py",
+          "entry_point": "sp.probit(...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cluster"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Wald test and lincom vs Stata after probit, 1e-6"
+        }
+      ]
+    },
     "psm": {
       "dimensions": {
         "method": [
@@ -11437,6 +12531,150 @@
             ]
           },
           "compares": "bias-adjusted ATT (regression on the covariates over the matched controls, weighted by use) and its SE vs R Matching::Match(BiasAdjust = TRUE), to 1e-9"
+        }
+      ]
+    },
+    "qreg": {
+      "dimensions": {
+        "vce": [
+          "iid",
+          "robust",
+          "nid",
+          "kernel",
+          "ker",
+          "cluster",
+          "powell"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 14,
+      "overall": {
+        "covered": 9,
+        "estimate_only": 5
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 14
+        },
+        "se": {
+          "reference": 9,
+          "not_covered": 5
+        },
+        "vcov": {
+          "reference": 2,
+          "not_covered": 12
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/40_qreg.py",
+          "entry_point": "sp.qreg(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "nid"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "median coefficients and SEs vs R quantreg::rq(se = 'nid') and Stata qreg, vce(robust), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_design_stata_parity.py",
+          "entry_point": "sp.qreg(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "iid",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients, SEs and p-values at tau 0.25 / 0.5 / 0.75 vs Stata qreg, 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_qreg_cluster_stata_parity.py",
+          "entry_point": "sp.qreg(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov"
+          ],
+          "configuration": {
+            "vce": [
+              "cluster",
+              "kernel"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "full covariance vs Stata qreg2 (kernel and cluster), four quantiles, 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_gaps_stata_parity.py",
+          "entry_point": "sp.qreg(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "robust"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "qreg [pw=w] at tau 0.25 / 0.5 / 0.75 vs Stata, 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_linear_model_extensions_parity.py",
+          "entry_point": "sp.qreg(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "ker",
+              "nid"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "coefficients and SEs vs quantreg (se = 'ker' / 'nid'), unweighted and weighted, 1e-8"
         }
       ]
     },
@@ -13900,20 +15138,294 @@
           "compares": "synth2 placebo / leave-one-out reports: pre-period MSPEs to 1e-8, paths and effects reproduced from weights rounded as synth stores them"
         }
       ]
+    },
+    "tobit": {
+      "dimensions": {
+        "method": [
+          "mle",
+          "scls"
+        ],
+        "vce": [
+          "classical",
+          "robust",
+          "cluster"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "censoring": [
+          "left",
+          "right",
+          "two_sided"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 36,
+      "overall": {
+        "covered": 13,
+        "estimate_only": 5,
+        "not_covered": 18
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 18,
+          "not_covered": 18
+        },
+        "se": {
+          "reference": 13,
+          "not_covered": 23
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/41_tobit.py",
+          "entry_point": "sp.tobit(data=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mle"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "censoring": [
+              "left"
+            ]
+          },
+          "compares": "coefficients and SEs vs R censReg and Stata tobit, ll(0), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_count_quantile_parity.py",
+          "entry_point": "sp.tobit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mle"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "censoring": [
+              "left"
+            ]
+          },
+          "compares": "coefficients (1e-5) and SEs (5e-5) vs AER::tobit"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_design_stata_parity.py",
+          "entry_point": "sp.tobit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mle"
+            ],
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ],
+            "censoring": [
+              "left"
+            ]
+          },
+          "compares": "coefficients, SEs and sigma vs Stata tobit, ll(0), vce(oim | robust | cluster g), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_design_stata_parity.py",
+          "entry_point": "sp.tobit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mle"
+            ],
+            "vce": [
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "set"
+            ],
+            "censoring": [
+              "left"
+            ]
+          },
+          "compares": "weighted coefficients and SEs vs Stata tobit [pw], 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_design_stata_parity.py",
+          "entry_point": "sp.tobit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mle"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "censoring": [
+              "two_sided"
+            ]
+          },
+          "compares": "two-sided [0, 1.5] coefficients and SEs vs Stata tobit, 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_design_stata_parity.py",
+          "entry_point": "sp.tobit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mle"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "weights": [
+              "set"
+            ],
+            "censoring": [
+              "two_sided"
+            ]
+          },
+          "compares": "two-sided, weighted and clustered, vs Stata tobit, 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_gaps_stata_parity.py",
+          "entry_point": "sp.tobit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mle"
+            ],
+            "vce": [
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ],
+            "censoring": [
+              "two_sided"
+            ]
+          },
+          "compares": "two-sided [0, 1.5] vs Stata tobit, vce(robust | cluster g) and [pw=w], 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_ldv_gaps_stata_parity.py",
+          "entry_point": "sp.tobit(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mle"
+            ],
+            "vce": [
+              "classical",
+              "cluster",
+              "robust"
+            ],
+            "weights": [
+              "none"
+            ],
+            "censoring": [
+              "right"
+            ]
+          },
+          "compares": "right-censored ul(1.5) vs Stata tobit, vce(oim | robust | cluster g), 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_binary_r2_and_scls_parity.py",
+          "entry_point": "sp.tobit(...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "method": [
+              "scls"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "weights": [
+              "none"
+            ],
+            "censoring": [
+              "left"
+            ]
+          },
+          "compares": "SCLS coefficients vs micsr::tobit1(method = 'trimmed'), 1e-8"
+        }
+      ]
     }
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 1557,
+      "reference": 1786,
       "seed_equivalence": 3,
       "disclosure": 4,
-      "not_covered": 70046
+      "not_covered": 70251
     },
     "se": {
-      "reference": 775,
+      "reference": 870,
       "stochastic_screen": 17,
-      "disclosure": 23,
-      "not_covered": 70795
+      "disclosure": 27,
+      "not_covered": 71130
     },
     "coverage": {
       "coverage_simulation": 11,
@@ -13926,13 +15438,13 @@
       "not_covered": 26619
     },
     "vcov": {
-      "reference": 35,
-      "not_covered": 27057
+      "reference": 37,
+      "not_covered": 27069
     },
     "joint_test": {
-      "reference": 52,
+      "reference": 59,
       "disclosure": 1,
-      "not_covered": 19447
+      "not_covered": 19480
     }
   },
   "option_fixtures": [

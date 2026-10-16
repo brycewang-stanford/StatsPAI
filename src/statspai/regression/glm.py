@@ -1183,6 +1183,7 @@ class GLMEstimator(BaseEstimator):
             "dispersion": phi,
             "vcov_scale": vcov_scale,
             "scale": scale,
+            "information": information,
             "converged": converged,
             "n_iter": iteration + 1,
         }
@@ -1718,6 +1719,9 @@ class GLMRegression(BaseModel):
             "cluster": cluster,
             "scale": results.get("scale"),
             "vcov_scale": results.get("vcov_scale"),
+            # Observed vs expected information changes the SE on a
+            # non-canonical link (Stata glm vs R glm); validation_scope reads it.
+            "information": results.get("information"),
             "converged": results["converged"],
             "n_iter": results["n_iter"],
         }

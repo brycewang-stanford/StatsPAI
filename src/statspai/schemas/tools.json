@@ -42271,7 +42271,7 @@
     "name": "vcnet"
   },
   {
-    "description": "Re-report a fitted result under another standard-error choice (vce=) without rebuilding the call: re-runs the recorded call with only vce= replaced, after checking that an unchanged replay reproduces the original estimates. The new SEs are exactly what sp.<estimator>(..., vce=...) returns. Pre-conditions: The result came from an estimator that accepts vce=; The fitted DataFrame still exists, or is passed as data=. Alternatives: sp.vcov_compare.",
+    "description": "Re-report a fitted result under another standard-error choice (vce=) without rebuilding the call: re-runs the recorded call with only vce= replaced, after checking that an unchanged replay reproduces the original estimates. The new SEs are exactly what sp.<estimator>(..., vce=...) returns. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: The result came from an estimator that accepts vce=; The fitted DataFrame still exists, or is passed as data=. Alternatives: sp.vcov_compare.",
     "input_schema": {
       "properties": {
         "result": {
@@ -42292,7 +42292,7 @@
     "name": "vcov"
   },
   {
-    "description": "Standard errors of one fit under several vce= choices, side by side (one row per request and term, with the ratio to the fitted SE). Each row is a re-run of the recorded call with that vce=; a kind the estimator does not implement is reported in the note column. Alternatives: sp.vcov.",
+    "description": "Standard errors of one fit under several vce= choices, side by side (one row per request and term, with the ratio to the fitted SE). Each row is a re-run of the recorded call with that vce=; a kind the estimator does not implement is reported in the note column. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.vcov.",
     "input_schema": {
       "properties": {
         "result": {

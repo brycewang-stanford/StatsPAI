@@ -5848,7 +5848,19 @@ _add(
     )
 )
 
+
 #: Functions with a configuration map.
+def _register_satellite_maps() -> None:
+    """Maps kept in their own modules (they read this module's primitives)."""
+    import sys
+
+    from . import _validation_scope_ldv
+
+    _validation_scope_ldv.register(_add, sys.modules[__name__])
+
+
+_register_satellite_maps()
+
 SCOPE_FUNCTIONS = tuple(sorted(SCOPES))
 
 
@@ -6144,6 +6156,13 @@ _METHOD_TO_FUNCTION = (
 def _function_of(result: Any) -> Optional[str]:
     if result is None:
         return None
+    # The exact public call, when the estimator records it
+    # (``core._call_record``): no guessing from labels.
+    from .core._call_record import get_call_record
+
+    record = get_call_record(result)
+    if record is not None and record.function in SCOPES:
+        return record.function
     if type(result).__name__ == "DataFrame":
         # sp.honest_did returns its sensitivity table, labelled in attrs.
         at = getattr(result, "attrs", None) or {}

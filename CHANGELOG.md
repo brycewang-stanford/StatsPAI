@@ -4,6 +4,31 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Configuration-level evidence for the likelihood models
+
+#### Added
+
+- **`sp.validation_scope` maps for `logit`, `probit`, `poisson`, `nbreg`,
+  `glm`, `tobit`, `qreg` and `heckman`**: which vce x weights (x family /
+  link, censoring, dispersion, exposure) cells a Stata or R reference
+  ran, and which outputs it compared. 49 existing reference tests are now
+  credited cell by cell; `logit` is covered in all 10 of its cells. Fits
+  are routed to their map by the recorded call, not by the method label.
+- New references for empty cells: HC0 / HC1 of logit and poisson
+  (weighted and not) and HC0-HC3 of `sp.glm` vs R `sandwich` (1e-8);
+  `sp.poisson(exposure=)` vs R `glm(offset = log(exposure))`; tobit
+  two-sided under robust / cluster / `[pw]` and right-censored under oim /
+  robust / cluster, and `qreg [pw=w]` at three quantiles, vs Stata 18.
+- `sp.glm` records `information` (`observed` / `expected`) in
+  `model_info`.
+
+#### Documented
+
+- `sp.probit(robust='hc0' | 'hc1')` differs from R `sandwich::vcovHC` by
+  2-3%: R builds the bread from `glm`'s expected information, this package
+  (like Stata) from the observed one. `sp.glm(..., information='expected')`
+  reproduces R to 1e-8. Registered as a disclosure (T4).
+
 ### One standard-error grammar: `vce=` everywhere, `sp.vcov` after the fit
 
 #### Added

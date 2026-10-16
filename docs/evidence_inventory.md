@@ -21,18 +21,26 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `event_study` | 512 | 45 / 512 | 45 / 512 | 1 / 512 | -- | -- | 45 / 512 |
 | `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
 | `gardner_did` | 64 | 24 / 64 | 7 / 64 | 1 / 64 | -- | -- | 7 / 64 |
+| `glm` | 320 | 144 / 320 | 32 / 320 | -- | -- | -- | 32 / 320 |
+| `heckman` | 12 | 9 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
 | `honest_did` | 25920 | -- | -- | -- | -- | 111 / 25920 | 111 / 25920 |
 | `iv` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
 | `ivreg` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
+| `logit` | 10 | 10 / 10 | 10 / 10 | -- | 3 / 10 | -- | 10 / 10 |
+| `nbreg` | 12 | 9 / 12 | 7 / 12 | -- | -- | -- | 7 / 12 |
 | `nnmatch` | 1920 | 17 / 1920 | 17 / 1920 | -- | -- | -- | 17 / 1920 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
+| `poisson` | 20 | 15 / 20 | 12 / 20 | -- | 2 / 20 | -- | 12 / 20 |
+| `probit` | 10 | 10 / 10 | 6 / 10 | -- | 2 / 10 | -- | 6 / 10 |
 | `psm` | 3200 | 100 / 3200 | 29 / 3200 | -- | -- | -- | 29 / 3200 |
+| `qreg` | 14 | 14 / 14 | 9 / 14 | 2 / 14 | -- | -- | 9 / 14 |
 | `rddensity` | 2 | 1 / 2 | 1 / 2 | -- | -- | 1 / 2 | 1 / 2 |
 | `rdrobust` | 25920 | 159 / 25920 | 159 / 25920 | -- | -- | -- | 159 / 25920 |
 | `regress` | 28 | 28 / 28 | 26 / 28 | -- | 5 / 28 | 1 / 28 | 26 / 28 |
 | `sdid` | 288 | 60 / 288 | 27 / 288 | -- | -- | -- | 27 / 288 |
 | `sun_abraham` | 36 | 21 / 36 | 21 / 36 | 2 / 36 | -- | -- | 21 / 36 |
 | `synth` | 12 | 3 / 12 | 1 / 12 | -- | -- | -- | 3 / 12 |
+| `tobit` | 36 | 18 / 36 | 13 / 36 | -- | -- | -- | 13 / 36 |
 
 `--` means no artifact compares that output for the function at all. `Fully covered` counts cells whose primary outputs all have reference evidence.
 
@@ -73,6 +81,10 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `gardner_did` | estimate | 0 | 0 | 0 | 0 | 40 |
 | `gardner_did` | se | 0 | 0 | 0 | 0 | 57 |
 | `gardner_did` | vcov | 0 | 0 | 0 | 0 | 63 |
+| `glm` | estimate | 0 | 0 | 0 | 0 | 176 |
+| `glm` | se | 0 | 0 | 0 | 0 | 288 |
+| `heckman` | estimate | 0 | 0 | 0 | 0 | 3 |
+| `heckman` | se | 0 | 0 | 0 | 0 | 6 |
 | `honest_did` | diagnostic | 0 | 12 | 0 | 96 | 25701 |
 | `iv` | estimate | 0 | 0 | 0 | 0 | 224 |
 | `iv` | se | 0 | 0 | 0 | 7 | 378 |
@@ -84,13 +96,27 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `ivreg` | coverage | 0 | 0 | 1 | 0 | 447 |
 | `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 445 |
 | `ivreg` | joint_test | 0 | 0 | 0 | 0 | 445 |
+| `logit` | estimate | 0 | 0 | 0 | 0 | 0 |
+| `logit` | se | 0 | 0 | 0 | 0 | 0 |
+| `logit` | joint_test | 0 | 0 | 0 | 0 | 7 |
+| `nbreg` | estimate | 0 | 0 | 0 | 0 | 3 |
+| `nbreg` | se | 0 | 0 | 0 | 0 | 5 |
 | `nnmatch` | estimate | 0 | 0 | 0 | 0 | 1903 |
 | `nnmatch` | se | 0 | 0 | 0 | 0 | 1903 |
 | `panel` | estimate | 0 | 0 | 0 | 0 | 45 |
 | `panel` | se | 0 | 0 | 0 | 0 | 98 |
 | `panel` | joint_test | 0 | 0 | 0 | 1 | 138 |
+| `poisson` | estimate | 0 | 0 | 0 | 0 | 5 |
+| `poisson` | se | 0 | 0 | 0 | 0 | 8 |
+| `poisson` | joint_test | 0 | 0 | 0 | 0 | 18 |
+| `probit` | estimate | 0 | 0 | 0 | 0 | 0 |
+| `probit` | se | 0 | 0 | 0 | 4 | 0 |
+| `probit` | joint_test | 0 | 0 | 0 | 0 | 8 |
 | `psm` | estimate | 0 | 0 | 0 | 0 | 3100 |
 | `psm` | se | 0 | 0 | 0 | 2 | 3169 |
+| `qreg` | estimate | 0 | 0 | 0 | 0 | 0 |
+| `qreg` | se | 0 | 0 | 0 | 0 | 5 |
+| `qreg` | vcov | 0 | 0 | 0 | 0 | 12 |
 | `rddensity` | estimate | 0 | 0 | 0 | 0 | 1 |
 | `rddensity` | se | 0 | 0 | 0 | 0 | 1 |
 | `rddensity` | diagnostic | 0 | 0 | 0 | 0 | 1 |
@@ -111,6 +137,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 34 |
 | `synth` | estimate | 0 | 0 | 0 | 1 | 8 |
 | `synth` | se | 0 | 0 | 0 | 0 | 11 |
+| `tobit` | estimate | 0 | 0 | 0 | 0 | 18 |
+| `tobit` | se | 0 | 0 | 0 | 0 | 23 |
 
 ## Artifacts per function
 
@@ -368,6 +396,36 @@ Dimensions: `vce` in {analytic, stage2, bootstrap, none}; `weights` in {none, se
 
 `vce` is ignored for estimate: the covariance is computed after the two stages
 
+### `glm`
+
+Dimensions: `family_link` in {gaussian_identity, gaussian_log, binomial_logit, binomial_probit, binomial_cloglog, binomial_cauchit, poisson_log, gamma_log, inverse_gaussian_log, other}; `vce` in {classical, robust, hc0, hc1, hc2, hc3, hac, cluster}; `weights` in {none, set}; `information` in {observed, expected}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | family_link=binomial_cloglog/binomial_logit/binomial_probit/gaussian_identity/gaussian_log/poisson_log; vce=classical/cluster/robust; weights=none; information=observed | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.glm(...)` |
+| T2 | estimate, se | family_link=binomial_logit/poisson_log; vce=classical; weights=none; information=observed | `tests/reference_parity/test_glm_parity.py` | `sp.glm(...)` |
+| T2 | estimate, se | family_link=gamma_log/inverse_gaussian_log; vce=classical; weights=none; information=expected/observed | `tests/reference_parity/test_glm_dispersion_stata_r_parity.py` | `sp.glm(...)` |
+| T2 | estimate, se | family_link=binomial_cauchit; vce=classical; weights=none; information=expected | `tests/reference_parity/test_linear_model_extensions_parity.py` | `sp.glm(...)` |
+| T2 | estimate, se | family_link=binomial_logit/poisson_log; vce=hc0/hc1/hc2/hc3; weights=none; information=observed | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.glm(...)` |
+| T2 | se | family_link=binomial_probit; vce=hc0; weights=none; information=expected | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.glm(...)` |
+
+`vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
+`information` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
+### `heckman`
+
+Dimensions: `method` in {twostep, ml}; `vce` in {classical, robust, cluster}; `weights` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | method=twostep; vce=classical; weights=none | `tests/r_parity/43_heckman.py` | `sp.heckman(...)` |
+| T1 | se | method=twostep; vce=classical; weights=none | `tests/reference_parity/test_heckman_se_parity.py` | `sp.heckman(...)` |
+| T2 | estimate, se | method=ml; vce=classical/cluster/robust; weights=none | `tests/reference_parity/test_ldv_design_stata_parity.py` | `sp.heckman(...)` |
+| T2 | estimate, se | method=ml; vce=cluster/robust; weights=set | `tests/reference_parity/test_ldv_design_stata_parity.py` | `sp.heckman(...)` |
+
+`vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
 ### `honest_did`
 
 Dimensions: `restriction` in {smoothness, relative_magnitude}; `interval` in {flci, arp_conditional, arp_c_lf, arp_c_f, worst_case_bias}; `code_path` in {native, r}; `target` in {single, average, weights}; `window` in {full, restricted}; `alpha` in {0.05, other}; `m_grid` in {zero_only, zero, positive}; `rm_grid` in {honestdid, extended, user, n/a}; `source` in {callaway_santanna, sun_abraham, event_study, etwfe, gardner_did, did_imputation, moments, supplied, other}.
@@ -464,6 +522,37 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 
 `vce` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 
+### `logit`
+
+Dimensions: `vce` in {classical, robust, hc0, hc1, cluster}; `weights` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | vce=classical; weights=none | `tests/r_parity/57_logit.py` | `sp.logit(formula=...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=none | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=set | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.logit(...)` |
+| T1 | estimate, se | vce=classical; weights=set | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=hc0/hc1; weights=none/set | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.logit(...)` |
+| T2 | joint_test | vce=classical/robust; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.logit(...)` |
+| T2 | joint_test | vce=classical/cluster; weights=none | `tests/reference_parity/test_postestimation_stata_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=classical; weights=none | `tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=classical; weights=none | `tests/reference_parity/test_regression_stories_r_parity.py` | `sp.logit(...)` |
+
+`vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
+### `nbreg`
+
+Dimensions: `vce` in {classical, robust, cluster}; `weights` in {none, set}; `dispersion` in {nb2, nb1}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | vce=classical; weights=none; dispersion=nb2 | `tests/r_parity/42_nbreg.py` | `sp.nbreg(formula=...)` |
+| T4 | se | vce=classical; weights=none; dispersion=nb2 | `tests/r_parity/42_nbreg.py` | `sp.nbreg(formula=...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=none; dispersion=nb1/nb2 | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.nbreg(...)` |
+| T1 | estimate, se | vce=classical; weights=set; dispersion=nb2 | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.nbreg(...)` |
+
+`vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
 ### `nnmatch`
 
 Dimensions: `estimand` in {att, ate}; `metric` in {mahalanobis, ivariance, euclidean}; `n_matches` in {1, 2, 3, 4, 5}; `exact` in {none, set}; `bias_adjust` in {none, set}; `vce` in {robust, iid}; `vce_nn` in {2, 3, 4, na}; `caliper` in {none, set}.
@@ -511,6 +600,38 @@ Dimensions: `method` in {fe, twoway, pooled, fd, re, be, mundlak, chamberlain}; 
 
 `ssc` is ignored for estimate: the small-sample convention scales the covariance only
 
+### `poisson`
+
+Dimensions: `vce` in {classical, robust, hc0, hc1, cluster}; `weights` in {none, set}; `exposure` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | vce=classical; weights=none; exposure=none | `tests/r_parity/58_poisson.py` | `sp.poisson(formula=...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=none; exposure=none | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.poisson(...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=set; exposure=none | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.poisson(...)` |
+| T1 | estimate, se | vce=classical; weights=set; exposure=none | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.poisson(...)` |
+| T2 | estimate, se | vce=classical/hc1; weights=none; exposure=none | `tests/reference_parity/test_accounting_research_parity.py` | `sp.poisson(...)` |
+| T2 | estimate, se | vce=hc0/hc1; weights=none/set; exposure=none | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.poisson(...)` |
+| T2 | estimate, se | vce=classical/hc0; weights=none; exposure=set | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.poisson(...)` |
+| T2 | joint_test | vce=classical/robust; weights=none; exposure=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.poisson(...)` |
+
+`vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
+### `probit`
+
+Dimensions: `vce` in {classical, robust, hc0, hc1, cluster}; `weights` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | vce=classical; weights=none | `tests/r_parity/48_probit.py` | `sp.probit(formula=...)` |
+| T4 | se | vce=classical; weights=none | `tests/r_parity/48_probit.py` | `sp.probit(formula=...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=none | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.probit(...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=set | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.probit(...)` |
+| T4 | se | vce=hc0/hc1; weights=none/set | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.probit(...)` |
+| T2 | joint_test | vce=classical/cluster; weights=none | `tests/reference_parity/test_postestimation_stata_parity.py` | `sp.probit(...)` |
+
+`vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
 ### `psm`
 
 Dimensions: `method` in {nearest, kernel, radius, stratify}; `distance` in {propensity, mahalanobis}; `n_matches` in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}; `replace` in {true, false}; `caliper` in {none, set}; `bias_correction` in {true, false}; `se_method` in {abadie_imbens, abadie_imbens_2016, psmatch2, analytic, bootstrap}.
@@ -536,6 +657,20 @@ Dimensions: `method` in {nearest, kernel, radius, stratify}; `distance` in {prop
 | T2 | estimate, se | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=none; bias_correction=true; se_method=abadie_imbens | `tests/reference_parity/test_psm_options_parity.py` | `sp.match(df, ..., bias_correction=True)` |
 
 `se_method` is ignored for estimate: the variance estimator does not change the matches
+
+### `qreg`
+
+Dimensions: `vce` in {iid, robust, nid, kernel, ker, cluster, powell}; `weights` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | vce=nid; weights=none | `tests/r_parity/40_qreg.py` | `sp.qreg(...)` |
+| T2 | estimate, se | vce=iid/robust; weights=none | `tests/reference_parity/test_ldv_design_stata_parity.py` | `sp.qreg(...)` |
+| T2 | estimate, se, vcov | vce=cluster/kernel; weights=none | `tests/reference_parity/test_qreg_cluster_stata_parity.py` | `sp.qreg(...)` |
+| T2 | estimate, se | vce=robust; weights=set | `tests/reference_parity/test_ldv_gaps_stata_parity.py` | `sp.qreg(...)` |
+| T2 | estimate, se | vce=ker/nid; weights=none/set | `tests/reference_parity/test_linear_model_extensions_parity.py` | `sp.qreg(...)` |
+
+`vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
 
 ### `rddensity`
 
@@ -660,6 +795,24 @@ Dimensions: `v_method` in {equal, nested, regression}; `weights` in {unique, non
 | T2 | se | v_method=equal; weights=unique; code_path=native | `tests/reference_parity/test_synth_unique_options_parity.py` | `sp.synth(method='classic')` |
 | T4 | estimate | v_method=regression; weights=unique; code_path=native | `tests/reference_parity/test_synth_regression_v_stata.py` | `sp.synth(v_method='regression')` |
 | T4 | estimate | v_method=regression; weights=unique; code_path=native | `tests/reference_parity/test_synth2_stata_parity.py` | `sp.synth(method='classic', v_method='regression')` |
+
+### `tobit`
+
+Dimensions: `method` in {mle, scls}; `vce` in {classical, robust, cluster}; `weights` in {none, set}; `censoring` in {left, right, two_sided}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | method=mle; vce=classical; weights=none; censoring=left | `tests/r_parity/41_tobit.py` | `sp.tobit(data=...)` |
+| T2 | estimate, se | method=mle; vce=classical; weights=none; censoring=left | `tests/reference_parity/test_count_quantile_parity.py` | `sp.tobit(...)` |
+| T2 | estimate, se | method=mle; vce=classical/cluster/robust; weights=none; censoring=left | `tests/reference_parity/test_ldv_design_stata_parity.py` | `sp.tobit(...)` |
+| T2 | estimate, se | method=mle; vce=cluster/robust; weights=set; censoring=left | `tests/reference_parity/test_ldv_design_stata_parity.py` | `sp.tobit(...)` |
+| T2 | estimate, se | method=mle; vce=classical; weights=none; censoring=two_sided | `tests/reference_parity/test_ldv_design_stata_parity.py` | `sp.tobit(...)` |
+| T2 | estimate, se | method=mle; vce=cluster; weights=set; censoring=two_sided | `tests/reference_parity/test_ldv_design_stata_parity.py` | `sp.tobit(...)` |
+| T2 | estimate, se | method=mle; vce=cluster/robust; weights=none/set; censoring=two_sided | `tests/reference_parity/test_ldv_gaps_stata_parity.py` | `sp.tobit(...)` |
+| T2 | estimate, se | method=mle; vce=classical/cluster/robust; weights=none; censoring=right | `tests/reference_parity/test_ldv_gaps_stata_parity.py` | `sp.tobit(...)` |
+| T2 | estimate | method=scls; vce=classical; weights=none; censoring=left | `tests/reference_parity/test_binary_r2_and_scls_parity.py` | `sp.tobit(...)` |
+
+`vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
 
 ## Option-level Stata fixtures
 
