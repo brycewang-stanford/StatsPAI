@@ -302,8 +302,10 @@ def decorate_result_json(method: str, params: Dict[str, Any], result_json: str) 
     if method in CACHEABLE_METHODS:
         extra.update(cache_hints(method, params))
     body = result_json.rstrip()
-    if not body.endswith("}"):
-        raise ValueError("expected an encoded JSON object")
+    if not body.endswith("}"):  # not an encoded object: decode and decorate
+        return json.dumps(
+            decorate_result(method, params, json.loads(body)), separators=(",", ":")
+        )
     inner = json.dumps(extra, separators=(",", ":"))[1:]
     if body == "{}":
         return "{" + inner
@@ -359,13 +361,13 @@ def listen_teardown_result(request_id: Any) -> Dict[str, Any]:
 # --------------------------------------------------------------------- #
 
 
-def decode_header_value(value: str) -> str:
-    """Undo the ``=?base64?...?=`` sentinel encoding of a header value."""
+def decode_header_value(value: str) -> Optional[str]:
+    """Undo the ``=?base64?...?=`` sentinel encoding (``None``: malformed)."""
     if value.startswith("=?base64?") and value.endswith("?=") and len(value) >= 11:
         try:
             return base64.b64decode(value[9:-2], validate=True).decode("utf-8")
         except (ValueError, UnicodeDecodeError):
-            raise ValueError("malformed base64 header value") from None
+            return None
     return value
 
 
@@ -402,10 +404,9 @@ def header_mismatch(headers: Any, msg: Dict[str, Any]) -> Optional[str]:
         raw = headers.get("Mcp-Name")
         if raw is None:
             return "the Mcp-Name header is missing"
-        try:
-            sent_name = decode_header_value(raw)
-        except ValueError as exc:
-            return f"the Mcp-Name header is invalid: {exc}"
+        sent_name = decode_header_value(raw)
+        if sent_name is None:
+            return "the Mcp-Name header is invalid: malformed base64 value"
         if sent_name != params.get(field):
             return (
                 f"Mcp-Name header value {sent_name!r} does not match body "

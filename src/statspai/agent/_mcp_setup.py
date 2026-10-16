@@ -29,6 +29,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from ..exceptions import MethodIncompatibility
+
 SERVER_KEY = "statspai"
 MODULE = "statspai.agent.mcp_server"
 
@@ -135,7 +137,10 @@ def render_config(
 ) -> str:
     """Text the user pastes (or a command they run) to register the server."""
     if client not in CLIENTS:
-        raise ValueError(f"unknown client {client!r}; choose one of {list(CLIENTS)}")
+        raise MethodIncompatibility(
+            f"unknown client {client!r}",
+            recovery_hint=f"Choose one of {list(CLIENTS)}.",
+        )
     command, args = launch_command(profile, python)
     env = _env_block(data_roots)
     if client == "claude-code":
@@ -190,10 +195,12 @@ def write_config(
     """
     target = path or config_path(client)
     if target is None:
-        raise ValueError(
-            f"{client} is not configured through a JSON file this command "
-            "edits; run `statspai mcp config --client "
-            f"{client}` and apply what it prints."
+        raise MethodIncompatibility(
+            f"{client} is not configured through a JSON file this command edits.",
+            recovery_hint=(
+                f"Run `statspai mcp config --client {client}` and apply what "
+                "it prints."
+            ),
         )
     command, args = launch_command(profile, python)
     entry = _json_server_entry(client, command, args, _env_block(data_roots))
@@ -204,14 +211,20 @@ def write_config(
         if text.strip():
             loaded = json.loads(text)
             if not isinstance(loaded, dict):
-                raise ValueError(f"{target} does not hold a JSON object; not edited.")
+                raise MethodIncompatibility(
+                    f"{target} does not hold a JSON object; not edited.",
+                    recovery_hint="Fix or move the file, then run --write again.",
+                )
             existing = loaded
         backup = target.with_name(f"{target.name}.bak-{time.strftime('%Y%m%d%H%M%S')}")
         shutil.copy2(target, backup)
     key = _servers_key(client)
     servers = existing.get(key)
     if servers is not None and not isinstance(servers, dict):
-        raise ValueError(f"{target}: `{key}` is not an object; not edited.")
+        raise MethodIncompatibility(
+            f"{target}: `{key}` is not an object; not edited.",
+            recovery_hint=f"Make `{key}` a JSON object, then run --write again.",
+        )
     previous = (servers or {}).get(SERVER_KEY)
     existing[key] = {**(servers or {}), SERVER_KEY: entry}
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -530,10 +543,9 @@ def run_doctor(*, self_test: bool = True, cwd: Optional[Path] = None) -> Dict[st
                     f"STATSPAI_MCP_DATA_ROOTS entry {root!r} is not a directory."
                 )
     if self_test:
-        try:
-            report["self_test"] = _self_test()
-        except Exception as exc:  # report, do not crash the doctor
-            report["self_test"] = {"error": f"{type(exc).__name__}: {exc}"}
+        # handle_request turns any failure into a JSON-RPC error, which the
+        # self-test records; nothing here needs a broad catch.
+        report["self_test"] = _self_test()
         st = report["self_test"]
         if st.get("error") or not st.get("call_ok") or not st.get("discover_ok"):
             problems.append(f"Self-test failed: {json.dumps(st)[:400]}")

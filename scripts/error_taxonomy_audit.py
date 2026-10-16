@@ -92,7 +92,13 @@ GENERIC_RAISE_MAX = 1902
 # loop. Each is optional step-2/step-3 *evidence*: a failure there must
 # not abort the estimate, but it must also not vanish, so every one warns
 # and lands in ``report.degradations`` (§7). Ceiling moves 590 -> 593.
-BROAD_EXCEPT_MAX = 593
+# MCP 2026-07-28 support: the per-request dispatcher
+# (agent/mcp_server._handle_modern_request) mirrors the handshake path's
+# top-level catch in handle_request, turning any handler failure into a
+# JSON-RPC error (-32603, traceback only with STATSPAI_MCP_DEBUG) instead of
+# killing the stdio loop. A protocol boundary, not a swallowed error.
+# Ceiling moves 593 -> 594.
+BROAD_EXCEPT_MAX = 594
 # Floor for structured (StatsPAIError-family) raises. The original 42 was
 # set when the taxonomy was introduced and never ratcheted; with ~2,680
 # structured raises in the tree it let almost all of them regress to bare
