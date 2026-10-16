@@ -664,12 +664,29 @@ def _profile_tool_names(profile: str) -> Optional["frozenset[str]"]:
     """Names advertised under ``profile``; ``None`` means every tool."""
     if profile == "full":
         return None
-    from .tools import tool_manifest as _tool_manifest
-
-    curated = frozenset(t["name"] for t in _tool_manifest(curated_only=True))
+    curated = _curated_tool_names()
     if profile == "curated":
         return curated
     return frozenset(n for n in curated if n in _CORE_PROFILE_TOOLS)
+
+
+def _curated_tool_names() -> "frozenset[str]":
+    """Names of the hand-curated tools, without building their manifest.
+
+    ``tool_manifest(curated_only=True)`` appends each tool's validation tier
+    to its description, which loads the full registry (every lazy
+    submodule, about 3 s cold). Only the names are needed to filter the
+    tool list, and they come from the three static sources the manifest is
+    assembled from, in the same order of precedence.
+    """
+    from .pipeline_tools import pipeline_tool_manifest
+    from .tools._specs import TOOL_REGISTRY
+    from .workflow_tools import workflow_tool_manifest
+
+    names = {t["name"] for t in TOOL_REGISTRY}
+    names.update(t["name"] for t in workflow_tool_manifest())
+    names.update(t["name"] for t in pipeline_tool_manifest())
+    return frozenset(names)
 
 
 #: Backwards-compatible alias for the old hand-curated set. New code
@@ -1258,11 +1275,12 @@ def _build_mcp_tools(profile: Optional[str] = None) -> List[Dict[str, Any]]:
     # The committed snapshot may predate a curated tool added in this
     # release; make sure every curated entry is advertised regardless.
     present = {t["name"] for t in manifest}
-    from .tools import tool_manifest as _tool_manifest
+    if _curated_tool_names() - present:
+        from .tools import tool_manifest as _tool_manifest
 
-    manifest = list(manifest) + [
-        t for t in _tool_manifest(curated_only=True) if t["name"] not in present
-    ]
+        manifest = list(manifest) + [
+            t for t in _tool_manifest(curated_only=True) if t["name"] not in present
+        ]
     if allowed is not None:
         manifest = [t for t in manifest if t["name"] in allowed]
     out: List[Dict[str, Any]] = []
@@ -2829,6 +2847,24 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
             "token; required to bind a non-loopback host), "
             "STATSPAI_MCP_HTTP_ALLOWED_ORIGINS, STATSPAI_MCP_DEBUG."
         ),
+    )
+
+    class _Version(argparse.Action):
+        """Print the version line unwrapped (argparse would reflow it)."""
+
+        def __call__(self, parser: Any, *args: Any, **kwargs: Any) -> None:
+            print(
+                f"statspai-mcp {SERVER_VERSION} (Python {sys.version.split()[0]}, "
+                f"{os.path.abspath(sys.executable)}); protocols "
+                + ", ".join(MODERN_PROTOCOL_VERSIONS + SUPPORTED_PROTOCOL_VERSIONS)
+            )
+            parser.exit()
+
+    parser.add_argument(
+        "--version",
+        nargs=0,
+        action=_Version,
+        help="Print the server version, interpreter and protocol revisions.",
     )
     parser.add_argument(
         "--profile",
