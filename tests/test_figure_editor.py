@@ -1112,3 +1112,27 @@ def test_alpha_coded_spans_are_locked():
     ed.set_alpha("patch3", 0.5)  # plain shading stays editable
     ed.apply_palette("okabe_ito")  # recolouring keeps each span's alpha
     assert [round(p.get_facecolor()[3], 6) for p in ax.patches[:3]] == [0.02, 0.07, 0.0]
+
+
+def test_panel_edits_and_hides_text_on_the_plot(panel_factory):
+    fig = lines_fig()  # one annotation: "note"
+    fig.axes[0].text(8, 2, "0.124***")  # a numeric result label
+    ed, p = panel_factory(fig)
+    c = p.controls
+    assert [v for _, v in c["text_pick"].options] == [0, 1]
+    assert c["text_value"].value == "note" and not c["text_value"].disabled
+    c["text_value"].value = "policy change"
+    assert fig.axes[0].texts[0].get_text() == "policy change"
+    c["text_pick"].value = 1
+    assert c["text_value"].value == "0.124***" and c["text_value"].disabled
+    c["text_visible"].value = False
+    assert not fig.axes[0].texts[1].get_visible()
+    # a new annotation shows up in the list; undo removes it again
+    c["annot_text"].value = "added"
+    c["annot_btn"].click()
+    assert len(c["text_pick"].options) == 3
+    c["undo"].click()
+    assert len(c["text_pick"].options) == 2
+    c["reset"].click()
+    assert fig.axes[0].texts[0].get_text() == "note"
+    assert fig.axes[0].texts[1].get_visible()

@@ -138,6 +138,12 @@ notebooks ship their executed outputs.
   call, g-estimation, AIPW and TMLE, the E-value, and a two-visit simulation
   in which every regression specification is wrong while the g-formula and a
   marginal structural model recover the truth.
+- `notebooks/tutorial_figure_editor.ipynb` - editing a paper figure with
+  `sp.interactive`. Which elements count as data and stay locked, edits as a
+  list of actions, how axis limits are widened to keep intervals visible,
+  recolouring a series with its band and legend, the reproducible code
+  checked pixel for pixel on a fresh figure, undo, the pre-submission check,
+  PDF export with embedded fonts, and reusing a saved style.
 
 ```bash
 python -m pip install "statspai[plotting]" jupyter

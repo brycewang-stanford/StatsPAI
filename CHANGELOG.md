@@ -300,6 +300,13 @@ reset restore it, and that a saved style replays identically. Guide:
 - `sp.interactive(fig, actions=[...], ui=...)` for agents and scripts.
 - `sp.refresh_legend(ax)`: rebuild legend entries from the current style
   of their artists, exactly as a legend drawn now would look.
+- Jupyter panel, Layout tab: "Text on the plot" lists the axes' texts to
+  reword (annotations) or hide (any text); numeric result labels drawn by
+  the plotting function show their wording greyed out.
+- `examples/notebooks/tutorial_figure_editor.ipynb`: a Chinese tutorial
+  on editing a paper figure (locked roles, actions, limit protection,
+  series recolouring, reproducible code checked on a fresh figure, undo,
+  pre-submission check, font-embedded PDF, reusing a style).
 - Saved styles use a version-2 format (`op` + `params`); version-1
   files are translated.
 

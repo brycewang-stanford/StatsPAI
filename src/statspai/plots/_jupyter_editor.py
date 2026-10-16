@@ -20,12 +20,12 @@ import logging
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
+from ._jupyter_layout_tab import _layout_tab
 from ._jupyter_tabs import (  # noqa: F401  (helpers re-exported)
     _ERR,
     _OK,
     _WARN,
     _code_to_html,
-    _layout_tab,
     _rebuild_style,
     _short,
     _span,
