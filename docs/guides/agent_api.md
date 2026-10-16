@@ -338,9 +338,23 @@ other estimator error. Stdout is strict JSON and carries
 
 ## MCP server: drop-in for Claude Desktop / Cursor
 
-`pip install statspai` exposes a `statspai-mcp` console script.
-Wire it into your MCP-capable client by adding to the client's
-config:
+`pip install statspai` exposes a `statspai-mcp` console script. The
+safest way to register it is to let StatsPAI write the entry:
+
+```bash
+statspai mcp config --client claude-desktop --write
+statspai mcp doctor
+```
+
+`config` uses this interpreter by absolute path, so the client runs the
+environment you ran the command from rather than whatever `statspai-mcp`
+its `PATH` finds first. `doctor` resolves every configured StatsPAI entry
+(Claude Code, Claude Desktop, Cursor, Windsurf, VS Code, Codex) to the
+interpreter it runs, reports the StatsPAI version each one imports, and
+runs an in-process round trip. It exits 1 when a client runs a different
+version or the round trip fails.
+
+To wire it by hand, add to the client's config:
 
 **Claude Desktop** (`claude_desktop_config.json`):
 
@@ -544,6 +558,27 @@ on a memory miss, with its provenance, lineage and replay string. A TTL
 (`STATSPAI_MCP_RESULT_CACHE_TTL`) still counts from the fit, and an
 entry written by another StatsPAI version is discarded on read. A result
 that cannot be pickled stays memory-only.
+
+### Protocol revisions
+
+The server is dual-era. A request whose `_meta` names a protocol version
+(`io.modelcontextprotocol/protocolVersion`, revision `2026-07-28`), or a
+`server/discover` probe, is served without a handshake. Such results
+carry `resultType`, the server identity in `_meta`, and `ttlMs` /
+`cacheScope` caching hints on list and read results. An unknown version
+is `-32022` with the supported list. Over HTTP these requests need no
+session, and the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name`
+headers must match the body (`-32020` otherwise). `subscriptions/listen`
+is acknowledged with an empty set, since the tool, prompt and resource
+lists never change while a server runs. An `initialize` request still
+selects the handshake revisions (`2025-11-25` back to `2024-11-05`).
+
+### Lost handles
+
+`statspai://handles` lists the data and result handles the server still
+holds, newest first, with shape, source, producing tool and replay call.
+An agent whose context was compacted can recover its `data_id` /
+`result_id` there instead of reloading the file or refitting.
 
 ### Completion
 

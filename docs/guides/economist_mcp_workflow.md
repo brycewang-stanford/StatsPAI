@@ -11,10 +11,26 @@ handles so follow-up diagnostics can reuse the same object.
 
 ## Configure the server
 
-After installing StatsPAI, the package exposes `statspai-mcp` and the module
-entry point `python -m statspai.agent.mcp_server`.
+Let StatsPAI write the entry for you. Run this in the environment where you
+installed StatsPAI:
 
-Claude Desktop-style configuration:
+```bash
+statspai mcp config --client claude-code      # prints `claude mcp add ...`
+statspai mcp config --client cursor --write   # edits ~/.cursor/mcp.json
+statspai mcp doctor                           # checks every configured client
+```
+
+The entry runs this interpreter by absolute path
+(`<python> -m statspai.agent.mcp_server`). That matters because a client
+that launches `statspai-mcp` by name gets whichever environment comes first
+on its `PATH`, which is often an older StatsPAI than the one you just
+upgraded. `doctor` asks each configured interpreter which StatsPAI it
+imports and says so when they differ. `--write` keeps your other servers and
+saves the old file as a timestamped backup. Clients: `claude-code`,
+`claude-desktop`, `cursor`, `windsurf`, `vscode` and `codex`.
+
+The package also exposes `statspai-mcp` and the module entry point
+`python -m statspai.agent.mcp_server`. A hand-written Claude Desktop entry:
 
 ```json
 {
@@ -40,9 +56,13 @@ For clients that prefer a console script, use:
 }
 ```
 
-The server speaks stdio JSON-RPC, advertises the `2025-06-18` MCP protocol
-revision, and returns `structuredContent` with a compact `outputSchema`. Older
-clients still receive the same object as compact JSON text.
+The server speaks stdio JSON-RPC and serves both generations of the MCP
+protocol. Clients of the current revision (`2026-07-28`) send no handshake and
+name the version on every request. Older clients open with `initialize` and
+negotiate `2025-11-25` or an earlier revision. Results carry
+`structuredContent` with a compact `outputSchema`, and the same object as
+compact JSON text. `statspai-mcp --version` prints the package version, the
+interpreter and the revisions the server speaks.
 
 Useful server settings (set them in the client's `env` block):
 

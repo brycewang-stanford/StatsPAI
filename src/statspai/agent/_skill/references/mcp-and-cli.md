@@ -9,7 +9,7 @@
 | Surface | Start | Discover | Run |
 | --- | --- | --- | --- |
 | Python | `import statspai as sp` | `sp.search_functions("...")`, `sp.describe_function(name)`, `sp.function_schema(name)`, `sp.route(family, ...)` | `sp.<name>(df, ...)` → result object |
-| MCP (Claude Code / Desktop, Cursor) | `claude mcp add statspai -- statspai-mcp` | tools `search_functions` → `describe_function` → `route_estimator`; resources `statspai://function/{name}`, `statspai://guide/{family}` | `tools/call` on a listed tool, or `call_function(function=..., arguments={...})` for any of the 1,200+ |
+| MCP (Claude Code / Desktop, Cursor) | `statspai mcp config --client claude-code` (prints the `claude mcp add` line) | tools `search_functions` → `describe_function` → `route_estimator`; resources `statspai://function/{name}`, `statspai://guide/{family}` | `tools/call` on a listed tool, or `call_function(function=..., arguments={...})` for any of the 1,200+ |
 | Shell | `pip install statspai` | `statspai search ...`, `statspai describe <name>`, `statspai route <family> --answer k=v` | `statspai run <name> --data f.csv --arg k=v`, `statspai did --data f.csv --y ... --treat ...` |
 
 The MCP server lists the hand-curated tools by default (`--profile curated`,
@@ -18,6 +18,14 @@ the default for the CLI and for in-process `handle_request` alike);
 auto-generated tool (several hundred, megabytes of schema — only for clients
 that page their tool list). Every registered function stays callable under
 every profile, and `statspai://functions` always indexes all of them.
+
+Register the server with `statspai mcp config --client <client>` (add
+`--write` for the JSON-config clients) rather than by the bare name
+`statspai-mcp`: the entry then runs the interpreter the command ran in, by
+absolute path. A client that launches `statspai-mcp` by name runs whichever
+environment its `PATH` finds first, often an older StatsPAI.
+`statspai mcp doctor` reports the version every configured client runs.
+Handles lost to context compaction are listed at `statspai://handles`.
 
 `statspai-mcp --transport http` serves the same surface over Streamable HTTP
 (`http://127.0.0.1:8765/mcp` by default) for clients that connect to a URL.
