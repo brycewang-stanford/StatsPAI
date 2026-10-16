@@ -265,12 +265,12 @@ def single_color(artist: Any) -> Optional[str]:
         if artist.get_array() is not None:
             return None
         if isinstance(artist, mcoll.LineCollection):
-            cols = artist.get_edgecolor()
+            raw = artist.get_edgecolor()
         else:
-            cols = artist.get_facecolor()
-            if len(cols) == 0:
-                cols = artist.get_edgecolor()
-        cols = np.asarray(cols)
+            raw = artist.get_facecolor()
+            if len(raw) == 0:
+                raw = artist.get_edgecolor()
+        cols = np.asarray(raw)
         if cols.ndim != 2 or cols.shape[0] == 0:
             return None
         hexes = {_hex(c) for c in cols}

@@ -195,12 +195,13 @@ def create_script_editor(editor: "FigureEditor", show: bool = True) -> Any:
     fig.canvas.mpl_connect("close_event", on_close)
 
     # Keep the widgets alive and reachable.
-    controls._statspai_widgets = {
+    widgets = {
         "textbox": textbox,
         "buttons": buttons,
         "on_pick": on_pick,
         "info": info,
     }
+    setattr(controls, "_statspai_widgets", widgets)
     fig._statspai_controls = controls
     if show:
         plt.show()

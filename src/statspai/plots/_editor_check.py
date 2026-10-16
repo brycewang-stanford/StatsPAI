@@ -76,7 +76,9 @@ def run_checks(
                 ][j]
                 for k, j in g["members"]
             ]
-            current = {single_color(m) for m in members if m.get_visible()} - {None}
+            current = {
+                c for c in (single_color(m) for m in members if m.get_visible()) if c
+            }
             if len(current) == 1:
                 groups.append((current.pop(), g))
         for (c1, g1), (c2, g2) in combinations(groups, 2):

@@ -68,6 +68,12 @@ def _span(msg: str, color: str = "#999") -> str:
     return f'<span style="font-size:11px; color:{color}">{html.escape(msg)}</span>'
 
 
+def _if_chosen(value: Any, action: Callable[[], None]) -> None:
+    """Run a preset/chooser action unless the placeholder ("") is selected."""
+    if value:
+        action()
+
+
 def _short(params: Any) -> str:
     text = repr({k: v for k, v in (params or {}).items() if v not in (None, {}, [])})
     return text if len(text) < 70 else text[:67] + "..."
@@ -228,7 +234,7 @@ def _text_tab(p: EditorPanel) -> Any:
         "font_preset",
         p.dropdown("Font:", font_options, ""),
         lambda: "",
-        lambda v: v and ed.apply_font_preset(v, ax_index=p.ax_index),
+        lambda v: _if_chosen(v, lambda: ed.apply_font_preset(v, ax_index=p.ax_index)),
     )
     size_options = [("-- choose size preset --", "")] + [
         (
@@ -242,7 +248,7 @@ def _text_tab(p: EditorPanel) -> Any:
         "size_preset",
         p.dropdown("Sizes:", size_options, ""),
         lambda: "",
-        lambda v: v and ed.apply_size_preset(v, ax_index=p.ax_index),
+        lambda v: _if_chosen(v, lambda: ed.apply_size_preset(v, ax_index=p.ax_index)),
     )
 
     def font_names(family: str) -> List[Tuple[str, str]]:
@@ -329,7 +335,7 @@ def _rebuild_style(p: EditorPanel) -> None:
     children: List[Any] = [p.header("Series colours")]
 
     def style_bind(
-        name: str, widget: Any, read: Callable[[], Any], write: Callable[[Any], Any]
+        name: str, widget: Any, read: Callable[..., Any], write: Callable[..., Any]
     ) -> Any:
         p.bind(name, widget, read, write)
         p.readers[-1]._style = True  # type: ignore[attr-defined]
@@ -547,7 +553,7 @@ def _layout_tab(p: EditorPanel) -> Any:
             "Size preset:", [(lab, k) for k, (lab, _) in _FIG_SIZES.items()], ""
         ),
         lambda: "",
-        lambda k: k and ed.set_figsize(*_FIG_SIZES[k][1]),
+        lambda k: _if_chosen(k, lambda: ed.set_figsize(*_FIG_SIZES[k][1] or ())),
     )
     p.bind(
         "fig_width",

@@ -785,6 +785,15 @@ def test_check_reports_real_problems_only():
     assert any(f["code"] == "low_contrast" for f in ed2.check())
 
 
+def test_repr_is_short():
+    ed = FigureEditor(lines_fig())
+    ed.set_title("x")
+    assert repr(ed) == (
+        "FigureEditor(1 axes, 1 edit(s), protect_data=True; see .summary(), "
+        ".generate_code())"
+    )
+
+
 def test_summary_and_legacy_fields():
     ed = FigureEditor(lines_fig())
     ed.set_title("New")

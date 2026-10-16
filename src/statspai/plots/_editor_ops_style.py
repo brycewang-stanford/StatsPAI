@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, cast
 
 from ..exceptions import MethodIncompatibility
 from ._editor_ops import (
@@ -121,7 +121,9 @@ def _recolor_member(artist: Any, kind: str, old_hex: str, color: Any) -> Dict[st
             ("_markeredgecolor", "mec", artist.set_markeredgecolor),
         ):
             raw = getattr(artist, attr, None)
-            if isinstance(raw, str) and raw in ("auto", "none", "None"):
+            if raw is None or (
+                isinstance(raw, str) and raw in ("auto", "none", "None")
+            ):
                 continue
             try:
                 if mcolors.to_hex(raw, keep_alpha=False) != old_hex:
@@ -143,7 +145,7 @@ def _recolor_member(artist: Any, kind: str, old_hex: str, color: Any) -> Dict[st
     if kind == "coll":
         if isinstance(artist, mcoll.LineCollection):
             new = keep_alpha(artist.get_edgecolor())
-            artist.set_edgecolor(new)
+            artist.set_edgecolor(cast(Any, new))
             out["edgecolor"] = new
             return out
         fc = np.asarray(artist.get_facecolor(), dtype=float)
@@ -347,11 +349,12 @@ def _apply_background(e: "FigureEditor", p: Dict[str, Any]) -> Dict[str, Any]:
         from ._editor_roles import single_color
 
         for artist in [*ax.get_lines(), *ax.collections, *ax.patches]:
-            if _locked(e, artist) and single_color(artist) is not None:
+            drawn = single_color(artist)
+            if _locked(e, artist) and drawn is not None:
                 import matplotlib.colors as mcolors
 
                 bg = mcolors.to_rgb(color)
-                fg = mcolors.to_rgb(single_color(artist))
+                fg = mcolors.to_rgb(drawn)
                 if sum(abs(a - b) for a, b in zip(bg, fg)) < 0.15:
                     warnings.warn(
                         f"Background {color!r} is almost the colour of a data "

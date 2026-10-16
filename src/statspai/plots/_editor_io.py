@@ -204,7 +204,8 @@ def _ax_index_of(target: str) -> int:
 def _legacy_to_op(d: Dict[str, Any]) -> Optional[Tuple[str, Dict[str, Any]]]:
     """Translate a version-1 edit record to an operation (``None`` if the
     record has no counterpart)."""
-    td, prop, val = d.get("target", ""), d.get("property", ""), d.get("new")
+    td, prop = str(d.get("target", "")), str(d.get("property", ""))
+    val: Any = d.get("new")
     i = _ax_index_of(td)
     leaf = td.split(".")[-1]
     ax = {"ax_index": i}

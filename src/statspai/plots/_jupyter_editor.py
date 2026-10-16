@@ -112,8 +112,8 @@ class EditorPanel:
         self,
         name: str,
         widget: Any,
-        read: Callable[[], Any],
-        write: Callable[[Any], Any],
+        read: Callable[..., Any],
+        write: Callable[..., Any],
     ) -> Any:
         """Register a control: ``read()`` gives its value from the figure,
         ``write(value)`` applies a change."""

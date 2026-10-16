@@ -149,7 +149,7 @@ def _axvar(i: int) -> str:
     return "ax" if i == 0 else f"ax{i}"
 
 
-@dataclass
+@dataclass(repr=False)
 class FigureEditor(EditMethods):
     """
     Editor that wraps a matplotlib figure and tracks modifications.
@@ -193,6 +193,14 @@ class FigureEditor(EditMethods):
     _batch_depth: int = field(default=0, repr=False)
     _dirty: bool = field(default=False, repr=False)
     _serial: int = field(default=0, repr=False)
+
+    def __repr__(self) -> str:
+        n_axes = len(self.fig.get_axes())
+        return (
+            f"FigureEditor({n_axes} axes, {len(self.edits)} edit(s), "
+            f"protect_data={self.protect_data}; see .summary(), "
+            ".generate_code())"
+        )
 
     def __post_init__(self) -> None:
         self.artist_roles.update(classify_figure(self.fig))
