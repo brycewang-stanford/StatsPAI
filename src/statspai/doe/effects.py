@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
@@ -263,7 +264,9 @@ def factorial_effects(
     lenth1989quick; daniel1959use; box2005statistics
     """
     if y not in data.columns:
-        raise ColumnNotFound(f"Response column {y!r} is not in the data.")
+        raise ColumnNotFound.from_missing(
+            {"y": y}, data.columns, context="factorial_effects"
+        )
     if not 0.0 < alpha < 1.0:
         raise MethodIncompatibility(f"alpha must be in (0, 1); got {alpha}.")
     ref = str(reference).lower()
@@ -284,9 +287,7 @@ def factorial_effects(
             )
     else:
         cols = list(factors)
-        miss = [str(f) for f in cols if f not in data.columns]
-        if miss:
-            raise ColumnNotFound(f"Not in the data: {', '.join(miss)}.")
+        check_columns(data, {"factors": cols}, function="factorial_effects")
     names = [str(c) for c in cols]
     use = data[[y] + cols].dropna()
     yy = use[y].to_numpy(dtype=float)

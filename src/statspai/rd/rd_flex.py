@@ -28,12 +28,13 @@ arXiv preprint arXiv:2107.07942 v5. [@noack2025flexible]
 
 from __future__ import annotations
 
-from typing import Optional, List, Any, Tuple
 import warnings
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from .rdrobust import rdrobust
 
@@ -161,9 +162,11 @@ def rd_flex(
         needed.append(fuzzy)
     if cluster is not None:
         needed.append(cluster)
-    missing = [c_ for c_ in needed if c_ not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")  # pragma: no cover
+    check_columns(
+        data,
+        {"y": y, "x": x, "W": list(W), "fuzzy": fuzzy, "cluster": cluster},
+        function="sp.rd_flex",
+    )
 
     df = data.dropna(subset=needed).copy()
     Y = df[y].to_numpy(dtype=float)
@@ -355,6 +358,7 @@ def _make_learner(name: str, random_state: Optional[int]) -> Any:
             return RidgeCV(alphas=np.logspace(-3, 3, 21))
         if name == "lasso":
             from sklearn.linear_model import LassoCV
+
             from ..compat.sklearn import lasso_cv_alphas_kwargs
 
             return LassoCV(

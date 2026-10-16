@@ -32,10 +32,16 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from .basic_tests import _check_alpha
 
 _OUTCOME_MODELS = ("linear", "logit", "probit", "poisson")
@@ -267,11 +273,21 @@ def aipw(
     extra = [c for c in (weights, cluster) if c is not None]
     if isinstance(propensity, str):
         extra.append(propensity)
-    missing_cols = [c for c in [y, treat] + list(covariates) + extra if c not in data]
+    named_cols = {
+        "y": y,
+        "treat": treat,
+        "covariates": list(covariates),
+        "weights": weights,
+        "cluster": cluster,
+        "propensity": propensity if isinstance(propensity, str) else None,
+    }
+    missing_cols = missing_named_columns(named_cols, data.columns)
     if missing_cols:
-        raise MethodIncompatibility(
-            f"aipw: columns not found in data: {missing_cols}",
-            diagnostics={"missing": missing_cols},
+        raise ColumnNotFound.from_missing(
+            missing_cols,
+            data.columns,
+            context="aipw",
+            extra_diagnostics={"missing": list(missing_cols.values())},
         )
     df = data[list(dict.fromkeys([y, treat] + list(covariates) + extra))].dropna()
     Y = df[y].values.astype(float)

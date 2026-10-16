@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from scipy import linalg, special, stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import (
@@ -219,8 +220,12 @@ class _OffsetSpec:
         name = exposure if exposure is not None else offset
         take_log = exposure is not None
         if isinstance(name, str):
-            if name not in data.columns:
-                raise MethodIncompatibility(f"Column {name!r} is not in data.")
+            arg = "exposure" if take_log else "offset"
+            check_columns(
+                data,
+                {arg: name},
+                message=f"Column {name!r} is not in data.",
+            )
             raw = frame[name].to_numpy(dtype=float)
             column: Optional[str] = name
             label = f"log({name})" if take_log else name
@@ -248,10 +253,11 @@ class _OffsetSpec:
                 "The offset was passed as an array, so it cannot be rebuilt "
                 "for new data. Fit with offset='<column>'."
             )
-        if self.column not in data.columns:
-            raise MethodIncompatibility(
-                f"The new data lack the offset column {self.column!r}."
-            )
+        check_columns(
+            data,
+            {"exposure" if self.log else "offset": self.column},
+            message=f"The new data lack the offset column {self.column!r}.",
+        )
         raw = data[self.column].to_numpy(dtype=float)
         return np.asarray(np.log(raw) if self.log else raw)
 
@@ -299,10 +305,11 @@ class _TrialsSpec:
 
     def for_data(self, data: pd.DataFrame) -> np.ndarray:
         name = "_trials" if self.exprs is not None else self.column
-        if name not in data.columns:
-            raise MethodIncompatibility(
-                f"The new data lack the trials column {name!r}."
-            )
+        check_columns(
+            data,
+            {"trials": name},
+            message=f"The new data lack the trials column {name!r}.",
+        )
         return np.asarray(data[name].to_numpy(dtype=float))
 
 
@@ -366,8 +373,11 @@ class _PredictiveMethods:
         """Outcome of new data on the model's scale, and the rows used."""
         if self.model in ("oprobit", "ologit", "mlogit"):
             lhs = self.formula.split("~", 1)[0].strip()
-            if lhs not in data.columns:
-                raise MethodIncompatibility(f"The new data lack the outcome {lhs!r}.")
+            check_columns(
+                data,
+                {"outcome": lhs},
+                message=f"The new data lack the outcome {lhs!r}.",
+            )
             rows = data.loc[data[lhs].notna()]
             levels = list(self._model.levels)
             codes = pd.Categorical(rows[lhs], categories=levels).codes
@@ -1341,22 +1351,28 @@ def bayes_regress(
         raise MethodIncompatibility(
             f"trials= is for model='logit'; got model='{model_key}'."
         )
-    if trials is not None and (
-        not isinstance(trials, str) or trials not in data.columns
-    ):
+    if trials is not None and not isinstance(trials, str):
         raise MethodIncompatibility(
             "trials must name a column of data holding the number of trials."
+        )
+    if trials is not None:
+        check_columns(
+            data,
+            {"trials": trials},
+            message="trials must name a column of data holding the number of "
+            f"trials; {trials!r} is not one.",
         )
 
     levels: List[Any] = []
     work = data
     if model_key in ("oprobit", "ologit", "mlogit"):
         lhs = formula.split("~", 1)[0].strip()
-        if lhs not in data.columns:
-            raise MethodIncompatibility(
-                f"For model='{model_key}' the left-hand side must be a column "
-                f"of data; {lhs!r} is not."
-            )
+        check_columns(
+            data,
+            {"outcome": lhs},
+            message=f"For model='{model_key}' the left-hand side must be a "
+            f"column of data; {lhs!r} is not.",
+        )
         work = data.loc[data[lhs].notna()].copy()
         codes, levels = _ordered_codes(work[lhs])
         work[lhs] = codes

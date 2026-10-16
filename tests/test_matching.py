@@ -763,7 +763,7 @@ class TestMatchGeneral:
             match(
                 selection_bias_data, y="nonexistent", treat="treat", covariates=["x1"]
             )
-        assert exc.value.diagnostics["missing_columns"] == ["nonexistent"]
+        assert exc.value.diagnostics["missing_columns"] == {"y": "nonexistent"}
 
     def test_invalid_method(self, selection_bias_data):
         with pytest.raises(MethodIncompatibility, match="method must be"):

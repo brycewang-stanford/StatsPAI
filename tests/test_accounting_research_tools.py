@@ -65,7 +65,7 @@ def test_fama_macbeth_skips_a_period_it_cannot_estimate(panel):
 
 
 def test_fama_macbeth_refusals(panel):
-    with pytest.raises(MethodIncompatibility, match="not a column"):
+    with pytest.raises(MethodIncompatibility, match="not found in data"):
         sp.fama_macbeth("y ~ x", panel, time="period")
     with pytest.raises(MethodIncompatibility, match="non-negative"):
         sp.fama_macbeth("y ~ x", panel, time="year", lags=-1)

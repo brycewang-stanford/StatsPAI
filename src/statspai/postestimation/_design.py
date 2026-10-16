@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 _INTERCEPT_TOKENS = ("Intercept", "const", "_cons")
 
@@ -135,15 +135,19 @@ class _TermDesign:
         if m is not None:
             base, level = m.group(1), m.group(2)
             if base not in frame.columns:
-                raise MethodIncompatibility(
-                    f"margins: {base!r} is not in the data.",
-                    recovery_hint=_NEEDS_DATA_HINT,
+                raise ColumnNotFound.from_missing(
+                    [base],
+                    list(frame.columns),
+                    message=f"margins: {base!r} is not in the data.",
+                    extra_hint=_NEEDS_DATA_HINT,
                 )
             return np.array([factor_value(level, v) for v in frame[base]], dtype=float)
         if part not in frame.columns:
-            raise MethodIncompatibility(
-                f"margins: {part!r} is not in the data.",
-                recovery_hint=_NEEDS_DATA_HINT,
+            raise ColumnNotFound.from_missing(
+                [part],
+                list(frame.columns),
+                message=f"margins: {part!r} is not in the data.",
+                extra_hint=_NEEDS_DATA_HINT,
             )
         out: np.ndarray = frame[part].to_numpy(dtype=float)
         return out
@@ -190,6 +194,7 @@ class _FormulaDesign:
             _coerce_string_extension_dtypes,
             formula_eval_env,
             r_formula_idioms,
+            raise_if_formula_names_missing,
         )
 
         rhs = r_formula_idioms(formula.split("~", 1)[1].strip())
@@ -199,6 +204,7 @@ class _FormulaDesign:
                 rhs, frame, eval_env=formula_eval_env(), NA_action="drop"
             ).design_info
         except Exception as exc:  # patsy raises many types
+            raise_if_formula_names_missing(rhs, frame, exc, context="margins")
             raise MethodIncompatibility(
                 f"margins: could not rebuild the design of {formula!r} on the "
                 f"supplied data ({type(exc).__name__}: {exc}).",

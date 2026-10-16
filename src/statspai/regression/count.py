@@ -23,7 +23,12 @@ from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
-from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from ..exceptions import (
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
 from ..output._lineage import records_provenance
 
 # ---------------------------------------------------------------------------
@@ -85,16 +90,11 @@ def _normalize_column_list(columns: Any, role: str) -> List[str]:
 def _require_columns(data: pd.DataFrame, columns: Sequence[str], role: str) -> None:
     missing = [column for column in columns if column not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"{role} references missing column(s): {missing}.",
-            recovery_hint="Check spelling or rename columns before fitting the "
-            "count model.",
-            diagnostics={
-                "role": role,
-                "missing_columns": missing,
-                "available_columns": [str(column) for column in data.columns],
-            },
-            alternative_functions=_COUNT_ALTERNATIVES,
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"{role} references missing column(s): {missing}.",
+            extra_diagnostics={"role": role},
         )
 
 
@@ -2986,8 +2986,12 @@ def _ppmlhdfe_conley(
         )
     for c in (conley_lat, conley_lon):
         if c not in data.columns:
-            raise MethodIncompatibility(
-                f"ppmlhdfe(vce='conley'): coordinate column {c!r} not in data."
+            raise ColumnNotFound.from_missing(
+                {"conley_lat" if c == conley_lat else "conley_lon": c},
+                list(data.columns),
+                message=(
+                    f"ppmlhdfe(vce='conley'): coordinate column {c!r} not in data."
+                ),
             )
 
     base = ppmlhdfe(

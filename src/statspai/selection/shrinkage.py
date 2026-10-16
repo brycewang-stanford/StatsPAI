@@ -29,9 +29,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._validate import require_numeric_columns
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 _METHODS = ("ols", "ridge", "lasso", "pcr")
 
@@ -104,9 +105,11 @@ class ShrinkageResult(ResultProtocolMixin):
             )
         missing = [c for c in self.x if c not in data.columns]
         if missing:
-            raise MethodIncompatibility(
-                f"predict(): columns {missing} are not in the data.",
-                diagnostics={"missing_columns": missing},
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(data.columns),
+                context="predict()",
+                extra_hint="Pass a frame holding every predictor of the fit.",
             )
         X = data[self.x].to_numpy(dtype=float)
         Z = (X - self._center) / self._scale
@@ -115,10 +118,7 @@ class ShrinkageResult(ResultProtocolMixin):
     def rmspe(self, data: pd.DataFrame) -> float:
         """Root mean squared prediction error on ``data``, a frame holding
         the outcome and the predictors (a hold-out sample)."""
-        if self.y not in data.columns:
-            raise MethodIncompatibility(
-                f"rmspe(): the outcome {self.y!r} is not in the data."
-            )
+        check_columns(data, {"y": self.y}, function="rmspe()")
         err = data[self.y].to_numpy(dtype=float) - self.predict(data)
         ok = np.isfinite(err)
         if not ok.any():
@@ -356,13 +356,13 @@ def shrinkage(
             recovery_hint=f"Choose one of {list(_METHODS)}.",
             diagnostics={"method": method, "valid": list(_METHODS)},
         )
+    x_arg = x
     x = [x] if isinstance(x, str) else list(x)
-    missing = [c for c in [y] + x if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"shrinkage: columns {missing} are not in the data.",
-            diagnostics={"missing_columns": missing},
-        )
+    check_columns(
+        data,
+        {"y": y, "x": x_arg if isinstance(x_arg, str) else x},
+        function="shrinkage",
+    )
     if not x:
         raise MethodIncompatibility("shrinkage: no predictors given.")
     if method != "pcr" and n_components is not None:

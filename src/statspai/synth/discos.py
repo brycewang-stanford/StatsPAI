@@ -77,6 +77,7 @@ from scipy.optimize import linprog
 from scipy.stats import rankdata
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from ._core import _eq_bounded_lsq, placebo_rank_pvalue
@@ -217,9 +218,9 @@ def discos(
         raise ValueError(  # pragma: no cover
             f"method must be 'mixture' or 'quantile', got '{method}'"
         )
-    for col in (outcome, unit, time):
-        if col not in data.columns:
-            raise MethodIncompatibility(f"column {col!r} not found in data")
+    check_columns(
+        data, {"outcome": outcome, "unit": unit, "time": time}, function="sp.discos"
+    )
 
     cell_sizes = data.groupby([unit, time]).size()
     if int(cell_sizes.max()) > 1:

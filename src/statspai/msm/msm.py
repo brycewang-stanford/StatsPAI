@@ -73,6 +73,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
@@ -210,9 +211,18 @@ def msm(
 
     baseline = list(baseline or [])
     required = [y, treat, id, time] + time_varying + baseline
-    missing = [c for c in required if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "id": id,
+            "time": time,
+            "time_varying": list(time_varying),
+            "baseline": baseline,
+        },
+        function="sp.msm",
+    )
 
     df = data[required].dropna().sort_values([id, time]).reset_index(drop=True)
     if df.empty:
@@ -527,6 +537,17 @@ def stabilized_weights(
             f"density_sd must be 'unbiased' or 'ml', got {density_sd!r}"
         )
     baseline = list(baseline or [])
+    check_columns(
+        data,
+        {
+            "treat": treat,
+            "id": id,
+            "time": time,
+            "time_varying": list(time_varying or []),
+            "baseline": baseline,
+        },
+        function="sp.stabilized_weights",
+    )
     df = data.sort_values([id, time]).reset_index(drop=True)
 
     if treat_type == "auto":

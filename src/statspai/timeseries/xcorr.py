@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -134,12 +135,18 @@ def _pair(
     names = []
     for arg, default in ((x, "x"), (y, "y")):
         if isinstance(arg, str):
-            if data is None or arg not in data.columns:
+            if data is None:
                 raise MethodIncompatibility(
                     f"sp.xcorr: {arg!r} is not a column of data.",
                     recovery_hint="Pass data= with that column, or pass "
                     "the series itself.",
                 )
+            check_columns(
+                data,
+                {default: arg},
+                message=f"sp.xcorr: {arg!r} is not a column of data.",
+                extra_hint="Pass data= with that column, or pass the series itself.",
+            )
             cols.append(data[arg].to_numpy(dtype=float, na_value=np.nan))
             names.append(arg)
         else:

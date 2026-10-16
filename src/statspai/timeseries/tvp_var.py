@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..exceptions import (
     ConvergenceWarning,
     DataInsufficient,
@@ -270,8 +271,7 @@ def tvp_var(
         raise MethodIncompatibility("tvp_var: lags must be a positive integer.")
     work = data
     if time is not None:
-        if time not in data.columns:
-            raise MethodIncompatibility(f"tvp_var: time column {time!r} not found.")
+        check_columns(data, {"time": time}, function="sp.tvp_var")
         if data[time].isna().any():
             raise MethodIncompatibility(
                 f"tvp_var: {int(data[time].isna().sum())} rows have a missing "
@@ -287,12 +287,7 @@ def tvp_var(
         ]
     else:
         names = [str(v) for v in variables]
-        missing = [v for v in names if v not in work.columns]
-        if missing:
-            raise MethodIncompatibility(
-                f"tvp_var: columns {missing} are not in data.",
-                recovery_hint="Check the names passed to variables=.",
-            )
+        check_columns(work, {"variables": names}, function="sp.tvp_var")
     if not names or len(set(names)) != len(names):
         raise MethodIncompatibility(
             "tvp_var: variables must name distinct numeric columns."

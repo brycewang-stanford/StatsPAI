@@ -21,6 +21,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
@@ -107,9 +108,11 @@ def rd_diff_in_disc(
     """
     covs = list(covariates or [])
     cols = [y, x, post] + covs + ([cluster] if cluster else [])
-    missing = [col for col in cols if col not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {"y": y, "x": x, "post": post, "covariates": covs, "cluster": cluster},
+        function="sp.rd_diff_in_disc",
+    )
     df = data[cols].dropna().reset_index(drop=True)
     P = pd.to_numeric(df[post], errors="coerce").to_numpy(dtype=float)
     if not np.all(np.isin(P, (0.0, 1.0))) or len(np.unique(P)) < 2:

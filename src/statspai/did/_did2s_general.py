@@ -19,8 +19,9 @@ import pandas as pd
 from scipy import sparse
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = ["did2s_general"]
 
@@ -34,7 +35,11 @@ def _cell_codes(df: pd.DataFrame, spec: str) -> Tuple[np.ndarray, int]:
         raise MethodIncompatibility(f"gardner_did: empty fixed effect {spec!r}.")
     missing = [p for p in parts if p not in df.columns]
     if missing:
-        raise ValueError(f"Column '{missing[0]}' not found in data")
+        raise ColumnNotFound.from_missing(
+            {"fe": spec} if len(parts) == 1 else missing,
+            list(df.columns),
+            context="sp.gardner_did",
+        )
     codes = df.groupby(parts, sort=True, dropna=False).ngroup().to_numpy()
     return codes, int(codes.max()) + 1 if len(codes) else 0
 
@@ -84,13 +89,17 @@ def _stage2_design(
         if m is None:
             name = str(term).strip()
             if name not in df.columns:
-                raise ValueError(f"Column '{name}' not found in data")
+                raise ColumnNotFound.from_missing(
+                    {"second_stage": name}, list(df.columns), context="sp.gardner_did"
+                )
             cols.append(pd.to_numeric(df[name], errors="coerce").to_numpy(float))
             names.append(name)
             continue
         column = m.group(2)
         if column not in df.columns:
-            raise ValueError(f"Column '{column}' not found in data")
+            raise ColumnNotFound.from_missing(
+                {"second_stage": column}, list(df.columns), context="sp.gardner_did"
+            )
         values = pd.to_numeric(df[column], errors="coerce").to_numpy(float)
         levels = np.unique(values[np.isfinite(values)])
         base = float(m.group(1)) if m.group(1) is not None else float(levels[0])
@@ -140,9 +149,19 @@ def did2s_general(
     needed = [y, treat, cluster, *fe_columns, *controls, *stage2_columns]
     if weights is not None:
         needed.append(weights)
-    for col in needed:
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "cluster": cluster,
+            "fe": fe_columns,
+            "controls": controls,
+            "second_stage": stage2_columns,
+            "weights": weights,
+        },
+        function="sp.gardner_did",
+    )
     df = data.copy()
     df[y] = pd.to_numeric(df[y], errors="coerce")
     df = df.dropna(subset=list(dict.fromkeys(needed))).reset_index(drop=True)

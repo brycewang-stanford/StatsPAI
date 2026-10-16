@@ -40,6 +40,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 
@@ -416,7 +417,11 @@ def horowitz_manski(
     >>> bool(result.lower < 0 < result.upper)   # worst-case bounds straddle zero
     True
     """
-    _check_cols(data, [y, treatment] + covariates)
+    _check_cols(
+        data,
+        {"y": y, "treatment": treatment, "covariates": list(covariates)},
+        "sp.horowitz_manski",
+    )
     df = data.dropna(subset=[y, treatment] + covariates).copy()
 
     Y = df[y].values.astype(np.float64)
@@ -613,7 +618,16 @@ def iv_bounds(
     cols = [y, treatment, instrument]
     if controls:
         cols += controls
-    _check_cols(data, cols)
+    _check_cols(
+        data,
+        {
+            "y": y,
+            "treatment": treatment,
+            "instrument": instrument,
+            "controls": list(controls) if controls else None,
+        },
+        "sp.iv_bounds",
+    )
 
     df = data.dropna(subset=cols).copy()
 
@@ -831,7 +845,11 @@ def oster_delta(
     from ..diagnostics._oster import oster_beta_exact, oster_delta_exact, oster_inputs
 
     all_cols = [y] + x_base + x_controls
-    _check_cols(data, all_cols)
+    _check_cols(
+        data,
+        {"y": y, "x_base": list(x_base), "x_controls": list(x_controls)},
+        "sp.oster_delta",
+    )
     df = data.dropna(subset=all_cols).copy()
     n = len(df)
     treat, mcontrol = x_base[0], list(x_base[1:])
@@ -1014,7 +1032,16 @@ def selection_bounds(
     cols = [y, treatment, selection]
     if covariates:
         cols += covariates
-    _check_cols(data, cols)
+    _check_cols(
+        data,
+        {
+            "y": y,
+            "treatment": treatment,
+            "selection": selection,
+            "covariates": list(covariates) if covariates else None,
+        },
+        "sp.selection_bounds",
+    )
 
     df = data.copy()
     D = df[treatment].values.astype(float)
@@ -1282,11 +1309,9 @@ def breakdown_frontier(
 # ======================================================================
 
 
-def _check_cols(data: pd.DataFrame, cols: List[str]) -> None:
-    """Raise if any columns are missing from the DataFrame."""
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+def _check_cols(data: pd.DataFrame, cols: Dict[str, Any], function: str) -> None:
+    """Raise :class:`ColumnNotFound` if any named column is absent."""
+    check_columns(data, cols, function=function)
 
 
 # ======================================================================

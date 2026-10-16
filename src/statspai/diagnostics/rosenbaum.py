@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
@@ -308,12 +309,11 @@ def rosenbaum_bounds(
     if data is not None:
         if not all([y, treat, pair_id]):
             raise ValueError("When `data` is given, y/treat/pair_id are required")
-        _miss = [c for c in (y, treat, pair_id) if c not in data.columns]
-        if _miss:
-            raise ValueError(
-                f"rosenbaum_bounds: columns {_miss} not found in data "
-                f"(available: {list(data.columns)})."
-            )
+        check_columns(
+            data,
+            {"y": y, "treat": treat, "pair_id": pair_id},
+            function="sp.rosenbaum_bounds",
+        )
         d = data[[y, treat, pair_id]].dropna().copy()
         wide = d.pivot(index=pair_id, columns=treat, values=y)
         if 0 not in wide.columns or 1 not in wide.columns:

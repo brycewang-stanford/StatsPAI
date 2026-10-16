@@ -39,8 +39,9 @@ import pandas as pd
 from scipy import sparse, stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = ["twowayfeweights"]
 
@@ -371,9 +372,24 @@ def twowayfeweights(
     needed += [c for c in (treat_level, weights) if c]
     missing = [c for c in dict.fromkeys(needed) if c not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"twowayfeweights: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+        raise ColumnNotFound.from_missing(
+            missing_named_columns(
+                {
+                    "y": y,
+                    "group": group,
+                    "time": time,
+                    "treat": treat,
+                    "covariates": covariates,
+                    "other_treatments": others,
+                    "test_random_weights": random_vars,
+                    "treat_level": treat_level or None,
+                    "weights": weights or None,
+                },
+                data.columns,
+            ),
+            list(data.columns),
+            message=f"twowayfeweights: columns not found in data: {missing}",
+            extra_diagnostics={"missing": missing},
         )
     df = data[list(dict.fromkeys(needed))].copy()
     df["_w"] = df[weights].astype(float) if weights else 1.0

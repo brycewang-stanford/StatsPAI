@@ -51,7 +51,7 @@ def test_pairwise_causal_benchmark_oracle():
 
 def test_pairwise_benchmark_missing_columns():
     bad = pd.DataFrame({"X": ["a"], "Y": ["b"]})
-    with pytest.raises(ValueError, match="Missing"):
+    with pytest.raises(ValueError, match="not found"):
         sp.pairwise_causal_benchmark(
             bad,
             llm_client=_oracle_llm,

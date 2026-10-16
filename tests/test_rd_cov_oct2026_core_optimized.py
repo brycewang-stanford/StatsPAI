@@ -324,7 +324,7 @@ def test_optimized_primitives_on_empty_input():
     "kwargs, exc, fragment",
     [
         (dict(alpha=1.5), MethodIncompatibility, r"alpha must be in \(0, 1\)"),
-        (dict(x="nope"), MethodIncompatibility, "column 'nope' not found"),
+        (dict(x="nope"), MethodIncompatibility, "x='nope'"),
         (dict(h=-1.0), MethodIncompatibility, "h must be positive"),
         (dict(h=0.01), DataInsufficient, "inside the window"),
     ],

@@ -13,7 +13,8 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ..exceptions import MethodIncompatibility
+from .._input_validation import check_columns, missing_named_columns
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 from ._format import AUTO
 from ._format import fmt_val as _fmt_val
 from ._format import resolve_digits
@@ -114,6 +115,7 @@ def sumstats(
     >>> sp.sumstats(df, output='table1.docx')  # doctest: +SKIP
     """
     # Select variables
+    vars_given = vars if vars is None or isinstance(vars, str) else list(vars)
     if vars is None:
         vars = list(data.select_dtypes(include=[np.number]).columns)
     fmt = resolve_digits(fmt, digits, default=AUTO)
@@ -174,12 +176,12 @@ def sumstats(
         )
 
     numeric = output == "numeric"
+    check_columns(
+        data,
+        {"vars": vars_given, "by": by, "weights": weights},
+        function="sumstats",
+    )
     if weights is not None:
-        if weights not in data.columns:
-            raise MethodIncompatibility(
-                f"sumstats: the weights column {weights!r} is not in the data.",
-                recovery_hint="Pass the name of a numeric column.",
-            )
         if (pd.to_numeric(data[weights], errors="coerce") < 0).any():
             raise MethodIncompatibility(
                 "sumstats: negative weights.",
@@ -436,11 +438,15 @@ def balance_table(
 
     from ..core._validate import require_binary_treatment
 
-    missing = [c for c in [treat, *covariates] if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"balance_table: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+    named = missing_named_columns(
+        {"treat": treat, "covariates": list(covariates)}, data.columns
+    )
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="balance_table",
+            extra_diagnostics={"missing": list(named.values())},
         )
     require_binary_treatment(data[treat], function="balance_table")
     T = data[treat].values

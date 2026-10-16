@@ -41,6 +41,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._core import placebo_rank_pvalue
 
@@ -154,12 +155,16 @@ def augsynth(
         raise ValueError("Unknown backend. Use 'native', 'augsynth', or 'r'.")
 
     # --- Input validation (unified with classic SCM contract) ---
-    required_cols = [outcome, unit, time]
-    if covariates:
-        required_cols = required_cols + list(covariates)
-    for col in required_cols:
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data")
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+            "covariates": covariates,
+        },
+        function="sp.augsynth",
+    )
     if treated_unit not in data[unit].values:
         raise ValueError(f"Treated unit '{treated_unit}' not found in '{unit}' column")
 

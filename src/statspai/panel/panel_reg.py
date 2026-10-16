@@ -36,7 +36,12 @@ from scipy import stats
 from .._aliases import accepts_aliases, accepts_formula_first
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
-from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from ._cre import fit_cre, fit_re, within_rank_deficient
 from ._ssc import SSCInference, panel_ssc_inference, resolve_ssc
 
@@ -86,14 +91,13 @@ def _require_panel_column(data: pd.DataFrame, column: Any, role: str) -> str:
             recovery_hint="Pass panel role columns as strings.",
         )
     if column not in data.columns:
-        raise _panel_method_error(
-            f"Column '{column}' not found in data.",
-            diagnostics={
-                "role": role,
-                "column": column,
-                "available_columns": [str(c) for c in data.columns],
-            },
-            recovery_hint="Check the column spelling or rename the DataFrame.",
+        # formula terms are labelled by themselves; named arguments by role
+        label = role if role in ("entity", "time", "cluster") else column
+        raise ColumnNotFound.from_missing(
+            {label: column},
+            list(data.columns),
+            message=f"Column '{column}' not found in data.",
+            extra_diagnostics={"role": role, "column": column},
         )
     return column
 
@@ -630,6 +634,7 @@ def _expand_formula_terms(
         _coerce_string_extension_dtypes,
         formula_eval_env,
         r_formula_idioms,
+        raise_if_formula_names_missing,
     )
 
     frame = _coerce_string_extension_dtypes(data).copy()
@@ -645,6 +650,7 @@ def _expand_formula_terms(
             NA_action=NAAction(on_NA="drop"),
         )
     except Exception as exc:
+        raise_if_formula_names_missing(" + ".join(build), frame, exc)
         raise _panel_method_error(
             f"Could not build the formula term(s) {build!r}: {exc}",
             diagnostics={"formula": formula},
@@ -1620,10 +1626,11 @@ _WEIGHTED_METHODS = frozenset({"fe", "twoway", "pooled"})
 def _panel_weights(panel_data: pd.DataFrame, weights: str) -> pd.Series:
     """Validated analytic weights aligned with ``panel_data``."""
     if weights not in panel_data.columns:
-        raise _panel_method_error(
-            f"weights column {weights!r} not found in data.",
-            diagnostics={"weights": weights},
-            recovery_hint="Pass the name of a numeric column.",
+        raise ColumnNotFound.from_missing(
+            {"weights": weights},
+            list(panel_data.columns),
+            message=f"weights column {weights!r} not found in data.",
+            extra_diagnostics={"weights": weights},
         )
     w = pd.to_numeric(panel_data[weights], errors="coerce").astype(float)
     if not np.all(np.isfinite(w.to_numpy())) or (w <= 0).any():
@@ -1651,7 +1658,15 @@ def _build_cov_kwargs(
     elif cluster:
         # A named column: cluster on it. (Before 1.32 any other name silently
         # clustered by entity while the result reported the requested column.)
-        if panel_data is None or cluster not in panel_data.columns:
+        if panel_data is not None and cluster not in panel_data.columns:
+            raise ColumnNotFound.from_missing(
+                {"cluster": cluster},
+                list(panel_data.columns),
+                message=f"cluster column {cluster!r} not found in data.",
+                extra_hint="Or pass 'entity', 'time' or 'twoway'.",
+                extra_diagnostics={"cluster": cluster},
+            )
+        if panel_data is None:
             raise _panel_method_error(
                 f"cluster column {cluster!r} not found in data.",
                 diagnostics={"cluster": cluster},

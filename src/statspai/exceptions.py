@@ -321,6 +321,8 @@ class ColumnNotFound(DataInsufficient, MethodIncompatibility):
         message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
         extra_diagnostics: Optional[Dict[str, Any]] = None,
+        context: Optional[str] = None,
+        extra_hint: Optional[str] = None,
     ) -> "ColumnNotFound":
         """Build the error (with did-you-mean suggestions) from the gap.
 
@@ -339,6 +341,14 @@ class ColumnNotFound(DataInsufficient, MethodIncompatibility):
             suggestion, e.g. ``"y='yy' not found; did you mean 'y'?"``.
         extra_diagnostics : dict, optional
             Merged into ``diagnostics``.
+        context : str, optional
+            Name of the calling function; prefixes the default message
+            (``"sp.rdrobust: Column(s) not found in data: ..."``).  Ignored
+            when ``message`` is given.
+        extra_hint : str, optional
+            Appended to the generated hint (e.g. ``"Pass the frame the
+            model was fitted on."``), so site-specific advice and the
+            did-you-mean suggestions both survive.
         """
         if isinstance(missing, Mapping):
             pairs = [(str(k), v) for k, v in missing.items()]
@@ -353,13 +363,18 @@ class ColumnNotFound(DataInsufficient, MethodIncompatibility):
             for label, col in pairs
             if suggestions.get(str(col)) is not None
         }
-        details = ", ".join(f"{label}={col!r}" for label, col in pairs)
+        details = ", ".join(
+            f"{label}={col!r}" if label != str(col) else repr(col)
+            for label, col in pairs
+        )
         if message is None:
             shown = ", ".join(sorted(avail)[:10])
             message = (
                 f"Column(s) not found in data: {details}. "
                 f"Available: {shown}" + (" ..." if len(avail) > 10 else "")
             )
+            if context:
+                message = f"{context}: {message}"
         if recovery_hint is None:
             bits = []
             for label, col in pairs:
@@ -375,6 +390,8 @@ class ColumnNotFound(DataInsufficient, MethodIncompatibility):
             recovery_hint = (
                 f"{joined} Check the column-name arguments against data.columns."
             )
+            if extra_hint:
+                recovery_hint = f"{recovery_hint} {extra_hint}"
         diagnostics: Dict[str, Any] = {
             "missing_columns": missing_diag,
             "available_columns": avail,

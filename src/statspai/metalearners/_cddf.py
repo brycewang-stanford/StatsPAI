@@ -20,6 +20,7 @@ from typing import Any, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 VCOV_TYPES = ("const", "HC0", "HC1", "HC2", "HC3")
@@ -28,11 +29,11 @@ VCOV_TYPES = ("const", "HC0", "HC1", "HC2", "HC3")
 def resolve_vector(value: Any, data: pd.DataFrame, n: int, name: str) -> np.ndarray:
     """A per-row numeric vector given as an array or a column name."""
     if isinstance(value, str):
-        if value not in data.columns:
-            raise MethodIncompatibility(
-                f"{name}: column '{value}' not found in data.",
-                recovery_hint=f"Pass an existing column or an array for {name}.",
-            )
+        check_columns(
+            data,
+            {name: value},
+            extra_hint=f"Or pass an array for {name}.",
+        )
         arr = data[value].to_numpy(dtype=float)[:n]
     else:
         arr = np.asarray(value, dtype=float).ravel()

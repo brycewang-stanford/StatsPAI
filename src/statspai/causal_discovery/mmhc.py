@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .hill_climb import _is_discrete, hill_climb
 
@@ -263,8 +264,12 @@ def mmpc(
         raise MethodIncompatibility("mmpc: max_cond cannot be negative.")
     cols = list(variables) if variables is not None else list(data.columns)
     missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"mmpc: columns not in data: {missing}.")
+    check_columns(
+        data,
+        {"variables": cols},
+        function="sp.mmpc",
+        message=f"mmpc: columns not in data: {missing}.",
+    )
     if len(cols) < 2:
         raise MethodIncompatibility("mmpc: at least two variables are needed.")
     frame = data[cols].dropna()

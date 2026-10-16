@@ -19,6 +19,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ._core import check_mcmc_args, rtruncnorm, spawn_rngs
 from ._results import posterior_table
@@ -248,8 +249,12 @@ def stochvol(
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if isinstance(y, str):
-        if data is None or y not in data.columns:
-            raise MethodIncompatibility(f"{y!r} is not a column of data.")
+        if data is None:
+            raise MethodIncompatibility(
+                f"y={y!r} names a column, but data= was not given.",
+                recovery_hint="Pass data=<DataFrame>, or pass y as an array.",
+            )
+        check_columns(data, {"y": y}, function="sp.stochvol")
         series = data[y]
     elif isinstance(y, pd.Series):
         series = y

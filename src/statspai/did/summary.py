@@ -37,7 +37,9 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core.results import CausalResult
+from ..exceptions import ColumnNotFound
 
 
 def _stars(p: float) -> str:
@@ -407,18 +409,31 @@ def did_summary(
             f"Valid keys: {sorted(_DISPATCH)} (or 'auto' / 'all')."
         )
 
-    # C4: validate column names up front so user typos surface as
-    # crisp KeyErrors rather than 5 "method FAILED" rows.
+    # C4: validate column names up front so user typos surface as one
+    # crisp ColumnNotFound (with did-you-mean) rather than 5 "method FAILED"
+    # rows.
     required = [y, time, first_treat, group]
     optional = list(controls or [])
     if cluster:
         optional.append(cluster)
     missing = [c for c in required + optional if c not in data.columns]
     if missing:
-        raise KeyError(
-            f"columns not found in data: {missing}. "
+        raise ColumnNotFound.from_missing(
+            missing_named_columns(
+                {
+                    "y": y,
+                    "time": time,
+                    "first_treat": first_treat,
+                    "group": group,
+                    "controls": list(controls or []),
+                    "cluster": cluster or None,
+                },
+                data.columns,
+            ),
+            list(data.columns),
+            message=f"columns not found in data: {missing}. "
             f"Available columns: {list(data.columns)[:15]}"
-            + (" ..." if len(data.columns) > 15 else "")
+            + (" ..." if len(data.columns) > 15 else ""),
         )
 
     rows: List[dict] = []

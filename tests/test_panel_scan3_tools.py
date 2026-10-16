@@ -130,7 +130,7 @@ class TestFamaMacBeth:
             sp.fama_macbeth("y ~ x1 + x2", df, time="t", lags=7)
         with pytest.raises(MethodIncompatibility, match="lags"):
             sp.fama_macbeth("y ~ x1 + x2", df, time="t", lags=-1)
-        with pytest.raises(MethodIncompatibility, match="not a column"):
+        with pytest.raises(MethodIncompatibility, match="not found in data"):
             sp.fama_macbeth("y ~ x1 + x2", df, time="year")
 
 

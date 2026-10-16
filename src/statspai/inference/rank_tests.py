@@ -32,7 +32,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = [
     "ClassicTestResult",
@@ -126,12 +126,20 @@ def _frame(data: Any, who: str) -> pd.DataFrame:
     return data
 
 
-def _column(data: pd.DataFrame, name: Any, who: str, numeric: bool = True) -> pd.Series:
+def _column(
+    data: pd.DataFrame,
+    name: Any,
+    who: str,
+    numeric: bool = True,
+    *,
+    argument: Optional[str] = None,
+) -> pd.Series:
     if name not in data.columns:
-        raise MethodIncompatibility(
-            f"{who}: column {name!r} is not in data.",
-            recovery_hint="Check the column name.",
-            diagnostics={"columns": [str(c) for c in data.columns][:20]},
+        raise ColumnNotFound.from_missing(
+            {argument: name} if argument else [name],
+            data.columns,
+            message=f"{who}: column {name!r} is not in data.",
+            extra_diagnostics={"columns": [str(c) for c in data.columns][:20]},
         )
     col = data[name]
     if numeric and not pd.api.types.is_numeric_dtype(col):
@@ -147,8 +155,8 @@ def _groups(
 ) -> Tuple[List[Any], List[np.ndarray]]:
     """The values of ``y`` by level of ``by``, levels in sorted order."""
     data = _frame(data, who)
-    col = _column(data, y, who).astype(float)
-    grp = _column(data, by, who, numeric=False)
+    col = _column(data, y, who, argument="y").astype(float)
+    grp = _column(data, by, who, numeric=False, argument="by")
     keep = col.notna() & grp.notna()
     col, grp = col[keep], grp[keep]
     levels = sorted(pd.unique(grp))
@@ -317,9 +325,9 @@ def signrank(
     6
     """
     data = _frame(data, "signrank")
-    a = _column(data, y, "signrank").astype(float)
+    a = _column(data, y, "signrank", argument="y").astype(float)
     b = (
-        _column(data, other, "signrank").astype(float)
+        _column(data, other, "signrank", argument="other").astype(float)
         if other is not None
         else pd.Series(float(value), index=a.index)
     )
@@ -440,8 +448,8 @@ def _pair(
     data: pd.DataFrame, x: str, y: str, who: str
 ) -> Tuple[np.ndarray, np.ndarray]:
     data = _frame(data, who)
-    a = _column(data, x, who).astype(float)
-    b = _column(data, y, who).astype(float)
+    a = _column(data, x, who, argument="x").astype(float)
+    b = _column(data, y, who, argument="y").astype(float)
     keep = a.notna() & b.notna()
     if int(keep.sum()) < 3:
         raise DataInsufficient(

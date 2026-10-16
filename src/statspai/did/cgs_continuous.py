@@ -32,8 +32,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._contdid import cont_did_cell, default_dose_grid, knots_by_quantile
 
 __all__ = ["ContinuousDoseResult", "cgs_continuous_did"]
@@ -253,12 +254,18 @@ def cgs_continuous_did(
             f"{context}: alpha must be in (0, 1).",
             diagnostics={"context": context, "alpha": alpha},
         )
-    for col in (y, dose, time, unit, cohort):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"{context}: column {col!r} not in data.",
-                diagnostics={"context": context, "columns": list(data.columns)},
-            )
+    missing = missing_named_columns(
+        {"y": y, "dose": dose, "time": time, "unit": unit, "cohort": cohort},
+        data.columns,
+    )
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"{context}: column {next(iter(missing.values()))!r} "
+            "not in data.",
+            extra_diagnostics={"context": context},
+        )
 
     df = data.copy()
     periods = sorted(df[time].unique())
@@ -368,9 +375,11 @@ def cgs_continuous_did(
         n_clusters = None
     else:
         if cluster not in df.columns:
-            raise MethodIncompatibility(
-                f"{context}: cluster column {cluster!r} not found.",
-                recovery_hint="Check the column name passed as cluster=.",
+            raise ColumnNotFound.from_missing(
+                {"cluster": cluster},
+                list(df.columns),
+                message=f"{context}: cluster column {cluster!r} not found.",
+                extra_diagnostics={"context": context},
             )
         per_unit = df.groupby(unit)[cluster].nunique(dropna=False)
         if (per_unit > 1).any():

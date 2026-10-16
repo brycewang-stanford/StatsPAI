@@ -74,7 +74,9 @@ def test_did_summary_unknown_method(stag):
 
 
 def test_did_summary_missing_column(stag):
-    with pytest.raises(KeyError):
+    from statspai.exceptions import ColumnNotFound
+
+    with pytest.raises(ColumnNotFound):
         sp.did_summary(
             stag,
             y="nope",

@@ -25,8 +25,9 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases, accepts_formula_first
+from .._input_validation import missing_named_columns
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._limited_dep_result import LimitedDepResult
 from ._optim_helpers import robust_convergence
 
@@ -166,11 +167,21 @@ def tobit(
             recovery_hint="Pass formula='y ~ x1 + x2', or y= and x=.",
         )
     extra = [c for c in (cluster, weights) if isinstance(c, str)]
-    missing_cols = [c for c in [y] + list(x) + extra if c not in data]
-    if missing_cols:
-        raise MethodIncompatibility(
-            f"tobit: columns not found in data: {missing_cols}",
-            diagnostics={"missing": missing_cols},
+    named = missing_named_columns(
+        {
+            "y": y,
+            "x": x if isinstance(x, str) else list(x),
+            "cluster": cluster if isinstance(cluster, str) else None,
+            "weights": weights if isinstance(weights, str) else None,
+        },
+        data.columns,
+    )
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="tobit",
+            extra_diagnostics={"missing": list(named.values())},
         )
     df = data[list(dict.fromkeys([y] + list(x) + extra))].dropna()
     from ..core._collinear import drop_collinear_names

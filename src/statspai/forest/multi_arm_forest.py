@@ -41,7 +41,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _grf_engine as engine
 from ._grf_family import (
     ForestOptions,
@@ -408,9 +408,10 @@ def multi_arm_forest(
     labels = treat
     if data is not None and isinstance(treat, str):
         if treat not in data.columns:
-            raise MethodIncompatibility(
-                f"{_CONTEXT}: Missing columns: {[treat]}",
-                recovery_hint="Pass column names present in the input DataFrame.",
+            raise ColumnNotFound.from_missing(
+                {"treat": treat},
+                data.columns,
+                message=f"{_CONTEXT}: Missing columns: {[treat]}",
             )
         labels = data[treat].to_numpy()
     labels = np.asarray(labels).ravel()

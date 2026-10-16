@@ -21,8 +21,12 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
-from ..core.utils import _widen_narrow_integers, r_formula_idioms
-from ..exceptions import MethodIncompatibility, NumericalInstability
+from ..core.utils import (
+    _widen_narrow_integers,
+    r_formula_idioms,
+    raise_if_formula_names_missing,
+)
+from ..exceptions import ColumnNotFound, MethodIncompatibility, NumericalInstability
 from ..output._lineage import records_provenance
 from .adapter import _multi_fit_to_results, _pyfixest_to_econometric_results
 
@@ -34,6 +38,55 @@ _VARYING_SLOPE_RE = re.compile(r"([A-Za-z_]\w*)\s*\[\[?\s*([^\]]+?)\s*\]\]?")
 
 #: Stata-style varying-slope FE, e.g. ``i.pref#c.year``.
 _STATA_SLOPE_RE = re.compile(r"i\.\s*([A-Za-z_]\w*)\s*#\s*c\.\s*([A-Za-z_]\w*)")
+
+
+def _require_frame_columns(
+    data: pd.DataFrame,
+    terms: List[str],
+    named: Dict[str, Any],
+    context: str,
+) -> None:
+    """Raise ColumnNotFound for formula terms / named columns absent from data."""
+    missing: Dict[str, Any] = {t: t for t in terms if t not in data.columns}
+    missing.update({k: v for k, v in named.items() if v not in data.columns})
+    if missing:
+        raise ColumnNotFound.from_missing(missing, data.columns, context=context)
+
+
+def _raise_if_names_missing(
+    pf_kwargs: Dict[str, Any], exc: BaseException, context: str
+) -> None:
+    """Re-raise a pyfixest name-lookup failure as ColumnNotFound.
+
+    Covers a misspelled formula variable and a misspelled cluster column
+    (``vcov={"CRV1": "firm"}`` / ``cluster="firm"``), which pyfixest reports
+    as a bare ``KeyError``.  Returns when neither explains ``exc``.
+    """
+    data = pf_kwargs.get("data")
+    fml = pf_kwargs.get("fml")
+    if not isinstance(data, pd.DataFrame):
+        return
+    if isinstance(fml, str):
+        raise_if_formula_names_missing(fml, data, exc, context=context)
+    vcov = pf_kwargs.get("vcov")
+    if isinstance(exc, KeyError) and isinstance(vcov, dict):
+        parts = [
+            p.strip()
+            for v in vcov.values()
+            if isinstance(v, str)
+            for p in re.split(r"[+^]", v)
+            if p.strip()
+        ]
+        labels = (
+            ["cluster"]
+            if len(parts) == 1
+            else [f"cluster[{i}]" for i in range(len(parts))]
+        )
+        missing = {lab: p for lab, p in zip(labels, parts) if p not in data.columns}
+        if missing:
+            raise ColumnNotFound.from_missing(
+                missing, data.columns, context=context
+            ) from exc
 
 
 def _fe_part(fml: str) -> str:
@@ -693,6 +746,12 @@ def _feols_bias_reduced(
                 "feols(vce='conley') requires conley_lat=, conley_lon=, and "
                 "conley_cutoff= (planar distance cutoff in km)."
             )
+        _require_frame_columns(
+            data,
+            [],
+            {"conley_lat": conley_lat, "conley_lon": conley_lon},
+            "feols(vce='conley')",
+        )
         base = feols(
             fml,
             data,
@@ -709,6 +768,7 @@ def _feols_bias_reduced(
                 f"feols(vce={kind!r}) requires cluster=... (a cluster-robust "
                 "small-sample correction)."
             )
+        _require_frame_columns(data, [], {"cluster": cluster}, f"feols(vce={kind!r})")
         base = feols(
             fml,
             data,
@@ -817,6 +877,7 @@ def _feglm_bias_reduced(
             "small-sample correction).",
             recovery_hint="Pass cluster='firm' (or another id column).",
         )
+    _require_frame_columns(data, [], {"cluster": cluster}, f"{who}(vce={kind!r})")
 
     # Canonical estimate + full result object from the native estimator.
     if is_pois:
@@ -850,11 +911,9 @@ def _feglm_bias_reduced(
     ]
 
     need = [y_var] + cov_vars + fe_vars + [cluster]
-    missing = [c for c in need if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"{who}(vce={kind!r}): columns {missing} not found in data."
-        )
+    _require_frame_columns(
+        data, [y_var] + cov_vars + fe_vars, {"cluster": cluster}, f"{who}(vce={kind!r})"
+    )
     work = data.loc[:, need].dropna().reset_index(drop=True)
 
     base_n = int(base.data_info.get("nobs", len(work)))
@@ -962,6 +1021,7 @@ def _feglm_wild(
             "bootstrap resamples cluster scores.",
             recovery_hint="Pass cluster='firm' (or another id column).",
         )
+    _require_frame_columns(data, [], {"cluster": cluster}, f"{who}(vce='wild')")
 
     if is_pois:
         base = fepois(
@@ -993,11 +1053,9 @@ def _feglm_wild(
     ]
 
     need = [y_var] + cov_vars + fe_vars + [cluster]
-    missing = [c for c in need if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"{who}(vce='wild'): columns {missing} not found in data."
-        )
+    _require_frame_columns(
+        data, [y_var] + cov_vars + fe_vars, {"cluster": cluster}, f"{who}(vce='wild')"
+    )
     work = data.loc[:, need].dropna().reset_index(drop=True)
     if int(base.data_info.get("nobs", len(work))) != len(work):
         raise MethodIncompatibility(
@@ -1094,6 +1152,12 @@ def _feglm_conley(
             "conley_cutoff= (km).",
             recovery_hint="Pass the coordinate columns and distance cutoff.",
         )
+    _require_frame_columns(
+        data,
+        [],
+        {"conley_lat": conley_lat, "conley_lon": conley_lon},
+        f"{who}(vce='conley')",
+    )
 
     if is_pois:
         base = fepois(
@@ -1119,11 +1183,12 @@ def _feglm_conley(
     ]
 
     need = [y_var] + cov_vars + fe_vars + [conley_lat, conley_lon]
-    missing = [c for c in need if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"{who}(vce='conley'): columns {missing} not found in data."
-        )
+    _require_frame_columns(
+        data,
+        [y_var] + cov_vars + fe_vars,
+        {"conley_lat": conley_lat, "conley_lon": conley_lon},
+        f"{who}(vce='conley')",
+    )
     work = data.loc[:, need].dropna().reset_index(drop=True)
     if int(base.data_info.get("nobs", len(work))) != len(work):
         raise MethodIncompatibility(
@@ -1437,6 +1502,7 @@ def feols(
                 "feols(vce='wild') requires cluster=... — the wild *cluster* "
                 "bootstrap resamples residuals within clusters."
             )
+        _require_frame_columns(data, [], {"cluster": cluster}, "feols(vce='wild')")
         return _feols_wild(
             fml,
             data,
@@ -1503,8 +1569,12 @@ def feols(
         pf_kwargs["ssc"] = ssc
 
     _prefer_compiled_demeaner(pf.feols, pf_kwargs)
-    with _written_fe_order(), _first_stage_demeaner(pf_kwargs["fml"], pf_kwargs):
-        fit = pf.feols(**pf_kwargs)
+    try:
+        with _written_fe_order(), _first_stage_demeaner(pf_kwargs["fml"], pf_kwargs):
+            fit = pf.feols(**pf_kwargs)
+    except Exception as exc:
+        _raise_if_names_missing(pf_kwargs, exc, "sp.feols")
+        raise
 
     # Multiple estimation returns FixestMulti
     if hasattr(fit, "all_fitted_models"):
@@ -1833,8 +1903,9 @@ def fepois(
         _prefer_compiled_demeaner(pf.fepois, pf_kwargs)
         with _written_fe_order():
             fit = pf.fepois(**pf_kwargs)
-    except ValueError as exc:
-        if "Demeaning failed" not in str(exc):
+    except Exception as exc:
+        _raise_if_names_missing(pf_kwargs, exc, "sp.fepois")
+        if not isinstance(exc, ValueError) or "Demeaning failed" not in str(exc):
             raise
         # pyfixest's alternating projections give up on some crossed
         # multi-way designs (five crossed effects on 10^5 rows in a
@@ -2000,8 +2071,12 @@ def feglm(
         pf_kwargs["vcov"] = vcov
 
     _prefer_compiled_demeaner(pf.feglm, pf_kwargs)
-    with _written_fe_order():
-        fit = pf.feglm(**pf_kwargs)
+    try:
+        with _written_fe_order():
+            fit = pf.feglm(**pf_kwargs)
+    except Exception as exc:
+        _raise_if_names_missing(pf_kwargs, exc, "sp.feglm")
+        raise
 
     if hasattr(fit, "all_fitted_models"):
         return _multi_fit_to_results(fit, vcov=None)

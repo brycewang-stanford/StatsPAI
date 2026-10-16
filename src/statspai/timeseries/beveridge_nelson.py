@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import (
     ConvergenceWarning,
@@ -148,11 +149,17 @@ def _level(
     y: Union[str, pd.Series, np.ndarray, list], data: Optional[pd.DataFrame]
 ) -> Tuple[np.ndarray, pd.Index, str]:
     if isinstance(y, str):
-        if data is None or y not in data.columns:
+        if data is None:
             raise MethodIncompatibility(
                 f"sp.beveridge_nelson: {y!r} is not a column of data.",
                 recovery_hint="Pass data= with that column, or the series.",
             )
+        check_columns(
+            data,
+            {"y": y},
+            message=f"sp.beveridge_nelson: {y!r} is not a column of data.",
+            extra_hint="Pass data= with that column, or the series.",
+        )
         series = data[y]
         name = y
     elif isinstance(y, pd.Series):

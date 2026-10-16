@@ -193,7 +193,7 @@ def test_invalid_force_vce_column_and_treatment_values_are_rejected():
         _fect(df, force="both")
     with pytest.raises(ValueError, match="vce must be"):
         _fect(df, vce="hc1")
-    with pytest.raises(ValueError, match="'nope' not in data"):
+    with pytest.raises(ValueError, match=r"not found in data: covariates\[0\]='nope'"):
         _fect(df, covariates=["nope"])
     bad = df.assign(d=df["d"] * 2)
     with pytest.raises(ValueError, match="must be a 0/1 indicator"):

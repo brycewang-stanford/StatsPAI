@@ -15,8 +15,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 
 def cate_summary(result: CausalResult) -> pd.DataFrame:
@@ -136,8 +137,9 @@ def cate_by_group(
         labels = pd.qcut(cate, q=n_groups, labels=False, duplicates="drop")
         group_name = "CATE Quartile"
     else:
-        if by not in data.columns:
-            raise ValueError(f"Column '{by}' not found in data")
+        check_columns(
+            data, {"by": by}, function="sp.cate_by_group", extra_hint="Or by='cate'."
+        )
         col = data[by].values[: len(cate)]
         if pd.api.types.is_numeric_dtype(col) and len(np.unique(col)) > n_groups:
             labels = pd.qcut(col, q=n_groups, labels=False, duplicates="drop")
@@ -360,12 +362,12 @@ def _cddf_inputs(
 
     in_sample = _extract_cate(result)
     n = len(in_sample)
-    for col in [y, treat] + list(covariates):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"Column '{col}' not found in data",
-                recovery_hint="Pass the same data frame used to fit the CATE model.",
-            )
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "covariates": list(covariates)},
+        function="sp." + context.removesuffix("()"),
+        extra_hint="Pass the same data frame used to fit the CATE model.",
+    )
     Y = data[y].to_numpy(dtype=float)[:n]
     D = data[treat].to_numpy(dtype=float)[:n]
     X = data[list(covariates)].to_numpy(dtype=float)[:n]
@@ -665,11 +667,9 @@ def gate_test(
         levels = list(range(n_groups))
         group_name = "CATE group"
     else:
-        if by not in data.columns:
-            raise MethodIncompatibility(
-                f"Column '{by}' not found in data",
-                recovery_hint="Pass by='cate' or an existing column name.",
-            )
+        check_columns(
+            data, {"by": by}, function="sp.gate_test", extra_hint="Or by='cate'."
+        )
         col = data[by].to_numpy()[:n]
         if pd.api.types.is_numeric_dtype(col) and len(np.unique(col)) > n_groups:
             labels = _cddf.quantile_groups(col.astype(float), n_groups)
@@ -932,9 +932,15 @@ def predict_cate(
     new_data = apply_covariate_expansion(
         new_data, result.model_info.get("covariate_expansion")
     )
-    for c in covariate_names:
-        if c not in new_data.columns:
-            raise ValueError(f"Column '{c}' not found in new_data")
+    absent = [c for c in covariate_names if c not in new_data.columns]
+    if absent:
+        raise ColumnNotFound.from_missing(
+            absent,
+            list(new_data.columns),
+            message=f"sp.predict_cate: covariate column(s) {absent} not found "
+            "in new_data.",
+            extra_hint="Pass new_data with the covariates the model was fitted on.",
+        )
 
     X_new = new_data[covariate_names].values.astype(float)
     est = result.model_info["_estimator"]

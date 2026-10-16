@@ -42,8 +42,9 @@ from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 _MODELS = ("market", "market_adjusted", "mean_adjusted", "factor")
 
@@ -418,14 +419,24 @@ def abnormal_returns(
                 "columns with the factor returns."
             )
         regressors = list(factors)
+    data_cols: Dict[str, Any] = {"id": id, "date": date, "ret": ret}
+    if regressors:
+        if model_key == "factor":
+            data_cols["factors"] = regressors
+        else:
+            data_cols["market"] = market
     for name, frame, cols in (
-        ("data", data, [id, date, ret] + regressors),
-        ("events", events, [id, event_date]),
+        ("data", data, data_cols),
+        ("events", events, {"id": id, "event_date": event_date}),
     ):
-        missing = [c for c in cols if c not in frame.columns]
-        if missing:
-            raise MethodIncompatibility(
-                f"abnormal_returns: {name} has no column(s) {missing}."
+        named = missing_named_columns(cols, frame.columns)
+        if named:
+            missing = list(dict.fromkeys(named.values()))
+            raise ColumnNotFound.from_missing(
+                named,
+                list(frame.columns),
+                message=f"abnormal_returns: {name} has no column(s) {missing}.",
+                extra_diagnostics={"frame": name},
             )
     ev_lo, ev_hi = (int(event_window[0]), int(event_window[1]))
     es_lo, es_hi = (int(estimation_window[0]), int(estimation_window[1]))

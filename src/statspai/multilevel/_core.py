@@ -22,6 +22,8 @@ from typing import List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
+
 # ---------------------------------------------------------------------------
 # Grouping utilities
 # ---------------------------------------------------------------------------
@@ -400,9 +402,17 @@ def _prepare_frame(
         all_cols.extend(x_random)
     if weights:
         all_cols.append(weights)
-    missing = [c for c in all_cols if c not in data.columns]
-    if missing:
-        raise KeyError(f"missing columns in data: {missing}")
+    group_list = list(group_cols)
+    check_columns(
+        data,
+        {
+            "y": y,
+            "x_fixed": list(x_fixed),
+            "group": group_list[0] if len(group_list) == 1 else group_list,
+            "x_random": list(x_random or []),
+            "weights": weights or None,
+        },
+    )
 
     # Reject non-hashable group values early — a list/array in the
     # group column silently poisons the ``blups`` dict at fit time.

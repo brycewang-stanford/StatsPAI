@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 
@@ -277,9 +278,7 @@ def bandit_allocate(
     True
     """
     _check_algorithm(algorithm, model, epsilon)
-    for col in (y, arm):
-        if col not in data.columns:
-            raise MethodIncompatibility(f"column {col!r} not found in data")
+    check_columns(data, {"y": y, "arm": arm}, function="bandit_allocate")
     if data[arm].isna().any():
         raise MethodIncompatibility(
             f"{arm!r} has missing values; every observed outcome needs the "
@@ -962,10 +961,11 @@ def adaptive_inference(
         raise MethodIncompatibility("method must be 'aw', 'aipw', 'ipw' or 'mean'")
     if not 0 < alpha < 1:
         raise MethodIncompatibility("alpha must be in (0, 1)")
-    needed = [y, arm] + ([prob] if prob else []) + ([time] if time else [])
-    for col in needed:
-        if col not in data.columns:
-            raise MethodIncompatibility(f"column {col!r} not found in data")
+    check_columns(
+        data,
+        {"y": y, "arm": arm, "prob": prob or None, "time": time or None},
+        function="adaptive_inference",
+    )
     df = data.sort_values(time, kind="stable") if time else data
     yv = df[y].to_numpy(dtype=float)
     if df[arm].isna().any():
@@ -995,14 +995,13 @@ def adaptive_inference(
                     "probs must list one column per assigned arm, in sorted "
                     "arm order, or be a dict {arm: column}"
                 )
-        for col in cols:
-            if col not in df.columns:
-                raise MethodIncompatibility(f"column {col!r} not found in data")
+        if isinstance(probs, dict):
+            prob_cols = {f"probs[{arm_!r}]": c for arm_, c in probs.items()}
+        else:
+            prob_cols = {"probs": cols}
+        check_columns(df, prob_cols, function="adaptive_inference")
         E = df[cols].to_numpy(dtype=float)
         every = list(dict.fromkeys(probs.values())) if isinstance(probs, dict) else cols
-        for col in every:
-            if col not in df.columns:
-                raise MethodIncompatibility(f"column {col!r} not found in data")
         full = df[every].to_numpy(dtype=float)
         if not np.all(np.isfinite(full)) or (full < 0).any() or (full > 1 + 1e-9).any():
             raise MethodIncompatibility(

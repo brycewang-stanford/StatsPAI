@@ -22,6 +22,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -302,10 +303,11 @@ def counterfactual_policy_optimization(
     >>> bool(np.isfinite(res.improvement))
     True
     """
-    cols = {state, action, reward}
-    missing = cols - set(data.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
+    check_columns(
+        data,
+        {"state": state, "action": action, "reward": reward},
+        function="sp.counterfactual_policy_optimization",
+    )
     s = data[state].to_numpy(dtype=float)
     a = data[action].to_numpy(dtype=float)
     r = data[reward].to_numpy(dtype=float)
@@ -400,19 +402,26 @@ def structural_mdp(
     """
     state_cols = list(state_cols)
     action_cols = list(action_cols)
-    required = set(state_cols) | set(action_cols) | {reward}
-    missing = required - set(data.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
+    check_columns(
+        data,
+        {
+            "state_cols": state_cols,
+            "action_cols": action_cols,
+            "reward": reward,
+            # time / trajectory are only read to build next states
+            **(
+                {"next_state_cols": list(next_state_cols)}
+                if next_state_cols is not None
+                else {"time": time, "trajectory": trajectory}
+            ),
+        },
+        function="sp.structural_mdp",
+    )
 
     df = data.copy()
     if next_state_cols is not None:
         # Explicit next-state columns
         ns_cols = list(next_state_cols)
-        if set(ns_cols) - set(df.columns):
-            raise ValueError(
-                f"Missing next-state columns: {set(ns_cols) - set(df.columns)}"
-            )
     else:
         if time is None:
             raise ValueError("Either `next_state_cols` or `time` must be provided.")

@@ -84,9 +84,10 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _core as _dc
 
 
@@ -219,12 +220,23 @@ def did_timevarying_covariates(
     Sant'Anna)
     """
     df = data.copy()
-    for col in [y, unit, time, cohort] + list(covariates):
-        if col not in df.columns:
-            raise MethodIncompatibility(
-                f"Column {col!r} not in data.",
-                diagnostics={"columns": list(df.columns)[:40]},
-            )
+    missing = missing_named_columns(
+        {
+            "y": y,
+            "unit": unit,
+            "time": time,
+            "cohort": cohort,
+            "covariates": list(covariates),
+        },
+        df.columns,
+    )
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(df.columns),
+            message=f"Column {next(iter(missing.values()))!r} not in data.",
+            extra_diagnostics={"columns": list(df.columns)[:40]},
+        )
     if aggregation not in ("group", "simple"):
         raise MethodIncompatibility(
             f"aggregation must be 'group' or 'simple'; got {aggregation!r}"

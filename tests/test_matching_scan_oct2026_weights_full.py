@@ -554,7 +554,7 @@ class TestFullMatch:
             ({"estimand": "ATO"}, MethodIncompatibility, "estimand must be"),
             ({"distance": "nope"}, MethodIncompatibility, "unknown distance"),
             ({"caliper_scale": "nope"}, MethodIncompatibility, "caliper_scale"),
-            ({"covariates": ["zz"]}, MethodIncompatibility, "not in data"),
+            ({"covariates": ["zz"]}, MethodIncompatibility, "not found in data"),
             ({"ps_model": "nope"}, MethodIncompatibility, "ps_model must be"),
             (
                 {"distance": "mahalanobis", "caliper": 0.5},
@@ -697,7 +697,7 @@ class TestPscore:
         "kw, exc, msg",
         [
             ({"data": [1, 2]}, MethodIncompatibility, "must be a pandas DataFrame"),
-            ({"covariates": ["zz"]}, MethodIncompatibility, "columns not found"),
+            ({"covariates": ["zz"]}, MethodIncompatibility, "not found in data"),
             ({"covariates": []}, MethodIncompatibility, "at least one covariate"),
             ({"ps_model": "nope"}, MethodIncompatibility, "ps_model must be"),
             ({"level": 1.0}, MethodIncompatibility, "level must lie strictly"),

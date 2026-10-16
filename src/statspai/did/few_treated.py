@@ -61,6 +61,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -227,12 +228,19 @@ def did_few_treated(
     covariates = list(covariates or [])
     needed = [y, id, time, treat] + covariates + ([group_size] if group_size else [])
     missing = [c for c in needed if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"columns not found in data: {missing}",
-            recovery_hint="Check the column names.",
-            diagnostics={"missing": missing},
-        )
+    check_columns(
+        data,
+        {
+            "y": y,
+            "id": id,
+            "time": time,
+            "treat": treat,
+            "covariates": covariates,
+            "group_size": group_size or None,
+        },
+        function="sp.did_few_treated",
+        extra_diagnostics={"missing": missing},
+    )
     if method == "ferman_pinto" and group_size is None:
         raise MethodIncompatibility(
             "method='ferman_pinto' needs group_size=, the number of "

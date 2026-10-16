@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 from .sdid import sdid as _sdid_base
@@ -183,9 +184,11 @@ def sequential_sdid(
     """
     if not isinstance(data, pd.DataFrame):
         raise TypeError("`data` must be a pandas DataFrame.")
-    for col in (outcome, unit, time, cohort):
-        if col not in data.columns:
-            raise ValueError(f"Column {col!r} not found in `data`.")
+    check_columns(
+        data,
+        {"outcome": outcome, "unit": unit, "time": time, "cohort": cohort},
+        function="sp.sequential_sdid",
+    )
 
     df = data.copy()
     # Treated cohorts (sorted in adoption order).

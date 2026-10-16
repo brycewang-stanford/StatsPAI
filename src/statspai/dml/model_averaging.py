@@ -67,14 +67,20 @@ Ahrens, A., Hansen, C.B., Schaffer, M.E. and Wiemann, T. (2025).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from ._base import _DoubleMLBase
 
 __all__ = ["dml_model_averaging", "model_averaging_dml", "DMLAveragingResult"]
@@ -149,13 +155,17 @@ def _coerce_column_list(value: Any, name: str, context: str) -> List[str]:
     return out
 
 
-def _require_columns(data: pd.DataFrame, columns: Sequence[str], context: str) -> None:
-    missing = [col for col in columns if col not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"Column '{missing[0]}' not found in data",
-            diagnostics={"context": context, "missing_columns": missing},
-        )
+def _require_columns(
+    data: pd.DataFrame,
+    columns: Union[Mapping[str, Any], Sequence[str]],
+    context: str,
+) -> None:
+    check_columns(
+        data,
+        columns,
+        function=context,
+        extra_diagnostics={"context": context},
+    )
 
 
 def _require_string_option(value: Any, name: str, context: str) -> str:
@@ -643,7 +653,9 @@ def dml_model_averaging(
     y = _require_column_name(y, "y", context)
     treat = _require_column_name(treat, "treat", context)
     covariates = _coerce_column_list(covariates, "covariates", context)
-    _require_columns(data, [y, treat] + list(covariates), context)
+    _require_columns(
+        data, {"y": y, "treat": treat, "covariates": list(covariates)}, context
+    )
     valid_rules = {"short_stacking", "single_best", "inverse_risk", "equal"}
     weight_rule = _require_string_option(weight_rule, "weight_rule", context)
     if weight_rule not in valid_rules:
@@ -671,7 +683,7 @@ def dml_model_averaging(
     work = data[cols].copy()
     if fold_indices is not None:
         if isinstance(fold_indices, str):
-            _require_columns(data, [fold_indices], context)
+            _require_columns(data, {"fold_indices": fold_indices}, context)
             work["__fold__"] = data[fold_indices].to_numpy()
         else:
             fi_arr = np.asarray(fold_indices)
@@ -684,9 +696,11 @@ def dml_model_averaging(
     if sample_weight is not None:
         if isinstance(sample_weight, str):
             if sample_weight not in data.columns:
-                raise MethodIncompatibility(  # pragma: no cover
-                    f"sample_weight column '{sample_weight}' not in data",
-                    diagnostics={
+                raise ColumnNotFound.from_missing(
+                    {"sample_weight": sample_weight},
+                    data.columns,
+                    context=context,
+                    extra_diagnostics={
                         "context": context,
                         "sample_weight": sample_weight,
                     },

@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 
 
@@ -221,9 +222,11 @@ class CausalImpactEstimator:
         self._prepare()
 
     def _validate(self) -> None:
-        for col in [self.y, self.time] + self.covariates:
-            if col not in self.data.columns:
-                raise ValueError(f"Column '{col}' not found in data")
+        check_columns(
+            self.data,
+            {"y": self.y, "time": self.time, "covariates": list(self.covariates)},
+            function="sp.causal_impact",
+        )
 
         times = self.data[self.time].values
         if self.intervention_time not in times:

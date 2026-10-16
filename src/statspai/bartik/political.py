@@ -33,6 +33,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
@@ -185,19 +186,14 @@ def _require_column_name(name: Any, *, argument: str) -> str:
 
 
 def _require_columns(
-    df: pd.DataFrame, columns: Sequence[str], *, function: str
+    df: pd.DataFrame, columns: Dict[str, Any], *, function: str
 ) -> None:
-    missing = [col for col in columns if col not in df.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"Columns not found in data: {missing}",
-            recovery_hint=f"Check the column names passed to `{function}`.",
-            diagnostics={
-                "function": function,
-                "missing_columns": missing,
-                "available_columns": list(df.columns),
-            },
-        )
+    check_columns(
+        df,
+        columns,
+        function=function,
+        extra_diagnostics={"function": function},
+    )
 
 
 def _coerce_optional_columns(
@@ -478,7 +474,13 @@ def shift_share_political(
         leave_one_out = _require_bool(leave_one_out, argument="leave_one_out")
     _require_columns(
         data,
-        (unit, time, outcome, endog, *covariates),
+        {
+            "unit": unit,
+            "time": time,
+            "outcome": outcome,
+            "endog": endog,
+            "covariates": list(covariates),
+        },
         function="shift_share_political",
     )
     shares = _require_dataframe(shares, name="shares", function="shift_share_political")
@@ -1023,7 +1025,13 @@ def shift_share_political_panel(
         )
     _require_columns(
         data,
-        (unit, time, outcome, endog, *cov_cols),
+        {
+            "unit": unit,
+            "time": time,
+            "outcome": outcome,
+            "endog": endog,
+            "covariates": list(cov_cols),
+        },
         function="shift_share_political_panel",
     )
 

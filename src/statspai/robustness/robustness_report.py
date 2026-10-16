@@ -53,7 +53,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases, accepts_formula_first
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import ColumnNotFound
 
 
 @dataclass
@@ -433,6 +435,22 @@ def robustness_report(
     if x not in all_rhs:
         raise ValueError(
             f"Key variable '{x}' not found in formula RHS. " f"Found: {all_rhs}"
+        )
+    named = missing_named_columns(
+        {
+            "y": y_col,
+            "x": x,
+            "cluster_var": cluster_var,
+            "extra_controls": list(extra_controls or []),
+        },
+        data.columns,
+    )
+    for col in controls_base:
+        if col not in data.columns:
+            named.setdefault(col if col not in named else f"formula:{col}", col)
+    if named:
+        raise ColumnNotFound.from_missing(
+            named, list(data.columns), context="robustness_report"
         )
 
     rows: List[Dict[str, Any]] = []

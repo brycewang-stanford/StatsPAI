@@ -68,8 +68,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = ["SpilloverRingResult", "spillover_did"]
 
@@ -243,12 +244,17 @@ def spillover_did(
             f"{context}: `ring_edges` must be increasing with at least two " "entries.",
             diagnostics={"context": context, "ring_edges": edges.tolist()},
         )
-    for col in (y, unit, time, cohort):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"{context}: column {col!r} not in data.",
-                diagnostics={"context": context, "columns": list(data.columns)},
-            )
+    missing = missing_named_columns(
+        {"y": y, "unit": unit, "time": time, "cohort": cohort}, data.columns
+    )
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"{context}: column {next(iter(missing.values()))!r} "
+            "not in data.",
+            extra_diagnostics={"context": context},
+        )
 
     df = data.copy()
     units = pd.Index(sorted(df[unit].unique()))
@@ -271,12 +277,15 @@ def spillover_did(
                 f"{context}: `coords` must name exactly two columns.",
                 diagnostics={"context": context, "coords": coords},
             )
-        for col in coords:
-            if col not in df.columns:
-                raise MethodIncompatibility(
-                    f"{context}: coordinate column {col!r} not in data.",
-                    diagnostics={"context": context, "columns": list(df.columns)},
-                )
+        missing = missing_named_columns({"coords": coords}, df.columns)
+        if missing:
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(df.columns),
+                message=f"{context}: coordinate column "
+                f"{next(iter(missing.values()))!r} not in data.",
+                extra_diagnostics={"context": context},
+            )
         dist = _pairwise_distances(first[coords].to_numpy(dtype=float))
 
     treated_mask = unit_cohort != never_value

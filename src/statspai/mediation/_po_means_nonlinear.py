@@ -36,6 +36,7 @@ from scipy import stats
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 from ._po_means import (
     _PO_LABELS,
+    _check_mediation_columns,
     _expand_categorical_covariates,
     _fit_binary,
     _mean_and_slope,
@@ -140,14 +141,9 @@ def potential_outcome_mediation_nonlinear(
             "mediate: mediator_model must be 'linear', 'logit' or 'probit', "
             f"got {mediator_model!r}.",
         )
+    _check_mediation_columns(data, y, treat, mediator, list(covariates or []))
     data, covs = _expand_categorical_covariates(data, list(covariates or []))
     cols = [y, treat, mediator, *covs]
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"mediate: column(s) not found in data: {missing}.",
-            diagnostics={"missing_columns": missing},
-        )
     clean = data[cols].dropna()
     n = len(clean)
     Y = clean[y].to_numpy(dtype=float)

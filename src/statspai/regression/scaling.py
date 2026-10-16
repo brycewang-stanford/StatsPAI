@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy import special
 
+from .._input_validation import check_columns
 from ..core.utils import r_formula_idioms, unquote_name
 from ..exceptions import MethodIncompatibility
 
@@ -233,9 +234,7 @@ def standardize(
         names = _formula_inputs(formula, data)
     elif columns is not None:
         names = [str(c) for c in columns]
-        missing = [c for c in names if c not in data.columns]
-        if missing:
-            raise MethodIncompatibility(f"Columns not in data: {missing}.")
+        check_columns(data, {"columns": names}, function="standardize")
     else:
         names = list(data.columns)
     skip = set(exclude or [])

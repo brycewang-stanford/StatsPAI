@@ -4,13 +4,13 @@ Tests for RD module: Sharp and Fuzzy RD with robust inference.
 All tests use simulated data with known true effects.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
-from statspai.rd import rdrobust, rdplot
 from statspai.core.results import CausalResult
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
+from statspai.rd import rdplot, rdrobust
 
 # ======================================================================
 # Fixtures
@@ -218,7 +218,7 @@ class TestRDErrors:
     def test_missing_columns_use_taxonomy(self, data_sharp):
         with pytest.raises(MethodIncompatibility, match="not found"):
             rdrobust(data_sharp, y="missing", x="x")
-        with pytest.raises(MethodIncompatibility, match="Covariate"):
+        with pytest.raises(MethodIncompatibility, match=r"covs\[0\]='missing'"):
             rdrobust(data_sharp, y="y", x="x", covs=["missing"])
 
     def test_insufficient_data_uses_taxonomy(self):

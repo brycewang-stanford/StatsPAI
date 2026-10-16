@@ -45,7 +45,7 @@ from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult, SummaryText
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _matched_frame as _mf
 from ._weight_modes import (
     expand_frequency_weights,
@@ -90,7 +90,30 @@ def _require_dataframe(data: Any, context: str) -> pd.DataFrame:
     return data
 
 
-def _require_column(data: pd.DataFrame, column: Any, role: str) -> str:
+def _missing_column_error(
+    column: Any,
+    available: Any,
+    *,
+    label: str,
+    message: str,
+    extra_diagnostics: Dict[str, Any],
+    extra_hint: Optional[str] = None,
+) -> ColumnNotFound:
+    err = ColumnNotFound.from_missing(
+        {label: column},
+        list(available),
+        message=message,
+        extra_hint=extra_hint,
+        extra_diagnostics=extra_diagnostics,
+    )
+    err.alternative_functions = list(_PSMATCH2_ALTERNATIVES)
+    return err
+
+
+def _require_column(
+    data: pd.DataFrame, column: Any, role: str, label: Optional[str] = None
+) -> str:
+    """``column`` itself, or raise; ``label`` is the argument the user typed."""
     if not isinstance(column, str) or not column:
         raise _psmatch2_error(
             f"{role} must be a non-empty column-name string.",
@@ -98,14 +121,12 @@ def _require_column(data: pd.DataFrame, column: Any, role: str) -> str:
             recovery_hint="Pass column names as strings.",
         )
     if column not in data.columns:
-        raise _psmatch2_error(
-            f"{role} column {column!r} not found in data.",
-            diagnostics={
-                "role": role,
-                "column": column,
-                "available_columns": [str(c) for c in data.columns],
-            },
-            recovery_hint="Check the column spelling or rename the DataFrame.",
+        raise _missing_column_error(
+            column,
+            data.columns,
+            label=label or role,
+            message=f"{role} column {column!r} not found in data.",
+            extra_diagnostics={"role": role, "column": column},
         )
     return column
 
@@ -693,29 +714,32 @@ class PSMatch2Result(ResultProtocolMixin):
         panel = _require_dataframe(panel, "psm_did panel")
         treat = treat or self.treat
         id = _require_column(panel, id, "id")
-        y = _require_column(panel, y, "outcome")
+        y = _require_column(panel, y, "outcome", "y")
         treat = _require_column(panel, treat, "treat")
         covariates = _normalize_columns(covariates, "covariates")
         fixed_effects = _normalize_columns(fixed_effects, "fixed_effects")
-        for covariate in covariates:
-            _require_column(panel, covariate, "covariate")
-        for fixed_effect in fixed_effects:
-            _require_column(panel, fixed_effect, "fixed effect")
+        for i, covariate in enumerate(covariates):
+            _require_column(panel, covariate, "covariate", f"covariates[{i}]")
+        for i, fixed_effect in enumerate(fixed_effects):
+            _require_column(panel, fixed_effect, "fixed effect", f"fixed_effects[{i}]")
         if cluster is not None:
             if isinstance(cluster, str):
                 _require_column(panel, cluster, "cluster")
             else:
-                for cluster_col in _normalize_columns(cluster, "cluster"):
-                    _require_column(panel, cluster_col, "cluster")
+                for i, cluster_col in enumerate(_normalize_columns(cluster, "cluster")):
+                    _require_column(panel, cluster_col, "cluster", f"cluster[{i}]")
 
         # --- merge per-unit _weight / _support onto the panel ---
         md = self.matched_data
         if id not in md.columns:
-            raise _psmatch2_error(
-                f"id column {id!r} not found in the matching data; psm_did "
-                f"needs it to merge _weight onto the panel.",
-                diagnostics={"id": id},
-                recovery_hint="Run sp.psmatch2() on data that includes the "
+            raise _missing_column_error(
+                id,
+                md.columns,
+                label="id",
+                message=f"id column {id!r} not found in the matching data; "
+                "psm_did needs it to merge _weight onto the panel.",
+                extra_diagnostics={"id": id},
+                extra_hint="Run sp.psmatch2() on data that includes the "
                 "same unit id column as the panel.",
             )
         used_cols = set(panel.columns)
@@ -1272,11 +1296,12 @@ def psmatch2(
     data = _require_dataframe(data, "psmatch2 data")
     treat = _require_column(data, treat, "treat")
     covariates = _normalize_columns(covariates, "covariates")
-    for covariate in covariates:
-        _require_column(data, covariate, "covariate")
+    for i, covariate in enumerate(covariates):
+        _require_column(data, covariate, "covariate", f"covariates[{i}]")
     out_var = outcome if outcome is not None else y
     if out_var is not None:
-        out_var = _require_column(data, out_var, "outcome")
+        out_label = "outcome" if outcome is not None else "y"
+        out_var = _require_column(data, out_var, "outcome", out_label)
     if out_var is not None and out_var in covariates:
         raise _psmatch2_error(
             f"outcome={out_var!r} is also listed in covariates; pass a "

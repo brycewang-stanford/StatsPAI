@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from sklearn.base import BaseEstimator
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
@@ -533,8 +534,17 @@ class TMLE:
         design = [c for c in (self.weights, self.cluster) if c is not None]
         cols = list(dict.fromkeys([self.y, self.treat] + self.covariates + design))
         missing = [c for c in cols if c not in self.data.columns]
-        if missing:
-            raise ValueError(f"Columns not found in data: {missing}")
+        check_columns(
+            self.data,
+            {
+                "y": self.y,
+                "treat": self.treat,
+                "covariates": self.covariates,
+                "weights": self.weights,
+                "cluster": self.cluster,
+            },
+            message=f"sp.tmle: Columns not found in data: {missing}",
+        )
 
         clean = self.data[cols].dropna()
         Y = clean[self.y].values.astype(np.float64)

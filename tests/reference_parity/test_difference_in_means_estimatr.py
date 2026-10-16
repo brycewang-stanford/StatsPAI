@@ -251,7 +251,7 @@ def test_designs_that_cannot_be_analysed_raise(df):
         sp.difference_in_means(df, "yc", "dc", blocks="block", cluster="cl")
     with pytest.raises(MethodIncompatibility, match="estimand"):
         sp.difference_in_means(df, "y", "d", estimand="LATE")
-    with pytest.raises(MethodIncompatibility, match="not in data"):
+    with pytest.raises(MethodIncompatibility, match="not found in data"):
         sp.difference_in_means(df, "y", "nope")
     with pytest.raises(MethodIncompatibility, match="ATT"):
         sp.difference_in_means(

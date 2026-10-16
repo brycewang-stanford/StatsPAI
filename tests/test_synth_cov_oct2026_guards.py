@@ -54,7 +54,7 @@ def test_ttest_rejects_malformed_requests():
     df = _panel()
     with pytest.raises(MethodIncompatibility, match="n_folds must be at least 2"):
         _ttest(df, n_folds=1)
-    with pytest.raises(MethodIncompatibility, match="columns not found"):
+    with pytest.raises(MethodIncompatibility, match=r"Column\(s\) not found"):
         _ttest(df, outcome="nope")
     with pytest.raises(MethodIncompatibility, match="one row per"):
         _ttest(pd.concat([df, df.iloc[:1]]))
@@ -226,7 +226,9 @@ def test_staggered_rejects_malformed_options(kwargs, message):
 
 def test_staggered_rejects_malformed_panels():
     df = _stag()
-    with pytest.raises(MethodIncompatibility, match="column 'nope' not found"):
+    with pytest.raises(
+        MethodIncompatibility, match="not found in data: outcome='nope'"
+    ):
         sp.staggered_synth(df, outcome="nope", unit="unit", time="time", treatment="d")
     with pytest.raises(MethodIncompatibility, match="one row per"):
         _ss(pd.concat([df, df.iloc[:1]]))

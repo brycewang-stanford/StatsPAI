@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
@@ -439,9 +440,16 @@ class MediationAnalysis:
         self._validate()
 
     def _validate(self) -> None:
-        for col in [self.y, self.treat, self.mediator] + self.covariates:
-            if col not in self.data.columns:
-                raise ValueError(f"Column '{col}' not found in data")
+        check_columns(
+            self.data,
+            {
+                "y": self.y,
+                "treat": self.treat,
+                "mediator": self.mediator,
+                "covariates": list(self.covariates),
+            },
+            function="sp.mediate",
+        )
 
     def fit(self) -> CausalResult:
         """Estimate mediation effects with bootstrap inference."""
@@ -905,6 +913,17 @@ def mediate_interventional(
         )
     covariates = list(covariates or [])
     tv_confounders = list(tv_confounders or [])
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "mediator": mediator,
+            "covariates": covariates,
+            "tv_confounders": tv_confounders,
+        },
+        function="sp.mediate_interventional",
+    )
     cols = [y, treat, mediator] + covariates + tv_confounders
     df = data[cols].dropna().reset_index(drop=True)
     n = len(df)

@@ -25,6 +25,7 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -108,10 +109,7 @@ def fama_macbeth(
     """
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility("fama_macbeth: data must be a pandas DataFrame.")
-    if time not in data.columns:
-        raise MethodIncompatibility(
-            f"fama_macbeth: time={time!r} is not a column in the data."
-        )
+    check_columns(data, {"time": time}, function="fama_macbeth")
     if isinstance(lags, bool) or int(lags) != lags or lags < 0:
         raise MethodIncompatibility(
             f"fama_macbeth: lags must be a non-negative integer, got {lags!r}."

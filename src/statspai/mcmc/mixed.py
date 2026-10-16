@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import linalg, special
 
+from .._input_validation import check_columns
 from ..core.utils import create_design_matrices
 from ..exceptions import (
     ConvergenceWarning,
@@ -534,12 +535,13 @@ def bayes_mixed(
         raise MethodIncompatibility("data must be a pandas DataFrame.")
     # the design is lined up with its rows by label below
     data = rows_by_position(data)
-    if group not in data.columns:
-        raise MethodIncompatibility(f"group column {group!r} is not in data.")
+    check_columns(
+        data,
+        {"group": group},
+        message=f"group column {group!r} is not in data.",
+    )
     random = list(random or [])
-    missing = [c for c in random if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"random= columns not in data: {missing}.")
+    check_columns(data, {"random": random}, function="sp.bayes_mixed")
     if not random and not random_intercept:
         raise MethodIncompatibility(
             "The model has no random effect: pass random= or keep "

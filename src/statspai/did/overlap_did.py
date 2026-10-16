@@ -27,10 +27,10 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import require_columns
+from .._input_validation import missing_named_columns, require_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient
+from ..exceptions import ColumnNotFound, DataInsufficient
 
 # sklearn is imported lazily inside ``overlap_weighted_did`` /
 # ``dl_propensity_score`` so ``import statspai`` does not pull
@@ -116,14 +116,22 @@ def overlap_weighted_did(
     >>> res.estimand
     'ATT (overlap)'
     """
-    cols = {y, treat, time}
-    if id is not None:
-        cols.add(id)
-    if covariates:
-        cols |= set(covariates)
-    missing = cols - set(data.columns)
+    missing = missing_named_columns(
+        {
+            "y": y,
+            "treat": treat,
+            "time": time,
+            "id": id,
+            "covariates": None if not covariates else list(covariates),
+        },
+        data.columns,
+    )
     if missing:
-        raise ValueError(f"Missing columns: {missing}")
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"Missing columns: {set(missing.values())}",
+        )
     # Drop incomplete rows up front: an all-NaN / partially-missing outcome
     # otherwise collapses the weighted cell means to a silent 0.0 (the
     # groupby's NaN-sum), returning estimate=0.0 with no warning.

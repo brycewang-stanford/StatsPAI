@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._forecast_common import require_time_order
@@ -336,16 +337,18 @@ def zivot_andrews(
         raise _bad(f"lag_alpha={lag_alpha!r} is not in (0, 1).", "Use 0.10.")
     labels: Any
     if isinstance(data, pd.DataFrame):
-        if y is None or y not in data.columns:
+        if y is None:
             raise MethodIncompatibility(
                 "zivot_andrews: with a DataFrame, y must name one of its columns.",
                 recovery_hint="sp.zivot_andrews(df, 'gdp').",
             )
+        check_columns(data, {"y": y}, function="sp.zivot_andrews")
+        check_columns(
+            data,
+            {"time": time},
+            message=f"zivot_andrews: time column {time!r} is not in data.",
+        )
         if time is not None:
-            if time not in data.columns:
-                raise _bad(
-                    f"time column {time!r} is not in data.", "Check the column name."
-                )
             if data[time].isna().any():
                 raise _bad(
                     f"{int(data[time].isna().sum())} rows have a missing value "

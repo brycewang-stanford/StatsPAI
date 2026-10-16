@@ -25,6 +25,7 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
@@ -147,6 +148,11 @@ def bacon_decomposition(
 
     See Goodman-Bacon (2021, *JEcon*), Theorem 1.
     """
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "time": time, "id": id},
+        function="sp.bacon_decomposition",
+    )
     df = data.copy()
     if balance not in ("error", "drop_units"):
         raise MethodIncompatibility(

@@ -32,7 +32,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
-from .._input_validation import require_columns
+from .._input_validation import check_columns, require_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import solve_simplex_weights
@@ -252,10 +252,11 @@ def _population_design(
     if population_weights is None:
         share = np.full(len(units), 1.0 / len(units))
     else:
-        if population_weights not in data.columns:
-            raise MethodIncompatibility(
-                f"population_weights column {population_weights!r} not found."
-            )
+        check_columns(
+            data,
+            {"population_weights": population_weights},
+            function="sp.synth_experimental_design",
+        )
         per_unit = data.groupby(unit)[population_weights]
         if (per_unit.nunique(dropna=False) > 1).any():
             raise MethodIncompatibility(

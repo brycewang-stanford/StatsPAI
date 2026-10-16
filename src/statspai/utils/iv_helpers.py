@@ -9,9 +9,12 @@ so we project the Z block onto its OLS first-stage fitted value and
 pass that scalar index as the ``instrument`` argument.
 """
 
-from typing import Optional, List, Union
+from typing import List, Optional, Union
+
 import numpy as np
 import pandas as pd
+
+from .._input_validation import check_columns
 
 
 def scalar_iv_projection(
@@ -97,9 +100,11 @@ def scalar_iv_projection(
         raise ValueError("instruments must be a non-empty list of column names")
     covariates = list(covariates or [])
     required = [treat] + list(instruments) + covariates
-    missing = [c for c in required if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {"treat": treat, "instruments": list(instruments), "covariates": covariates},
+        function="sp.scalar_iv_projection",
+    )
 
     df = data[required].dropna()
     if len(df) < len(required) + 5:

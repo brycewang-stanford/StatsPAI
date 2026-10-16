@@ -32,8 +32,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _grf_engine as engine
 from ._grf_inference import _clustered_mean_var, _coef_table, cluster_robust_vcov
 
@@ -158,14 +159,14 @@ def one_hot_covariates(
     out: Dict[str, Any] = {}
     names: List[str] = []
     expanded = False
-    for entry in cols:
+    for i, entry in enumerate(cols):
         named = _factor_column(entry)
         col = named if named is not None else entry
         if col not in data.columns:
-            raise MethodIncompatibility(
-                f"{context}: Missing columns: {[col]}",
-                recovery_hint="Pass column names present in the input DataFrame.",
-                diagnostics={"missing_columns": [col]},
+            raise ColumnNotFound.from_missing(
+                {f"covariates[{i}]": col},
+                data.columns,
+                message=f"{context}: Missing columns: {[col]}",
             )
         series = data[col]
         if named is None and not _is_categorical(series):
@@ -241,10 +242,11 @@ def _column_block(
         else:
             missing = [c for c in cols if c not in data.columns]
             if missing:
-                raise MethodIncompatibility(
-                    f"{context}: Missing columns: {missing}",
-                    recovery_hint=("Pass column names present in the input DataFrame."),
-                    diagnostics={"missing_columns": missing},
+                labelled = {name: spec} if isinstance(spec, str) else {name: cols}
+                raise ColumnNotFound.from_missing(
+                    missing_named_columns(labelled, data.columns),
+                    data.columns,
+                    message=f"{context}: Missing columns: {missing}",
                 )
             block = data[cols]
         try:
@@ -308,10 +310,10 @@ def resolve_inputs(
             continue
         if data is not None and isinstance(spec, str):
             if spec not in data.columns:
-                raise MethodIncompatibility(
-                    f"{context}: Missing columns: {[spec]}",
-                    recovery_hint="Pass column names present in the input DataFrame.",
-                    diagnostics={"missing_columns": [spec]},
+                raise ColumnNotFound.from_missing(
+                    {key: spec},
+                    data.columns,
+                    message=f"{context}: Missing columns: {[spec]}",
                 )
             raw_optional[key] = data[spec].to_numpy()
         else:
@@ -641,9 +643,14 @@ class GRFFamilyForest(ResultProtocolMixin):
             newdata = one_hot_newdata(newdata, list(self.feature_names))
             missing = [c for c in self.feature_names if c not in newdata.columns]
             if missing:
-                raise MethodIncompatibility(
-                    f"{self._context}.predict(): newdata lacks columns {missing}.",
-                    recovery_hint="Pass the covariate columns used at fit time.",
+                raise ColumnNotFound.from_missing(
+                    missing,
+                    newdata.columns,
+                    message=(
+                        f"{self._context}.predict(): newdata lacks columns "
+                        f"{missing}."
+                    ),
+                    extra_hint="Pass the covariate columns used at fit time.",
                 )
             arr = newdata[self.feature_names].to_numpy(dtype=float)
         else:

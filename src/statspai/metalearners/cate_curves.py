@@ -17,8 +17,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns, missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = ["cate_gain_curve", "CATEGainCurveResult"]
 
@@ -271,17 +272,18 @@ def cate_gain_curve(
     >>> bool(good.auc > abs(noise.auc))
     True
     """
-    missing = [c for c in (y, treat) if c not in data.columns]
+    missing = missing_named_columns(
+        {"y": y, "treat": treat, "cate": cate if isinstance(cate, str) else None},
+        data.columns,
+    )
     if missing:
-        raise MethodIncompatibility(
-            f"cate_gain_curve: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            context="sp.cate_gain_curve",
+            extra_diagnostics={"missing": list(missing.values())},
         )
     if isinstance(cate, str):
-        if cate not in data.columns:
-            raise MethodIncompatibility(
-                f"cate_gain_curve: column {cate!r} not found in data."
-            )
         score = data[cate].to_numpy(dtype=float)
     else:
         if isinstance(cate, pd.Series) and not cate.index.equals(data.index):
@@ -376,10 +378,7 @@ def cate_gain_curve(
         rng = np.random.default_rng(seed)
         blocks: Optional[List[np.ndarray]] = None
         if cluster is not None:
-            if cluster not in data.columns:
-                raise MethodIncompatibility(
-                    f"cate_gain_curve: column {cluster!r} not found in data."
-                )
+            check_columns(data, {"cluster": cluster}, function="sp.cate_gain_curve")
             codes = pd.factorize(data[cluster].to_numpy()[ok])[0]
             blocks = [np.flatnonzero(codes == g) for g in range(codes.max() + 1)]
         draws = np.empty(n_boot)

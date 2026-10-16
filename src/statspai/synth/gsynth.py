@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._core import placebo_rank_pvalue
 
@@ -194,6 +195,15 @@ def gsynth(
             recovery_hint="sp.gsynth(df, y, unit, time, treat='D').",
         )
     native = backend.lower().replace("-", "_") == "native"
+    if native:
+        # covariates are checked (with labels) by gsynth_multi, which every
+        # native call with covariates= is routed to; backend='r' keeps its
+        # own guards
+        check_columns(
+            data,
+            {"outcome": outcome, "unit": unit, "time": time, "treat": treat},
+            function="sp.gsynth",
+        )
     if native and (treat is not None or many or covariates):
         from ._gsynth_multi import gsynth_multi
 

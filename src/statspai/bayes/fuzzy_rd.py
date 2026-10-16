@@ -23,6 +23,7 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ._base import (
     BayesianCausalResult,
     _require_pymc,
@@ -138,11 +139,13 @@ def bayes_fuzzy_rd(
     >>> # First-stage strength diagnostics live in model_info:
     >>> res.model_info['first_stage_mean']  # doctest: +SKIP
     """
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "running": running},
+        function="sp.bayes_fuzzy_rd",
+    )
     pm, _ = _require_pymc()
 
-    for c in (y, treat, running):
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
     if poly < 1:
         raise ValueError(f"poly must be >= 1, got {poly}")
 

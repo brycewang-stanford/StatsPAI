@@ -36,7 +36,8 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._input_validation import missing_named_columns
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = ["diversity_index", "DIVERSITY_INDICES"]
 
@@ -231,17 +232,16 @@ def diversity_index(
         return out[requested[0]] if single else out
 
     # ── Long-format records ────────────────────────────────────────────
-    if species not in data.columns:
-        raise MethodIncompatibility(
-            f"species column {species!r} is not in `data`.",
-            diagnostics={"columns": list(data.columns)[:20]},
-        )
     by_l = [by] if isinstance(by, str) else list(by or [])
-    missing = [c for c in by_l + ([count] if count else []) if c not in data.columns]
+    missing = missing_named_columns(
+        {"species": species, "by": by, "count": count or None}, data.columns
+    )
     if missing:
-        raise MethodIncompatibility(
-            f"Columns not found in `data`: {missing}.",
-            diagnostics={"missing": missing},
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            context="sp.diversity_index",
+            extra_diagnostics={"missing": list(missing.values())},
         )
 
     work = data[by_l + [species] + ([count] if count else [])].dropna(

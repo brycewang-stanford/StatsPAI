@@ -25,8 +25,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import missing_named_columns
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._learners import resolve_learner
 
 __all__ = ["dml_did"]
@@ -217,8 +218,10 @@ def _fold_labels(
         return None
     if isinstance(fold_indices, str):
         if fold_indices not in data.columns:
-            raise MethodIncompatibility(
-                f"dml_did: fold_indices column {fold_indices!r} not in data."
+            raise ColumnNotFound.from_missing(
+                {"fold_indices": fold_indices},
+                data.columns,
+                message=f"dml_did: fold_indices column {fold_indices!r} not in data.",
             )
         raw = data.loc[index, fold_indices].to_numpy()
     else:
@@ -403,11 +406,15 @@ def dml_did(
             recovery_hint="Without covariates use sp.did.",
         )
     cols = [y, treat, *covariates] + [c for c in (time, id) if c is not None]
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"dml_did: column(s) not in data: {missing}.",
-            diagnostics={"missing_columns": missing},
+    named = {"y": y, "treat": treat, "covariates": covariates}
+    named.update({"time": time, "id": id})
+    missing_named = missing_named_columns(named, data.columns)
+    if missing_named:
+        missing = list(missing_named.values())
+        raise ColumnNotFound.from_missing(
+            missing_named,
+            data.columns,
+            message=f"dml_did: column(s) not in data: {missing}.",
         )
     df = data[list(dict.fromkeys(cols))].dropna()
     if len(df) < len(data):

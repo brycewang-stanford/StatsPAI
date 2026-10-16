@@ -12,8 +12,8 @@ import pytest
 # Skip entire module if torch is not available
 torch = pytest.importorskip("torch")
 
-from statspai.deepiv import deepiv, DeepIV
 from statspai.core.results import CausalResult
+from statspai.deepiv import DeepIV, deepiv
 
 # ---------------------------------------------------------------------------
 # Test DGP: linear structural model with instrument
@@ -154,7 +154,7 @@ class TestDeepIVValidation:
     """Input validation tests."""
 
     def test_missing_columns(self, linear_iv_data):
-        with pytest.raises(ValueError, match="Columns not found"):
+        with pytest.raises(ValueError, match=r"Column\(s\) not found"):
             deepiv(
                 linear_iv_data,
                 y="y",

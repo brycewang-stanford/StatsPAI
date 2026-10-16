@@ -79,6 +79,7 @@ from typing import Any, List, Optional, Sequence, Tuple, Union, cast
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ._base import (
     PROBIT_CLIP,
     BayesianMTEResult,
@@ -275,6 +276,16 @@ def bayes_mte(
     >>> # Policy-relevant effect with a ready-made weight builder:
     >>> res.policy_effect(sp.policy_weight_subsidy(0.3, 0.7))  # doctest: +SKIP
     """
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "instrument": instrument,
+            "covariates": list(covariates) if covariates else None,
+        },
+        function="sp.bayes_mte",
+    )
     pm, _ = _require_pymc()
 
     # Normalise instrument to a list so scalar and list-of-instruments
@@ -286,10 +297,6 @@ def bayes_mte(
         iv_cols = list(instrument)
     if len(iv_cols) == 0:
         raise ValueError("instrument must name at least one column.")
-
-    for c in [y, treat] + iv_cols + (list(covariates) if covariates else []):
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
 
     cov_cols = list(covariates) if covariates else []
     clean = data[[y, treat] + iv_cols + cov_cols].dropna().reset_index(drop=True)

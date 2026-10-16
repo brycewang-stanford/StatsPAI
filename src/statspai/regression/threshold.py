@@ -37,10 +37,16 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from .._input_validation import check_columns
 from ..core._validate import require_numeric_columns
 from ..core._vcov import sandwich_vcov
 from ..core.results import EconometricResults
-from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIWarning
+from ..exceptions import (
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+    StatsPAIWarning,
+)
 
 __all__ = ["threshold"]
 
@@ -147,11 +153,12 @@ class _ThresholdResults(EconometricResults):
         needed = [var] + [r for r in spec["regime_columns"]]
         missing = [c for c in needed if c not in data.columns]
         if missing:
-            raise MethodIncompatibility(
-                f"sp.threshold predict: the data lack column(s) {missing}.",
-                recovery_hint="Pass the threshold variable and the regime "
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(data.columns),
+                message=f"sp.threshold predict: the data lack column(s) {missing}.",
+                extra_hint="Pass the threshold variable and the regime "
                 "variables along with those of the formula.",
-                diagnostics={"missing_columns": missing},
             )
         X = np.asarray(self._thr_base._prediction_design(data), dtype=float)
         if X.shape[0] != len(data):
@@ -324,12 +331,11 @@ def threshold(
         )
     extra = [c for c in (threshold, absorb, cluster) if c is not None]
     regime = None if regime is None else [str(r) for r in regime]
-    for column in extra + [r for r in (regime or []) if r not in ("Intercept",)]:
-        if column not in data.columns and column in extra:
-            raise MethodIncompatibility(
-                f"sp.threshold: {column!r} is not a column of the data.",
-                recovery_hint="Check the spelling of threshold=, absorb=, cluster=.",
-            )
+    check_columns(
+        data,
+        {"threshold": threshold, "absorb": absorb, "cluster": cluster},
+        function="sp.threshold",
+    )
     if kink and regime is not None:
         raise MethodIncompatibility(
             "sp.threshold: regime= does not apply to the kink model.",

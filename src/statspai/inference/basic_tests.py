@@ -25,7 +25,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._input_validation import check_columns
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from .ttest import TTestResult
 
 __all__ = ["prtest", "sktest", "swilk", "ci"]
@@ -44,10 +45,11 @@ def _check_alpha(alpha: float, who: str) -> None:
 def _col(data: pd.DataFrame, name: Any, who: str) -> pd.Series:
     """Column ``name`` as floats, with errors that name the caller."""
     if name not in data.columns:
-        raise MethodIncompatibility(
-            f"{who}: column {name!r} is not in data.",
-            recovery_hint="Check the column name.",
-            diagnostics={"columns": [str(c) for c in data.columns][:20]},
+        raise ColumnNotFound.from_missing(
+            [name],
+            data.columns,
+            message=f"{who}: column {name!r} is not in data.",
+            extra_diagnostics={"columns": [str(c) for c in data.columns][:20]},
         )
     col = data[name]
     if not pd.api.types.is_numeric_dtype(col):
@@ -80,6 +82,11 @@ def _numeric_columns(data: pd.DataFrame, variables: _Vars, who: str) -> List[Any
         names = list(data.select_dtypes("number").columns)
     else:
         names = [variables] if isinstance(variables, str) else list(variables)
+        check_columns(
+            data,
+            {"variables": variables if isinstance(variables, str) else names},
+            function=who,
+        )
     if not names:
         raise MethodIncompatibility(
             f"{who}: no numeric variable to work on.",
@@ -237,6 +244,7 @@ def prtest(
                 "prtest: pass by= or other=, not both.",
                 recovery_hint="Drop one of the two arguments.",
             )
+        check_columns(data, {"y": y, "by": by, "other": other}, function="prtest")
         if by is not None:
             keep = data[y].notna() & data[by].notna()
             levels = sorted(pd.unique(data.loc[keep, by]))

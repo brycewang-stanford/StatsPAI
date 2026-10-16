@@ -29,8 +29,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 from .did_imputation import did_imputation
 
 
@@ -126,12 +127,12 @@ def bjs_pretrend_joint(
             ),
             alternative_functions=["sp.did_imputation", "sp.pretrends_summary"],
         )
-    for col in (y, group, time, first_treat):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"bjs_pretrend_joint: column {col!r} is not in data.",
-                recovery_hint="Pass the same data and columns as did_imputation.",
-            )
+    check_columns(
+        data,
+        {"y": y, "group": group, "time": time, "first_treat": first_treat},
+        function="sp.bjs_pretrend_joint",
+        extra_hint="Pass the same data and columns as did_imputation.",
+    )
     if group == first_treat or data.duplicated([group, time]).any():
         raise MethodIncompatibility(
             f"bjs_pretrend_joint: group={group!r} does not identify units "
@@ -158,7 +159,11 @@ def bjs_pretrend_joint(
 
     cluster_col = cluster if cluster is not None else group
     if cluster_col not in data.columns:
-        raise ValueError(f"Cluster column '{cluster_col}' not found in data.")
+        raise ColumnNotFound.from_missing(
+            {"cluster": cluster_col},
+            list(data.columns),
+            message=f"Cluster column '{cluster_col}' not found in data.",
+        )
 
     clusters = pd.Index(data[cluster_col].unique())
     G = len(clusters)

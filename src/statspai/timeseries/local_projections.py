@@ -24,6 +24,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._collinear import independent_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -173,9 +174,11 @@ def _lpirfs_cholesky(
         raise ValueError("endog_order must include shock")
     if len(order) != len(set(order)):
         raise ValueError("endog_order must not contain duplicate variables")
-    missing = [col for col in order if col not in data.columns]
-    if missing:
-        raise KeyError(f"endog_order columns not found in data: {missing}")
+    check_columns(
+        data,
+        {"endog_order": order},
+        function="sp.local_projections",
+    )
     if len(data) <= horizons + 2:
         raise DataInsufficient("too few observations for Cholesky local projections")
 
@@ -352,6 +355,11 @@ def local_projections(
             recovery_hint="Pass the significance level, e.g. alpha=0.05 for "
             "a 95% band.",
         )
+    check_columns(
+        data,
+        {"outcome": outcome, "shock": shock, "controls": controls},
+        function="sp.local_projections",
+    )
     identification_norm = identification.lower().replace("-", "_")
     if identification_norm not in {"direct", "lpirfs_cholesky", "cholesky"}:
         raise ValueError("identification must be 'direct' or 'lpirfs_cholesky'")

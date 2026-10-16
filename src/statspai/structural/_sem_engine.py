@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._sem_missing import _patterns, _saturated_moments
 
 __all__ = ["fit_sem"]
@@ -41,10 +41,14 @@ def _columns(data: pd.DataFrame, names: List[str]) -> pd.DataFrame:
             for part in v.split(":")[1:]:
                 col = col * data[part].astype(float)
         else:
-            raise MethodIncompatibility(
-                f"path_analysis: variable {v!r} is not a column of data.",
-                recovery_hint="A latent variable needs a '=~' line that " "defines it.",
-                diagnostics={"columns": [str(c) for c in data.columns][:30]},
+            parts = v.split(":") if ":" in v else [v]
+            absent = [p for p in parts if p not in data.columns] or [v]
+            raise ColumnNotFound.from_missing(
+                absent,
+                list(data.columns),
+                message=f"path_analysis: variable {v!r} is not a column of data.",
+                extra_hint="A latent variable needs a '=~' line that defines it.",
+                extra_diagnostics={"columns": [str(c) for c in data.columns][:30]},
             )
         if not (pd.api.types.is_numeric_dtype(col) or pd.api.types.is_bool_dtype(col)):
             raise MethodIncompatibility(

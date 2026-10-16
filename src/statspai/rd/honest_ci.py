@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 
 # --------------------------------------------------------------------------- #
@@ -173,6 +174,11 @@ def rd_honest(
     if str(sclass).upper() not in ("H", "T", "HOLDER", "TAYLOR"):
         raise ValueError(f"sclass must be 'H' (Holder) or 'T' (Taylor), got {sclass!r}")
 
+    check_columns(
+        data,
+        {"y": y, "x": x, "cluster": cluster or None},
+        function="sp.rd_honest",
+    )
     df = data.dropna(subset=[y, x] + ([cluster] if cluster else []))
     y_arr = df[y].values.astype(float)
     x_arr = df[x].values.astype(float)

@@ -318,7 +318,9 @@ def test_etwfe_with_xvar_multi(staggered_panel):
 
 
 def test_etwfe_xvar_missing_column_raises(staggered_panel):
-    with pytest.raises(KeyError, match="not found"):
+    from statspai.exceptions import ColumnNotFound
+
+    with pytest.raises(ColumnNotFound, match="not found"):
         etwfe(
             staggered_panel,
             y="y",

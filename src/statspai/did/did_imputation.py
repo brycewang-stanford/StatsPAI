@@ -23,10 +23,11 @@ from scipy import sparse, stats
 from scipy.sparse.linalg import lsqr
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns, missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 from ._bjs_pretrends import EVENT_STUDY_CONVENTION as _EVENT_STUDY_CONVENTION
 from ._bjs_pretrends import (
     PRETREND_METHODS,
@@ -93,6 +94,18 @@ def _didimp_cluster_bootstrap(
         if np.isfinite(r.estimate):
             boot[b] = float(r.estimate)
     return _bootstrap_se(boot, label="did.imputation")
+
+
+def _raise_missing(df: pd.DataFrame, columns: Dict[str, Any], what: str) -> None:
+    """Raise ColumnNotFound worded ``<what> 'x' not found in data.``"""
+    missing = missing_named_columns(columns, df.columns)
+    if missing:
+        first = next(iter(missing.values()))
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(df.columns),
+            message=f"{what} '{first}' not found in data.",
+        )
 
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
@@ -376,12 +389,18 @@ def did_imputation(
     # ── Input validation ─────────────────────────────────────────── #
     df = data.copy()
     control_names = list(controls or [])
-    for col in [y, group, time, first_treat]:
-        if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found in data.")
-    for col in control_names:
-        if col not in df.columns:
-            raise ValueError(f"Control column '{col}' not found in data.")
+    check_columns(
+        df,
+        {
+            "y": y,
+            "group": group,
+            "time": time,
+            "first_treat": first_treat,
+            "cluster": cluster,
+        },
+        function="sp.did_imputation",
+    )
+    _raise_missing(df, {"controls": control_names}, "Control column")
 
     if se_method is not None:
         if vce != "analytic":
@@ -403,9 +422,7 @@ def did_imputation(
         ("unit_covariates", unit_cov_names),
         ("time_covariates", time_cov_names),
     ):
-        for col in names:
-            if col not in df.columns:
-                raise ValueError(f"{label} column '{col}' not found in data.")
+        _raise_missing(df, {label: names}, f"{label} column")
         overlap = sorted(set(names) & set(control_names))
         if overlap:
             raise ValueError(
@@ -438,9 +455,11 @@ def did_imputation(
 
     if weights is not None:
         if weights not in df.columns:
-            raise MethodIncompatibility(
-                f"weights column '{weights}' not found in data.",
-                diagnostics={"weights": weights},
+            raise ColumnNotFound.from_missing(
+                {"weights": weights},
+                list(df.columns),
+                message=f"weights column '{weights}' not found in data.",
+                extra_diagnostics={"weights": weights},
             )
         if project is not None:
             raise MethodIncompatibility(
@@ -493,7 +512,11 @@ def did_imputation(
         )
     if hetby is not None:
         if hetby not in df.columns:
-            raise ValueError(f"hetby column '{hetby}' not found in data.")
+            raise ColumnNotFound.from_missing(
+                {"hetby": hetby},
+                list(df.columns),
+                message=f"hetby column '{hetby}' not found in data.",
+            )
         het_nuniq = df.groupby(group)[hetby].nunique(dropna=False)
         if (het_nuniq > 1).any():
             bad = het_nuniq[het_nuniq > 1].index.tolist()[:5]
@@ -1021,9 +1044,7 @@ def did_imputation(
     project_df = None
     if project is not None:
         project_names = list(project)
-        for col in project_names:
-            if col not in df.columns:
-                raise ValueError(f"project column '{col}' not found in data.")
+        _raise_missing(df, {"project": project_names}, "project column")
         if hetby is not None:
             raise ValueError(
                 "project= and hetby= cannot be combined: they are two "
@@ -1286,9 +1307,11 @@ def _fe_spec_columns(
         parts = [p.strip() for p in spec.split("#") if p.strip()]
         missing = [p for p in parts if p not in df.columns]
         if missing:
-            raise ValueError(
-                f"fe='{spec}' names column(s) {missing} that are not in the "
-                f"data. Available: {sorted(df.columns)[:12]}..."
+            raise ColumnNotFound.from_missing(
+                {"fe": spec} if len(parts) == 1 else missing,
+                list(df.columns),
+                message=f"fe='{spec}' names column(s) {missing} that are not "
+                f"in the data. Available: {sorted(df.columns)[:12]}...",
             )
         out.append(parts)
     return out
@@ -1344,9 +1367,11 @@ def _build_fe_blocks(
         parts = [p.strip() for p in spec.split("#") if p.strip()]
         missing = [p for p in parts if p not in df.columns]
         if missing:
-            raise ValueError(
-                f"fe='{spec}' names column(s) {missing} that are not in the "
-                f"data. Available: {sorted(df.columns)[:12]}..."
+            raise ColumnNotFound.from_missing(
+                {"fe": spec} if len(parts) == 1 else missing,
+                list(df.columns),
+                message=f"fe='{spec}' names column(s) {missing} that are not "
+                f"in the data. Available: {sorted(df.columns)[:12]}...",
             )
         # Factorize the tuple of levels over the full panel so codes are
         # comparable between the untreated fit and the all-rows prediction.

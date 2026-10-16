@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..exceptions import MethodIncompatibility
 from .estimators import SurveyResult, svyglm, svymean, svytotal
 
@@ -99,6 +100,16 @@ class SurveyDesign:
         nest: bool = False,
         lonely_psu: Optional[str] = None,
     ):
+        check_columns(
+            data,
+            {
+                "weights": weights if isinstance(weights, str) else None,
+                "strata": strata,
+                "cluster": cluster,
+                "fpc": fpc,
+            },
+            function="sp.svydesign",
+        )
         self.data = data.copy()
         n_obs = len(data)
         self._init_kwargs = {
@@ -114,8 +125,6 @@ class SurveyDesign:
 
         # Resolve weights
         if isinstance(weights, str):
-            if weights not in data.columns:
-                raise ValueError(f"weights='{weights}' is not a column in data")
             self._weight_col = weights
             self.weights = data[weights].values.astype(np.float64)
         else:
@@ -136,8 +145,6 @@ class SurveyDesign:
         # Strata
         self.strata_col = strata
         if strata is not None:
-            if strata not in data.columns:
-                raise ValueError(f"strata='{strata}' is not a column in data")
             self.strata = data[strata].values
         else:
             self.strata = np.ones(n_obs, dtype=int)
@@ -145,8 +152,6 @@ class SurveyDesign:
         # PSU / cluster
         self.cluster_col = cluster
         if cluster is not None:
-            if cluster not in data.columns:
-                raise ValueError(f"cluster='{cluster}' is not a column in data")
             psu = data[cluster].values
             if nest and strata is not None:
                 # Make PSU ids unique within strata
@@ -205,8 +210,6 @@ class SurveyDesign:
         # fpc_values holds the first-stage sampling fraction n_h / N_h per row.
         self.fpc_col = fpc
         if fpc is not None:
-            if fpc not in data.columns:
-                raise ValueError(f"fpc='{fpc}' is not a column in data")
             raw = data[fpc].values.astype(np.float64)
             if np.any(np.isnan(raw)) or np.any(raw <= 0):
                 raise MethodIncompatibility(

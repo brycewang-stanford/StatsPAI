@@ -172,7 +172,7 @@ class TestBuildPanelArrays:
         ).all(), "a missing x wiped out y — the listwise-deletion bug is back."
 
     def test_unknown_variable_names_the_available_columns(self, small_panel):
-        with pytest.raises(ValueError, match="not found in the data"):
+        with pytest.raises(ValueError, match="not found in data"):
             build_panel_arrays(small_panel, "id", "time", ["nope"])
 
     @pytest.mark.parametrize("col,what", [("nope", "id"), ("time", "time")])

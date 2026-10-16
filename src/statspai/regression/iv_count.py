@@ -30,9 +30,15 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._validate import require_numeric_columns
 from ..core.results import CausalResult, EconometricResults
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 __all__ = ["ivpoisson"]
 
@@ -207,11 +213,22 @@ def ivpoisson(
         )
     extra = [cl] if isinstance(cl, str) else []
     cols = [y] + en + xs + iv + extra
-    missing = [c for c in cols if c not in data]
-    if missing:
-        raise MethodIncompatibility(
-            f"ivpoisson: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+    named = missing_named_columns(
+        {
+            "y": y,
+            "endog": endog if isinstance(endog, str) else en,
+            "x": x if isinstance(x, str) else xs,
+            "instruments": instruments if isinstance(instruments, str) else iv,
+            "cluster": cl if isinstance(cl, str) else None,
+        },
+        data.columns,
+    )
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="ivpoisson",
+            extra_diagnostics={"missing": list(named.values())},
         )
     if len(iv) < len(en):
         raise MethodIncompatibility(

@@ -91,6 +91,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning
 from ..utils._rng import preserve_global_rng
@@ -389,10 +390,16 @@ class DeepIV:
         self._validate()
 
     def _validate(self) -> None:
-        all_cols = [self.y, self.treat] + self.instruments + self.covariates
-        missing = [c for c in all_cols if c not in self.data.columns]
-        if missing:
-            raise ValueError(f"Columns not found in data: {missing}")
+        check_columns(
+            self.data,
+            {
+                "y": self.y,
+                "treat": self.treat,
+                "instruments": self.instruments,
+                "covariates": self.covariates,
+            },
+            function="sp.deepiv",
+        )
         if len(self.instruments) == 0:
             raise ValueError("At least one instrument is required")
         if self.n_samples < 1:

@@ -24,6 +24,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -128,11 +129,12 @@ def synth_ttest(
             f"got {penalization!r}."
         )
     missing = [c for c in (outcome, unit, time) if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"synth_ttest: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
-        )
+    check_columns(
+        data,
+        {"outcome": outcome, "unit": unit, "time": time},
+        function="sp.synth_ttest",
+        extra_diagnostics={"missing": missing},
+    )
     if data.duplicated(subset=[time, unit]).any():
         raise MethodIncompatibility(
             "synth_ttest needs one row per (unit, time); found duplicates.",

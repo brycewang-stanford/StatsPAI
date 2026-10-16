@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
+
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -192,10 +194,11 @@ def pairwise_causal_benchmark(
     >>> res.accuracy
     1.0
     """
-    required = {pair_a_col, pair_b_col, truth_col}
-    missing = required - set(ground_truth.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
+    check_columns(
+        ground_truth,
+        {"pair_a_col": pair_a_col, "pair_b_col": pair_b_col, "truth_col": truth_col},
+        function="sp.pairwise_causal_benchmark",
+    )
     rows = []
     for _, row in ground_truth.iterrows():
         prompt = prompt_template.format(a=row[pair_a_col], b=row[pair_b_col])

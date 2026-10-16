@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 
 # ======================================================================
@@ -200,8 +201,9 @@ class BunchingEstimator:
 
     def fit(self) -> CausalResult:
         """Run bunching estimation."""
-        if self.running_var not in self.data.columns:
-            raise ValueError(f"Column '{self.running_var}' not found")
+        check_columns(
+            self.data, {"running_var": self.running_var}, function="sp.bunching"
+        )
 
         z = self.data[self.running_var].dropna().values.astype(np.float64)
         n = len(z)

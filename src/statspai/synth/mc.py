@@ -33,6 +33,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ..matrix_completion._core import _center, _check_fixed_effects, mc_nnm_fit
@@ -142,6 +143,16 @@ def mc_synth(
     """
     rng = np.random.default_rng(seed)
     _check_fixed_effects(fixed_effects)
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+            "covariates": covariates,
+        },
+        function="sp.mc_synth",
+    )
 
     # ------------------------------------------------------------------ #
     #  Build panel matrix

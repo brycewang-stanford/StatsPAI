@@ -27,10 +27,16 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._collinear import drop_collinear
 from ..core.utils import create_design_matrices
-from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 _LOG_2PI = float(np.log(2.0 * np.pi))
 
@@ -375,7 +381,12 @@ class DLMResult(ResultProtocolMixin):
             cols = [c for c in names if c != "Intercept"]
             missing = [c for c in cols if c not in data.columns]
             if missing:
-                raise MethodIncompatibility(f"data lacks the regressors {missing}.")
+                raise ColumnNotFound.from_missing(
+                    missing,
+                    list(data.columns),
+                    message=f"data lacks the regressors {missing}.",
+                    extra_hint="Pass the regressors of the forecast dates.",
+                )
             if len(data) < steps:
                 raise MethodIncompatibility(
                     f"data has {len(data)} rows; {steps} steps were requested."
@@ -543,8 +554,9 @@ def dlm(
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     work = data
     if time is not None:
-        if time not in data.columns:
-            raise MethodIncompatibility(f"time column {time!r} is not in data.")
+        check_columns(
+            data, {"time": time}, message=f"time column {time!r} is not in data."
+        )
         if data[time].isna().any():
             raise MethodIncompatibility(
                 f"{int(data[time].isna().sum())} rows have a missing value in "

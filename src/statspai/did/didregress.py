@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -205,8 +206,19 @@ def didregress(
         if extra is not None and extra not in needed:
             needed.append(extra)
     missing = [c for c in needed if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"{context}: columns not in data: {missing}.")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "group": group,
+            "time": time,
+            "covariates": covariates,
+            "id": id,
+            "cluster": cluster,
+        },
+        message=f"{context}: columns not in data: {missing}.",
+    )
     if not 0.0 < float(alpha) < 1.0:
         raise MethodIncompatibility(f"{context}: alpha must lie in (0, 1).")
 

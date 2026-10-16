@@ -44,9 +44,10 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns, missing_named_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
@@ -165,10 +166,12 @@ def _validate_etwfe_weights(data: pd.DataFrame, weights: str) -> pd.DataFrame:
     same observations as the references.
     """
     if weights not in data.columns:
-        raise MethodIncompatibility(
-            f"weights column {weights!r} is not in the data.",
-            recovery_hint="Pass the name of an existing numeric column.",
-            diagnostics={"weights": weights},
+        raise ColumnNotFound.from_missing(
+            {"weights": weights},
+            list(data.columns),
+            message=f"weights column {weights!r} is not in the data.",
+            extra_hint="Pass the name of an existing numeric column.",
+            extra_diagnostics={"weights": weights},
         )
     w = pd.to_numeric(data[weights], errors="coerce").to_numpy(dtype=float)
     if not np.all(np.isfinite(w)):
@@ -425,6 +428,18 @@ def wooldridge_did(
     >>> bool(result.detail is not None)  # cohort-specific ATTs
     True
     """
+    check_columns(
+        data,
+        {
+            "y": y,
+            "group": group,
+            "time": time,
+            "first_treat": first_treat,
+            "controls": controls,
+            "cluster": cluster,
+        },
+        function="sp.wooldridge_did",
+    )
     df = data.copy()
 
     # ── Normalise first_treat ────────────────────────────────────────
@@ -883,6 +898,19 @@ def etwfe(
 
     data, controls = expand_factor_terms(data, controls, context="etwfe")
     data, xvar = factor_xvar(data, xvar, context="etwfe")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "group": group,
+            "time": time,
+            "first_treat": first_treat,
+            "controls": controls,
+            "cluster": cluster,
+            "xvar": [xvar] if isinstance(xvar, str) else xvar,
+        },
+        function="sp.etwfe",
+    )
 
     # Drop rows no branch can use before dispatch, so a wiped outcome surfaces
     # as an error rather than an ATT of exactly 0.0 (or a raw ValueError out of
@@ -1409,7 +1437,9 @@ def _dispatch_etwfe_impl(
         expanded: List[str] = []
         for xv in xvar_list:
             if xv not in data.columns:
-                raise KeyError(f"xvar {xv!r} not found in data.columns")
+                raise ColumnNotFound.from_missing(
+                    {"xvar": xv}, list(data.columns), context="sp.etwfe"
+                )
             if not is_categorical(data[xv]):
                 expanded.append(xv)
                 continue
@@ -2376,6 +2406,18 @@ def drdid(
         df, covariates = _covariates_from_formula(df, covariates, function="drdid")
         covariates = covariates or None
         data = df
+    # y / group / time up front (they are read before anything else); the
+    # panel path (id=) and weights= keep their own, more specific checks.
+    check_columns(
+        df,
+        {
+            "y": y,
+            "group": group,
+            "time": time,
+            "covariates": covariates if id is None else None,
+        },
+        function="sp.drdid",
+    )
 
     # ── Validate method ─────────────────────────────────────────────
     # Only the improved (locally-efficient) and traditional DR-DID
@@ -2418,10 +2460,12 @@ def drdid(
     # ── Observation weights (DRDID's i.weights) ─────────────────────
     if weights is not None:
         if weights not in df.columns:
-            raise MethodIncompatibility(
-                f"weights column {weights!r} is not in data.",
-                recovery_hint="Pass an existing column name, or weights=None.",
-                diagnostics={"weights": weights},
+            raise ColumnNotFound.from_missing(
+                {"weights": weights},
+                list(df.columns),
+                message=f"weights column {weights!r} is not in data.",
+                extra_hint="Pass an existing column name, or weights=None.",
+                extra_diagnostics={"weights": weights},
             )
         if (df[weights] < 0).any():
             raise MethodIncompatibility(
@@ -2440,14 +2484,32 @@ def drdid(
 
     if id is not None:
         if id not in df.columns:
-            raise MethodIncompatibility(f"'{id}' must be a column in data")
+            raise ColumnNotFound.from_missing(
+                {"id": id},
+                list(df.columns),
+                message=f"'{id}' must be a column in data",
+            )
         covariates_list = covariates or []
         needed = [id, y, group, time] + covariates_list
         if weights is not None:
             needed.append(weights)
         missing = [col for col in needed if col not in df.columns]
         if missing:
-            raise MethodIncompatibility(f"Missing columns for panel DR-DID: {missing}")
+            raise ColumnNotFound.from_missing(
+                missing_named_columns(
+                    {
+                        "id": id,
+                        "y": y,
+                        "group": group,
+                        "time": time,
+                        "covariates": covariates_list,
+                        "weights": weights,
+                    },
+                    df.columns,
+                ),
+                list(df.columns),
+                message=f"Missing columns for panel DR-DID: {missing}",
+            )
         panel_df = df[needed].dropna().copy()
         # The weight is read from the pre-period row, as DRDID does for
         # panel data (one weight per unit).
@@ -3049,9 +3111,18 @@ def twfe_decomposition(
 
     missing = [c for c in (y, group, time, first_treat) if c not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"twfe_decomposition: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+        labelled = {
+            label: col
+            for label, col in zip(
+                ("y", "group", "time", "first_treat"), (y, group, time, first_treat)
+            )
+            if col in missing
+        }
+        raise ColumnNotFound.from_missing(
+            labelled,
+            list(data.columns),
+            message=f"twfe_decomposition: columns not found in data: {missing}",
+            extra_diagnostics={"missing": missing},
         )
     df = data[[y, group, time, first_treat]].copy()
     df["_ft"] = df[first_treat].replace(0, np.nan)

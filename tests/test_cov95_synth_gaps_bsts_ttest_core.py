@@ -166,7 +166,7 @@ def test_synth_ttest_argument_checks():
     df = _long()
     with pytest.raises(MethodIncompatibility, match="n_folds must be at least 2"):
         _tt(df, n_folds=1)
-    with pytest.raises(MethodIncompatibility, match="columns not found.*'nope'"):
+    with pytest.raises(MethodIncompatibility, match=r"Column\(s\) not found.*'nope'"):
         _tt(df, outcome="nope")
     with pytest.raises(MethodIncompatibility, match="found duplicates"):
         _tt(pd.concat([df, df.iloc[[0]]], ignore_index=True))

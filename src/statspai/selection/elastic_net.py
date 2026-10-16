@@ -23,8 +23,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 __all__ = ["glmnet", "GlmnetResult"]
 
@@ -363,11 +369,12 @@ class GlmnetResult(ResultProtocolMixin):
         a0, b = self._at(s)
         absent = [c for c in self.x if c not in data.columns]
         if absent:
-            raise MethodIncompatibility(
-                f"glmnet: the prediction data lack column(s) {absent}.",
-                recovery_hint="Pass every predictor of the fit, including "
+            raise ColumnNotFound.from_missing(
+                absent,
+                list(data.columns),
+                message=f"glmnet: the prediction data lack column(s) {absent}.",
+                extra_hint="Pass every predictor of the fit, including "
                 "those whose coefficient is zero.",
-                diagnostics={"missing_columns": absent},
             )
         eta = a0 + data[self.x].to_numpy(dtype=float) @ b
         if type == "link" or self.family == "gaussian":
@@ -564,16 +571,19 @@ def glmnet(
             f"glmnet: rule must be 'min' or '1se', got {rule!r}.",
             recovery_hint="Use rule='min'.",
         )
+    x_arg = x
     x = [x] if isinstance(x, str) else list(x)
     if not x:
         raise MethodIncompatibility("glmnet: at least one predictor is required.")
-    cols = [y, *x] + ([foldid] if isinstance(foldid, str) else [])
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"glmnet: column(s) not in data: {missing}.",
-            diagnostics={"missing_columns": missing},
-        )
+    check_columns(
+        data,
+        {
+            "y": y,
+            "x": x_arg if isinstance(x_arg, str) else x,
+            "foldid": foldid if isinstance(foldid, str) else None,
+        },
+        function="glmnet",
+    )
     keep = data[[y, *x]].notna().all(axis=1).to_numpy()
     df = data.loc[keep]
     try:

@@ -194,7 +194,7 @@ def test_auto_cate_tuned_missing_columns_have_taxonomy(constant_effect_data):
             n_trials=2,
             n_folds=3,
         )
-    assert exc.value.diagnostics["missing_columns"] == ["missing_x"]
+    assert exc.value.diagnostics["missing_columns"] == {"covariates[1]": "missing_x"}
 
 
 def test_auto_cate_tuned_invalid_budget_has_taxonomy(constant_effect_data):

@@ -24,6 +24,7 @@ from typing import Any, Callable, Dict, FrozenSet, List, Optional, Sequence, Tup
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._viz import DAGDict
 
@@ -246,10 +247,12 @@ def hill_climb(
         raise MethodIncompatibility("hill_climb: data must be a DataFrame.")
     cols = list(variables) if variables is not None else list(data.columns)
     missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"hill_climb: columns not in data: {missing}.",
-        )
+    check_columns(
+        data,
+        {"variables": cols},
+        function="sp.hill_climb",
+        message=f"hill_climb: columns not in data: {missing}.",
+    )
     if len(cols) < 2:
         raise MethodIncompatibility("hill_climb: at least two variables are needed.")
     frame = data[cols].dropna()

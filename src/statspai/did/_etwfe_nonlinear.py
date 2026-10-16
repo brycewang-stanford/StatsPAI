@@ -106,7 +106,12 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from ._etwfe_glm_design import (  # noqa: F401 - re-exported
     _ETWFE_GLM_FAMILIES,
     _SCALES,
@@ -286,7 +291,9 @@ def etwfe_glm(
         xvar_list = [xvar] if isinstance(xvar, str) else list(xvar)
         for xv in xvar_list:
             if xv not in data.columns:
-                raise KeyError(f"xvar {xv!r} not found in data.columns")
+                raise ColumnNotFound.from_missing(
+                    {"xvar": xv}, list(data.columns), context="sp.etwfe"
+                )
 
     df = data.copy()
     df["_ft"] = df[first_treat].replace(0, np.nan)

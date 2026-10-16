@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 
@@ -191,12 +192,17 @@ def gsynth_multi(
     """Generalized synthetic control for a treatment indicator column."""
     covariates = list(covariates or [])
     cols = [outcome, unit, time, treat, *covariates]
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"gsynth: column(s) not in data: {missing}.",
-            diagnostics={"missing_columns": missing},
-        )
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+            "treat": treat,
+            "covariates": covariates,
+        },
+        function="sp.gsynth",
+    )
     if inference not in ("auto", "parametric", "nonparametric", "none"):
         raise MethodIncompatibility(
             f"gsynth: unknown inference {inference!r}.",

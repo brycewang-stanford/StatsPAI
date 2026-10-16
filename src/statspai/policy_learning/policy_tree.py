@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -665,9 +666,20 @@ class PolicyTree:
         all_cols = list(
             set([self.y, self.treat] + self.covariates + self.policy_covariates)
         )
-        missing = [c for c in all_cols if c not in self.data.columns]
-        if missing:
-            raise ValueError(f"Columns not found in data: {missing}")
+        check_columns(
+            self.data,
+            {
+                "y": self.y,
+                "treat": self.treat,
+                "covariates": list(self.covariates),
+                "policy_covariates": (
+                    None
+                    if self.policy_covariates is self.covariates
+                    else list(self.policy_covariates)
+                ),
+            },
+            function="policy_tree",
+        )
 
         clean = self.data[all_cols].dropna()
         Y = clean[self.y].values.astype(np.float64)

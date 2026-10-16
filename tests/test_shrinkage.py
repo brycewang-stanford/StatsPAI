@@ -143,7 +143,7 @@ def test_refusals(frame):
         sp.shrinkage(frame, "y", cols, method="pcr", penalty=1.0)
     with pytest.raises(MethodIncompatibility, match="do not vary"):
         sp.shrinkage(frame.assign(k=1.0), "y", cols + ["k"])
-    with pytest.raises(MethodIncompatibility, match="not in the data"):
+    with pytest.raises(MethodIncompatibility, match="not found in data"):
         sp.shrinkage(frame, "y", cols + ["nope"])
     with pytest.raises(MethodIncompatibility, match="need cross-validation"):
         sp.shrinkage(frame, "y", cols, penalty=[1.0, 2.0], n_folds=0)

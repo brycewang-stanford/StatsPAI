@@ -43,6 +43,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._rd2d_distance import rd2d_distance_bw, rd2d_distance_estimate
@@ -87,7 +88,9 @@ def _bad(msg: str, hint: str, **diag: Any) -> MethodIncompatibility:
     return MethodIncompatibility(msg, recovery_hint=hint, diagnostics=diag)
 
 
-def _require_frame(data: Any, cols: Sequence[Tuple[str, Any]]) -> None:
+def _require_frame(
+    data: Any, cols: Sequence[Tuple[str, Any]], function: str = "sp.rd2d"
+) -> None:
     if not isinstance(data, pd.DataFrame):
         raise _bad(
             "`data` must be a pandas DataFrame.",
@@ -102,14 +105,7 @@ def _require_frame(data: Any, cols: Sequence[Tuple[str, Any]]) -> None:
                 argument=label,
                 value=repr(name),
             )
-    missing = [name for _, name in cols if name not in data.columns]
-    if missing:
-        raise _bad(
-            f"Column '{missing[0]}' not found in data",
-            "Check y/x1/x2/treatment names against data.columns.",
-            missing_columns=missing,
-            available_columns=list(data.columns),
-        )
+    check_columns(data, dict(cols), function=function)
 
 
 def _choice(value: Any, allowed: Sequence[str], name: str) -> str:
@@ -1032,7 +1028,7 @@ def rd2d_bw(
         cols.append(("fuzzy", fuzzy))
     if cluster is not None:
         cols.append(("cluster", cluster))
-    _require_frame(data, cols)
+    _require_frame(data, cols, function="sp.rd2d_bw")
     kernel = _kernel(kernel)
     p = _nonneg_int(p, "p")
     if boundary is not None and not callable(boundary):

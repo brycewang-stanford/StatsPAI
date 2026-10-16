@@ -18,6 +18,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -156,13 +157,22 @@ def hierarchy(
             recovery_hint='E.g. spec=[["country"], ["country", "state"]].',
         )
     levels = [list(s) for s in spec]
+    named: Dict[str, Any] = {}
+    seen: set = set()
+    for i, lv in enumerate(levels):
+        for j, c in enumerate(lv):
+            if c not in seen:
+                seen.add(c)
+                named[f"spec[{i}][{j}]"] = c
+    named.update({"time": time, "value": value})
     needed = sorted({c for s in levels for c in s} | {time, value})
     absent = [c for c in needed if c not in data.columns]
-    if absent:
-        raise MethodIncompatibility(
-            f"hierarchy: columns {absent} are not in data.",
-            recovery_hint="Check spec, time= and value=.",
-        )
+    check_columns(
+        data,
+        named,
+        message=f"hierarchy: columns {absent} are not in data.",
+        extra_hint="Check spec, time= and value=.",
+    )
     bottom_keys = levels[-1]
     for lv in levels[:-1]:
         extra = [c for c in lv if c not in bottom_keys]

@@ -206,5 +206,5 @@ def test_ipcw_truncation_bounds_weights():
 
 def test_ipcw_rejects_missing_columns():
     df = pd.DataFrame({"t": [1.0], "d": [1]})
-    with pytest.raises(KeyError):
+    with pytest.raises(sp.exceptions.ColumnNotFound):
         sp.ipcw(df, time="t", event="d", censor_covariates=["nonexistent"])

@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -365,12 +366,11 @@ def rcm(
             recovery_hint="Use selection='best', criterion='aicc'.",
         )
     covariates = list(covariates or [])
-    for name in [outcome, unit, time] + covariates:
-        if name not in data.columns:
-            raise MethodIncompatibility(
-                f"sp.synth(method='rcm'): {name!r} is not a column of the data.",
-                recovery_hint="Check outcome=, unit=, time= and covariates=.",
-            )
+    check_columns(
+        data,
+        {"outcome": outcome, "unit": unit, "time": time, "covariates": covariates},
+        function="sp.synth(method='rcm')",
+    )
     wide = data.pivot(index=time, columns=unit, values=outcome).sort_index()
     if treated_unit not in wide.columns:
         raise MethodIncompatibility(

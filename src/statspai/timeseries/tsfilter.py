@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy import linalg, special
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -71,12 +72,13 @@ def hp_smoothing(observations_per_year: Union[float, str]) -> float:
 
 def _read(data: ArrayLike, y: Optional[str]) -> Tuple[np.ndarray, pd.Index, str]:
     if isinstance(data, pd.DataFrame):
-        if y is None or y not in data.columns:
+        if y is None:
             raise MethodIncompatibility(
                 f"sp.tsfilter: y={y!r} is not a column of the data.",
                 recovery_hint="Pass the name of the series, e.g. "
                 "sp.tsfilter(df, 'gdp').",
             )
+        check_columns(data, {"y": y}, function="sp.tsfilter")
         return data[y].to_numpy(dtype=float, na_value=np.nan), data.index, str(y)
     if isinstance(data, pd.Series):
         name = "y" if data.name is None else str(data.name)

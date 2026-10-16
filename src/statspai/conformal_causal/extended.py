@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -192,14 +193,17 @@ def conformal_continuous(
         )
     if not (0 < calibration_frac < 1):
         raise ValueError("`calibration_frac` must be in (0,1).")
-    required = {y, treatment, *covariates}
-    missing = required - set(data.columns)
-    if missing:
-        raise ValueError(f"Training data missing columns: {missing}")
-    required_test = {treatment, *covariates}
-    missing_t = required_test - set(test_data.columns)
-    if missing_t:
-        raise ValueError(f"Test data missing columns: {missing_t}")
+    check_columns(
+        data,
+        {"y": y, "treatment": treatment, "covariates": list(covariates)},
+        function="sp.conformal_continuous",
+    )
+    check_columns(
+        test_data,
+        {"treatment": treatment, "covariates": list(covariates)},
+        function="sp.conformal_continuous (test_data)",
+        extra_hint="test_data needs the treatment and covariate columns.",
+    )
 
     rng = np.random.default_rng(random_state)
     idx = np.arange(len(data))
@@ -363,10 +367,16 @@ def conformal_interference(
             max_depth=3,
             random_state=random_state,
         )
-    required = {y, treatment, cluster, *covariates}
-    missing = required - set(data.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treatment": treatment,
+            "cluster": cluster,
+            "covariates": list(covariates),
+        },
+        function="sp.conformal_interference",
+    )
     clusters_all = data[cluster].unique()
     clusters_train_cal = [c for c in clusters_all if c not in set(test_clusters)]
     if len(clusters_train_cal) < 4:

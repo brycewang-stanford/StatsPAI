@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["bds"]
@@ -120,11 +121,8 @@ def bds(
                     recovery_hint='sp.bds(df, "resid")',
                 )
             values = data.iloc[:, 0]
-        elif y not in data.columns:
-            raise MethodIncompatibility(
-                f"bds: column {y!r} not found.", recovery_hint="Check the name."
-            )
         else:
+            check_columns(data, {"y": y}, function="sp.bds")
             values = data[y]
     else:
         info = getattr(data, "data_info", None)

@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .ardl import _check_alpha
 from .structural_break import _refuse_exact_split
@@ -38,11 +39,7 @@ def _first_regime_sizes(
     sizes: List[int] = []
     for bp in points:
         if time is not None:
-            if time not in data.columns:
-                raise MethodIncompatibility(
-                    f"chow_test: time column {time!r} not found.",
-                    recovery_hint="Check the column name.",
-                )
+            check_columns(data, {"time": time}, function="sp.chow_test")
             col = data[time]
             value = pd.Timestamp(bp) if np.issubdtype(col.dtype, np.datetime64) else bp
             size = int((col < value).sum())
@@ -174,12 +171,11 @@ def chow_test(
         )
     _check_alpha(alpha, "chow_test")
     x_names = [x] if isinstance(x, str) else list(x or [])
-    missing = [c for c in [y] + x_names if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"chow_test: column(s) {missing} not found in data.",
-            recovery_hint="Check the column names.",
-        )
+    check_columns(
+        data,
+        {"y": y, "x": x if isinstance(x, str) else x_names, "time": time},
+        function="sp.chow_test",
+    )
     if time is not None and time in data.columns:
         # The regimes are the rows before and after the break in TIME, so
         # the rows are put in the order of the time column (stable for

@@ -46,7 +46,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases, accepts_formula_first
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import ColumnNotFound
 
 
 @dataclass
@@ -562,6 +564,17 @@ def subgroup_analysis(
     y_col = parsed["dependent"]
     all_rhs = parsed["exogenous"]
     controls_base = [v for v in all_rhs if v != x]
+    named = missing_named_columns({"y": y_col, "x": x}, data.columns)
+    for col in controls_base:
+        if col not in data.columns:
+            named.setdefault(col if col not in named else f"formula:{col}", col)
+    for display_name, col_name in by.items():
+        if col_name not in data.columns:
+            named[f"by[{display_name!r}]"] = col_name
+    if named:
+        raise ColumnNotFound.from_missing(
+            named, list(data.columns), context="subgroup_analysis"
+        )
 
     # Overall estimate
     overall = _quick_ols_full(data, y_col, x, controls_base, robust)
@@ -572,9 +585,6 @@ def subgroup_analysis(
     het_tests = {}
 
     for display_name, col_name in by.items():
-        if col_name not in data.columns:
-            raise ValueError(f"Column '{col_name}' not found in data.")
-
         # Remove group column from controls if present
         ctrl_clean = [c for c in controls_base if c != col_name]
 

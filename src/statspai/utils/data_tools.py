@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..exceptions import MethodIncompatibility
 
 
@@ -88,6 +89,7 @@ def pwcorr(
         )
     if vars is None:
         vars = list(data.select_dtypes(include=[np.number]).columns)
+    check_columns(data, {"vars": list(vars)}, function="sp.pwcorr")
 
     df = data[vars]
     if listwise:
@@ -291,6 +293,7 @@ def winsor(
     if trim and suffix == "_w":
         suffix = "_tr"
 
+    check_columns(df, {"vars": list(vars), "by": by}, function="sp.winsor")
     lo_pct, hi_pct = cuts
     if subset is None:
         in_sample = np.ones(len(df), dtype=bool)
@@ -310,9 +313,6 @@ def winsor(
         in_sample = in_sample & df[by_cols].notna().all(axis=1).to_numpy()
 
     for var in vars:
-        if var not in df.columns:
-            raise ValueError(f"Column '{var}' not found")
-
         col = df[var].values.astype(float)
         valid = np.isfinite(col)
         use = valid & in_sample

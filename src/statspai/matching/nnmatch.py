@@ -56,6 +56,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -352,12 +353,18 @@ def nnmatch(
         bias_cols = _column_list(bias_adjust, "bias_adjust")
 
     needed = [y, treat, *cov_cols, *exact_cols, *bias_cols]
-    missing = [c for c in dict.fromkeys(needed) if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"nnmatch: column(s) not found in data: {missing}.",
-            diagnostics={"missing_columns": missing},
-        )
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "covariates": cov_cols,
+            "exact": exact_cols,
+            # bias_adjust=True reuses covariates; only a list names new columns
+            "bias_adjust": None if bias_adjust is True else bias_cols,
+        },
+        function="sp.match(method='nnmatch')",
+    )
     clean = data[list(dict.fromkeys(needed))].dropna()
     t = clean[treat].to_numpy()
     if not np.isin(t, (0, 1)).all():

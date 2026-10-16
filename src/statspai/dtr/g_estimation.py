@@ -28,7 +28,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 
 def g_estimation(
@@ -226,7 +226,21 @@ class GEstimation:
 
         missing = [c for c in all_cols if c not in self.data.columns]
         if missing:
-            raise ValueError(f"Columns not found in data: {missing}")
+            avail = set(self.data.columns)
+            named = {"y": self.y}
+            named.update({f"treatments[{i}]": t for i, t in enumerate(self.treatments)})
+            groups = [("covariates_by_stage", self.covariates_by_stage)]
+            if self.propensity_covariates is not self.covariates_by_stage:
+                groups.append(("propensity_covariates", self.propensity_covariates))
+            for arg, stages in groups:
+                for i, stage_covs in enumerate(stages):
+                    for j, c in enumerate(stage_covs):
+                        named[f"{arg}[{i}][{j}]"] = c
+            raise ColumnNotFound.from_missing(
+                {k: c for k, c in named.items() if c not in avail},
+                self.data.columns,
+                message=f"Columns not found in data: {missing}",
+            )
 
         clean = self.data[all_cols].dropna()
         n = len(clean)

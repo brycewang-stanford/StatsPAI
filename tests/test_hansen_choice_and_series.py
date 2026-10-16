@@ -274,7 +274,7 @@ def test_series_refusals():
         sp.series("y ~ 1", df, "x", basis="fourier")
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="at least 1"):
         sp.series("y ~ 1", df, "x", order=0)
-    with pytest.raises(sp.exceptions.MethodIncompatibility, match="not a column"):
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="not found in data"):
         sp.series("y ~ 1", df, "nope")
     df["flat"] = 1.0
     with pytest.raises(sp.exceptions.DataInsufficient, match="does not vary"):

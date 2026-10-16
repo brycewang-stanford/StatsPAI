@@ -44,10 +44,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns, missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import (
     AssumptionWarning,
+    ColumnNotFound,
     DataInsufficient,
     IdentificationFailure,
     MethodIncompatibility,
@@ -181,8 +183,7 @@ def _target_actions(
             )
         return np.asarray(out)
     if isinstance(policy, str):
-        if policy not in df.columns:
-            raise MethodIncompatibility(f"policy column {policy!r} not found")
+        check_columns(df, {"policy": policy}, function="sp.mdp_policy_value")
         return np.asarray(df[policy].to_numpy())
     return np.full(len(states), policy)
 
@@ -205,10 +206,13 @@ def _feature_matrix(
     if callable(features):
         psi = np.asarray(features(states), dtype=float)
     else:
-        missing = [c for c in features if c not in states.columns]
+        missing = missing_named_columns({"features": list(features)}, states.columns)
         if missing:
-            raise MethodIncompatibility(
-                f"features must be among the state columns; missing {missing}"
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(states.columns),
+                message="features must be among the state columns; missing "
+                f"{list(missing.values())}",
             )
         psi = states[list(features)].to_numpy(dtype=float)
     if psi.ndim == 1:
@@ -403,9 +407,20 @@ def mdp_policy_value(
     for pol in (policy, baseline):
         if isinstance(pol, str):
             cols.append(pol)
-    missing = [c for c in dict.fromkeys(cols) if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"columns not found in data: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "state": state,
+            "trajectory": trajectory,
+            "time": time,
+            "propensity": propensity if isinstance(propensity, str) else None,
+            "policy": policy if isinstance(policy, str) else None,
+            "baseline": baseline if isinstance(baseline, str) else None,
+        },
+        function="sp.mdp_policy_value",
+    )
     if not state:
         raise MethodIncompatibility("at least one state column is required")
     if time is not None and data[time].isna().any():
@@ -717,9 +732,18 @@ def marginal_policy_effect(
     cols = [y, treat] + covariates + [c for c in (trajectory, time) if c is not None]
     if isinstance(propensity, str):
         cols.append(propensity)
-    missing = [c for c in dict.fromkeys(cols) if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"columns not found in data: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "covariates": covariates,
+            "trajectory": trajectory,
+            "time": time,
+            "propensity": propensity if isinstance(propensity, str) else None,
+        },
+        function="sp.marginal_policy_effect",
+    )
     keys = [k for k in (trajectory, time) if k is not None]
     if time is not None and data[time].isna().any():
         raise MethodIncompatibility(f"{time!r} has missing values")

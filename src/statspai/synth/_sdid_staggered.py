@@ -38,6 +38,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -74,12 +75,18 @@ def _build_panel(
     covariates: Sequence[str],
 ) -> _Panel:
     """Validate as ``sdid.ado`` does and pivot to matrices."""
-    for col in [y, unit, time, treatment, *covariates]:
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"sdid: column {col!r} is not in the data.",
-                recovery_hint="Check the column names passed to sp.sdid.",
-            )
+    # labels are the sp.sdid argument names (outcome= / treat=)
+    check_columns(
+        data,
+        {
+            "outcome": y,
+            "unit": unit,
+            "time": time,
+            "treat": treatment,
+            "covariates": list(covariates),
+        },
+        function="sp.sdid",
+    )
     df = data[[unit, time, y, treatment, *covariates]].copy()
     if df.duplicated([unit, time]).any():
         raise MethodIncompatibility(

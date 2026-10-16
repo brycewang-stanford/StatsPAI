@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _grf_engine as engine
 from ._grf_family import (
     ForestOptions,
@@ -518,9 +518,10 @@ def probability_forest(
     labels = y
     if data is not None and isinstance(y, str):
         if y not in data.columns:
-            raise MethodIncompatibility(
-                f"{ctx}: Missing columns: {[y]}",
-                recovery_hint="Pass column names present in the input DataFrame.",
+            raise ColumnNotFound.from_missing(
+                {"y": y},
+                data.columns,
+                message=f"{ctx}: Missing columns: {[y]}",
             )
         labels = data[y].to_numpy()
     labels = np.asarray(labels).ravel()

@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ._base import BayesianCausalResult, _require_pymc, _sample_model
 
 
@@ -35,9 +36,11 @@ def _wide_panel(
     donors: Optional[Sequence[Any]],
 ) -> "Tuple[np.ndarray, np.ndarray, np.ndarray, List[Any]]":
     """Pivot long panel to (times, treated_vec, donor_matrix, donor_names)."""
-    for c in (outcome, unit, time):
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
+    check_columns(
+        data,
+        {"outcome": outcome, "unit": unit, "time": time},
+        function="sp.bayes_synth",
+    )
     wide = data.pivot_table(index=time, columns=unit, values=outcome)
     if treated_unit not in wide.columns:
         raise ValueError(
@@ -135,6 +138,11 @@ def bayes_synth(
     ... )
     >>> res.posterior_mean  # posterior mean ATT  # doctest: +SKIP
     """
+    check_columns(
+        data,
+        {"outcome": outcome, "unit": unit, "time": time},
+        function="sp.bayes_synth",
+    )
     pm, _ = _require_pymc()
 
     times, treated, donor_mat, donor_names = _wide_panel(

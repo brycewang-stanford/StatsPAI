@@ -2,12 +2,12 @@
 Tests for Policy Learning (PolicyTree).
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
-from statspai.policy_learning import policy_tree, PolicyTree, policy_value
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
+from statspai.policy_learning import PolicyTree, policy_tree, policy_value
 
 # ======================================================================
 # Fixtures
@@ -177,7 +177,7 @@ class TestPolicyTree:
         assert isinstance(result, dict)
 
     def test_missing_column_raises(self, small_data):
-        with pytest.raises(ValueError, match="Columns not found"):
+        with pytest.raises(ValueError, match=r"Column\(s\) not found"):
             policy_tree(
                 small_data,
                 y="y",

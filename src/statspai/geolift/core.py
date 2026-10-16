@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 
 __all__ = ["geolift"]
@@ -85,9 +86,9 @@ def geolift(
     """
     if agg not in ("mean", "sum"):
         raise ValueError(f"agg must be 'mean' or 'sum'; got {agg!r}.")
-    for c in (outcome, geo, time):
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
+    check_columns(
+        data, {"outcome": outcome, "geo": geo, "time": time}, function="sp.geolift"
+    )
 
     if np.isscalar(treated_geos) or isinstance(treated_geos, str):
         treated_list: List[Any] = [treated_geos]

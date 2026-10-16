@@ -26,9 +26,10 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._vcov import ml_vcov
 from ..core.results import CausalResult, EconometricResults
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._optim_helpers import inverse_information, ml_newton_polish, se_from_vcov
 
 __all__ = ["nlogit"]
@@ -152,11 +153,22 @@ def nlogit(
         )
     extra = [cl] if isinstance(cl, str) else []
     cols = [y, chid, alt] + xs + extra
-    missing = [c for c in cols if c not in data]
-    if missing:
-        raise MethodIncompatibility(
-            f"nlogit: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+    named = missing_named_columns(
+        {
+            "y": y,
+            "chid": chid,
+            "alt": alt,
+            "x": x if isinstance(x, str) else xs,
+            "cluster": cl if isinstance(cl, str) else None,
+        },
+        data.columns,
+    )
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="nlogit",
+            extra_diagnostics={"missing": list(named.values())},
         )
     df = data[list(dict.fromkeys(cols))].dropna().sort_values([chid, alt])
     alts = sorted(pd.unique(df[alt]).tolist())

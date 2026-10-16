@@ -28,6 +28,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
@@ -175,12 +176,6 @@ class MRBMAResult(ResultProtocolMixin):
 # -------------------------------------------------------------------------
 
 
-def _check_columns(df: pd.DataFrame, cols: Sequence[str]) -> None:
-    missing = [c for c in cols if c not in df.columns]
-    if missing:
-        raise ValueError(f"Missing columns in data: {missing}")
-
-
 def _ivw(
     beta_outcome: np.ndarray,
     se_outcome: np.ndarray,
@@ -279,7 +274,11 @@ def mr_multivariable(
             "MVMR requires >= 2 exposures. For a single exposure use "
             "sp.mendelian_randomization() or sp.mr_ivw()."
         )
-    _check_columns(snp_associations, [outcome, outcome_se] + exposures)
+    check_columns(
+        snp_associations,
+        {"outcome": outcome, "outcome_se": outcome_se, "exposures": exposures},
+        function="sp.mr_multivariable",
+    )
 
     df = snp_associations.dropna(subset=[outcome, outcome_se] + exposures).reset_index(
         drop=True
@@ -460,7 +459,18 @@ def mr_mediation(
         beta_outcome,
         se_outcome,
     ]
-    _check_columns(snp_associations, cols)
+    check_columns(
+        snp_associations,
+        {
+            "beta_exposure": beta_exposure,
+            "se_exposure": se_exposure,
+            "beta_mediator": beta_mediator,
+            "se_mediator": se_mediator,
+            "beta_outcome": beta_outcome,
+            "se_outcome": se_outcome,
+        },
+        function="sp.mr_mediation",
+    )
     df = snp_associations.dropna(subset=cols).reset_index(drop=True)
     n = len(df)
     if n < 5:
@@ -646,7 +656,11 @@ def mr_bma(
         )
     if max_model_size is None:
         max_model_size = k
-    _check_columns(snp_associations, [outcome, outcome_se] + exposures)
+    check_columns(
+        snp_associations,
+        {"outcome": outcome, "outcome_se": outcome_se, "exposures": exposures},
+        function="sp.mr_bma",
+    )
     df = snp_associations.dropna(subset=[outcome, outcome_se] + exposures).reset_index(
         drop=True
     )

@@ -2,11 +2,11 @@
 Tests for Causal Discovery module (NOTEARS, PC Algorithm).
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
-from statspai.causal_discovery import notears, NOTEARS, pc_algorithm, PCAlgorithm
+from statspai.causal_discovery import NOTEARS, PCAlgorithm, notears, pc_algorithm
 
 # ======================================================================
 # Fixtures: Generate data from known DAGs
@@ -164,7 +164,7 @@ class TestNOTEARS:
         assert result["adjacency"].shape == (2, 2)
 
     def test_missing_variable_raises(self, small_data):
-        with pytest.raises(ValueError, match="Variables not found"):
+        with pytest.raises(ValueError, match="not found in data"):
             notears(small_data, variables=["X", "nonexistent"])
 
     def test_single_variable_raises(self):
@@ -254,7 +254,7 @@ class TestPCAlgorithm:
         assert result["variables"] == ["X", "Z"]
 
     def test_missing_variable_raises(self, small_data):
-        with pytest.raises(ValueError, match="Variables not found"):
+        with pytest.raises(ValueError, match="not found in data"):
             pc_algorithm(small_data, variables=["X", "nonexistent"])
 
     def test_single_variable_raises(self):

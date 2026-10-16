@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -218,9 +219,11 @@ class BayesianCausalForest:
         """Fit BCF and return treatment effect estimates."""
         # Prepare data
         cols = [self.y, self.treat] + self.covariates
-        missing = [c for c in cols if c not in self.data.columns]
-        if missing:
-            raise ValueError(f"Columns not found in data: {missing}")
+        check_columns(
+            self.data,
+            {"y": self.y, "treat": self.treat, "covariates": list(self.covariates)},
+            function="sp.bcf",
+        )
 
         clean = self.data[cols].dropna()
         Y = clean[self.y].values.astype(np.float64)

@@ -77,9 +77,10 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, NumericalInstability
+from ..exceptions import ColumnNotFound, DataInsufficient, NumericalInstability
 from . import _core as _dc
 from ._ddd_dr import ddd_dr_cell
 
@@ -230,9 +231,22 @@ def ddd_heterogeneous(
     olden2022triple, callaway2021difference
     """
     df = data.copy()
-    for col in (y, unit, time, cohort, subgroup):
-        if col not in df.columns:
-            raise ValueError(f"Column {col!r} not in data")
+    missing = missing_named_columns(
+        {
+            "y": y,
+            "unit": unit,
+            "time": time,
+            "cohort": cohort,
+            "subgroup": subgroup,
+        },
+        df.columns,
+    )
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(df.columns),
+            message=f"Column {next(iter(missing.values()))!r} not in data",
+        )
 
     if weight_by not in {"eligible", "cohort"}:
         raise ValueError(f"weight_by must be 'eligible' or 'cohort', got {weight_by!r}")
@@ -255,9 +269,13 @@ def ddd_heterogeneous(
         se = "analytic" if covars else "bootstrap"
     if se not in {"analytic", "bootstrap"}:
         raise ValueError(f"se must be 'analytic' or 'bootstrap', got {se!r}")
-    for _c in covars:
-        if _c not in df.columns:
-            raise ValueError(f"Covariate {_c!r} not in data")
+    missing = missing_named_columns({"x": covars}, df.columns)
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(df.columns),
+            message=f"Covariate {next(iter(missing.values()))!r} not in data",
+        )
     if covars and se == "bootstrap":
         warnings.warn(
             "ddd_heterogeneous: covariates are supplied with se='bootstrap'. "

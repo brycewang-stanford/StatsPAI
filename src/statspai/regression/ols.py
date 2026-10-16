@@ -17,6 +17,7 @@ from ..core.results import EconometricResults
 from ..core.utils import _coerce_string_extension_dtypes, create_design_matrices
 from ..exceptions import (
     AssumptionWarning,
+    ColumnNotFound,
     DataInsufficient,
     MethodIncompatibility,
     NumericalInstability,
@@ -1058,8 +1059,14 @@ class OLSRegression(BaseModel):
         or non-positive weights rather than silently producing wrong estimates.
         """
         if isinstance(weights, str):
-            if self.data is None or weights not in self.data.columns:
+            if self.data is None:
                 raise ValueError(f"weights='{weights}' is not a column in the data.")
+            if weights not in self.data.columns:
+                raise ColumnNotFound.from_missing(
+                    {"weights": weights},
+                    list(self.data.columns),
+                    message=f"weights='{weights}' is not a column in the data.",
+                )
             col = self.data[weights]
             if design_index is not None:
                 col = col.reindex(design_index)
@@ -1089,8 +1096,10 @@ class OLSRegression(BaseModel):
             )
         missing = [c for c in names if c not in self.data.columns]
         if missing:
-            raise MethodIncompatibility(
-                f"regress: hac_panel column(s) {missing} are not in the data."
+            raise ColumnNotFound.from_missing(
+                {f"hac_panel[{names.index(c)}]": c for c in missing},
+                list(self.data.columns),
+                message=f"regress: hac_panel column(s) {missing} are not in the data.",
             )
         if names[0] == names[1]:
             # Selecting the same column twice gives a frame with a repeated
@@ -1251,8 +1260,10 @@ class OLSRegression(BaseModel):
             )
         if cluster and self.data is not None:
             if cluster not in self.data.columns:
-                raise MethodIncompatibility(
-                    f"cluster='{cluster}' is not a column in the data."
+                raise ColumnNotFound.from_missing(
+                    {"cluster": cluster},
+                    list(self.data.columns),
+                    message=f"cluster='{cluster}' is not a column in the data.",
                 )
             cluster_var = self.data[cluster]
             if design_index is not None:
@@ -1627,6 +1638,12 @@ class OLSRegression(BaseModel):
                         return_type="dataframe",
                     )
             except (PatsyError, KeyError, ValueError) as exc:
+                if isinstance(exc, PatsyError):
+                    from ..core.utils import raise_if_formula_names_missing
+
+                    raise_if_formula_names_missing(
+                        self.formula.split("~", 1)[1], data, exc, context="predict"
+                    )
                 raise MethodIncompatibility(
                     "Could not build prediction design matrix from new data.",
                     recovery_hint=(
@@ -1722,7 +1739,11 @@ def _sample_codes(base: Any, data: pd.DataFrame, column: str) -> np.ndarray:
     taken from ``data`` positionally would then belong to other rows.
     """
     if column not in data.columns:
-        raise MethodIncompatibility(f"cluster='{column}' is not a column in the data.")
+        raise ColumnNotFound.from_missing(
+            {"cluster": column},
+            list(data.columns),
+            message=f"cluster='{column}' is not a column in the data.",
+        )
     keys = data[column]
     idx = (getattr(base, "data_info", None) or {}).get("sample_index")
     if idx is not None and len(idx) != len(data):
@@ -1998,10 +2019,15 @@ def regress(
         missing = missing_quoted + [v for v in all_vars if v not in data.columns]
         if missing:
             available = ", ".join(sorted(map(str, data.columns))[:10])
-            raise ValueError(
-                f"Variable(s) not found in data: {missing}. "
-                f"Available columns: {available}"
-                + (" ..." if len(data.columns) > 10 else "")
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(data.columns),
+                message=(
+                    f"Variable(s) not found in data: {missing}. "
+                    f"Available columns: {available}"
+                    + (" ..." if len(data.columns) > 10 else "")
+                ),
+                extra_diagnostics={"formula": formula},
             )
     # Check for all-NaN outcome
     dep_var = formula.split("~")[0].strip()

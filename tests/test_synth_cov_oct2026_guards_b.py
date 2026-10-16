@@ -61,7 +61,7 @@ def _gs(df, **kw):
 
 def test_gsynth_multi_rejects_malformed_requests():
     df = _multi()
-    with pytest.raises(MethodIncompatibility, match="column.s. not in data"):
+    with pytest.raises(MethodIncompatibility, match="Column.s. not found in data"):
         _gs(df, covariates=["nope"])
     with pytest.raises(MethodIncompatibility, match="unknown inference"):
         _gs(df, inference="jackknife")
@@ -153,7 +153,7 @@ def _dc(df, **kw):
 
 def test_discos_rejects_malformed_requests():
     df = _micro()
-    with pytest.raises(MethodIncompatibility, match="column 'nope' not found"):
+    with pytest.raises(MethodIncompatibility, match="outcome='nope'"):
         _dc(df, outcome="nope")
     with pytest.raises(MethodIncompatibility, match="must be >= 2"):
         _dc(df, n_quantiles=1)

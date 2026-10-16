@@ -18,7 +18,12 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
-from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
+from ..exceptions import (
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+    StatsPAIError,
+)
 from .basic_tests import _check_alpha
 from .bootstrap import _as_statistic_vector
 
@@ -175,9 +180,8 @@ def jackknife(
             recovery_hint="Pass e.g. lambda d: sp.regress('y ~ x', data=d).",
         )
     if cluster is not None and cluster not in data.columns:
-        raise MethodIncompatibility(
-            f"sp.jackknife: cluster={cluster!r} is not a column.",
-            recovery_hint="Pass the name of the cluster variable.",
+        raise ColumnNotFound.from_missing(
+            {"cluster": cluster}, data.columns, context="sp.jackknife"
         )
     names, theta = _as_statistic_vector(statistic(data))
     scalar = names is None

@@ -71,6 +71,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ..nonparametric.lprobust import (
@@ -176,9 +177,11 @@ def _panel_matrices(
     data: pd.DataFrame, y: str, group: str, time: str, treat: str
 ) -> Any:
     """Reshape to group x period matrices and locate the common adoption date."""
-    for col in (y, group, time, treat):
-        if col not in data.columns:
-            raise ValueError(f"Column {col!r} not found in data.")
+    check_columns(
+        data,
+        {"y": y, "group": group, "time": time, "treat": treat},
+        function="sp.did_had",
+    )
 
     df = data[[group, time, y, treat]].copy()
     df = df.sort_values([group, time])

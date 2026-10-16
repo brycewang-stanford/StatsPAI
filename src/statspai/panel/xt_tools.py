@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core._collinear import independent_columns
 from ..core._validate import require_numeric_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -25,18 +26,19 @@ from ..exceptions import DataInsufficient, MethodIncompatibility
 __all__ = ["xtsum", "xtserial", "xtoverid", "xt_statistics"]
 
 
-def _columns(data: pd.DataFrame, names: Sequence[str], what: str) -> List[str]:
+def _columns(
+    data: pd.DataFrame, names: Sequence[str], what: str, label: str = "x"
+) -> List[str]:
+    given = names
     names = [names] if isinstance(names, str) else list(names)
-    unknown = [v for v in names if v not in data.columns]
-    if unknown or not names:
+    if not names:
         raise MethodIncompatibility(
-            (
-                f"{what}: column(s) {unknown} are not in the data."
-                if unknown
-                else f"{what}: no variables given."
-            ),
+            f"{what}: no variables given.",
             recovery_hint="Check the variable names.",
         )
+    check_columns(
+        data, {label: given if isinstance(given, str) else names}, function=what
+    )
     return names
 
 
@@ -96,16 +98,12 @@ def xtsum(
     >>> float(table.loc[("y", "between"), "obs"])
     30.0
     """
-    if id not in data.columns:
-        raise MethodIncompatibility(
-            f"sp.xtsum: id={id!r} is not a column.",
-            recovery_hint="Pass the panel identifier.",
-        )
+    check_columns(data, {"id": id}, function="sp.xtsum")
     if variables is None:
         variables = [
             c for c in data.select_dtypes(include=[np.number]).columns if c != id
         ]
-    names = _columns(data, variables, "sp.xtsum")
+    names = _columns(data, variables, "sp.xtsum", label="variables")
     require_numeric_columns(data, names, function="sp.xtsum", argument="variables")
     rows: Dict[Any, Dict[str, float]] = {}
     for name in names:
@@ -220,7 +218,7 @@ def xtserial(
     wooldridge2010econometric; drukker2003testing
     """
     xs = _columns(data, x, "sp.xtserial")
-    _columns(data, [y, id, time], "sp.xtserial")
+    check_columns(data, {"y": y, "id": id, "time": time}, function="sp.xtserial")
     require_numeric_columns(data, [y] + xs, function="sp.xtserial", argument="y / x")
     frame = data[[id, time, y] + xs].dropna().sort_values([id, time], kind="stable")
     t = frame[time].to_numpy(dtype=float)
@@ -553,7 +551,7 @@ def xtoverid(
     """
     xs = _columns(data, x, "sp.xtoverid")
     cols = [id, y] + xs + ([cluster] if cluster and cluster != id else [])
-    _columns(data, cols, "sp.xtoverid")
+    check_columns(data, {"id": id, "y": y, "cluster": cluster}, function="sp.xtoverid")
     require_numeric_columns(data, [y] + xs, function="sp.xtoverid", argument="y / x")
     frame = data[cols].dropna()
     yv = frame[y].to_numpy(dtype=float)

@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -85,10 +86,12 @@ class SurveyResult(ResultProtocolMixin):
 def _resolve_vars(
     variables: Union[str, List[str]],
     data: pd.DataFrame,
+    function: Optional[str] = None,
 ) -> tuple[List[str], np.ndarray]:
     """Return (var_names, values_matrix)."""
     if isinstance(variables, str):
         variables = [variables]
+    check_columns(data, {"variables": list(variables)}, function=function)
     vals = data[variables].values.astype(np.float64)
     return variables, vals
 
@@ -207,8 +210,7 @@ def _domain_mask(design: "SurveyDesign", subpop: Any) -> Optional[np.ndarray]:
     if subpop is None:
         return None
     if isinstance(subpop, str):
-        if subpop not in design.data.columns:
-            raise MethodIncompatibility(f"subpop={subpop!r} is not a column in data")
+        check_columns(design.data, {"subpop": subpop})
         col = design.data[subpop]
         mask = col.notna().to_numpy() & (col.fillna(0).to_numpy() != 0)
     else:
@@ -352,7 +354,7 @@ def svymean(
     >>> list(res.estimate.index)
     ['income']
     """
-    var_names, vals = _resolve_vars(variables, design.data)
+    var_names, vals = _resolve_vars(variables, design.data, "sp.svymean")
     dom = _domain_mask(design, subpop)
     w = design.weights if dom is None else design.weights * dom
     vals_d = vals if dom is None else np.where(dom[:, None], vals, 0.0)
@@ -447,7 +449,7 @@ def svytotal(
     >>> list(res.estimate.index)
     ['income']
     """
-    var_names, vals = _resolve_vars(variables, design.data)
+    var_names, vals = _resolve_vars(variables, design.data, "sp.svytotal")
     dom = _domain_mask(design, subpop)
     w = design.weights if dom is None else design.weights * dom
     vals_d = vals if dom is None else np.where(dom[:, None], vals, 0.0)

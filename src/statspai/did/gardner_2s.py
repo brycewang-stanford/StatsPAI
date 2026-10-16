@@ -55,10 +55,11 @@ from scipy import sparse
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
 
 __all__ = ["gardner_did", "did_2stage"]
@@ -596,12 +597,18 @@ def gardner_did(
             "columns.",
         )
     df = data.copy()
-    required = [y, group, time, first_treat] + list(controls)
-    if weights is not None:
-        required.append(weights)
-    for col in required:
-        if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found in data")
+    check_columns(
+        df,
+        {
+            "y": y,
+            "group": group,
+            "time": time,
+            "first_treat": first_treat,
+            "controls": list(controls),
+            "weights": weights,
+        },
+        function="sp.gardner_did",
+    )
 
     df[y] = pd.to_numeric(df[y], errors="coerce")
     # A missing first-treatment period means never treated, as in the other
@@ -616,7 +623,11 @@ def gardner_did(
     if cluster is None:
         cluster = group
     elif cluster not in df.columns:
-        raise ValueError(f"cluster column '{cluster}' not found")
+        raise ColumnNotFound.from_missing(
+            {"cluster": cluster},
+            list(df.columns),
+            message=f"cluster column '{cluster}' not found",
+        )
 
     n = len(df)
     if weights is not None:
@@ -973,9 +984,11 @@ def _general_form(
                 "gardner_did: pass treat= (a 0/1 column marking the treated "
                 "observations), or first_treat= with time=.",
             )
-        for col in (first_treat, time):
-            if col not in data.columns:
-                raise ValueError(f"Column '{col}' not found in data")
+        check_columns(
+            data,
+            {"first_treat": first_treat, "time": time},
+            function="sp.gardner_did",
+        )
         ft = pd.to_numeric(data[first_treat], errors="coerce").to_numpy(float)
         tt = pd.to_numeric(data[time], errors="coerce").to_numpy(float)
         treat = "_gardner_treated"

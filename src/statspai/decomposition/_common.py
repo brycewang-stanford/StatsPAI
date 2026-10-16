@@ -14,7 +14,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 # ════════════════════════════════════════════════════════════════════════
 # Weighted OLS
@@ -951,14 +956,7 @@ def prepare_frame(
         use_cols = list(dict.fromkeys(cols))
     missing = [col for col in use_cols if col not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            "prepare_frame columns are missing from data.",
-            recovery_hint="Check requested columns and weights against data.columns.",
-            diagnostics={
-                "missing_columns": missing,
-                "available_columns": list(data.columns),
-            },
-        )
+        raise ColumnNotFound.from_missing(missing, list(data.columns))
     df = data[use_cols].dropna()
     if weights is None:
         w_out = np.ones(len(df), dtype=float)

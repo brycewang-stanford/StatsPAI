@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 
 
 def _ensure_mpl() -> Tuple[Any, Any]:
@@ -1904,9 +1905,11 @@ def panel_view(
     if type == "outcome" and y is None:
         raise ValueError("type='outcome' needs the outcome column y=")
     cols = [unit, time, treat] + ([y] if y else [])
-    for c in cols:
-        if c not in data.columns:
-            raise ValueError(f"column {c!r} not in data")
+    check_columns(
+        data,
+        {"unit": unit, "time": time, "treat": treat, "y": y or None},
+        function="sp.panel_view",
+    )
     df = data[cols].copy()
     times = np.sort(df[time].unique())
     wide = df.pivot_table(index=unit, columns=time, values=treat, aggfunc="first")

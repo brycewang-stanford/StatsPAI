@@ -24,6 +24,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -433,12 +434,11 @@ def full_match(
             recovery_hint="Use caliper_scale='sd'.",
         )
     cols = [c for c in (y, treat, pscore) if c is not None] + covariates
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"full_match: column(s) not in data: {missing}.",
-            diagnostics={"missing_columns": missing},
-        )
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "pscore": pscore, "covariates": covariates},
+        function="sp.full_match",
+    )
     df = data[list(dict.fromkeys(cols))].dropna()
     d = pd.to_numeric(df[treat], errors="coerce").to_numpy(dtype=float)
     if not np.isin(np.unique(d), (0.0, 1.0)).all():

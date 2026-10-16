@@ -45,6 +45,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 from scipy.optimize import brentq
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import AssumptionViolation, MethodIncompatibility
 
@@ -189,10 +190,16 @@ def lee_bounds(
     >>> bool(result.model_info['lower_bound'] <= result.model_info['upper_bound'])
     True
     """
-    cols = [treat, selection]
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "selection": selection,
+            "covariates": list(covariates) if covariates else None,
+        },
+        function="sp.lee_bounds",
+    )
     if se_method not in ("bootstrap", "analytic"):
         raise MethodIncompatibility(
             f"se_method must be 'bootstrap' or 'analytic', got {se_method!r}"
@@ -204,11 +211,6 @@ def lee_bounds(
 
     df = data.copy()
     covariates = list(covariates) if covariates else []
-    missing_cov = [c for c in covariates if c not in df.columns]
-    if missing_cov:
-        raise MethodIncompatibility(
-            f"Covariate columns not found in data: {missing_cov}"
-        )
     if covariates:
         n_before = len(df)
         df = df.dropna(subset=covariates)
@@ -238,8 +240,6 @@ def lee_bounds(
 
     # Observed outcomes
     observed = S == 1
-    if y not in df.columns:
-        raise ValueError(f"Column '{y}' not found in data")
 
     Y_obs = df.loc[observed, y].values.astype(float)
     D_obs = D[observed]
@@ -732,9 +732,7 @@ def manski_bounds(
     True
     """
     cols = [y, treat]
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(data, {"y": y, "treat": treat}, function="sp.manski_bounds")
 
     clean = data[cols].dropna()
     Y = clean[y].values.astype(np.float64)

@@ -105,8 +105,8 @@ def test_stacked_rejects_negative_or_missing_weights():
 
 def test_stacked_needs_first_treat_or_a_stack():
     df = _staggered()
-    # first_treat=None is caught by the generic column check first
-    with pytest.raises(ValueError, match="not found in data"):
+    # first_treat=None: neither a cohort column nor a stack to build from
+    with pytest.raises(ValueError, match="first_treat is required"):
         sp.stacked_did(df, y="y", group="unit", time="t")
 
 

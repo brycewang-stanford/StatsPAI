@@ -40,6 +40,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -445,12 +446,13 @@ def did_balance(
     missing = [c for c in [g, t, i, *covariates] if c not in data.columns]
     if weights is not None and weights not in data.columns:
         missing.append(weights)
-    if missing:
-        raise MethodIncompatibility(
-            f"Column(s) not found in data: {missing}",
-            recovery_hint="Check column names before calling `did_balance`.",
-            diagnostics={"missing": missing},
-        )
+    check_columns(
+        data,
+        {"g": g, "t": t, "i": i, "covariates": covariates, "weights": weights},
+        message=f"Column(s) not found in data: {missing}",
+        extra_hint="Check column names before calling `did_balance`.",
+        extra_diagnostics={"missing": missing},
+    )
     if control_group not in ("nevertreated", "notyettreated"):
         raise MethodIncompatibility(
             f"control_group must be 'nevertreated' or 'notyettreated', "

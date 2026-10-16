@@ -194,9 +194,15 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
+from ..exceptions import (
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+    StatsPAIError,
+)
 from . import _core as _dc
 from . import _dcdh_arrays as _arr
 
@@ -554,9 +560,21 @@ def did_multiplegt_dyn(
             f"aggregation must be 'simple' or 'switchers', got {aggregation!r}"
         )
     if cluster is not None and cluster not in data.columns:
-        raise MethodIncompatibility(
-            f"cluster column {cluster!r} not in data",
-            diagnostics={"cluster": cluster},
+        raise ColumnNotFound.from_missing(
+            {"cluster": cluster},
+            list(data.columns),
+            message=f"cluster column {cluster!r} not in data",
+            extra_diagnostics={"cluster": cluster},
+        )
+    missing = missing_named_columns(
+        {"y": y, "group": group, "time": time, "treatment": treatment},
+        data.columns,
+    )
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"Column {next(iter(missing.values()))!r} not in data",
         )
     se_method = _dc.normalize_se_method(
         se_method,
@@ -566,9 +584,6 @@ def did_multiplegt_dyn(
     )
 
     df = data.copy()
-    for col in (y, group, time, treatment):
-        if col not in df.columns:
-            raise ValueError(f"Column {col!r} not in data")
     if not pd.api.types.is_numeric_dtype(df[treatment]):
         raise MethodIncompatibility(
             f"Treatment {treatment!r} must be numeric (binary, or a discrete "
@@ -577,9 +592,11 @@ def did_multiplegt_dyn(
         )
     if weights is not None:
         if weights not in df.columns:
-            raise MethodIncompatibility(
-                f"weights column {weights!r} not in data",
-                diagnostics={"weights": weights},
+            raise ColumnNotFound.from_missing(
+                {"weights": weights},
+                list(df.columns),
+                message=f"weights column {weights!r} not in data",
+                extra_diagnostics={"weights": weights},
             )
         wv = pd.to_numeric(df[weights], errors="coerce")
         if (wv.dropna() < 0).any():
@@ -641,12 +658,14 @@ def did_multiplegt_dyn(
     controls = list(controls) if controls else None
     trends_nonparam = list(trends_nonparam) if trends_nonparam else None
     for name, cols in (("controls", controls), ("trends_nonparam", trends_nonparam)):
-        for col in cols or []:
-            if col not in df.columns:
-                raise MethodIncompatibility(
-                    f"{name} column {col!r} not in data",
-                    diagnostics={name: cols},
-                )
+        missing = missing_named_columns({name: cols}, df.columns)
+        if missing:
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(df.columns),
+                message=f"{name} column {next(iter(missing.values()))!r} not in data",
+                extra_diagnostics={name: cols},
+            )
     if trends_nonparam:
         varying = df.groupby(group)[trends_nonparam].nunique().max()
         if int(varying.max()) > 1:

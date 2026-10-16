@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .ardl import _check_alpha
@@ -477,14 +478,10 @@ def vec(
     if variables is None:
         variables = data.select_dtypes(include=[np.number]).columns.tolist()
     names = list(variables)
-    unknown = [v for v in names if v not in data.columns]
-    if unknown or len(names) < 2:
+    check_columns(data, {"variables": names}, function="sp.vec")
+    if len(names) < 2:
         raise MethodIncompatibility(
-            (
-                f"sp.vec: variable(s) {unknown} are not in the data."
-                if unknown
-                else "sp.vec needs at least two series."
-            ),
+            "sp.vec needs at least two series.",
             recovery_hint="Name the series of the system.",
         )
     k = len(names)

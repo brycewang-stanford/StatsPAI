@@ -23,20 +23,22 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import missing_named_columns
+from ..core.results import CausalResult  # noqa: F401 - re-exported via result
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
+from .auto_cate import (
+    AutoCATEResult,
+    _cross_fit_nuisance,
+    _honest_cate_predictions,
+    _r_loss,
+    auto_cate,
+)
+from .metalearners import _prepare_data
+
 # sklearn is imported lazily inside the functions that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches auto_cate_tuned.
 
-from ..core.results import CausalResult  # noqa: F401 - re-exported via result
-from ..exceptions import DataInsufficient, MethodIncompatibility
-from .auto_cate import (
-    AutoCATEResult,
-    auto_cate,
-    _cross_fit_nuisance,
-    _honest_cate_predictions,
-    _r_loss,
-)
-from .metalearners import _prepare_data
 
 _OPTUNA_INSTALL_HINT = (
     "sp.auto_cate_tuned requires optuna. Install with:\n"
@@ -447,14 +449,15 @@ def auto_cate_tuned(
 
     covariate_list = _normalize_covariates(covariates)
     learner_codes = _normalize_learners(learners)
-    required_columns = [y, treat] + covariate_list
-    missing = [col for col in required_columns if col not in data.columns]
+    missing = missing_named_columns(
+        {"y": y, "treat": treat, "covariates": covariate_list}, data.columns
+    )
     if missing:
-        raise _auto_cate_tuned_error(
-            "auto_cate_tuned input columns are missing from data.",
-            diagnostics={"missing_columns": sorted(missing)},
-            recovery_hint="Pass column names present in the DataFrame.",
+        err = ColumnNotFound.from_missing(
+            missing, list(data.columns), context="sp.auto_cate_tuned"
         )
+        err.alternative_functions = list(_AUTO_CATE_TUNED_ALTERNATIVES)
+        raise err
     if not isinstance(n_folds, int) or isinstance(n_folds, bool) or n_folds < 2:
         raise _auto_cate_tuned_error(
             "n_folds must be an integer >= 2.",
@@ -605,10 +608,7 @@ def auto_cate_tuned(
         pm_shared = best_propensity
         if om_shared is None:
             # Lazy import to avoid circular issues
-            from .metalearners import (
-                _default_outcome_model,
-                _default_propensity_model,
-            )
+            from .metalearners import _default_outcome_model, _default_propensity_model
 
             om_shared = _default_outcome_model()
             pm_shared = _default_propensity_model()
