@@ -491,7 +491,7 @@
    "rscript_launches": 0,
    "subprocesses": [],
    "exercised_sources": {
-    "src/statspai/__init__.py": "811d85da5d58da7a9a21a4922d09492bf01cd7e66a594052898c34fee914e862",
+    "src/statspai/__init__.py": "94857d2e60c230da96ad451b867372ca632e4fed88e72e5c9c815605dbaecc8c",
     "src/statspai/_aliases.py": "d7eb767449b353a1f4af8199f18827a0299c57a383d3e3b22806042bcaf67c16",
     "src/statspai/_result_serialize.py": "a6199c9736586e8a071d3c058e18e297aea8c868590c92f67fc8fdf159fe6452",
     "src/statspai/core/results.py": "9b10ca0b640aadc32d1b57686f69b7812708862054c51431113c4be9e709ecb3",
