@@ -505,7 +505,8 @@ def run_doctor(*, self_test: bool = True, cwd: Optional[Path] = None) -> Dict[st
                 python, env=entry_env if isinstance(entry_env, dict) else None
             )
             item["probe"] = probe
-            where = f"{item['client']} ({item['file']}{', ' + item['scope'] if item['scope'] else ''})"
+            scope = ", " + item["scope"] if item["scope"] else ""
+            where = f"{item['client']} ({item['file']}{scope})"
             if "error" in probe:
                 problems.append(
                     f"{where}: the entry runs {python}, which cannot import "
