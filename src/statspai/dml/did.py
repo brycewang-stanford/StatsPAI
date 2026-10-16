@@ -406,7 +406,7 @@ def dml_did(
             recovery_hint="Without covariates use sp.did.",
         )
     cols = [y, treat, *covariates] + [c for c in (time, id) if c is not None]
-    named = {"y": y, "treat": treat, "covariates": covariates}
+    named: Dict[str, Any] = {"y": y, "treat": treat, "covariates": covariates}
     named.update({"time": time, "id": id})
     missing_named = missing_named_columns(named, data.columns)
     if missing_named:

@@ -995,6 +995,7 @@ def adaptive_inference(
                     "probs must list one column per assigned arm, in sorted "
                     "arm order, or be a dict {arm: column}"
                 )
+        prob_cols: Dict[str, Any]
         if isinstance(probs, dict):
             prob_cols = {f"probs[{arm_!r}]": c for arm_, c in probs.items()}
         else:

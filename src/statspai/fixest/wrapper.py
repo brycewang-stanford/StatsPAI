@@ -13,7 +13,7 @@ import inspect
 import re
 import threading
 import warnings
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -53,7 +53,7 @@ def _require_frame_columns(
         raise ColumnNotFound.from_missing(missing, data.columns, context=context)
 
 
-def _name_lookup_errors() -> Tuple[type, ...]:
+def _name_lookup_errors() -> Tuple[Type[BaseException], ...]:
     """What pyfixest raises for a name that is not a column.
 
     A formula term it cannot find surfaces from formulaic as a

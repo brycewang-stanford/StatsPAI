@@ -255,6 +255,7 @@ def raise_if_formula_names_missing(
     missing = formula_unknown_columns(formula, data)
     if (
         error is not None
+        and name is not None
         and name not in missing
         and name not in set(map(str, data.columns))
     ):

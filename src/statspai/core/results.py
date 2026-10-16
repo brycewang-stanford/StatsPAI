@@ -4027,6 +4027,7 @@ class CausalResult:
         es_cols = _event_study_columns(es)
         if es_cols is not None:
             time_col, est_col = es_cols
+            es = cast(pd.DataFrame, es)
             lines.append("-" * 78)
             lines.append("  Event Study Coefficients")
             lines.append("-" * 78)
@@ -4237,12 +4238,13 @@ class CausalResult:
         # Event study coefficients
         es = self.model_info.get("event_study")
         es_cols = _event_study_columns(es)
-        if es_cols is not None and len(es) > 0:
+        frame = cast(pd.DataFrame, es)
+        if es_cols is not None and len(frame) > 0:
             time_col, est_col = es_cols
             # etwfe publishes cohort x relative-time cells; name the cohort
             # so every term is unique.
-            by_cohort = "cohort" in es.columns
-            for _, r in es.iterrows():
+            by_cohort = "cohort" in frame.columns
+            for _, r in frame.iterrows():
                 e = r.get(time_col)
                 att = r.get(est_col)
                 se = r.get("se")

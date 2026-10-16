@@ -1094,11 +1094,12 @@ class OLSRegression(BaseModel):
                 f"got {panel!r}.",
                 recovery_hint="hac_panel=('firm', 'year').",
             )
-        missing = [c for c in names if c not in self.data.columns]
+        columns = list(cast(pd.DataFrame, self.data).columns)
+        missing = [c for c in names if c not in columns]
         if missing:
             raise ColumnNotFound.from_missing(
                 {f"hac_panel[{names.index(c)}]": c for c in missing},
-                list(self.data.columns),
+                columns,
                 message=f"regress: hac_panel column(s) {missing} are not in the data.",
             )
         if names[0] == names[1]:

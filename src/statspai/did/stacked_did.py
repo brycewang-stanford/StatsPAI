@@ -243,15 +243,15 @@ def stacked_did(
 
     prebuilt = event_id is not None
     if prebuilt:
-        missing = [
+        unset = [
             nm
             for nm, v in (("treated", treated), ("event_time", event_time))
             if v is None
         ]
-        if missing:
+        if unset:
             raise MethodIncompatibility(
                 "A pre-built stack needs event_id, treated and event_time; "
-                f"missing {missing}.",
+                f"missing {unset}.",
                 recovery_hint="Pass all three columns of the stack.",
             )
         missing_stack = missing_named_columns(
