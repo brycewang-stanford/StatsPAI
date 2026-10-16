@@ -35475,11 +35475,18 @@ _ARRAY_ITEM_TYPE_RE = (
 
 
 def _array_item_type(type_text: str) -> str:
-    """``List[float]`` → ``number``; ``Sequence[int]`` → ``integer``; else string."""
+    """``List[float]`` → ``number``; ``Sequence[int]`` → ``integer``;
+    ``List[Dict[...]]`` → ``object``; else string."""
     inner = type_text or ""
     m = re.search(r"\[(.*)\]", inner)
     if m:
         inner = m.group(1)
+    # ``Optional[List[X]]``: the first bracket held the list, not its items.
+    m = re.match(r"\s*(?:List|list|Sequence|Iterable|Tuple|tuple)\[(.*)\]", inner)
+    if m:
+        inner = m.group(1)
+    if re.match(r"\s*(?:Dict|dict|Mapping)\b", inner):
+        return "object"
     for rx, jt in _ARRAY_ITEM_TYPE_RE:
         if rx.search(inner):
             return jt

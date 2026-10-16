@@ -660,6 +660,14 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "observations to leave one out.",
         }
     ],
+    "interactive": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use ui='none' to edit through actions= or the "
+            "editor's methods without any interface.",
+            "symptom": "ui must be 'auto', 'jupyter', 'window' or " "'none', got <ui>",
+        }
+    ],
     "jackknife": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1076,6 +1084,25 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "plot_type='boundary_effects' requires a result "
             "from rd2d() with boundary eval points "
             "(approach='location' or 'distance').",
+        },
+    ],
+    "refresh_legend": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass one index per legend entry (None to skip "
+            "an entry), or omit `sources` to match entries "
+            "to artists by label.",
+            "symptom": "refresh_legend: <len(sources)> sources for "
+            "<len(entries)> legend entries",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Indices refer to "
+            "ax.get_legend_handles_labels()[0]; use None "
+            "for entries drawn from proxy artists.",
+            "symptom": "refresh_legend: source <src> for entry <k> is "
+            "not an index into the <len(handles)> labelled "
+            "artists",
         },
     ],
     "ridge": [

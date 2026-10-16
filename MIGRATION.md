@@ -22,6 +22,31 @@ relied on the default grid; pass `m_grid=` to keep a specific grid.
 
 ---
 
+## 1.39.6 → unreleased: figure editor (`sp.interactive`)
+
+**What changed.** The editor was rebuilt (CHANGELOG, "Figure editor").
+Figures themselves are unchanged until edited; what differs is the editor's
+output.
+
+| Behaviour | Before | Now |
+| --- | --- | --- |
+| `generate_code()` | bare `ax.` lines plus `fig.tight_layout()`; fonts and themes as `mpl.rcParams[...]` / `sp.set_theme(...)` | starts with `ax = fig.axes[0]`; property-level statements that reproduce the figure; no `tight_layout` unless requested |
+| `apply_theme`, `set_font`, `apply_font_preset` | changed global rcParams (all later figures) | change this figure only; use `sp.set_theme` for later figures |
+| `set_ylim` / `set_xlim` near error bars or bands | could clip them | widened to keep them, with a warning |
+| `set_alpha(..., 0)` on data | allowed | 0.2 floor (0.05 for intervals), with a warning |
+| `sp.interactive(fig)` on Agg / headless | added button axes to `fig` | returns the editor, figure untouched |
+| `editor.save(...)` | Type 3 fonts in PDF | TrueType embedded; `embed_fonts=False` for the old output |
+| `editor.save(...)` | recorded as an edit (undo removed it first) | not an edit |
+| `apply_actions` with an unknown parameter | ignored | `ValueError` |
+| `to_edits_list()` records | `target` / `property` / `old` / `new` / `code` | adds `op` and `params`; replay uses those, never `code` |
+
+**What to do.** Regenerate code saved from the old editor if you rely on
+it. Saved edit lists (version 1) still load. If a script relied on the
+editor to change global fonts, call `sp.set_theme(...)` or set
+`mpl.rcParams` yourself.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ options off the default path in DiD, matching and IV
 
 **What changed.** Comparing every option value of the core estimators

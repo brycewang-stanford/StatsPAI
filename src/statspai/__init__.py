@@ -1714,6 +1714,7 @@ __all__ = [
     "use_chinese",
     "interactive",
     "get_code",
+    "refresh_legend",
     # Stata / R migration on-ramps
     "from_stata",
     "stata",
@@ -3339,6 +3340,7 @@ _register_lazy(
     "interactive",
     "get_code",
 )
+_register_lazy("plots._legend_sync", "refresh_legend")
 _register_lazy(
     "geolift",
     "geolift",

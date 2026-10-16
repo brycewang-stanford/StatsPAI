@@ -5283,7 +5283,7 @@
         "add_rows": {
           "description": "Extra rows beneath the coefficients, ``{\"Row label\": [cell per model]}``.",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array",
           "x-statspai-source": "signature"
@@ -5378,7 +5378,7 @@
         "add_rows": {
           "description": "Custom rows: ``{\"Controls\": [\"No\", \"Yes\", \"Yes\"]}``. User-provided rows take precedence over auto-extracted diagnostic rows with the same label.",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array",
           "x-statspai-source": "signature"
@@ -6541,7 +6541,7 @@
         "start": {
           "description": "Starting values by parameter name (default 1 each)",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -8687,7 +8687,7 @@
         "balance": {
           "description": "Balance distance: list of cost terms, each a dict with 'type' in mahalanobis / near_exact / integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; or a treated-by-control matrix",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -8703,7 +8703,7 @@
         "pair": {
           "description": "Pairing distance: list of cost terms, each a dict with 'type' in mahalanobis / near_exact / integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; or a treated-by-control matrix",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -13575,7 +13575,7 @@
         "intervention": {
           "description": "Either a mapping var -> intervention label (``{\"X\": \"x\"}``), or an iterable of variable names (labels default to lowercase).",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         }
@@ -41980,10 +41980,17 @@
     }
   },
   {
-    "description": "Open an interactive editor for a matplotlib figure.",
+    "description": "Open an editor for a matplotlib figure.",
     "name": "interactive",
     "parameters": {
       "properties": {
+        "actions": {
+          "description": "Edits to apply straight away, each ``{\"action\": <operation>, ...}`` (see ``FigureEditor.operations()``), e.g. ``[{\"action\": \"set_title\", \"text\": \"Event study\"}]``. This is how an agent or a script edits a figure without a user interface.",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
         "fig": {
           "description": "The figure to edit. Typically from ``result.plot()`` or ``sp.binscatter()``.",
           "type": "string"
@@ -41992,6 +41999,17 @@
           "default": true,
           "description": "Lock data-representing elements (scatter points, regression lines, confidence intervals) from modification.",
           "type": "boolean"
+        },
+        "ui": {
+          "default": "auto",
+          "description": "Where to show the controls. 'auto' picks the Jupyter panel in a notebook, a control window with a GUI matplotlib backend, and no interface otherwise (the figure is then left untouched apart from ``actions``).",
+          "enum": [
+            "auto",
+            "jupyter",
+            "window",
+            "none"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -42012,6 +42030,29 @@
       },
       "required": [
         "fig"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Redraw an axes' legend entries from the current style of their artists.",
+    "name": "refresh_legend",
+    "parameters": {
+      "properties": {
+        "ax": {
+          "description": "Axes whose legend to refresh. Nothing happens if it has no legend.",
+          "type": "string"
+        },
+        "sources": {
+          "description": "For each legend entry, the index of its artist in ``ax.get_legend_handles_labels()[0]`` (``None`` leaves that entry alone). By default entries are matched to artists by label, which is right unless entry texts were renamed after the legend was made.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "ax"
       ],
       "type": "object"
     }
@@ -46546,7 +46587,7 @@
         "per_learner_search_space": {
           "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -46562,7 +46603,7 @@
         "search_space": {
           "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -54072,7 +54113,7 @@
         "predictors": {
           "description": "Dict mapping variable -> list of predictor variables. If None, uses all other variables; categorical ones enter as treatment dummies.",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },

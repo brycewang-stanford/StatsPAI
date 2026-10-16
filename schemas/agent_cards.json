@@ -10454,7 +10454,7 @@
           "add_rows": {
             "description": "Extra rows beneath the coefficients, ``{\"Row label\": [cell per model]}``.",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array",
             "x-statspai-source": "signature"
@@ -10665,7 +10665,7 @@
           "add_rows": {
             "description": "Custom rows: ``{\"Controls\": [\"No\", \"Yes\", \"Yes\"]}``. User-provided rows take precedence over auto-extracted diagnostic rows with the same label.",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array",
             "x-statspai-source": "signature"
@@ -12834,7 +12834,7 @@
           "start": {
             "description": "Starting values by parameter name (default 1 each)",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array"
           },
@@ -18227,7 +18227,7 @@
           "balance": {
             "description": "Balance distance: list of cost terms, each a dict with 'type' in mahalanobis / near_exact / integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; or a treated-by-control matrix",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array"
           },
@@ -18243,7 +18243,7 @@
           "pair": {
             "description": "Pairing distance: list of cost terms, each a dict with 'type' in mahalanobis / near_exact / integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; or a treated-by-control matrix",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array"
           },
@@ -30219,7 +30219,7 @@
           "intervention": {
             "description": "Either a mapping var -> intervention label (``{\"X\": \"x\"}``), or an iterable of variable names (labels default to lowercase).",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array"
           }
@@ -90243,6 +90243,178 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "plots",
+    "cost_profile": "",
+    "description": "Open an editor for a matplotlib figure.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "editor = sp.interactive(fig, actions=edits)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use ui='none' to edit through actions= or the editor's methods without any interface.",
+        "symptom": "ui must be 'auto', 'jupyter', 'window' or 'none', got <ui>"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "interactive",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "FigureEditor",
+      "description": "FigureEditor: The editor instance. Call .generate_code() to get reproducible code, or .copy_code() to print it.",
+      "fields": {
+        "artist_roles": "Dict[int, ArtistRole]",
+        "coalesce": "bool",
+        "edits": "List[EditRecord]",
+        "fig": "Any",
+        "protect_data": "bool"
+      }
+    },
+    "signature": {
+      "description": "Open an editor for a matplotlib figure.",
+      "name": "interactive",
+      "parameters": {
+        "properties": {
+          "actions": {
+            "description": "Edits to apply straight away, each ``{\"action\": <operation>, ...}`` (see ``FigureEditor.operations()``), e.g. ``[{\"action\": \"set_title\", \"text\": \"Event study\"}]``. This is how an agent or a script edits a figure without a user interface.",
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "fig": {
+            "description": "The figure to edit. Typically from ``result.plot()`` or ``sp.binscatter()``.",
+            "type": "string"
+          },
+          "protect_data": {
+            "default": true,
+            "description": "Lock data-representing elements (scatter points, regression lines, confidence intervals) from modification.",
+            "type": "boolean"
+          },
+          "ui": {
+            "default": "auto",
+            "description": "Where to show the controls. 'auto' picks the Jupyter panel in a notebook, a control window with a GUI matplotlib backend, and no interface otherwise (the figure is then left untouched apart from ``actions``).",
+            "enum": [
+              "auto",
+              "jupyter",
+              "window",
+              "none"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "fig"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [],
+    "category": "plots",
+    "cost_profile": "",
+    "description": "Redraw an axes' legend entries from the current style of their artists.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.refresh_legend(ax) # now it is red",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass one index per legend entry (None to skip an entry), or omit `sources` to match entries to artists by label.",
+        "symptom": "refresh_legend: <len(sources)> sources for <len(entries)> legend entries"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Indices refer to ax.get_legend_handles_labels()[0]; use None for entries drawn from proxy artists.",
+        "symptom": "refresh_legend: source <src> for entry <k> is not an index into the <len(handles)> labelled artists"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "refresh_legend",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "None",
+      "description": "None",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Redraw an axes' legend entries from the current style of their artists.",
+      "name": "refresh_legend",
+      "parameters": {
+        "properties": {
+          "ax": {
+            "description": "Axes whose legend to refresh. Nothing happens if it has no legend.",
+            "type": "string"
+          },
+          "sources": {
+            "description": "For each legend entry, the index of its artist in ``ax.get_legend_handles_labels()[0]`` (``None`` leaves that entry alone). By default entries are matched to artists by label, which is right unless entry texts were renamed after the legend was made.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ax"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "regress",
       "sumstats",
@@ -98962,7 +99134,7 @@
           "per_learner_search_space": {
             "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array"
           },
@@ -98978,7 +99150,7 @@
           "search_space": {
             "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array"
           },
@@ -115368,7 +115540,7 @@
           "predictors": {
             "description": "Dict mapping variable -> list of predictor variables. If None, uses all other variables; categorical ones enter as treatment dummies.",
             "items": {
-              "type": "string"
+              "type": "object"
             },
             "type": "array"
           },
@@ -127421,7 +127593,7 @@
           "weights": {
             "description": "Matching weight values. If ``None``, binary (1.0) weights are used.",
             "items": {
-              "type": "number"
+              "type": "object"
             },
             "type": "array"
           }

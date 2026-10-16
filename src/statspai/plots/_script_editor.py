@@ -1,220 +1,207 @@
 """
-Script-mode interactive editor using matplotlib.widgets.
+Script-mode editor: a small control window next to a matplotlib GUI figure.
 
-Adds a toolbar panel to the matplotlib figure window for
-cosmetic editing when running outside Jupyter notebooks.
+The controls live in their own figure, so the figure being edited keeps its
+layout and saves without buttons in it. Click a title, axis label or
+annotation in the figure to select it, type the new text in the control
+window and press Enter.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from .interactive import FigureEditor
 
+_THEME_CYCLE = ("academic", "aea", "minimal", "ggplot")
 
-def create_script_editor(editor: FigureEditor) -> None:
+
+def create_script_editor(editor: "FigureEditor", show: bool = True) -> Any:
     """
-    Attach interactive editing controls to a matplotlib figure window.
+    Open a control window for ``editor.fig``.
 
-    Adds:
-    - Click-to-edit on text elements (title, labels, annotations)
-    - A bottom toolbar with common actions
-    - Print Code button that outputs reproducible code on close
+    Controls: text box (edits the selected text), Undo, Redo, Reset, Grid,
+    Spines (toggle top/right), Theme (cycles through a few themes) and Code
+    (prints the reproducible code). The code is also printed when the figure
+    window closes.
 
     Parameters
     ----------
     editor : FigureEditor
         The editor wrapping the target figure.
+    show : bool, default True
+        Call ``plt.show()``. Tests pass False.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The control figure.
     """
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, TextBox
 
     fig = editor.fig
-    # Capture plot axes BEFORE adding toolbar widget axes
     plot_axes = list(fig.get_axes())
-    if not plot_axes:
-        plt.show()
-        return
-
-    # Store state for click-editing
-    _state: Dict[str, Any] = {
-        "selected_text": None,
-        "editing": False,
-        "plot_axes": plot_axes,  # only real plot axes, not toolbar
+    state: Dict[str, Any] = {
+        "selected": None,
+        "loading": False,
+        "grid": False,
+        "minimal": False,
+        "theme": -1,
     }
 
+    def status(msg: str) -> None:
+        info.set_text(msg)
+        controls.canvas.draw_idle()
+
     # ------------------------------------------------------------------
-    # Click-to-edit text elements
+    # Click-to-select text in the edited figure (pickers do not change how
+    # the figure draws or saves).
     # ------------------------------------------------------------------
-    # Make text elements pickable (only for plot axes, not toolbar)
     for a in plot_axes:
-        a.title.set_picker(True)
-        a.xaxis.label.set_picker(True)
-        a.yaxis.label.set_picker(True)
-        for t in a.texts:
+        for t in (a.title, a.xaxis.label, a.yaxis.label, *a.texts):
             t.set_picker(True)
 
-    def _on_pick(event: Any) -> None:
-        """Handle clicking on a text element."""
-        artist = event.artist
-        if not hasattr(artist, "get_text"):
-            return
-        if _state["editing"]:
-            return
+    def locate(artist: Any) -> Optional[tuple]:
+        for i, a in enumerate(plot_axes):
+            if artist is a.title:
+                return ("title", i)
+            if artist is a.xaxis.label:
+                return ("xlabel", i)
+            if artist is a.yaxis.label:
+                return ("ylabel", i)
+            for k, t in enumerate(a.texts):
+                if artist is t:
+                    return ("text", i, k)
+        return None
 
-        role = editor.artist_roles.get(id(artist))
-        if role is not None and not editor.is_editable(artist):
-            print(f"[StatsPAI] This element is data-locked " f"(role: {role.name})")
+    def on_pick(event: Any) -> None:
+        where = locate(event.artist)
+        if where is None:
             return
+        if where[0] == "text" and not editor.is_editable(event.artist):
+            status("That label reports a result; its wording is locked.")
+            return
+        state["selected"] = where
+        # TextBox.set_val fires the submit callback; loading the current
+        # text into the box is not an edit.
+        state["loading"] = True
+        try:
+            textbox.set_val(event.artist.get_text())
+        finally:
+            state["loading"] = False
+        status(f"Selected {where[0]} — edit below, press Enter")
 
-        _state["selected_text"] = artist
-        current = artist.get_text()
-        print(
-            f"[StatsPAI] Selected: '{current}' "
-            f"(type new text in the Edit box below)"
-        )
-
-    fig.canvas.mpl_connect("pick_event", _on_pick)
+    fig.canvas.mpl_connect("pick_event", on_pick)
 
     # ------------------------------------------------------------------
-    # Bottom toolbar
+    # Control window
     # ------------------------------------------------------------------
-    # Make room at the bottom for controls
-    fig.subplots_adjust(bottom=0.22)
+    controls = plt.figure("StatsPAI figure editor", figsize=(7.5, 1.6))
+    textbox = TextBox(controls.add_axes((0.12, 0.62, 0.84, 0.25)), "Text ", initial="")
+    info_ax = controls.add_axes((0.02, 0.02, 0.96, 0.14))
+    info_ax.set_axis_off()
+    info = info_ax.text(
+        0,
+        0.5,
+        "Click a title, label or annotation in the figure to edit it.",
+        fontsize=8,
+        color="#555",
+        va="center",
+    )
 
-    # Text edit box
-    ax_textbox = fig.add_axes([0.15, 0.04, 0.45, 0.05])
-    textbox = TextBox(ax_textbox, "Edit Text: ", initial="")
-
-    def _on_submit(text: str) -> None:
-        """Apply text edit to selected element."""
-        target = _state["selected_text"]
-        if target is None:
-            print("[StatsPAI] Click on a text element first")
+    def on_submit(text: str) -> None:
+        where = state["selected"]
+        if where is None or state["loading"]:
             return
+        try:
+            if where[0] == "text":
+                editor.set_text(where[2], text, ax_index=where[1])
+            else:
+                getattr(editor, f"set_{where[0]}")(text, ax_index=where[1])
+        except ValueError as exc:
+            status(str(exc))
+            return
+        status(f"{len(editor.edits)} edit(s)")
 
-        # Determine what we're editing and track it
-        for i, a in enumerate(_state["plot_axes"]):
-            prefix = f"ax{i}" if i > 0 else "ax"
-            if target is a.title:
-                editor.set_title(text, ax_index=i)
-                break
-            elif target is a.xaxis.label:
-                editor.set_xlabel(text, ax_index=i)
-                break
-            elif target is a.yaxis.label:
-                editor.set_ylabel(text, ax_index=i)
-                break
-            elif target in a.texts:
-                old = target.get_text()
-                target.set_text(text)
-                from .interactive import EditRecord
+    textbox.on_submit(on_submit)
 
-                editor._record_edit(
-                    EditRecord(
-                        f"{prefix}.text",
-                        "text",
-                        old,
-                        text,
-                        f"# annotation text changed to {text!r}",
-                    )
-                )
-                editor._refresh()
-                break
+    buttons: List[Any] = []
 
-        _state["selected_text"] = None
+    def button(x: float, label: str, callback: Any) -> None:
+        b = Button(controls.add_axes((x, 0.22, 0.11, 0.28)), label)
+        b.on_clicked(callback)
+        buttons.append(b)
 
-    textbox.on_submit(_on_submit)
+    def on_undo(_: Any) -> None:
+        editor.undo()
+        status(f"Undone ({len(editor._redo_stack)} to redo)")
 
-    # Generate Code button
-    ax_codebtn = fig.add_axes([0.62, 0.04, 0.12, 0.05])
-    btn_code = Button(ax_codebtn, "Code")
+    def on_redo(_: Any) -> None:
+        editor.redo()
+        status(f"{len(editor.edits)} edit(s)")
 
-    def _on_code(event: Any) -> None:
+    def on_reset(_: Any) -> None:
+        editor.reset()
+        status("Back to the original figure")
+
+    def on_grid(_: Any) -> None:
+        state["grid"] = not state["grid"]
+        for i in range(len(plot_axes)):
+            editor.set_grid(state["grid"], ax_index=i)
+        status(f"{len(editor.edits)} edit(s)")
+
+    def on_spines(_: Any) -> None:
+        state["minimal"] = not state["minimal"]
+        with editor.batch():
+            for i in range(len(plot_axes)):
+                for spine in ("top", "right"):
+                    editor.set_spine_visible(spine, not state["minimal"], ax_index=i)
+        status(f"{len(editor.edits)} edit(s)")
+
+    def on_theme(_: Any) -> None:
+        state["theme"] = (state["theme"] + 1) % len(_THEME_CYCLE)
+        name = _THEME_CYCLE[state["theme"]]
+        editor.apply_theme(name)
+        status(f"Theme: {name}")
+
+    def on_code(_: Any) -> None:
         print("\n" + "=" * 50)
         editor.copy_code()
         print("=" * 50)
+        status("Code printed to the console")
 
-    btn_code.on_clicked(_on_code)
-
-    # Undo button
-    ax_undobtn = fig.add_axes([0.75, 0.04, 0.1, 0.05])
-    btn_undo = Button(ax_undobtn, "Undo")
-
-    def _on_undo(event: Any) -> None:
-        editor.undo()
-        print(
-            f"[StatsPAI] Undone last edit "
-            f"({len(editor._redo_stack)} redo available)"
+    for k, (label, cb) in enumerate(
+        (
+            ("Undo", on_undo),
+            ("Redo", on_redo),
+            ("Reset", on_reset),
+            ("Grid", on_grid),
+            ("Spines", on_spines),
+            ("Theme", on_theme),
+            ("Code", on_code),
         )
+    ):
+        button(0.02 + k * 0.137, label, cb)
 
-    btn_undo.on_clicked(_on_undo)
-
-    # Redo button
-    ax_redobtn = fig.add_axes([0.86, 0.04, 0.1, 0.05])
-    btn_redo = Button(ax_redobtn, "Redo")
-
-    def _on_redo(event: Any) -> None:
-        editor.redo()
-        print(f"[StatsPAI] Redone edit " f"({len(editor._redo_stack)} redo remaining)")
-
-    btn_redo.on_clicked(_on_redo)
-
-    # Grid toggle button
-    ax_gridbtn = fig.add_axes([0.65, 0.10, 0.12, 0.04])
-    btn_grid = Button(ax_gridbtn, "Grid")
-    _grid_state = {"on": False}
-
-    def _on_grid(event: Any) -> None:
-        _grid_state["on"] = not _grid_state["on"]
-        editor.set_grid(_grid_state["on"])
-
-    btn_grid.on_clicked(_on_grid)
-
-    # Spine toggle
-    ax_spinebtn = fig.add_axes([0.78, 0.10, 0.18, 0.04])
-    btn_spine = Button(ax_spinebtn, "Spines")
-    _spine_state = {"minimal": False}
-
-    def _on_spine(event: Any) -> None:
-        _spine_state["minimal"] = not _spine_state["minimal"]
-        for spine in ("top", "right"):
-            editor.set_spine_visible(spine, not _spine_state["minimal"])
-
-    btn_spine.on_clicked(_on_spine)
-
-    # Info label
-    ax_info = fig.add_axes([0.15, 0.10, 0.45, 0.04])
-    ax_info.set_axis_off()
-    ax_info.text(
-        0,
-        0.5,
-        "Click text to select, edit below. " "Data elements are locked.",
-        fontsize=8,
-        color="#666",
-        va="center",
-        transform=ax_info.transAxes,
-    )
-
-    # Print code on figure close
-    def _on_close(event: Any) -> None:
+    def on_close(_: Any) -> None:
         if editor.edits:
             print("\n[StatsPAI] Figure closed. Reproducible code:")
             print("=" * 50)
             editor.copy_code()
             print("=" * 50)
 
-    fig.canvas.mpl_connect("close_event", _on_close)
+    fig.canvas.mpl_connect("close_event", on_close)
 
-    # Keep references alive (prevent garbage collection)
-    fig._statspai_widgets = {
+    # Keep the widgets alive and reachable.
+    controls._statspai_widgets = {
         "textbox": textbox,
-        "btn_code": btn_code,
-        "btn_undo": btn_undo,
-        "btn_redo": btn_redo,
-        "btn_grid": btn_grid,
-        "btn_spine": btn_spine,
+        "buttons": buttons,
+        "on_pick": on_pick,
+        "info": info,
     }
-
-    plt.show()
+    fig._statspai_controls = controls
+    if show:
+        plt.show()
+    return controls

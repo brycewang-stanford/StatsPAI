@@ -205,6 +205,7 @@ nav:
       - "Performance — honest cross-library HDFE benchmark": guides/performance.md
       - "v1.15 Decomposition family — 19 estimators incl. Yu-Elwert (2025) + unified Excel/Word/cite exports": guides/decomposition_family.md
       - "Exporting regression results — LaTeX/Word/Excel/HTML/Markdown/JSON + Stata/R cross-reference": guides/exporting-regression-tables.md
+      - "Editing figures (sp.interactive): locked data, reproducible code, journal export": guides/figure_editor.md
   - Reference:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md

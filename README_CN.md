@@ -75,7 +75,7 @@ print(sp.datasets.list_datasets()[["name", "design", "source"]])
 
 StatsPAI 内置 14 个可离线加载的数据集。大部分是真实的已发表数据（`source == "bundled CSV"`）：Card (1995) NLSYM 教育回报数据、带 PSID 对照组的 LaLonde/NSW、R `rdrobust` 附带的美国参议院 RD 数据、California Proposition 99、castle-doctrine 面板、NHEFS 等。少数是按已发表设计校准的**确定性模拟复刻**（`source == "simulated"`），包括下面用到的 Callaway–Sant'Anna `mpdta` 面板——它们的数字不是原始数据上的数字。
 
-一眼概览：1,568 个注册函数，分布在 90 个子模块；634k 行核心代码 + 398k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
+一眼概览：1,569 个注册函数，分布在 90 个子模块；634k 行核心代码 + 398k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
 
 ---
 
@@ -465,10 +465,16 @@ matplotlib 的所有参数，也能把图调到适合论文或汇报的样子。
 
 它适合做这些事：
 
-- 修改标题、坐标轴标签、字体、颜色、点线样式、网格、图例、坐标范围、图尺寸和导出 DPI；
-- 在 StatsPAI 自带的论文主题（`academic`、`aea`、`minimal`、`cn_journal`）与 matplotlib、seaborn 内置样式之间切换；
-- 保护数据图层，只编辑外观元素（默认 `protect_data=True`）；
-- 自动导出可复现 Python 代码，避免最终图只停留在手工截图里。
+- 修改标题、坐标轴标签、字体、颜色、点线样式、网格、图例（包括条目名称）、坐标范围、图尺寸和导出 DPI；
+- 给一个系列改色时，点、误差线和置信带一起变；也可以一键套用 `okabe_ito`（色盲友好）、`grayscale` 等配色；
+- 在 StatsPAI 自带的论文主题（`academic`、`aea`、`minimal`、`cn_journal`）与 matplotlib、seaborn 内置样式之间切换，只作用于这张图；
+- 锁定数据图层（默认 `protect_data=True`）。坐标范围不会遮住任何点、误差线或置信带，数据也不能被调成看不见；
+- 导出可复现的 Python 代码。测试逐像素核对这段代码能还原编辑后的图，撤销能回到原图；
+- 保存嵌入 TrueType 字体的 PDF（期刊投稿系统常拒收 Type 3 字体），`editor.check()` 会指出过小的字号和黑白打印下分不清的系列。
+
+在 notebook 之外（脚本、服务器、agent）可以把编辑写成列表：
+`sp.interactive(fig, actions=[{"action": "apply_theme", "theme": "aea"}])`。
+详见[图形编辑指南](docs/guides/figure_editor.md)。
 
 ```python
 import statspai as sp

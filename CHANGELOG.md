@@ -193,6 +193,83 @@ call, the cause is fixed below.
   load of a replica in a process warns that estimates on it are not
   findings about the real data.
 
+### Figure editor (`sp.interactive`) rebuilt
+
+The editor promised that data stay locked, that every edit has
+reproducible code and that undo works. A probe on StatsPAI's own event
+study, binscatter, RD and coefficient plots found all three broken. Each
+edit is now a named operation with typed parameters; one definition gives
+the live edit, the generated code and the saved-style replay. The tests
+check, pixel for pixel on every operation and on random sequences of
+operations, that the generated code reproduces the figure, that undo and
+reset restore it, and that a saved style replays identically. Guide:
+`docs/guides/figure_editor.md`.
+
+#### ⚠️ Correctness (data protection)
+
+- Errorbar point estimates and their caps were classified as reference
+  lines (unlocked), and the axis-limit guard read error bars and
+  `fill_between` bands at their offsets, (0, 0). `set_ylim` could hide
+  confidence intervals, error bars and bars without a warning. On the
+  `mpdta` Callaway-Sant'Anna event study it protected (-0.046, 0.010)
+  while the intervals span (-0.074, 0.031).
+  Roles now come from matplotlib's containers, and the guard uses the
+  data limits of lines, bands, error bars, bars and images, on log and
+  inverted axes too.
+- A data series whose label contained "treatment" or "baseline" was
+  unlocked. Labels can now only lock an artist; only geometry makes a
+  reference line.
+- Locked data could be made fully transparent or invisible. Alpha stops
+  at 0.2 (data, fits) and 0.05 (intervals) with a warning; a style that
+  leaves a locked series with neither line nor markers raises.
+
+#### Fixed
+
+- `generate_code()` reproduced the figure for 1 of 16 edit types tested.
+  It appended a `fig.tight_layout()` the editor never applied, wrote
+  font and theme edits as global settings (which do not change a figure
+  already drawn), kept only the last of several legend edits, placed a
+  repeated edit at its first position (so `grid(False)` came out before
+  `grid(True)`), and named subplots `ax1`, `ax2` without defining them.
+- `undo()` and `reset()` did not restore tick label sizes, fonts,
+  legend changes, themes or `tight_layout` (8 of 16 edit types).
+- Font, font-preset and theme edits changed matplotlib's global settings,
+  so every later figure in the session changed too.
+- Replaying saved edits copied each record's `code` string into the
+  generated code. It is now regenerated from the operation; incoming code
+  is never used.
+- `sp.interactive(fig)` on a non-interactive backend (Agg, servers,
+  agents) added seven button axes to the figure and moved its bottom
+  margin from 0.11 to 0.22. It now leaves the figure alone; with a GUI
+  backend the controls open in their own window.
+- `set_title` reset the title's size and weight to the defaults.
+- Jupyter panel: after undo, redo, reset or a subplot switch the controls
+  showed stale values; the tick-size slider always started at 10;
+  warnings from an edit were lost.
+- Script editor: selecting a text element recorded an empty edit.
+- Recolouring or restyling a series left its legend entry in the old
+  look (matplotlib's legend keeps copies made when it was drawn), so the
+  legend could name the wrong series. Legend entries are now rebuilt
+  after every such edit, and the generated code does the same.
+
+#### Added
+
+- `FigureEditor.set_series_color` / `apply_palette` / `color_groups`:
+  recolour a series together with its error bars and band. Palettes
+  include `okabe_ito` and `grayscale`.
+- `set_legend_labels`, `set_suptitle`, `set_markersize`, `set_text`,
+  `set_text_visible`; `run(op, **params)`, `operations()` (typed schema
+  of every operation) and `batch()`.
+- `check()` (text under 6 pt, series indistinguishable in grayscale,
+  series in the background colour), `preview(grayscale=True)`,
+  `export(stem, formats=...)`; `save()` embeds TrueType fonts in PDF by
+  default (`embed_fonts=True`).
+- `sp.interactive(fig, actions=[...], ui=...)` for agents and scripts.
+- `sp.refresh_legend(ax)`: rebuild legend entries from the current style
+  of their artists, exactly as a legend drawn now would look.
+- Saved styles use a version-2 format (`op` + `params`); version-1
+  files are translated.
+
 ### `sp.stata`: stored results after estimation, checked against Stata 18
 
 #### ⚠️ Correctness

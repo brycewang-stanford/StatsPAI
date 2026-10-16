@@ -113,7 +113,7 @@ to a published design (`source == "simulated"`), including the
 Callaway–Sant'Anna `mpdta` panel used below; their numbers are not the numbers
 from the original data.
 
-At a glance: 1,568 registered functions across 90 submodules; 634k LOC (core) + 398k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
+At a glance: 1,569 registered functions across 90 submodules; 634k LOC (core) + 398k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
 
 ---
 
@@ -600,14 +600,25 @@ matplotlib option first. Requires `pip install "statspai[plotting]" ipywidgets`.
 
 What it is for:
 
-- change titles, labels, fonts, colors, markers, line widths, grids, legends,
-  axis limits, figure size, and export DPI;
+- change titles, labels, fonts, colors, markers, line widths, grids, legends
+  (including entry names), axis limits, figure size, and export DPI;
+- recolor a series together with its error bars and confidence band, or apply
+  a palette such as `okabe_ito` (color-blind safe) or `grayscale`;
 - switch among StatsPAI's publication themes (`academic`, `aea`, `minimal`,
-  `cn_journal`) and the built-in matplotlib and seaborn styles;
-- keep the data layer protected while editing cosmetic elements
-  (`protect_data=True` by default);
-- export reproducible Python code for the edits, so the final figure can be
-  regenerated from a script instead of being only a manual screenshot.
+  `cn_journal`) and the built-in matplotlib and seaborn styles, for this
+  figure only;
+- keep the data layer locked (`protect_data=True` by default): axis limits
+  never hide a point, error bar or band, and data cannot be made invisible;
+- export reproducible Python code for the edits. Tests check, pixel for
+  pixel, that the code reproduces the edited figure and that undo restores
+  the original;
+- save journal-ready PDFs with embedded TrueType fonts, and run
+  `editor.check()` for text that is too small or series that look alike in
+  black and white.
+
+Outside a notebook (scripts, servers, agents) pass the edits as a list:
+`sp.interactive(fig, actions=[{"action": "apply_theme", "theme": "aea"}])`.
+See the [figure editor guide](docs/guides/figure_editor.md).
 
 ```python
 import statspai as sp

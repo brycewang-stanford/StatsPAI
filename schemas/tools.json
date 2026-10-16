@@ -1168,7 +1168,7 @@
         "per_learner_search_space": {
           "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -1184,7 +1184,7 @@
         "search_space": {
           "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -24565,7 +24565,7 @@
         "start": {
           "description": "Starting values by parameter name (default 1 each)",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -41022,7 +41022,7 @@
         "balance": {
           "description": "Balance distance: list of cost terms, each a dict with 'type' in mahalanobis / near_exact / integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; or a treated-by-control matrix",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
@@ -41033,7 +41033,7 @@
         "pair": {
           "description": "Pairing distance: list of cost terms, each a dict with 'type' in mahalanobis / near_exact / integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; or a treated-by-control matrix",
           "items": {
-            "type": "string"
+            "type": "object"
           },
           "type": "array"
         },
