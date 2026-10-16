@@ -107,6 +107,12 @@ def set_capability(advertised: bool) -> None:
 
 
 def get_capability() -> bool:
+    # A per-request (2026-07-28) call has no server-to-client request
+    # channel: that revision forbids writing requests to the client.
+    from ._protocol import in_modern_request
+
+    if in_modern_request():
+        return False
     with _LOCK:
         return _CAPABILITY
 

@@ -161,7 +161,7 @@ _PRIVATE_COMPAT_EXPORTS = (
 #: structured tool output — ``outputSchema`` + ``structuredContent`` (added
 #: in ``2025-06-18``). Both are now emitted by :func:`_build_mcp_tools` /
 #: :func:`_handle_tools_call`, so advertising the newer revision is honest.
-MCP_PROTOCOL_VERSION = "2025-06-18"
+MCP_PROTOCOL_VERSION = "2025-11-25"
 
 #: Every protocol revision this server can speak, newest first. The
 #: handshake (:func:`_handle_initialize`) negotiates against this set: if
@@ -172,7 +172,12 @@ MCP_PROTOCOL_VERSION = "2025-06-18"
 #: are backward-compatible — older clients negotiating ``2024-11-05`` simply
 #: ignore the extra keys, so there is no behavioural downside to a client
 #: that only knows the original revision.
-SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
+SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
+
+#: Per-request revisions (``2026-07-28``: no handshake, version and client
+#: capabilities in every request's ``_meta``) are served by
+#: :mod:`._protocol`; :func:`handle_request` routes them there.
+from ._protocol import MODERN_PROTOCOL_VERSIONS  # noqa: E402
 
 SERVER_NAME = "statspai"
 
@@ -1463,12 +1468,15 @@ def _handle_initialize(params: Dict[str, Any]) -> Dict[str, Any]:
             # (function names, guide families, live handles).
             "completions": {},
         },
-        "serverInfo": {
-            "name": SERVER_NAME,
-            "version": SERVER_VERSION,
-        },
+        "serverInfo": _protocol_identity(),
         "instructions": _SESSION_INSTRUCTIONS,
     }
+
+
+def _protocol_identity() -> Dict[str, Any]:
+    from ._protocol import server_identity
+
+    return server_identity(full=True)
 
 
 def _handle_tools_list(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -2249,6 +2257,11 @@ def handle_request(line: str) -> Optional[str]:
     if isinstance(method, str) and method.startswith("notifications/"):
         return None
 
+    from . import _protocol
+
+    if _protocol.is_modern_request(method, params):
+        return _handle_modern_request(request_id, method, params)
+
     handler = _METHODS.get(method) if isinstance(method, str) else None
     if handler is None:
         return _jsonrpc_error(request_id, -32601, f"Method not found: {method!r}")
@@ -2285,6 +2298,60 @@ def handle_request(line: str) -> Optional[str]:
             data=data,
         )
     return _jsonrpc_result(request_id, result)
+
+
+def _handle_modern_request(request_id: Any, method: Any, params: Any) -> str:
+    """Serve one request of a per-request revision (``2026-07-28``).
+
+    The metadata is validated first (:func:`._protocol.validate_request`),
+    the method handler is the one the handshake path uses, and the result
+    gains ``resultType`` / server identity / caching hints afterwards.
+    """
+    from . import _protocol
+
+    if not isinstance(params, dict):
+        return _jsonrpc_error(
+            request_id, -32602, "Invalid params: `params` must be a JSON object"
+        )
+    refusal = _protocol.validate_request(method, params)
+    if refusal is not None:
+        code, message, data = refusal
+        return _jsonrpc_error(request_id, code, message, data=data)
+    try:
+        with _protocol.modern_request():
+            if method == "tools/list":
+                return _jsonrpc_result_preencoded(
+                    request_id,
+                    _protocol.decorate_result_json(
+                        method, params, _tools_list_result_json()
+                    ),
+                )
+            if method == "server/discover":
+                result = _protocol.discover_result()
+            elif method == "subscriptions/listen":
+                return _jsonrpc_error(
+                    request_id,
+                    -32603,
+                    "subscriptions/listen needs a streaming transport "
+                    "(the stdio loop or Streamable HTTP).",
+                )
+            else:
+                result = _METHODS[method](params)
+    except _RpcError as exc:
+        return _jsonrpc_error(
+            request_id,
+            _protocol.map_error_code(exc.code),
+            str(exc),
+            data=getattr(exc, "data", None),
+        )
+    except Exception as exc:
+        data = {"traceback": traceback.format_exc()} if _debug_enabled() else None
+        return _jsonrpc_error(
+            request_id, -32603, f"{type(exc).__name__}: {exc}", data=data
+        )
+    return _jsonrpc_result(
+        request_id, _protocol.decorate_result(method, params, result)
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -2611,13 +2678,34 @@ def serve_stdio(
             with inflight_lock:
                 inflight.pop(key, None)
 
+    #: Open ``subscriptions/listen`` requests (2026-07-28), by request key.
+    listens: Dict[str, Any] = {}
+
     def _cancel(params: Any) -> None:
         if not isinstance(params, dict) or "requestId" not in params:
             return
+        key = _request_key(params["requestId"])
+        # A cancelled listen stream ends silently: no further message for it.
+        listens.pop(key, None)
         with inflight_lock:
-            ev = inflight.get(_request_key(params["requestId"]))
+            ev = inflight.get(key)
         if ev is not None:
             ev.set()
+
+    def _listen(msg: Dict[str, Any]) -> None:
+        from . import _protocol
+
+        refusal = _protocol.validate_request("subscriptions/listen", msg.get("params"))
+        if refusal is not None:
+            code, message, data = refusal
+            _emit(_jsonrpc_error(msg["id"], code, message, data=data))
+            return
+        listens[_request_key(msg["id"])] = msg["id"]
+        _emit(
+            json.dumps(
+                _protocol.listen_acknowledgement(msg["id"]), separators=(",", ":")
+            )
+        )
 
     executor = ThreadPoolExecutor(
         max_workers=n_workers,
@@ -2638,6 +2726,9 @@ def serve_stdio(
                 method = msg.get("method")
                 if method == "notifications/cancelled":
                     _cancel(msg.get("params"))
+                    continue
+                if method == "subscriptions/listen" and "id" in msg:
+                    _listen(msg)
                     continue
                 if method == "tools/call" and "id" in msg:
                     key = _request_key(msg["id"])
@@ -2672,6 +2763,12 @@ def serve_stdio(
         # (a timed-out call returns at its deadline; an orphaned thread
         # does not hold the pool).
         executor.shutdown(wait=True)
+        # Close the listen streams still open, as a graceful teardown.
+        if listens:
+            from . import _protocol
+
+            for rid in list(listens.values()):
+                _emit(_jsonrpc_result(rid, _protocol.listen_teardown_result(rid)))
         _PROGRESS_SINK = None
         _sampling.set_writer(None)
         _sampling.set_capability(False)
