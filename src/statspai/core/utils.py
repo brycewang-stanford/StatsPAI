@@ -261,15 +261,20 @@ def raise_if_formula_names_missing(
         missing.append(name)
     if not missing:
         return
+    extra: Dict[str, Any] = {"formula": formula}
+    if error is not None:
+        extra["parser_error"] = f"{type(error).__name__}: {str(error)[:300]}"
     exc = ColumnNotFound.from_missing(
         missing,
         list(data.columns),
         context=context,
-        extra_diagnostics={"formula": formula},
+        extra_diagnostics=extra,
     )
-    if error is not None:
-        raise exc from error
-    raise exc
+    # Not chained to the parser's error: patsy's NameError keeps its
+    # evaluation frame, whose variable lookup raises KeyError when a
+    # traceback formatter lists the frame's names for a suggestion
+    # (exceptiongroup on Python 3.10), and the report itself then fails.
+    raise exc from None
 
 
 def evaluate_formula_expression(expr: str, data: pd.DataFrame) -> pd.Series:
