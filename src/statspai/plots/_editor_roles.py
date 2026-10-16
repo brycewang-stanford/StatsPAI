@@ -71,6 +71,7 @@ def classify_figure(fig: Any) -> Dict[int, ArtistRole]:
         for patch in ax.patches:
             if id(patch) not in roles:
                 roles[id(patch)] = _classify_patch(patch, ax)
+        _lock_alpha_coded_spans(ax, roles)
         for image in ax.images:
             roles[id(image)] = ArtistRole.DATA
         for text in ax.texts:
@@ -117,10 +118,12 @@ def _classify_containers(ax: Any, roles: Dict[int, ArtistRole]) -> None:
 
 def _is_flat(line: Any) -> bool:
     """A horizontal or vertical straight line."""
-    x = np.asarray(line.get_xdata(), dtype=float)
-    y = np.asarray(line.get_ydata(), dtype=float)
-    if x.size < 2 or y.size != x.size:
+    # get_xydata() holds the unit-converted coordinates, so categorical and
+    # date axes work too.
+    xy = np.asarray(line.get_xydata(), dtype=float)
+    if xy.ndim != 2 or xy.shape[0] < 2:
         return False
+    x, y = xy[:, 0], xy[:, 1]
     fx, fy = x[np.isfinite(x)], y[np.isfinite(y)]
     if fx.size < 2 or fy.size < 2:
         return False
@@ -167,6 +170,20 @@ def _classify_patch(patch: Any, ax: Any) -> ArtistRole:
     if not patch.get_transform().contains_branch(ax.transData):
         return ArtistRole.REFERENCE
     return ArtistRole.DATA
+
+
+def _lock_alpha_coded_spans(ax: Any, roles: Dict[int, ArtistRole]) -> None:
+    """Shaded spans of one colour whose transparency varies encode values
+    (``sp.synthdid_plot`` shades each period by its time weight); lock them."""
+    spans: Dict[str, List[Any]] = {}
+    for patch in ax.patches:
+        if roles.get(id(patch)) is ArtistRole.REFERENCE:
+            spans.setdefault(_hex(patch.get_facecolor()), []).append(patch)
+    for group in spans.values():
+        alphas = {round(float(p.get_facecolor()[3]), 12) for p in group}
+        if len(group) > 1 and len(alphas) > 1:
+            for p in group:
+                roles[id(p)] = ArtistRole.DATA
 
 
 # ----------------------------------------------------------------------

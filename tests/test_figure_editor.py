@@ -1042,3 +1042,73 @@ def test_explicit_marker_colours_follow_repeated_recolours():
     assert same(
         pixels(run_code(lambda: drawn("blue"), ed.generate_code())), pixels(fig)
     )
+
+
+# ----------------------------------------------------------------------
+# Found by running every sp.*plot example through the editor
+# ----------------------------------------------------------------------
+
+
+def test_categorical_axis_lines_are_classified():
+    """sp.synth_sensitivity_plot draws lines on a categorical x axis; the
+    flat-line test must use converted coordinates, not the strings."""
+
+    def make():
+        fig, ax = plt.subplots(figsize=(4, 3))
+        ax.plot(["1x", "2x", "4x"], [0.5, 0.4, 0.45], "o-", label="RMSPE ratio")
+        ax.plot(["1x", "4x"], [0.3, 0.3], "--", color="gray")
+        return fig
+
+    fig = make()
+    ed = FigureEditor(fig)
+    roles = [ed.artist_roles[id(ln)] for ln in fig.axes[0].get_lines()]
+    assert roles == [ArtistRole.DATA, ArtistRole.REFERENCE]
+    ed.apply_palette("okabe_ito")
+    ed.set_title("x")
+    assert same(pixels(run_code(make, ed.generate_code())), pixels(fig))
+
+
+def test_recolour_leaves_transparent_edges_invisible():
+    """Bars with alpha and no edge (a histogram): recolouring twice, the
+    second time to black, must not turn the invisible edges into black
+    frames (matplotlib applies the bar's alpha over the colour's)."""
+
+    def make():
+        fig, ax = plt.subplots(figsize=(4, 3))
+        ax.hist(
+            np.random.default_rng(0).normal(size=200),
+            bins=12,
+            alpha=0.2,
+            color="C0",
+            edgecolor="none",
+        )
+        return fig
+
+    fig = make()
+    original = pixels(fig)
+    ed = FigureEditor(fig)
+    ed.apply_palette("tab10")
+    ed.apply_palette("okabe_ito")  # first okabe_ito colour is black
+    edges = {tuple(p.get_edgecolor()) for p in fig.axes[0].patches}
+    assert all(e[3] == 0 for e in edges)
+    assert same(pixels(run_code(make, ed.generate_code())), pixels(fig))
+    ed.reset()
+    assert same(pixels(fig), original)
+
+
+def test_alpha_coded_spans_are_locked():
+    """sp.synthdid_plot shades each period with alpha = its time weight;
+    the transparency is data. Plain shading stays a reference element."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1, 2, 3], [1, 2, 3, 4])
+    for i, w in enumerate([0.02, 0.07, 0.0]):
+        ax.axvspan(i - 0.4, i + 0.4, color="blue", alpha=w)
+    ax.axvspan(2.5, 3.5, color="gray", alpha=0.3)
+    ed = FigureEditor(fig)
+    roles = [ed.artist_roles[id(p)] for p in ax.patches]
+    assert roles == [ArtistRole.DATA] * 3 + [ArtistRole.REFERENCE]
+    with pytest.raises(ValueError, match="encodes a value"):
+        ed.set_alpha("patch0", 0.5)
+    ed.set_alpha("patch3", 0.5)  # plain shading stays editable
+    ed.apply_palette("okabe_ito")  # recolouring keeps each span's alpha
+    assert [round(p.get_facecolor()[3], 6) for p in ax.patches[:3]] == [0.02, 0.07, 0.0]

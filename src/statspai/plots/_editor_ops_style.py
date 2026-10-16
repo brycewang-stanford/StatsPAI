@@ -149,22 +149,30 @@ def _recolor_member(artist: Any, kind: str, old_hex: str, color: Any) -> Dict[st
             out["edgecolor"] = new
             return out
         fc = np.asarray(artist.get_facecolor(), dtype=float)
-        if fc.size:
+        # Fully transparent faces and edges are not part of the series'
+        # look; recolouring them would let the artist's own alpha make them
+        # visible (matplotlib applies it over the colour's alpha).
+        if fc.size and fc[:, 3].any():
             new = keep_alpha(fc)
             artist.set_facecolor(new)
             out["facecolor"] = new
         ec = np.asarray(artist.get_edgecolor(), dtype=float)
-        if ec.size and {mcolors.to_hex(r, keep_alpha=False) for r in ec} == {old_hex}:
+        if (
+            ec.size
+            and ec[:, 3].any()
+            and {mcolors.to_hex(r, keep_alpha=False) for r in ec} == {old_hex}
+        ):
             new = keep_alpha(ec)
             artist.set_edgecolor(new)
             out["edgecolor"] = new
         return out
     # patch
-    if artist.get_fill():
+    if artist.get_fill() and artist.get_facecolor()[3] > 0:
         rgba = [*rgb, float(artist.get_facecolor()[3])]
         artist.set_facecolor(tuple(rgba))
         out["facecolor"] = rgba
-    if mcolors.to_hex(artist.get_edgecolor(), keep_alpha=False) == old_hex:
+    edge = artist.get_edgecolor()
+    if edge[3] > 0 and mcolors.to_hex(edge, keep_alpha=False) == old_hex:
         rgba = [*rgb, float(artist.get_edgecolor()[3])]
         artist.set_edgecolor(tuple(rgba))
         out["edgecolor"] = rgba
@@ -532,11 +540,44 @@ def _alpha_artist(ax: Any, target: str) -> Tuple[Any, str]:
     )
 
 
+def _alpha_encodes_data(ax: Any, artist: Any) -> bool:
+    """A locked span drawn across the axes (axvspan) whose alpha differs
+    from same-coloured spans: the alpha is the value shown."""
+    import matplotlib.patches as mpatches
+
+    if not isinstance(artist, mpatches.Patch):
+        return False
+    if artist.get_transform().contains_branch(ax.transData):
+        return False
+    color = mcolors_hex(artist.get_facecolor())
+    alphas = {
+        round(float(q.get_facecolor()[3]), 12)
+        for q in ax.patches
+        if not q.get_transform().contains_branch(ax.transData)
+        and mcolors_hex(q.get_facecolor()) == color
+    }
+    return len(alphas) > 1
+
+
+def mcolors_hex(color: Any) -> str:
+    import matplotlib.colors as mcolors
+
+    return str(mcolors.to_hex(color, keep_alpha=False))
+
+
 def _apply_alpha(e: "FigureEditor", p: Dict[str, Any]) -> Dict[str, Any]:
     alpha = p["alpha"]
     if not 0 <= alpha <= 1:
         raise MethodIncompatibility(f"set_alpha: alpha must be in [0, 1], got {alpha}")
-    artist, _ = _alpha_artist(e._ax(p["ax_index"]), p["target"])
+    ax = e._ax(p["ax_index"])
+    artist, _ = _alpha_artist(ax, p["target"])
+    if _locked(e, artist) and _alpha_encodes_data(ax, artist):
+        raise MethodIncompatibility(
+            f"set_alpha: the transparency of {p['target']} encodes a value "
+            "(its shaded siblings differ only in alpha); it is locked.",
+            recovery_hint="Recolour the series with set_series_color or "
+            "apply_palette; each element keeps its own alpha.",
+        )
     if _locked(e, artist):
         floor = MIN_ALPHA[_role(e, artist)]
         if alpha < floor:

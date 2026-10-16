@@ -270,6 +270,16 @@ reset restore it, and that a saved style replays identically. Guide:
   showed stale values; the tick-size slider always started at 10;
   warnings from an edit were lost.
 - Script editor: selecting a text element recorded an empty edit.
+- Running every `sp.*plot` docstring example through the editor (49
+  figures from 37 functions, plus `sp.counterfactual_plot` and
+  `sp.network_plot` by hand) found three more cases, now fixed:
+  categorical axes (`sp.synth_sensitivity_plot`) crashed the
+  classification; recolouring to black turned a histogram's transparent
+  bar edges into visible frames (`sp.rdplotdensity`,
+  `sp.synthdid_rmse_plot`); and the period shading of `sp.synthdid_plot`,
+  whose transparency is the time weight, was editable. Shading whose
+  alpha varies across same-coloured spans is now locked data. After the
+  fixes every figure passes the three checks.
 - Recolouring or restyling a series left its legend entry in the old
   look (matplotlib's legend keeps copies made when it was drawn), so the
   legend could name the wrong series. Legend entries are now rebuilt
