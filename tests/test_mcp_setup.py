@@ -146,15 +146,17 @@ def test_probe_reports_this_interpreters_statspai():
     import statspai
 
     out = ms._probe_interpreter(sys.executable)
-    # The probe drops PYTHONPATH, so in a worktree it may see another
-    # checkout; either way it must name a version or say why not.
-    assert out.get("version") or out.get("error")
+    # The probe drops PYTHONPATH, so in a worktree it sees the installed
+    # checkout rather than this one; it still names a StatsPAI version.
+    assert "version" in out, out
+    assert out["version"].count(".") >= 2
     if os.environ.get("PYTHONPATH") is None:
         assert out["version"] == statspai.__version__
 
 
 def test_probe_of_a_missing_interpreter_is_an_error():
-    assert "error" in ms._probe_interpreter("/nonexistent/python3")
+    out = ms._probe_interpreter("/nonexistent/python3")
+    assert "FileNotFoundError" in out["error"]
 
 
 @POSIX

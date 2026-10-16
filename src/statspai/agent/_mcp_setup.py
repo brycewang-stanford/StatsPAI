@@ -237,12 +237,20 @@ def _probe_interpreter(
     The probe runs the way a client would launch the server: without this
     shell's ``PYTHONPATH`` (a developer checkout on it would make every
     interpreter look up to date), with the entry's own ``env`` block on top,
-    and from the home directory rather than the current one.
+    and without the current directory on ``sys.path``.
+
+    The child is started with ``close_fds=False`` and no ``cwd`` so that
+    :mod:`subprocess` can use ``posix_spawn``: a ``fork`` taken after
+    numerical code ran in this process can crash in the child before
+    ``exec`` on macOS (the self-test fits a model).
     """
+    if not (os.path.exists(python) or shutil.which(python)):
+        return {"error": f"FileNotFoundError: no interpreter at {python!r}"}
     child_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
     child_env.update({str(k): str(v) for k, v in (env or {}).items()})
     code = (
-        "import json, sys\n"
+        "import json, os, sys\n"
+        "sys.path[:] = [p for p in sys.path if p not in ('', os.getcwd())]\n"
         "try:\n"
         "    import statspai\n"
         "    print(json.dumps({'version': statspai.__version__, "
@@ -258,7 +266,7 @@ def _probe_interpreter(
             text=True,
             timeout=timeout,
             env=child_env,
-            cwd=str(_home()),
+            close_fds=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {"error": f"{type(exc).__name__}: {exc}"}
@@ -269,7 +277,8 @@ def _probe_interpreter(
             continue
         if isinstance(out, dict):
             return out
-    return {"error": (proc.stderr.strip().splitlines() or ["no output"])[-1]}
+    last = (proc.stderr.strip().splitlines() or ["no output"])[-1]
+    return {"error": f"exit status {proc.returncode}: {last}"}
 
 
 def _script_interpreter(script: str) -> Optional[str]:

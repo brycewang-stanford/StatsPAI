@@ -92,7 +92,9 @@ def test_missing_required_meta_field_is_invalid_params(drop):
 
 def test_methods_removed_in_2026_are_not_found():
     for method in ("ping", "logging/setLevel"):
-        assert _modern(method)["error"]["code"] == -32601
+        err = _modern(method)["error"]
+        assert err["code"] == -32601
+        assert err["message"] == f"Method not found: {method!r}"
 
 
 def test_initialize_still_selects_the_handshake():
@@ -205,7 +207,8 @@ def test_stdio_probe_then_call_without_handshake():
     assert by_id[1]["result"]["supportedVersions"][0] == V
     call = by_id[2]["result"]
     assert call["resultType"] == "complete" and call["isError"] is False
-    assert "callaway2021difference" in call["structuredContent"]["bibtex"]
+    entry = call["structuredContent"]["bibtex"]["callaway2021difference"]
+    assert entry.count("@article{callaway2021difference") == 1
 
 
 def test_stdio_listen_acknowledged_cancelled_silently():
@@ -255,6 +258,7 @@ def test_stdio_listen_with_bad_version_is_refused():
             }
         ]
     )
+    assert msgs[0]["error"]["message"] == "Unsupported protocol version"
     assert msgs == [
         {
             "jsonrpc": "2.0",
