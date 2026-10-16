@@ -28,6 +28,12 @@ checked here, where a release is made.
     Text that ships in the wheel must not carry promotional claims the JSS
     archive verifier rejects ("state of the art", "world-class", ...).
 
+``server.json``
+    The MCP Registry entry (``server.json``) names the package version
+    twice, and the registry rejects a publish whose PyPI package lacks the
+    ``mcp-name`` marker in its README. Both are checked with the census
+    (inside the release window); ``--fix-census`` rewrites the versions.
+
 Usage::
 
     # ascii + wording, and the census inside the release window
@@ -329,6 +335,47 @@ def forbidden_wording() -> List[str]:
 # ----------------------------------------------------------------------- main
 
 
+# ---------------------------------------------------------------- server.json
+
+SERVER_JSON = "server.json"
+
+
+def _package_version() -> str:
+    text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    if not match:
+        raise RuntimeError("no version in pyproject.toml")
+    return match.group(1)
+
+
+def server_json_drift(*, fix: bool = False) -> List[str]:
+    """``server.json`` versions and the README ``mcp-name`` marker."""
+    import json
+
+    path = REPO_ROOT / SERVER_JSON
+    data = json.loads(path.read_text(encoding="utf-8"))
+    version = _package_version()
+    issues: List[str] = []
+    slots = [("version", data)] + [
+        (f"packages[{i}].version", pkg)
+        for i, pkg in enumerate(data.get("packages", []))
+    ]
+    for label, holder in slots:
+        if holder.get("version") != version:
+            issues.append(
+                f"{SERVER_JSON} {label} is {holder.get('version')!r}, "
+                f"package is {version!r}"
+            )
+            holder["version"] = version
+    if issues and fix:
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    marker = f"mcp-name: {data.get('name')}"
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    if not re.search(re.escape(marker) + r"(\s|-->|<|$)", readme):
+        issues.append(f"README.md lacks the registry ownership marker {marker!r}")
+    return issues
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--check", action="store_true", help="run the gates")
@@ -350,6 +397,10 @@ def main(argv=None) -> int:
     if args.fix_census:
         changed = census_drift(census(), fix=True)
         print(f"[release_gate] census: rewrote {len(changed)} figure(s)")
+        fixed = server_json_drift(fix=True)
+        print(
+            f"[release_gate] server.json: {len(fixed)} issue(s) found, versions rewritten"
+        )
     if args.check:
         ascii_issues = non_ascii_patterns()
         wording_issues = forbidden_wording()
@@ -357,7 +408,8 @@ def main(argv=None) -> int:
         failures += [f"wording: {m}" for m in wording_issues]
         if args.release or in_release_window():
             failures += [f"census: {m}" for m in census_drift(census())]
-            print("[release_gate] census: checked")
+            failures += [f"census: {m}" for m in server_json_drift()]
+            print("[release_gate] census: checked (incl. server.json)")
         else:
             print(
                 "[release_gate] census: skipped (the package version is already "

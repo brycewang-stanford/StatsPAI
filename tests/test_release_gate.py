@@ -130,3 +130,44 @@ def test_census_is_current_inside_the_release_window():
     assert (
         gate.census_drift(gate.census()) == []
     ), "run: python scripts/release_gate.py --fix-census"
+
+
+def _copy_registry_inputs(tmp_path):
+    for rel in ("server.json", "README.md", "pyproject.toml"):
+        (tmp_path / rel).write_text(
+            (REPO_ROOT / rel).read_text(encoding="utf-8"), encoding="utf-8"
+        )
+
+
+def test_server_json_names_the_package_version_and_readme_marker():
+    """The MCP Registry entry must match the release it describes."""
+    assert gate.server_json_drift() == []
+
+
+def test_server_json_fix_rewrites_both_versions(tmp_path, monkeypatch):
+    import json
+
+    _copy_registry_inputs(tmp_path)
+    data = json.loads((tmp_path / "server.json").read_text(encoding="utf-8"))
+    data["version"] = "0.0.1"
+    data["packages"][0]["version"] = "0.0.2"
+    (tmp_path / "server.json").write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(gate, "REPO_ROOT", tmp_path)
+    issues = gate.server_json_drift()
+    assert len(issues) == 2 and all("server.json" in m for m in issues)
+    gate.server_json_drift(fix=True)
+    assert gate.server_json_drift() == []
+    fixed = json.loads((tmp_path / "server.json").read_text(encoding="utf-8"))
+    assert (
+        fixed["version"] == fixed["packages"][0]["version"] == gate._package_version()
+    )
+
+
+def test_server_json_requires_the_registry_ownership_marker(tmp_path, monkeypatch):
+    _copy_registry_inputs(tmp_path)
+    readme = (tmp_path / "README.md").read_text(encoding="utf-8")
+    (tmp_path / "README.md").write_text(
+        re.sub(r"<!-- mcp-name: [^>]*-->\n", "", readme), encoding="utf-8"
+    )
+    monkeypatch.setattr(gate, "REPO_ROOT", tmp_path)
+    assert any("mcp-name" in m for m in gate.server_json_drift())

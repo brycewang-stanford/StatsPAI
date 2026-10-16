@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.brycewang-stanford/statspai",
+  "title": "StatsPAI",
+  "description": "Causal inference and econometrics: DiD, IV, RD, synthetic control, DML, panel, time series.",
+  "repository": {
+    "url": "https://github.com/brycewang-stanford/StatsPAI",
+    "source": "github"
+  },
+  "websiteUrl": "https://brycewang-stanford.github.io/StatsPAI/",
+  "version": "1.39.6",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "statspai",
+      "version": "1.39.6",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "STATSPAI_MCP_DATA_ROOTS",
+          "description": "Directories the server may read data files from, separated by the OS path separator. Unset: any readable path.",
+          "format": "filepath",
+          "isRequired": false
+        },
+        {
+          "name": "STATSPAI_MCP_PROFILE",
+          "description": "Size of the advertised tool list: core, curated or full.",
+          "default": "curated",
+          "choices": ["core", "curated", "full"],
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

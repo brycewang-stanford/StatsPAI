@@ -1,5 +1,7 @@
 [简体中文](https://github.com/brycewang-stanford/statspai/blob/main/README_CN.md) | English
 
+<!-- mcp-name: io.github.brycewang-stanford/statspai -->
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/readme-1.png" alt="StatsPAI - Python-native Stata and R replacement for applied causal inference" width="780">
 </p>
