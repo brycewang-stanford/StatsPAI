@@ -434,8 +434,13 @@ from .panel import (
     panel_compare,
 )
 from .postestimation import (
+    avg_comparisons,
+    avg_predictions,
+    avg_slopes,
+    comparisons,
     contrast,
     event_study_table,
+    hypotheses,
     lincom,
     margins,
     margins_at,
@@ -445,7 +450,9 @@ from .postestimation import (
     nlcom,
     postestimation_contract,
     postestimation_report,
+    predictions,
     pwcompare,
+    slopes,
     test,
 )
 
@@ -1778,6 +1785,13 @@ __all__ = [
     "test",
     "lincom",
     "nlcom",
+    "predictions",
+    "avg_predictions",
+    "comparisons",
+    "avg_comparisons",
+    "slopes",
+    "avg_slopes",
+    "hypotheses",
     "postestimation_contract",
     "postestimation_report",
     # Mediation

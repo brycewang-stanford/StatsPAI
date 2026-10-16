@@ -9866,6 +9866,414 @@
     }
   },
   {
+    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups.",
+    "name": "predictions",
+    "parameters": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins.",
+    "name": "avg_predictions",
+    "parameters": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg.",
+    "name": "comparisons",
+    "parameters": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "comparison": {
+          "default": "difference",
+          "description": "'difference', 'ratio', 'lnratio', 'ratioavg' or 'lnratioavg'; when averaged, 'ratio' / 'lnratio' mean the ratio of averages",
+          "enum": [
+            "difference",
+            "ratio",
+            "lnratio",
+            "ratioavg",
+            "lnratioavg"
+          ],
+          "type": "string"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions.",
+    "name": "avg_comparisons",
+    "parameters": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "comparison": {
+          "default": "difference",
+          "description": "'difference', 'ratio', 'lnratio', 'ratioavg' or 'lnratioavg'; when averaged, 'ratio' / 'lnratio' mean the ratio of averages",
+          "enum": [
+            "difference",
+            "ratio",
+            "lnratio",
+            "ratioavg",
+            "lnratioavg"
+          ],
+          "type": "string"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts.",
+    "name": "slopes",
+    "parameters": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-05,
+          "description": "Relative step of the central difference on transformed terms",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "slope": {
+          "default": "dydx",
+          "description": "'dydx', 'eyex', 'eydx' or 'dyex'",
+          "enum": [
+            "dydx",
+            "eyex",
+            "eydx",
+            "dyex"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins.",
+    "name": "avg_slopes",
+    "parameters": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-05,
+          "description": "Relative step of the central difference on transformed terms",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "slope": {
+          "default": "dydx",
+          "description": "'dydx', 'eyex', 'eydx' or 'dyex'",
+          "enum": [
+            "dydx",
+            "eyex",
+            "eydx",
+            "dyex"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code.",
+    "name": "hypotheses",
+    "parameters": {
+      "properties": {
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "hypothesis": {
+          "description": "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2'",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fitted model or a marginaleffects-style table",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "hypothesis"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Structural VAR on a fitted sp.var: short-run restrictions in the AB model A e = B u (Stata svar aeq() beq()), long-run restrictions on the cumulative impact matrix (Blanchard-Quah; Stata svar lreq()), or sign restrictions on impulse responses (a set of admissible models). Maximum likelihood with standard errors and a likelihood-ratio test of over-identifying restrictions; the result gives structural impulse responses and the forecast-error variance decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Long-run restrictions on a VAR with a unit root in levels -- I - A_1 - ... - A_p is singular; difference the integrated variables first; Sign-restricted bands are read as confidence intervals -- they are the spread of the identified set at the estimated reduced form and carry no sampling uncertainty.",
     "name": "svar",
     "parameters": {

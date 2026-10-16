@@ -1476,6 +1476,195 @@
     "name": "average_treatment_effect"
   },
   {
+    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "input_schema": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "comparison": {
+          "default": "difference",
+          "description": "'difference', 'ratio', 'lnratio', 'ratioavg' or 'lnratioavg'; when averaged, 'ratio' / 'lnratio' mean the ratio of averages",
+          "enum": [
+            "difference",
+            "ratio",
+            "lnratio",
+            "ratioavg",
+            "lnratioavg"
+          ],
+          "type": "string"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "avg_comparisons"
+  },
+  {
+    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "input_schema": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "avg_predictions"
+  },
+  {
+    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "input_schema": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-05,
+          "description": "Relative step of the central difference on transformed terms",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "slope": {
+          "default": "dydx",
+          "description": "'dydx', 'eyex', 'eydx' or 'dyex'",
+          "enum": [
+            "dydx",
+            "eyex",
+            "eydx",
+            "dyex"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "avg_slopes"
+  },
+  {
     "description": "Goodman-Bacon (2021) decomposition: breaks the two-way fixed-effects DID estimator into its 2x2 comparison weights. Reveals whether treated-vs-treated comparisons (which can have negative weights) dominate the estimate. Run this before trusting a TWFE-DID point estimate. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
@@ -6143,6 +6332,74 @@
       "type": "object"
     },
     "name": "compare_metalearners"
+  },
+  {
+    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "input_schema": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "comparison": {
+          "default": "difference",
+          "description": "'difference', 'ratio', 'lnratio', 'ratioavg' or 'lnratioavg'; when averaged, 'ratio' / 'lnratio' mean the ratio of averages",
+          "enum": [
+            "difference",
+            "ratio",
+            "lnratio",
+            "ratioavg",
+            "lnratioavg"
+          ],
+          "type": "string"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "comparisons"
   },
   {
     "description": "Moreira (2003) CLR confidence set -- re-export of Validation: certified parity evidence. Assumptions: Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity; Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error; Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb). Pre-conditions: A fitted IV result (or y, d, z arrays) with the same variance estimator (homoskedastic / robust / clustered) used throughout; formula includes the (endog ~ instruments) parenthesised block; at least as many instruments as endogenous regressors (order condition). Failure modes: Unbounded or empty Anderson-Rubin confidence set -> Report it as is: an unbounded set means the data do not pin the effect down; an empty set rejects the over-identifying restrictions; First-stage F < 10 (Stock-Yogo 5% bias) -> Use weak-IV-robust inference (Anderson-Rubin) or LIML; Over-identification test rejects (sp.estat 'overid') -> At least one instrument is inval...",
@@ -17415,6 +17672,36 @@
     "name": "hurdle"
   },
   {
+    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.nlcom, sp.lincom, sp.test.",
+    "input_schema": {
+      "properties": {
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "hypothesis": {
+          "description": "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2'",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fitted model or a marginaleffects-style table",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hypothesis",
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "hypotheses"
+  },
+  {
     "description": "Intra-class correlation for a fitted random-intercept model. Validation: certified parity evidence. Assumptions: A random-intercept model: group effects are independent of the residual and each has constant variance; the ICC is the group-level share of variance under that model. Pre-conditions: Inputs / outputs per decision-making unit for frontier tools; a fitted effect and baseline risk for NNT. Failure modes: icc() is defined for random-intercept models only; with random slopes on <x_random> the intraclass correlation depends on the covariate values -> Refit with a random intercept only; icc() is not defined for a <family> GLMM: there is no residual variance on the linear-predictor scale (Stata's estat icc is likewise unavailable after mepoisson / menbreg / meglm gamma) -> Use a Gaussian (sp.mixed) or logit (sp.melogit, sp.meologit) random-intercept model. Alternatives: sp.sp.regress, sp.sp.decompose.",
     "input_schema": {
       "properties": {
@@ -27566,6 +27853,55 @@
     "name": "predict_cate"
   },
   {
+    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "input_schema": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "predictions"
+  },
+  {
     "description": "Run pre-fit identification checks for a chosen method on a DataFrame. Verdict in {PASS, WARN, FAIL}. ALWAYS call this before fitting on an unfamiliar dataset to surface design problems (overlap, cohort sizes, IV first-stage F, running-variable density at the cutoff).",
     "input_schema": {
       "properties": {
@@ -36724,6 +37060,78 @@
       "type": "object"
     },
     "name": "sktest"
+  },
+  {
+    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "input_schema": {
+      "properties": {
+        "by": {
+          "description": "Average within groups of these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conf_level": {
+          "default": 0.95,
+          "description": "Confidence level",
+          "type": "number"
+        },
+        "df": {
+          "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-05,
+          "description": "Relative step of the central difference on transformed terms",
+          "type": "number"
+        },
+        "newdata": {
+          "description": "Rows to evaluate; default the estimation sample of the fitted data",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+          "type": "string"
+        },
+        "slope": {
+          "default": "dydx",
+          "description": "'dydx', 'eyex', 'eydx' or 'dyex'",
+          "enum": [
+            "dydx",
+            "eyex",
+            "eydx",
+            "dyex"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "default": "response",
+          "description": "Prediction scale: 'response' or 'link'",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "wts": {
+          "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "slopes"
   },
   {
     "description": "Self-normalised IPS (bias-reduction for large IS weights). Validation: certified parity evidence. Assumptions: Same identification conditions as IPS (known propensities, positivity, no unmeasured confounding); Self-normalisation trades a small bias for large variance reduction under heavy importance weights. Pre-conditions: X (context), A (logged action), R (reward) and logging propensities are available. Failure modes: Residual bias when effective sample size is tiny (few logged actions overlap the target policy) -> Collect more on-support logged data or switch to the doubly-robust estimator. Alternatives: sp.ips, sp.doubly_robust, sp.direct_method. Typical minimum N: 500.",

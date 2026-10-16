@@ -21238,6 +21238,764 @@
   {
     "alias_of": null,
     "alternatives": [
+      "margins",
+      "nlcom",
+      "lincom"
+    ],
+    "assumptions": [
+      "The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference)"
+    ],
+    "category": "postestimation",
+    "cost_profile": "",
+    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.predictions(fit)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "predictions",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "R marginaleffects 0.32 (black-box output parity)",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups.",
+      "name": "predictions",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Average within groups of these columns",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "conf_level": {
+            "default": 0.95,
+            "description": "Confidence level",
+            "type": "number"
+          },
+          "df": {
+            "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+            "type": "number"
+          },
+          "newdata": {
+            "description": "Rows to evaluate; default the estimation sample of the fitted data",
+            "type": "string"
+          },
+          "result": {
+            "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+            "type": "string"
+          },
+          "type": {
+            "default": "response",
+            "description": "Prediction scale: 'response' or 'link'",
+            "enum": [
+              "response",
+              "link"
+            ],
+            "type": "string"
+          },
+          "wts": {
+            "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "margins",
+      "nlcom",
+      "lincom"
+    ],
+    "assumptions": [
+      "The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference)"
+    ],
+    "category": "postestimation",
+    "cost_profile": "",
+    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.avg_predictions(fit, by=\"g\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "avg_predictions",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "R marginaleffects 0.32 (black-box output parity)",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins.",
+      "name": "avg_predictions",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Average within groups of these columns",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "conf_level": {
+            "default": 0.95,
+            "description": "Confidence level",
+            "type": "number"
+          },
+          "df": {
+            "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+            "type": "number"
+          },
+          "newdata": {
+            "description": "Rows to evaluate; default the estimation sample of the fitted data",
+            "type": "string"
+          },
+          "result": {
+            "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+            "type": "string"
+          },
+          "type": {
+            "default": "response",
+            "description": "Prediction scale: 'response' or 'link'",
+            "enum": [
+              "response",
+              "link"
+            ],
+            "type": "string"
+          },
+          "wts": {
+            "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "margins",
+      "nlcom",
+      "lincom"
+    ],
+    "assumptions": [
+      "The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference)"
+    ],
+    "category": "postestimation",
+    "cost_profile": "",
+    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.comparisons(fit, \"treat\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "comparisons",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "R marginaleffects 0.32 (black-box output parity)",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg.",
+      "name": "comparisons",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Average within groups of these columns",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "comparison": {
+            "default": "difference",
+            "description": "'difference', 'ratio', 'lnratio', 'ratioavg' or 'lnratioavg'; when averaged, 'ratio' / 'lnratio' mean the ratio of averages",
+            "enum": [
+              "difference",
+              "ratio",
+              "lnratio",
+              "ratioavg",
+              "lnratioavg"
+            ],
+            "type": "string"
+          },
+          "conf_level": {
+            "default": 0.95,
+            "description": "Confidence level",
+            "type": "number"
+          },
+          "df": {
+            "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+            "type": "number"
+          },
+          "newdata": {
+            "description": "Rows to evaluate; default the estimation sample of the fitted data",
+            "type": "string"
+          },
+          "result": {
+            "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+            "type": "string"
+          },
+          "type": {
+            "default": "response",
+            "description": "Prediction scale: 'response' or 'link'",
+            "enum": [
+              "response",
+              "link"
+            ],
+            "type": "string"
+          },
+          "variables": {
+            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "wts": {
+            "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "margins",
+      "nlcom",
+      "lincom"
+    ],
+    "assumptions": [
+      "The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference)"
+    ],
+    "category": "postestimation",
+    "cost_profile": "",
+    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.avg_comparisons(fit, \"treat\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "avg_comparisons",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "R marginaleffects 0.32 (black-box output parity)",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions.",
+      "name": "avg_comparisons",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Average within groups of these columns",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "comparison": {
+            "default": "difference",
+            "description": "'difference', 'ratio', 'lnratio', 'ratioavg' or 'lnratioavg'; when averaged, 'ratio' / 'lnratio' mean the ratio of averages",
+            "enum": [
+              "difference",
+              "ratio",
+              "lnratio",
+              "ratioavg",
+              "lnratioavg"
+            ],
+            "type": "string"
+          },
+          "conf_level": {
+            "default": 0.95,
+            "description": "Confidence level",
+            "type": "number"
+          },
+          "df": {
+            "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+            "type": "number"
+          },
+          "newdata": {
+            "description": "Rows to evaluate; default the estimation sample of the fitted data",
+            "type": "string"
+          },
+          "result": {
+            "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+            "type": "string"
+          },
+          "type": {
+            "default": "response",
+            "description": "Prediction scale: 'response' or 'link'",
+            "enum": [
+              "response",
+              "link"
+            ],
+            "type": "string"
+          },
+          "variables": {
+            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "wts": {
+            "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "margins",
+      "nlcom",
+      "lincom"
+    ],
+    "assumptions": [
+      "The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference)"
+    ],
+    "category": "postestimation",
+    "cost_profile": "",
+    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.slopes(fit, \"x\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "slopes",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "R marginaleffects 0.32 (black-box output parity)",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts.",
+      "name": "slopes",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Average within groups of these columns",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "conf_level": {
+            "default": 0.95,
+            "description": "Confidence level",
+            "type": "number"
+          },
+          "df": {
+            "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+            "type": "number"
+          },
+          "eps": {
+            "default": 1e-05,
+            "description": "Relative step of the central difference on transformed terms",
+            "type": "number"
+          },
+          "newdata": {
+            "description": "Rows to evaluate; default the estimation sample of the fitted data",
+            "type": "string"
+          },
+          "result": {
+            "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+            "type": "string"
+          },
+          "slope": {
+            "default": "dydx",
+            "description": "'dydx', 'eyex', 'eydx' or 'dyex'",
+            "enum": [
+              "dydx",
+              "eyex",
+              "eydx",
+              "dyex"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "default": "response",
+            "description": "Prediction scale: 'response' or 'link'",
+            "enum": [
+              "response",
+              "link"
+            ],
+            "type": "string"
+          },
+          "variables": {
+            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "wts": {
+            "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "margins",
+      "nlcom",
+      "lincom"
+    ],
+    "assumptions": [
+      "The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference)"
+    ],
+    "category": "postestimation",
+    "cost_profile": "",
+    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.avg_slopes(fit, \"x\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "avg_slopes",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "R marginaleffects 0.32 (black-box output parity)",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins.",
+      "name": "avg_slopes",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Average within groups of these columns",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "conf_level": {
+            "default": 0.95,
+            "description": "Confidence level",
+            "type": "number"
+          },
+          "df": {
+            "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+            "type": "number"
+          },
+          "eps": {
+            "default": 1e-05,
+            "description": "Relative step of the central difference on transformed terms",
+            "type": "number"
+          },
+          "newdata": {
+            "description": "Rows to evaluate; default the estimation sample of the fitted data",
+            "type": "string"
+          },
+          "result": {
+            "description": "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+            "type": "string"
+          },
+          "slope": {
+            "default": "dydx",
+            "description": "'dydx', 'eyex', 'eydx' or 'dyex'",
+            "enum": [
+              "dydx",
+              "eyex",
+              "eydx",
+              "dyex"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "default": "response",
+            "description": "Prediction scale: 'response' or 'link'",
+            "enum": [
+              "response",
+              "link"
+            ],
+            "type": "string"
+          },
+          "variables": {
+            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "wts": {
+            "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "nlcom",
+      "lincom",
+      "test"
+    ],
+    "assumptions": [
+      "The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference)"
+    ],
+    "category": "postestimation",
+    "cost_profile": "",
+    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.hypotheses(fit, \"b2 = b3\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "hypotheses",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "R marginaleffects 0.32 (black-box output parity)",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code.",
+      "name": "hypotheses",
+      "parameters": {
+        "properties": {
+          "conf_level": {
+            "default": 0.95,
+            "description": "Confidence level",
+            "type": "number"
+          },
+          "df": {
+            "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
+            "type": "number"
+          },
+          "hypothesis": {
+            "description": "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2'",
+            "type": "string"
+          },
+          "result": {
+            "description": "Fitted model or a marginaleffects-style table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result",
+          "hypothesis"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "var",
       "irf",
       "local_projections",

@@ -4,6 +4,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Predictions, comparisons and slopes in the marginaleffects style
+
+#### Added
+
+- `sp.predictions`, `sp.avg_predictions`, `sp.comparisons`,
+  `sp.avg_comparisons`, `sp.slopes`, `sp.avg_slopes` and `sp.hypotheses`,
+  with R `marginaleffects`'s names and defaults (unweighted averages,
+  normal reference; `wts=True, df="model"` gives Stata's `margins`, and
+  then `sp.avg_slopes` equals `sp.margins`). They work after `regress`,
+  `logit`, `probit`, `cloglog`, `poisson`, `nbreg` and `glm`, differentiate
+  through interactions and transformed terms, and take an analytic
+  Jacobian for delta-method standard errors. Each table keeps the Jacobian,
+  so `sp.hypotheses(table, "b1 - b2 = 0")` tests rows with their joint
+  covariance. Against R `marginaleffects` 0.32.0 (black box, lm / logit /
+  probit / Poisson): estimates to 1e-8, standard errors to 2e-5 (R's
+  numerical Jacobian). Conventions followed and pinned by tests: `"sd"`
+  contrasts mean +/- sd/2 for every row; averaged ratios are ratios of
+  averages; 0/1 variables are contrasts in `slopes` too. Guide:
+  `docs/guides/marginaleffects.md`.
+
 ### `sp.oaxaca` threefold decomposition
 
 #### Added

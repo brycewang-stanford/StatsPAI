@@ -1,0 +1,1193 @@
+{
+  "versions": {
+    "marginaleffects": "0.32.0",
+    "R": "R version 4.5.2 (2025-10-31)"
+  },
+  "lm": {
+    "avg_predictions": [
+      {
+        "estimate": 2.156057139875,
+        "std.error": 0.0501211815321403
+      }
+    ],
+    "avg_predictions_by_g": [
+      {
+        "g": "0",
+        "estimate": 1.87948117977099,
+        "std.error": 0.0875821592585504
+      },
+      {
+        "g": "1",
+        "estimate": 2.1679947550365,
+        "std.error": 0.0856428124753181
+      },
+      {
+        "g": "2",
+        "estimate": 2.41814803,
+        "std.error": 0.0872497334446118
+      }
+    ],
+    "avg_comparisons": [
+      {
+        "term": "b",
+        "contrast": "1 - 0",
+        "estimate": 1.03717717139075,
+        "std.error": 0.101375370048371
+      },
+      {
+        "term": "g",
+        "contrast": "1 - 0",
+        "estimate": 0.211772157216389,
+        "std.error": 0.122650801317172
+      },
+      {
+        "term": "g",
+        "contrast": "2 - 0",
+        "estimate": 0.379964513112114,
+        "std.error": 0.124010241400184
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.46682289765961,
+        "std.error": 0.0611974816804541
+      }
+    ],
+    "avg_slopes": [
+      {
+        "term": "b",
+        "contrast": "1 - 0",
+        "estimate": 1.03717717139075,
+        "std.error": 0.101375370048371
+      },
+      {
+        "term": "g",
+        "contrast": "1 - 0",
+        "estimate": 0.211772157216389,
+        "std.error": 0.122650801317172
+      },
+      {
+        "term": "g",
+        "contrast": "2 - 0",
+        "estimate": 0.379964513112114,
+        "std.error": 0.124010241400184
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 1.01634584166178,
+        "std.error": 0.0507073964198935
+      }
+    ],
+    "avg_slopes_eyex": [
+      {
+        "term": "x",
+        "contrast": "eY/eX",
+        "estimate": 0.242242438508543,
+        "std.error": 0.0317425660296881
+      }
+    ],
+    "avg_slopes_eydx": [
+      {
+        "term": "x",
+        "contrast": "eY/dX",
+        "estimate": 0.44085937625004,
+        "std.error": 0.0332345375347063
+      }
+    ],
+    "avg_slopes_dyex": [
+      {
+        "term": "x",
+        "contrast": "dY/eX",
+        "estimate": 0.856151714752717,
+        "std.error": 0.0643011135689264
+      }
+    ],
+    "avg_slopes_by_g": [
+      {
+        "term": "x",
+        "g": "0",
+        "estimate": 0.946077709413725,
+        "std.error": 0.0507776808937265
+      },
+      {
+        "term": "x",
+        "g": "1",
+        "estimate": 0.990089889828094,
+        "std.error": 0.0506744104312452
+      },
+      {
+        "term": "x",
+        "g": "2",
+        "estimate": 1.11333213503838,
+        "std.error": 0.0514365562787353
+      }
+    ],
+    "avg_slopes_wts": [
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 1.03140668910993,
+        "std.error": 0.0507581308321887
+      }
+    ],
+    "slopes_head": [
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 1.74873691775742,
+        "std.error": 0.0745197937807581
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 1.12449086008014,
+        "std.error": 0.0515808614805536
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": -0.920012205276599,
+        "std.error": 0.146811912969026
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 1.29903214160515,
+        "std.error": 0.0553289486493768
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.579832142536015,
+        "std.error": 0.0587086095107837
+      }
+    ],
+    "predictions_head": [
+      {
+        "estimate": 2.33421393436945,
+        "std.error": 0.10728169689589
+      },
+      {
+        "estimate": 1.50701646449965,
+        "std.error": 0.10633954170026
+      },
+      {
+        "estimate": 1.10681604571867,
+        "std.error": 0.181858210473907
+      },
+      {
+        "estimate": 2.61075508426075,
+        "std.error": 0.10544123821661
+      },
+      {
+        "estimate": 0.611890097678396,
+        "std.error": 0.109038996351731
+      }
+    ],
+    "comparisons_x_sd": [
+      {
+        "term": "x",
+        "contrast": "(x + sd/2) - (x - sd/2)",
+        "estimate": 1.01274072951581,
+        "std.error": 0.0505275955272718
+      }
+    ],
+    "comparisons_x_5": [
+      {
+        "term": "x",
+        "contrast": "+5",
+        "estimate": 16.3436556082532,
+        "std.error": 0.859376724488497
+      }
+    ],
+    "comparisons_x_2sd": [
+      {
+        "term": "x",
+        "contrast": "(x + sd) - (x - sd)",
+        "estimate": 2.02548145903162,
+        "std.error": 0.101055189535521
+      }
+    ],
+    "comparisons_x_iqr": [
+      {
+        "term": "x",
+        "contrast": "Q3 - Q1",
+        "estimate": 1.35010690414523,
+        "std.error": 0.067226279646383
+      }
+    ],
+    "comparisons_x_minmax": [
+      {
+        "term": "x",
+        "contrast": "Max - Min",
+        "estimate": 7.7330908323015,
+        "std.error": 0.369542353724765
+      }
+    ],
+    "comparisons_x_pair": [
+      {
+        "term": "x",
+        "contrast": "2 - -1",
+        "estimate": 4.49670064874741,
+        "std.error": 0.187570695024009
+      }
+    ],
+    "hypothesis_b2_b3": [
+      {
+        "estimate": 0.597946104253626,
+        "std.error": 0.058060054582923
+      }
+    ]
+  },
+  "logit": {
+    "avg_predictions": [
+      {
+        "estimate": 0.625,
+        "std.error": 0.0213375612412488
+      }
+    ],
+    "avg_predictions_by_g": [
+      {
+        "g": "0",
+        "estimate": 0.603053435114504,
+        "std.error": 0.0375227841996865
+      },
+      {
+        "g": "1",
+        "estimate": 0.613138686131387,
+        "std.error": 0.0366964674078763
+      },
+      {
+        "g": "2",
+        "estimate": 0.659090909090909,
+        "std.error": 0.0366544012472753
+      }
+    ],
+    "avg_comparisons": [
+      {
+        "term": "b",
+        "contrast": "1 - 0",
+        "estimate": 0.0748044304966582,
+        "std.error": 0.0423863058536052
+      },
+      {
+        "term": "g",
+        "contrast": "1 - 0",
+        "estimate": 0.00260533852225582,
+        "std.error": 0.0524293373853598
+      },
+      {
+        "term": "g",
+        "contrast": "2 - 0",
+        "estimate": 0.0324441446513022,
+        "std.error": 0.052838347224027
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 0.173090513661528,
+        "std.error": 0.0145494673484492
+      },
+      {
+        "term": "z",
+        "contrast": "+1",
+        "estimate": -0.0944109365909889,
+        "std.error": 0.0231070753410739
+      }
+    ],
+    "avg_slopes": [
+      {
+        "term": "b",
+        "contrast": "1 - 0",
+        "estimate": 0.0748044304966582,
+        "std.error": 0.0423863058536052
+      },
+      {
+        "term": "g",
+        "contrast": "1 - 0",
+        "estimate": 0.00260533852225582,
+        "std.error": 0.0524293373853598
+      },
+      {
+        "term": "g",
+        "contrast": "2 - 0",
+        "estimate": 0.0324441446513022,
+        "std.error": 0.052838347224027
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.202449536702844,
+        "std.error": 0.0184146639686423
+      },
+      {
+        "term": "z",
+        "contrast": "dY/dX",
+        "estimate": -0.0913711741718914,
+        "std.error": 0.0219161153113228
+      }
+    ],
+    "avg_slopes_eyex": [
+      {
+        "term": "x",
+        "contrast": "eY/eX",
+        "estimate": -0.250265933705814,
+        "std.error": 0.0528425838387507
+      }
+    ],
+    "avg_slopes_eydx": [
+      {
+        "term": "x",
+        "contrast": "eY/dX",
+        "estimate": 0.420267231979291,
+        "std.error": 0.0603117081312251
+      }
+    ],
+    "avg_slopes_dyex": [
+      {
+        "term": "x",
+        "contrast": "dY/eX",
+        "estimate": -0.0449257262724165,
+        "std.error": 0.00893341637213052
+      }
+    ],
+    "avg_slopes_by_g": [
+      {
+        "term": "x",
+        "g": "0",
+        "estimate": 0.206880357002606,
+        "std.error": 0.018890551803269
+      },
+      {
+        "term": "x",
+        "g": "1",
+        "estimate": 0.205193640861263,
+        "std.error": 0.0197322802219342
+      },
+      {
+        "term": "x",
+        "g": "2",
+        "estimate": 0.195204235725781,
+        "std.error": 0.0194904705665063
+      }
+    ],
+    "avg_slopes_wts": [
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.198787659507293,
+        "std.error": 0.0179652594605848
+      }
+    ],
+    "slopes_head": [
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.162293111155086,
+        "std.error": 0.0283133519063936
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.139923202851827,
+        "std.error": 0.0350257390688527
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.144104784384861,
+        "std.error": 0.0183380186636508
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.283816932663813,
+        "std.error": 0.0444130521025055
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.198952377350455,
+        "std.error": 0.0447039840788776
+      }
+    ],
+    "predictions_head": [
+      {
+        "estimate": 0.732158428374607,
+        "std.error": 0.05282106641206
+      },
+      {
+        "estimate": 0.784477778022546,
+        "std.error": 0.0504608384830853
+      },
+      {
+        "estimate": 0.224546000435735,
+        "std.error": 0.0739170017852617
+      },
+      {
+        "estimate": 0.734587757674867,
+        "std.error": 0.0549685316946088
+      },
+      {
+        "estimate": 0.597986265691247,
+        "std.error": 0.0627832072735546
+      }
+    ],
+    "predictions_link_head": [
+      {
+        "estimate": 1.00560126768809,
+        "std.error": 0.269354149093215
+      },
+      {
+        "estimate": 1.2919542230258,
+        "std.error": 0.298457038854906
+      },
+      {
+        "estimate": -1.23936807581442,
+        "std.error": 0.424505083495543
+      },
+      {
+        "estimate": 1.01802521929181,
+        "std.error": 0.281935325508658
+      },
+      {
+        "estimate": 0.397081533632832,
+        "std.error": 0.261162839185801
+      }
+    ],
+    "comparisons_x_sd": [
+      {
+        "term": "x",
+        "contrast": "(x + sd/2) - (x - sd/2)",
+        "estimate": 0.232961204120196,
+        "std.error": 0.0281425441746265
+      }
+    ],
+    "comparisons_x_5": [
+      {
+        "term": "x",
+        "contrast": "+5",
+        "estimate": 0.366428140528165,
+        "std.error": 0.0211158937275562
+      }
+    ],
+    "comparisons_x_2sd": [
+      {
+        "term": "x",
+        "contrast": "(x + sd) - (x - sd)",
+        "estimate": 0.443582993291357,
+        "std.error": 0.0485109521513191
+      }
+    ],
+    "comparisons_x_iqr": [
+      {
+        "term": "x",
+        "contrast": "Q3 - Q1",
+        "estimate": 0.305766562702659,
+        "std.error": 0.0359914280592562
+      }
+    ],
+    "comparisons_x_minmax": [
+      {
+        "term": "x",
+        "contrast": "Max - Min",
+        "estimate": 0.933400404425261,
+        "std.error": 0.0335643412494111
+      }
+    ],
+    "comparisons_x_pair": [
+      {
+        "term": "x",
+        "contrast": "2 - -1",
+        "estimate": 0.528314767767207,
+        "std.error": 0.0483259849525532
+      }
+    ],
+    "hypothesis_b2_b3": [
+      {
+        "estimate": 0.280067214906722,
+        "std.error": 0.309007832977225
+      }
+    ],
+    "ratioavg_g": [
+      {
+        "term": "g",
+        "contrast": "mean(1) / mean(0)",
+        "estimate": 1.00424697960048,
+        "std.error": 0.0856517576897835
+      },
+      {
+        "term": "g",
+        "contrast": "mean(2) / mean(0)",
+        "estimate": 1.05288741532511,
+        "std.error": 0.0884753238019646
+      }
+    ],
+    "lnratioavg_g": [
+      {
+        "term": "g",
+        "contrast": "ln(mean(1) / mean(0))",
+        "estimate": 0.004237986635583,
+        "std.error": 0.08528953530631
+      },
+      {
+        "term": "g",
+        "contrast": "ln(mean(2) / mean(0))",
+        "estimate": 0.051536309415861,
+        "std.error": 0.0840311341475024
+      }
+    ],
+    "ratio_head": [
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.17753457933554,
+        "std.error": 0.0350071828951269
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.13806747011387,
+        "std.error": 0.0398833931922242
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.77463268482107,
+        "std.error": 0.301871994794191
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.25550641090377,
+        "std.error": 0.0589564442576771
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.29247986879983,
+        "std.error": 0.0858943394365331
+      }
+    ],
+    "lnratio_avg": [
+      {
+        "term": "x",
+        "contrast": "mean(+1)",
+        "estimate": 0.244470366922218,
+        "std.error": 0.0223912127488524
+      }
+    ],
+    "hypothesis_on_table": [
+      {
+        "estimate": -0.0298388061290464,
+        "std.error": 0.0520151095189542
+      }
+    ],
+    "comparisons_b": [
+      {
+        "term": "b",
+        "contrast": "1 - 0",
+        "estimate": 0.0748044304966582,
+        "std.error": 0.0423863058510037
+      }
+    ],
+    "ratio_by_g": [
+      {
+        "term": "b",
+        "contrast": "mean(1) / mean(0)",
+        "g": "0",
+        "estimate": 1.12357332900653,
+        "std.error": 0.0852537455198727
+      },
+      {
+        "term": "b",
+        "contrast": "mean(1) / mean(0)",
+        "g": "1",
+        "estimate": 1.13401074432434,
+        "std.error": 0.0824694631357745
+      },
+      {
+        "term": "b",
+        "contrast": "mean(1) / mean(0)",
+        "g": "2",
+        "estimate": 1.12370237709404,
+        "std.error": 0.0729370907103963
+      }
+    ]
+  },
+  "probit": {
+    "avg_predictions": [
+      {
+        "estimate": 0.624985599075943,
+        "std.error": 0.0214903381548997
+      }
+    ],
+    "avg_predictions_by_g": [
+      {
+        "g": "0",
+        "estimate": 0.615597649775391,
+        "std.error": 0.0219564882337527
+      },
+      {
+        "g": "1",
+        "estimate": 0.619940372763591,
+        "std.error": 0.021344683261799
+      },
+      {
+        "g": "2",
+        "estimate": 0.639538760918098,
+        "std.error": 0.0215196083460025
+      }
+    ],
+    "avg_comparisons": [
+      {
+        "term": "b",
+        "contrast": "1 - 0",
+        "estimate": 0.0758889350450206,
+        "std.error": 0.0428869962717449
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 0.172684077700479,
+        "std.error": 0.0146754587345099
+      },
+      {
+        "term": "z",
+        "contrast": "+1",
+        "estimate": -0.0968769931529829,
+        "std.error": 0.0231187203740809
+      }
+    ],
+    "avg_slopes": [
+      {
+        "term": "b",
+        "contrast": "1 - 0",
+        "estimate": 0.0758889350450206,
+        "std.error": 0.0428869962717449
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.196086252880792,
+        "std.error": 0.0187907706060673
+      },
+      {
+        "term": "z",
+        "contrast": "dY/dX",
+        "estimate": -0.0938899835535531,
+        "std.error": 0.0219741887525157
+      }
+    ],
+    "avg_slopes_eyex": [
+      {
+        "term": "x",
+        "contrast": "eY/eX",
+        "estimate": -0.228057449202917,
+        "std.error": 0.0547565107658962
+      }
+    ],
+    "avg_slopes_eydx": [
+      {
+        "term": "x",
+        "contrast": "eY/dX",
+        "estimate": 0.399659795196177,
+        "std.error": 0.0599904827404304
+      }
+    ],
+    "avg_slopes_dyex": [
+      {
+        "term": "x",
+        "contrast": "dY/eX",
+        "estimate": -0.0338420328821772,
+        "std.error": 0.00771943725246423
+      }
+    ],
+    "avg_slopes_by_g": [
+      {
+        "term": "x",
+        "g": "0",
+        "estimate": 0.19844938280244,
+        "std.error": 0.0192296444682755
+      },
+      {
+        "term": "x",
+        "g": "1",
+        "estimate": 0.194805226944653,
+        "std.error": 0.0185455307426037
+      },
+      {
+        "term": "x",
+        "g": "2",
+        "estimate": 0.195070575104391,
+        "std.error": 0.0186295249216357
+      }
+    ],
+    "avg_slopes_wts": [
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.193961837965666,
+        "std.error": 0.0183262185852256
+      }
+    ],
+    "slopes_head": [
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.190235690226864,
+        "std.error": 0.0201753268050472
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.192876740512538,
+        "std.error": 0.0291501450139947
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.153307096125823,
+        "std.error": 0.0165803600711531
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.222322300149678,
+        "std.error": 0.0268498071197707
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.245926216040627,
+        "std.error": 0.0335050416660264
+      }
+    ],
+    "predictions_head": [
+      {
+        "estimate": 0.773170933793443,
+        "std.error": 0.0356095919001689
+      },
+      {
+        "estimate": 0.767518444760181,
+        "std.error": 0.0427358929601951
+      },
+      {
+        "estimate": 0.159488392022751,
+        "std.error": 0.0475533737723151
+      },
+      {
+        "estimate": 0.69138048687298,
+        "std.error": 0.0399423154396825
+      },
+      {
+        "estimate": 0.586674421519592,
+        "std.error": 0.0474375934333019
+      }
+    ],
+    "predictions_link_head": [
+      {
+        "estimate": 0.749330328375983,
+        "std.error": 0.118190953720353
+      },
+      {
+        "estimate": 0.730698862556662,
+        "std.error": 0.139901427521494
+      },
+      {
+        "estimate": -0.996562771346565,
+        "std.error": 0.195852134978919
+      },
+      {
+        "estimate": 0.499767174941093,
+        "std.error": 0.113438225513934
+      },
+      {
+        "estimate": 0.218998576091458,
+        "std.error": 0.121794322050979
+      }
+    ],
+    "comparisons_x_sd": [
+      {
+        "term": "x",
+        "contrast": "(x + sd/2) - (x - sd/2)",
+        "estimate": 0.221601898789192,
+        "std.error": 0.0270891795874571
+      }
+    ],
+    "comparisons_x_5": [
+      {
+        "term": "x",
+        "contrast": "+5",
+        "estimate": 0.372657401442281,
+        "std.error": 0.0211978871164669
+      }
+    ],
+    "comparisons_x_2sd": [
+      {
+        "term": "x",
+        "contrast": "(x + sd) - (x - sd)",
+        "estimate": 0.426585055493475,
+        "std.error": 0.0481525031180735
+      }
+    ],
+    "comparisons_x_iqr": [
+      {
+        "term": "x",
+        "contrast": "Q3 - Q1",
+        "estimate": 0.291752209939307,
+        "std.error": 0.0349330105411896
+      }
+    ],
+    "comparisons_x_minmax": [
+      {
+        "term": "x",
+        "contrast": "Max - Min",
+        "estimate": 0.9584563230518,
+        "std.error": 0.0256266262697514
+      }
+    ],
+    "comparisons_x_pair": [
+      {
+        "term": "x",
+        "contrast": "2 - -1",
+        "estimate": 0.530881639178598,
+        "std.error": 0.0473953761241573
+      }
+    ],
+    "hypothesis_b2_b3": [
+      {
+        "estimate": 0.93373683052176,
+        "std.error": 0.114415971001189
+      }
+    ]
+  },
+  "poisson": {
+    "avg_predictions": [
+      {
+        "estimate": 1.4525,
+        "std.error": 0.0602598532174472
+      }
+    ],
+    "avg_predictions_by_g": [
+      {
+        "g": "0",
+        "estimate": 1.40458015267176,
+        "std.error": 0.103547021208497
+      },
+      {
+        "g": "1",
+        "estimate": 1.53284671532847,
+        "std.error": 0.105776509103972
+      },
+      {
+        "g": "2",
+        "estimate": 1.41666666666667,
+        "std.error": 0.103597012040929
+      }
+    ],
+    "avg_comparisons": [
+      {
+        "term": "g",
+        "contrast": "1 - 0",
+        "estimate": 0.126898603136403,
+        "std.error": 0.14992112470479
+      },
+      {
+        "term": "g",
+        "contrast": "2 - 0",
+        "estimate": -0.0416418786512678,
+        "std.error": 0.146178170740793
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 0.729860460498659,
+        "std.error": 0.0979827833146414
+      },
+      {
+        "term": "z",
+        "contrast": "+1",
+        "estimate": -0.431380421628014,
+        "std.error": 0.0477283980301445
+      }
+    ],
+    "avg_slopes": [
+      {
+        "term": "g",
+        "contrast": "1 - 0",
+        "estimate": 0.126898603136403,
+        "std.error": 0.14992112470479
+      },
+      {
+        "term": "g",
+        "contrast": "2 - 0",
+        "estimate": -0.0416418786512678,
+        "std.error": 0.146178170740793
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.591343053212562,
+        "std.error": 0.0666976143822702
+      },
+      {
+        "term": "z",
+        "contrast": "dY/dX",
+        "estimate": -0.511841477003199,
+        "std.error": 0.0664236957568064
+      }
+    ],
+    "avg_slopes_eyex": [
+      {
+        "term": "x",
+        "contrast": "eY/eX",
+        "estimate": -0.014495017500341,
+        "std.error": 0.00152033919969646
+      }
+    ],
+    "avg_slopes_eydx": [
+      {
+        "term": "x",
+        "contrast": "eY/dX",
+        "estimate": 0.407120862796943,
+        "std.error": 0.0427000378725455
+      }
+    ],
+    "avg_slopes_dyex": [
+      {
+        "term": "x",
+        "contrast": "dY/eX",
+        "estimate": 0.210246703617055,
+        "std.error": 0.0467490583920908
+      }
+    ],
+    "avg_slopes_by_g": [
+      {
+        "term": "x",
+        "g": "0",
+        "estimate": 0.571833883623195,
+        "std.error": 0.0733089267669987
+      },
+      {
+        "term": "x",
+        "g": "1",
+        "estimate": 0.624053877279993,
+        "std.error": 0.0783487712847575
+      },
+      {
+        "term": "x",
+        "g": "2",
+        "estimate": 0.576754555629001,
+        "std.error": 0.0737423089514331
+      }
+    ],
+    "avg_slopes_wts": [
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.597553213697736,
+        "std.error": 0.0681345624917534
+      }
+    ],
+    "slopes_head": [
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.745917863033973,
+        "std.error": 0.10643830712888
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.817017819573466,
+        "std.error": 0.101558003310204
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.258187986645964,
+        "std.error": 0.0178275446035838
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.494225794815858,
+        "std.error": 0.0643234639490854
+      },
+      {
+        "term": "x",
+        "contrast": "dY/dX",
+        "estimate": 0.56550193381261,
+        "std.error": 0.0593104309533016
+      }
+    ],
+    "predictions_head": [
+      {
+        "estimate": 1.83217793828997,
+        "std.error": 0.134749782940892
+      },
+      {
+        "estimate": 2.00681884480296,
+        "std.error": 0.174714766418934
+      },
+      {
+        "estimate": 0.634180191287936,
+        "std.error": 0.0808432303457387
+      },
+      {
+        "estimate": 1.21395349631658,
+        "std.error": 0.0985918111047826
+      },
+      {
+        "estimate": 1.38902715505024,
+        "std.error": 0.116779771501965
+      }
+    ],
+    "predictions_link_head": [
+      {
+        "estimate": 0.605505389422869,
+        "std.error": 0.0735462358180655
+      },
+      {
+        "estimate": 0.696550804057742,
+        "std.error": 0.0870605564492532
+      },
+      {
+        "estimate": -0.455422151537974,
+        "std.error": 0.127476753077164
+      },
+      {
+        "estimate": 0.19388238573934,
+        "std.error": 0.0812154776423795
+      },
+      {
+        "estimate": 0.328603613653271,
+        "std.error": 0.0840730666682982
+      }
+    ],
+    "comparisons_x_sd": [
+      {
+        "term": "x",
+        "contrast": "(x + sd/2) - (x - sd/2)",
+        "estimate": 0.547088809982572,
+        "std.error": 0.0540798495811735
+      }
+    ],
+    "comparisons_x_5": [
+      {
+        "term": "x",
+        "contrast": "+5",
+        "estimate": 9.66911504724539,
+        "std.error": 2.4081092025685
+      }
+    ],
+    "comparisons_x_2sd": [
+      {
+        "term": "x",
+        "contrast": "(x + sd) - (x - sd)",
+        "estimate": 1.11676399821225,
+        "std.error": 0.114724377961187
+      }
+    ],
+    "comparisons_x_iqr": [
+      {
+        "term": "x",
+        "contrast": "Q3 - Q1",
+        "estimate": 0.73235310108433,
+        "std.error": 0.0731916796229659
+      }
+    ],
+    "comparisons_x_minmax": [
+      {
+        "term": "x",
+        "contrast": "Max - Min",
+        "estimate": 5.68132634130768,
+        "std.error": 0.926140679355745
+      }
+    ],
+    "comparisons_x_pair": [
+      {
+        "term": "x",
+        "contrast": "2 - -1",
+        "estimate": 2.16328868719631,
+        "std.error": 0.282619128330423
+      }
+    ],
+    "hypothesis_b2_b3": [
+      {
+        "estimate": 0.759507419862506,
+        "std.error": 0.061614766609916
+      }
+    ],
+    "ratioavg_g": [
+      {
+        "term": "g",
+        "contrast": "mean(1) / mean(0)",
+        "estimate": 1.08913801649278,
+        "std.error": 0.110018107230258
+      },
+      {
+        "term": "g",
+        "contrast": "mean(2) / mean(0)",
+        "estimate": 0.970749288217009,
+        "std.error": 0.101134722864988
+      }
+    ],
+    "lnratioavg_g": [
+      {
+        "term": "g",
+        "contrast": "ln(mean(1) / mean(0))",
+        "estimate": 0.0853865728283504,
+        "std.error": 0.101013925647036
+      },
+      {
+        "term": "g",
+        "contrast": "ln(mean(2) / mean(0))",
+        "estimate": -0.0296870436005964,
+        "std.error": 0.104182123932874
+      }
+    ],
+    "ratio_head": [
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.5024856870903,
+        "std.error": 0.0641560895227378
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.5024856870903,
+        "std.error": 0.0641560896713432
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.5024856870903,
+        "std.error": 0.0641560887531137
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.5024856870903,
+        "std.error": 0.0641560892337404
+      },
+      {
+        "term": "x",
+        "contrast": "+1",
+        "estimate": 1.5024856870903,
+        "std.error": 0.0641560887531137
+      }
+    ],
+    "lnratio_avg": [
+      {
+        "term": "x",
+        "contrast": "mean(+1)",
+        "estimate": 0.407120861318823,
+        "std.error": 0.0426999680882542
+      }
+    ]
+  }
+}

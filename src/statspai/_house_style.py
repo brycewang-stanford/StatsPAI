@@ -234,6 +234,17 @@ FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
         "bagged_forecast",
         "seasonal_dummies",
     ),
+    # Degrees of freedom of the reference distribution (marginaleffects'
+    # `df=`), not a data frame.
+    "df": (
+        "predictions",
+        "avg_predictions",
+        "comparisons",
+        "avg_comparisons",
+        "slopes",
+        "avg_slopes",
+        "hypotheses",
+    ),
     # Random-effects covariance *structure*, not an SE type.
     "cov_type": (
         "mixed",

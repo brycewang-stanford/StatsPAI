@@ -78,7 +78,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `robustness` | 3,968 | 8 | 14 |
 | `network` | 3,514 | 9 | 33 |
 | `neural_causal` | 3,442 | 6 | 18 |
-| `postestimation` | 3,280 | 7 | 13 |
+| `postestimation` | 4,388 | 8 | 20 |
 | `bounds` | 3,223 | 6 | 12 |
 | `interference` | 3,223 | 11 | 22 |
 | `bartik` | 3,183 | 6 | 9 |

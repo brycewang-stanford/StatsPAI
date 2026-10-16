@@ -39,6 +39,18 @@ _FALSE_FRIENDS = {
     ("distance_to_feature", "unit"): "unit is the output unit, 'km' or 'm'",
     ("line_length_in_polygon", "unit"): "unit is the output unit, 'km' or 'm'",
     ("dyadic_regression", "i"): "i is the first node of a dyad, not a panel id",
+    **{
+        (f, "df"): "df is the degrees of freedom (marginaleffects' df=)"
+        for f in (
+            "predictions",
+            "avg_predictions",
+            "comparisons",
+            "avg_comparisons",
+            "slopes",
+            "avg_slopes",
+            "hypotheses",
+        )
+    },
 }
 
 

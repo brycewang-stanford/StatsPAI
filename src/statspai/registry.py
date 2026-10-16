@@ -11837,6 +11837,209 @@ def _build_registry() -> None:
         )
     )
 
+    _me_common = [
+        ParamSpec(
+            "newdata",
+            "DataFrame",
+            False,
+            None,
+            "Rows to evaluate; default the estimation sample of the fitted data",
+        ),
+        ParamSpec(
+            "by",
+            "str | list[str]",
+            False,
+            None,
+            "Average within groups of these columns",
+        ),
+        ParamSpec(
+            "type",
+            "str",
+            False,
+            "response",
+            "Prediction scale: 'response' or 'link'",
+        ),
+        ParamSpec(
+            "wts",
+            "None | bool | str | array",
+            False,
+            None,
+            "Weights for averages: None (unweighted, marginaleffects' default), "
+            "True (the fit's weights), a column name or an array",
+        ),
+        ParamSpec(
+            "df",
+            "None | 'model' | float",
+            False,
+            None,
+            "Reference distribution: None is normal (marginaleffects), 'model' "
+            "the fit's own (t after regress), or a number",
+        ),
+        ParamSpec("conf_level", "float", False, 0.95, "Confidence level"),
+    ]
+    _me_variables = ParamSpec(
+        "variables",
+        "str | list[str] | dict",
+        False,
+        None,
+        "Variables (default all); a dict maps a numeric variable to its "
+        "change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
+    )
+    _me_result = ParamSpec(
+        "result",
+        "result",
+        True,
+        None,
+        "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
+    )
+    _me_shared = dict(
+        category="postestimation",
+        assumptions=[
+            "The coefficient estimates are asymptotically normal with the "
+            "reported covariance matrix (delta-method inference)",
+        ],
+        alternatives=["margins", "nlcom", "lincom"],
+        reference="R marginaleffects 0.32 (black-box output parity)",
+    )
+    _me_specs = [
+        (
+            "predictions",
+            "Unit-level predictions with delta-method standard errors, in the "
+            "vocabulary of R marginaleffects::predictions; with by= the "
+            "predictions are averaged within groups.",
+            [],
+            "sp.predictions(fit)",
+        ),
+        (
+            "avg_predictions",
+            "Average prediction, overall or by group "
+            "(marginaleffects::avg_predictions); unweighted and normal-reference "
+            "by default, wts=True and df='model' for Stata's margins.",
+            [],
+            'sp.avg_predictions(fit, by="g")',
+        ),
+        (
+            "comparisons",
+            "Unit-level contrasts of predictions (marginaleffects::comparisons): "
+            "factor levels against the first, 0/1 variables 1 - 0, numeric "
+            "variables +1 or a chosen change; difference, ratio, lnratio, "
+            "ratioavg, lnratioavg.",
+            [_me_variables, "comparison"],
+            'sp.comparisons(fit, "treat")',
+        ),
+        (
+            "avg_comparisons",
+            "Average contrasts (marginaleffects::avg_comparisons): for a "
+            "binary treatment on the response scale, the model-implied "
+            "average treatment effect (g-formula). Averaged ratios are "
+            "ratios of average predictions.",
+            [_me_variables, "comparison"],
+            'sp.avg_comparisons(fit, "treat")',
+        ),
+        (
+            "slopes",
+            "Unit-level partial derivatives of the prediction "
+            "(marginaleffects::slopes), analytic through interactions and "
+            "formula transformations; eyex / eydx / dyex elasticities. "
+            "Factors and 0/1 variables are reported as contrasts.",
+            [_me_variables, "slope", "eps"],
+            'sp.slopes(fit, "x")',
+        ),
+        (
+            "avg_slopes",
+            "Average marginal effects (marginaleffects::avg_slopes); with "
+            "wts=True and df='model' equal to Stata margins, dydx() and "
+            "sp.margins.",
+            [_me_variables, "slope", "eps"],
+            'sp.avg_slopes(fit, "x")',
+        ),
+    ]
+    _me_extra = {
+        "comparison": ParamSpec(
+            "comparison",
+            "str",
+            False,
+            "difference",
+            "'difference', 'ratio', 'lnratio', 'ratioavg' or 'lnratioavg'; "
+            "when averaged, 'ratio' / 'lnratio' mean the ratio of averages",
+            enum=["difference", "ratio", "lnratio", "ratioavg", "lnratioavg"],
+        ),
+        "slope": ParamSpec(
+            "slope",
+            "str",
+            False,
+            "dydx",
+            "'dydx', 'eyex', 'eydx' or 'dyex'",
+            enum=["dydx", "eyex", "eydx", "dyex"],
+        ),
+        "eps": ParamSpec(
+            "eps",
+            "float",
+            False,
+            1e-5,
+            "Relative step of the central difference on transformed terms",
+        ),
+    }
+    for _name, _desc, _extra, _example in _me_specs:
+        _params = [_me_result]
+        for _e in _extra:
+            if isinstance(_e, str):
+                continue
+            _params.append(_e)
+        _params.append(_me_common[0])
+        _params.append(_me_common[1])
+        _params.extend(_me_extra[_e] for _e in _extra if isinstance(_e, str))
+        _params.extend(_me_common[2:])
+        register(
+            FunctionSpec(
+                name=_name,
+                description=_desc,
+                params=_params,
+                returns="DataFrame",
+                example=_example,
+                tags=["postestimation", "marginaleffects", "delta-method", "r"],
+                **_me_shared,
+            )
+        )
+
+    register(
+        FunctionSpec(
+            name="hypotheses",
+            category="postestimation",
+            description=(
+                "Delta-method test of a function of estimates "
+                "(marginaleffects::hypotheses): on a fit, of its coefficients; "
+                "on a table from sp.predictions / comparisons / slopes, of its "
+                "rows with their joint covariance. b1, b2 ... by position, "
+                "coefficient names, 'lhs = rhs'. Parsed, never evaluated as code."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "result | DataFrame",
+                    True,
+                    None,
+                    "Fitted model or a marginaleffects-style table",
+                ),
+                ParamSpec(
+                    "hypothesis",
+                    "str",
+                    True,
+                    None,
+                    "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2'",
+                ),
+                _me_common[4],
+                _me_common[5],
+            ],
+            returns="DataFrame",
+            example='sp.hypotheses(fit, "b2 = b3")',
+            tags=["postestimation", "marginaleffects", "delta-method", "r"],
+            assumptions=_me_shared["assumptions"],
+            alternatives=["nlcom", "lincom", "test"],
+            reference=_me_shared["reference"],
+        )
+    )
+
     register(
         FunctionSpec(
             name="svar",
