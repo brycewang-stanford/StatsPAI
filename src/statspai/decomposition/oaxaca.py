@@ -57,7 +57,11 @@ class OaxacaResult(DecompResultMixin):
     overall : dict
         Keys: ``'gap'``, ``'explained'``, ``'unexplained'``,
         ``'explained_se'``, ``'unexplained_se'``,
-        ``'unexplained_a'``, ``'unexplained_b'`` (threefold components).
+        ``'unexplained_a'``, ``'unexplained_b'`` (the two halves of the
+        unexplained part under ``reference``), and the threefold
+        decomposition ``'endowments'`` / ``'coefficients'`` /
+        ``'interaction'`` (with ``*_se``), which uses Group B's
+        coefficients for the endowments and sums to ``'gap'``.
     detailed : pd.DataFrame
         Variable-level decomposition with columns ``contribution``,
         ``se``, ``pct_of_explained``.
@@ -732,6 +736,15 @@ def oaxaca(
         "mean_X_b": pd.Series(mean_X_b, index=var_names_full),
     }
 
+    # Threefold decomposition (Daymont-Andrisani; Stata oaxaca, threefold;
+    # R oaxaca's $threefold), from the viewpoint of Group B: it does not
+    # depend on `reference`. SEs hold the covariate means fixed, as above.
+    diff_beta = beta_a - beta_b
+    vcov_ab = vcov_a + vcov_b
+    endowments = diff_X @ beta_b
+    coefficients = mean_X_b @ diff_beta
+    interaction = diff_X @ diff_beta
+
     overall = {
         "gap": gap,
         "explained": explained,
@@ -740,6 +753,12 @@ def oaxaca(
         "unexplained_se": se_unexplained,
         "unexplained_a": unexplained_a,
         "unexplained_b": unexplained_b,
+        "endowments": endowments,
+        "coefficients": coefficients,
+        "interaction": interaction,
+        "endowments_se": float(np.sqrt(max(diff_X @ vcov_b @ diff_X, 0.0))),
+        "coefficients_se": float(np.sqrt(max(mean_X_b @ vcov_ab @ mean_X_b, 0.0))),
+        "interaction_se": float(np.sqrt(max(diff_X @ vcov_ab @ diff_X, 0.0))),
     }
 
     return OaxacaResult(

@@ -4,6 +4,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.oaxaca` threefold decomposition
+
+#### Added
+
+- `sp.oaxaca(...).overall` carries the threefold decomposition
+  (`endowments`, `coefficients`, `interaction`, with SEs), from Group B's
+  viewpoint as Stata `oaxaca, threefold` and R `oaxaca` report it, matching
+  R `oaxaca` 0.1.5 to 1e-10. Before, a threefold had to be assembled from two
+  calls with different `reference=`. The gap came up while writing the
+  benchmark's reference solutions.
+
 ### CausalAgentBench v2: a runnable, pre-registrable agent benchmark
 
 #### Added

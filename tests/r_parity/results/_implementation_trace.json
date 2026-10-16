@@ -1113,7 +1113,7 @@
    "result_sha256": "2e1c7e36cf70716eaa1f78b7d28eb42fed2453540bc45ea16db8ee5c7a576561"
   },
   "30_oaxaca": {
-   "seconds": 0.84,
+   "seconds": 0.7,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1133,7 +1133,7 @@
     "src/statspai/_input_validation.py": "6add3ff66101c2eee1eea5ab5a509ad8df7e346f53700fe7428b5cdce66ef193",
     "src/statspai/decomposition/_common.py": "bcfb6681011de85a3f8f518136c8709b1b2bc861ee856eff45b1f8041b3f0eb2",
     "src/statspai/decomposition/dispatcher.py": "5703ec2ecf42116dd5dcb3c036fb2bf024c4828b16a00554d2068c74c2bb30d9",
-    "src/statspai/decomposition/oaxaca.py": "e939db855d86812091617472d4da8cbe3a55a9c1b322c0d783930d7d5a5590fb",
+    "src/statspai/decomposition/oaxaca.py": "f9f4c7f6ba4477534ac32017c592f1c5b861bc6d8e8633c3304fde3ebf0467f0",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },

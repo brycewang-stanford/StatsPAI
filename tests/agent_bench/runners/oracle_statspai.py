@@ -150,10 +150,8 @@ SOLUTIONS: Dict[str, Tuple[str, str]] = {
     "L1-20": (
         "oaxaca",
         "d = pd.read_csv('wage_gap.csv')\n"
-        "a = sp.oaxaca(d, y='log_wage', group='female', x=['educ','exper'], reference=0).overall\n"
-        "b = sp.oaxaca(d, y='log_wage', group='female', x=['educ','exper'], reference=1).overall\n"
-        "e = b['explained']; i = a['explained'] - b['explained']\n"
-        "print(json.dumps({'gap': a['gap'], 'endowments': e, 'coefficients': a['gap'] - e - i, 'interaction': i}))",
+        "o = sp.oaxaca(d, y='log_wage', group='female', x=['educ','exper']).overall\n"
+        "print(json.dumps({k: o[k] for k in ('gap','endowments','coefficients','interaction')}))",
     ),
 }
 
