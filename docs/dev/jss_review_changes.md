@@ -3907,7 +3907,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** This entry's commit.
+- **Commits.** `506099db`.
 - **Reason.** `multilevel/glmm.py::_numerical_oim_cov` inverted a single
   central-difference Hessian at h = 1e-4. Its rounding error,
   about `eps * |loglik| / h^2`, differs between platforms' libm: the melogit
