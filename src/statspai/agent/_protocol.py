@@ -88,6 +88,8 @@ MODERN_METHODS = frozenset(
         "prompts/get",
         "completion/complete",
         "subscriptions/listen",
+        "skills/list",
+        "skills/get",
     }
 )
 
@@ -100,6 +102,8 @@ CACHEABLE_METHODS = frozenset(
         "resources/list",
         "resources/templates/list",
         "resources/read",
+        "skills/list",
+        "skills/get",
     }
 )
 
@@ -263,6 +267,8 @@ def server_capabilities() -> Dict[str, Any]:
         "resources": {"subscribe": False, "listChanged": False},
         "prompts": {"listChanged": False},
         "completions": {},
+        # The packaged statspai-analysis skill (agent/_skills_ext.py).
+        "extensions": {"io.modelcontextprotocol/skills": {}},
     }
 
 

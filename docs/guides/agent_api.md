@@ -573,6 +573,16 @@ is acknowledged with an empty set, since the tool, prompt and resource
 lists never change while a server runs. An `initialize` request still
 selects the handshake revisions (`2025-11-25` back to `2024-11-05`).
 
+### The skill over MCP
+
+The server implements the Skills extension (`io.modelcontextprotocol/skills`,
+declared in `server/discover`). `skills/list` returns the packaged
+`statspai-analysis` skill with its frontmatter and a manifest of every
+file (URI, SHA-256, size); the files are read with `resources/read` under
+`skill://statspai-analysis/`. A host that supports the extension can load
+the skill straight from the server, so it never goes stale the way an
+installed copy does after `pip install -U`.
+
 ### Lost handles
 
 `statspai://handles` lists the data and result handles the server still

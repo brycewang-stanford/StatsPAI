@@ -38,6 +38,10 @@ All notable changes to StatsPAI will be documented in this file.
   protocol revisions.
 - **`statspai://handles`** lists the data and result handles the server
   still holds, so an agent whose context was compacted can recover them.
+- **The packaged skill over MCP** (Skills extension,
+  `io.modelcontextprotocol/skills`): `skills/list` / `skills/get` return
+  `statspai-analysis` with its frontmatter and a SHA-256 manifest, and
+  `resources/read` serves its files under `skill://statspai-analysis/`.
 - **`server.json`** for the MCP Registry (schema 2025-12-11) and the
   `mcp-name` ownership marker in the README. The release gate keeps its
   versions on the package version (`--fix-census` rewrites them). Nothing

@@ -2304,6 +2304,19 @@ def _handle_completion_complete(params: Dict[str, Any]) -> Dict[str, Any]:
     return handle_completion_complete(params, InvalidParamsError=_InvalidParamsError)
 
 
+def _handle_skills_list(params: Dict[str, Any]) -> Dict[str, Any]:
+    """``skills/list`` (extension ``io.modelcontextprotocol/skills``)."""
+    from ._skills_ext import handle_skills_list
+
+    return handle_skills_list(params)
+
+
+def _handle_skills_get(params: Dict[str, Any]) -> Dict[str, Any]:
+    from ._skills_ext import handle_skills_get
+
+    return handle_skills_get(params, InvalidParamsError=_InvalidParamsError)
+
+
 def _handle_ping(params: Dict[str, Any]) -> Dict[str, Any]:
     """MCP ``ping``: liveness check, answered with an empty result."""
     return {}
@@ -2320,6 +2333,8 @@ _METHODS = {
     "prompts/list": _handle_prompts_list,
     "prompts/get": _handle_prompts_get,
     "completion/complete": _handle_completion_complete,
+    "skills/list": _handle_skills_list,
+    "skills/get": _handle_skills_get,
 }
 
 

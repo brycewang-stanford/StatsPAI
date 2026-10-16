@@ -530,6 +530,13 @@ def handle_resources_read(
     if not isinstance(uri, str):
         raise InvalidParamsError(f"`uri` must be a string; got {uri!r}")
 
+    if uri.startswith("skill://"):
+        from ._skills_ext import read_skill_file
+
+        found = read_skill_file(uri)
+        if found is None:
+            raise ResourceNotFoundError(f"Unknown skill file: {uri!r}")
+        return found
     if uri == HANDLES_URI:
         return {
             "contents": [
