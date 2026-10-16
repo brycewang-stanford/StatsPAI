@@ -740,6 +740,24 @@ def spec_curve(
     # ---- defaults -------------------------------------------------------
     if controls is None:
         controls = [[]]
+    elif isinstance(controls, str) or (
+        len(controls) > 0 and all(isinstance(c, str) for c in controls)
+    ):
+        # A flat list of names has two plausible readings; neither is safe
+        # to guess, and the old code crashed on it with a bare TypeError.
+        flat = [controls] if isinstance(controls, str) else list(controls)
+        raise MethodIncompatibility(
+            "controls= takes a list of control *sets* (one per "
+            f"specification), not a flat list of column names: got {flat!r}.",
+            recovery_hint=(
+                f"All together in one specification: controls=[{flat!r}]; "
+                "each alone, plus none: controls="
+                f"{[[]] + [[c] for c in flat]!r}."
+            ),
+            diagnostics={"controls": flat},
+        )
+    else:
+        controls = [[c] if isinstance(c, str) else list(c) for c in controls]
     if se_types is None:
         se_types = ["nonrobust", "hc1"]
     if subsets is None:

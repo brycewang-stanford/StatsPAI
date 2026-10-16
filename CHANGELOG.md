@@ -4,6 +4,62 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### MCP server: protocol 2026-07-28, a setup doctor, a faster start
+
+#### Added
+
+- **MCP `2026-07-28` clients are served** beside the handshake ones. That
+  revision dropped `initialize`: every request names its protocol version
+  and client capabilities in `_meta`, and servers must answer
+  `server/discover`. A client speaking only that revision probed the
+  server, got "Method not found" and stopped. Now a request whose `_meta`
+  names a version, or a `server/discover` probe, is served statelessly:
+  `-32022` with the supported list for an unknown version, `-32602` for a
+  missing required `_meta` field, `resultType` and the server identity on
+  every result, `ttlMs` / `cacheScope` on list and read results (handles
+  private and immediately stale), resource-not-found as `-32602`, and no
+  `sampling/createMessage` while such a call runs. `subscriptions/listen`
+  is acknowledged with an empty set (the lists never change) and closed on
+  cancel or shutdown. Over Streamable HTTP these requests need no session,
+  and `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name` must mirror the
+  body (`-32020`, base64 sentinel decoded); the defined errors map to 400 /
+  404. `initialize` still selects the handshake and now also negotiates
+  `2025-11-25`; `serverInfo` gains `title`, `description` and
+  `websiteUrl`.
+- **`statspai mcp doctor`** resolves every StatsPAI entry in the Claude
+  Code, Claude Desktop, Cursor, Windsurf, VS Code and Codex configs to the
+  interpreter it runs, reports which StatsPAI each one imports, and runs
+  an in-process round trip. On the maintainer's machine it found Claude
+  Code and Claude Desktop both running 1.38.0 from the system Python.
+- **`statspai mcp config --client ...`** prints a client entry that runs
+  this interpreter by absolute path; `--write` merges it into the JSON
+  config after a timestamped backup. `statspai mcp` alone still starts the
+  server. `statspai-mcp --version` prints the version, interpreter and
+  protocol revisions.
+- **`statspai://handles`** lists the data and result handles the server
+  still holds, so an agent whose context was compacted can recover them.
+- **`server.json`** for the MCP Registry (schema 2025-12-11) and the
+  `mcp-name` ownership marker in the README. The release gate keeps its
+  versions on the package version (`--fix-census` rewrites them). Nothing
+  is published automatically.
+
+#### Fixed
+
+- The first `tools/list` took about 3 s: filtering by profile built the
+  curated manifest, which loads the whole registry. It now takes 0.04 s;
+  the list is unchanged.
+- `import statspai` no longer imports the MCP server, and
+  `python -m statspai.agent.mcp_server` no longer prints a runpy
+  `RuntimeWarning`.
+- `sp.spec_curve(controls=['a', 'b'])` crashed with a bare `TypeError`.
+  A flat list of names is ambiguous, so it now raises
+  `MethodIncompatibility` naming both readings; a string inside the list
+  is a one-column set, as `fe=` already treats it.
+- `call_function` accepts `name=` (as `describe_function` does) when
+  `function=` is absent.
+- `data_provenance` on results fitted from a handle no longer repeats the
+  root file record inside the lineage.
+
 ### Agent-native review: what an agent reads, calls and is told to do next
 
 An agent was given twelve analyses and only the package's

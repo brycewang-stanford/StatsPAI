@@ -13,6 +13,8 @@ Commands
     statspai did|regress|ivreg|rdrobust|callaway_santanna|... --data FILE --y ...
     statspai route <family> [--answer key=value ...]
     statspai mcp [--profile core|curated|full]
+    statspai mcp doctor [--json] [--no-self-test]
+    statspai mcp config --client CLIENT [--write] [--data-root DIR ...]
     statspai version
 
 Discovery commands delegate to sp.help / sp.list_functions /
@@ -527,12 +529,59 @@ def _make_parser() -> argparse.ArgumentParser:
     )
 
     # mcp
-    p_mcp = sub.add_parser("mcp", help="Start the MCP stdio server.")
+    p_mcp = sub.add_parser(
+        "mcp",
+        help="Start the MCP stdio server, check a setup, or print client config.",
+        description=(
+            "statspai mcp            start the stdio server\n"
+            "statspai mcp doctor     which StatsPAI each configured client runs, "
+            "plus a self-test\n"
+            "statspai mcp config     client config that runs this interpreter "
+            "by absolute path"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_mcp.add_argument(
+        "mcp_action",
+        nargs="?",
+        default="serve",
+        choices=["serve", "doctor", "config"],
+        help="serve (default), doctor or config.",
+    )
     p_mcp.add_argument(
         "--profile",
         default=None,
         choices=["core", "curated", "full"],
         help="tools/list profile (default: curated, or STATSPAI_MCP_PROFILE).",
+    )
+    from .agent._mcp_setup import CLIENTS as _MCP_CLIENTS
+
+    p_mcp.add_argument(
+        "--client",
+        choices=list(_MCP_CLIENTS),
+        help="config: the MCP client to describe.",
+    )
+    p_mcp.add_argument(
+        "--write",
+        action="store_true",
+        help="config: merge the entry into the client's JSON config file "
+        "(the old file is kept as a timestamped backup).",
+    )
+    p_mcp.add_argument(
+        "--data-root",
+        action="append",
+        default=[],
+        metavar="DIR",
+        help="config: directory the server may read data from "
+        "(STATSPAI_MCP_DATA_ROOTS); repeatable.",
+    )
+    p_mcp.add_argument(
+        "--json", action="store_true", help="doctor: emit the report as JSON."
+    )
+    p_mcp.add_argument(
+        "--no-self-test",
+        action="store_true",
+        help="doctor: skip the in-process round trip.",
     )
 
     # skill
@@ -752,6 +801,35 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _skill_command(args)
 
     if args.command == "mcp":
+        if args.mcp_action == "doctor":
+            from .agent._mcp_setup import format_doctor, run_doctor
+
+            report = run_doctor(self_test=not args.no_self_test)
+            print(_dumps(report, indent=2) if args.json else format_doctor(report))
+            return 0 if report["ok"] else 1
+        if args.mcp_action == "config":
+            from .agent._mcp_setup import render_config, write_config
+
+            if not args.client:
+                print("statspai mcp config: --client is required", file=sys.stderr)
+                return EXIT_USAGE
+            try:
+                if args.write:
+                    done = write_config(
+                        args.client, profile=args.profile, data_roots=args.data_root
+                    )
+                    print(_dumps(done, indent=2))
+                    return 0
+                print(
+                    render_config(
+                        args.client, profile=args.profile, data_roots=args.data_root
+                    ),
+                    end="",
+                )
+            except ValueError as exc:
+                print(f"statspai mcp config: {exc}", file=sys.stderr)
+                return EXIT_USAGE
+            return 0
         from .agent.mcp_server import main as mcp_main
 
         mcp_main(["--profile", args.profile] if args.profile else [])

@@ -154,6 +154,22 @@ class TestDiscoveryMetaTools:
         assert "error" not in out
         assert out["called_via"] == "call_function"
 
+    def test_call_function_accepts_name_like_describe_function(self):
+        # describe_function(name=...) then call_function(name=...) is the
+        # natural carry-over; it used to fail with "`function` is required".
+        out = _rpc(
+            "tools/call",
+            {
+                "name": "call_function",
+                "arguments": {
+                    "name": "adjust_pvalues",
+                    "arguments": {"pvalues": [0.01, 0.04], "method": "holm"},
+                },
+            },
+        )["result"]["structuredContent"]
+        assert "error" not in out
+        assert out["called_via"] == "call_function"
+
     def test_describe_unknown_name_suggests(self):
         out = _rpc(
             "tools/call",

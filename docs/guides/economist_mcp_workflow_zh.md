@@ -10,7 +10,26 @@ StatsPAI 的 MCP server 是 local-first 的：它读取你显式给出的
 
 ## 配置 MCP server
 
-安装 StatsPAI 后，可以用 console script：
+推荐让 StatsPAI 自己生成配置。在装有 StatsPAI 的那个环境里运行：
+
+```bash
+statspai mcp config --client claude-code      # 打印 `claude mcp add ...` 命令
+statspai mcp config --client cursor --write   # 直接写入 ~/.cursor/mcp.json
+statspai mcp doctor                           # 检查所有已配置的客户端
+```
+
+生成的配置用绝对路径调用当前解释器（`<python> -m statspai.agent.mcp_server`）。
+客户端按名字启动 `statspai-mcp` 时，拿到的是它 `PATH` 上排第一的那个 Python
+环境，常常比你刚升级的版本旧。`doctor` 会逐个询问配置里的解释器导入的是哪个
+StatsPAI 版本，不一致时直接指出。`--write` 保留其他 server 的配置，并把旧文件
+存成带时间戳的备份。支持的客户端：`claude-code`、`claude-desktop`、`cursor`、
+`windsurf`、`vscode`、`codex`。
+
+server 同时支持两代 MCP 协议：当前修订版 `2026-07-28` 不需要握手，每个请求自带
+版本号；旧客户端先发 `initialize`，协商 `2025-11-25` 或更早的版本。
+`statspai-mcp --version` 会打印版本号、解释器路径和支持的协议修订版。
+
+也可以手写配置，用 console script：
 
 ```json
 {

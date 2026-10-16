@@ -2,8 +2,15 @@
 
 ``statspai-mcp --transport http`` serves the same JSON-RPC surface as the
 stdio loop on one endpoint (``/mcp`` by default), following the MCP
-"Streamable HTTP" transport (protocol revisions ``2025-03-26`` and
-``2025-06-18``). Standard library only.
+"Streamable HTTP" transport. Standard library only. Two eras share the
+endpoint: the handshake revisions (``2025-03-26`` to ``2025-11-25``: an
+``initialize`` POST, then an optional ``Mcp-Session-Id``) and the
+per-request revision ``2026-07-28`` (no session; ``MCP-Protocol-Version``,
+``Mcp-Method`` and, for ``tools/call`` / ``resources/read`` /
+``prompts/get``, ``Mcp-Name`` must mirror the body, else ``400`` with
+``-32020``; ``subscriptions/listen`` holds an SSE stream open). A POST is
+per-request when its ``MCP-Protocol-Version`` is ``2026-07-28`` or its
+body's ``_meta`` names a protocol version.
 
 What a client sees
 ------------------
@@ -72,6 +79,10 @@ DEFAULT_HTTP_PATH = "/mcp"
 
 #: Sessions remembered at once; the oldest is forgotten beyond this.
 MAX_SESSIONS = 1024
+
+#: Seconds between SSE comment lines on an idle ``subscriptions/listen``
+#: stream, so intermediaries and client idle timers keep it open.
+LISTEN_KEEPALIVE_SECONDS = 15.0
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
@@ -171,6 +182,8 @@ class McpHttpServer(ThreadingHTTPServer):
         #: loop answers those on one thread).
         self.inline_lock = threading.Lock()
         self.sessions: "OrderedDict[str, float]" = OrderedDict()
+        #: Set when the server stops, so held listen streams return.
+        self.shutting_down = threading.Event()
         # Build the tool list here, on the thread that starts the server.
         # Left to the first ``tools/list`` it would import the whole
         # catalogue on a request thread: the first client waits for it,
@@ -179,6 +192,14 @@ class McpHttpServer(ThreadingHTTPServer):
         _srv._tools_list_result_json()
         _srv._prepare_for_threads()
         super().__init__(address, _McpHandler)
+
+    def shutdown(self) -> None:
+        self.shutting_down.set()
+        super().shutdown()
+
+    def server_close(self) -> None:
+        self.shutting_down.set()
+        super().server_close()
 
     def server_bind(self) -> None:
         # ``HTTPServer.server_bind`` resolves the host with
@@ -317,7 +338,7 @@ class _McpHandler(BaseHTTPRequestHandler):
                 (
                     "Access-Control-Allow-Headers",
                     "Content-Type, Accept, Authorization, Mcp-Session-Id, "
-                    "MCP-Protocol-Version",
+                    "MCP-Protocol-Version, Mcp-Method, Mcp-Name",
                 ),
                 ("Access-Control-Max-Age", "600"),
             ],
@@ -337,8 +358,12 @@ class _McpHandler(BaseHTTPRequestHandler):
         self._send(204)
 
     def do_POST(self) -> None:  # noqa: N802
-        from . import _sampling
-        from .mcp_server import SUPPORTED_PROTOCOL_VERSIONS, handle_request
+        from . import _protocol, _sampling
+        from .mcp_server import (
+            SUPPORTED_PROTOCOL_VERSIONS,
+            _jsonrpc_error,
+            handle_request,
+        )
 
         srv = self.server
         if not self._gate():
@@ -359,9 +384,22 @@ class _McpHandler(BaseHTTPRequestHandler):
             return
         raw = self.rfile.read(length)
         version = self.headers.get("MCP-Protocol-Version")
-        if version and version not in SUPPORTED_PROTOCOL_VERSIONS:
-            self._send_rpc_error(
-                400, -32600, f"Unsupported MCP-Protocol-Version: {version!r}."
+        if (
+            version
+            and version not in SUPPORTED_PROTOCOL_VERSIONS
+            and version not in _protocol.MODERN_PROTOCOL_VERSIONS
+        ):
+            self._send(
+                400,
+                _jsonrpc_error(
+                    None,
+                    _protocol.UNSUPPORTED_PROTOCOL_VERSION,
+                    "Unsupported protocol version",
+                    data={
+                        "supported": list(_protocol.all_supported_versions()),
+                        "requested": version,
+                    },
+                ).encode("utf-8"),
             )
             return
         try:
@@ -379,8 +417,14 @@ class _McpHandler(BaseHTTPRequestHandler):
             )
             return
 
-        sid = self.headers.get("Mcp-Session-Id") or ""
         method = msg.get("method")
+        if version in _protocol.MODERN_PROTOCOL_VERSIONS or (
+            _protocol.is_modern_request(method, msg.get("params"))
+        ):
+            self._modern_post(msg, line)
+            return
+
+        sid = self.headers.get("Mcp-Session-Id") or ""
         if sid and method != "initialize" and not srv.has_session(sid):
             self._send_rpc_error(404, -32600, "Unknown or ended session.")
             return
@@ -408,6 +452,91 @@ class _McpHandler(BaseHTTPRequestHandler):
         if method == "initialize" and "result" in json.loads(response or "{}"):
             extra.append(("Mcp-Session-Id", srv.new_session()))
         self._send(200, (response or "").encode("utf-8"), headers=extra)
+
+    # -- per-request revisions (2026-07-28) ----------------------------- #
+
+    def _modern_post(self, msg: Dict[str, Any], line: str) -> None:
+        """One POST of a per-request revision: no session, headers checked.
+
+        Errors the revision defines get their HTTP status (400 for a
+        malformed request, a header mismatch or an unsupported version, 404
+        for an unknown method); ``Mcp-Session-Id`` is ignored.
+        """
+        from . import _protocol
+        from .mcp_server import _jsonrpc_error, handle_request
+
+        method = msg.get("method")
+        if not isinstance(method, str) or "id" not in msg:
+            # Notifications: the revision defines none over HTTP (closing a
+            # stream is the cancellation signal); accept and drop them.
+            self._send(202)
+            return
+        request_id = msg["id"]
+        mismatch = _protocol.header_mismatch(self.headers, msg)
+        if mismatch is not None:
+            self._send(
+                400,
+                _jsonrpc_error(
+                    request_id,
+                    _protocol.HEADER_MISMATCH,
+                    f"Header mismatch: {mismatch}",
+                ).encode("utf-8"),
+            )
+            return
+        refusal = _protocol.validate_request(method, msg.get("params"))
+        if refusal is not None:
+            code, message, data = refusal
+            self._send(
+                _protocol.http_status_for_error(code),
+                _jsonrpc_error(request_id, code, message, data=data).encode("utf-8"),
+            )
+            return
+        if method == "subscriptions/listen":
+            self._listen(request_id)
+            return
+        if method == "tools/call":
+            self._tools_call("", msg, line)
+            return
+        with self.server.inline_lock:
+            response = handle_request(line) or ""
+        status = 200
+        try:
+            err = json.loads(response).get("error")
+        except (ValueError, AttributeError):
+            err = None
+        if isinstance(err, dict) and isinstance(err.get("code"), int):
+            status = _protocol.http_status_for_error(err["code"])
+        self._send(status, response.encode("utf-8"))
+
+    def _listen(self, request_id: Any) -> None:
+        """Hold a ``subscriptions/listen`` stream open with keep-alives.
+
+        The server honours no notification type (its lists never change),
+        so the stream carries the acknowledgement and then only SSE comment
+        lines until the client closes it.
+        """
+        from . import _protocol
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        self.send_header("Connection", "close")
+        for k, v in self._cors():
+            self.send_header(k, v)
+        self.end_headers()
+        self.close_connection = True
+        ack = json.dumps(
+            _protocol.listen_acknowledgement(request_id), separators=(",", ":")
+        )
+        try:
+            self.wfile.write(b"event: message\ndata: " + ack.encode("utf-8") + b"\n\n")
+            self.wfile.flush()
+            while not self.server.shutting_down.wait(LISTEN_KEEPALIVE_SECONDS):
+                self.wfile.write(b":\n\n")
+                self.wfile.flush()
+        except (OSError, ValueError):
+            return  # the client closed the stream: the subscription ends
 
     # -- tools/call ----------------------------------------------------- #
 

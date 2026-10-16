@@ -289,8 +289,9 @@ class TestSpecCurvePlot:
 
     def test_plot_returns_figure(self, sample_data):
         """plot() returns (fig, axes)."""
-        import statspai as sp
         import matplotlib
+
+        import statspai as sp
 
         matplotlib.use("Agg")
 
@@ -309,8 +310,9 @@ class TestSpecCurvePlot:
 
     def test_plot_custom_title(self, sample_data):
         """plot() accepts custom title."""
-        import statspai as sp
         import matplotlib
+
+        import statspai as sp
 
         matplotlib.use("Agg")
 
@@ -392,3 +394,31 @@ class TestSpecCurveEdgeCases:
                 y="nonexistent",
                 x="education",
             )
+
+
+class TestSpecCurveControlSets:
+    """``controls=`` is a list of control sets; a flat list is ambiguous."""
+
+    def test_flat_list_of_names_is_refused_with_both_readings(self, sample_data):
+        import statspai as sp
+        from statspai.exceptions import MethodIncompatibility
+
+        with pytest.raises(MethodIncompatibility) as exc:
+            sp.spec_curve(
+                sample_data, y="wage", x="education", controls=["experience", "female"]
+            )
+        hint = exc.value.recovery_hint
+        assert "[['experience', 'female']]" in hint
+        assert "[[], ['experience'], ['female']]" in hint
+
+    def test_bare_string_element_is_a_one_column_set(self, sample_data):
+        # Same convention as ``fe=``: a string inside the list is one set.
+        import statspai as sp
+
+        mixed = sp.spec_curve(
+            sample_data, y="wage", x="education", controls=[[], "experience"]
+        )
+        nested = sp.spec_curve(
+            sample_data, y="wage", x="education", controls=[[], ["experience"]]
+        )
+        pd.testing.assert_frame_equal(mixed.results_df, nested.results_df)

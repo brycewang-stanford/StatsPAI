@@ -83,6 +83,21 @@ class TestLoadAndDescribe:
         assert out["lineage"][0]["data_id"] == did
         assert out["lineage"][0]["source_provenance"]["source_type"] == "local"
 
+    def test_result_provenance_names_the_root_once(self, panel_csv):
+        # The source record (path, size, mtime, hash) rides on every result
+        # fitted from a handle; it is carried under ``root`` only, not also
+        # inside the last lineage item. describe_data keeps the full chain.
+        path, _ = panel_csv
+        did = _call("load_data", data_path=path)["data_id"]
+        fit = _call("regress", data_id=did, formula="wage ~ post")
+        assert "error" not in fit
+        prov = fit["data_provenance"]
+        assert prov["root"]["source_type"] == "local"
+        assert len(prov["root"]["sha256"]) == 64
+        assert prov["lineage"][-1]["data_id"] == did
+        assert "source_provenance" not in prov["lineage"][-1]
+        assert json.dumps(prov).count(prov["root"]["sha256"]) == 1
+
     def test_load_without_any_source_is_actionable(self):
         out = _call("load_data")
         assert (

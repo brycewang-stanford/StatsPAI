@@ -46,14 +46,35 @@ With Anthropic's Claude tool-use API::
 
 """
 
-from .mcp_server import MCP_PROTOCOL_VERSION
-from .mcp_server import SERVER_NAME as MCP_SERVER_NAME
-from .mcp_server import SERVER_VERSION as MCP_SERVER_VERSION
-from .mcp_server import handle_request as mcp_handle_request
-from .mcp_server import serve_http as mcp_serve_http
-from .mcp_server import serve_stdio as mcp_serve_stdio
+from typing import Any
+
 from .remediation import REMEDIATIONS, remediate
 from .tools import TOOL_REGISTRY, execute_tool, tool_manifest
+
+#: MCP server names re-exported lazily. Importing ``mcp_server`` here made
+#: every ``import statspai`` load the whole server, and made
+#: ``python -m statspai.agent.mcp_server`` warn that the module was already
+#: in ``sys.modules`` before it ran as ``__main__``.
+_MCP_EXPORTS = {
+    "MCP_PROTOCOL_VERSION": "MCP_PROTOCOL_VERSION",
+    "MCP_SERVER_NAME": "SERVER_NAME",
+    "MCP_SERVER_VERSION": "SERVER_VERSION",
+    "mcp_handle_request": "handle_request",
+    "mcp_serve_http": "serve_http",
+    "mcp_serve_stdio": "serve_stdio",
+}
+
+
+def __getattr__(name: str) -> Any:
+    target = _MCP_EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from . import mcp_server
+
+    value = getattr(mcp_server, target)
+    globals()[name] = value
+    return value
+
 
 __all__ = [
     "tool_manifest",
