@@ -420,8 +420,16 @@ def lineage(data_id: str, *, max_depth: int = 32) -> List[Dict[str, Any]]:
 
 
 def handle_provenance(data_id: str) -> Dict[str, Any]:
-    """``data_provenance`` block for a tool call that consumed a handle."""
-    chain = lineage(data_id)
+    """``data_provenance`` block for a tool call that consumed a handle.
+
+    The root's source record (path, size, mtime, SHA-256) appears once, under
+    ``root``; it is not repeated inside the last lineage item, as it was
+    before. This block rides on every result computed from a handle, so the
+    copy cost every call several hundred bytes of agent context.
+    ``describe_data`` and ``statspai://data/{id}`` still show the full
+    :func:`lineage`.
+    """
+    chain = [dict(item) for item in lineage(data_id)]
     root = chain[-1] if chain else {}
     out: Dict[str, Any] = {
         "source": f"handle:{data_id}",
@@ -429,7 +437,7 @@ def handle_provenance(data_id: str) -> Dict[str, Any]:
         "data_id": data_id,
         "lineage": chain,
     }
-    root_prov = root.get("source_provenance") if isinstance(root, dict) else None
+    root_prov = root.pop("source_provenance", None) if isinstance(root, dict) else None
     if isinstance(root_prov, dict) and root_prov:
         out["root"] = root_prov
     return out

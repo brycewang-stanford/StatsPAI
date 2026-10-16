@@ -2521,6 +2521,10 @@ def _tool_call_function(
 ) -> Dict[str, Any]:
     """``call_function`` meta-tool: dispatch any registered function."""
     fn_name = arguments.get("function")
+    if fn_name is None:
+        # describe_function takes `name`; an agent carrying it over to
+        # call_function means the same thing.
+        fn_name = arguments.get("name")
     if not isinstance(fn_name, str) or not fn_name.strip():
         return {
             "error": "`function` is required (a registered function name).",
