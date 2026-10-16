@@ -26637,9 +26637,16 @@
     "name": "pipeline_rd"
   },
   {
-    "description": "Render the canonical diagnostic plot for a fitted result as an inline PNG image block (clients without image support see the JSON metadata only). The kind follows the result type: event study for DID, rdplot for RD, gap plot for synth, balance plot for matching, ROC for classification.",
+    "description": "Render a fitted result's diagnostic plot (event study, rdplot, synth gap, balance, ROC) as a PNG image block. Optional edits restyle it with the data locked.",
     "input_schema": {
       "properties": {
+        "edits": {
+          "description": "sp.interactive actions; reply adds code.",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
         "figsize": {
           "description": "Width, height in inches (default [8,5]).",
           "items": {

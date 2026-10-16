@@ -361,11 +361,9 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "plot_from_result",
         "description": (
-            "Render the canonical diagnostic plot for a fitted result as "
-            "an inline PNG image block (clients without image support see "
-            "the JSON metadata only). The kind follows the result type: "
-            "event study for DID, rdplot for RD, gap plot for synth, "
-            "balance plot for matching, ROC for classification."
+            "Render a fitted result's diagnostic plot (event study, rdplot, "
+            "synth gap, balance, ROC) as a PNG image block. Optional edits "
+            "restyle it with the data locked."
         ),
         "input_schema": {
             "type": "object",
@@ -386,6 +384,11 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                     "type": "array",
                     "items": {"type": "number"},
                     "description": "Width, height in inches (default [8,5]).",
+                },
+                "edits": {
+                    "type": "array",
+                    "items": {"type": "object"},
+                    "description": "sp.interactive actions; reply adds code.",
                 },
             },
             "required": ["result_id"],
@@ -1711,6 +1714,30 @@ def _render_plot_png(
     type doesn't expose a plot path. The caller should treat ``None``
     as "rendered nothing" and emit a JSON-only response.
     """
+    fig = _render_plot_figure(obj, kind, figsize=figsize)
+    return None if fig is None else _figure_png(fig)
+
+
+def _figure_png(fig: Any) -> bytes:
+    import io
+
+    import matplotlib.pyplot as plt
+
+    buf = io.BytesIO()
+    try:
+        fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    finally:
+        plt.close(fig)
+    return buf.getvalue()
+
+
+def _render_plot_figure(
+    obj: Any,
+    kind: str,
+    figsize: Any = (8, 5),
+) -> Any:
+    """The matplotlib Figure for ``obj``, or ``None`` (see
+    :func:`_render_plot_png`)."""
     try:
         import matplotlib
 
@@ -1718,8 +1745,6 @@ def _render_plot_png(
         import matplotlib.pyplot as plt
     except Exception:
         return None
-
-    import io
 
     fig = None
     try:
@@ -1771,13 +1796,7 @@ def _render_plot_png(
                     ret = None
                 fig = _coerce_to_fig(ret)
 
-        if fig is None:
-            return None
-
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
-        plt.close(fig)
-        return buf.getvalue()
+        return fig
     except Exception:
         if fig is not None:
             try:
@@ -1785,6 +1804,41 @@ def _render_plot_png(
             except Exception:
                 pass
         return None
+
+
+def _apply_figure_edits(fig: Any, edits: Any) -> Dict[str, Any]:
+    """Apply ``sp.interactive`` actions to ``fig``.
+
+    Returns the reproducible edit code, the pre-submission check and any
+    data-protection notices (an axis limit widened to keep intervals in
+    view), or ``{"error": ...}`` naming the supported operations.
+    """
+    import warnings
+
+    from ..plots.interactive import interactive
+
+    if not isinstance(edits, list) or not all(isinstance(e, dict) for e in edits):
+        return {
+            "error": "`edits` must be a list of action objects.",
+            "example": [{"action": "set_title", "text": "Event study"}],
+        }
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            editor = interactive(fig, ui="none", actions=edits)
+        except ValueError as exc:
+            return {
+                "error": f"edit not applied: {exc}",
+                "fix": "Check the action name and its parameters against "
+                "FigureEditor.operations() (describe_function('interactive')).",
+            }
+    return {
+        "edit_code": editor.generate_code(include_comment=False),
+        "check": editor.check(),
+        "notices": [
+            str(w.message) for w in caught if issubclass(w.category, UserWarning)
+        ],
+    }
 
 
 def _coerce_to_fig(ret: Any) -> Any:
@@ -1820,7 +1874,17 @@ def _tool_plot_from_result(
     if isinstance(figsize, list):
         figsize = tuple(figsize[:2]) if len(figsize) >= 2 else (8, 5)
 
-    png = _render_plot_png(obj, kind, figsize=figsize)
+    edits = arguments.get("edits")
+    fig = _render_plot_figure(obj, kind, figsize=figsize)
+    edited: Dict[str, Any] = {}
+    if fig is not None and edits:
+        edited = _apply_figure_edits(fig, edits)
+        if "error" in edited:
+            import matplotlib.pyplot as plt
+
+            plt.close(fig)
+            return {"result_id": rid, "kind": kind, **edited}
+    png = None if fig is None else _figure_png(fig)
     if png is None:
         return {
             "error": (
@@ -1838,6 +1902,7 @@ def _tool_plot_from_result(
         "figsize": list(figsize),
         "mime_type": "image/png",
         "image_bytes": len(png),
+        **edited,
         # The MCP server promotes ``_plot_png`` to an image content
         # block; the underscore-prefixed key is dropped from the JSON
         # text payload so the agent doesn't see raw base64 in chat.
@@ -2430,20 +2495,17 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
 
         cols = _cols(required=False) or None
         m = int(step.get("m", 5))
-        res = sp.mice(df, vars=cols, m=m) if cols else sp.mice(df, m=m)
-        completed = getattr(res, "completed", None) or getattr(res, "imputed", None)
-        if completed is None:
-            raise MethodIncompatibility(
-                "sp.mice returned no completed datasets.",
-                recovery_hint="Impute outside transform_data and load the result.",
-            )
-        first = completed[0] if isinstance(completed, (list, tuple)) else completed
-        if not isinstance(first, pd.DataFrame):
-            raise MethodIncompatibility(
-                "sp.mice completed dataset is not a DataFrame.",
-                recovery_hint="Impute outside transform_data and load the result.",
-            )
-        return first
+        # A fixed default seed keeps the handle's lineage replayable.
+        seed = step.get("seed", 0)
+        res = sp.mice(df, m=m, seed=None if seed is None else int(seed))
+        first = res.complete(0)
+        if not cols:
+            return first
+        # Fill only the named columns; every other column keeps its values
+        # (and its missing cells).
+        out = df.copy()
+        out[cols] = first[cols].to_numpy()
+        return out
     # op == "function"
     import statspai as sp
 

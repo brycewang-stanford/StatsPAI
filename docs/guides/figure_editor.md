@@ -57,6 +57,20 @@ editor.save("figure1.pdf")
 print(editor.generate_code())
 ```
 
+Over MCP, `plot_from_result` takes the same list as `edits`:
+
+```json
+{"name": "plot_from_result",
+ "arguments": {"result_id": "r_...", "edits": [
+   {"action": "apply_theme", "theme": "aea"},
+   {"action": "set_ylim", "bottom": -0.01, "top": 0.01}]}}
+```
+
+The reply carries the edited image plus `edit_code` (the reproducible
+code), `check` (the pre-submission findings) and `notices` (here: the
+limits were widened because they would have hidden the confidence band).
+An unknown action or parameter returns an error and no image.
+
 `editor.operations()` lists every operation with its typed parameters, and
 `editor.get_editable_schema()` describes the figure (axes, lines, colour
 groups, texts, legend) for building a panel or for an agent to plan edits.

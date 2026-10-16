@@ -298,6 +298,16 @@ reset restore it, and that a saved style replays identically. Guide:
   `export(stem, formats=...)`; `save()` embeds TrueType fonts in PDF by
   default (`embed_fonts=True`).
 - `sp.interactive(fig, actions=[...], ui=...)` for agents and scripts.
+- MCP `plot_from_result(edits=[...])`: an agent restyles a result's figure
+  with the same actions; the reply adds `edit_code`, `check` and the
+  data-protection `notices`. Its tool description is shorter, so the
+  `core` tool list stays inside its byte budget.
+- MCP `transform_data` op `mice` never worked: it read a result attribute
+  that `sp.mice` does not have (so it always reported "no completed
+  datasets"), and with `columns` it passed `vars=`, which `sp.mice` does not
+  take. It now returns the first completed dataset; with `columns` only
+  those columns are filled. The seed defaults to 0 so a handle's lineage
+  replays to the same data.
 - `sp.refresh_legend(ax)`: rebuild legend entries from the current style
   of their artists, exactly as a legend drawn now would look.
 - Jupyter panel, Layout tab: "Text on the plot" lists the axes' texts to
