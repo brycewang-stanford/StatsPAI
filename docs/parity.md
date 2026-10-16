@@ -33,7 +33,7 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **No external software reference** | analytical-only (T1) | 407 |
 | | external-replication (published numbers) | 62 |
 | | **subtotal** | **469** |
-| No numerical evidence yet | unverified | 612 |
+| No numerical evidence yet | unverified | 613 |
 
 ### Honest denominators
 
@@ -42,9 +42,9 @@ The all-registered denominator understates coverage: it counts result and except
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
 | estimator callables | 487 | 939 | 941 | 51.8% |
-| infrastructure (parity N/A) | 0 | 13 | 224 | 0.0% |
+| infrastructure (parity N/A) | 0 | 13 | 225 | 0.0% |
 | result / exception classes | 0 | 4 | 403 | 0.0% |
-| **all registered** | 487 | 956 | 1568 | 31.1% |
+| **all registered** | 487 | 956 | 1569 | 31.0% |
 
 ### Coverage by estimator family
 
@@ -1081,6 +1081,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 612 functions
+## unverified — 613 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).
