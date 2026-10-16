@@ -172,6 +172,26 @@ runs in the order that gives the final result. It contains no
 property by property, because `sp.set_theme` would not change a figure that
 is already drawn.
 
+## Troubleshooting
+
+**The panel shows as text (`HBox(children=...)`) instead of controls.** The
+notebook front end has not loaded the ipywidgets extension. Install
+`ipywidgets` in the kernel's environment and `jupyterlab_widgets` in the
+environment that runs JupyterLab, then restart JupyterLab. If both are
+installed and the text still appears, JupyterLab is not looking in the
+directory that holds the extension: `jupyter labextension list` shows where
+it looks, and `JUPYTER_PATH=<prefix>/share/jupyter jupyter lab` adds a
+directory (on a Homebrew install the prefix is `/opt/homebrew`).
+
+**A warning says a font is not installed.** Matplotlib draws the text in the
+family's fallback font. The edit and its code still work; install the font
+to see it.
+
+**An axis limit came out wider than requested.** With `protect_data=True`
+limits are widened to keep every point, error bar and band visible; the
+warning gives the data range. Pass `protect_data=False` only for figures
+without statistical content.
+
 ## Changes from earlier versions
 
 See `MIGRATION.md` (figure editor). In short: the generated code changed
