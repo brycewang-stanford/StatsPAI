@@ -24,20 +24,20 @@ worktree：`.claude/worktrees/week-roadmap`（分支 `wt/week-roadmap`），每�
 
 ## P2 证据按配置细化
 
-- [ ] 2.1 盘点高频入口（前 50）的 scope 映射缺口。
-- [ ] 2.2 用本机 R / Stata 补参考，登记进 `validation_scope`。
-- [ ] 2.3 结果对象上直接报告"这个配置有没有参考证据"。
+- [x] 2.1 盘点高频入口（前 50）的 scope 映射缺口。
+- [x] 2.2 用本机 R / Stata 补参考，登记进 `validation_scope`。
+- [x] 2.3 结果对象上直接报告"这个配置有没有参考证据"。
 
 ## P3 真实 agent 评测（预注册之前能做的全部）
 
-- [ ] 3.1 读 `tests/agent_bench` 现状。
-- [ ] 3.2 任务集、对照组（statsmodels / linearmodels）、确定性评分器。
-- [ ] 3.3 OSF 预注册草稿（假设、提示集哈希、分析计划），Bryce 提交。
+- [x] 3.1 读 `tests/agent_bench` 现状。
+- [x] 3.2 任务集、对照组（statsmodels / linearmodels）、确定性评分器。
+- [x] 3.3 OSF 预注册草稿（假设、提示集哈希、分析计划），Bryce 提交。
 
 ## P4 次一级
 
-- [ ] 4.1 marginaleffects 式后估计：`predictions` / `comparisons` / `slopes` / `hypotheses`。
-- [ ] 4.2 稳定性分层（核心层冻结 API，`sp.help` 默认展示核心层）。
+- [x] 4.1 marginaleffects 式后估计：`predictions` / `comparisons` / `slopes` / `hypotheses`。
+- [x] 4.2 稳定性分层（核心层冻结 API，`sp.help` 默认展示核心层）。
 - [ ] 4.3 Windows 进 CI 测试矩阵。
 - [ ] 4.4 polars / Arrow 原生输入。
 - [ ] 4.5 CLAUDE.md §11 迁到 `docs/dev/modules/`，CLAUDE.md 只留索引。
@@ -55,3 +55,27 @@ worktree：`.claude/worktrees/week-roadmap`（分支 `wt/week-roadmap`），每�
 - ⚠️ `callaway_santanna(clustervars=常数)` 返回 6e-18 的 SE，改为 DataInsufficient。
 - `regress` 的 provenance 补记 `weights=` 等。
 - 剩下的长尾：约 70 个自带 `vce` 词汇的函数（`mswitch` 的 oim/opg 等）不读 `cluster v`；多数没有 `cluster=`，读不读无所谓。
+
+### 2026-10-17 P2
+
+- 新增 37 个配置维度映射（`_validation_scope_ldv.py` / `_te.py` / `_fe.py`）：logit / probit / poisson / nbreg / glm / tobit / qreg / heckman，aipw / ipw / tmle / ebalance / g_computation，feols / ppmlhdfe。`sp.validation_scope(result)` 由调用记录确定函数，逐维报告实际配置有没有参考证据，以及"只差一个维度"的近邻证据。
+- 新参考：R `sandwich` 对似然模型的 HC0–HC3（`test_ml_sandwich_r_parity.py`）、Stata 补缺（`test_ldv_gaps_stata_parity.py`）、fixest 的 vcov × FE 网格（`test_feols_grid_fixest_parity.py`）、aipw 交叉拟合恒等式。
+- 记为 T4 的约定差异：probit 的 HC0 / HC1 对 R（观测与期望信息阵）。
+- 未做：`hdfe_ols` 没有带权重的参考、`xtabond` / `xtdpdsys` 没有映射；tmle 默认 Super Learner 那一格没有参考。
+
+### 2026-10-17 P3
+
+- CausalAgentBench v2（`tests/agent_bench/`）：50 个任务、14 个冻结数据文件（SHA-256 清单）、R 侧 94 个参考值与已知真值互验、6 个对照单元（StatsPAI / MCP / 纯 Python / R …）、沙箱会话、确定性评分（含捏造数字、虚构 API、越界工具三种幻觉）、预注册假设 H1–H5 的聚类 bootstrap。
+- oracle 在 StatsPAI 单元 50/50 命中 R 金标准；纯 Python 与 R 单元的 oracle 各抽查通过。
+- 真实模型调用被 `prereg.verify()` 挡住：没有 OSF DOI 的锁文件就不建 API 客户端。等 Bryce 决定：模型版本、effort、H4 的 token 口径（建议主口径计全部 token、次口径计未缓存 token）、重复次数与轮数上限（`BUDGET_RUNBOOK.md`）。
+- 顺带修了 `sp.oaxaca` 缺三分解的问题（写参考解时发现）。
+
+### 2026-10-17 P4.1
+
+- `sp.predictions` / `avg_predictions` / `comparisons` / `avg_comparisons` / `slopes` / `avg_slopes` / `hypotheses`（`postestimation/marginaleffects.py`），默认值跟 R marginaleffects；`wts=True, df='model'` 时 `avg_slopes` 与 `sp.margins` 逐位一致。
+- 对 R marginaleffects 0.32.0（黑盒）：估计值 1e-8 以内，标准误 2e-5（R 用数值雅可比）。黑盒对出的约定：`"sd"` 以均值为中心；平均后的比值是均值之比；0/1 变量在 `slopes` 里也是对比。R `glm` 的两处参考精度问题记在测试 docstring。
+
+### 2026-10-17 P4.2
+
+- 冻结层就是 `CORE_FUNCTIONS`（32 个，改为分组数据 `CORE_FUNCTION_GROUPS`）。签名快照 `tests/core_api_snapshot.json`，`tests/test_core_api_freeze.py` 与 pre-push hook `core-api-freeze` 拦截破坏性改动；有意的破坏要 `--ack` 并引用 MIGRATION.md 原文。
+- 卡片与 schema 加 `api_contract`（frozen / deprecation-cycle / unstable / deprecated）。`sp.help()` 首屏先列核心层；`stable` 的说明从"签名锁定"改为如实的"先发 DeprecationWarning"。

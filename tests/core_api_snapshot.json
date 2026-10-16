@@ -1,0 +1,2656 @@
+{
+ "functions": {
+  "aipw": {
+   "aliases": {
+    "controls": "covariates",
+    "vce": "cluster"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "treat",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "covariates",
+     "positional": true
+    },
+    {
+     "default": "'ATE'",
+     "name": "estimand",
+     "positional": true
+    },
+    {
+     "default": "5",
+     "name": "n_folds",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "42",
+     "name": "seed",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "cross_fit",
+     "positional": true
+    },
+    {
+     "default": "'influence'",
+     "name": "se_method",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "propensity",
+     "positional": true
+    },
+    {
+     "default": "0.01",
+     "name": "trim",
+     "positional": true
+    },
+    {
+     "default": "'linear'",
+     "name": "outcome_model",
+     "positional": true
+    }
+   ]
+  },
+  "callaway_santanna": {
+   "aliases": {
+    "cluster": "clustervars",
+    "cohort": "g",
+    "controls": "x",
+    "covariates": "x",
+    "first_treat": "g",
+    "id": "i",
+    "seed": "random_state",
+    "time": "t",
+    "unit": "i",
+    "vce": "clustervars"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "g",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "t",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "i",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "'dr'",
+     "name": "estimator",
+     "positional": true
+    },
+    {
+     "default": "'nevertreated'",
+     "name": "control_group",
+     "positional": true
+    },
+    {
+     "default": "'period'",
+     "name": "notyet_cutoff",
+     "positional": true
+    },
+    {
+     "default": "0.995",
+     "name": "pscore_trim",
+     "positional": true
+    },
+    {
+     "default": "'universal'",
+     "name": "base_period",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "anticipation",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "panel",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "allow_unbalanced_panel",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "clustervars",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "bstrap",
+     "positional": true
+    },
+    {
+     "default": "1000",
+     "name": "biters",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "cband",
+     "positional": true
+    },
+    {
+     "default": "'rademacher'",
+     "name": "boot_weight_type",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "random_state",
+     "positional": true
+    },
+    {
+     "default": "'joint'",
+     "name": "pretest",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "pretest_periods",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "se_method",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "balance",
+     "positional": true
+    }
+   ]
+  },
+  "causal_forest": {
+   "aliases": {
+    "covariates": "x",
+    "n_trees": "n_estimators",
+    "seed": "random_state",
+    "treat": "d",
+    "unit": "id"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "Y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "T",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "X",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "W",
+     "positional": true
+    },
+    {
+     "default": "2000",
+     "name": "n_estimators",
+     "positional": true
+    },
+    {
+     "default": "5",
+     "name": "min_samples_leaf",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "max_depth",
+     "positional": true
+    },
+    {
+     "default": "0.5",
+     "name": "max_samples",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "model_y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "model_t",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "discrete_treatment",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "random_state",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "d",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "w",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "clusters",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "fe",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "id",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "time",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "Y_hat",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "W_hat",
+     "positional": true
+    }
+   ]
+  },
+  "did": {
+   "aliases": {
+    "controls": "covariates",
+    "outcome": "y",
+    "treatment": "treat",
+    "unit": "id"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "treat",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "time",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "id",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "covariates",
+     "positional": true
+    },
+    {
+     "default": "'auto'",
+     "name": "method",
+     "positional": true
+    },
+    {
+     "default": "'dr'",
+     "name": "estimator",
+     "positional": true
+    },
+    {
+     "default": "'nevertreated'",
+     "name": "control_group",
+     "positional": true
+    },
+    {
+     "default": "'universal'",
+     "name": "base_period",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "robust",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "subgroup",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treat_unit",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treat_time",
+     "positional": true
+    },
+    {
+     "default": "'placebo'",
+     "name": "se_method",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "aggregation",
+     "positional": true
+    },
+    {
+     "default": "1000",
+     "name": "n_boot",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "random_state",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "panel",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "allow_unbalanced_panel",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "anticipation",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "vce",
+     "positional": true
+    },
+    {
+     "default": "999",
+     "name": "wild_reps",
+     "positional": true
+    },
+    {
+     "default": "'rademacher'",
+     "name": "wild_weight_type",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "seed",
+     "positional": true
+    }
+   ]
+  },
+  "dml": {
+   "aliases": {
+    "controls": "covariates",
+    "weights": "sample_weight"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "d",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "X",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treat",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "covariates",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "model_y",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "model_d",
+     "positional": false
+    },
+    {
+     "default": "'plr'",
+     "name": "model",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "external_predictions",
+     "positional": false
+    },
+    {
+     "default": "False",
+     "name": "store_oof",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "observation_ids",
+     "positional": false
+    }
+   ]
+  },
+  "ebalance": {
+   "aliases": {
+    "controls": "covariates"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "treat",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "covariates",
+     "positional": true
+    },
+    {
+     "default": "1",
+     "name": "moments",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "'mestimation'",
+     "name": "vce",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "dof_adjust",
+     "positional": true
+    }
+   ]
+  },
+  "evalue": {
+   "aliases": {},
+   "params": [
+    {
+     "default": "<required>",
+     "name": "estimate",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "se",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "ci",
+     "positional": true
+    },
+    {
+     "default": "'RR'",
+     "name": "measure",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "rare",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "sd",
+     "positional": true
+    },
+    {
+     "default": "1.0",
+     "name": "delta",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "true",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "rare_outcome",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    }
+   ]
+  },
+  "event_study": {
+   "aliases": {
+    "controls": "covariates",
+    "id": "unit",
+    "vce": "cluster"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "treat_time",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "time",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "unit",
+     "positional": true
+    },
+    {
+     "default": "(-4, 4)",
+     "name": "window",
+     "positional": true
+    },
+    {
+     "default": "-1",
+     "name": "ref_period",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "covariates",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "bin_width",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "expose_pre_vcov",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "intensity",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "absorb",
+     "positional": true
+    }
+   ]
+  },
+  "feols": {
+   "aliases": {
+    "vce": "vcov"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "fml",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "vcov",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "ssc",
+     "positional": false
+    },
+    {
+     "default": "'none'",
+     "name": "fixef_rm",
+     "positional": false
+    },
+    {
+     "default": "1e-06",
+     "name": "collin_tol",
+     "positional": false
+    },
+    {
+     "default": "False",
+     "name": "lean",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": false
+    },
+    {
+     "default": "999",
+     "name": "wild_reps",
+     "positional": false
+    },
+    {
+     "default": "'rademacher'",
+     "name": "wild_weight_type",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "seed",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_lat",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_lon",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_cutoff",
+     "positional": false
+    },
+    {
+     "default": "'pyfixest'",
+     "name": "backend",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "weights_as",
+     "positional": false
+    }
+   ]
+  },
+  "glm": {
+   "aliases": {
+    "vce": "robust"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "'gaussian'",
+     "name": "family",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "link",
+     "positional": true
+    },
+    {
+     "default": "'nonrobust'",
+     "name": "robust",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "offset",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "exposure",
+     "positional": true
+    },
+    {
+     "default": "100",
+     "name": "maxiter",
+     "positional": true
+    },
+    {
+     "default": "1e-08",
+     "name": "tol",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "'observed'",
+     "name": "information",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "scale",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights_as",
+     "positional": true
+    }
+   ]
+  },
+  "honest_did": {
+   "aliases": {},
+   "params": [
+    {
+     "default": "<required>",
+     "name": "result",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "e",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "m_grid",
+     "positional": true
+    },
+    {
+     "default": "'smoothness'",
+     "name": "method",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "'native'",
+     "name": "backend",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "honestdid_method",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "l_vec",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "window",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "grid_lb",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "grid_ub",
+     "positional": true
+    },
+    {
+     "default": "1000",
+     "name": "grid_points",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "grid_expand",
+     "positional": true
+    }
+   ]
+  },
+  "ipw": {
+   "aliases": {
+    "controls": "covariates",
+    "vce": "cluster"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "treat",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "covariates",
+     "positional": true
+    },
+    {
+     "default": "'ATE'",
+     "name": "estimand",
+     "positional": true
+    },
+    {
+     "default": "0.0",
+     "name": "trim",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "normalize",
+     "positional": true
+    },
+    {
+     "default": "500",
+     "name": "n_bootstrap",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "seed",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "'bootstrap'",
+     "name": "se_method",
+     "positional": true
+    },
+    {
+     "default": "'logit'",
+     "name": "ps_model",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "propensity",
+     "positional": true
+    }
+   ]
+  },
+  "ivreg": {
+   "aliases": {},
+   "params": [
+    {
+     "default": "<required>",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "'nonrobust'",
+     "name": "robust",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "vce",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "vcov",
+     "positional": false
+    },
+    {
+     "default": "999",
+     "name": "wild_reps",
+     "positional": false
+    },
+    {
+     "default": "'rademacher'",
+     "name": "wild_weight_type",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "seed",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_lat",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_lon",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_cutoff",
+     "positional": false
+    }
+   ]
+  },
+  "lincom": {
+   "aliases": {},
+   "params": [
+    {
+     "default": "<required>",
+     "name": "result",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "expression",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    }
+   ]
+  },
+  "logit": {
+   "aliases": {
+    "vce": "robust"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "'nonrobust'",
+     "name": "robust",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "marginal_effects",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "odds_ratio",
+     "positional": true
+    },
+    {
+     "default": "100",
+     "name": "maxiter",
+     "positional": true
+    },
+    {
+     "default": "1e-08",
+     "name": "tol",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "at_values",
+     "positional": true
+    },
+    {
+     "default": "'drop'",
+     "name": "perfect_prediction",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights_as",
+     "positional": true
+    }
+   ]
+  },
+  "margins": {
+   "aliases": {},
+   "params": [
+    {
+     "default": "<required>",
+     "name": "result",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "variables",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "at",
+     "positional": true
+    },
+    {
+     "default": "'ame'",
+     "name": "method",
+     "positional": true
+    },
+    {
+     "default": "1e-05",
+     "name": "eps",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "subset",
+     "positional": true
+    }
+   ]
+  },
+  "match": {
+   "aliases": {
+    "controls": "covariates"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treat",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "covariates",
+     "positional": true
+    },
+    {
+     "default": "'nearest'",
+     "name": "method",
+     "positional": false
+    }
+   ]
+  },
+  "metalearner": {
+   "aliases": {
+    "controls": "covariates",
+    "vce": "cluster"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treat",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "covariates",
+     "positional": true
+    },
+    {
+     "default": "'dr'",
+     "name": "learner",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "outcome_model",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "propensity_model",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cate_model",
+     "positional": true
+    },
+    {
+     "default": "5",
+     "name": "n_folds",
+     "positional": true
+    },
+    {
+     "default": "200",
+     "name": "n_bootstrap",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "d",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "fold_indices",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    }
+   ]
+  },
+  "nbreg": {
+   "aliases": {
+    "vce": "robust"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "'nonrobust'",
+     "name": "robust",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "offset",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "exposure",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "irr",
+     "positional": true
+    },
+    {
+     "default": "'mean'",
+     "name": "dispersion",
+     "positional": true
+    },
+    {
+     "default": "100",
+     "name": "maxiter",
+     "positional": true
+    },
+    {
+     "default": "1e-08",
+     "name": "tol",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights_as",
+     "positional": true
+    }
+   ]
+  },
+  "panel": {
+   "aliases": {
+    "id": "entity"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "entity",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "time",
+     "positional": true
+    },
+    {
+     "default": "'fe'",
+     "name": "method",
+     "positional": false
+    }
+   ]
+  },
+  "poisson": {
+   "aliases": {
+    "vce": "robust"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "'nonrobust'",
+     "name": "robust",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "offset",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "exposure",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "irr",
+     "positional": true
+    },
+    {
+     "default": "100",
+     "name": "maxiter",
+     "positional": true
+    },
+    {
+     "default": "1e-08",
+     "name": "tol",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights_as",
+     "positional": true
+    }
+   ]
+  },
+  "probit": {
+   "aliases": {
+    "vce": "robust"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "'nonrobust'",
+     "name": "robust",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "marginal_effects",
+     "positional": true
+    },
+    {
+     "default": "100",
+     "name": "maxiter",
+     "positional": true
+    },
+    {
+     "default": "1e-08",
+     "name": "tol",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "at_values",
+     "positional": true
+    },
+    {
+     "default": "'drop'",
+     "name": "perfect_prediction",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights_as",
+     "positional": true
+    }
+   ]
+  },
+  "qreg": {
+   "aliases": {},
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "0.5",
+     "name": "quantile",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "vce",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "'mad'",
+     "name": "kernel_scale",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    }
+   ]
+  },
+  "rddensity": {
+   "aliases": {
+    "cutoff": "c",
+    "running": "x"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "c",
+     "positional": true
+    },
+    {
+     "default": "2",
+     "name": "p",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "h",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "'native'",
+     "name": "backend",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "bino_w",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "bino_wstep",
+     "positional": false
+    },
+    {
+     "default": "20",
+     "name": "bino_n",
+     "positional": false
+    },
+    {
+     "default": "10",
+     "name": "bino_nw",
+     "positional": false
+    },
+    {
+     "default": "0.5",
+     "name": "bino_p",
+     "positional": false
+    }
+   ]
+  },
+  "rdplot": {
+   "aliases": {
+    "controls": "covs",
+    "covariates": "covs",
+    "cutoff": "c",
+    "running": "x"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "c",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "nbins",
+     "positional": true
+    },
+    {
+     "default": "'esmv'",
+     "name": "binselect",
+     "positional": true
+    },
+    {
+     "default": "4",
+     "name": "p",
+     "positional": true
+    },
+    {
+     "default": "'uniform'",
+     "name": "kernel",
+     "positional": true
+    },
+    {
+     "default": "0.95",
+     "name": "ci_level",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "shade_ci",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "donut",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "show_bw",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "h",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "covs",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "False",
+     "name": "hide_ci",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "scatter",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "ax",
+     "positional": true
+    },
+    {
+     "default": "(10, 7)",
+     "name": "figsize",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "title",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "x_label",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y_label",
+     "positional": true
+    }
+   ]
+  },
+  "rdrobust": {
+   "aliases": {
+    "controls": "covs",
+    "covariates": "covs",
+    "cutoff": "c",
+    "running": "x",
+    "seed": "random_state"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "x",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "c",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "fuzzy",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "deriv",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "p",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "q",
+     "positional": true
+    },
+    {
+     "default": "'triangular'",
+     "name": "kernel",
+     "positional": true
+    },
+    {
+     "default": "'mserd'",
+     "name": "bwselect",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "h",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "b",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "rho",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "covs",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "'nn'",
+     "name": "vce",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "donut",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "bootstrap",
+     "positional": true
+    },
+    {
+     "default": "999",
+     "name": "n_boot",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "random_state",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "warn_mass_points",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "warn_weak_first_stage",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "manipulation_test",
+     "positional": true
+    },
+    {
+     "default": "'ols'",
+     "name": "engine",
+     "positional": true
+    },
+    {
+     "default": "'adjust'",
+     "name": "masspoints",
+     "positional": true
+    },
+    {
+     "default": "1.0",
+     "name": "scalepar",
+     "positional": true
+    }
+   ]
+  },
+  "regress": {
+   "aliases": {
+    "vce": "robust"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "formula",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "'nonrobust'",
+     "name": "robust",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "cluster",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "vce",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "vcov",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_lat",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_lon",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "conley_cutoff",
+     "positional": false
+    },
+    {
+     "default": "'omit'",
+     "name": "collinear",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "hac_lags",
+     "positional": false
+    },
+    {
+     "default": "False",
+     "name": "hac_small",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "hac_panel",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "ewc_df",
+     "positional": false
+    },
+    {
+     "default": "False",
+     "name": "dfadjust",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "weights_as",
+     "positional": false
+    }
+   ]
+  },
+  "regtable": {
+   "aliases": {
+    "vce": "vcov"
+   },
+   "params": [
+    {
+     "default": "None",
+     "name": "panel_labels",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "coef_labels",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "dep_var_labels",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "model_labels",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "keep",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "drop",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "order",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "stats",
+     "positional": false
+    },
+    {
+     "default": "'se'",
+     "name": "se_type",
+     "positional": false
+    },
+    {
+     "default": "True",
+     "name": "stars",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "star_levels",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "fmt",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "se_fmt",
+     "positional": false
+    },
+    {
+     "default": "'stat'",
+     "name": "stats_fmt",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "digits",
+     "positional": false
+    },
+    {
+     "default": "'text'",
+     "name": "output",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "filename",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "title",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "notes",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "add_rows",
+     "positional": false
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "template",
+     "positional": false
+    },
+    {
+     "default": "'auto'",
+     "name": "diagnostics",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "multi_se",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "repro",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "quarto_label",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "quarto_caption",
+     "positional": false
+    },
+    {
+     "default": "False",
+     "name": "eform",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "column_spanners",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "coef_map",
+     "positional": false
+    },
+    {
+     "default": "True",
+     "name": "consistency_check",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "estimate",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "statistic",
+     "positional": false
+    },
+    {
+     "default": "'stars'",
+     "name": "notation",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "apply_coef",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "apply_coef_deriv",
+     "positional": false
+    },
+    {
+     "default": "True",
+     "name": "escape",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "tests",
+     "positional": false
+    },
+    {
+     "default": "False",
+     "name": "fixef_sizes",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "vcov",
+     "positional": false
+    },
+    {
+     "default": "False",
+     "name": "transpose",
+     "positional": false
+    },
+    {
+     "default": "'auto'",
+     "name": "rules",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "labels",
+     "positional": false
+    }
+   ]
+  },
+  "sdid": {
+   "aliases": {
+    "id": "unit"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "outcome",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "unit",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "time",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treated_unit",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treatment_time",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "treat_unit",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "treat_time",
+     "positional": false
+    },
+    {
+     "default": "'sdid'",
+     "name": "method",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "covariates",
+     "positional": false
+    },
+    {
+     "default": "'placebo'",
+     "name": "se_method",
+     "positional": false
+    },
+    {
+     "default": "200",
+     "name": "n_reps",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "seed",
+     "positional": false
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": false
+    },
+    {
+     "default": "'native'",
+     "name": "backend",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "treat",
+     "positional": false
+    },
+    {
+     "default": "None",
+     "name": "covariate_method",
+     "positional": false
+    }
+   ]
+  },
+  "sensemakr": {
+   "aliases": {
+    "covariates": "controls"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "y",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "treat",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "controls",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "benchmark",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "1.0",
+     "name": "kd",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "ky",
+     "positional": true
+    }
+   ]
+  },
+  "synth": {
+   "aliases": {
+    "id": "unit",
+    "treat": "treatment"
+   },
+   "params": [
+    {
+     "default": "<required>",
+     "name": "data",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "outcome",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "unit",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "time",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treated_unit",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treatment_time",
+     "positional": true
+    },
+    {
+     "default": "'classic'",
+     "name": "method",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "covariates",
+     "positional": true
+    },
+    {
+     "default": "0.0",
+     "name": "penalization",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "placebo",
+     "positional": true
+    },
+    {
+     "default": "0.05",
+     "name": "alpha",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "inference",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "treatment",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "y",
+     "positional": true
+    }
+   ]
+  },
+  "test": {
+   "aliases": {},
+   "params": [
+    {
+     "default": "<required>",
+     "name": "result",
+     "positional": true
+    },
+    {
+     "default": "<required>",
+     "name": "hypothesis",
+     "positional": true
+    }
+   ]
+  }
+ },
+ "history": []
+}

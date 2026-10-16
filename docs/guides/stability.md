@@ -16,9 +16,42 @@ Current JSS source-snapshot audit counts: 486 `certified`, 468 `validated`, 609 
 
 ## Stability
 
-- `stable`: public signature is locked under SemVer minor releases.
+- `stable`: a breaking change to the signature comes only after a release that emits a `DeprecationWarning`, with a `MIGRATION.md` entry.
 - `experimental`: method/API may shift across minor versions.
 - `deprecated`: scheduled for removal; replacement should be documented in `MIGRATION.md`.
+
+## Frozen core API
+
+The 32 everyday entry points (`sp.list_functions(core=True)`, listed first
+by `sp.help()`) carry a stronger promise: code written against them keeps
+running. Their signatures are recorded in `tests/core_api_snapshot.json`,
+and `tests/test_core_api_freeze.py` (also a pre-push hook) fails on any
+change that would break an existing call:
+
+- a parameter disappears (a rename is fine when the old spelling stays
+  accepted through `@accepts_aliases`);
+- a default changes, or an optional parameter becomes required;
+- positional parameters are reordered, or one becomes keyword-only;
+- a new parameter has no default;
+- a core function is removed.
+
+New optional parameters are not breaks. An intended break goes through a
+deprecation release first, then
+`python scripts/core_api_snapshot.py --write --ack "fn.param=<MIGRATION.md text>"`,
+which refuses unless the quoted text is in `MIGRATION.md` and keeps the
+acknowledgement in the snapshot's `history`.
+
+Every function card says which promise applies, in `api_contract`:
+
+| `api_contract` | Applies to | Promise |
+| --- | --- | --- |
+| `frozen` | the core API | snapshot-tested, as above |
+| `deprecation-cycle` | other stable functions | breaking changes announced a minor release ahead, by policy |
+| `unstable` | experimental functions | may change in any minor release |
+| `deprecated` | deprecated functions | scheduled for removal |
+
+`api_contract` is about the signature. Whether the numbers are checked
+against a reference is `validation_status`, below; the two are independent.
 
 ## Validation
 

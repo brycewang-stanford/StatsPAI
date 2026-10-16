@@ -4,6 +4,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Frozen core API
+
+#### Added
+
+- The 32 everyday entry points (`sp.list_functions(core=True)`) now have a
+  frozen signature: `tests/core_api_snapshot.json` records them and
+  `tests/test_core_api_freeze.py` (also a pre-push hook) fails on a change
+  that breaks an existing call (a removed or renamed parameter without an
+  alias, a changed default, reordered positional parameters, a new
+  required parameter). Intended breaks are acknowledged against
+  `MIGRATION.md` with `scripts/core_api_snapshot.py --write --ack`.
+- Function cards and `x_statspai` schemas carry `api_contract`
+  (`frozen`, `deprecation-cycle`, `unstable`, `deprecated`).
+- `sp.help()` lists the core API first, grouped by task.
+
+#### Changed
+
+- The `stable` tier is described as what is enforced (breaking changes
+  only after a `DeprecationWarning` release), not as a locked signature.
+
 ### Predictions, comparisons and slopes in the marginaleffects style
 
 #### Added

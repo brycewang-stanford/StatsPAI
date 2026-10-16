@@ -309,6 +309,16 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: core-api-freeze
+        name: frozen core API (no breaking change to sp.CORE_FUNCTIONS signatures)
+        entry: >-
+          python3 -m pytest -q --no-header -o addopts= -p no:cacheprovider
+          tests/test_core_api_freeze.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: import-budget
         name: cold-import budget (lazy-import contract — 0 heavy submodules)
         entry: python3 -m pytest tests/test_import_budget.py -q --no-header -o addopts=

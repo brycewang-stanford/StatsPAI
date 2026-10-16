@@ -80,6 +80,7 @@ StatsPAI/
 - `References` 段只写 **bib key**（对应 [`paper.bib`](paper.bib)）或**经过核验的规范引用**——禁止在 docstring 里手写未核验的引用字符串，详见 §10。
 - 示例一律 `import statspai as sp` + `sp.xxx`。
 - 破坏性改动 → [`MIGRATION.md`](MIGRATION.md) + `DeprecationWarning`。
+- **核心层签名冻结（2026-10-17 起）。** `CORE_FUNCTIONS`（`sp.list_functions(core=True)` 的 32 个）的签名记在 `tests/core_api_snapshot.json`，删参、改默认值、可选变必选、调换位置参数、新增无默认值的参数都会被 `tests/test_core_api_freeze.py`（pre-push hook `core-api-freeze`）拦住。新增带默认值的参数不算破坏。有意的破坏先走弃用流程，再 `python scripts/core_api_snapshot.py --write --ack "fn.param=<MIGRATION.md 里的原文>"`。
 
 ### 模块内部
 

@@ -438,6 +438,7 @@ class FunctionSpec:
             "provenance": card["provenance"],
             "category": card["category"],
             "stability": card["stability"],
+            "api_contract": card["api_contract"],
             "validation_status": card["validation_status"],
             "validation_notes": card["validation_notes"],
             "limitations": card["limitations"],
@@ -537,6 +538,7 @@ class FunctionSpec:
             ),
             "category": self.category,
             "stability": self.stability,
+            "api_contract": api_contract(self.name, self.stability),
             "validation_status": self.validation_status,
             "validation_notes": list(self.validation_notes),
             "limitations": list(self.limitations),
@@ -37672,47 +37674,86 @@ def _ensure_full_registry() -> None:
 #: The everyday verbs -- what a Stata user types without opening the manual.
 #: ``sp.list_functions(core=True)`` returns these, in this order, so a newcomer
 #: (or an agent with a small context) starts from ~30 names, not 1,100.
-CORE_FUNCTIONS: Tuple[str, ...] = (
-    # regression
-    "regress",
-    "ivreg",
-    "feols",
-    "logit",
-    "probit",
-    "poisson",
-    "nbreg",
-    "glm",
-    "panel",
-    "qreg",
-    # post-estimation and tables
-    "test",
-    "lincom",
-    "margins",
-    "regtable",
-    # difference-in-differences
-    "did",
-    "callaway_santanna",
-    "event_study",
-    "honest_did",
-    # regression discontinuity
-    "rdrobust",
-    "rdplot",
-    "rddensity",
-    # synthetic control
-    "synth",
-    "sdid",
-    # selection on observables
-    "match",
-    "ipw",
-    "aipw",
-    "ebalance",
-    # machine learning
-    "dml",
-    "causal_forest",
-    "metalearner",
-    # sensitivity
-    "sensemakr",
-    "evalue",
+CORE_FUNCTION_GROUPS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    (
+        "regression",
+        (
+            "regress",
+            "ivreg",
+            "feols",
+            "logit",
+            "probit",
+            "poisson",
+            "nbreg",
+            "glm",
+            "panel",
+            "qreg",
+        ),
+    ),
+    (
+        "post-estimation and tables",
+        (
+            "test",
+            "lincom",
+            "margins",
+            "regtable",
+        ),
+    ),
+    (
+        "difference-in-differences",
+        (
+            "did",
+            "callaway_santanna",
+            "event_study",
+            "honest_did",
+        ),
+    ),
+    (
+        "regression discontinuity",
+        (
+            "rdrobust",
+            "rdplot",
+            "rddensity",
+        ),
+    ),
+    (
+        "synthetic control",
+        (
+            "synth",
+            "sdid",
+        ),
+    ),
+    (
+        "selection on observables",
+        (
+            "match",
+            "ipw",
+            "aipw",
+            "ebalance",
+        ),
+    ),
+    (
+        "machine learning",
+        (
+            "dml",
+            "causal_forest",
+            "metalearner",
+        ),
+    ),
+    (
+        "sensitivity",
+        (
+            "sensemakr",
+            "evalue",
+        ),
+    ),
+)
+
+#: The frozen core API, flattened in the order of the groups above. Their
+#: signatures are snapshotted (``tests/core_api_snapshot.json``) and
+#: ``tests/test_core_api_freeze.py`` fails on a change that breaks a call.
+CORE_FUNCTIONS: Tuple[str, ...] = tuple(
+    name for _, names in CORE_FUNCTION_GROUPS for name in names
 )
 
 
@@ -37924,7 +37965,28 @@ def describe_function(name: str) -> Dict[str, Any]:
     if aliases:
         out["aliases"] = dict(aliases)
     out["support_tier"] = support_tier(name)
+    out["api_contract"] = api_contract(name, spec.stability)
     return out
+
+
+def api_contract(name: str, stability: str) -> str:
+    """What a caller may rely on in this function's signature.
+
+    * ``"frozen"`` -- one of :data:`CORE_FUNCTIONS`. Its signature is
+      snapshotted (``tests/core_api_snapshot.json``) and a test fails on any
+      change that breaks an existing call; an intended break must go through
+      a deprecation release and ``MIGRATION.md`` first.
+    * ``"deprecation-cycle"`` -- other stable functions: breaking changes are
+      announced with a ``DeprecationWarning`` and a ``MIGRATION.md`` entry at
+      least one minor release ahead, by policy rather than by a snapshot.
+    * ``"unstable"`` -- experimental: may change in any minor release.
+    * ``"deprecated"`` -- scheduled for removal; see ``MIGRATION.md``.
+    """
+    if stability == "deprecated":
+        return "deprecated"
+    if stability == "experimental":
+        return "unstable"
+    return "frozen" if name in CORE_FUNCTIONS else "deprecation-cycle"
 
 
 def support_tier(name: str) -> str:

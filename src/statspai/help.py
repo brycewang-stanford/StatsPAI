@@ -315,6 +315,19 @@ def _top_overview() -> str:
     lines.append("  >>> cf = sp.causal_forest('y ~ treat | x1 + x2', data=df)")
     lines.append("")
 
+    # The frozen core first: ~30 names a newcomer (or an agent with a small
+    # context) can start from, each with a signature that will not break.
+    from .registry import CORE_FUNCTION_GROUPS  # noqa: WPS433
+
+    lines.append(
+        "CORE API  (frozen signatures; start here; sp.list_functions(core=True))"
+    )
+    lines.append("--------")
+    gwidth = max(len(g) for g, _ in CORE_FUNCTION_GROUPS)
+    for group, names in CORE_FUNCTION_GROUPS:
+        lines.append(f"  {group:<{gwidth}}  {', '.join(names)}")
+    lines.append("")
+
     lines.append("CATEGORIES  (use sp.help('<category>') for details)")
     lines.append("----------")
     from .registry import _ensure_full_registry  # noqa: WPS433
@@ -427,7 +440,10 @@ def _categories_with_counts() -> Dict[str, int]:
 # looks in text.  No emoji, by CLAUDE.md house rule.
 
 _STABILITY_BLURBS: Dict[str, str] = {
-    "stable": "public signature locked under SemVer minor releases",
+    "stable": (
+        "breaking changes only after a DeprecationWarning release; "
+        "the CORE API is snapshot-tested"
+    ),
     "experimental": "method/API may shift across minor versions",
     "deprecated": ("scheduled for removal — see MIGRATION.md for the replacement"),
 }
@@ -550,6 +566,14 @@ def _function_detail(name: str, verbose: bool = False) -> Optional[str]:
     # the trust bar before reading the first sentence.
     blurb = _STABILITY_BLURBS.get(spec.stability, "")
     lines.append(f"Stability : {spec.stability}  ({blurb})")
+    from .registry import api_contract  # noqa: WPS433
+
+    contract = api_contract(spec.name, spec.stability)
+    if contract == "frozen":
+        lines.append(
+            "API       : frozen (core API; signature snapshot-tested, "
+            "tests/core_api_snapshot.json)"
+        )
     vstatus = getattr(spec, "validation_status", "api_stable")
     vblurb = _VALIDATION_BLURBS.get(vstatus, "")
     lines.append(f"Validation: {vstatus}  ({vblurb})")
