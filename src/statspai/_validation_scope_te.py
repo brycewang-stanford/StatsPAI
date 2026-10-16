@@ -408,6 +408,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
     def x_ebal(r: Any) -> Dict[str, Optional[str]]:
         mi = _mi(r)
         m = mi.get("moments_balanced")
+        moments: Optional[str]
         if isinstance(m, (list, tuple)):
             moments = str(m[0]) if len(set(m)) == 1 else "mixed"
         else:

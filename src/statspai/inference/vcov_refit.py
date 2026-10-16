@@ -96,7 +96,7 @@ def _table(result: Any) -> pd.DataFrame:
         def col(attr: str) -> np.ndarray:
             value = getattr(result, attr, None)
             if isinstance(value, pd.Series):
-                return value.reindex(idx).to_numpy(float)
+                return np.asarray(value.reindex(idx).to_numpy(float), dtype=float)
             return np.full(len(idx), np.nan)
 
         return pd.DataFrame(
@@ -148,7 +148,9 @@ def _same(a: pd.Series, b: pd.Series) -> bool:
     return bool(np.all(both_nan | close))
 
 
-def _keywords(fn: Any, args: Tuple[Any, ...], kwargs: Dict[str, Any]):
+def _keywords(
+    fn: Any, args: Tuple[Any, ...], kwargs: Dict[str, Any]
+) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
     """Move positional arguments to keywords so SE arguments can be replaced."""
     import inspect
 

@@ -56,6 +56,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
         vtype = _lower(mi.get("vcov_type")) or ""
         detail = str(getattr(pf, "_vcov_type_detail", "") or "")
         clusters = getattr(pf, "_clustervar", None) or []
+        vcov: Optional[str]
         if any(k in vtype for k in ("wild", "conley", "cr2", "jackknife")):
             vcov = "other"
         elif detail == "iid":

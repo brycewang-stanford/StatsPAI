@@ -125,7 +125,9 @@ class _Model:
         mu, dmu = _mu_and_slope(self.link, eta)
         return mu, dmu[:, None] * X
 
-    def dydx(self, frame: pd.DataFrame, var: str, eps: float, type: str):
+    def dydx(
+        self, frame: pd.DataFrame, var: str, eps: float, type: str
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Unit derivative d prediction / d var and its Jacobian."""
         X = self.design.build(frame)
         D = self.design.derivative(frame, var, eps)
@@ -207,7 +209,7 @@ def _weights(model: _Model, wts: Any) -> Optional[np.ndarray]:
     if isinstance(wts, str):
         if wts not in model.frame.columns:
             raise MethodIncompatibility(f"{model.fn}: weight column {wts!r} not found.")
-        return model.frame[wts].to_numpy(dtype=float)
+        return np.asarray(model.frame[wts], dtype=float)
     w = np.asarray(wts, dtype=float).ravel()
     if w.size != len(model.frame):
         raise MethodIncompatibility(f"{model.fn}: wts has the wrong length.")

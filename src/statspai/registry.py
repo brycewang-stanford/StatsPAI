@@ -11894,16 +11894,12 @@ def _build_registry() -> None:
         None,
         "Fit of sp.regress / logit / probit / cloglog / poisson / nbreg / glm",
     )
-    _me_shared = dict(
-        category="postestimation",
-        assumptions=[
-            "The coefficient estimates are asymptotically normal with the "
-            "reported covariance matrix (delta-method inference)",
-        ],
-        alternatives=["margins", "nlcom", "lincom"],
-        reference="R marginaleffects 0.32 (black-box output parity)",
-    )
-    _me_specs = [
+    _me_assumptions = [
+        "The coefficient estimates are asymptotically normal with the "
+        "reported covariance matrix (delta-method inference)",
+    ]
+    _me_reference = "R marginaleffects 0.32 (black-box output parity)"
+    _me_specs: List[Tuple[str, str, List[str], str]] = [
         (
             "predictions",
             "Unit-level predictions with delta-method standard errors, in the "
@@ -11926,7 +11922,7 @@ def _build_registry() -> None:
             "factor levels against the first, 0/1 variables 1 - 0, numeric "
             "variables +1 or a chosen change; difference, ratio, lnratio, "
             "ratioavg, lnratioavg.",
-            [_me_variables, "comparison"],
+            ["comparison"],
             'sp.comparisons(fit, "treat")',
         ),
         (
@@ -11935,7 +11931,7 @@ def _build_registry() -> None:
             "binary treatment on the response scale, the model-implied "
             "average treatment effect (g-formula). Averaged ratios are "
             "ratios of average predictions.",
-            [_me_variables, "comparison"],
+            ["comparison"],
             'sp.avg_comparisons(fit, "treat")',
         ),
         (
@@ -11944,7 +11940,7 @@ def _build_registry() -> None:
             "(marginaleffects::slopes), analytic through interactions and "
             "formula transformations; eyex / eydx / dyex elasticities. "
             "Factors and 0/1 variables are reported as contrasts.",
-            [_me_variables, "slope", "eps"],
+            ["slope", "eps"],
             'sp.slopes(fit, "x")',
         ),
         (
@@ -11952,7 +11948,7 @@ def _build_registry() -> None:
             "Average marginal effects (marginaleffects::avg_slopes); with "
             "wts=True and df='model' equal to Stata margins, dydx() and "
             "sp.margins.",
-            [_me_variables, "slope", "eps"],
+            ["slope", "eps"],
             'sp.avg_slopes(fit, "x")',
         ),
     ]
@@ -11983,24 +11979,24 @@ def _build_registry() -> None:
         ),
     }
     for _name, _desc, _extra, _example in _me_specs:
-        _params = [_me_result]
-        for _e in _extra:
-            if isinstance(_e, str):
-                continue
-            _params.append(_e)
-        _params.append(_me_common[0])
-        _params.append(_me_common[1])
-        _params.extend(_me_extra[_e] for _e in _extra if isinstance(_e, str))
+        _params: List[ParamSpec] = [_me_result]
+        if _extra:
+            _params.append(_me_variables)
+        _params.extend(_me_common[:2])
+        _params.extend(_me_extra[_e] for _e in _extra)
         _params.extend(_me_common[2:])
         register(
             FunctionSpec(
                 name=_name,
+                category="postestimation",
                 description=_desc,
                 params=_params,
                 returns="DataFrame",
                 example=_example,
                 tags=["postestimation", "marginaleffects", "delta-method", "r"],
-                **_me_shared,
+                assumptions=list(_me_assumptions),
+                alternatives=["margins", "nlcom", "lincom"],
+                reference=_me_reference,
             )
         )
 
@@ -12036,9 +12032,9 @@ def _build_registry() -> None:
             returns="DataFrame",
             example='sp.hypotheses(fit, "b2 = b3")',
             tags=["postestimation", "marginaleffects", "delta-method", "r"],
-            assumptions=_me_shared["assumptions"],
+            assumptions=list(_me_assumptions),
             alternatives=["nlcom", "lincom", "test"],
-            reference=_me_shared["reference"],
+            reference=_me_reference,
         )
     )
 

@@ -1309,11 +1309,12 @@ def _tool_vcov_from_result(
 
             data = DATA_CACHE.get(handle)
 
-    import statspai as sp
+    from ..inference.vcov_refit import vcov as _vcov
+    from ..inference.vcov_refit import vcov_compare as _vcov_compare
 
     try:
         if isinstance(vce, (list, tuple)):
-            table = sp.vcov_compare(
+            table = _vcov_compare(
                 obj, list(vce), data=data, terms=arguments.get("terms")
             )
             records = table.replace({float("nan"): None}).to_dict(orient="records")
@@ -1323,7 +1324,7 @@ def _tool_vcov_from_result(
                 "table": records,
                 "columns": list(table.columns),
             }
-        result = sp.vcov(obj, vce, data=data)
+        result = _vcov(obj, vce, data=data)
     except Exception as e:  # noqa: BLE001 - returned to the agent with remediation
         from .remediation import remediate
 

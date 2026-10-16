@@ -42,13 +42,13 @@ class _FrameRef:
     __slots__ = ("ref", "shape")
 
     def __init__(self, frame: pd.DataFrame) -> None:
-        self.ref = weakref.ref(frame)
+        self.ref: Optional["weakref.ReferenceType[Any]"] = weakref.ref(frame)
         self.shape = tuple(frame.shape)
 
     def get(self) -> Optional[pd.DataFrame]:
         return self.ref() if self.ref is not None else None
 
-    def __reduce__(self):
+    def __reduce__(self) -> Tuple[Any, Tuple[Any, ...]]:
         # A weak reference cannot be pickled, and a result that crosses a
         # process (the MCP state store, isolated fits) no longer shares the
         # caller's frame anyway: it arrives as a reference to a frame that is

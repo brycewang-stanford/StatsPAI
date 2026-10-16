@@ -48,7 +48,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
         robust = _lower(mi.get("robust"))
         if robust in (None, "nonrobust", "oim"):
             return "classical"
-        return robust
+        return str(robust)
 
     def weighted(mi: Dict[str, Any], r: Any) -> str:
         di = getattr(r, "data_info", None) or {}
@@ -58,7 +58,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
             or mi.get("weighted")
             or di.get("weights") is not None
         )
-        return _set(flag)
+        return str(_set(flag))
 
     # ------------------------------------------------------------------ logit
     def x_binary(r: Any) -> Dict[str, Optional[str]]:
