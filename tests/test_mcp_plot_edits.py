@@ -126,7 +126,9 @@ def test_transform_mice_fills_every_gap_reproducibly():
     out = execute_tool(
         "transform_data", {"operations": [{"op": "mice", "m": 2}]}, data=df
     )
-    assert "error" not in out, out
+    # over MCP: no missing cell left, and the same values as the direct call
+    assert out["missing"] == {} and out["n_rows"] == 80
+    assert out["numeric_summary"]["a"]["mean"] == pytest.approx(filled["a"].mean())
 
 
 def test_transform_mice_columns_fills_only_those():
