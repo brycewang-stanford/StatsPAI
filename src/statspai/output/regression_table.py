@@ -3567,6 +3567,19 @@ def regtable(
     # the estimator with vce= swapped); a column it cannot re-report keeps
     # its fit-time SEs and is named in a UserWarning.
     if vcov is not None:
+        # A spelling no estimator knows is a typo: refuse it here rather
+        # than keep every column's fit-time SEs under a warning.
+        from ..core._vcov_spec import _SE_KIND_SYNONYMS, parse_se_request
+
+        specs = vcov.values() if isinstance(vcov, dict) else [vcov]
+        for spec in specs:
+            if isinstance(spec, str):
+                parse_se_request(
+                    spec,
+                    function="regtable(vcov=)",
+                    supported=set(_SE_KIND_SYNONYMS.values()),
+                    multiway=True,
+                )
         _apply_vcov_to_panels(panels, flat_results, vcov)
 
     # --- transpose validation (must run BEFORE we lose multi-panel info) ----

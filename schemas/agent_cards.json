@@ -21381,18 +21381,27 @@
     ],
     "category": "postestimation",
     "cost_profile": "",
-    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups.",
+    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "marginaleffects::predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     "example": "sp.predictions(fit)",
     "failure_modes": [],
@@ -21415,7 +21424,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups.",
+      "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups. Validation: certified parity evidence.",
       "name": "predictions",
       "parameters": {
         "properties": {
@@ -21465,8 +21474,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (aligned) vs marginaleffects::predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -21481,18 +21492,27 @@
     ],
     "category": "postestimation",
     "cost_profile": "",
-    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins.",
+    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "marginaleffects::avg_predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     "example": "sp.avg_predictions(fit, by=\"g\")",
     "failure_modes": [],
@@ -21515,7 +21535,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins.",
+      "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins. Validation: certified parity evidence.",
       "name": "avg_predictions",
       "parameters": {
         "properties": {
@@ -21565,8 +21585,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (aligned) vs marginaleffects::avg_predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -21581,18 +21603,27 @@
     ],
     "category": "postestimation",
     "cost_profile": "",
-    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg.",
+    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "marginaleffects::comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     "example": "sp.comparisons(fit, \"treat\")",
     "failure_modes": [],
@@ -21615,7 +21646,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg.",
+      "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg. Validation: certified parity evidence.",
       "name": "comparisons",
       "parameters": {
         "properties": {
@@ -21684,8 +21715,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (aligned) vs marginaleffects::comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -21700,18 +21733,27 @@
     ],
     "category": "postestimation",
     "cost_profile": "",
-    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions.",
+    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "marginaleffects::avg_comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     "example": "sp.avg_comparisons(fit, \"treat\")",
     "failure_modes": [],
@@ -21734,7 +21776,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions.",
+      "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions. Validation: certified parity evidence.",
       "name": "avg_comparisons",
       "parameters": {
         "properties": {
@@ -21803,8 +21845,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (aligned) vs marginaleffects::avg_comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -21819,18 +21863,27 @@
     ],
     "category": "postestimation",
     "cost_profile": "",
-    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts.",
+    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "marginaleffects::slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     "example": "sp.slopes(fit, \"x\")",
     "failure_modes": [],
@@ -21853,7 +21906,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts.",
+      "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts. Validation: certified parity evidence.",
       "name": "slopes",
       "parameters": {
         "properties": {
@@ -21926,8 +21979,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (aligned) vs marginaleffects::slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -21942,18 +21997,27 @@
     ],
     "category": "postestimation",
     "cost_profile": "",
-    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins.",
+    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "marginaleffects::avg_slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     "example": "sp.avg_slopes(fit, \"x\")",
     "failure_modes": [],
@@ -21976,7 +22040,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins.",
+      "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins. Validation: certified parity evidence.",
       "name": "avg_slopes",
       "parameters": {
         "properties": {
@@ -22049,8 +22113,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (aligned) vs marginaleffects::avg_slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -22065,18 +22131,27 @@
     ],
     "category": "postestimation",
     "cost_profile": "",
-    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code.",
+    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "marginaleffects::hypotheses on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     "example": "sp.hypotheses(fit, \"b2 = b3\")",
     "failure_modes": [],
@@ -22099,7 +22174,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code.",
+      "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code. Validation: certified parity evidence.",
       "name": "hypotheses",
       "parameters": {
         "properties": {
@@ -22130,8 +22205,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (aligned) vs marginaleffects::hypotheses on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -108664,7 +108741,8 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs oaxaca::oaxaca [R version 4.5.2 (2025-10-31), oaxaca 0.1.5]; tolerance rel_est<=1e-06, rel_se<=0.05; parity module 30_oaxaca -- tests/r_parity/30_oaxaca.py"
+      "Cross-language parity (bit-exact) vs oaxaca::oaxaca [R version 4.5.2 (2025-10-31), oaxaca 0.1.5]; tolerance rel_est<=1e-06, rel_se<=0.05; parity module 30_oaxaca -- tests/r_parity/30_oaxaca.py",
+      "tests/reference_parity/test_oaxaca_threefold_r_parity.py"
     ],
     "validation_status": "certified"
   },

@@ -16,6 +16,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai._frame_input import bare
 from statspai.core._call_record import get_call_record
 from statspai.exceptions import MethodIncompatibility
 
@@ -310,7 +311,8 @@ def test_every_vce_estimator_records_its_call():
         aliases = getattr(obj, "__statspai_aliases__", {}) or {}
         if "vce" not in params and "vce" not in aliases:
             continue
-        code = getattr(obj, "__code__", None)
+        # beneath the sp.* polars / Arrow input wrapper
+        code = getattr(bare(obj), "__code__", None)
         if not (code and code.co_filename.endswith("_call_record.py")):
             missing.append(name)
     assert missing == []

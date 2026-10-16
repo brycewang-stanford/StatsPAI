@@ -137,3 +137,22 @@ def test_glm_information_is_recorded(d):
         warnings.simplefilter("ignore")
         fit = sp.glm("yb ~ x1 + x2", data=d, family="binomial", information="expected")
     assert fit.model_info["information"] == "expected"
+
+
+def test_keeping_perfect_predictors_has_no_reference():
+    import warnings
+
+    import numpy as np
+    import pandas as pd
+
+    import statspai as sp
+
+    rng = np.random.default_rng(5)
+    d = pd.DataFrame({"x": rng.normal(size=200)})
+    d["y"] = (rng.uniform(size=200) < 0.5).astype(int)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.logit("y ~ x", data=d, perfect_prediction="keep")
+    rep = sp.validation_scope(fit)
+    assert rep["configuration"]["perfect_prediction"] == "keep"
+    assert rep["status"] == "not_covered"

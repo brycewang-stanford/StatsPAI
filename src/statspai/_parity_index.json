@@ -828,6 +828,81 @@
       "tolerance": "estimate and std.err 1e-10 rel (observed 2.0e-15)"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "avg_comparisons",
+      "notes": [
+        "Conventions checked against the reference: unweighted averages and a normal reference distribution by default; 'sd' contrasts mean +/- sd/2 for every row; averaged ratios are ratios of average predictions; 0/1 variables are contrasts in slopes. The GLMs are fitted in R at epsilon = 1e-14, and the probit on the StatsPAI side with information='expected' to match glm's covariance."
+      ],
+      "reference": "marginaleffects::avg_comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "avg_predictions",
+      "notes": [
+        "Conventions checked against the reference: unweighted averages and a normal reference distribution by default; 'sd' contrasts mean +/- sd/2 for every row; averaged ratios are ratios of average predictions; 0/1 variables are contrasts in slopes. The GLMs are fitted in R at epsilon = 1e-14, and the probit on the StatsPAI side with information='expected' to match glm's covariance."
+      ],
+      "reference": "marginaleffects::avg_predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "avg_slopes",
+      "notes": [
+        "Conventions checked against the reference: unweighted averages and a normal reference distribution by default; 'sd' contrasts mean +/- sd/2 for every row; averaged ratios are ratios of average predictions; 0/1 variables are contrasts in slopes. The GLMs are fitted in R at epsilon = 1e-14, and the probit on the StatsPAI side with information='expected' to match glm's covariance."
+      ],
+      "reference": "marginaleffects::avg_slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_did_parity.py",
@@ -3748,6 +3823,31 @@
         "tests/reference_parity/test_oct2026_third_pass.py"
       ],
       "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "comparisons",
+      "notes": [
+        "Conventions checked against the reference: unweighted averages and a normal reference distribution by default; 'sd' contrasts mean +/- sd/2 for every row; averaged ratios are ratios of average predictions; 0/1 variables are contrasts in slopes. The GLMs are fitted in R at epsilon = 1e-14, and the probit on the StatsPAI side with information='expected' to match glm's covariance."
+      ],
+      "reference": "marginaleffects::comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     {
       "also_verified_by": [
@@ -8837,6 +8937,7 @@
         "tests/external_parity/test_gelman_ros_examples.py",
         "tests/reference_parity/test_glm_dispersion_stata_r_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_ml_sandwich_r_parity.py",
         "tests/reference_parity/test_regression_stories_r_parity.py",
@@ -9724,6 +9825,31 @@
         "tests/reference_parity/_fixtures/glm_ext_R.json"
       ],
       "tolerance": "count + zero coefficients 1e-6 abs (observed ~2e-8)"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "hypotheses",
+      "notes": [
+        "Conventions checked against the reference: unweighted averages and a normal reference distribution by default; 'sd' contrasts mean +/- sd/2 for every row; averaged ratios are ratios of average predictions; 0/1 variables are contrasts in slopes. The GLMs are fitted in R at epsilon = 1e-14, and the probit on the StatsPAI side with information='expected' to match glm's covariance."
+      ],
+      "reference": "marginaleffects::hypotheses on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     {
       "additional_tests": [
@@ -11810,6 +11936,7 @@
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_ml_sandwich_r_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
@@ -15201,6 +15328,9 @@
       "tolerance": "estimate 1e-12 abs (observed 0); CI not pinned"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_oaxaca_threefold_r_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -16164,6 +16294,7 @@
         "tests/reference_parity/test_ivpoisson_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_ml_sandwich_r_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
@@ -16819,6 +16950,31 @@
         "tests/reference_parity/test_oct2026_fourth_pass.py"
       ],
       "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "predictions",
+      "notes": [
+        "Conventions checked against the reference: unweighted averages and a normal reference distribution by default; 'sd' contrasts mean +/- sd/2 for every row; averaged ratios are ratios of average predictions; 0/1 variables are contrasts in slopes. The GLMs are fitted in R at epsilon = 1e-14, and the probit on the StatsPAI side with information='expected' to match glm's covariance."
+      ],
+      "reference": "marginaleffects::predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     {
       "function": "pretrends_equivalence",
@@ -19114,6 +19270,7 @@
         "tests/reference_parity/test_inference_sens_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
         "tests/reference_parity/test_margins_at_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
@@ -21072,6 +21229,31 @@
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "slopes",
+      "notes": [
+        "Conventions checked against the reference: unweighted averages and a normal reference distribution by default; 'sd' contrasts mean +/- sd/2 for every row; averaged ratios are ratios of average predictions; 0/1 variables are contrasts in slopes. The GLMs are fitted in R at epsilon = 1e-14, and the probit on the StatsPAI side with information='expected' to match glm's covariance."
+      ],
+      "reference": "marginaleffects::slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "marginaleffects": "0.32.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_marginaleffects_r_parity.py",
+        "tests/reference_parity/_fixtures/marginaleffects_R.json"
+      ],
+      "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     {
       "additional_tests": [

@@ -11301,6 +11301,10 @@
         "weights": [
           "none",
           "set"
+        ],
+        "perfect_prediction": [
+          "drop",
+          "keep"
         ]
       },
       "primary_outputs": [
@@ -11315,20 +11319,23 @@
           "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
         }
       },
-      "cells": 10,
+      "cells": 20,
       "overall": {
-        "covered": 10
+        "covered": 10,
+        "not_covered": 10
       },
       "by_output": {
         "estimate": {
-          "reference": 10
+          "reference": 10,
+          "not_covered": 10
         },
         "se": {
-          "reference": 10
+          "reference": 10,
+          "not_covered": 10
         },
         "joint_test": {
           "reference": 3,
-          "not_covered": 7
+          "not_covered": 17
         }
       },
       "rows": [
@@ -11346,6 +11353,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "coefficients and model-based SEs vs R glm(binomial) and Stata logit, 1e-6"
@@ -11366,6 +11376,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "coefficients and SEs vs Stata logit, vce(oim | robust | cluster g), 1e-6"
@@ -11386,6 +11399,9 @@
             ],
             "weights": [
               "set"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "weighted coefficients and SEs vs Stata logit [iw] / [fw] (model-based) and [pw] (robust, cluster), 1e-6"
@@ -11404,6 +11420,9 @@
             ],
             "weights": [
               "set"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "frequency weights equal the expanded data, 2e-6"
@@ -11424,6 +11443,9 @@
             "weights": [
               "none",
               "set"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "HC0 / HC1 sandwich SEs vs R sandwich::vcovHC on glm, unweighted and weighted, 1e-8"
@@ -11442,6 +11464,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "Wald chi2, df and p-value of joint hypotheses vs Stata test after logit, 1e-8"
@@ -11460,6 +11485,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "Wald test and lincom vs Stata after logit, 1e-6"
@@ -11478,6 +11506,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "coefficients and SEs after Stata's perfect-prediction drop, vs Stata logit"
@@ -11496,6 +11527,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "coefficients and SEs vs R glm(binomial)"
@@ -13109,6 +13143,10 @@
         "weights": [
           "none",
           "set"
+        ],
+        "perfect_prediction": [
+          "drop",
+          "keep"
         ]
       },
       "primary_outputs": [
@@ -13123,22 +13161,25 @@
           "reason": "the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator"
         }
       },
-      "cells": 10,
+      "cells": 20,
       "overall": {
         "covered": 6,
-        "estimate_only": 4
+        "estimate_only": 4,
+        "not_covered": 10
       },
       "by_output": {
         "estimate": {
-          "reference": 10
+          "reference": 10,
+          "not_covered": 10
         },
         "se": {
           "reference": 6,
-          "disclosure": 4
+          "disclosure": 4,
+          "not_covered": 10
         },
         "joint_test": {
           "reference": 2,
-          "not_covered": 8
+          "not_covered": 18
         }
       },
       "rows": [
@@ -13156,6 +13197,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "coefficients vs R glm(binomial(probit)) and coefficients and observed-information SEs vs Stata probit, 1e-6"
@@ -13173,6 +13217,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "R glm reports expected-information SEs, Stata and this package observed-information; they differ on a non-canonical link (budget 1e-2)"
@@ -13193,6 +13240,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "coefficients and SEs vs Stata probit, vce(oim | robust | cluster g), 1e-6"
@@ -13213,6 +13263,9 @@
             ],
             "weights": [
               "set"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "weighted coefficients and SEs vs Stata probit [iw] / [fw] / [pw], 1e-6"
@@ -13232,6 +13285,9 @@
             "weights": [
               "none",
               "set"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "R sandwich::vcovHC builds its bread from glm's expected information, this package (like Stata) from the observed one: 2-3% apart on probit; sp.glm(information='expected') reproduces R to 1e-8"
@@ -13250,6 +13306,9 @@
             ],
             "weights": [
               "none"
+            ],
+            "perfect_prediction": [
+              "drop"
             ]
           },
           "compares": "Wald test and lincom vs Stata after probit, 1e-6"
@@ -17092,30 +17151,2427 @@
           "compares": "SCLS coefficients vs micsr::tobit1(method = 'trimmed'), 1e-8"
         }
       ]
+    },
+    "xtabond": {
+      "dimensions": {
+        "model": [
+          "difference",
+          "ah",
+          "system_h3_iv_both",
+          "system_h3_iv_diff",
+          "system_h3_no_iv",
+          "system_h2_iv_both",
+          "system_h2_iv_diff",
+          "system_h2_no_iv",
+          "system_iv_level",
+          "system_no_constant",
+          "h1"
+        ],
+        "steps": [
+          "onestep",
+          "twostep",
+          "beyond_two"
+        ],
+        "robust": [
+          "true",
+          "false"
+        ],
+        "cluster": [
+          "unit",
+          "coarser"
+        ],
+        "transform": [
+          "fd",
+          "fod"
+        ],
+        "collapse": [
+          "false",
+          "true"
+        ],
+        "gmm_window": [
+          "default",
+          "max_capped",
+          "min_raised",
+          "min_and_max"
+        ],
+        "regressors": [
+          "none",
+          "x",
+          "x_pre_window",
+          "x_endo_window",
+          "dummies",
+          "x_endo_window_dummies",
+          "other"
+        ],
+        "lags": [
+          "1",
+          "2",
+          "3plus"
+        ],
+        "panel": [
+          "gap_free",
+          "gapped"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "robust": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the coefficients are solved before, and independently of, the choice between the classical and the robust / Windmeijer variance (robust= only switches the reported VCE)"
+        }
+      },
+      "cells": 88704,
+      "overall": {
+        "covered": 42,
+        "estimate_only": 32,
+        "not_covered": 88630
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 74,
+          "not_covered": 88630
+        },
+        "se": {
+          "reference": 42,
+          "not_covered": 88662
+        },
+        "diagnostic": {
+          "reference": 20,
+          "not_covered": 88684
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "false",
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "abdata, one lag of y: one-step robust / classical and two-step Windmeijer / conventional: every coefficient and SE, e(N) and the instrument count vs Stata 18 xtabond (noconstant), rtol 1e-9; AR(1)/AR(2) z vs e(arm1)/e(arm2) 1e-9; one-step Sargan and post-two-step Hansen J vs e(sargan) 1e-9; one-step Hansen J vs xtabond2 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "abdata, two lags of y, one-step robust, vs Stata 18 xtabond: coefficients, SEs, e(N), instrument count and AR z, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "max_capped"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "gmm_lags=(2, 4) vs Stata xtabond, maxldep(3), 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "min_raised"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "gmm_lags=(3, None) vs xtabond2 gmm(L.n, lag(2 .)), 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "true"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "collapsed instruments vs xtabond2, collapse: coefficients and SEs 1e-9, 7 instruments, Hansen J 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "Arellano-Bond (1991) table 4 (two lags of y, x = l(0/1).w l(0/2).k, also with year dummies passed in x), one-step robust and two-step Windmeijer, vs Stata xtabond: coefficients, SEs and AR z, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "Arellano-Bond (1991) table 4 (two lags of y), one-step, vs R plm::pgmm, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "AR(1) one-step robust vs R pdynmc 0.9.12: estimate 1e-6, SE 1e-5"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/50_xtabond.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "Track A module 50 (simulated balanced panel, one lag of y, one exogenous x): coefficients and robust SEs vs R plm::pgmm and Stata xtabond, 1e-6 (observed 1e-15)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x_endo_window",
+              "x_pre_window"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "two lags of y, x = l(0/2).k, w predetermined with predetermined_lags=(2, None) / endogenous with endogenous_lags=(3, None), vs Stata xtabond pre() / endogenous() with lagstruct(1, .), 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "x = w k, one-step robust: Hansen J vs xtabond2 1e-9 and AR z (cluster on the panel id) vs xtabond2 1e-8"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none",
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "Sargan statistic: xtabond's scale; xtabond2's is exactly N*/(N* - k) larger, asserted to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fod"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "forward orthogonal deviations, one-step robust and two-step Windmeijer, vs xtabond2, orthogonal: coefficients, SEs, e(N), instrument count and AR z, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "coarser"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "cluster on industry (9 clusters), one-step robust, vs xtabond2, cluster(): coefficients and SEs 1e-9, AR z 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "ah"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none",
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "Anderson-Hsiao with the level and with the differenced instrument, with and without x = w k, vs xtabond2 with one pooled instrument: coefficients, SEs, e(N), instrument count, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gapped"
+            ]
+          },
+          "compares": "abdata with 1980 dropped for every third firm, one-step robust and two-step Windmeijer, vs xtabond2 (instruments written on the level): coefficients, SEs, e(N), instrument count, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fod"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gapped"
+            ]
+          },
+          "compares": "gapped panel, forward orthogonal deviations, vs xtabond2, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gapped"
+            ]
+          },
+          "compares": "gapped panel, x = w k, vs xtabond2, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "true"
+            ],
+            "gmm_window": [
+              "max_capped",
+              "min_and_max"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gapped"
+            ]
+          },
+          "compares": "gapped panel, one collapsed instrument at depths 2 to 6 (gmm_lags=(d, d)), vs xtabond2, 1e-9"
+        },
+        {
+          "kind": "T1",
+          "artifact": "tests/reference_parity/test_gmm_dynamic_panel_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "the Arellano-Bond moment system rebuilt by hand and solved by sp.gmm with the same one-step weight gives the same (rho, beta), 1e-5 (sp.gmm's BFGS stopping rule)"
+        },
+        {
+          "kind": "S",
+          "artifact": "tests/reference_parity/test_gmm_dynamic_panel_parity.py",
+          "entry_point": "sp.xtabond(...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "model": [
+              "difference"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "known DGP (rho 0.5, beta 1): Monte Carlo mean of rho over 20 panels within 4 MC standard errors, beta within 4 SEs on one large draw"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "system GMM, x = w k, one-step robust and two-step Windmeijer, vs xtabond2: coefficients and SEs 1e-9, 38 instruments, AR z 1e-9, Hansen J 1e-9; difference-in-Hansen groups vs xtabond2's printed output, abs 0.005"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "true"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "system GMM, two-step Windmeijer, collapsed, vs xtabond2: coefficients and SEs 1e-9, 11 instruments, Hansen J 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fod"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "system GMM with forward orthogonal deviations, one-step robust and two-step Windmeijer, vs xtabond2, orthogonal: coefficients, SEs and AR z, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "coarser"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "system GMM clustered on industry, one-step robust, vs xtabond2: coefficients and SEs 1e-9, AR z 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_no_iv"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gapped"
+            ]
+          },
+          "compares": "gapped panel, system GMM (AR(1), constant), vs xtabond2, 1e-9"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "Sargan statistic: xtabond's scale; xtabond2's is exactly N*/(N* - k) larger, asserted to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_no_iv"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "AR(1), one-step robust and two-step Windmeijer, vs Stata 18 xtdpdsys: coefficients and SEs 1e-9, instrument count"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_diff"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "x = w k in the differenced equation only, one-step robust and two-step Windmeijer, vs Stata 18 xtdpdsys, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_diff"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "false"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "x = w k, one-step classical, vs Stata 18 xtdpdsys, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "false"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "dummies"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "two lags of y and period dummies, one-step classical, vs Stata 18 xtdpd (h=2, iv() in both equations): coefficients, SEs and Sargan, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "dummies"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "same, one-step vce(robust): SEs vs xtdpd, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_both"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "dummies"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "same, two-step Windmeijer, vs xtdpd, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_no_iv"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "false"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "two lags of y, two-step with a singular weight matrix (early years kept for six firms), conventional SEs, vs xtdpd: coefficients and SEs (generalized inverse by sweep, as Mata's invsym) and Hansen J, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_no_iv"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "same singular-weight fit, Windmeijer SEs (the zeroed moments left out of the one-step covariance) vs xtdpd, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.stata(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_both"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "max_capped"
+            ],
+            "regressors": [
+              "x_endo_window_dummies"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "xtdpd with two lags of y, k exogenous, w endogenous (dgmmiv(n w, lag(2 4))) and period dummies, two-step Windmeijer, translated by sp.stata, vs Stata 18 xtdpd: coefficients and SEs, 1e-8"
+        }
+      ]
+    },
+    "xtdpdsys": {
+      "dimensions": {
+        "model": [
+          "system_h3_iv_both",
+          "system_h3_iv_diff",
+          "system_h3_no_iv",
+          "system_h2_iv_both",
+          "system_h2_iv_diff",
+          "system_h2_no_iv",
+          "system_iv_level",
+          "system_no_constant",
+          "h1"
+        ],
+        "steps": [
+          "onestep",
+          "twostep",
+          "beyond_two"
+        ],
+        "robust": [
+          "true",
+          "false"
+        ],
+        "cluster": [
+          "unit",
+          "coarser"
+        ],
+        "transform": [
+          "fd",
+          "fod"
+        ],
+        "collapse": [
+          "false",
+          "true"
+        ],
+        "gmm_window": [
+          "default",
+          "max_capped",
+          "min_raised",
+          "min_and_max"
+        ],
+        "regressors": [
+          "none",
+          "x",
+          "x_pre_window",
+          "x_endo_window",
+          "dummies",
+          "x_endo_window_dummies",
+          "other"
+        ],
+        "lags": [
+          "1",
+          "2",
+          "3plus"
+        ],
+        "panel": [
+          "gap_free",
+          "gapped"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "robust": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the coefficients are solved before, and independently of, the choice between the classical and the robust / Windmeijer variance (robust= only switches the reported VCE)"
+        }
+      },
+      "cells": 72576,
+      "overall": {
+        "covered": 18,
+        "estimate_only": 12,
+        "not_covered": 72546
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 30,
+          "not_covered": 72546
+        },
+        "se": {
+          "reference": 18,
+          "not_covered": 72558
+        },
+        "diagnostic": {
+          "reference": 8,
+          "not_covered": 72568
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "system GMM, x = w k, one-step robust and two-step Windmeijer, vs xtabond2: coefficients and SEs 1e-9, 38 instruments, AR z 1e-9, Hansen J 1e-9; difference-in-Hansen groups vs xtabond2's printed output, abs 0.005"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "true"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "system GMM, two-step Windmeijer, collapsed, vs xtabond2: coefficients and SEs 1e-9, 11 instruments, Hansen J 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fod"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "system GMM with forward orthogonal deviations, one-step robust and two-step Windmeijer, vs xtabond2, orthogonal: coefficients, SEs and AR z, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "coarser"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "system GMM clustered on industry, one-step robust, vs xtabond2: coefficients and SEs 1e-9, AR z 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_no_iv"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gapped"
+            ]
+          },
+          "compares": "gapped panel, system GMM (AR(1), constant), vs xtabond2, 1e-9"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtabond(method='system')",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "Sargan statistic: xtabond's scale; xtabond2's is exactly N*/(N* - k) larger, asserted to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_no_iv"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "AR(1), one-step robust and two-step Windmeijer, vs Stata 18 xtdpdsys: coefficients and SEs 1e-9, instrument count"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_diff"
+            ],
+            "steps": [
+              "onestep",
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "x = w k in the differenced equation only, one-step robust and two-step Windmeijer, vs Stata 18 xtdpdsys, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_diff"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "false"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "x = w k, one-step classical, vs Stata 18 xtdpdsys, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "false"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "dummies"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "two lags of y and period dummies, one-step classical, vs Stata 18 xtdpd (h=2, iv() in both equations): coefficients, SEs and Sargan, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "dummies"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "same, one-step vce(robust): SEs vs xtdpd, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_both"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "dummies"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "same, two-step Windmeijer, vs xtdpd, 1e-8"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate",
+            "se",
+            "diagnostic"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_no_iv"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "false"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "two lags of y, two-step with a singular weight matrix (early years kept for six firms), conventional SEs, vs xtdpd: coefficients and SEs (generalized inverse by sweep, as Mata's invsym) and Hansen J, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_no_iv"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "none"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "same singular-weight fit, Windmeijer SEs (the zeroed moments left out of the one-step covariance) vs xtdpd, 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_hansen_methods_stata_parity.py",
+          "entry_point": "sp.stata(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "system_h2_iv_both"
+            ],
+            "steps": [
+              "twostep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "max_capped"
+            ],
+            "regressors": [
+              "x_endo_window_dummies"
+            ],
+            "lags": [
+              "2"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "xtdpd with two lags of y, k exogenous, w endogenous (dgmmiv(n w, lag(2 4))) and period dummies, two-step Windmeijer, translated by sp.stata, vs Stata 18 xtdpd: coefficients and SEs, 1e-8"
+        },
+        {
+          "kind": "T1",
+          "artifact": "tests/reference_parity/test_dynpanel_abdata_parity.py",
+          "entry_point": "sp.xtdpdsys(...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "model": [
+              "system_h3_iv_both"
+            ],
+            "steps": [
+              "onestep"
+            ],
+            "robust": [
+              "true"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "transform": [
+              "fd"
+            ],
+            "collapse": [
+              "false"
+            ],
+            "gmm_window": [
+              "default"
+            ],
+            "regressors": [
+              "x"
+            ],
+            "lags": [
+              "1"
+            ],
+            "panel": [
+              "gap_free"
+            ]
+          },
+          "compares": "with iv_equation='both', h=3 the coefficients equal sp.xtabond(method='system') (itself matched to xtabond2), 1e-14"
+        }
+      ]
     }
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 2039,
+      "reference": 2143,
       "seed_equivalence": 3,
       "disclosure": 4,
-      "not_covered": 71942
+      "not_covered": 233138
     },
     "se": {
-      "reference": 982,
+      "reference": 1042,
       "stochastic_screen": 17,
       "disclosure": 32,
-      "not_covered": 72957
+      "not_covered": 234197
     },
     "coverage": {
       "coverage_simulation": 11,
       "not_covered": 44065
     },
     "diagnostic": {
-      "reference": 119,
+      "reference": 147,
       "stochastic_screen": 12,
       "disclosure": 96,
-      "not_covered": 26619
+      "not_covered": 187871
     },
     "vcov": {
       "reference": 37,
@@ -17124,7 +19580,7 @@
     "joint_test": {
       "reference": 59,
       "disclosure": 1,
-      "not_covered": 19480
+      "not_covered": 19500
     }
   },
   "option_fixtures": [

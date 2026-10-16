@@ -9866,7 +9866,7 @@
     }
   },
   {
-    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups.",
+    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups. Validation: certified parity evidence.",
     "name": "predictions",
     "parameters": {
       "properties": {
@@ -9915,7 +9915,7 @@
     }
   },
   {
-    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins.",
+    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins. Validation: certified parity evidence.",
     "name": "avg_predictions",
     "parameters": {
       "properties": {
@@ -9964,7 +9964,7 @@
     }
   },
   {
-    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg.",
+    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg. Validation: certified parity evidence.",
     "name": "comparisons",
     "parameters": {
       "properties": {
@@ -10032,7 +10032,7 @@
     }
   },
   {
-    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions.",
+    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions. Validation: certified parity evidence.",
     "name": "avg_comparisons",
     "parameters": {
       "properties": {
@@ -10100,7 +10100,7 @@
     }
   },
   {
-    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts.",
+    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts. Validation: certified parity evidence.",
     "name": "slopes",
     "parameters": {
       "properties": {
@@ -10172,7 +10172,7 @@
     }
   },
   {
-    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins.",
+    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins. Validation: certified parity evidence.",
     "name": "avg_slopes",
     "parameters": {
       "properties": {
@@ -10244,7 +10244,7 @@
     }
   },
   {
-    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code.",
+    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code. Validation: certified parity evidence.",
     "name": "hypotheses",
     "parameters": {
       "properties": {

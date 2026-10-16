@@ -63,9 +63,19 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
     # ------------------------------------------------------------------ logit
     def x_binary(r: Any) -> Dict[str, Optional[str]]:
         mi = _mi(r)
-        return {"vce": ml_vce(mi), "weights": weighted(mi, r)}
+        return {
+            "vce": ml_vce(mi),
+            "weights": weighted(mi, r),
+            "perfect_prediction": _lower(mi.get("perfect_prediction")) or "drop",
+        }
 
-    binary_domains = {"vce": _ML_VCE, "weights": ("none", "set")}
+    # perfect_prediction='keep' keeps completely separated terms (their
+    # coefficients run off); no reference covers it.
+    binary_domains = {
+        "vce": _ML_VCE,
+        "weights": ("none", "set"),
+        "perfect_prediction": ("drop", "keep"),
+    }
 
     add(
         _Scope(
@@ -76,7 +86,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T2",
                     R + "57_logit.py",
-                    {"vce": _vals("classical"), "weights": _vals("none")},
+                    {
+                        "vce": _vals("classical"),
+                        "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     EST_SE,
                     "coefficients and model-based SEs vs R glm(binomial) and "
                     "Stata logit, 1e-6",
@@ -88,6 +102,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                     {
                         "vce": _vals("classical", "robust", "cluster"),
                         "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
                     },
                     EST_SE,
                     "coefficients and SEs vs Stata logit, vce(oim | robust | "
@@ -100,6 +115,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                     {
                         "vce": _vals("classical", "robust", "cluster"),
                         "weights": _vals("set"),
+                        "perfect_prediction": _vals("drop"),
                     },
                     EST_SE,
                     "weighted coefficients and SEs vs Stata logit [iw] / [fw] "
@@ -109,7 +125,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T1",
                     COUNT_W,
-                    {"vce": _vals("classical"), "weights": _vals("set")},
+                    {
+                        "vce": _vals("classical"),
+                        "weights": _vals("set"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     EST_SE,
                     "frequency weights equal the expanded data, 2e-6",
                     "sp.logit(...)",
@@ -120,6 +140,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                     {
                         "vce": _vals("hc0", "hc1"),
                         "weights": _vals("none", "set"),
+                        "perfect_prediction": _vals("drop"),
                     },
                     EST_SE,
                     "HC0 / HC1 sandwich SEs vs R sandwich::vcovHC on glm, "
@@ -129,7 +150,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T2",
                     JOINT,
-                    {"vce": _vals("classical", "robust"), "weights": _vals("none")},
+                    {
+                        "vce": _vals("classical", "robust"),
+                        "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     ("joint_test",),
                     "Wald chi2, df and p-value of joint hypotheses vs Stata "
                     "test after logit, 1e-8",
@@ -138,7 +163,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T2",
                     POSTEST,
-                    {"vce": _vals("classical", "cluster"), "weights": _vals("none")},
+                    {
+                        "vce": _vals("classical", "cluster"),
+                        "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     ("joint_test",),
                     "Wald test and lincom vs Stata after logit, 1e-6",
                     "sp.logit(...)",
@@ -146,7 +175,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T2",
                     RP + "test_logit_perfect_prediction_Stata_parity.py",
-                    {"vce": _vals("classical"), "weights": _vals("none")},
+                    {
+                        "vce": _vals("classical"),
+                        "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     EST_SE,
                     "coefficients and SEs after Stata's perfect-prediction "
                     "drop, vs Stata logit",
@@ -155,7 +188,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T2",
                     RP + "test_regression_stories_r_parity.py",
-                    {"vce": _vals("classical"), "weights": _vals("none")},
+                    {
+                        "vce": _vals("classical"),
+                        "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     EST_SE,
                     "coefficients and SEs vs R glm(binomial)",
                     "sp.logit(...)",
@@ -178,7 +215,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T2",
                     R + "48_probit.py",
-                    {"vce": _vals("classical"), "weights": _vals("none")},
+                    {
+                        "vce": _vals("classical"),
+                        "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     EST_SE,
                     "coefficients vs R glm(binomial(probit)) and coefficients "
                     "and observed-information SEs vs Stata probit, 1e-6",
@@ -187,7 +228,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T4",
                     R + "48_probit.py",
-                    {"vce": _vals("classical"), "weights": _vals("none")},
+                    {
+                        "vce": _vals("classical"),
+                        "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     ("se",),
                     "R glm reports expected-information SEs, Stata and this "
                     "package observed-information; they differ on a "
@@ -200,6 +245,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                     {
                         "vce": _vals("classical", "robust", "cluster"),
                         "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
                     },
                     EST_SE,
                     "coefficients and SEs vs Stata probit, vce(oim | robust | "
@@ -212,6 +258,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                     {
                         "vce": _vals("classical", "robust", "cluster"),
                         "weights": _vals("set"),
+                        "perfect_prediction": _vals("drop"),
                     },
                     EST_SE,
                     "weighted coefficients and SEs vs Stata probit [iw] / [fw] "
@@ -224,6 +271,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                     {
                         "vce": _vals("hc0", "hc1"),
                         "weights": _vals("none", "set"),
+                        "perfect_prediction": _vals("drop"),
                     },
                     ("se",),
                     "R sandwich::vcovHC builds its bread from glm's expected "
@@ -235,7 +283,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 _Row(
                     "T2",
                     POSTEST,
-                    {"vce": _vals("classical", "cluster"), "weights": _vals("none")},
+                    {
+                        "vce": _vals("classical", "cluster"),
+                        "weights": _vals("none"),
+                        "perfect_prediction": _vals("drop"),
+                    },
                     ("joint_test",),
                     "Wald test and lincom vs Stata after probit, 1e-6",
                     "sp.probit(...)",

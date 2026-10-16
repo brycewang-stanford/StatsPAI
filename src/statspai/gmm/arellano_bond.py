@@ -449,6 +449,18 @@ def xtabond(
 
     ar1, ar2 = fit["ar1"], fit["ar2"]
     sargan, hansen = fit["sargan"], fit["hansen"]
+    # steps=2 is the same estimator as twostep=True (bit for bit); read the
+    # resolved request, not the twostep flag, so the labels say so.
+    requested = fit["steps_requested"]
+    is_twostep = requested == 2
+    step_label = {1: "One-step", 2: "Two-step"}.get(
+        requested,
+        (
+            str(requested).capitalize()
+            if isinstance(requested, str)
+            else f"{requested}-step"
+        ),
+    )
     model_info = {
         "method": {
             "system": "SYSTEM GMM",
@@ -458,9 +470,9 @@ def xtabond(
         "n_obs_level": fit["n_obs_level"],
         "n_obs_total": fit["n_obs_total"],
         "constant": fit["constant"],
-        "twostep": twostep,
+        "twostep": is_twostep,
         "robust": robust,
-        "windmeijer": bool(twostep and robust),
+        "windmeijer": bool(is_twostep and robust),
         "collapse": bool(collapse),
         "transform": "orthogonal deviations" if orthogonal else "first differences",
         "time_dummies": list(fit["time_dummies"]),
@@ -499,7 +511,7 @@ def xtabond(
     return CausalResult(
         method=(
             f"{'Blundell-Bond system' if method == 'system' else 'Arellano-Bond'} "
-            f"({'Two-step' if twostep else 'One-step'} GMM)"
+            f"({step_label} GMM)"
         ),
         estimand="rho (AR coefficient)",
         estimate=rho,

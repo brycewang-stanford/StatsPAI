@@ -9,17 +9,17 @@ Options and evidence for the flagship estimators, read from their signatures and
 | function | weights | clustering | variance options | backend | support tier | evidence tier | config map | limitations |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `sp.regress` | `weights` | `cluster` | `vce=None`, `vcov=None`, `robust='nonrobust'` | native | core | certified | yes | — |
-| `sp.logit` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | — | — |
-| `sp.probit` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | — | — |
-| `sp.poisson` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | — | — |
-| `sp.nbreg` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | — | — |
-| `sp.glm` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | — | — |
+| `sp.logit` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | yes | — |
+| `sp.probit` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | yes | — |
+| `sp.poisson` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | yes | — |
+| `sp.nbreg` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | yes | — |
+| `sp.glm` | `weights` | `cluster` | `robust='nonrobust'` | native | core | certified | yes | — |
 
 ## Panel / HDFE
 
 | function | weights | clustering | variance options | backend | support tier | evidence tier | config map | limitations |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `sp.feols` | `weights` | `cluster` | `vcov=None` | pyfixest (varying slopes: native) | core | certified | — | — |
+| `sp.feols` | `weights` | `cluster` | `vcov=None` | pyfixest (varying slopes: native) | core | certified | yes | — |
 | `sp.hdfe_ols` | `weights` | `cluster` | `vce=None`, `se_type=None` | native | core | certified | — | — |
 | `sp.panel` | via `**kwargs` | via `**kwargs` | via `**kwargs` | native | core | certified | yes | — |
 | `sp.fepois` | `weights` | `cluster` | `vcov=None` | pyfixest | core | certified | — | — |
@@ -63,9 +63,9 @@ Options and evidence for the flagship estimators, read from their signatures and
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `sp.psm` | `weights` | via `**kwargs` | via `**kwargs` | native | core | certified | yes | — |
 | `sp.match` | via `**kwargs` | via `**kwargs` | via `**kwargs` | native | core | certified | — | 2 |
-| `sp.ipw` | `weights` | `cluster` | `se_method='bootstrap'` | native | core | certified | — | — |
-| `sp.aipw` | `weights` | `cluster` | `se_method='influence'` | native | core | certified | — | — |
-| `sp.tmle` | `weights` | `cluster` | `se_method='influence'` | native | core | certified | — | — |
+| `sp.ipw` | `weights` | `cluster` | `se_method='bootstrap'` | native | core | certified | yes | — |
+| `sp.aipw` | `weights` | `cluster` | `se_method='influence'` | native | core | certified | yes | — |
+| `sp.tmle` | `weights` | `cluster` | `se_method='influence'` | native | core | certified | yes | — |
 | `sp.dml` | via `**kwargs` | via `**kwargs` | via `**kwargs` | native | core | certified | yes | 3 |
 | `sp.causal_forest` | via `**kwargs` | `clusters` | via `**kwargs` | native | core | certified | yes | 4 |
 

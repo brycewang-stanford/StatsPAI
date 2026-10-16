@@ -3934,6 +3934,14 @@ _register_lazy(
 )
 
 
+# Every public function accepts polars / Arrow / interchange-protocol frames:
+# they are converted to pandas before the call; pandas arguments pass through
+# by identity (see _frame_input).
+from . import _frame_input  # noqa: E402
+
+_frame_input.install(globals(), __all__)
+
+
 def __getattr__(name):
     """Lazy-load heavy/optional submodules and their leaf exports.
 
@@ -3954,16 +3962,21 @@ def __getattr__(name):
     if name in {"verify", "verify_recommendation"}:
         from .smart.verify import verify_recommendation as _vr
 
+        _vr = _frame_input.wrap_public("verify_recommendation", _vr)
         globals()["verify"] = _vr
         globals()["verify_recommendation"] = _vr
         return _vr
     if name == "verify_benchmark":
         from .smart.benchmark import verify_benchmark as _vb
 
+        _vb = _frame_input.wrap_public("verify_benchmark", _vb)
+
         globals()["verify_benchmark"] = _vb
         return _vb
     if name == "recommend_benchmark":
         from .smart.recommend_benchmark import recommend_benchmark as _rb
+
+        _rb = _frame_input.wrap_public("recommend_benchmark", _rb)
 
         globals()["recommend_benchmark"] = _rb
         return _rb
@@ -3982,7 +3995,7 @@ def __getattr__(name):
 
         _modpath, _attr = _LAZY_ATTRS[name]
         _mod = importlib.import_module(f".{_modpath}", package=__name__)
-        _obj = getattr(_mod, _attr)
+        _obj = _frame_input.wrap_public(name, getattr(_mod, _attr))
         globals()[name] = _obj
         return _obj
     if name in _LAZY_SUBMODULES:

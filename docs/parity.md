@@ -28,8 +28,8 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | evidence kind | grade | functions |
 | --- | --- | ---: |
 | **Compared against R/Stata** (T2) | bit-exact | 434 |
-| | aligned | 53 |
-| | **subtotal** | **487** |
+| | aligned | 60 |
+| | **subtotal** | **494** |
 | **No external software reference** | analytical-only (T1) | 409 |
 | | external-replication (published numbers) | 62 |
 | | **subtotal** | **471** |
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 487 | 941 | 943 | 51.6% |
+| estimator callables | 494 | 948 | 950 | 52.0% |
 | infrastructure (parity N/A) | 0 | 13 | 225 | 0.0% |
 | result / exception classes | 0 | 4 | 403 | 0.0% |
-| **all registered** | 487 | 958 | 1571 | 31.0% |
+| **all registered** | 494 | 965 | 1578 | 31.3% |
 
 ### Coverage by estimator family
 
@@ -65,6 +65,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | network | 23 | 24 | 24 |
 | mendelian | 18 | 20 | 20 |
 | epi | 16 | 17 | 17 |
+| postestimation | 13 | 14 | 14 |
 | power | 8 | 13 | 13 |
 | structural | 6 | 12 | 12 |
 | nonparametric | 3 | 10 | 10 |
@@ -75,7 +76,6 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | frontier | 5 | 9 | 9 |
 | survey | 6 | 7 | 7 |
 | causal_discovery | 2 | 7 | 7 |
-| postestimation | 6 | 7 | 7 |
 | target_trial | 0 | 6 | 6 |
 | transport | 3 | 6 | 6 |
 | interference | 0 | 6 | 6 |
@@ -538,7 +538,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 1.2e-07 / 2.8e-08 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 | `zivot_andrews` | urca::ur.za | R 4.5.2; urca 1.3.4 | minimum t statistic, the path over break dates and the regression at the break 1e-7 rel; break date equal | — / — | [`test_zivot_andrews_parity.py`](../tests/reference_parity/test_zivot_andrews_parity.py) (+1) |
 
-## aligned — 53 functions
+## aligned — 60 functions
 
 Agreement within a documented, pre-registered looser tolerance.
 
@@ -547,6 +547,9 @@ Agreement within a documented, pre-registered looser tolerance.
 | `ackerberg_caves_frazer` | Stata prodest, method(lp) acf valueadded; R prodest::prodestACF | Stata 18 MP; prodest SSC; R prodest 1.0.2 | StatsPAI returns an exact root of the just-identified moment conditions (criterion < 1e-25), the one nearest the stage-1 coefficients; R stops 2.4e-6 (relative) from that root with criterion 9e-16. Stata's Nelder-Mead stops at non-roots (criterion 4e-6 / 7e-6), which the test records. The parity panel has three roots, all reported in diagnostics['acf_roots']. | — / — | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `aft` | survival::survreg (Weibull AFT) | R 4.5.2; survival 3.8.3 | coefficients & log-scale 5e-5 abs (observed ~1e-5) | — / — | [`test_aft_parity.py`](../tests/reference_parity/test_aft_parity.py) (+1) |
 | `augsynth` | augsynth::augsynth | R 4.5.2; augsynth 0.2.0 | rel_est<=2e-05, rel_se<=1e-06 | 7.9e-06 / 9.4e-13 | [`18_augsynth.py`](../tests/r_parity/18_augsynth.py) (+2) |
+| `avg_comparisons` | marginaleffects::avg_comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms | R 4.5.2; marginaleffects 0.32.0 | estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian | — / — | [`test_marginaleffects_r_parity.py`](../tests/reference_parity/test_marginaleffects_r_parity.py) (+1) |
+| `avg_predictions` | marginaleffects::avg_predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms | R 4.5.2; marginaleffects 0.32.0 | estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian | — / — | [`test_marginaleffects_r_parity.py`](../tests/reference_parity/test_marginaleffects_r_parity.py) (+1) |
+| `avg_slopes` | marginaleffects::avg_slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms | R 4.5.2; marginaleffects 0.32.0 | estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian | — / — | [`test_marginaleffects_r_parity.py`](../tests/reference_parity/test_marginaleffects_r_parity.py) (+1) |
 | `blp` | pyblp 1.2.0 (Conlon & Gortmaker), identical Halton nodes via agent_data | pyblp 1.2.0; numpy 2.2.6; python 3.10.20 | beta, sigma, SEs, objective/N, own elasticities 1e-6 rel (observed <= 1.6e-8) | — / — | [`test_blp_pyblp_parity.py`](../tests/reference_parity/test_blp_pyblp_parity.py) (+1) |
 | `breakdown_m` | HonestDiD::findOptimalFLCI 0.2.8 (Rambachan & Roth), breakdown by uniroot on the bound facing zero | R 4.5.2; HonestDiD 0.2.8; CVXR 1.8.2 | vs HonestDiD with its Monte-Carlo folded-normal quantile replaced by the exact one: 1e-9 (observed 6.1e-11); vs HonestDiD as shipped: 1e-3 (observed 4.3e-4), the simulation error of .qfoldednormal (1e6 draws, seed 0; 1.96224 vs exact 1.95996 at mu = 0) | — / — | [`test_did_synth_R_parity.py`](../tests/reference_parity/test_did_synth_R_parity.py) (+1) |
 | `cate_eval` | grf::rank_average_treatment_effect 2.6.1 (AUTOC, QINI, TOC), fed grf's nuisances; shares sp.rate's operator | R 4.5.2; grf 2.6.1 | Point estimate (AUTOC, QINI) and TOC curve on q = 0.1..1 exact at 1e-10 rel (observed 4.6e-15), including a 30-group tied-priority case against rank_average_treatment_effect.fit. SE is T3: the analytic rank-corrected influence-function SE is compared with grf's half-sample bootstrap (R = 2000) at 6% rel (observed 2.6% AUTOC, 1.7% QINI). | — / — | [`test_ml_causal_R_parity.py`](../tests/reference_parity/test_ml_causal_R_parity.py) (+1) |
@@ -557,6 +560,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `cic` | qte::CiC | R 4.5.2; qte 2.0.0 | rel_est<=1e-06 | 2.4e-15 / 6.0e-03 | [`74_cic.py`](../tests/r_parity/74_cic.py) (+2) |
 | `cloglog` | stats::glm(binomial('cloglog')) | R 4.5.2 | coefficients 5e-5 abs (observed ~1e-5; IRLS convergence) | — / — | [`test_glm_ext_parity.py`](../tests/reference_parity/test_glm_ext_parity.py) (+1) |
 | `community_detection` | R igraph::cluster_louvain (T3: randomised on both sides) | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | T3, not T2: 200 seeded runs on karate have mean modularity within four combined standard errors of igraph's 200 runs (0.4157 vs 0.4145), and both reach the same maximum, 0.41979, the known optimum for this graph. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `comparisons` | marginaleffects::comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms | R 4.5.2; marginaleffects 0.32.0 | estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian | — / — | [`test_marginaleffects_r_parity.py`](../tests/reference_parity/test_marginaleffects_r_parity.py) (+1) |
 | `conditional_lr_ci` | R ivmodel::CLR | ivmodel 1.9.1 | Monte Carlo by construction and graded as such: ivmodel integrates Moreira's conditional distribution while StatsPAI simulates it, so the two cannot agree deterministically. The test asserts the error SHRINKS with n_sim rather than pinning a number -- 3.8e-3 at n_sim=5,000 and 1.7e-4 at 200,000 -- which is the only honest statement about a simulated critical value. The endpoints themselves are bisected off-grid, so the residual is the critical value and not the grid. | — / — | [`test_weakiv_meta_parity.py`](../tests/reference_parity/test_weakiv_meta_parity.py) |
 | `cox_frailty` | R survival::coxph(... + frailty(id, theta=, sparse=FALSE)); Stata stcox, shared() | R 4.5.2; survival 3.8.3; Stata 18 MP | fixed theta: beta and SE 1e-9, integrated log likelihood 1e-10 (observed 4e-14); theta maximiser 1e-6 vs R optimize (observed 5e-8) and 5e-5 vs Stata e(theta) (observed 7.5e-6) | — / — | [`test_survival_epi_R_parity.py`](../tests/reference_parity/test_survival_epi_R_parity.py) (+2) |
 | `demeaned_synth` | augsynth::augsynth(progfunc = 'None', fixedeff = TRUE) 0.2.0 (de-meaned SCM) | R 4.5.2; augsynth 0.2.0; osqp 1.0.0 | gap path and ATT 1e-7 rel (observed 1.2e-9); weights 1e-8 abs | — / — | [`test_did_synth_synthvar_parity.py`](../tests/reference_parity/test_did_synth_synthvar_parity.py) (+1) |
@@ -567,6 +571,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `genmatch` | Matching::Match 4.10-15 (Weight = 3, Weight.matrix) | — | Deterministic kernel only: given the same diagonal W, the 1-NN assignment agrees with Matching::Match on all 163 uniquely matched treated units on MatchIt::lalonde. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `grapple` | GRAPPLE::grappleRobustEst (GitHub jingshuw/GRAPPLE 317e837) | GRAPPLE 0.2.2 | sandwich at GRAPPLE's estimates 1e-6 (l2 1e-12); fitted beta 1e-3, tau2 / SE 1e-4 | — / — | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
 | `hits` | R igraph::hits_scores | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Hub and authority vectors are igraph's up to normalisation: L1 here (documented), max = 1 in igraph; the ratio is constant across nodes to 1e-11. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `hypotheses` | marginaleffects::hypotheses on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms | R 4.5.2; marginaleffects 0.32.0 | estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian | — / — | [`test_marginaleffects_r_parity.py`](../tests/reference_parity/test_marginaleffects_r_parity.py) (+1) |
 | `lcsf` | sfaR::sfalcmcross 1.0.1 (2 classes, half-normal) | R 4.5.2; sfaR 1.0.1 | estimates 1e-6 rel (observed 1.1e-8); OIM SEs 1e-6 rel (observed 8.6e-8) | — / — | [`test_frontier_struct_R_parity.py`](../tests/reference_parity/test_frontier_struct_R_parity.py) (+1) |
 | `levinsohn_petrin` | Stata prodest, method(lp) valueadded (Rovigatti & Mollisi); R prodest::prodestLP | Stata 18 MP; prodest SSC; R prodest 1.0.2 | As olley_pakes with materials as the proxy: free-input coefficient at 1e-12 against both; state coefficient at the minimiser, R 1.3e-6 and Stata up to 1.8e-3 away where their optimisers stop. | — / — | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `lincom` | Stata 18 lincom (after regress / ivregress / logit / poisson) | Stata 18 | 1e-6 rel (observed <= 2.3e-15 on linear fits, <= 2.3e-8 overall) | — / — | [`test_postestimation_stata_parity.py`](../tests/reference_parity/test_postestimation_stata_parity.py) (+1) |
@@ -577,6 +582,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `mr_raps` | R mr.raps 0.4.3 (simple / overdispersed / overdispersed.robust) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Simple and L2-overdispersed fits (beta, SE, tau2) at 1e-8. Robust Huber / Tukey: the sandwich reproduces R's SEs at 1e-10 when evaluated at R's own (beta, tau2) and integrate() moments; the fitted values agree to 5e-5 (beta), 5e-4 (SE), 1.5e-3 (tau2) because R stops uniroot at its default tolerance and integrate() at 1.2e-4 -- a test shows StatsPAI's root satisfies the estimating equation more tightly than R's. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
 | `olley_pakes` | Stata prodest, method(op) valueadded (Rovigatti & Mollisi); R prodest::prodestOP | Stata 18 MP; prodest SSC; R prodest 1.0.2 | Simulated unbalanced panel with 31 calendar gaps. Free-input coefficient (stage-1 OLS) at 1e-12 against both, polynomial degree 2 and 3. State coefficient: StatsPAI solves the first-order condition and has a sum of squares no larger than at either reference estimate; the references stop their optimisers early (R BFGS 5.9e-6 away, Stata Nelder-Mead at tolerance 1e-5 up to 4.3e-3 away). | — / — | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `optimal_match` | optmatch::pairmatch 0.10.8 on a logit propensity score | — | Total matched distance <= optmatch's (1 + 1e-6). The matched pairs are not pinned: the assignment problem is degenerate on this data, so equally optimal solutions report different ATTs. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
+| `predictions` | marginaleffects::predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms | R 4.5.2; marginaleffects 0.32.0 | estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian | — / — | [`test_marginaleffects_r_parity.py`](../tests/reference_parity/test_marginaleffects_r_parity.py) (+1) |
 | `pretrends_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2; pretrends 0.1.0 | rel_est<=0.001 | 4.0e-05 / 1.4e-04 | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
 | `pretrends_slope_for_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2; pretrends 0.1.0 | rel_est<=0.001 | 4.0e-05 / 1.4e-04 | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
 | `qdid` | qte::QDiD 1.3.1 | — | max deviation / scale < 0.08, sign agreement on the large effects and correlation > 0.999. R's quantiles come from BMisc::weighted_quantile (stats::optimize on a piecewise-linear check function, which has plateaus where every point is a minimiser) while sp.qdid interpolates the empirical inverse CDF; on this fixture the gap is at most ~152 currency units against effects running to ~8900. | — / — | [`test_qdid_parity.py`](../tests/reference_parity/test_qdid_parity.py) (+1) |
@@ -591,6 +597,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `scest` | R scpi::scest (w.constr simplex / lasso / ridge / ols / L1-L2, V = 'separate') | scpi 4.0.1; CVXR 1.9.2; clarabel 0.11.2; osqp 1.0.0 | ols and lasso weights at 1e-9 abs; ridge Q / lambda and L1-L2 Q2 at 1e-10. simplex / ridge / L1-L2 weights are bounded by the conic solver: R's objective exceeds StatsPAI's exact optimum by <= 1e-7 relative (CLARABEL gap 1e-8), R's point is feasible, and ||w_R - w_py|| <= sqrt(gap / lambda_min(B'B)) (observed 2.0e-6 / 1.4e-5 / 2.9e-7). | — / — | [`test_did_synth_scpi_parity.py`](../tests/reference_parity/test_did_synth_scpi_parity.py) |
 | `scpi` | R scpi::scpi (effect = 'unit-time', u.missp, u.sigma = HC1, u.order = e.order = 1, rho = type-2, e.method = all) | scpi 4.0.1; CVXR 1.9.2; ECOSolveR 0.6.1; Qtools 1.6.0; quantreg 6.1 | On R's weights: rho, Q.star, u.mean, Omega, Sigma, e.mean at 1e-9; out-of-sample e.var and gaussian / ls / qreg bounds at 1e-9 against R with rrq(method = 'br') (exact LP) and 5e-4 abs against the default Frisch-Newton rrq. In-sample simulation fed R's draws: per-draw median <= 1e-6 and max <= 2e-4 vs ECOS at 1e-12, quantile bounds at 1e-5; vs default ECOS (1e-8) bounds within 2e-3 abs. Average-effect CI = scdataMulti(effect = 'unit') within 5e-4. J > T0 (California, 38 donors) covered. | — / — | [`test_did_synth_scpi_parity.py`](../tests/reference_parity/test_did_synth_scpi_parity.py) |
 | `shapley_inequality` | Stata shapley2 1.5 (Chavez Juarez) over regress + ineqdeco (Jenkins) | Stata 18.0 MP; shapley2 1.5 10jun15 (SSC) | value function v(S) 1e-11 rel (observed 1.4e-13); Shapley values 1e-6 rel (observed 2.7e-7, shapley2 routes v(S) through float variables); totals 1e-12 | — / — | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) (+1) |
+| `slopes` | marginaleffects::slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms | R 4.5.2; marginaleffects 0.32.0 | estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian | — / — | [`test_marginaleffects_r_parity.py`](../tests/reference_parity/test_marginaleffects_r_parity.py) (+1) |
 | `spatial_panel` | splm::spml(model = 'within') 1.6.5; Stata xsmle 1.4.5 fe type(ind) vce(oim) | R 4.5.2; splm 1.6.5; plm 2.6.7; Stata 18; xsmle version 1.4.5 5jun2017 | vs splm: estimates and SEs 1e-7 rel (observed 7.2e-8 / 1.3e-8, the splm optimize floor); vs xsmle (tightened ml tolerances): estimates and beta SEs 1e-9 (observed 2.5e-13 / 8.5e-11), spatial-parameter SE 1e-8 (observed 3.0e-9) | — / — | [`test_spatial_survey_R_parity.py`](../tests/reference_parity/test_spatial_survey_R_parity.py) (+2) |
 | `test` | Stata 18 test (after regress / ivregress / logit / poisson) | Stata 18 | 1e-6 rel (observed <= 2.3e-15 on linear fits, <= 8e-10 on ML fits, far-tail p <= 4.7e-8) | — / — | [`test_postestimation_stata_parity.py`](../tests/reference_parity/test_postestimation_stata_parity.py) (+1) |
 | `weakrobust` | R ivmodel::CLR 1.9.1; Stata weakiv 2.4.07 (md small) | R 4.5.2; ivmodel 1.9.1; Stata 18 MP; weakiv 2.4.07 | CLR statistic and p-value vs ivmodel rel 1e-9 (observed 1.2e-11); CLR set vs ivmodel 5e-5 (observed 1.2e-5, ivmodel's uniroot default tolerance); CLR / K / AR vs Stata weakiv 1e-6 (observed 1.1e-7 / 1.1e-7 / 2.1e-8, not bisected further) | — / — | [`test_rd_iv_R_parity.py`](../tests/reference_parity/test_rd_iv_R_parity.py) (+2) |

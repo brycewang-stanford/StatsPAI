@@ -72,8 +72,9 @@ def test_unmapped_function_says_so():
         {"y": np.r_[np.zeros(30), np.ones(30)], "x": np.linspace(-1, 1, 60)}
     )
     d["y"] = (d["x"] + np.sin(np.arange(60)) > 0).astype(int)
-    card = sp.result_card(sp.logit("y ~ x", d))
-    assert card["function"] == "logit"
+    # cloglog has no configuration map (logit got one on 2026-10-17)
+    card = sp.result_card(sp.cloglog("y ~ x", d))
+    assert card["function"] == "cloglog"
     assert card["evidence"]["level"] == "function"
     assert card["evidence"]["status"] == "no_configuration_map"
     assert "Pr(y=1)" in card["estimand"]["scale"]

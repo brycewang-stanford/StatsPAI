@@ -169,6 +169,10 @@ def trace_path(ledger: str = "r", root: Path = REPO) -> Path:
 def _run_one(module_path: Path) -> dict:
     """Execute one Track A module in-process under the boundary profiler."""
     src_root = str(REPO / "src" / "statspai")
+    # The sp.* input shim converts polars / Arrow frames and passes pandas
+    # arguments through by identity (tests/test_frame_input.py), so it is
+    # not part of the estimation path these modules exercise.
+    frame_shim = str(REPO / "src" / "statspai" / "_frame_input.py")
     calls: Counter = Counter()
     exercised: set = set()
     launched: list[list[str]] = []
@@ -185,7 +189,8 @@ def _run_one(module_path: Path) -> dict:
             return
         callee = frame.f_code.co_filename
         if callee.startswith(src_root):
-            exercised.add(callee)
+            if callee != frame_shim:
+                exercised.add(callee)
             return
         caller = frame.f_back
         if caller is None or not caller.f_code.co_filename.startswith(src_root):

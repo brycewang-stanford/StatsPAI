@@ -1476,7 +1476,7 @@
     "name": "average_treatment_effect"
   },
   {
-    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "description": "Average contrasts (marginaleffects::avg_comparisons): for a binary treatment on the response scale, the model-implied average treatment effect (g-formula). Averaged ratios are ratios of average predictions. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
     "input_schema": {
       "properties": {
         "by": {
@@ -1544,7 +1544,7 @@
     "name": "avg_comparisons"
   },
   {
-    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "description": "Average prediction, overall or by group (marginaleffects::avg_predictions); unweighted and normal-reference by default, wts=True and df='model' for Stata's margins. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
     "input_schema": {
       "properties": {
         "by": {
@@ -1593,7 +1593,7 @@
     "name": "avg_predictions"
   },
   {
-    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "description": "Average marginal effects (marginaleffects::avg_slopes); with wts=True and df='model' equal to Stata margins, dydx() and sp.margins. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
     "input_schema": {
       "properties": {
         "by": {
@@ -6334,7 +6334,7 @@
     "name": "compare_metalearners"
   },
   {
-    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "description": "Unit-level contrasts of predictions (marginaleffects::comparisons): factor levels against the first, 0/1 variables 1 - 0, numeric variables +1 or a chosen change; difference, ratio, lnratio, ratioavg, lnratioavg. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
     "input_schema": {
       "properties": {
         "by": {
@@ -17672,7 +17672,7 @@
     "name": "hurdle"
   },
   {
-    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.nlcom, sp.lincom, sp.test.",
+    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.nlcom, sp.lincom, sp.test.",
     "input_schema": {
       "properties": {
         "conf_level": {
@@ -27853,7 +27853,7 @@
     "name": "predict_cate"
   },
   {
-    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "description": "Unit-level predictions with delta-method standard errors, in the vocabulary of R marginaleffects::predictions; with by= the predictions are averaged within groups. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
     "input_schema": {
       "properties": {
         "by": {
@@ -37062,7 +37062,7 @@
     "name": "sktest"
   },
   {
-    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
+    "description": "Unit-level partial derivatives of the prediction (marginaleffects::slopes), analytic through interactions and formula transformations; eyex / eydx / dyex elasticities. Factors and 0/1 variables are reported as contrasts. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.margins, sp.nlcom, sp.lincom.",
     "input_schema": {
       "properties": {
         "by": {

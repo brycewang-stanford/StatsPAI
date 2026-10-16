@@ -5854,11 +5854,17 @@ def _register_satellite_maps() -> None:
     """Maps kept in their own modules (they read this module's primitives)."""
     import sys
 
-    from . import _validation_scope_fe, _validation_scope_ldv, _validation_scope_te
+    from . import (
+        _validation_scope_dynpanel,
+        _validation_scope_fe,
+        _validation_scope_ldv,
+        _validation_scope_te,
+    )
 
     _validation_scope_ldv.register(_add, sys.modules[__name__])
     _validation_scope_fe.register(_add, sys.modules[__name__])
     _validation_scope_te.register(_add, sys.modules[__name__])
+    _validation_scope_dynpanel.register(_add, sys.modules[__name__])
 
 
 _register_satellite_maps()

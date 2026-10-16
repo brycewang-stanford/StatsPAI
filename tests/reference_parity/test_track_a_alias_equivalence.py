@@ -33,6 +33,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai._frame_input import bare
 from statspai._parity_taxonomy import (
     REFUTED_ALIASES,
     SUBNAMESPACE_LEAF_PROOFS,
@@ -183,7 +184,7 @@ def test_every_dotted_credit_is_the_same_object_or_proven() -> None:
             obj = sp
             for part in dotted.split("."):
                 obj = getattr(obj, part, None)
-            if obj is not None and getattr(sp, fn, None) is obj:
+            if obj is not None and bare(getattr(sp, fn, None)) is bare(obj):
                 continue
             if SUBNAMESPACE_LEAF_PROOFS.get(f"sp.{dotted}") is None:
                 unproven.append((fn, dotted))

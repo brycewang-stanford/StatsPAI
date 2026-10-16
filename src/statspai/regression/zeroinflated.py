@@ -112,6 +112,44 @@ def _logit(z: np.ndarray) -> np.ndarray:
     return _as_float_array(special.expit(z))
 
 
+#: Overdispersion ``alpha * mean(mu)`` below which the NB2 dispersion is
+#: taken to sit at its boundary alpha = 0 (the variance exceeds the Poisson
+#: variance by less than 0.01%). There the information about ln(alpha) is
+#: nil and the log likelihood is evaluated as a difference of log-gamma
+#: values near 1/alpha, so inverting the full Hessian returns rounding noise
+#: whose sign depends on the platform's BLAS: NaN on Linux and macOS, a
+#: finite number on Windows (seen on CI, 2026-10-17).
+_DISPERSION_BOUNDARY = 1e-4
+
+
+def _nb_standard_errors(
+    H: np.ndarray,
+    score_obs: np.ndarray,
+    *,
+    alpha_hat: float,
+    mean_mu: float,
+    robust: str,
+    clusters: Any,
+) -> Tuple[np.ndarray, bool]:
+    """Standard errors of an NB2 model whose last parameter is ln(alpha).
+
+    At the boundary the covariance of the other parameters is taken with
+    alpha held at its estimate (the Poisson limit, so they equal the
+    zero-inflated / hurdle Poisson standard errors) and ln(alpha) gets NaN,
+    which the result reports as a non-finite standard error.
+    """
+    if alpha_hat * mean_mu >= _DISPERSION_BOUNDARY:
+        V = ml_vcov(inverse_information(H), score_obs, kind=robust, clusters=clusters)
+        return se_from_vcov(V), False
+    V = ml_vcov(
+        inverse_information(H[:-1, :-1]),
+        score_obs[:, :-1],
+        kind=robust,
+        clusters=clusters,
+    )
+    return np.append(se_from_vcov(V), np.nan), True
+
+
 def _warn_flat_terms(se: pd.Series, function: str) -> None:
     """Warn when the likelihood is flat along some coefficient.
 
@@ -869,12 +907,17 @@ def zinb(
             else data.loc[df.index, cluster].values
         )
         require_two_clusters(clusters, "zip_model / zinb / hurdle")
-    se = se_from_vcov(
-        ml_vcov(inverse_information(H), score_obs, kind=robust, clusters=clusters)
+    mu_hat = np.exp(np.clip(X_count @ beta_hat, -20, 20))
+    se, dispersion_at_boundary = _nb_standard_errors(
+        H,
+        score_obs,
+        alpha_hat=alpha_hat,
+        mean_mu=float(np.mean(mu_hat)),
+        robust=robust,
+        clusters=clusters,
     )
 
     # Vuong test: ZINB vs plain NB
-    mu_hat = np.exp(np.clip(X_count @ beta_hat, -20, 20))
     # The comparison model is the NB2 regression fitted on its own (see
     # zip_model).
     from ._negbin import negbin_joint
@@ -900,6 +943,9 @@ def zinb(
 
     model_info = {
         "model_type": "zinb",
+        # NB2 dispersion at alpha = 0: ln_alpha has no standard error and
+        # the other standard errors hold alpha at its estimate.
+        "dispersion_at_boundary": dispersion_at_boundary,
         "method": "Zero-Inflated Negative Binomial (MLE)",
         "dependent_var": dep_var,
         "ll": ll_zinb,
@@ -1256,13 +1302,24 @@ def hurdle(
             else data.loc[df.index, cluster].values
         )
         require_two_clusters(clusters, "zip_model / zinb / hurdle")
-    se = se_from_vcov(
-        ml_vcov(inverse_information(H), score_obs, kind=robust, clusters=clusters)
-    )
-
-    # Predicted values
     p_hat = _logit(X @ delta_hat)
     mu_hat = np.exp(np.clip(X @ beta_hat, -20, 20))
+    dispersion_at_boundary = False
+    if use_negbin:
+        se, dispersion_at_boundary = _nb_standard_errors(
+            H,
+            score_obs,
+            alpha_hat=float(np.exp(theta_hat[-1])),
+            mean_mu=float(np.mean(mu_hat)),
+            robust=robust,
+            clusters=clusters,
+        )
+    else:
+        se = se_from_vcov(
+            ml_vcov(inverse_information(H), score_obs, kind=robust, clusters=clusters)
+        )
+
+    # Predicted values
     if use_negbin:
         alpha_hat = float(np.exp(theta_hat[-1]))
         f0 = np.exp(_log_nb2_pmf(np.zeros(n), mu_hat, alpha_hat))
@@ -1285,6 +1342,9 @@ def hurdle(
 
     model_info = {
         "model_type": "hurdle",
+        # NB2 dispersion at alpha = 0: ln_alpha has no standard error and
+        # the other standard errors hold alpha at its estimate.
+        "dispersion_at_boundary": dispersion_at_boundary,
         "method": f"Hurdle ({count_model.title()}, MLE)",
         "dependent_var": dep_var,
         "count_dist": count_model,

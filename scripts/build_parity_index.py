@@ -7733,6 +7733,55 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# ---- marginaleffects-style post-estimation (2026-10-17) ----
+# One fixture covers all seven entry points; R marginaleffects is GPL-3 and
+# was run as a black box. "aligned", not "bit-exact": the estimates agree to
+# 1e-8 but marginaleffects takes the Jacobian for its standard errors by
+# finite differences, so those agree to 2e-5 (slopes 2e-4).
+_FROZEN_PROMOTIONS.update(
+    {
+        _name: {
+            "status": "aligned",
+            "reference": (
+                "marginaleffects::" + _name + " on lm / glm (logit, probit, "
+                "poisson) fits with interactions, factors and squared terms"
+            ),
+            "reference_versions": {
+                "R": "R version 4.5.2 (2025-10-31)",
+                "marginaleffects": "0.32.0",
+            },
+            "tolerance": (
+                "estimates 1e-8 relative; standard errors 2e-5 relative "
+                "(slopes: estimates 1e-6, standard errors 2e-4), the "
+                "precision of the reference's numerical Jacobian"
+            ),
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_marginaleffects_r_parity.py",
+                "tests/reference_parity/_fixtures/marginaleffects_R.json",
+            ],
+            "note": (
+                "Conventions checked against the reference: unweighted "
+                "averages and a normal reference distribution by default; "
+                "'sd' contrasts mean +/- sd/2 for every row; averaged ratios "
+                "are ratios of average predictions; 0/1 variables are "
+                "contrasts in slopes. The GLMs are fitted in R at "
+                "epsilon = 1e-14, and the probit on the StatsPAI side with "
+                "information='expected' to match glm's covariance."
+            ),
+        }
+        for _name in (
+            "predictions",
+            "avg_predictions",
+            "comparisons",
+            "avg_comparisons",
+            "slopes",
+            "avg_slopes",
+            "hypotheses",
+        )
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers
@@ -7820,7 +7869,13 @@ def _subnamespace_credit(py_api: str, leaf: str) -> Tuple[List[str], List[str]]:
         obj: Any = sp
         for part in match.split("."):
             obj = getattr(obj, part, None)
-        if obj is not None and getattr(sp, leaf, None) is obj:
+
+        # Compare beneath the sp.* frame-input wrapper: a lazily exported
+        # name is wrapped when first resolved, so whichever path is read
+        # first can still hold the bare function.
+        from statspai._frame_input import bare
+
+        if obj is not None and bare(getattr(sp, leaf, None)) is bare(obj):
             continue
         proof = SUBNAMESPACE_LEAF_PROOFS.get(f"sp.{match}")
         if proof is None or proof.alias != leaf:

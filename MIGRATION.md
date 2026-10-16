@@ -5,6 +5,23 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ zero-inflated / hurdle NB at the dispersion boundary
+
+**What changed.** When the NB2 dispersion estimate of `sp.zinb` or
+`sp.hurdle(count_model="negbin")` sits at alpha = 0 (overdispersion
+`alpha * mean(mu)` below 1e-4), the standard error of `ln_alpha` is NaN on
+every platform (it used to be NaN on Linux and macOS and a finite number
+on Windows), and the other standard errors hold alpha at its estimate.
+They now equal the zero-inflated / hurdle Poisson standard errors; before
+they came from a near-singular inverse and could differ in the fourth
+digit. `model_info["dispersion_at_boundary"]` says when this applies.
+
+**What to do.** Nothing for fits with real overdispersion. At the boundary
+the data show no overdispersion; `sp.zip_model` / `sp.hurdle(count_model=
+"poisson")` is the model the estimates describe.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ E-values, honest DiD relative magnitudes, spatial intervals
 
 **What changed.**

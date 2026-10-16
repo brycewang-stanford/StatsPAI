@@ -78,6 +78,15 @@ dev = [
     "sphinx-rtd-theme",
     "matplotlib>=3.5.0",
     "seaborn>=0.11.0",
+    "polars>=1.0",
+    "pyarrow>=14",
+]
+polars = [
+    # Optional: every sp.* function accepts polars DataFrames / LazyFrames
+    # (converted to pandas at the call; see docs/guides/dataframe_input.md).
+    # polars hands frames to pandas through pyarrow.
+    "polars>=1.0",
+    "pyarrow>=14",
 ]
 performance = [
     "jax[cpu]>=0.4.0",

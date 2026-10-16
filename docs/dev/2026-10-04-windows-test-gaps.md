@@ -1,5 +1,36 @@
 # Tests that fail on Windows
 
+## Update 2026-10-17
+
+`.github/workflows/windows.yml` now runs a Windows gate on every push that
+touches code (windows-latest, Python 3.10 and 3.13): every test listed
+below plus the MCP stdio, path and core estimator contracts, about 700
+tests in 2 to 3 minutes. Its first run (commit `6966ff63`) found the list
+much shorter than on 10-03:
+
+- All ten MCP stdio tests pass. They were fixed on main between the two
+  runs; the Windows drive-letter URL bug in the data loader was one cause.
+- Both path tests were real bugs, fixed: the release gate compared its
+  allowlist against `src\...` paths, and `test_replay_string` looked for a
+  raw path inside a `repr` literal.
+- `test_example_scripts[gmethods_timevarying.py]`: the example printed
+  `≈` and `—` to a cp1252 console, which crashes there for any Windows
+  user. Now ASCII.
+- `test_cross_validate` (R fixest skip): the skip message read a field that
+  does not exist. Fixed.
+- `test_nonfinite_se_warns_and_is_recorded` (3.13): a real
+  platform-dependence. At the NB2 dispersion boundary `sp.zinb` inverted a
+  Hessian that is singular in ln(alpha); the rounding noise came out
+  negative (NaN standard error) on Linux and macOS and positive on Windows.
+  The boundary is now decided from the estimate and ln_alpha's standard
+  error is NaN on every platform (`tests/test_nb_dispersion_boundary.py`).
+- The two parity tolerances and the GES collider test passed on this run.
+
+The full suite on Windows (`workflow_dispatch`, scope `full`) has not been
+run since 10-03. Windows goes back into the main matrix once a full run is
+clean.
+
+
 Status on 2026-10-04: the Windows legs are out of the full CI matrix
 (`.github/workflows/ci-cd.yml`). Nobody on the project has a Windows machine,
 and a full run there takes about five hours, so these cannot be debugged by

@@ -4,6 +4,73 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Evidence maps for dynamic panel GMM
+
+#### Added
+
+- `sp.validation_scope` maps for `sp.xtabond` and `sp.xtdpdsys`: model
+  (difference / Anderson-Hsiao / system with its h and IV-equation
+  variants), steps, robust, clustering, transform, collapse, GMM lag window,
+  regressors, lags of y and gapped panels, with 37 evidence rows against
+  Stata `xtabond` / `xtabond2` / `xtdpd` / `xtdpdsys`, R `plm::pgmm` and
+  `pdynmc`. Unreferenced configurations report as such (three or more lags
+  of y, h(1), `iv_equation='level'`, period dummies in difference GMM,
+  iterated / CUE, two-step with clusters coarser than the unit).
+- `logit` / `probit` maps gained the `perfect_prediction` dimension: no
+  reference covers `'keep'`.
+
+#### Fixed
+
+- `sp.xtabond(steps=2)` is the two-step estimator, identical to
+  `twostep=True`, but `model_info["twostep"]`, `["windmeijer"]` and the
+  method label said one-step. They now read the resolved step count
+  (`steps='iterated'` is labelled "Iterated GMM").
+- `sp.regtable(vcov=)` with a spelling no estimator knows (a typo) raises
+  again instead of keeping every column's fit-time standard errors under a
+  warning; a valid spelling a given estimator does not offer still warns
+  per column.
+
+### Windows gate in CI
+
+#### ⚠️ Correctness
+
+- `sp.zinb` and `sp.hurdle(count_model="negbin")`: when the NB2 dispersion
+  estimate sits at its boundary (alpha * mean(mu) < 1e-4, the Poisson
+  limit), the standard errors no longer come from inverting a Hessian that
+  is singular in ln(alpha). That inversion returned rounding noise whose
+  sign depended on the platform: a NaN standard error for ln_alpha on
+  Linux and macOS, a finite one on Windows. Now ln_alpha's standard error
+  is NaN everywhere (with the usual warning and
+  `model_info["nonfinite_se_terms"]`), the other standard errors are
+  computed with alpha held at its estimate (they match the zero-inflated
+  or hurdle Poisson fit), and `model_info["dispersion_at_boundary"]`
+  records it. Away from the boundary nothing changes.
+
+#### Fixed
+
+- `scripts/release_gate.py` compared its allowlist against Windows paths
+  (`src\...`) and failed there.
+- `examples/gmethods_timevarying.py` printed non-ASCII characters, which
+  crash a cp1252 Windows console.
+
+#### Added
+
+- `.github/workflows/windows.yml`: about 700 tests on Windows (Python 3.10
+  and 3.13) on every code push; a full Windows run on dispatch.
+
+### polars and Arrow input everywhere
+
+#### Added
+
+- Every `sp.*` function accepts a polars `DataFrame` / `LazyFrame` /
+  `Series`, a pyarrow `Table` / `RecordBatch`, or any object with the
+  Arrow PyCapsule stream or DataFrame interchange protocol, wherever it
+  takes a pandas object (`data=`, `newdata=`, positional frames). They are
+  converted to pandas at the call; results are unchanged, as a test checks
+  on `regress`, `logit`, `avg_slopes` and `callaway_santanna`. pandas
+  arguments reach the function as the same objects. New extra:
+  `statspai[polars]`. Guide: `docs/guides/dataframe_input.md`.
+
 ### Frozen core API
 
 #### Added

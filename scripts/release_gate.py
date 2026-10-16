@@ -258,10 +258,14 @@ def non_ascii_patterns() -> List[str]:
         try:
             tree = ast.parse(source)
         except SyntaxError as exc:  # pragma: no cover - the test suite would fail first
-            issues.append(f"{path.relative_to(REPO_ROOT)}: cannot parse ({exc})")
+            issues.append(
+                f"{path.relative_to(REPO_ROOT).as_posix()}: cannot parse ({exc})"
+            )
             continue
         issues.extend(
-            _raw_string_issues(str(path.relative_to(REPO_ROOT)), source, tree)
+            _raw_string_issues(
+                str(path.relative_to(REPO_ROOT).as_posix()), source, tree
+            )
         )
         for node in ast.walk(tree):
             if not (isinstance(node, ast.Call) and _is_re_call(node) and node.args):
@@ -271,7 +275,7 @@ def non_ascii_patterns() -> List[str]:
                 continue
             bad = sorted({f"U+{ord(c):04X}" for c in segment if not c.isascii()})
             issues.append(
-                f"{path.relative_to(REPO_ROOT)}:{node.lineno}: re pattern holds "
+                f"{path.relative_to(REPO_ROOT).as_posix()}:{node.lineno}: re pattern holds "
                 f"{', '.join(bad)}; write the escape (\\uXXXX) so the ASCII "
                 "archive keeps the same pattern"
             )
@@ -326,7 +330,7 @@ def forbidden_wording() -> List[str]:
             for line_no, line in enumerate(text.splitlines(), 1):
                 if snippet in line.casefold():
                     issues.append(
-                        f"{path.relative_to(REPO_ROOT)}:{line_no}: {snippet!r}"
+                        f"{path.relative_to(REPO_ROOT).as_posix()}:{line_no}: {snippet!r}"
                     )
                     break
     return issues

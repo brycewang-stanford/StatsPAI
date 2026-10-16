@@ -37,6 +37,10 @@ because the submodule sits in the package namespace. The file changes with
 every exported name, so recording it made the HDFE timings look stale after
 any release that added a function, with nothing on the timed path changed.
 
+``src/statspai/_frame_input.py`` is left out for a related reason: every
+``sp.*`` call passes through it, but for pandas arguments it only hands the
+same objects on (pinned by ``tests/test_frame_input.py``).
+
 Usage::
 
     python scripts/trace_perf_path.py            # trace every module, write the record
@@ -93,6 +97,9 @@ def _trace_child(stem: str, scratch: str) -> dict:
     src_root = str(REPO / "src" / "statspai")
     # Import machinery, not timed code: see the module docstring.
     package_init = str(REPO / "src" / "statspai" / "__init__.py")
+    # The sp.* input shim: pandas arguments pass through it by identity
+    # (tests/test_frame_input.py); see the module docstring.
+    frame_shim = str(REPO / "src" / "statspai" / "_frame_input.py")
     exercised: set = set()
 
     sys.path.insert(0, str(PERF))
@@ -121,7 +128,7 @@ def _trace_child(stem: str, scratch: str) -> dict:
             filename = code.co_filename
         else:
             return
-        if filename.startswith(src_root) and filename != package_init:
+        if filename.startswith(src_root) and filename not in (package_init, frame_shim):
             exercised.add(filename)
 
     import statspai  # noqa: F401  (imported before profiling: see the docstring)

@@ -31,13 +31,13 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `ipw` | 480 | 28 / 480 | 12 / 480 | -- | -- | -- | 12 / 480 |
 | `iv` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
 | `ivreg` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
-| `logit` | 10 | 10 / 10 | 10 / 10 | -- | 3 / 10 | -- | 10 / 10 |
+| `logit` | 20 | 10 / 20 | 10 / 20 | -- | 3 / 20 | -- | 10 / 20 |
 | `nbreg` | 12 | 9 / 12 | 7 / 12 | -- | -- | -- | 7 / 12 |
 | `nnmatch` | 1920 | 17 / 1920 | 17 / 1920 | -- | -- | -- | 17 / 1920 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
 | `poisson` | 20 | 15 / 20 | 12 / 20 | -- | 2 / 20 | -- | 12 / 20 |
 | `ppmlhdfe` | 72 | 54 / 72 | 9 / 72 | -- | -- | -- | 9 / 72 |
-| `probit` | 10 | 10 / 10 | 6 / 10 | -- | 2 / 10 | -- | 6 / 10 |
+| `probit` | 20 | 10 / 20 | 6 / 20 | -- | 2 / 20 | -- | 6 / 20 |
 | `psm` | 3200 | 100 / 3200 | 29 / 3200 | -- | -- | -- | 29 / 3200 |
 | `qreg` | 14 | 14 / 14 | 9 / 14 | 2 / 14 | -- | -- | 9 / 14 |
 | `rddensity` | 2 | 1 / 2 | 1 / 2 | -- | -- | 1 / 2 | 1 / 2 |
@@ -48,6 +48,8 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `synth` | 12 | 3 / 12 | 1 / 12 | -- | -- | -- | 3 / 12 |
 | `tmle` | 672 | 41 / 672 | 37 / 672 | -- | -- | -- | 37 / 672 |
 | `tobit` | 36 | 18 / 36 | 13 / 36 | -- | -- | -- | 13 / 36 |
+| `xtabond` | 88704 | 74 / 88704 | 42 / 88704 | -- | -- | 20 / 88704 | 42 / 88704 |
+| `xtdpdsys` | 72576 | 30 / 72576 | 18 / 72576 | -- | -- | 8 / 72576 | 18 / 72576 |
 
 `--` means no artifact compares that output for the function at all. `Fully covered` counts cells whose primary outputs all have reference evidence.
 
@@ -113,9 +115,9 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `ivreg` | coverage | 0 | 0 | 1 | 0 | 447 |
 | `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 445 |
 | `ivreg` | joint_test | 0 | 0 | 0 | 0 | 445 |
-| `logit` | estimate | 0 | 0 | 0 | 0 | 0 |
-| `logit` | se | 0 | 0 | 0 | 0 | 0 |
-| `logit` | joint_test | 0 | 0 | 0 | 0 | 7 |
+| `logit` | estimate | 0 | 0 | 0 | 0 | 10 |
+| `logit` | se | 0 | 0 | 0 | 0 | 10 |
+| `logit` | joint_test | 0 | 0 | 0 | 0 | 17 |
 | `nbreg` | estimate | 0 | 0 | 0 | 0 | 3 |
 | `nbreg` | se | 0 | 0 | 0 | 0 | 5 |
 | `nnmatch` | estimate | 0 | 0 | 0 | 0 | 1903 |
@@ -128,9 +130,9 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `poisson` | joint_test | 0 | 0 | 0 | 0 | 18 |
 | `ppmlhdfe` | estimate | 0 | 0 | 0 | 0 | 18 |
 | `ppmlhdfe` | se | 0 | 0 | 0 | 0 | 63 |
-| `probit` | estimate | 0 | 0 | 0 | 0 | 0 |
-| `probit` | se | 0 | 0 | 0 | 4 | 0 |
-| `probit` | joint_test | 0 | 0 | 0 | 0 | 8 |
+| `probit` | estimate | 0 | 0 | 0 | 0 | 10 |
+| `probit` | se | 0 | 0 | 0 | 4 | 10 |
+| `probit` | joint_test | 0 | 0 | 0 | 0 | 18 |
 | `psm` | estimate | 0 | 0 | 0 | 0 | 3100 |
 | `psm` | se | 0 | 0 | 0 | 2 | 3169 |
 | `qreg` | estimate | 0 | 0 | 0 | 0 | 0 |
@@ -160,6 +162,12 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `tmle` | se | 0 | 0 | 0 | 2 | 633 |
 | `tobit` | estimate | 0 | 0 | 0 | 0 | 18 |
 | `tobit` | se | 0 | 0 | 0 | 0 | 23 |
+| `xtabond` | estimate | 0 | 0 | 0 | 0 | 88630 |
+| `xtabond` | se | 0 | 0 | 0 | 0 | 88662 |
+| `xtabond` | diagnostic | 0 | 0 | 0 | 0 | 88684 |
+| `xtdpdsys` | estimate | 0 | 0 | 0 | 0 | 72546 |
+| `xtdpdsys` | se | 0 | 0 | 0 | 0 | 72558 |
+| `xtdpdsys` | diagnostic | 0 | 0 | 0 | 0 | 72568 |
 
 ## Artifacts per function
 
@@ -620,19 +628,19 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 
 ### `logit`
 
-Dimensions: `vce` in {classical, robust, hc0, hc1, cluster}; `weights` in {none, set}.
+Dimensions: `vce` in {classical, robust, hc0, hc1, cluster}; `weights` in {none, set}; `perfect_prediction` in {drop, keep}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | estimate, se | vce=classical; weights=none | `tests/r_parity/57_logit.py` | `sp.logit(formula=...)` |
-| T2 | estimate, se | vce=classical/cluster/robust; weights=none | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.logit(...)` |
-| T2 | estimate, se | vce=classical/cluster/robust; weights=set | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.logit(...)` |
-| T1 | estimate, se | vce=classical; weights=set | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.logit(...)` |
-| T2 | estimate, se | vce=hc0/hc1; weights=none/set | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.logit(...)` |
-| T2 | joint_test | vce=classical/robust; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.logit(...)` |
-| T2 | joint_test | vce=classical/cluster; weights=none | `tests/reference_parity/test_postestimation_stata_parity.py` | `sp.logit(...)` |
-| T2 | estimate, se | vce=classical; weights=none | `tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py` | `sp.logit(...)` |
-| T2 | estimate, se | vce=classical; weights=none | `tests/reference_parity/test_regression_stories_r_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=classical; weights=none; perfect_prediction=drop | `tests/r_parity/57_logit.py` | `sp.logit(formula=...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=none; perfect_prediction=drop | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=set; perfect_prediction=drop | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.logit(...)` |
+| T1 | estimate, se | vce=classical; weights=set; perfect_prediction=drop | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=hc0/hc1; weights=none/set; perfect_prediction=drop | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.logit(...)` |
+| T2 | joint_test | vce=classical/robust; weights=none; perfect_prediction=drop | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.logit(...)` |
+| T2 | joint_test | vce=classical/cluster; weights=none; perfect_prediction=drop | `tests/reference_parity/test_postestimation_stata_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=classical; weights=none; perfect_prediction=drop | `tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py` | `sp.logit(...)` |
+| T2 | estimate, se | vce=classical; weights=none; perfect_prediction=drop | `tests/reference_parity/test_regression_stories_r_parity.py` | `sp.logit(...)` |
 
 `vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
 
@@ -732,16 +740,16 @@ Dimensions: `fe` in {one, multi}; `vce` in {classical, robust, hc0, hc1, cr1, cl
 
 ### `probit`
 
-Dimensions: `vce` in {classical, robust, hc0, hc1, cluster}; `weights` in {none, set}.
+Dimensions: `vce` in {classical, robust, hc0, hc1, cluster}; `weights` in {none, set}; `perfect_prediction` in {drop, keep}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | estimate, se | vce=classical; weights=none | `tests/r_parity/48_probit.py` | `sp.probit(formula=...)` |
-| T4 | se | vce=classical; weights=none | `tests/r_parity/48_probit.py` | `sp.probit(formula=...)` |
-| T2 | estimate, se | vce=classical/cluster/robust; weights=none | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.probit(...)` |
-| T2 | estimate, se | vce=classical/cluster/robust; weights=set | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.probit(...)` |
-| T4 | se | vce=hc0/hc1; weights=none/set | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.probit(...)` |
-| T2 | joint_test | vce=classical/cluster; weights=none | `tests/reference_parity/test_postestimation_stata_parity.py` | `sp.probit(...)` |
+| T2 | estimate, se | vce=classical; weights=none; perfect_prediction=drop | `tests/r_parity/48_probit.py` | `sp.probit(formula=...)` |
+| T4 | se | vce=classical; weights=none; perfect_prediction=drop | `tests/r_parity/48_probit.py` | `sp.probit(formula=...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=none; perfect_prediction=drop | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.probit(...)` |
+| T2 | estimate, se | vce=classical/cluster/robust; weights=set; perfect_prediction=drop | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.probit(...)` |
+| T4 | se | vce=hc0/hc1; weights=none/set; perfect_prediction=drop | `tests/reference_parity/test_ml_sandwich_r_parity.py` | `sp.probit(...)` |
+| T2 | joint_test | vce=classical/cluster; weights=none; perfect_prediction=drop | `tests/reference_parity/test_postestimation_stata_parity.py` | `sp.probit(...)` |
 
 `vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
 
@@ -940,6 +948,76 @@ Dimensions: `method` in {mle, scls}; `vce` in {classical, robust, cluster}; `wei
 | T2 | estimate | method=scls; vce=classical; weights=none; censoring=left | `tests/reference_parity/test_binary_r2_and_scls_parity.py` | `sp.tobit(...)` |
 
 `vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
+### `xtabond`
+
+Dimensions: `model` in {difference, ah, system_h3_iv_both, system_h3_iv_diff, system_h3_no_iv, system_h2_iv_both, system_h2_iv_diff, system_h2_no_iv, system_iv_level, system_no_constant, h1}; `steps` in {onestep, twostep, beyond_two}; `robust` in {true, false}; `cluster` in {unit, coarser}; `transform` in {fd, fod}; `collapse` in {false, true}; `gmm_window` in {default, max_capped, min_raised, min_and_max}; `regressors` in {none, x, x_pre_window, x_endo_window, dummies, x_endo_window_dummies, other}; `lags` in {1, 2, 3plus}; `panel` in {gap_free, gapped}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se, diagnostic | model=difference; steps=onestep/twostep; robust=false/true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se, diagnostic | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=2; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=max_capped; regressors=none; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=min_raised; regressors=none; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se, diagnostic | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=true; gmm_window=default; regressors=none; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se, diagnostic | model=difference; steps=onestep/twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=2; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=2; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/r_parity/50_xtabond.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x_endo_window/x_pre_window; lags=2; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | diagnostic | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T4 | diagnostic | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none/x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se, diagnostic | model=difference; steps=onestep/twostep; robust=true; cluster=unit; transform=fod; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se, diagnostic | model=difference; steps=onestep; robust=true; cluster=coarser; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=ah; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none/x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep/twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=1; panel=gapped | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep; robust=true; cluster=unit; transform=fod; collapse=false; gmm_window=default; regressors=none; lags=1; panel=gapped | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gapped | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=true; gmm_window=max_capped/min_and_max; regressors=none; lags=1; panel=gapped | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(...)` |
+| T1 | estimate | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_gmm_dynamic_panel_parity.py` | `sp.xtabond(...)` |
+| S | estimate | model=difference; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_gmm_dynamic_panel_parity.py` | `sp.xtabond(...)` |
+| T2 | estimate, se, diagnostic | model=system_h3_iv_both; steps=onestep/twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se, diagnostic | model=system_h3_iv_both; steps=twostep; robust=true; cluster=unit; transform=fd; collapse=true; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se, diagnostic | model=system_h3_iv_both; steps=onestep/twostep; robust=true; cluster=unit; transform=fod; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se, diagnostic | model=system_h3_iv_both; steps=onestep; robust=true; cluster=coarser; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se | model=system_h3_no_iv; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=1; panel=gapped | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T4 | diagnostic | model=system_h3_iv_both; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se | model=system_h2_no_iv; steps=onestep/twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se | model=system_h2_iv_diff; steps=onestep/twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se | model=system_h2_iv_diff; steps=onestep; robust=false; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se, diagnostic | model=system_h2_iv_both; steps=onestep; robust=false; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=dummies; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | se | model=system_h2_iv_both; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=dummies; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se | model=system_h2_iv_both; steps=twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=dummies; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se, diagnostic | model=system_h2_no_iv; steps=twostep; robust=false; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | se | model=system_h2_no_iv; steps=twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se | model=system_h2_iv_both; steps=twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=max_capped; regressors=x_endo_window_dummies; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.stata(...)` |
+
+`robust` is ignored for estimate: the coefficients are solved before, and independently of, the choice between the classical and the robust / Windmeijer variance (robust= only switches the reported VCE)
+
+### `xtdpdsys`
+
+Dimensions: `model` in {system_h3_iv_both, system_h3_iv_diff, system_h3_no_iv, system_h2_iv_both, system_h2_iv_diff, system_h2_no_iv, system_iv_level, system_no_constant, h1}; `steps` in {onestep, twostep, beyond_two}; `robust` in {true, false}; `cluster` in {unit, coarser}; `transform` in {fd, fod}; `collapse` in {false, true}; `gmm_window` in {default, max_capped, min_raised, min_and_max}; `regressors` in {none, x, x_pre_window, x_endo_window, dummies, x_endo_window_dummies, other}; `lags` in {1, 2, 3plus}; `panel` in {gap_free, gapped}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se, diagnostic | model=system_h3_iv_both; steps=onestep/twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se, diagnostic | model=system_h3_iv_both; steps=twostep; robust=true; cluster=unit; transform=fd; collapse=true; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se, diagnostic | model=system_h3_iv_both; steps=onestep/twostep; robust=true; cluster=unit; transform=fod; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se, diagnostic | model=system_h3_iv_both; steps=onestep; robust=true; cluster=coarser; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se | model=system_h3_no_iv; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=1; panel=gapped | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T4 | diagnostic | model=system_h3_iv_both; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtabond(method='system')` |
+| T2 | estimate, se | model=system_h2_no_iv; steps=onestep/twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se | model=system_h2_iv_diff; steps=onestep/twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se | model=system_h2_iv_diff; steps=onestep; robust=false; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se, diagnostic | model=system_h2_iv_both; steps=onestep; robust=false; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=dummies; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | se | model=system_h2_iv_both; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=dummies; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se | model=system_h2_iv_both; steps=twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=dummies; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se, diagnostic | model=system_h2_no_iv; steps=twostep; robust=false; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | se | model=system_h2_no_iv; steps=twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=none; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.xtdpdsys(...)` |
+| T2 | estimate, se | model=system_h2_iv_both; steps=twostep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=max_capped; regressors=x_endo_window_dummies; lags=2; panel=gap_free | `tests/reference_parity/test_hansen_methods_stata_parity.py` | `sp.stata(...)` |
+| T1 | estimate | model=system_h3_iv_both; steps=onestep; robust=true; cluster=unit; transform=fd; collapse=false; gmm_window=default; regressors=x; lags=1; panel=gap_free | `tests/reference_parity/test_dynpanel_abdata_parity.py` | `sp.xtdpdsys(...)` |
+
+`robust` is ignored for estimate: the coefficients are solved before, and independently of, the choice between the classical and the robust / Windmeijer variance (robust= only switches the reported VCE)
 
 ## Option-level Stata fixtures
 

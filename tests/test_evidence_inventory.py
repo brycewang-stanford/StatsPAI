@@ -96,7 +96,7 @@ def test_no_function_is_fully_covered_on_its_whole_grid(built):
 
 
 def test_joint_covariance_evidence_is_counted_where_it_exists(built):
-    """The seven entries whose full event-study matrix is pinned."""
+    """The entries whose full covariance matrix is pinned to a reference."""
     with_vcov = {
         name: inv["by_output"]["vcov"].get("reference", 0)
         for name, inv in built["functions"].items()
@@ -110,6 +110,8 @@ def test_joint_covariance_evidence_is_counted_where_it_exists(built):
         "etwfe": 3,
         "event_study": 1,
         "gardner_did": 1,
+        # kernel and cluster covariance vs Stata qreg2 e(V), element by element
+        "qreg": 2,
         "sun_abraham": 2,
     }
 

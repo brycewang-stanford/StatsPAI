@@ -76,7 +76,7 @@ def main() -> None:
     naive_contrast = naive.params["A0"] + naive.params["A1"]
     print(
         f"[naive OLS, adjusting for L1]   A0+A1 = {naive_contrast:.3f}  "
-        f"(biased low — should be 6)"
+        f"(biased low; should be 6)"
     )
 
     # 2. Parametric g-formula via iterative conditional expectation.
@@ -100,7 +100,7 @@ def main() -> None:
     )
     print(
         f"[g-formula (ICE)]               contrast = "
-        f"{always.value - never.value:.3f}  (≈ 6)"
+        f"{always.value - never.value:.3f}  (about 6)"
     )
 
     # 3. Marginal structural model via stabilized IPTW.
@@ -117,7 +117,7 @@ def main() -> None:
     )
     print(
         f"[MSM via IPTW]                  per-dose  = {msm.estimate:.3f}  "
-        f"(true 3 per visit), contrast = {2 * msm.estimate:.3f}  (≈ 6)"
+        f"(true 3 per visit), contrast = {2 * msm.estimate:.3f}  (about 6)"
     )
 
     print("\nThe g-formula and MSM recover the truth; the naive OLS does not.")

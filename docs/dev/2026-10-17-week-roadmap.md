@@ -38,9 +38,9 @@ worktree：`.claude/worktrees/week-roadmap`（分支 `wt/week-roadmap`），每�
 
 - [x] 4.1 marginaleffects 式后估计：`predictions` / `comparisons` / `slopes` / `hypotheses`。
 - [x] 4.2 稳定性分层（核心层冻结 API，`sp.help` 默认展示核心层）。
-- [ ] 4.3 Windows 进 CI 测试矩阵。
-- [ ] 4.4 polars / Arrow 原生输入。
-- [ ] 4.5 CLAUDE.md §11 迁到 `docs/dev/modules/`，CLAUDE.md 只留索引。
+- [x] 4.3 Windows 进 CI 测试矩阵。
+- [x] 4.4 polars / Arrow 原生输入。
+- [x] 4.5 CLAUDE.md §11 迁到 `docs/dev/modules/`，CLAUDE.md 只留索引。
 
 ## 日志
 
@@ -79,3 +79,19 @@ worktree：`.claude/worktrees/week-roadmap`（分支 `wt/week-roadmap`），每�
 
 - 冻结层就是 `CORE_FUNCTIONS`（32 个，改为分组数据 `CORE_FUNCTION_GROUPS`）。签名快照 `tests/core_api_snapshot.json`，`tests/test_core_api_freeze.py` 与 pre-push hook `core-api-freeze` 拦截破坏性改动；有意的破坏要 `--ack` 并引用 MIGRATION.md 原文。
 - 卡片与 schema 加 `api_contract`（frozen / deprecation-cycle / unstable / deprecated）。`sp.help()` 首屏先列核心层；`stable` 的说明从"签名锁定"改为如实的"先发 DeprecationWarning"。
+
+### 2026-10-17 P4.3
+
+- `.github/workflows/windows.yml`：每次改代码的推送在 windows-latest × 3.10 / 3.13 上跑约 700 条（上次全量 Windows 运行的全部失败项 + MCP stdio + 路径 + 核心估计量），2–3 分钟；`workflow_dispatch` 选 `full` 跑全量。
+- 首次运行只剩 3 条失败，全部定位并修掉：release gate 的 Windows 路径、示例脚本向 cp1252 控制台打印非 ASCII、`sp.zinb` 在离散参数边界上的平台相关结果（改为按估计值判边界）。两条测试本身的 bug 也修了。详见 `docs/dev/2026-10-04-windows-test-gaps.md` 的更新。
+- 未做：Windows 回到主 CI 矩阵要等一次干净的全量运行（约 5 小时）。
+
+### 2026-10-17 P4.4
+
+- `sp.*` 统一接受 polars / Arrow / `__arrow_c_stream__` / `__dataframe__`（`_frame_input.py`，`__init__` 安装）。pandas 参数以同一对象直通，所以该文件被两个 provenance tracer 排除；为此在包装后把 Track A 89 个、原始数据 12 个模块全部重跑核对。
+- 换绑到所有已加载的 `statspai.*` 命名空间，保住 pickle 与 `sp.x is statspai.pkg.x`；parity 索引的身份比较改为看包装之下的原函数（惰性导出解析顺序无关）。
+- 顺带：marginaleffects 系列在 parity 索引里登记为 `aligned`（4.1 那次提交漏跑了 `build_parity_index`）。
+
+### 2026-10-17 P4.5
+
+- CLAUDE.md §11 的 72 条领域约定逐字搬到 `docs/dev/modules/` 的 21 个文件，§11 只留索引表与 3 条跨领域约定；CLAUDE.md 157 KB → 63 KB。`tests/test_module_notes_index.py` 守索引与目录一一对应。
