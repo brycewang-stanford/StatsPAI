@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ mixed-model standard errors in the eighth digit
+
+**What changed.** `sp.melogit` / `meglm` / `mepoisson` / `meologit` and
+`sp.icc` take the observed information from a Richardson-extrapolated
+numerical Hessian. Standard errors move by about 1e-8 to 5e-8 relative
+(ICC standard errors by up to 1e-6, towards Stata's); point estimates do
+not move.
+
+**What to do.** Nothing, unless a test pins mixed-model standard errors
+beyond seven significant digits.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ zero-inflated / hurdle NB at the dispersion boundary
 
 **What changed.** When the NB2 dispersion estimate of `sp.zinb` or

@@ -102,6 +102,19 @@ def test(
     R, r = _independent_restrictions(R, r, str(hypothesis))
     V = require_covariance(result, R, f"test({hypothesis!r})")
 
+    q = R.shape[0]
+    hotelling = (getattr(result, "data_info", None) or {}).get("hotelling_df")
+    if hotelling and float(hotelling) - q + 1 < 1:
+        # Checked before the solve: with B cosine terms the covariance has
+        # rank at most B, so R V R' is singular in exact arithmetic, but
+        # whether np.linalg.solve notices depends on the BLAS's rounding
+        # (it did on Windows CI, not on macOS).
+        raise MethodIncompatibility(
+            f"test({hypothesis!r}): {q} restrictions need more than "
+            f"{int(hotelling)} cosine terms in the EWC covariance.",
+            recovery_hint="Refit with a larger ewc_df, or test fewer restrictions.",
+        )
+
     beta = params.to_numpy(dtype=float)
     diff = R @ beta - r
     meat = R @ V @ R.T
@@ -114,21 +127,12 @@ def test(
             recovery_hint="Check for coefficients with zero variance.",
         ) from exc
 
-    q = R.shape[0]
     df_resid = inference_df(result)
-    hotelling = (getattr(result, "data_info", None) or {}).get("hotelling_df")
     if hotelling:
         # An orthogonal-series long-run variance with B terms (robust='ewc'):
         # W is Hotelling T2(q, B), and (B - q + 1) / (B q) * W is
         # F(q, B - q + 1).
         df2 = float(hotelling) - q + 1
-        if df2 < 1:
-            raise MethodIncompatibility(
-                f"test({hypothesis!r}): {q} restrictions need more than "
-                f"{int(hotelling)} cosine terms in the EWC covariance.",
-                recovery_hint="Refit with a larger ewc_df, or test fewer "
-                "restrictions.",
-            )
         f_stat = wald * df2 / (float(hotelling) * q)
         return {
             "statistic": f_stat,

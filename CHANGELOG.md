@@ -34,6 +34,18 @@ All notable changes to StatsPAI will be documented in this file.
 
 #### ⚠️ Correctness
 
+- Mixed-model standard errors (`sp.melogit` / `meglm` / `mepoisson` /
+  `meologit` and the variance components behind `sp.icc`): the observed
+  information is now a Richardson-extrapolated central-difference Hessian
+  (`h = 1e-3`) instead of a single stencil at `h = 1e-4`, whose rounding
+  error (about `eps * |loglik| / h^2`) differed by platform. The melogit
+  ICC standard error moves from 7e-7 to 6e-10 of Stata's on macOS (it was
+  1.3e-6 on Windows, over the 1e-6 budget); fixed-effect standard errors
+  move by 1e-8 to 5e-8 relative. Point estimates are unchanged.
+- `sp.test` after `robust='ewc'` reports "more restrictions than cosine
+  terms" before solving: with too few terms the restricted covariance is
+  singular in exact arithmetic, and whether the solve noticed depended on
+  the BLAS.
 - `sp.zinb` and `sp.hurdle(count_model="negbin")`: when the NB2 dispersion
   estimate sits at its boundary (alpha * mean(mu) < 1e-4, the Poisson
   limit), the standard errors no longer come from inverting a Hessian that

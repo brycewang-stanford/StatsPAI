@@ -24,7 +24,17 @@ much shorter than on 10-03:
   negative (NaN standard error) on Linux and macOS and positive on Windows.
   The boundary is now decided from the estimate and ln_alpha's standard
   error is NaN on every platform (`tests/test_nb_dispersion_boundary.py`).
-- The two parity tolerances and the GES collider test passed on this run.
+- The two parity tolerances and the GES collider test passed on 3.13; on
+  3.10 the second push run failed two of the old items, both real:
+  - `test_icc_matches_stata_estat_icc[bin-...]`: the observed information
+    was a single central-difference stencil at h = 1e-4, whose rounding
+    error depends on the platform's libm. Richardson extrapolation at
+    h = 1e-3 brings the ICC standard error to 6e-10 of Stata's (it was
+    7e-7 on macOS, 1.3e-6 on Windows).
+  - `test_ewc_joint_test_uses_the_rescaled_f`: `sp.test` solved a
+    covariance that is singular in exact arithmetic before checking that
+    there were enough cosine terms; Windows' BLAS noticed the singularity
+    first. The check now comes first.
 
 The full suite on Windows (`workflow_dispatch`, scope `full`) has not been
 run since 10-03. Windows goes back into the main matrix once a full run is

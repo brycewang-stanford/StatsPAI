@@ -3902,3 +3902,31 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/parity_table.md`
   - `tests/r_parity/results/parity_table_3way.md`
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-17 — mixed-model observed information by Richardson extrapolation
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** This entry's commit.
+- **Reason.** `multilevel/glmm.py::_numerical_oim_cov` inverted a single
+  central-difference Hessian at h = 1e-4. Its rounding error,
+  about `eps * |loglik| / h^2`, differs between platforms' libm: the melogit
+  ICC standard error was 7e-7 from Stata `estat icc` on macOS and 1.3e-6
+  (over the 1e-6 budget) on the new Windows CI gate. The Hessian is now the
+  Richardson extrapolation `(4 H(h) - H(2h)) / 3` at h = 1e-3; the same ICC
+  standard error agrees with Stata to 6e-10.
+- **Effect on the paper.** Track A modules 26 and 27, standard errors only
+  (estimates byte-identical). Module 26 (Laplace): `beta_intercept` se
+  0.118062107501 to 0.118062108761, `beta_x1` 0.0636113492259 to
+  0.0636113501831; the gap to R stays 1.21e-3 / 2.65e-3 (the registered
+  Laplace convention difference). Module 27 (AGHQ): `beta_intercept` se
+  0.118612132299 to 0.118612137396 (gap to lme4 3.92e-7 to 4.35e-7),
+  `beta_x1` 0.0636049074172 to 0.063604907118 (2.09e-7 to 2.04e-7). Every
+  row stays inside its budget; no verdict changes. Module 25 reproduces.
+- **Paths.**
+  - `tests/r_parity/results/26_glmm_logit_py.json`
+  - `tests/r_parity/results/27_glmm_aghq_py.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/results/_implementation_trace.json`
