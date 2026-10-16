@@ -999,6 +999,15 @@ class TMLE:
             "sl_propensity_weights_by_fold": (
                 [m.weights_.tolist() for m in sl_g_folds] if folds is not None else None
             ),
+            # Which learners fit the nuisances: the built-in Super Learner
+            # library, or one the caller passed. The point estimate depends
+            # on it, so validation_scope keeps the two apart.
+            "library": (
+                "user"
+                if self.outcome_library is not None
+                or self.propensity_library is not None
+                else "default"
+            ),
             "nuisance_source": {
                 "Q": (
                     "supplied"

@@ -69562,8 +69562,8 @@
       "Cross-language parity (bit-exact) vs Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) [AIPW 0.6.9.3, R version 4.5.2 (2025-10-31), Stata 18, SuperLearner 2.0.40]; tolerance 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_ness_causal_ai.py",
-      "tests/reference_parity/test_aipw_outcome_models_stata_parity.py",
-      "tests/reference_parity/test_causal_gap_known_values.py"
+      "tests/reference_parity/test_aipw_crossfit_identity.py",
+      "tests/reference_parity/test_aipw_outcome_models_stata_parity.py"
     ],
     "validation_status": "certified"
   },

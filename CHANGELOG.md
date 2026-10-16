@@ -22,6 +22,16 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.glm` records `information` (`observed` / `expected`) in
   `model_info`.
 
+- **Maps for `aipw`, `ipw`, `tmle`, `ebalance`, `g_computation`, `feols`
+  and `ppmlhdfe`.** New references: `sp.feols` over 24 cells (absorbed
+  effects {none, one, two} x {iid, hetero, cluster, two-way} x weights) vs
+  R fixest (1e-6, observed 1.2e-8); `sp.aipw`'s default cross-fitted fit
+  rebuilt by hand from the same fold draw (1e-9). `ipw` maps carry a trim
+  dimension (all references ran untrimmed), `aipw` reads whether trimming
+  bit, and `tmle` records `model_info['library']` (`default` / `user`),
+  since every reference fit used a user-supplied glm library: a fit with
+  the built-in Super Learner is reported as not covered.
+
 #### Documented
 
 - `sp.probit(robust='hc0' | 'hc1')` differs from R `sandwich::vcovHC` by

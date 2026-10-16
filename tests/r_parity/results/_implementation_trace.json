@@ -2856,7 +2856,7 @@
    "result_sha256": "494f49a88ec68428c28dbbf39ea6d58359af8a233482e3512602de56b7580e3c"
   },
   "72_tmle": {
-   "seconds": 0.92,
+   "seconds": 0.91,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2883,7 +2883,7 @@
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/tmle/_targeting.py": "d7b1a0ba575177066db17784c8e70955ab7ea0445fed627fd9c175ec6a90a3ab",
-    "src/statspai/tmle/tmle.py": "fe0f7d21d252b57ee9b27f6256c2d264fbabce38547b1d8d07fe012b17ff358e"
+    "src/statspai/tmle/tmle.py": "81a0dd9854bcf96e7053fdeadb6ae7dd5687cdcd8cf80f3f550184abde4e3350"
    },
    "dependency_versions": {
     "numpy": "2.2.6",

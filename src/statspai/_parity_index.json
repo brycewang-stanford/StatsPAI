@@ -325,6 +325,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_ness_causal_ai.py",
+        "tests/reference_parity/test_aipw_crossfit_identity.py",
         "tests/reference_parity/test_aipw_outcome_models_stata_parity.py",
         "tests/reference_parity/test_causal_gap_known_values.py",
         "tests/reference_parity/test_paper_parity.py",
@@ -7532,6 +7533,7 @@
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_fast_feols_weights_fixest_parity.py",
+        "tests/reference_parity/test_feols_grid_fixest_parity.py",
         "tests/reference_parity/test_feols_multiref_R_parity.py",
         "tests/reference_parity/test_feols_varying_slopes_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py",

@@ -5854,9 +5854,11 @@ def _register_satellite_maps() -> None:
     """Maps kept in their own modules (they read this module's primitives)."""
     import sys
 
-    from . import _validation_scope_ldv
+    from . import _validation_scope_fe, _validation_scope_ldv, _validation_scope_te
 
     _validation_scope_ldv.register(_add, sys.modules[__name__])
+    _validation_scope_fe.register(_add, sys.modules[__name__])
+    _validation_scope_te.register(_add, sys.modules[__name__])
 
 
 _register_satellite_maps()
@@ -6149,6 +6151,11 @@ _METHOD_TO_FUNCTION = (
     ("synthetic control", "synth"),
     ("synthetic difference", "sdid"),
     ("double ml", "dml"),
+    ("g-computation", "g_computation"),
+    # sp.g_computation(by_arm=True); "regression adjustment" alone would
+    # also catch sp.lm_lin.
+    ("outcome regression per arm", "g_computation"),
+    ("regression adjustment (ipw-weighted", "g_computation"),
     ("matching", "psm"),
 )
 

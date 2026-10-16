@@ -11,19 +11,24 @@ Functions without a scope map are not listed. That is not a claim that they lack
 
 | Function | Cells | estimate | se | vcov | joint_test | diagnostic | Fully covered |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `aipw` | 512 | 32 / 512 | 17 / 512 | -- | -- | -- | 17 / 512 |
 | `callaway_santanna` | 7680 | 268 / 7680 | 132 / 7680 | 1 / 7680 | -- | -- | 132 / 7680 |
 | `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
 | `did_imputation` | 240 | 36 / 240 | 13 / 240 | 1 / 240 | -- | -- | 12 / 240 |
 | `did_multiplegt_dyn` | 18432 | 136 / 18432 | 37 / 18432 | 26 / 18432 | 36 / 18432 | -- | 37 / 18432 |
 | `dml` | 9120 | 33 / 9120 | 30 / 9120 | -- | -- | -- | 30 / 9120 |
+| `ebalance` | 16 | 10 / 16 | 3 / 16 | -- | -- | -- | 3 / 16 |
 | `etwfe` | 128 | 16 / 128 | 16 / 128 | 3 / 128 | -- | -- | 16 / 128 |
 | `etwfe_glm` | 2880 | 51 / 2880 | 36 / 2880 | -- | -- | -- | 36 / 2880 |
 | `event_study` | 512 | 45 / 512 | 45 / 512 | 1 / 512 | -- | -- | 45 / 512 |
 | `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
+| `feols` | 144 | 72 / 144 | 29 / 144 | -- | -- | -- | 27 / 144 |
+| `g_computation` | 48 | 16 / 48 | 5 / 48 | -- | -- | -- | 5 / 48 |
 | `gardner_did` | 64 | 24 / 64 | 7 / 64 | 1 / 64 | -- | -- | 7 / 64 |
 | `glm` | 320 | 144 / 320 | 32 / 320 | -- | -- | -- | 32 / 320 |
 | `heckman` | 12 | 9 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
 | `honest_did` | 25920 | -- | -- | -- | -- | 111 / 25920 | 111 / 25920 |
+| `ipw` | 480 | 28 / 480 | 12 / 480 | -- | -- | -- | 12 / 480 |
 | `iv` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
 | `ivreg` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
 | `logit` | 10 | 10 / 10 | 10 / 10 | -- | 3 / 10 | -- | 10 / 10 |
@@ -31,6 +36,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `nnmatch` | 1920 | 17 / 1920 | 17 / 1920 | -- | -- | -- | 17 / 1920 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
 | `poisson` | 20 | 15 / 20 | 12 / 20 | -- | 2 / 20 | -- | 12 / 20 |
+| `ppmlhdfe` | 72 | 54 / 72 | 9 / 72 | -- | -- | -- | 9 / 72 |
 | `probit` | 10 | 10 / 10 | 6 / 10 | -- | 2 / 10 | -- | 6 / 10 |
 | `psm` | 3200 | 100 / 3200 | 29 / 3200 | -- | -- | -- | 29 / 3200 |
 | `qreg` | 14 | 14 / 14 | 9 / 14 | 2 / 14 | -- | -- | 9 / 14 |
@@ -40,6 +46,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `sdid` | 288 | 60 / 288 | 27 / 288 | -- | -- | -- | 27 / 288 |
 | `sun_abraham` | 36 | 21 / 36 | 21 / 36 | 2 / 36 | -- | -- | 21 / 36 |
 | `synth` | 12 | 3 / 12 | 1 / 12 | -- | -- | -- | 3 / 12 |
+| `tmle` | 672 | 41 / 672 | 37 / 672 | -- | -- | -- | 37 / 672 |
 | `tobit` | 36 | 18 / 36 | 13 / 36 | -- | -- | -- | 13 / 36 |
 
 `--` means no artifact compares that output for the function at all. `Fully covered` counts cells whose primary outputs all have reference evidence.
@@ -50,6 +57,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 
 | Function | Output | seed_equivalence (T3) | stochastic_screen (S) | coverage_simulation (B) | disclosure (T4) | not_covered |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `aipw` | estimate | 0 | 0 | 0 | 0 | 480 |
+| `aipw` | se | 0 | 0 | 0 | 0 | 495 |
 | `callaway_santanna` | estimate | 0 | 0 | 0 | 0 | 7412 |
 | `callaway_santanna` | se | 0 | 4 | 0 | 0 | 7544 |
 | `callaway_santanna` | coverage | 0 | 0 | 1 | 0 | 7679 |
@@ -67,6 +76,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `dml` | estimate | 0 | 0 | 0 | 0 | 9087 |
 | `dml` | se | 0 | 0 | 0 | 3 | 9087 |
 | `dml` | coverage | 0 | 0 | 2 | 0 | 9118 |
+| `ebalance` | estimate | 0 | 0 | 0 | 0 | 6 |
+| `ebalance` | se | 0 | 0 | 0 | 3 | 10 |
 | `etwfe` | estimate | 0 | 0 | 0 | 0 | 112 |
 | `etwfe` | se | 0 | 0 | 0 | 0 | 112 |
 | `etwfe` | vcov | 0 | 0 | 0 | 0 | 125 |
@@ -78,6 +89,10 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `fast.feols` | estimate | 0 | 0 | 0 | 0 | 0 |
 | `fast.feols` | se | 0 | 0 | 0 | 0 | 6 |
 | `fast.feols` | coverage | 0 | 0 | 1 | 0 | 11 |
+| `feols` | estimate | 0 | 0 | 0 | 0 | 72 |
+| `feols` | se | 0 | 0 | 0 | 0 | 115 |
+| `g_computation` | estimate | 0 | 0 | 0 | 0 | 32 |
+| `g_computation` | se | 0 | 0 | 0 | 0 | 43 |
 | `gardner_did` | estimate | 0 | 0 | 0 | 0 | 40 |
 | `gardner_did` | se | 0 | 0 | 0 | 0 | 57 |
 | `gardner_did` | vcov | 0 | 0 | 0 | 0 | 63 |
@@ -86,6 +101,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `heckman` | estimate | 0 | 0 | 0 | 0 | 3 |
 | `heckman` | se | 0 | 0 | 0 | 0 | 6 |
 | `honest_did` | diagnostic | 0 | 12 | 0 | 96 | 25701 |
+| `ipw` | estimate | 0 | 0 | 0 | 0 | 452 |
+| `ipw` | se | 0 | 0 | 0 | 0 | 468 |
 | `iv` | estimate | 0 | 0 | 0 | 0 | 224 |
 | `iv` | se | 0 | 0 | 0 | 7 | 378 |
 | `iv` | coverage | 0 | 0 | 1 | 0 | 447 |
@@ -109,6 +126,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `poisson` | estimate | 0 | 0 | 0 | 0 | 5 |
 | `poisson` | se | 0 | 0 | 0 | 0 | 8 |
 | `poisson` | joint_test | 0 | 0 | 0 | 0 | 18 |
+| `ppmlhdfe` | estimate | 0 | 0 | 0 | 0 | 18 |
+| `ppmlhdfe` | se | 0 | 0 | 0 | 0 | 63 |
 | `probit` | estimate | 0 | 0 | 0 | 0 | 0 |
 | `probit` | se | 0 | 0 | 0 | 4 | 0 |
 | `probit` | joint_test | 0 | 0 | 0 | 0 | 8 |
@@ -137,10 +156,28 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 34 |
 | `synth` | estimate | 0 | 0 | 0 | 1 | 8 |
 | `synth` | se | 0 | 0 | 0 | 0 | 11 |
+| `tmle` | estimate | 0 | 0 | 0 | 0 | 631 |
+| `tmle` | se | 0 | 0 | 0 | 2 | 633 |
 | `tobit` | estimate | 0 | 0 | 0 | 0 | 18 |
 | `tobit` | se | 0 | 0 | 0 | 0 | 23 |
 
 ## Artifacts per function
+
+### `aipw`
+
+Dimensions: `estimand` in {ate, att}; `cross_fit` in {true, false}; `se_method` in {influence, sandwich}; `outcome_model` in {linear, logit, probit, poisson}; `propensity` in {logit, known}; `trim` in {inactive, binding}; `weights` in {none, set}; `cluster` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | estimand=ate; cross_fit=false; se_method=sandwich; outcome_model=linear; propensity=logit; trim=inactive; weights=none/set; cluster=none/set | `tests/reference_parity/test_teffects_design_stata_parity.py` | `sp.aipw(...)` |
+| T2 | estimate, se | estimand=ate; cross_fit=false; se_method=sandwich; outcome_model=logit/poisson/probit; propensity=logit; trim=inactive; weights=none/set; cluster=none | `tests/reference_parity/test_aipw_outcome_models_stata_parity.py` | `sp.aipw(...)` |
+| T2 | estimate, se | estimand=ate; cross_fit=false; se_method=sandwich; outcome_model=logit/poisson/probit; propensity=logit; trim=inactive; weights=none; cluster=set | `tests/reference_parity/test_aipw_outcome_models_stata_parity.py` | `sp.aipw(...)` |
+| T2 | estimate, se | estimand=ate; cross_fit=false; se_method=influence; outcome_model=linear; propensity=logit; trim=inactive; weights=none; cluster=none | `tests/reference_parity/test_teffects_R_parity.py` | `sp.aipw(...)` |
+| T1 | estimate, se | estimand=att; cross_fit=false; se_method=influence; outcome_model=linear; propensity=logit; trim=inactive; weights=none; cluster=none | `tests/reference_parity/test_teffects_R_parity.py` | `sp.aipw(...)` |
+| T1 | estimate, se | estimand=ate/att; cross_fit=true; se_method=influence; outcome_model=linear; propensity=logit; trim=inactive; weights=none; cluster=none | `tests/reference_parity/test_aipw_crossfit_identity.py` | `sp.aipw(...)` |
+| T2 | estimate, se | estimand=ate; cross_fit=false; se_method=influence; outcome_model=linear; propensity=logit; trim=inactive; weights=none; cluster=none | `tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py` | `sp.aipw(...)` |
+
+`se_method` is ignored for estimate: the point estimate is computed before, and independently of, the variance estimator
 
 ### `callaway_santanna`
 
@@ -292,6 +329,18 @@ Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-t
 | T4 | se | model=plr; score=iv-type/partialling out; learners=linear; n_folds=5; n_rep=>1; ipw=n/a | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='plr', n_rep=3)` |
 | T4 | se | model=irm; score=ate; learners=linear; n_folds=5; n_rep=>1; ipw=trim0.01 | `tests/reference_parity/test_dml_options_doubleml_parity.py` | `sp.dml(df, model='irm', n_rep=3)` |
 
+### `ebalance`
+
+Dimensions: `moments` in {1, 2, 3, mixed}; `dof_adjust` in {true, false}; `vce` in {mestimation, naive}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | moments=1/2/3; dof_adjust=false; vce=mestimation | `tests/reference_parity/test_ebalance_weightit_parity.py` | `sp.ebalance(...)` |
+| T4 | se | moments=1/2/3; dof_adjust=false; vce=naive | `tests/reference_parity/test_ebalance_weightit_parity.py` | `sp.ebalance(...)` |
+| T2 | estimate | moments=1/mixed; dof_adjust=true; vce=mestimation | `tests/reference_parity/test_the_effect_stata_parity.py` | `sp.ebalance(...)` |
+
+`vce` is ignored for estimate: the point estimate is computed before, and independently of, the variance estimator
+
 ### `etwfe`
 
 Dimensions: `family` in {linear, glm}; `panel` in {true, false}; `cgroup` in {notyet, nevertreated}; `controls` in {none, set}; `xvar` in {none, set}; `weights` in {none, set}; `agg_weights` in {estimation, unit}.
@@ -383,6 +432,38 @@ Dimensions: `vcov` in {iid, hc1, cr1}; `ssc` in {fixest, statspai}; `weights` in
 
 `ssc` is ignored for estimate: the small-sample factor scales the covariance only
 
+### `feols`
+
+Dimensions: `fe` in {none, one, multi}; `iv` in {false, true}; `vcov` in {iid, hetero, cr1, cr3, cluster_multiway, other}; `weights` in {none, set}; `ssc` in {default, custom}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | fe=multi/none/one; iv=false; vcov=cluster_multiway/cr1/hetero/iid; weights=none/set; ssc=default | `tests/reference_parity/test_feols_grid_fixest_parity.py` | `sp.feols(...)` |
+| T2 | estimate, se | fe=multi; iv=false; vcov=cluster_multiway/iid; weights=none; ssc=default | `tests/external_parity/test_gow_ding_accounting.py` | `sp.feols(...)` |
+| T2 | estimate, se | fe=one; iv=false; vcov=cr1; weights=none; ssc=default | `tests/reference_parity/test_sasp_within_parity.py` | `sp.feols(...)` |
+| T2 | estimate, se | fe=multi; iv=false; vcov=cr1; weights=none/set; ssc=default | `tests/reference_parity/test_castle_stata_parity.py` | `sp.feols(...)` |
+| T2 | estimate, se | fe=multi; iv=false; vcov=cr1; weights=none; ssc=default | `tests/reference_parity/test_feols_multiref_R_parity.py` | `sp.feols(...)` |
+| T2 | estimate, se | fe=multi; iv=false; vcov=cluster_multiway; weights=none; ssc=default | `tests/reference_parity/test_accounting_research_parity.py` | `sp.feols(...)` |
+| T2 | se | fe=none; iv=false/true; vcov=cr1/hetero; weights=none; ssc=custom | `tests/reference_parity/test_ssc_presets_Stata_parity.py` | `sp.feols(...)` |
+| T2 | se | fe=one; iv=false; vcov=cr1; weights=none; ssc=custom | `tests/reference_parity/test_ssc_presets_Stata_parity.py` | `sp.feols(...)` |
+
+`vcov` is ignored for estimate: the point estimate is computed before, and independently of, the covariance estimator
+
+`ssc` is ignored for estimate: the point estimate is computed before, and independently of, the covariance estimator
+
+### `g_computation`
+
+Dimensions: `estimand` in {ate, att, atc}; `by_arm` in {true, false}; `ps` in {none, set}; `se_method` in {bootstrap, analytic}; `ml_q` in {ols, other}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T1 | estimate | estimand=atc/ate/att; by_arm=false; ps=none; se_method=bootstrap; ml_q=ols | `tests/test_inference_scan3_weighting.py` | `sp.g_computation(...)` |
+| T1 | se | estimand=ate; by_arm=false; ps=none; se_method=bootstrap; ml_q=ols | `tests/test_inference_scan3_weighting.py` | `sp.g_computation(...)` |
+| T1 | estimate, se | estimand=ate/att; by_arm=true; ps=none/set; se_method=analytic; ml_q=ols | `tests/test_inference_scan3_weighting.py` | `sp.g_computation(...)` |
+| T1 | estimate | estimand=ate; by_arm=false; ps=none; se_method=bootstrap; ml_q=other | `tests/reference_parity/test_gformula_parity.py` | `sp.g_computation(...)` |
+
+`se_method` is ignored for estimate: the point estimate is computed before, and independently of, the variance estimator
+
 ### `gardner_did`
 
 Dimensions: `vce` in {analytic, stage2, bootstrap, none}; `weights` in {none, set}; `covariates` in {none, set}; `event_study` in {off, on}; `form` in {first_treat, general}.
@@ -447,6 +528,21 @@ Dimensions: `restriction` in {smoothness, relative_magnitude}; `interval` in {fl
 | T2 | diagnostic | restriction=relative_magnitude; interval=arp_conditional; code_path=native; target=average/single/weights; window=restricted; alpha=0.05; m_grid=positive/zero/zero_only; rm_grid=honestdid; source=etwfe | `tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py` | `sp.honest_did(fit, backend='r', ...) vs sp.honest_did(fit, ...)` |
 | T4 | diagnostic | restriction=relative_magnitude/smoothness; interval=arp_conditional/flci; code_path=native; target=average/single; window=restricted; alpha=0.05; m_grid=positive/zero/zero_only; rm_grid=honestdid/n/a; source=etwfe | `tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py` | `sp.honest_did(fit, method=...)` |
 | T2 | diagnostic | restriction=relative_magnitude; interval=arp_conditional; code_path=native; target=single; window=full; alpha=0.05; m_grid=positive/zero/zero_only; rm_grid=honestdid; source=callaway_santanna | `tests/reference_parity/test_honest_did_backend_parity.py` | `sp.honest_did(cs_result, method='relative_magnitude')` |
+
+### `ipw`
+
+Dimensions: `estimand` in {ate, att, atc, ato, atm}; `se_method` in {sandwich, bootstrap}; `ps_model` in {logit, probit, known}; `normalized` in {true, false}; `trim` in {zero, set}; `weights` in {none, set}; `cluster` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | estimand=ate/att; se_method=sandwich; ps_model=logit; normalized=true; trim=zero; weights=none/set; cluster=none/set | `tests/reference_parity/test_teffects_design_stata_parity.py` | `sp.ipw(...)` |
+| T2 | estimate, se | estimand=ate/att; se_method=sandwich; ps_model=logit/probit; normalized=true; trim=zero; weights=none; cluster=none | `tests/reference_parity/test_teffects_probit_stata.py` | `sp.ipw(...)` |
+| T2 | estimate, se | estimand=ate/atm/ato/att; se_method=sandwich; ps_model=logit; normalized=true; trim=zero; weights=none; cluster=none | `tests/reference_parity/test_barrett_causal_inference_in_r_parity.py` | `sp.ipw(...)` |
+| T2 | estimate | estimand=atc; se_method=sandwich; ps_model=logit; normalized=true; trim=zero; weights=none; cluster=none | `tests/reference_parity/test_barrett_causal_inference_in_r_parity.py` | `sp.ipw(...)` |
+| T1 | estimate | estimand=atc/ate/att; se_method=bootstrap; ps_model=logit; normalized=true; trim=zero; weights=none; cluster=none | `tests/reference_parity/test_ipw_parity.py` | `sp.ipw(...)` |
+| T1 | estimate | estimand=ate; se_method=bootstrap; ps_model=logit; normalized=false; trim=zero; weights=none; cluster=none | `tests/reference_parity/test_ipw_parity.py` | `sp.ipw(...)` |
+
+`se_method` is ignored for estimate: the point estimate is computed before, and independently of, the variance estimator
 
 ### `iv`
 
@@ -616,6 +712,23 @@ Dimensions: `vce` in {classical, robust, hc0, hc1, cluster}; `weights` in {none,
 | T2 | joint_test | vce=classical/robust; weights=none; exposure=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.poisson(...)` |
 
 `vce` is ignored for estimate: the maximum-likelihood point estimate is computed before, and independently of, the covariance estimator
+
+### `ppmlhdfe`
+
+Dimensions: `fe` in {one, multi}; `vce` in {classical, robust, hc0, hc1, cr1, cluster_multiway}; `weights` in {none, set}; `ssc` in {stata, fixest, none}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | fe=one; vce=robust; weights=none; ssc=fixest/stata | `tests/r_parity/37_ppmlhdfe.py` | `sp.ppmlhdfe(formula=...)` |
+| T2 | estimate, se | fe=multi; vce=robust; weights=none; ssc=fixest/stata | `tests/r_parity/47_ppmlhdfe_3fe.py` | `sp.ppmlhdfe(formula=...)` |
+| T2 | estimate, se | fe=one; vce=robust; weights=set; ssc=stata | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.ppmlhdfe(...)` |
+| T2 | estimate, se | fe=one; vce=cr1; weights=none/set; ssc=stata | `tests/reference_parity/test_count_weights_stata_parity.py` | `sp.ppmlhdfe(...)` |
+| T2 | estimate, se | fe=multi; vce=cr1; weights=none; ssc=stata | `tests/reference_parity/test_ppmlhdfe_singletons_Stata_parity.py` | `sp.ppmlhdfe(...)` |
+| T2 | se | fe=multi; vce=cluster_multiway/cr1; weights=none; ssc=stata | `tests/reference_parity/test_ppmlhdfe_twoway_parity.py` | `sp.ppmlhdfe(...)` |
+
+`vce` is ignored for estimate: the point estimate is computed before, and independently of, the covariance estimator
+
+`ssc` is ignored for estimate: the point estimate is computed before, and independently of, the covariance estimator
 
 ### `probit`
 
@@ -795,6 +908,20 @@ Dimensions: `v_method` in {equal, nested, regression}; `weights` in {unique, non
 | T2 | se | v_method=equal; weights=unique; code_path=native | `tests/reference_parity/test_synth_unique_options_parity.py` | `sp.synth(method='classic')` |
 | T4 | estimate | v_method=regression; weights=unique; code_path=native | `tests/reference_parity/test_synth_regression_v_stata.py` | `sp.synth(v_method='regression')` |
 | T4 | estimate | v_method=regression; weights=unique; code_path=native | `tests/reference_parity/test_synth2_stata_parity.py` | `sp.synth(method='classic', v_method='regression')` |
+
+### `tmle`
+
+Dimensions: `estimand` in {ate, att, atc, ey1, ey0, rr, or}; `fluctuation` in {single, per_arm}; `nuisance` in {supplied, user_library, default_library}; `se_method` in {eif, bootstrap}; `outcome` in {binary, continuous}; `weights` in {none, set}; `cluster` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | estimand=ate; fluctuation=per_arm; nuisance=user_library; se_method=eif; outcome=binary/continuous; weights=none/set; cluster=none/set | `tests/reference_parity/test_tmle_design_R_parity.py` | `sp.tmle(...)` |
+| T2 | estimate, se | estimand=ate/ey0/ey1; fluctuation=per_arm; nuisance=supplied; se_method=eif; outcome=binary/continuous; weights=none/set; cluster=none/set | `tests/reference_parity/test_tmle_parameters_R_parity.py` | `sp.tmle(...)` |
+| T2 | estimate, se | estimand=or/rr; fluctuation=per_arm; nuisance=supplied; se_method=eif; outcome=binary; weights=none; cluster=none/set | `tests/reference_parity/test_tmle_parameters_R_parity.py` | `sp.tmle(...)` |
+| T2 | estimate | estimand=or/rr; fluctuation=per_arm; nuisance=supplied; se_method=eif; outcome=binary; weights=set; cluster=none/set | `tests/reference_parity/test_tmle_parameters_R_parity.py` | `sp.tmle(...)` |
+| T4 | se | estimand=or; fluctuation=per_arm; nuisance=supplied; se_method=eif; outcome=binary; weights=set; cluster=none/set | `tests/reference_parity/test_tmle_parameters_R_parity.py` | `sp.tmle(...)` |
+| T2 | estimate, se | estimand=ate; fluctuation=per_arm; nuisance=supplied; se_method=eif; outcome=binary; weights=none; cluster=none | `tests/r_parity/72_tmle.py` | `sp.tmle(fluctuation=...)` |
+| T2 | estimate, se | estimand=ate; fluctuation=single; nuisance=user_library; se_method=eif; outcome=binary; weights=none; cluster=none | `tests/reference_parity/test_tmle_parity.py` | `sp.tmle(...)` |
 
 ### `tobit`
 
