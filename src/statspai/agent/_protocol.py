@@ -115,7 +115,7 @@ CATALOGUE_TTL_MS = 3_600_000
 
 #: URIs whose contents are per-user data (live handles): private, and
 #: immediately stale because a handle can be evicted from the cache.
-_PRIVATE_URI_PREFIXES = ("statspai://data/", "statspai://result/")
+_PRIVATE_URI_PREFIXES = ("statspai://data/", "statspai://result/", "statspai://handles")
 
 _STATE = threading.local()
 

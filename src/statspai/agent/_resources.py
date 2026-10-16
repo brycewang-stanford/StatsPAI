@@ -39,6 +39,8 @@ PARITY_TRACK_A_URI = "statspai://parity/track-a-summary"
 #: Long-form reference for the arguments the server adds to every tool
 #: (``mcp_server.COMMON_ARGUMENTS_URI`` is the same literal).
 ARGUMENTS_URI = "statspai://arguments"
+#: Index of the live data / result handles (what an agent lost track of).
+HANDLES_URI = "statspai://handles"
 
 #: Fallback URI for the result-schema resource. ``mcp_server`` owns the
 #: canonical :data:`RESULT_SCHEMA_URI` (it must reference it early, before
@@ -380,6 +382,58 @@ def track_a_parity_summary() -> Dict[str, Any]:
 # ----------------------------------------------------------------------
 
 
+def handles_index() -> Dict[str, Any]:
+    """Live data and result handles, newest first.
+
+    An agent whose context was compacted no longer has the ``data_id`` /
+    ``result_id`` it was given; this lists what the server still holds,
+    with enough to tell the handles apart (shape and source for data, the
+    producing tool, result class and replay call for results). Handles kept
+    only on disk (``STATSPAI_MCP_STATE_DIR``) and not yet read back into
+    memory are not listed; they are still readable by id.
+    """
+    import datetime as _dt
+
+    from ._data_cache import DATA_CACHE
+    from ._result_cache import RESULT_CACHE
+
+    def stamp(t: float) -> str:
+        return _dt.datetime.fromtimestamp(t, _dt.timezone.utc).isoformat(
+            timespec="seconds"
+        )
+
+    data = []
+    for did, entry in reversed(list(DATA_CACHE.snapshot().items())):
+        rec = entry.arguments
+        item: Dict[str, Any] = {
+            "data_id": did,
+            "uri": DATA_URI_PREFIX + did,
+            "tool": entry.tool,
+            "n_rows": rec.get("n_rows"),
+            "n_cols": rec.get("n_cols"),
+            "created_at": stamp(entry.created_at),
+        }
+        if rec.get("parent_id"):
+            item["parent_id"] = rec["parent_id"]
+        source = (rec.get("source_provenance") or {}).get("source")
+        if source:
+            item["source"] = source
+        data.append(item)
+    results = []
+    for rid, entry in reversed(list(RESULT_CACHE.snapshot().items())):
+        item = {
+            "result_id": rid,
+            "uri": RESULT_URI_PREFIX + rid,
+            "tool": entry.tool,
+            "result_class": type(entry.obj).__name__,
+            "created_at": stamp(entry.created_at),
+        }
+        if entry.replay:
+            item["replay"] = entry.replay.split("  #", 1)[0]
+        results.append(item)
+    return {"data": data, "results": results}
+
+
 def handle_resources_list(params: Dict[str, Any]) -> Dict[str, Any]:
     """Enumerate the top-level resources only.
 
@@ -430,6 +484,15 @@ def handle_resources_list(params: Dict[str, Any]) -> Dict[str, Any]:
                 "per argument; this is the long form.",
             },
             {
+                "uri": HANDLES_URI,
+                "name": "StatsPAI live handles",
+                "mimeType": "application/json",
+                "description": "The data_id / result_id handles this server "
+                "still holds, newest first, with shape, source, producing "
+                "tool and replay call. Read it to recover handles lost to "
+                "context compaction instead of reloading or refitting.",
+            },
+            {
                 "uri": PARITY_TRACK_A_URI,
                 "name": "StatsPAI Track A parity summary",
                 "mimeType": "application/json",
@@ -467,6 +530,18 @@ def handle_resources_read(
     if not isinstance(uri, str):
         raise InvalidParamsError(f"`uri` must be a string; got {uri!r}")
 
+    if uri == HANDLES_URI:
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "application/json",
+                    "text": json.dumps(
+                        _clean(handles_index()), default=json_default, allow_nan=False
+                    ),
+                }
+            ]
+        }
     if uri == "statspai://catalog":
         return {
             "contents": [

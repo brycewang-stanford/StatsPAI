@@ -424,3 +424,34 @@ def test_http_handshake_clients_are_unaffected(http_server):
     )
     assert status == 200 and "Mcp-Session-Id" in hdrs
     assert body["result"]["protocolVersion"] == "2025-11-25"
+
+
+# --------------------------------------------------------------------- #
+#  statspai://handles
+# --------------------------------------------------------------------- #
+
+
+def test_handles_index_lists_live_handles_newest_first():
+    first = _modern(
+        "tools/call", name="load_data", arguments={"data_csv": "y,x\n1,2\n3,5\n4,4\n"}
+    )["result"]["structuredContent"]["data_id"]
+    second = _modern(
+        "tools/call", name="load_data", arguments={"data_csv": "y,x\n2,1\n5,3\n7,4\n"}
+    )["result"]["structuredContent"]["data_id"]
+    fit = _modern(
+        "tools/call",
+        name="regress",
+        arguments={"data_id": second, "formula": "y ~ x", "as_handle": True},
+    )["result"]["structuredContent"]
+    listed = _rpc("resources/list", {})["result"]["resources"]
+    assert "statspai://handles" in {r["uri"] for r in listed}
+    read = _modern("resources/read", uri="statspai://handles")["result"]
+    assert (read["cacheScope"], read["ttlMs"]) == ("private", 0)
+    index = json.loads(read["contents"][0]["text"])
+    ids = [d["data_id"] for d in index["data"]]
+    assert ids.index(second) < ids.index(first)
+    entry = next(d for d in index["data"] if d["data_id"] == second)
+    assert (entry["n_rows"], entry["n_cols"]) == (3, 2)
+    assert entry["uri"] == f"statspai://data/{second}"
+    res = next(r for r in index["results"] if r["result_id"] == fit["result_id"])
+    assert res["tool"] == "regress" and res["replay"].startswith("sp.regress(")
