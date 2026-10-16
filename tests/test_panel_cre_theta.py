@@ -74,9 +74,20 @@ def test_mundlak_theta_is_the_plain_random_effects_theta(panel):
             ),
         ).fit()
     np.testing.assert_allclose(res._lm_result.theta, plain.theta, rtol=1e-14)
-    # linearmodels on the augmented design counts the mean columns and gets
-    # a different theta: the defect the wrapper exists to fix.
-    assert np.max(np.abs(naive.theta.values - plain.theta.values)) > 1e-4
+    # linearmodels before 7.1 counts the mean columns on the augmented design
+    # and gets a different theta: the defect the wrapper exists to fix. From
+    # 7.1 on linearmodels counts by rank and agrees, which this pins too.
+    gap = np.max(np.abs(naive.theta.values - plain.theta.values))
+    if _linearmodels_version() < (7, 1):
+        assert gap > 1e-4
+    else:
+        assert gap < 1e-12
     # The regressors' own coefficients are the FE estimates either way.
     fe = sp.panel(df, "y ~ x1 + x2", entity="id", time="t", method="fe")
     np.testing.assert_allclose(res.params[["x1", "x2"]], fe.params, rtol=1e-10)
+
+
+def _linearmodels_version():
+    import linearmodels
+
+    return tuple(int(p) for p in linearmodels.__version__.split(".")[:2])

@@ -188,7 +188,10 @@ class TestIdentities:
         df = _panel()
         df = df.assign(w2=np.where(df.id < 10, 2.0, 1.0))
         weighted = _fit(df, "pooled", weights="w2")
-        stacked = _fit(pd.concat([df, df[df.id < 10]], ignore_index=True), "pooled")
+        # The copies get their own periods: linearmodels 7.1 refuses repeated
+        # (entity, time) rows, and pooled OLS does not use the time index.
+        copies = df[df.id < 10].assign(t=lambda d: d.t + 10_000)
+        stacked = _fit(pd.concat([df, copies], ignore_index=True), "pooled")
         np.testing.assert_allclose(
             weighted.params.to_numpy(), stacked.params.to_numpy(), rtol=RTOL
         )

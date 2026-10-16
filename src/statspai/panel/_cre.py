@@ -74,6 +74,25 @@ class CREFit:
         return getattr(self._template, name)
 
 
+def _model_f_statistic(
+    model: Any, weps: Any, y: Any, x: Any, root_w: Any, df_resid: int
+) -> Any:
+    """linearmodels' homoskedastic model F statistic.
+
+    ``_PanelModelBase._f_statistic`` is private and changed in linearmodels
+    7.1: the ``root_w`` argument was dropped and the restricted model now
+    uses the transformed constant column. Call whichever signature the
+    installed version has, so the statistic is the one linearmodels itself
+    reports in the same environment.
+    """
+    import inspect
+
+    params = inspect.signature(model._f_statistic).parameters
+    if "root_w" in params:
+        return model._f_statistic(weps, y, x, root_w, df_resid)
+    return model._f_statistic(weps, y, x, df_resid)
+
+
 def within_rank_deficient(exog: pd.DataFrame) -> bool:
     """True when some regressor (other than the constant) adds no rank to
     the within-unit variation: it is constant within unit, or collinear
@@ -183,8 +202,8 @@ def fit_cre(
         "rsquared_within": r2w,
         "rsquared_between": r2b,
         "rsquared_overall": r2o,
-        "f_statistic": model._f_statistic(
-            weps[:, None], wy_a, wx_a, root_w, pooled.df_resid
+        "f_statistic": _model_f_statistic(
+            model, weps[:, None], wy_a, wx_a, root_w, pooled.df_resid
         ),
     }
     return CREFit(pooled, template, extras)

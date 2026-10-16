@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### linearmodels 7.1
+
+#### Fixed
+
+- `sp.panel(method='mundlak' | 'chamberlain')`, and random effects with a
+  regressor that does not vary within unit, raised `TypeError` with
+  linearmodels 7.1: the private `_f_statistic` they call lost its `root_w`
+  argument. The model F statistic now comes from whichever signature is
+  installed, so it is the one linearmodels itself reports in that
+  environment. Under 7.1 its restricted model uses the transformed
+  constant column, so the RE F statistic differs from 7.0's; coefficients,
+  standard errors and the variance components are unchanged.
+- Two tests assumed linearmodels before 7.1: 7.1 counts the rank when the
+  design has unit means (the miscount `sp.panel` works around), and it
+  refuses repeated (entity, time) rows.
+
 ### MCP server: protocol 2026-07-28, a setup doctor, a faster start
 
 #### Added
