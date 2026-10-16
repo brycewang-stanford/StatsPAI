@@ -1,118 +1,126 @@
-# CausalAgentBench OSF Pre-registration Protocol
+# CausalAgentBench v2: pre-registration protocol
 
-**Status: ready for OSF deposit.** Freeze this document and upload
-to `osf.io/<project>` *before* executing the first production trial.
-The hash of this file + `prompts.json` + `golds.json` will be the
-pre-registration fingerprint.
+**Status: draft for deposit.** This document, together with the SHA-256
+fingerprints printed by `python runners/prereg.py fingerprint`, is the
+pre-registration. Nothing below may change after the deposit; the runner
+refuses to call any model API until `prompts/preregistration.lock.json`
+records the registration DOI and the fingerprints still match.
 
-## Title
+## 1. Question
 
-CausalAgentBench: behavioural evaluation of LLM agents on a
-50-prompt applied-econometrics benchmark.
+Do LLM agents produce correct applied-econometrics results more often, with
+fewer fabricated numbers or invented functions, and at lower token cost,
+when their toolset is StatsPAI (a Python library with an MCP server and
+self-describing function schemas) than when it is the general Python
+scientific stack or R?
 
-## Brief description
+## 2. Design
 
-We evaluate whether LLM agents produce more accurate and more
-efficient empirical analyses when given a unified, schema-first
-toolset (StatsPAI) versus the prevailing fragmented Python and R
-ecosystems. The benchmark consists of 50 causal-inference research
-prompts spanning three difficulty levels and ten identification
-strategies; each prompt is run in six experimental cells crossing
-two language models (Anthropic Claude, OpenAI GPT) with three
-toolsets (StatsPAI, Pythonic stack, R via MCP).
+50 tasks x 6 cells x 3 repetitions = 900 trials.
 
-## Hypotheses (registered before any production trial)
-
-- **H1 (within-cell threshold)**: StatsPAI cells (C1, C2) achieve
-  task-success rates of at least 90% on L1 prompts, 70% on L2, and
-  50% on L3.
-- **H2 (between-toolset gap)**: StatsPAI cells exceed Pythonic-
-  stack cells (C3, C4) on L2-L3 task-success by at least 15
-  percentage points.
-- **H3 (hallucination)**: StatsPAI cells have hallucination rate
-  below 5%; Pythonic-stack cells exceed 15%.
-- **H4 (token efficiency)**: StatsPAI cells use no more than 60%
-  of the tokens used by Pythonic-stack cells at fixed prompt and
-  language model.
-- **H5 (R-via-MCP comparison)**: R-via-MCP cells (C5, C6) achieve
-  task-success rates statistically indistinguishable from
-  StatsPAI but use at least 1.5× as many tokens.
-
-## Statistical test
-
-Cluster bootstrap with prompt as the clustering unit, B = 10,000.
-Two-sided p-values at α = 0.05 with Bonferroni correction across
-H1-H5. The full pre-specified test code lives in
-`tests/agent_bench/runners/grader.py::stat_tests` and will be
-frozen at the time of OSF deposit.
-
-## Experimental design
-
-50 prompts × 6 cells × 3 reps = 900 trials.
-
-Six cells:
-
-| Cell | Toolset | Agent |
+| Cell | Toolset | Model family |
 | --- | --- | --- |
-| C1 | StatsPAI + MCP | Anthropic Claude (latest) |
-| C2 | StatsPAI + MCP | OpenAI GPT (latest) |
-| C3 | Pythonic stack (statsmodels, linearmodels, DoubleML, grf-python) | Claude |
-| C4 | Pythonic stack | GPT |
-| C5 | R via MCP (radian + Jupyter R) | Claude |
-| C6 | R via MCP | GPT |
+| C1 | Python + StatsPAI, StatsPAI MCP tools | Anthropic |
+| C2 | Python + StatsPAI, StatsPAI MCP tools | OpenAI |
+| C3 | Python: pandas, numpy, scipy, statsmodels, linearmodels, scikit-learn, DoubleML (StatsPAI import blocked) | Anthropic |
+| C4 | as C3 | OpenAI |
+| C5 | R with the packages listed in `runners/cells.py` | Anthropic |
+| C6 | as C5 | OpenAI |
 
-Three difficulty levels:
+The exact model releases and the Anthropic effort setting are recorded in
+the lock at deposit time. No refusal fallback to another model is enabled.
 
-- **L1 (direct, n = 20)**: prompt names the method.
-- **L2 (indirect, n = 20)**: prompt describes the structural
-  problem, agent picks the method.
-- **L3 (workflow, n = 10)**: prompt asks for a complete analysis
-  with diagnostics and at least one robustness check.
+### Tasks
 
-## Sandboxing and reproducibility
+`prompts/prompts.json` (version 2). Three levels:
 
-Each trial runs in a per-trial sandbox with:
+* **L1 (20)**: the method is named ("Estimate ... by 2SLS ...").
+* **L2 (20)**: the design is described, the method is not.
+* **L3 (10)**: an open analysis with required diagnostics.
 
-- the calibrated replica CSVs from `sp.datasets.*` (CSVs are
-  shipped in `tests/agent_bench/sandbox/csvs/`);
-- a fresh Python interpreter (or radian + Jupyter R) with the
-  appropriate toolset's libraries pinned to the versions logged in
-  `tests/agent_bench/sandbox/env.lock`;
-- agent temperature = 0;
-- seed = the first 64 bits of
-  `sha256(f"{cell}__{prompt_id}__{rep}")`;
-- network egress disabled.
+Every task lists the named values the agent must return (`report`) and the
+one it is scored on (`headline`). Data files are in `data/`, fingerprinted
+in `data/MANIFEST.json`. Several are simulated with known parameters
+(`runners/build_data.py`); the others are the datasets distributed with
+StatsPAI, some of which are simulated replicas. Results are scored against
+the analysis of the file given, not against claims about original studies.
 
-## Metrics
+### Trial procedure
 
-- M1 task_success — final estimate within ±5% of the gold answer
-- M2 method_correct — agent picked the gold-rubric estimator
-- M3 code_executes — generated code runs without unhandled
-  exceptions
-- M4 token_total — input + output tokens for the full trial
-- M5 hallucination — agent attempted to call a non-existent function
-- M6 diagnostic_complete — required diagnostics (parallel-trends
-  test for DiD, density test for RD, first-stage F for IV,
-  propensity-score overlap for PSM) appear in the agent's output
-  (LLM-as-judge double-blind on a 20% sub-sample for inter-rater
-  agreement)
+`runners/agent_loop.py`. The model receives a fixed system prompt
+(`runners/cells.py`), the task text and its reporting instruction, and the
+tools of its cell: one code-execution tool (`run_python` or `run_r`, a
+persistent session in a fresh directory holding the data file, 300 s per
+call, output truncated at 8,000 characters), `submit_answer` with the
+task's report fields as typed arguments, and, in C1/C2, StatsPAI's MCP
+tools. The trial ends at `submit_answer`, a turn without a tool call, a
+refusal, or 20 turns. Sessions run as local processes on the experimenter's
+machine; the task's data file is the only data supplied, and the tools
+offer no web search.
 
-## Deviations and amendments
+### Gold answers
 
-Any deviation from this pre-registration during execution must be
-recorded in `tests/agent_bench/prompts/_deviations.md` with a
-timestamp and a justification. Deviations will be disclosed in the
-final paper.
+`golds/golds.json`, built by `runners/build_golds.py` from
+`golds/reference_values.json`, which `golds/reference.R` computes on the
+frozen files with canonical R implementations (package versions recorded in
+the file). A task may have several acceptable variants (different valid
+estimators, or implementation conventions such as matching tie rules), each
+with its own value and tolerance:
 
-## Pre-registration checklist
+* `EXACT`: relative 1% (absolute floor 1e-4) for deterministic estimators;
+* `CONVENTION`: relative 5% where valid implementations differ by an
+  optimiser, a tie rule or a cross-fitting split;
+* wider task-specific bands for synthetic-control weights (15%).
 
-- [ ] Freeze prompts.json hash
-- [ ] Freeze golds.json hash
-- [ ] Freeze grader.py at HEAD before first trial
-- [ ] Deposit on OSF
-- [ ] Record OSF DOI in NEXT-STEPS §M
-- [ ] Verify API budget (target $300-600)
-- [ ] Run 900 trials
-- [ ] Lock results/trials.jsonl hash
-- [ ] Generate headline.md on full data
-- [ ] Update Paper-JSS/manuscript/sections/07-agent-eval.tex
+StatsPAI's own solution (`runners/oracle_statspai.py`) was checked against
+every gold before the deposit and is within tolerance on all 50 tasks.
+
+## 3. Measures (per trial, `runners/grader.py`)
+
+* **task_success** (primary): the headline value is within tolerance of some
+  variant.
+* **method_correct**: the reported estimator is that of some variant.
+* **values_correct**: share of the closest variant's fields within tolerance.
+* **required_complete** (L3): every required diagnostic field is non-null.
+* **fabricated**: the headline was submitted but no tool output contains a
+  number within relative 1e-3 of it.
+* **invented_api**: a tool output shows a missing attribute or function, an
+  unknown keyword argument, a missing module or package (other than the
+  deliberately blocked StatsPAI import in C3/C4), or the agent called a tool
+  that was not offered.
+* **hallucination**: fabricated or invented_api.
+* **tokens**: all tokens processed in the trial (input, cache reads, cache
+  writes, output). **tokens_uncached** excludes cache reads (secondary).
+
+## 4. Hypotheses and tests
+
+Statistics are pooled over the two model families within a toolset. Tests
+use a cluster bootstrap over tasks (B = 10,000, seed fixed in `runners/grader.py`) with
+intervals at 1 - 0.05/5 (Bonferroni over H1-H5).
+
+* **H1**: StatsPAI cells' task success is at least 90% on L1, 70% on L2 and
+  50% on L3 (supported for a level when the interval's lower bound reaches
+  the threshold).
+* **H2**: on L2 and L3, StatsPAI cells' task success exceeds the Python-stack
+  cells' by at least 15 points (lower bound >= 0.15).
+* **H3**: StatsPAI cells' hallucination rate is below 5% (upper bound < 0.05)
+  and the Python-stack cells' is at least 15% (lower bound >= 0.15).
+* **H4**: StatsPAI cells use at most 60% of the tokens of the Python-stack
+  cells (upper bound of the ratio of means <= 0.60).
+* **H5**: R cells' task success is within 10 points of StatsPAI cells' (the
+  interval of the difference inside (-0.10, 0.10)) and they use at least 1.5
+  times the tokens (lower bound of the ratio >= 1.5).
+
+All per-cell, per-level and per-family descriptive statistics are reported
+regardless of the tests.
+
+## 5. Exclusions and deviations
+
+No trial is excluded. API errors are retried by the provider SDK; a trial
+that still fails to complete is re-run once and the failure reported. Any
+deviation from this protocol is reported with its reason.
+
+## 6. Conflict of interest
+
+The authors develop StatsPAI. The gold answers come from R reference
+implementations, not from StatsPAI, and the scoring is fully automatic.

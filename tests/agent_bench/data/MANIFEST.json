@@ -1,0 +1,168 @@
+{
+  "card.csv": {
+    "sha256": "0e38f3af9b64f45f1c876d1279a925b6317c0bfcf59ed7583a4d59bc3b1f64d0",
+    "rows": 3010,
+    "columns": [
+      "lwage",
+      "educ",
+      "exper",
+      "expersq",
+      "black",
+      "south",
+      "smsa",
+      "nearc4",
+      "nearc2"
+    ],
+    "committed": true
+  },
+  "mpdta.csv": {
+    "sha256": "4ea991b14da8e297066ef812d7f3c7a6748dc6e2230177e62b5be244df232fb0",
+    "rows": 2500,
+    "columns": [
+      "countyreal",
+      "year",
+      "lemp",
+      "first_treat",
+      "treat"
+    ],
+    "committed": true
+  },
+  "lee.csv": {
+    "sha256": "10d313a1938fdb7cb9a02d49f9e77b43748ecf2d18a5eed35ac3f1c0f0a16fa6",
+    "rows": 1390,
+    "columns": [
+      "margin",
+      "voteshare_next"
+    ],
+    "committed": true
+  },
+  "basque.csv": {
+    "sha256": "22061a5a56fb23c7f65f9384ba69393aa3a7439a0b7d966fdf1672d4606a97b4",
+    "rows": 731,
+    "columns": [
+      "region",
+      "year",
+      "gdppc",
+      "treated"
+    ],
+    "committed": true
+  },
+  "nsw_dw.csv": {
+    "sha256": "d7f4f6fb5758d212668bb3b0d8f33b4d64bd14bb390438221dfbef1c21cbeb86",
+    "rows": 2675,
+    "columns": [
+      "treat",
+      "age",
+      "education",
+      "black",
+      "hispanic",
+      "married",
+      "nodegree",
+      "re74",
+      "re75",
+      "re78"
+    ],
+    "committed": true
+  },
+  "california.csv": {
+    "sha256": "a427c3fa092b020e1a87e2161a1c1770bc2e561ef08ba8d8606d98076da60e0e",
+    "rows": 1209,
+    "columns": [
+      "state",
+      "year",
+      "cigsale",
+      "lnincome",
+      "beer",
+      "age15to24",
+      "retprice",
+      "treated"
+    ],
+    "committed": true
+  },
+  "synth_survival.csv": {
+    "sha256": "33f51900f8b5383d3a4a317bdc10256c9d339d957e111d0d769b177b3599b036",
+    "rows": 800,
+    "columns": [
+      "time",
+      "event",
+      "x1",
+      "x2",
+      "treat"
+    ],
+    "committed": true
+  },
+  "panel.csv": {
+    "sha256": "318eb46995d6abbbc64a9f0837e3662cd94439956dd6fab18e980b64c1ae5ebd",
+    "rows": 1000,
+    "columns": [
+      "gid",
+      "x1",
+      "y"
+    ],
+    "committed": true
+  },
+  "logit_panel.csv": {
+    "sha256": "9cb3476d337c2cbe544ea999cc4903013941fa509c568307c2545770044789bb",
+    "rows": 1200,
+    "columns": [
+      "gid",
+      "x1",
+      "y"
+    ],
+    "committed": true
+  },
+  "sfa.csv": {
+    "sha256": "b4c0925fbd5e990ed9ec00e48021d8a4e38558fe107ffedefda37a65a244da36",
+    "rows": 600,
+    "columns": [
+      "lny",
+      "lnk",
+      "lnl"
+    ],
+    "committed": true
+  },
+  "wage_gap.csv": {
+    "sha256": "c9cae8a7324abb3a9b0a507dcc746e4045450ff872a746f01c3f64acae0018ce",
+    "rows": 2000,
+    "columns": [
+      "log_wage",
+      "educ",
+      "exper",
+      "female"
+    ],
+    "committed": true
+  },
+  "mediation.csv": {
+    "sha256": "822303c6e6f5919249656918f3ca22933ed0e7bb54dd49763b07141d0b978c04",
+    "rows": 1200,
+    "columns": [
+      "y",
+      "m",
+      "treat",
+      "x"
+    ],
+    "committed": true
+  },
+  "trade.csv": {
+    "sha256": "c8a7a8aaf85359978deb2fa49a1c518855afa115fa957363adcad84f81295ba9",
+    "rows": 200000,
+    "columns": [
+      "firm",
+      "year",
+      "x1",
+      "x2",
+      "y"
+    ],
+    "committed": false
+  },
+  "macro.csv": {
+    "sha256": "f44a595c134e574d3004a94c934ba795bf9c12646dfd3286135ea034c2137aaf",
+    "rows": 300,
+    "columns": [
+      "t",
+      "y1",
+      "y2"
+    ],
+    "committed": true
+  }
+}

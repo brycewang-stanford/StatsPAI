@@ -1,450 +1,1519 @@
-[
-  {
-    "id": "L1-01",
-    "expected_estimator": "ols",
-    "expected_values": {
-      "beta_educ": 0.11,
-      "se_educ": 0.0042
-    },
-    "published_anchor": 0.075
+{
+  "version": 2,
+  "reference": {
+    "r": "R version 4.5.2 (2025-10-31)",
+    "packages": [
+      "2.5.1",
+      "0.14.0",
+      "4.0.0",
+      "2.6",
+      "1.1.10",
+      "0.0.9",
+      "4.10.15",
+      "1.0.2",
+      "3.8.3",
+      "0.2.8",
+      "0.1.1",
+      "0.6.2",
+      "0.5.1",
+      "4.1.4",
+      "2.0.1",
+      "1.1.8",
+      "0.1.6",
+      "1.6.1",
+      "2.6.7",
+      "1.2.16",
+      "3.1.1"
+    ]
   },
-  {
-    "id": "L1-02",
-    "expected_estimator": "iv_2sls",
-    "expected_values": {
-      "beta_educ": 0.142,
-      "se_educ": 0.019
+  "golds": [
+    {
+      "variants": [
+        {
+          "estimator": "ols",
+          "values": {
+            "beta_educ": 0.0740089942066656,
+            "se_educ": 0.00364203353058009
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R lm + sandwich HC1"
+        }
+      ],
+      "required": [],
+      "id": "L1-01",
+      "headline": "beta_educ"
     },
-    "published_anchor": 0.132
-  },
-  {
-    "id": "L1-03",
-    "expected_estimator": "callaway_santanna",
-    "expected_values": {
-      "simple_ATT": -0.033,
-      "se": 0.003
+    {
+      "variants": [
+        {
+          "estimator": "iv_2sls",
+          "values": {
+            "beta_educ": 0.132288840044461,
+            "se_educ": 0.0485778603011371
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R AER::ivreg + sandwich HC1"
+        }
+      ],
+      "required": [],
+      "id": "L1-02",
+      "headline": "beta_educ"
     },
-    "published_anchor": -0.0454
-  },
-  {
-    "id": "L1-04",
-    "expected_estimator": "sun_abraham",
-    "expected_values": {
-      "weighted_avg_ATT": -0.034,
-      "se": 0.009
+    {
+      "variants": [
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.032976513816,
+            "se": 0.00776454253535427
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did 2.x att_gt(dr, nevertreated), aggte simple, analytic SE"
+        }
+      ],
+      "required": [],
+      "id": "L1-03",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-05",
-    "expected_estimator": "rdrobust",
-    "expected_values": {
-      "conventional": 0.073,
-      "robust": 0.062
+    {
+      "variants": [
+        {
+          "estimator": "sun_abraham",
+          "values": {
+            "att": -0.0329765138160022
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R fixest sunab, summary(agg='att'): cells weighted by cohort size"
+        },
+        {
+          "estimator": "sun_abraham",
+          "values": {
+            "att": -0.0337825190616696
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "equal-weight mean of the post-treatment event-time IW coefficients"
+        }
+      ],
+      "required": [],
+      "id": "L1-04",
+      "headline": "att"
     },
-    "published_anchor": 0.08
-  },
-  {
-    "id": "L1-06",
-    "expected_estimator": "rddensity",
-    "expected_values": {
-      "pvalue": 0.91
+    {
+      "variants": [
+        {
+          "estimator": "rdrobust",
+          "values": {
+            "tau_conventional": 7.41413082233326,
+            "tau_bias_corrected": 7.50650248282457,
+            "se_robust": 1.74125841383575
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R rdrobust defaults"
+        }
+      ],
+      "required": [],
+      "id": "L1-05",
+      "headline": "tau_conventional"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-07",
-    "expected_estimator": "synth_classic",
-    "expected_values": {
-      "avg_post_gap": -0.66
+    {
+      "variants": [
+        {
+          "estimator": "rddensity",
+          "values": {
+            "p_value": 0.381425387884682
+          },
+          "tolerance": {
+            "rel": 0.02,
+            "abs": 0.005
+          },
+          "source": "R rddensity defaults, p_jk"
+        }
+      ],
+      "required": [],
+      "id": "L1-06",
+      "headline": "p_value"
     },
-    "published_anchor": -0.855
-  },
-  {
-    "id": "L1-08",
-    "expected_estimator": "psm",
-    "expected_values": {
-      "att_psm": 2278
+    {
+      "variants": [
+        {
+          "estimator": "synth",
+          "values": {
+            "avg_post_gap": -0.687789209705457
+          },
+          "tolerance": {
+            "rel": 0.15,
+            "abs": 0.02
+          },
+          "source": "R Synth, pre-1970 gdppc as predictors"
+        },
+        {
+          "estimator": "synth",
+          "values": {
+            "avg_post_gap": -0.70514920135238
+          },
+          "tolerance": {
+            "rel": 0.15,
+            "abs": 0.02
+          },
+          "source": "R synthdid::sc_estimate"
+        }
+      ],
+      "required": [],
+      "id": "L1-07",
+      "headline": "avg_post_gap"
     },
-    "published_anchor": 1794
-  },
-  {
-    "id": "L1-09",
-    "expected_estimator": "dml_plr",
-    "expected_values": {
-      "theta": 0.11
+    {
+      "variants": [
+        {
+          "estimator": "psm",
+          "values": {
+            "att": 2330.20844651806
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "R Matching::Match(M=1, replace, ties=TRUE) on logit pscore"
+        },
+        {
+          "estimator": "psm",
+          "values": {
+            "att": 2277.69072048562
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "same, ties=FALSE"
+        }
+      ],
+      "required": [],
+      "id": "L1-08",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-10",
-    "expected_estimator": "coxph",
-    "expected_values": {
-      "beta_x1": 0.46,
-      "beta_x2": -0.59
+    {
+      "variants": [
+        {
+          "estimator": "dml_plr",
+          "values": {
+            "theta": 0.0739141645318832,
+            "se": 0.0036357701084491
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "R DoubleML PLR, regr.lm, 5 folds, mean of 20 splits"
+        }
+      ],
+      "required": [],
+      "id": "L1-09",
+      "headline": "theta"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-11",
-    "expected_estimator": "honest_did_smooth",
-    "expected_values": {
-      "ci_lo": 0.254,
-      "ci_hi": 0.746
+    {
+      "variants": [
+        {
+          "estimator": "coxph",
+          "values": {
+            "beta_x1": 0.495646738120737,
+            "beta_x2": -0.587348450783817,
+            "beta_treat": -0.390571599750025
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R survival::coxph, Efron"
+        }
+      ],
+      "required": [],
+      "id": "L1-10",
+      "headline": "beta_treat"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-12",
-    "expected_estimator": "bacon",
-    "expected_values": {
-      "beta_twfe": -0.0375,
-      "neg_weight_share": 0.33
+    {
+      "variants": [
+        {
+          "estimator": "honest_did",
+          "values": {
+            "ci_lower": -0.0982507437822477,
+            "ci_upper": 0.0456871115048028
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "R did (universal base) + HonestDiD smoothness, M=0.05, FLCI"
+        }
+      ],
+      "required": [],
+      "id": "L1-11",
+      "headline": "ci_lower"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-13",
-    "expected_estimator": "etwfe",
-    "expected_values": {
-      "att_etwfe": -0.038,
-      "se": 0.006
+    {
+      "variants": [
+        {
+          "estimator": "bacon",
+          "values": {
+            "beta_twfe": -0.0375050765885333,
+            "weight_later_vs_earlier": 0.266666666666667
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R bacondecomp"
+        }
+      ],
+      "required": [],
+      "id": "L1-12",
+      "headline": "beta_twfe"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-14",
-    "expected_estimator": "did_imputation",
-    "expected_values": {
-      "att_bjs": -0.022,
-      "se": 0.006
+    {
+      "variants": [
+        {
+          "estimator": "etwfe",
+          "values": {
+            "att": -0.035108276626542
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R etwfe + emfx(type='simple')"
+        }
+      ],
+      "required": [],
+      "id": "L1-13",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-15",
-    "expected_estimator": "sdid",
-    "expected_values": {
-      "att_sdid": -17.25
+    {
+      "variants": [
+        {
+          "estimator": "did_imputation",
+          "values": {
+            "att": -0.0351082783170291
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R didimputation"
+        }
+      ],
+      "required": [],
+      "id": "L1-14",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-16",
-    "expected_estimator": "evalue",
-    "expected_values": {
-      "evalue_estimate": 4.44,
-      "evalue_ci": 3.0
+    {
+      "variants": [
+        {
+          "estimator": "sdid",
+          "values": {
+            "att": -15.6038278727339
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R synthdid::synthdid_estimate"
+        }
+      ],
+      "required": [],
+      "id": "L1-15",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-17",
-    "expected_estimator": "lmm",
-    "expected_values": {
-      "beta_intercept": 1.9,
-      "beta_x1": 1.48,
-      "icc": 0.72
+    {
+      "variants": [
+        {
+          "estimator": "evalue",
+          "values": {
+            "evalue_estimate": 4.43649167310371,
+            "evalue_ci": 3
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R EValue::evalues.RR"
+        }
+      ],
+      "required": [],
+      "id": "L1-16",
+      "headline": "evalue_estimate"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-18",
-    "expected_estimator": "glmm_logit",
-    "expected_values": {
-      "beta_intercept": -0.54,
-      "beta_x1": 0.61
+    {
+      "variants": [
+        {
+          "estimator": "lmm",
+          "values": {
+            "beta_intercept": 2.24619238500803,
+            "beta_x1": 1.54274616491266,
+            "icc": 0.7612381303219
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R lme4::lmer, REML"
+        }
+      ],
+      "required": [],
+      "id": "L1-17",
+      "headline": "beta_x1"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-19",
-    "expected_estimator": "frontier",
-    "expected_values": {
-      "beta_lnk": 0.59,
-      "beta_lnl": 0.39,
-      "mean_efficiency": 0.65
+    {
+      "variants": [
+        {
+          "estimator": "glmm_logit",
+          "values": {
+            "beta_intercept": -0.575025869791715,
+            "beta_x1": 0.566487488119525
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "R lme4::glmer, Laplace"
+        }
+      ],
+      "required": [],
+      "id": "L1-18",
+      "headline": "beta_x1"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L1-20",
-    "expected_estimator": "oaxaca",
-    "expected_values": {
-      "gap": 0.221,
-      "explained": 0.039,
-      "unexplained": 0.183
+    {
+      "variants": [
+        {
+          "estimator": "frontier",
+          "values": {
+            "beta_lnk": 0.641897337566284,
+            "beta_lnl": 0.387815486159735,
+            "mean_efficiency": 0.760827893662965
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "R frontier::sfa, half-normal"
+        }
+      ],
+      "required": [],
+      "id": "L1-19",
+      "headline": "beta_lnk"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-01",
-    "expected_estimator": "iv_2sls",
-    "expected_values": {
-      "beta_educ": 0.142
+    {
+      "variants": [
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "gap": 0.287960315252499,
+            "endowments": 0.0729242599481977,
+            "coefficients": 0.204045336656188,
+            "interaction": 0.0109907186481132
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "threefold, group A = men, endowments at women's coefficients"
+        }
+      ],
+      "required": [],
+      "id": "L1-20",
+      "headline": "endowments"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-02",
-    "expected_estimator": "callaway_santanna",
-    "expected_values": {
-      "simple_ATT": -0.033
+    {
+      "variants": [
+        {
+          "estimator": "iv_2sls",
+          "values": {
+            "effect": 0.132288840044461
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "2SLS with nearc4 and controls"
+        },
+        {
+          "estimator": "iv_2sls",
+          "values": {
+            "effect": 0.188062632775713
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "2SLS with nearc4, no controls"
+        }
+      ],
+      "required": [],
+      "id": "L2-01",
+      "headline": "effect"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-03",
-    "expected_estimator": "rdrobust",
-    "expected_values": {
-      "robust": 0.062
+    {
+      "variants": [
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.032976513816
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='dr', control_group='nevertreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.0323021069792382
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='dr', control_group='notyettreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.032976513816
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='ipw', control_group='nevertreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.0323021069792381
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='ipw', control_group='notyettreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.032976513816
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='reg', control_group='nevertreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.0323021069792381
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='reg', control_group='notyettreated') + aggte(simple)"
+        },
+        {
+          "estimator": "sun_abraham",
+          "values": {
+            "att": -0.0329765138160022
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R fixest sunab, agg='att'"
+        },
+        {
+          "estimator": "sun_abraham",
+          "values": {
+            "att": -0.0337825190616696
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "sunab, equal-weight event-time mean"
+        },
+        {
+          "estimator": "etwfe",
+          "values": {
+            "att": -0.035108276626542
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R etwfe + emfx(simple)"
+        },
+        {
+          "estimator": "did_imputation",
+          "values": {
+            "att": -0.0351082783170291
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R didimputation"
+        }
+      ],
+      "required": [],
+      "id": "L2-02",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-04",
-    "expected_estimator": "psm",
-    "expected_values": {
-      "att_psm": 2278
+    {
+      "variants": [
+        {
+          "estimator": "rdrobust",
+          "values": {
+            "effect": 7.41413082233326
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "rdrobust conventional"
+        },
+        {
+          "estimator": "rdrobust",
+          "values": {
+            "effect": 7.50650248282457
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "rdrobust bias-corrected"
+        }
+      ],
+      "required": [],
+      "id": "L2-03",
+      "headline": "effect"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-05",
-    "expected_estimator": "synth_classic",
-    "expected_values": {
-      "avg_post_gap": -0.66
+    {
+      "variants": [
+        {
+          "estimator": "psm",
+          "values": {
+            "att": 2330.20844651806
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "PSM, Matching ties=TRUE"
+        },
+        {
+          "estimator": "psm",
+          "values": {
+            "att": 2277.69072048562
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "PSM, ties=FALSE"
+        },
+        {
+          "estimator": "ipw",
+          "values": {
+            "att": 2106.02557971908
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "normalised IPW ATT, logit"
+        },
+        {
+          "estimator": "aipw",
+          "values": {
+            "att": 2641.12984310177
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "doubly robust ATT"
+        },
+        {
+          "estimator": "ols",
+          "values": {
+            "att": 2322.12566511412
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "covariate-adjusted OLS"
+        }
+      ],
+      "required": [],
+      "id": "L2-04",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-06",
-    "expected_estimator": "sdid",
-    "expected_values": {
-      "att_sdid": -17.25
+    {
+      "variants": [
+        {
+          "estimator": "synth",
+          "values": {
+            "avg_post_gap": -0.687789209705457
+          },
+          "tolerance": {
+            "rel": 0.15,
+            "abs": 0.02
+          },
+          "source": "R Synth"
+        },
+        {
+          "estimator": "synth",
+          "values": {
+            "avg_post_gap": -0.70514920135238
+          },
+          "tolerance": {
+            "rel": 0.15,
+            "abs": 0.02
+          },
+          "source": "synthdid::sc_estimate"
+        },
+        {
+          "estimator": "sdid",
+          "values": {
+            "avg_post_gap": -0.139435882930154
+          },
+          "tolerance": {
+            "rel": 0.15,
+            "abs": 0.02
+          },
+          "source": "synthdid::synthdid_estimate"
+        }
+      ],
+      "required": [],
+      "id": "L2-05",
+      "headline": "avg_post_gap"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-07",
-    "expected_estimator": "ols_cluster",
-    "expected_values": {
-      "beta_treat": -0.056
+    {
+      "variants": [
+        {
+          "estimator": "sdid",
+          "values": {
+            "att": -15.6038278727339
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "synthdid"
+        },
+        {
+          "estimator": "synth",
+          "values": {
+            "att": -19.619663470944
+          },
+          "tolerance": {
+            "rel": 0.15,
+            "abs": 0.5
+          },
+          "source": "synthetic control"
+        },
+        {
+          "estimator": "twfe",
+          "values": {
+            "att": -27.349111083615
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "difference in differences"
+        }
+      ],
+      "required": [],
+      "id": "L2-06",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-08",
-    "expected_estimator": "fast_feols",
-    "expected_values": {
-      "beta_x1": 2.0,
-      "beta_x2": -1.5
+    {
+      "variants": [
+        {
+          "estimator": "twfe",
+          "values": {
+            "effect": -0.0375050765885333,
+            "se": 0.00578356951809584
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "fixest TWFE, cluster countyreal"
+        }
+      ],
+      "required": [],
+      "id": "L2-07",
+      "headline": "effect"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-09",
-    "expected_estimator": "bacon",
-    "expected_values": {
-      "beta_twfe": -0.0375
+    {
+      "variants": [
+        {
+          "estimator": "hdfe_ols",
+          "values": {
+            "beta_x1": 2.00267541755092,
+            "beta_x2": -1.49751839886787
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "fixest firm + year FE"
+        }
+      ],
+      "required": [],
+      "id": "L2-08",
+      "headline": "beta_x1"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-10",
-    "expected_estimator": "honest_did_smooth",
-    "expected_values": {},
-    "published_anchor": null
-  },
-  {
-    "id": "L2-11",
-    "expected_estimator": "sensemakr",
-    "expected_values": {
-      "rv_q": 0.076
+    {
+      "variants": [
+        {
+          "estimator": "bacon",
+          "values": {
+            "beta_twfe": -0.0375050765885333
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "bacondecomp"
+        }
+      ],
+      "required": [],
+      "id": "L2-09",
+      "headline": "beta_twfe"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-12",
-    "expected_estimator": "mediation",
-    "expected_values": {
-      "acme": 0.108
+    {
+      "variants": [
+        {
+          "estimator": "honest_did",
+          "values": {
+            "ci_lower": -0.0982507437822477,
+            "ci_upper": 0.0456871115048028
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "universal base period"
+        },
+        {
+          "estimator": "honest_did",
+          "values": {
+            "ci_lower": -0.104486085701078,
+            "ci_upper": 0.03215554370851
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "varying base period"
+        }
+      ],
+      "required": [],
+      "id": "L2-10",
+      "headline": "ci_lower"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-13",
-    "expected_estimator": "coxph",
-    "expected_values": {
-      "beta_x1": 0.46
+    {
+      "variants": [
+        {
+          "estimator": "sensemakr",
+          "values": {
+            "rv_q": 0.0735580561369253
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R sensemakr"
+        }
+      ],
+      "required": [],
+      "id": "L2-11",
+      "headline": "rv_q"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-14",
-    "expected_estimator": "lmm",
-    "expected_values": {
-      "beta_x1": 1.48
+    {
+      "variants": [
+        {
+          "estimator": "mediation",
+          "values": {
+            "acme": 0.226071522480017,
+            "ade": 0.313919587945265
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "product of coefficients (linear models)"
+        }
+      ],
+      "required": [],
+      "id": "L2-12",
+      "headline": "acme"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-15",
-    "expected_estimator": "glmm_logit",
-    "expected_values": {
-      "beta_x1": 0.61
+    {
+      "variants": [
+        {
+          "estimator": "coxph",
+          "values": {
+            "beta_treat": -0.390571599750025
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "coxph Efron"
+        },
+        {
+          "estimator": "coxph",
+          "values": {
+            "beta_treat": -0.390571599750025
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "coxph Breslow"
+        }
+      ],
+      "required": [],
+      "id": "L2-13",
+      "headline": "beta_treat"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-16",
-    "expected_estimator": "frontier",
-    "expected_values": {
-      "beta_lnk": 0.59
+    {
+      "variants": [
+        {
+          "estimator": "lmm",
+          "values": {
+            "beta_x1": 1.54274616491266
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "random intercept (REML)"
+        },
+        {
+          "estimator": "lmm",
+          "values": {
+            "beta_x1": 1.54273656123828
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "random intercept (ML)"
+        },
+        {
+          "estimator": "ols_cluster",
+          "values": {
+            "beta_x1": 1.51271822091399
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "pooled OLS, cluster-robust SEs"
+        },
+        {
+          "estimator": "hdfe_ols",
+          "values": {
+            "beta_x1": 1.54313697424551
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "within (group fixed effects)"
+        }
+      ],
+      "required": [],
+      "id": "L2-14",
+      "headline": "beta_x1"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-17",
-    "expected_estimator": "oaxaca",
-    "expected_values": {
-      "gap": 0.221,
-      "explained": 0.039
+    {
+      "variants": [
+        {
+          "estimator": "glmm_logit",
+          "values": {
+            "beta_x1": 0.566487488119525
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "glmer Laplace"
+        },
+        {
+          "estimator": "glmm_logit",
+          "values": {
+            "beta_x1": 0.566443439587051
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "glmer AGQ"
+        }
+      ],
+      "required": [],
+      "id": "L2-15",
+      "headline": "beta_x1"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-18",
-    "expected_estimator": "dfl",
-    "expected_values": {
-      "gap": 0.209
+    {
+      "variants": [
+        {
+          "estimator": "frontier",
+          "values": {
+            "beta_lnk": 0.641897337566284,
+            "beta_lnl": 0.387815486159735
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "frontier::sfa half-normal"
+        }
+      ],
+      "required": [],
+      "id": "L2-16",
+      "headline": "beta_lnk"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-19",
-    "expected_estimator": "evalue",
-    "expected_values": {
-      "evalue_estimate": 4.44
+    {
+      "variants": [
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "gap": 0.287960315252499,
+            "explained": 0.0839149785963109
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "twofold, reference refA"
+        },
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "gap": 0.287960315252499,
+            "explained": 0.0729242599481977
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "twofold, reference refB"
+        },
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "gap": 0.287960315252499,
+            "explained": 0.0844003069710251
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "twofold, reference pooled"
+        },
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "gap": 0.287960315252499,
+            "explained": 0.0788873298589782
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "twofold, reference pooled_dummy"
+        }
+      ],
+      "required": [],
+      "id": "L2-17",
+      "headline": "explained"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L2-20",
-    "expected_estimator": "var",
-    "expected_values": {
-      "L1.y1->y1": 0.43
+    {
+      "variants": [
+        {
+          "estimator": "dfl",
+          "values": {
+            "counterfactual_mean": 2.58984083511543
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "DFL, logit on educ + exper"
+        },
+        {
+          "estimator": "dfl",
+          "values": {
+            "counterfactual_mean": 2.59159612658832
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "DFL, with squares"
+        }
+      ],
+      "required": [],
+      "id": "L2-18",
+      "headline": "counterfactual_mean"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-01",
-    "expected_estimator": "iv_2sls",
-    "expected_value_range": {
-      "beta_educ": [
-        0.1,
-        0.16
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "evalue",
+          "values": {
+            "evalue_estimate": 4.43649167310371
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "EValue"
+        }
+      ],
+      "required": [],
+      "id": "L2-19",
+      "headline": "evalue_estimate"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-02",
-    "expected_estimator": "callaway_santanna",
-    "expected_value_range": {
-      "simple_ATT": [
-        -0.06,
-        -0.02
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "var",
+          "values": {
+            "y1_on_L1_y1": 0.514915695974776,
+            "y2_on_L1_y1": 0.222444501483114
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "vars::VAR(p=2, const)"
+        }
+      ],
+      "required": [],
+      "id": "L2-20",
+      "headline": "y1_on_L1_y1"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-03",
-    "expected_estimator": "rdrobust",
-    "expected_value_range": {
-      "robust": [
-        0.04,
-        0.1
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "iv_2sls",
+          "values": {
+            "effect": 0.132288840044461
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "2SLS with controls"
+        },
+        {
+          "estimator": "iv_2sls",
+          "values": {
+            "effect": 0.188062632775713
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "2SLS without controls"
+        }
+      ],
+      "required": [
+        "first_stage_f"
+      ],
+      "id": "L3-01",
+      "headline": "effect"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-04",
-    "expected_estimator": "psm",
-    "expected_value_range": {
-      "att": [
-        1500,
-        3000
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.032976513816
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='dr', control_group='nevertreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.0323021069792382
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='dr', control_group='notyettreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.032976513816
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='ipw', control_group='nevertreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.0323021069792381
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='ipw', control_group='notyettreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.032976513816
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='reg', control_group='nevertreated') + aggte(simple)"
+        },
+        {
+          "estimator": "callaway_santanna",
+          "values": {
+            "att": -0.0323021069792381
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R did::att_gt(est_method='reg', control_group='notyettreated') + aggte(simple)"
+        },
+        {
+          "estimator": "sun_abraham",
+          "values": {
+            "att": -0.0329765138160022
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R fixest sunab, agg='att'"
+        },
+        {
+          "estimator": "sun_abraham",
+          "values": {
+            "att": -0.0337825190616696
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "sunab, equal-weight event-time mean"
+        },
+        {
+          "estimator": "etwfe",
+          "values": {
+            "att": -0.035108276626542
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R etwfe + emfx(simple)"
+        },
+        {
+          "estimator": "did_imputation",
+          "values": {
+            "att": -0.0351082783170291
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "R didimputation"
+        }
+      ],
+      "required": [
+        "pretrend_p_value"
+      ],
+      "id": "L3-02",
+      "headline": "att"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-05",
-    "expected_estimator": "synth_classic",
-    "expected_value_range": {
-      "avg_post_gap": [
-        -1.0,
-        -0.5
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "rdrobust",
+          "values": {
+            "effect": 7.41413082233326
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "conventional"
+        },
+        {
+          "estimator": "rdrobust",
+          "values": {
+            "effect": 7.50650248282457
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "bias-corrected"
+        }
+      ],
+      "required": [
+        "density_p_value"
+      ],
+      "id": "L3-03",
+      "headline": "effect"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-06",
-    "expected_estimator": "fast_feols",
-    "expected_value_range": {
-      "beta_x1": [
-        1.95,
-        2.05
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "psm",
+          "values": {
+            "att_matching": 2330.20844651806
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "PSM ties=TRUE"
+        },
+        {
+          "estimator": "psm",
+          "values": {
+            "att_matching": 2277.69072048562
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "PSM ties=FALSE"
+        }
+      ],
+      "required": [
+        "att_regression",
+        "att_ml"
+      ],
+      "id": "L3-04",
+      "headline": "att_matching"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-07",
-    "expected_estimator": "lmm",
-    "expected_value_range": {
-      "beta_x1": [
-        1.4,
-        1.55
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "synth",
+          "values": {
+            "avg_post_gap": -0.687789209705457
+          },
+          "tolerance": {
+            "rel": 0.15,
+            "abs": 0.02
+          },
+          "source": "Synth"
+        },
+        {
+          "estimator": "synth",
+          "values": {
+            "avg_post_gap": -0.70514920135238
+          },
+          "tolerance": {
+            "rel": 0.15,
+            "abs": 0.02
+          },
+          "source": "sc_estimate"
+        }
+      ],
+      "required": [
+        "placebo_p_value"
+      ],
+      "id": "L3-05",
+      "headline": "avg_post_gap"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-08",
-    "expected_estimator": "oaxaca",
-    "expected_value_range": {
-      "gap": [
-        0.2,
-        0.23
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "hdfe_ols",
+          "values": {
+            "beta_x1": 2.00267541755092,
+            "se_x1": 0.0023606372762893
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "fixest, cluster firm"
+        }
+      ],
+      "required": [],
+      "id": "L3-06",
+      "headline": "beta_x1"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-09",
-    "expected_estimator": "coxph",
-    "expected_value_range": {
-      "beta_x1": [
-        0.4,
-        0.55
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "lmm",
+          "values": {
+            "beta_x1": 1.54275327594123
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "random effects (Hausman does not reject)"
+        },
+        {
+          "estimator": "lmm",
+          "values": {
+            "beta_x1": 1.54274616491266
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "lmer"
+        }
+      ],
+      "required": [
+        "hausman_p_value"
+      ],
+      "id": "L3-07",
+      "headline": "beta_x1"
     },
-    "published_anchor": null
-  },
-  {
-    "id": "L3-10",
-    "expected_estimator": "local_projections",
-    "expected_value_range": {
-      "irf_h1": [
-        0.4,
-        0.55
-      ]
+    {
+      "variants": [
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "explained_oaxaca": 0.0839149785963109
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "twofold, reference refA"
+        },
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "explained_oaxaca": 0.0729242599481977
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "twofold, reference refB"
+        },
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "explained_oaxaca": 0.0844003069710251
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "twofold, reference pooled"
+        },
+        {
+          "estimator": "oaxaca",
+          "values": {
+            "explained_oaxaca": 0.0788873298589782
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "twofold, reference pooled_dummy"
+        }
+      ],
+      "required": [
+        "explained_dfl"
+      ],
+      "id": "L3-08",
+      "headline": "explained_oaxaca"
     },
-    "published_anchor": null
-  }
-]
+    {
+      "variants": [
+        {
+          "estimator": "coxph",
+          "values": {
+            "beta_treat": -0.390571599750025
+          },
+          "tolerance": {
+            "rel": 0.01,
+            "abs": 0.0001
+          },
+          "source": "coxph Efron"
+        }
+      ],
+      "required": [
+        "ph_global_p_value"
+      ],
+      "id": "L3-09",
+      "headline": "beta_treat"
+    },
+    {
+      "variants": [
+        {
+          "estimator": "local_projections",
+          "values": {
+            "irf_lp_h1": 0.384301248451674,
+            "irf_var_h1": 0.390707855598518
+          },
+          "tolerance": {
+            "rel": 0.05,
+            "abs": 0.001
+          },
+          "source": "LP with two lags; VAR(2) Cholesky"
+        }
+      ],
+      "required": [],
+      "id": "L3-10",
+      "headline": "irf_lp_h1"
+    }
+  ]
+}

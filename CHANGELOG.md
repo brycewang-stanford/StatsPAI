@@ -4,6 +4,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### CausalAgentBench v2: a runnable, pre-registrable agent benchmark
+
+#### Added
+
+- **The benchmark harness is complete short of the API keys.** 50 tasks
+  with named report fields (v1 asked open questions and was graded against
+  hand-written ranges computed on no data); frozen data files with a
+  SHA-256 manifest; gold answers computed by R reference implementations on
+  those files (`golds/reference.R`), with acceptable variants and
+  tolerances; an agent loop that executes the model's code in persistent
+  Python / R sessions (StatsPAI blocked in the Python-stack cells, MCP tools
+  added in the StatsPAI cells); deterministic grading, including a
+  fabrication check (a submitted number that no tool output contains) and
+  an invented-API check; the H1-H5 cluster-bootstrap tests. StatsPAI's
+  reference solutions score 50/50 against the R golds.
+- The real-model path (Anthropic, OpenAI) is written but builds a client
+  only when `prompts/preregistration.lock.json` verifies: OSF DOI, exact
+  model IDs, and the hashes of every design file. The decisions left for
+  the deposit are listed in `tests/agent_bench/BUDGET_RUNBOOK.md`.
+
 ### Configuration-level evidence for the likelihood models
 
 #### Added

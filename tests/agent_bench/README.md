@@ -1,87 +1,44 @@
-# `tests/agent_bench/` — CausalAgentBench harness
+# CausalAgentBench v2
 
-This directory holds the infrastructure for the JSS plan §5.5 /
-manuscript §7 LLM-agent behavioural benchmark. The harness is
-**fully built** but the production 900-trial run (6 cells × 50
-prompts × 3 reps with Anthropic and OpenAI APIs) is gated on:
-
-1. an OSF pre-registration deposit (the protocol is in
-   `prompts/_protocol.md` and ready to upload),
-2. an API budget commitment (~$300–600), and
-3. a green light from the project lead.
-
-Until those land, the harness runs end-to-end against a
-deterministic mock LLM (`runners/mock_llm.py`) so the scoring,
-result-aggregation, and statistical-test pipeline can be smoke-
-tested. The mock-LLM run produces fake transcripts and a real
-score table; flipping the harness to the real API is a one-line
-change in `runners/runner.py`.
+A pre-registered benchmark of LLM agents on 50 applied-econometrics tasks,
+in six cells: {StatsPAI, Python stack, R} x {Anthropic, OpenAI}. The
+protocol is `prompts/_protocol.md`; the production run is gated on its OSF
+deposit (`BUDGET_RUNBOOK.md`).
 
 ## Layout
 
-```
-tests/agent_bench/
-├── README.md
-├── prompts/
-│   ├── _protocol.md        # OSF pre-registration text (frozen for upload)
-│   └── prompts.json        # 50 prompts (L1 × 20, L2 × 20, L3 × 10)
-├── golds/
-│   └── golds.json          # gold answers + 5-dimensional rubrics
-├── runners/
-│   ├── mock_llm.py         # deterministic stub for harness smoke
-│   ├── runner.py           # main loop: run all 900 trials
-│   └── grader.py           # apply rubric + emit per-trial scores
-├── sandbox/                # per-trial scratch directories
-└── results/
-    ├── trials.jsonl        # one line per trial: {prompt_id, cell, rep, output}
-    ├── scores.csv          # per-trial 5-dimensional scores
-    └── headline.md         # H1-H5 hypothesis test outcomes
+```text
+prompts/_protocol.md        pre-registration text
+prompts/prompts.json        50 tasks with named report fields (build_tasks.py)
+data/                       frozen data files + MANIFEST.json (build_data.py)
+golds/reference.R           R reference computations -> reference_values.json
+golds/golds.json            acceptable variants and tolerances (build_golds.py)
+runners/cells.py            toolsets, system prompt, tool schemas
+runners/sandbox.py          persistent Python / R sessions per trial
+runners/agent_loop.py       one trial: model <-> tools until submit_answer
+runners/models.py           ScriptedModel, OracleModel, Anthropic, OpenAI
+runners/grader.py           per-trial scores, H1-H5 cluster-bootstrap tests
+runners/prereg.py           pre-registration lock (required for API runs)
+runners/runner.py           (cell, task, rep) -> results/trials.jsonl
+runners/oracle_statspai.py  StatsPAI reference solutions to all 50 tasks
 ```
 
-## Pre-registered hypotheses
-
-The OSF document freezes:
-- **H1**: StatsPAI cells (C1, C2) achieve task success ≥ 90% on L1,
-  ≥ 70% on L2, ≥ 50% on L3.
-- **H2**: StatsPAI cells exceed Pythonic-stack cells (C3, C4) on
-  L2–L3 task success by ≥ 15 percentage points.
-- **H3**: StatsPAI hallucination rate < 5%; Pythonic-stack ≥ 15%.
-- **H4**: StatsPAI uses ≤ 60% of the tokens of Pythonic-stack at
-  fixed prompt+model.
-- **H5**: R-via-MCP cells (C5, C6) match StatsPAI on task success
-  but require ≥ 1.5× the tokens.
-
-Statistical test: cluster bootstrap with prompt as the cluster,
-α = 0.05, Bonferroni correction across H1–H5.
-
-## Six experimental cells
-
-| Cell | Toolset | Agent |
-| --- | --- | --- |
-| C1 | StatsPAI + MCP | Anthropic Claude (latest) |
-| C2 | StatsPAI + MCP | OpenAI GPT (latest) |
-| C3 | Pythonic stack (statsmodels, linearmodels, DoubleML, grf-python) | Claude |
-| C4 | Pythonic stack | GPT |
-| C5 | R via MCP (radian + Jupyter R) | Claude |
-| C6 | R via MCP | GPT |
-
-900 total trials = 50 prompts × 6 cells × 3 reps.
-
-## How to run
-
-Mock-LLM smoke (no API cost):
+## Rebuild and check (no API)
 
 ```bash
 cd tests/agent_bench
-python3 runners/runner.py --mock --cells C1,C3,C5 --prompts L1
-python3 runners/grader.py
+python runners/build_data.py --check        # data bytes match the manifest
+Rscript golds/reference.R                    # reference values (R 4.5)
+python runners/build_golds.py
+python runners/runner.py --model oracle --cells C1 --tasks all
+python runners/grader.py --in results/trials.jsonl
+pytest ../agent_eval/test_agent_bench_harness.py
 ```
 
-Full production run (after OSF + budget approval):
+The oracle run replays StatsPAI's reference solutions through the full loop;
+all 50 score full marks. It is the harness check, not a result.
 
-```bash
-export ANTHROPIC_API_KEY=...
-export OPENAI_API_KEY=...
-python3 runners/runner.py --cells C1,C2,C3,C4,C5,C6 --prompts all
-python3 runners/grader.py
-```
+## Production run
+
+Only after the OSF deposit and `python runners/prereg.py lock ...`; see
+`BUDGET_RUNBOOK.md`.

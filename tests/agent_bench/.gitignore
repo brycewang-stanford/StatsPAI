@@ -1,0 +1,5 @@
+data/trade.csv
+sandbox/
+results/*.jsonl
+results/scores.csv
+results/summary.json

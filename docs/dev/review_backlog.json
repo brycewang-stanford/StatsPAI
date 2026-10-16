@@ -281,11 +281,18 @@
     {
       "id": "S2",
       "title": "真实模型的行为评测（成功率、严重错误率、token、延迟）",
-      "status": "not_done",
-      "where": [],
-      "tests": [],
-      "note": "不做，已定。原因不是钱：`tests/agent_bench/BUDGET_RUNBOOK.md` 要求在第一次真实调用之前把提示集哈希、假设和模型版本预注册到 OSF，这一步只能由你本人完成；真实 API 路径按设计在预注册之前保持 `NotImplementedError`。本机也没有配置任何模型 API key。绕过预注册先跑一个 smoke 会让之后的正式结果失去预注册的意义。mock 结果只能验证 harness。",
-      "next": "你做完 OSF 预注册并给出模型快照后，按 runbook 第 3 步接入 API 路径"
+      "status": "partial",
+      "where": [
+        "tests/agent_bench/runners/agent_loop.py",
+        "tests/agent_bench/runners/grader.py",
+        "tests/agent_bench/runners/prereg.py",
+        "tests/agent_bench/prompts/_protocol.md"
+      ],
+      "tests": [
+        "tests/agent_eval/test_agent_bench_harness.py"
+      ],
+      "note": "2026-10-17 重建为 v2：50 题都有命名报告字段；冻结数据带 SHA-256 清单；金标准由 R 参考实现在冻结数据上算出（golds/reference.R），可接受变体与容差写在 golds.json；真正执行代码的智能体循环（Python / R 持久会话，StatsPAI 组另带 MCP 工具）；确定性评分（含\"提交的数没出现在任何工具输出里\"的编造检测和不存在的 API 检测）；H1-H5 的簇 bootstrap。StatsPAI 参考解答 50/50 落在金标准容差内。真实 API 路径已写好，但只有预注册锁（OSF DOI + 固定模型 ID + 设计文件哈希）验证通过才会构造。",
+      "next": "Bryce：在 BUDGET_RUNBOOK.md 的四个决策点上拍板（模型、effort、H4 的 token 口径、重复次数），提交 OSF 预注册，然后 prereg.py lock 并开跑。"
     },
     {
       "id": "S3",
