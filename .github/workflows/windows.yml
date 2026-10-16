@@ -1,0 +1,103 @@
+name: Windows
+
+# Windows has been out of the main CI matrix since 2026-10-04: a full run
+# there takes about five hours and failed some twenty tests that pass on
+# Linux and macOS (docs/dev/2026-10-04-windows-test-gaps.md). Nobody on the
+# project has a Windows machine, so this workflow is the Windows machine.
+#
+# On every push that touches code it runs the Windows gate: every test that
+# failed on Windows in the last full run, plus the contracts a Windows user
+# meets first (the MCP server over stdio, file paths and encodings, the core
+# estimators). A test that fails here fails on Windows, full stop; it is not
+# retried or skipped.
+#
+# `workflow_dispatch` with scope=full runs the whole suite on Windows (hours).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "gate (minutes) or full (the whole suite, hours)"
+        type: choice
+        options: [gate, full]
+        default: gate
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  STATSPAI_SKIP_RUST: "1"
+
+concurrency:
+  group: windows-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: ${{ inputs.scope == 'full' && 350 || 60 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/cache@v6
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: windows-pip-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: windows-pip-${{ matrix.python-version }}-
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,fixest,io]"
+
+      - name: Windows gate
+        if: inputs.scope != 'full'
+        run: |
+          python -m pytest -q --no-header -o addopts='' -p no:cacheprovider \
+            tests/test_mcp_client_matrix.py \
+            tests/test_mcp_stdio_chain.py \
+            tests/test_mcp_stdio_subprocess.py \
+            tests/test_mcp_hardening.py \
+            tests/test_mcp_hardening_stdio.py \
+            tests/test_mcp_protocol.py \
+            tests/test_mcp_isolation.py \
+            tests/test_mcp_data_handles.py \
+            tests/test_mcp_result_handle.py \
+            tests/test_release_gate.py \
+            tests/test_read_data_io.py \
+            tests/test_cross_validate.py \
+            tests/test_example_scripts.py \
+            tests/test_fail_loudly_contracts.py \
+            tests/test_regress_hac_options.py \
+            tests/reference_parity/test_iv_stata_commands_parity.py \
+            tests/reference_parity/test_panel_icc_lrtest_parity.py \
+            tests/reference_parity/test_ges_parity.py \
+            tests/reference_parity/test_vcov_refit_identity.py \
+            tests/reference_parity/test_marginaleffects_r_parity.py \
+            tests/test_ols.py \
+            tests/test_iv.py \
+            tests/test_did.py \
+            tests/test_rd.py \
+            tests/test_marginaleffects.py \
+            tests/test_core_api_freeze.py \
+            tests/test_cli.py \
+            tests/test_help.py
+
+      - name: Full suite
+        if: inputs.scope == 'full'
+        run: python -m pytest tests/ -q --no-header -p no:cacheprovider

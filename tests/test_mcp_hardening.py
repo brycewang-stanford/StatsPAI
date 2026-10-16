@@ -293,7 +293,9 @@ class TestOutputShaping:
             "result"
         ]["structuredContent"]
         assert sc["replay"].startswith("sp.regress(data=data, formula='y ~ x')")
-        assert str(ols_csv) in sc["replay"]
+        # The comment writes the path as a Python literal (repr), which on
+        # Windows doubles every backslash.
+        assert repr(str(ols_csv)) in sc["replay"]
         read = _rpc("resources/read", {"uri": f"statspai://result/{sc['result_id']}"})
         body = json.loads(read["result"]["contents"][0]["text"])
         assert body["provenance"]["replay"] == sc["replay"]

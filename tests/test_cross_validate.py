@@ -804,5 +804,5 @@ class TestEnginesHonourRequestedVariance:
         )
         (est,) = cv.estimates
         if est.status != "ok":
-            pytest.skip(f"R fixest unavailable: {est.error}")
+            pytest.skip(f"R fixest unavailable: {est.message}")
         assert est.se == pytest.approx(float(direct.std_errors["x"]), rel=1e-8)
