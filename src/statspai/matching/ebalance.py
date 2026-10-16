@@ -24,11 +24,13 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 
 
+@records_call("ebalance")
 @accepts_aliases(_strict=True, controls="covariates")
 @_expands_categorical("covariates")
 def ebalance(

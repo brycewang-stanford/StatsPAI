@@ -395,7 +395,7 @@ def _r2(target: np.ndarray, pred: np.ndarray) -> float:
     return float(1.0 - np.sum(resid**2) / denom) if denom > 0 else float("nan")
 
 
-@accepts_aliases(_strict=True, unit="id")
+@accepts_aliases(_strict=True, unit="id", seed="random_state")
 def dynamic_dml(
     data: pd.DataFrame,
     y: str,

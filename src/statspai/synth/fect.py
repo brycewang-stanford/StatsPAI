@@ -49,6 +49,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 
@@ -690,6 +691,7 @@ def _fect_fit(
     }
 
 
+@records_call("fect")
 @accepts_aliases(_strict=True, id="unit", controls="covariates")
 def fect(
     data: pd.DataFrame,

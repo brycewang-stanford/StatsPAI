@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..core._collinear import drop_collinear
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -298,6 +299,7 @@ class StructuralBreakResult(ResultProtocolMixin):
         return ax
 
 
+@records_call("structural_break")
 def structural_break(
     data: Optional[pd.DataFrame] = None,
     y: Optional[str] = None,

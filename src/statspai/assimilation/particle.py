@@ -31,6 +31,7 @@ from typing import Any, Callable, Optional, Sequence, Tuple
 
 import numpy as np
 
+from .._aliases import accepts_aliases
 from .kalman import AssimilationResult
 
 __all__ = [
@@ -75,6 +76,7 @@ def _normal_log_pdf(x: np.ndarray, mu: np.ndarray, sd: float) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(seed="random_state")
 def particle_filter(
     estimates: Sequence[float],
     standard_errors: Sequence[float],

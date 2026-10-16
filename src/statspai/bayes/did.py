@@ -340,7 +340,7 @@ def _prepare_did_frame(
     }
 
 
-@accepts_aliases(id="unit")
+@accepts_aliases(id="unit", seed="random_state")
 def bayes_did(
     data: pd.DataFrame,
     y: str,

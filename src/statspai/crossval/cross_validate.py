@@ -28,7 +28,7 @@ from ._result import CrossValidationResult
 from ._spec import EstimandSpec
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", vce="vcov")
 def cross_validate(
     data_or_result: Union[pd.DataFrame, Any],
     estimand: Optional[str] = None,

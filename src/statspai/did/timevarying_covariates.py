@@ -86,11 +86,13 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _core as _dc
 
 
+@records_call("did_timevarying_covariates")
 @accepts_aliases(id="unit")
 def did_timevarying_covariates(
     data: pd.DataFrame,

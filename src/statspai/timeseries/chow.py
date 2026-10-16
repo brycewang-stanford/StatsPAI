@@ -15,6 +15,7 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .ardl import _check_alpha
 from .structural_break import _refuse_exact_split
@@ -74,6 +75,7 @@ def _first_regime_sizes(
     return sizes
 
 
+@records_call("chow_test")
 def chow_test(
     data: pd.DataFrame,
     y: str,

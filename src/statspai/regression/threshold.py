@@ -38,8 +38,10 @@ import pandas as pd
 from scipy import optimize
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._validate import require_numeric_columns
 from ..core._vcov import sandwich_vcov
+from ..core._vcov_spec import cluster_from_vce
 from ..core.results import EconometricResults
 from ..exceptions import (
     ColumnNotFound,
@@ -204,6 +206,7 @@ def _switch(
     return np.column_stack(parts)
 
 
+@records_call("threshold")
 def threshold(
     formula: str,
     data: pd.DataFrame,
@@ -312,6 +315,7 @@ def threshold(
     ----------
     [@hansen2000sample; @hansen2017regression; @hansen1996inference]
     """
+    vce, cluster = cluster_from_vce(vce, cluster, function="threshold", native="robust")
     from .ols import regress
 
     vce = {"robust": "hc1", "unadjusted": "ols", "nonrobust": "ols"}.get(

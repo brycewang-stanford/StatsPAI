@@ -37,10 +37,11 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-
 from sklearn.base import BaseEstimator, clone
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
+
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -306,6 +307,7 @@ def _fit_propensity(X: np.ndarray, T: np.ndarray) -> np.ndarray:
     return np.asarray(np.clip(p, 1e-3, 1 - 1e-3))
 
 
+@accepts_aliases(seed="random_state")
 def conformal_counterfactual(
     data: pd.DataFrame,
     y: str,
@@ -462,6 +464,7 @@ def conformal_counterfactual(
     return _result
 
 
+@accepts_aliases(seed="random_state")
 def conformal_ite_interval(
     data: pd.DataFrame,
     y: str,

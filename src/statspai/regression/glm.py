@@ -21,6 +21,7 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
@@ -2039,6 +2040,7 @@ class GLMRegression(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+@records_call("glm")
 @accepts_aliases(vce="robust")
 @records_provenance("sp.glm")
 @markout_clusters

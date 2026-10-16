@@ -40,7 +40,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin, attach_result_protocol
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
 from ._core import _cluster_codes, rlasso
 
@@ -133,6 +136,8 @@ def _warn_if_unidentified(resid_d: np.ndarray, d: np.ndarray, target: Any) -> No
         )
 
 
+@records_call("rlasso_effect")
+@accepts_vce(default="robust")
 def rlasso_effect(
     x: Union[np.ndarray, pd.DataFrame, Sequence[str]],
     y: Union[np.ndarray, pd.Series, str],
@@ -411,6 +416,9 @@ class RLassoEffectsResult(Dict[str, RLassoEffectResult]):
         return "\n".join(lines)
 
 
+@records_call("rlasso_effects")
+@accepts_aliases(covariates="X")
+@accepts_vce(default="robust")
 def rlasso_effects(
     X: Union[np.ndarray, pd.DataFrame],
     y: Union[np.ndarray, pd.Series],

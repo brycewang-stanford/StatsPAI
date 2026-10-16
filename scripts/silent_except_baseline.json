@@ -1,6 +1,6 @@
 {
   "note": "Per-file count of silent broad except handlers. Ratchet: counts may only go down. See scripts/silent_except_audit.py.",
-  "total": 162,
+  "total": 161,
   "files": {
     "src/statspai/_schema_enrich.py": 1,
     "src/statspai/agent/_data_loader.py": 1,
@@ -72,7 +72,6 @@
     "src/statspai/panel/_hdfe_kernels.py": 1,
     "src/statspai/panel/panel_plots.py": 4,
     "src/statspai/plots/__init__.py": 1,
-    "src/statspai/plots/_jupyter_editor.py": 1,
     "src/statspai/plots/counterfactual.py": 1,
     "src/statspai/plots/themes.py": 2,
     "src/statspai/principal_strat/principal_strat.py": 3,

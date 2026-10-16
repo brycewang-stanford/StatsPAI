@@ -1003,7 +1003,7 @@ def _record_degradation(
 # ======================================================================
 
 
-@accepts_aliases(id="i", time="t")
+@accepts_aliases(id="i", time="t", seed="random_state")
 def cs_report(
     data_or_result: Union[pd.DataFrame, CausalResult],
     y: Optional[str] = None,

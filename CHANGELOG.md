@@ -4,6 +4,64 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### One standard-error grammar: `vce=` everywhere, `sp.vcov` after the fit
+
+#### Added
+
+- **`sp.vcov(result, vce)`** re-reports a fitted result under another
+  standard-error choice without the caller rebuilding the call, and
+  **`sp.vcov_compare(result, [...])`** puts several side by side (one row
+  per request and term, with the ratio to the fitted SE). Both re-run the
+  recorded call with only `vce=` changed, so the numbers are exactly what
+  `sp.<estimator>(..., vce=...)` returns, small-sample factors and
+  refusals included. Before switching, the recorded call is replayed
+  unchanged and must reproduce the original estimates to 1e-10; edited
+  data, a different frame passed as `data=`, and unseeded randomness are
+  refused. Results hold their input frame weakly; when it is gone,
+  `data=` supplies it. 158 estimators record their call. MCP tool
+  `vcov_from_result` exposes both on a `result_id`.
+- **`vce=` on 49 estimators that only took `cluster=`** (the DiD family,
+  `tmle` / `ctmle` / `aipw` / `ipw` / `metalearner`, the RD helpers,
+  `rlasso_effect(s)` / `rlasso_iv`, `xtabond` / `xtdpdsys`, `mixlogit`,
+  `interactive_fe`, the spatial GMM models and others). `vce="cluster
+  state"` sets the estimator's own cluster argument; kinds it implements
+  through other arguments map onto them (`ipw`: `vce="robust"` is the
+  sandwich of Stata `teffects ipw`, `vce="bootstrap"` the bootstrap;
+  `tmle`: `vce="bootstrap"`); any other kind raises before anything runs.
+  The schema lists, per estimator, which kinds it accepts.
+- **Stata spellings where an estimator keeps its own `vce` vocabulary**:
+  `sp.feols` / `sp.fepois` / `sp.feglm` read `vce="robust"`,
+  `"cluster a b"`, `"cr3 a"` (they reached pyfixest verbatim and died on an
+  internal `AssertionError`); `sp.rdrobust` / `sp.rdbwselect` read
+  `vce="cluster v"` and `"nncluster v"` as Stata's `rdrobust` does;
+  `did_imputation`, `gardner_did`, `did_2x2`, `lm_lin`, `cnsreg`, `nls`,
+  `series`, `threshold` and `gelbach` read `vce="cluster v"`.
+- **`vce=` on `sp.rdbwselect`**, and passed through to `rdrobust` by
+  `rdbwsensitivity`, `rdbalance`, `rdplacebo`, `rdsummary`,
+  `rd_robustness_table` and `rd_flex`. They used `vce="nn"` whatever was
+  asked; R's `rdbwselect(vce=)` changes the bandwidth. The bandwidths
+  equal `sp.rdrobust`'s for the same `vce` to 1e-13.
+- **`seed=` wherever a function takes a random seed** (89 that only took
+  `random_state=`, and `causal_bandit(rng_seed=)`), and `covariates=` on
+  the article-API wrappers that took `X=` (`xlearner`, `frontdoor`,
+  `mediation`, `conformal_ite`, `partial_identification`, `rlasso_effects`,
+  `rlassologit_effects`). The house-style lint has a `seed` theme and now
+  reports zero legacy spellings in all ten themes; its ratchet is frozen
+  at zero.
+
+#### ⚠️ Correctness
+
+- **`sp.regtable(..., vcov=)` ignored regression weights and applied the
+  least-squares formula to logit fits.** It re-weighted `data_info['X']`
+  and the residuals itself: on a weighted fit the HC1 column read 0.120
+  where `regress(..., weights=, vce='hc1')` gives 0.136, and on a logit it
+  read 0.0078 where the robust SE is 0.276. Each column is now re-run
+  through `sp.vcov`, which also lets `vcov=` take any kind the estimator
+  offers (`'cluster state'`).
+- **`sp.callaway_santanna(clustervars=)` on a variable with a single value
+  returned a standard error of about 1e-17.** It now raises
+  `DataInsufficient`, as `gardner_did` and `did_imputation` already did.
+
 ### linearmodels 7.1
 
 #### Fixed

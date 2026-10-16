@@ -47,6 +47,7 @@ from statspai import registry as R
 _FORWARDS_KWARGS = {
     "psm": "sp.match",
     "cs_jackknife": "sp.callaway_santanna",
+    "xtdpdsys": "sp.xtabond",
 }
 
 

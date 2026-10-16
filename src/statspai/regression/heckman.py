@@ -27,11 +27,13 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, MethodIncompatibility
 from ._limited_dep_result import LimitedDepResult
 
 
+@records_call("heckman")
 @accepts_aliases(robust="vce")
 def heckman(
     data: pd.DataFrame,

@@ -48,6 +48,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..utils._rng import preserve_global_rng
@@ -57,6 +58,7 @@ from ..utils._rng import preserve_global_rng
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def tarnet(
     data: pd.DataFrame,
     y: str,
@@ -237,6 +239,7 @@ def tarnet(
     return _result
 
 
+@accepts_aliases(seed="random_state")
 def cfrnet(
     data: pd.DataFrame,
     y: str,
@@ -422,6 +425,7 @@ def cfrnet(
     return _result
 
 
+@accepts_aliases(seed="random_state")
 def dragonnet(
     data: pd.DataFrame,
     y: str,

@@ -21,7 +21,9 @@ import pandas as pd
 from scipy import optimize
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._vcov import sandwich_vcov
+from ..core._vcov_spec import cluster_from_vce
 from ..core.results import EconometricResults
 from ..exceptions import (
     ConvergenceWarning,
@@ -223,6 +225,7 @@ class _NLSResults(EconometricResults):
         return _interval_frame(self, yhat, gradient, what, alpha, index)
 
 
+@records_call("nls")
 def nls(
     formula: Union[str, Callable[..., Any]],
     data: pd.DataFrame,
@@ -323,6 +326,7 @@ def nls(
     ----------
     hansen2022econometrics
     """
+    vce, cluster = cluster_from_vce(vce, cluster, function="nls", native="robust")
     vce = {"robust": "hc1"}.get(str(vce).lower(), str(vce).lower())
     if cluster is not None:
         vce = "cluster"

@@ -29,6 +29,7 @@ from scipy.optimize import linprog
 
 from .._aliases import accepts_formula_first
 from .._input_validation import check_columns, missing_named_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 
@@ -84,6 +85,7 @@ class QuantileRegressionResult(CausalResult):
         return pd.DataFrame({0: b - crit * se, 1: b + crit * se})
 
 
+@records_call("qreg")
 @accepts_formula_first()
 def qreg(
     data: pd.DataFrame,

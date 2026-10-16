@@ -28,11 +28,13 @@ from scipy import stats
 from scipy.optimize import minimize
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
 
 
+@records_call("fracreg")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def fracreg(
@@ -235,6 +237,7 @@ def fracreg(
     )
 
 
+@records_call("betareg")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def betareg(

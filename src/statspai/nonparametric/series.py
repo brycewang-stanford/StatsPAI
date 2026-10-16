@@ -21,8 +21,10 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._validate import require_numeric_columns
 from ..core._vcov import sandwich_vcov
+from ..core._vcov_spec import cluster_from_vce
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -53,6 +55,7 @@ def _knots(x: np.ndarray, count: int, placement: str) -> np.ndarray:
     return np.asarray(np.quantile(x, inner))
 
 
+@records_call("series")
 def series(
     formula: str,
     data: pd.DataFrame,
@@ -145,6 +148,7 @@ def series(
     ----------
     [@hansen2022econometrics]
     """
+    vce, cluster = cluster_from_vce(vce, cluster, function="series", native="robust")
     from ..regression.ols import regress
 
     basis = str(basis).lower()

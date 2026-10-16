@@ -34,6 +34,8 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._contdid import cont_did_cell, default_dose_grid, knots_by_quantile
 
@@ -127,7 +129,9 @@ class ContinuousDoseResult(ResultProtocolMixin):
         }
 
 
+@records_call("cgs_continuous_did")
 @accepts_aliases(id="unit")
+@accepts_vce(default=None)
 def cgs_continuous_did(
     data: pd.DataFrame,
     y: str,

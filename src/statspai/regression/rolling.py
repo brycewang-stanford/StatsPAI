@@ -14,6 +14,7 @@ from typing import Any, List, Optional
 import numpy as np
 import pandas as pd
 
+from ..core._call_record import records_call
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["rolling"]
@@ -52,6 +53,7 @@ def _window_fit(X: np.ndarray, y: np.ndarray, vce: str) -> Optional[dict]:
     }
 
 
+@records_call("rolling")
 def rolling(
     formula: str,
     data: pd.DataFrame,

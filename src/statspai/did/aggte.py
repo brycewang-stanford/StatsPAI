@@ -39,6 +39,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ._core import cohort_share_context as _cohort_share_context
@@ -50,6 +51,7 @@ from ._core import weight_influence as _weight_influence
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def aggte(
     result: CausalResult,
     type: str = "simple",

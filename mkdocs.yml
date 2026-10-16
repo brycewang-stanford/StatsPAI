@@ -103,6 +103,7 @@ nav:
   - "Capability table (generated)": capabilities.md
   - Guides:
       - "Research tasks: where to start": guides/research_tasks.md
+      - "Standard errors: one vce= grammar, and sp.vcov after the fit": guides/standard_errors.md
       - "Public health & epidemiology — overview & design→method map": guides/public_health.md
       - "Reproducing Hernán-Robins *What If* on real NHEFS (g-methods parity certification)": guides/whatif_nhefs.md
       - "Epidemiological measures (OR/RR/RD/IRR/NNT, Mantel–Haenszel, standardization, diagnostic accuracy)": guides/epi_measures.md

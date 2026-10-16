@@ -347,7 +347,7 @@ def _bootstrap_bounds(
 # ======================================================================
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def horowitz_manski(
     data: pd.DataFrame,
     y: str,
@@ -547,7 +547,7 @@ def _create_strata(df: pd.DataFrame, covariates: List[str]) -> pd.Series:
 # ======================================================================
 
 
-@accepts_aliases(covariates="controls", treat="treatment")
+@accepts_aliases(covariates="controls", treat="treatment", seed="random_state")
 def iv_bounds(
     data: pd.DataFrame,
     y: str,
@@ -757,6 +757,7 @@ def _iv_bounds_point(
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def oster_delta(
     data: pd.DataFrame,
     y: str,
@@ -961,7 +962,7 @@ def oster_delta(
 # ======================================================================
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def selection_bounds(
     data: pd.DataFrame,
     y: str,

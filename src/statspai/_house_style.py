@@ -38,7 +38,7 @@ SE keyword ``vce=`` (Stata muscle memory), outcome ``y``, treatment ``treat``.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 #: SE / variance keyword.  Stata's ``vce()`` is the universality benchmark the
 #: reviewer invoked, and it matches the muscle memory of migrating Stata users.
@@ -137,6 +137,17 @@ THEMES: Dict[str, Dict[str, object]] = {
         "aliases": ("t", "tname", "period", "time_col"),
         "note": "Time / period identifier of a panel.",
     },
+    # Ratified 2026-10-17 (week roadmap P1): ``seed`` has 218 uses against
+    # 93 ``random_state``; every random_state-only entry point now also
+    # accepts ``seed=`` through ``@accepts_aliases``.
+    "seed": {
+        "canonical": "seed",
+        "aliases": ("random_state", "random_seed", "rng_seed"),
+        "note": (
+            "Random-number seed.  ``random_state`` stays the signature name "
+            "where it mirrors scikit-learn / EconML and is forwarded there."
+        ),
+    },
     "covariates": {
         "canonical": CANONICAL_COVARIATES,
         "aliases": ("controls", "covs", "X", "xvars", "covars"),
@@ -180,17 +191,28 @@ FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
     # is a robust/cluster option, so spelling it vce= would invite users to
     # pass vce="cluster" and get a TypeError for a keyword that looks like
     # every other estimator's.
-    "se_type": (
-        "staggered_rollout",
-        "staggered_cs",
-        "staggered_sa",
-    ),
     # A test option, not an SE type: Stata `xtunitroot hadri, robust` makes the
     # Hadri LM statistic robust to cross-unit heteroskedasticity. Spelling it
     # vce= would promise vce="cluster" on a unit-root test.
     # Also not an SE type: the robustness iterations of the STL loess, which
     # down-weight outliers in the decomposition.
     "robust": ("panel_unitroot", "stl"),
+    # Display options of the table builders: where the standard error goes
+    # ("parentheses", "brackets") and which statistic sits under the
+    # coefficient ("se", "t", "p", "ci"), not which variance is computed.
+    "se_type": (
+        "staggered_rollout",
+        "staggered_cs",
+        "staggered_sa",
+        "modelsummary",
+        "regtable",
+    ),
+    # Length unit of a distance ("km", "mi"), not a panel identifier.
+    "unit": ("distance_to_feature", "line_length_in_polygon"),
+    # esttab's switch for printing t statistics instead of standard errors.
+    "t": ("esttab",),
+    # The two nodes of a dyad, not a panel unit.
+    "i": ("dyadic_regression",),
     # The length of the seasonal cycle (4 quarterly, 12 monthly), not the
     # column that identifies time in a panel. `time=` here would read as a
     # column name; R's forecast/fable and statsforecast call it the period
@@ -264,7 +286,12 @@ ROBUST_BOOL_HINTS: Tuple[str, ...] = (
 )
 
 
-def is_false_friend(spelling: str, func_name: str, module: str) -> bool:
+def is_false_friend(
+    spelling: str,
+    func_name: str,
+    module: str,
+    params: Optional[Iterable[str]] = None,
+) -> bool:
     """Return True if ``spelling`` is an acknowledged false friend for a call.
 
     Parameters
@@ -275,7 +302,13 @@ def is_false_friend(spelling: str, func_name: str, module: str) -> bool:
         The public function name (e.g. ``"causal_forest"``).
     module : str
         The function's ``__module__`` (e.g. ``"statspai.spatial.sar"``).
+    params : iterable of str, optional
+        The call's parameter names. ``X`` on a function without ``data=`` is
+        a design matrix in the array convention (``rlasso(X, y)``,
+        ``super_learner(X, y)``), not a list of covariate columns.
     """
+    if spelling == "X" and params is not None and "data" not in set(params):
+        return True
     entries = FALSE_FRIENDS.get(spelling)
     if not entries:
         return False

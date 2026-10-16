@@ -23,6 +23,7 @@ from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..core._validate import require_numeric_columns
 from ..core._vcov import ml_vcov
 from ..core.results import CausalResult, EconometricResults
@@ -40,6 +41,7 @@ def _as_list(value: Union[str, Sequence[str], None]) -> List[str]:
     return list(value)
 
 
+@records_call("etpoisson")
 @accepts_aliases(robust="vce", covariates="x", treatment="treat")
 def etpoisson(
     data: pd.DataFrame,

@@ -39,6 +39,7 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov import ml_vcov
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
@@ -340,6 +341,7 @@ def _vuong_test(
 # ===================================================================
 
 
+@records_call("zip_model")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def zip_model(
@@ -690,6 +692,7 @@ def _compute_zip_score_obs(
 # ===================================================================
 
 
+@records_call("zinb")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def zinb(
@@ -992,6 +995,7 @@ def _compute_zi_score_obs(
 # ===================================================================
 
 
+@records_call("hurdle")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def hurdle(

@@ -26,6 +26,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns, missing_named_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import (
     AssumptionWarning,
@@ -313,8 +314,14 @@ def _rdrobust_bayes_engine(
 # ======================================================================
 
 
+@records_call("rdrobust")
 @accepts_aliases(
-    _strict=True, running="x", cutoff="c", covariates="covs", controls="covs"
+    _strict=True,
+    running="x",
+    cutoff="c",
+    covariates="covs",
+    controls="covs",
+    seed="random_state",
 )
 def rdrobust(
     data: pd.DataFrame,
@@ -433,6 +440,9 @@ def rdrobust(
         clustered variance exists to capture, and pairing the two
         understates the SE by roughly 10x.  This mirrors R, which makes the
         same substitution silently.
+        Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also
+        inside ``'vce(...)'``) are read as ``cluster='v'`` with that
+        variance.
     donut : float, default 0
         Donut-hole radius: observations with |x - c| <= donut are
         excluded. Useful when manipulation near the cutoff is suspected.
@@ -537,6 +547,9 @@ def rdrobust(
     nonparametric confidence intervals for regression-discontinuity designs.
     *Econometrica*. [@calonico2014robust]
     """
+    from ._cct_bandwidth import _split_rd_vce
+
+    vce, cluster = _split_rd_vce(vce, cluster, "rdrobust")
     if engine not in ("ols", "bayes"):
         raise ValueError(f"engine must be 'ols' or 'bayes'; got {engine!r}.")
 

@@ -568,7 +568,7 @@ def param_spelling(func_name: str, obj: Any) -> Dict[str, Dict[str, Any]]:
             or canonical in params
             or len(pname) == 1
             and pname.isupper()
-            or is_false_friend(pname, func_name, module)
+            or is_false_friend(pname, func_name, module, params)
         ):
             canonical = None
         if canonical and pname == "robust" and isinstance(p.default, bool):

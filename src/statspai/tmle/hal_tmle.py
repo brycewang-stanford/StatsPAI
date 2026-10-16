@@ -47,6 +47,7 @@ from typing import Any, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -524,6 +525,7 @@ class HALClassifier(_BaseHAL):
         return np.asarray(self._model.predict_proba(B))
 
 
+@accepts_aliases(seed="random_state")
 def hal_tmle(
     data: pd.DataFrame,
     y: str,

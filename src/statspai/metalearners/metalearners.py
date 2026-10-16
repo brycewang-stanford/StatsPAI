@@ -30,8 +30,10 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -943,7 +945,9 @@ class DRLearner:
 # ======================================================================
 
 
+@records_call("metalearner")
 @accepts_aliases(_strict=True, controls="covariates")
+@accepts_vce(default="robust")
 @_expands_categorical("covariates", "x")
 def metalearner(
     data: pd.DataFrame,

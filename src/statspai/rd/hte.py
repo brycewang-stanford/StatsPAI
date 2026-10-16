@@ -30,6 +30,7 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -260,6 +261,7 @@ def _hte_coefficients(
     return A @ b, A @ Vs @ A.T
 
 
+@records_call("rdhte")
 def rdhte(
     data: pd.DataFrame,
     y: str,
@@ -534,6 +536,7 @@ def rdhte(
     return result
 
 
+@records_call("rdbwhte")
 def rdbwhte(
     data: pd.DataFrame,
     y: str,

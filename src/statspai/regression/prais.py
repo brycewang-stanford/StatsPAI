@@ -19,6 +19,7 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -57,6 +58,7 @@ def _transform(a: np.ndarray, rho: float, keep_first: bool) -> np.ndarray:
     return np.concatenate([first, out], axis=0)
 
 
+@records_call("prais")
 def prais(
     formula: str,
     data: pd.DataFrame,

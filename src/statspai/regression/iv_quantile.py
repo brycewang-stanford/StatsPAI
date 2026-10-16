@@ -62,11 +62,13 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import EconometricResults
 from .quantile import _qreg_fit
 
 
+@accepts_aliases(seed="random_state")
 def ivqreg(
     data: pd.DataFrame,
     y: str,

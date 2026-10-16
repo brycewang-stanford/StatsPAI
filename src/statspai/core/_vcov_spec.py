@@ -42,6 +42,7 @@ _F = TypeVar("_F", bound=Callable[..., Any])
 
 __all__ = [
     "SERequest",
+    "accepts_vce",
     "markout_clusters",
     "normalize_vcov",
     "parse_se_request",
@@ -270,12 +271,23 @@ _SE_KIND_SYNONYMS: Dict[str, str] = {
     "boottest": "wild",
     # Spatial.
     "conley": "conley",
+    # Nearest-neighbour residual variance (rdrobust's and RDHonest's default).
+    "nn": "nn",
+    # Resampling.  Stata: vce(bootstrap) / vce(bootstrap, cluster(c)).
+    "bootstrap": "bootstrap",
+    "boot": "bootstrap",
+    "bs": "bootstrap",
 }
 
 #: Kinds that are meaningless without a cluster variable.
 _NEEDS_CLUSTER: FrozenSet[str] = frozenset(
     {"cluster", "cr2", "cr3", "jackknife", "wild"}
 )
+
+#: Kinds that take a cluster variable when one is given and run without it
+#: otherwise (``vce='bootstrap'`` resamples rows, ``'bootstrap firm'``
+#: resamples firms).
+_OPTIONAL_CLUSTER: FrozenSet[str] = frozenset({"bootstrap"})
 
 #: Kinds a supplied ``cluster=`` silently upgrades to one-way clustering.
 #: This is the long-standing ``robust="hc1", cluster="firm"`` idiom (and
@@ -382,7 +394,7 @@ def parse_se_request(
             raise _unknown()
         kind = _SE_KIND_SYNONYMS[parts[0].lower()]
         inline = tuple(parts[1:])
-        if inline and kind not in _NEEDS_CLUSTER:
+        if inline and kind not in _NEEDS_CLUSTER | _OPTIONAL_CLUSTER:
             raise MethodIncompatibility(
                 f"{function}: vce={robust!r} names {list(inline)} after "
                 f"{parts[0]!r}, but only cluster-type standard errors take a "
@@ -432,7 +444,7 @@ def parse_se_request(
     if cluster is not None:
         if kind in _UPGRADES_TO_CLUSTER:
             kind = "cluster"
-        elif kind not in _NEEDS_CLUSTER:
+        elif kind not in _NEEDS_CLUSTER | _OPTIONAL_CLUSTER:
             raise MethodIncompatibility(
                 f"{function}: vce={robust!r} cannot be combined with "
                 f"cluster={cluster!r}; a supplied cluster variable means "
@@ -460,7 +472,9 @@ def _named_clusters(value: Any) -> List[str]:
         if wrapped is not None:
             text = wrapped.group("body").strip()
         parts = text.replace(",", " ").split()
-        if parts and _SE_KIND_SYNONYMS.get(parts[0].lower()) in _NEEDS_CLUSTER:
+        if parts and _SE_KIND_SYNONYMS.get(parts[0].lower()) in (
+            _NEEDS_CLUSTER | _OPTIONAL_CLUSTER
+        ):
             return parts[1:]
         return []
     if isinstance(value, dict):
@@ -549,3 +563,248 @@ def markout_clusters(func: _F) -> _F:
         return result
 
     return cast(_F, wrapper)
+
+
+# ---------------------------------------------------------------------------
+# vce= on estimators whose own SE options are spelled differently
+# ---------------------------------------------------------------------------
+#
+# ``vce`` is the house-style keyword (``_house_style.CANONICAL_SE``), but about
+# ninety estimators grew up with only ``cluster=`` -- the DiD, RD, TMLE and
+# rlasso families among them -- so ``sp.sun_abraham(..., vce="cluster state")``
+# died with a TypeError while ``sp.regress(..., vce="cluster state")`` worked.
+# ``accepts_vce`` gives those estimators the same grammar without touching
+# their signatures or defaults: a ``vce=`` value is parsed by
+# :func:`parse_se_request` and written into the estimator's own arguments, and
+# any kind the estimator does not implement raises.
+
+
+def _bare_kind(value: Any) -> Optional[str]:
+    """Canonical kind of a ``vce`` string that names no variable."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    wrapped = _VCE_WRAPPER.match(text)
+    if wrapped is not None:
+        text = wrapped.group("body").strip()
+    parts = text.replace(",", " ").split()
+    if len(parts) != 1:
+        return None
+    return _SE_KIND_SYNONYMS.get(parts[0].lower())
+
+
+def accepts_vce(
+    *,
+    default: Optional[Any],
+    cluster: Optional[str] = "cluster",
+    native: Optional[Dict[str, Dict[str, Any]]] = None,
+    multiway: bool = False,
+) -> Callable[[_F], _F]:
+    """Accept Stata's ``vce=`` on an estimator with its own SE arguments.
+
+    Parameters
+    ----------
+    default : str or None
+        The kind the estimator reports when no SE option is given:
+        ``"robust"`` (observations independent: a sandwich or an influence-
+        function variance), ``"cluster"`` (it clusters on the panel unit
+        unless told otherwise), ``"nn"``, ``"hac"`` or ``"bootstrap"``.
+        ``vce=`` set to this kind leaves the call unchanged.  A tuple names
+        several kinds that are all the default (``("hc1", "robust")`` where
+        the default is HC1).  ``None`` when
+        no single kind describes the default; ``vce=`` then only names a
+        cluster variable (and the kinds in ``native``).
+    cluster : str or None, default "cluster"
+        The estimator's own cluster argument (``"clustervars"`` for
+        ``callaway_santanna``), or None when it cannot cluster.
+    native : dict, optional
+        ``kind -> {argument: value}`` for kinds the estimator implements
+        through other arguments, e.g.
+        ``{"bootstrap": {"se_method": "bootstrap"}}``.  An explicitly passed
+        argument with a different value raises rather than being
+        overwritten.
+    multiway : bool, default False
+        Whether ``vce="cluster a b"`` (several variables) is allowed.
+
+    Notes
+    -----
+    Place it beneath ``@accepts_aliases`` so alternative spellings of the
+    other arguments are resolved first.  ``vce=`` is recorded in
+    ``__statspai_aliases__`` (pointing at ``cluster`` or the first native
+    argument), which is how the registry, the schema and the house-style
+    lint learn that the call accepts it.
+    """
+    native = {k: dict(v) for k, v in (native or {}).items()}
+    defaults = (
+        {default}
+        if isinstance(default, str)
+        else set(default) if default is not None else set()
+    )
+    supported = set(native) | defaults
+    if cluster is not None:
+        supported.add("cluster")
+    target = cluster or next((arg for spec in native.values() for arg in spec), None)
+    if target is None:
+        raise ValueError("accepts_vce needs a cluster argument or a native mapping")
+
+    def decorator(func: _F) -> _F:
+        sig = inspect.signature(func)
+        name = getattr(func, "__name__", "this function")
+        if cluster is not None and cluster not in sig.parameters:
+            raise ValueError(f"accepts_vce on {name}: no argument {cluster!r}")
+        for spec in native.values():
+            missing = [arg for arg in spec if arg not in sig.parameters]
+            if missing:
+                raise ValueError(f"accepts_vce on {name}: no argument(s) {missing}")
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if "vce" not in kwargs:
+                return func(*args, **kwargs)
+            vce = kwargs.pop("vce")
+            if vce is None:
+                return func(*args, **kwargs)
+            bound = sig.bind_partial(*args, **kwargs)
+            arguments = bound.arguments
+            current = arguments.get(cluster) if cluster is not None else None
+            if (
+                "cluster" in defaults
+                and current is None
+                and _bare_kind(vce) == "cluster"
+            ):
+                # ``vce="cluster"`` with no variable: the estimator's default
+                # clustering, which is what it does anyway.
+                return func(*bound.args, **bound.kwargs)
+            request = parse_se_request(
+                vce,
+                current,
+                function=name,
+                supported=supported,
+                multiway=multiway,
+            )
+            for arg, value in native.get(request.kind, {}).items():
+                if arg in arguments and arguments[arg] != value:
+                    raise MethodIncompatibility(
+                        f"{name}: vce={vce!r} means {arg}={value!r}, but "
+                        f"{arg}={arguments[arg]!r} was also passed.",
+                        recovery_hint=f"Drop either vce= or {arg}=.",
+                    )
+                arguments[arg] = value
+            if request.cluster is not None:
+                if cluster is None:
+                    # Only reachable with default="cluster": the estimator
+                    # clusters on its panel unit and cannot be told otherwise.
+                    raise MethodIncompatibility(
+                        f"{name}: vce={vce!r} names a cluster variable, but "
+                        "this estimator always clusters on the panel unit.",
+                        recovery_hint="Write vce='cluster' or drop vce=.",
+                    )
+                arguments[cluster] = request.cluster
+            return func(*bound.args, **bound.kwargs)
+
+        aliases = dict(getattr(func, "__statspai_aliases__", {}) or {})
+        aliases["vce"] = target
+        wrapper.__statspai_aliases__ = aliases  # type: ignore[attr-defined]
+        wrapper.__statspai_vce__ = {  # type: ignore[attr-defined]
+            "default": sorted(defaults),
+            "supported": sorted(supported),
+            "cluster": cluster,
+            "native_args": sorted(
+                {arg for spec in native.values() for arg in spec}
+                | ({cluster} if cluster else set())
+            ),
+        }
+        return cast(_F, wrapper)
+
+    return decorator
+
+
+def stata_vce_to_fixest(vcov: Any, *, function: str) -> Any:
+    """Translate a Stata-style ``vce`` string into pyfixest's ``vcov``.
+
+    ``sp.feols`` / ``sp.fepois`` / ``sp.feglm`` hand ``vcov`` to pyfixest,
+    which knows ``"iid"``, ``"hetero"``, ``"HC1"``-``"HC3"`` and cluster
+    dicts. ``vce="cluster firm"`` -- the house-style spelling -- used to
+    reach pyfixest verbatim and die on an internal ``AssertionError``.
+
+    ``"robust"`` / ``"hc1"`` -> ``"hetero"``, ``"hc2"`` / ``"hc3"`` ->
+    ``"HC2"`` / ``"HC3"``, ``"ols"`` / ``"nonrobust"`` -> ``"iid"``,
+    ``"cluster a [b]"`` -> ``{"CRV1": "a[+b]"}``, ``"cr3 a"`` ->
+    ``{"CRV3": "a"}``. Dicts and strings pyfixest already accepts are
+    returned unchanged; anything else is left for pyfixest to reject.
+    """
+    if not isinstance(vcov, str):
+        return vcov
+    text = vcov.strip()
+    wrapped = _VCE_WRAPPER.match(text)
+    if wrapped is not None:
+        text = wrapped.group("body").strip()
+    parts = text.replace(",", " ").split()
+    if not parts:
+        return vcov
+    kind = _SE_KIND_SYNONYMS.get(parts[0].lower())
+    names = parts[1:]
+    if kind is None:
+        return vcov
+    if not names:
+        scalar = {
+            "nonrobust": "iid",
+            "robust": "hetero",
+            "hc1": "hetero",
+            "hc2": "HC2",
+            "hc3": "HC3",
+        }
+        return scalar.get(kind, vcov)
+    small = {"cluster": "CRV1", "cr3": "CRV3"}.get(kind)
+    if small is None:
+        raise MethodIncompatibility(
+            f"{function}: vce={vcov!r} is not available here; pyfixest offers "
+            "one- and multiway CRV1 and CRV3 clustering.",
+            recovery_hint="Use vce='cluster a' or 'cluster a b', or 'cr3 a'.",
+        )
+    return {small: "+".join(names)}
+
+
+def cluster_from_vce(
+    vce: Any,
+    cluster: Any,
+    *,
+    function: str,
+    native: Any,
+    multiway: bool = False,
+) -> Tuple[Any, Any]:
+    """Read Stata's ``vce="cluster v"`` on an estimator with its own ``vce``.
+
+    Some estimators keep a ``vce=`` of their own (``'analytic'`` /
+    ``'bootstrap'`` for the imputation DiD, ``'ols'`` / ``'robust'`` /
+    ``'hc3'`` for ``cnsreg``) and take the cluster variable separately.
+    ``vce="cluster v"`` -- the spelling every other estimator accepts --
+    becomes ``(native, "v")``, where ``native`` is the estimator's own
+    ``vce`` value that clusters when ``cluster=`` is given (``None`` keeps
+    the default). Any other value is returned unchanged for the estimator
+    to validate.
+    """
+    if not isinstance(vce, str):
+        return vce, cluster
+    text = vce.strip()
+    wrapped = _VCE_WRAPPER.match(text)
+    if wrapped is not None:
+        text = wrapped.group("body").strip()
+    parts = text.replace(",", " ").split()
+    if len(parts) < 2 or _SE_KIND_SYNONYMS.get(parts[0].lower()) != "cluster":
+        return vce, cluster
+    names = parts[1:]
+    if len(names) > 1 and not multiway:
+        raise MethodIncompatibility(
+            f"{function}: multiway clustering on {names} is not available; "
+            "name one cluster variable.",
+            recovery_hint="Use sp.feols / sp.regress for multiway clustering.",
+        )
+    named: Any = names[0] if len(names) == 1 else names
+    if cluster is not None and cluster != named:
+        raise MethodIncompatibility(
+            f"{function}: vce={vce!r} clusters on {named!r} but "
+            f"cluster={cluster!r} was also passed.",
+            recovery_hint="Pass the cluster variable once.",
+        )
+    return native, named

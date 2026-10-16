@@ -34,6 +34,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
@@ -378,6 +379,7 @@ def _ordered_probit_pdf(z: np.ndarray) -> np.ndarray:
 # ====================================================================
 
 
+@records_call("mlogit")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def mlogit(
@@ -1030,6 +1032,7 @@ def _ordered_model(
     return result
 
 
+@records_call("ologit")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def ologit(
@@ -1114,6 +1117,7 @@ def ologit(
     )
 
 
+@records_call("oprobit")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def oprobit(
@@ -1197,6 +1201,7 @@ def oprobit(
 # ====================================================================
 
 
+@records_call("clogit")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def clogit(

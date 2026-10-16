@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..core._collinear import drop_collinear
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
@@ -145,6 +146,7 @@ def _estimate_alpha(
     return (R + R.T) / 2.0
 
 
+@records_call("gee")
 def gee(
     formula: str,
     data: pd.DataFrame,

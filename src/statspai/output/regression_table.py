@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._diagnostics import extract_diagnostic_rows
@@ -79,90 +80,43 @@ def _hc_recompute_se(
     raw_result: Any,
     vcov: str,
 ) -> Optional[Dict[str, Any]]:
-    """Recompute HC0/HC1/HC2/HC3 SE/t/p/CI for an OLS-style result.
+    """SE / t / p / CI of ``raw_result`` under ``vce=vcov``, via ``sp.vcov``.
 
     Returns ``{'std_errors', 'tvalues', 'pvalues', 'conf_int_lower',
-    'conf_int_upper'}`` keyed by variable name, or ``None`` when the
-    raw result lacks the required ``data_info`` keys (X / residuals).
+    'conf_int_upper'}`` keyed by variable name, or ``None`` when the result
+    cannot be re-reported (no call record, the estimator does not offer the
+    requested kind, or a replay does not reproduce it).
 
-    Algorithm:
-
-    - HC0: Omega = diag(e_i^2)
-    - HC1: HC0 * n / (n - k)        (Stata ``robust`` default)
-    - HC2: Omega = diag(e_i^2 / (1 - h_ii))
-    - HC3: Omega = diag(e_i^2 / (1 - h_ii)^2)
-
-    The leverage diagonal ``h_ii`` is computed from
-    ``H_ij = X_ij · ((X'X)^{-1} X')_ji`` without forming the full
-    n×n hat matrix.
+    The numbers come from re-running the estimator with ``vce=vcov``
+    (:func:`statspai.vcov`). Until 1.39.6 this function re-weighted
+    ``data_info['X']`` and the residuals itself: it ignored regression
+    weights (HC1 0.120 against the correct 0.136 on a weighted fit) and
+    applied the least-squares formula to logit fits (0.0078 against a robust
+    SE of 0.276).
     """
-    dinfo = getattr(raw_result, "data_info", None)
-    if not isinstance(dinfo, dict):
+    from ..exceptions import MethodIncompatibility
+    from ..inference.vcov_refit import vcov as _vcov
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            new = _vcov(raw_result, vcov)
+    except (MethodIncompatibility, ValueError, TypeError):
         return None
-    X = dinfo.get("X")
-    e = dinfo.get("residuals")
-    if X is None or e is None:
-        return None
-    X_arr = np.asarray(X, dtype=float)
-    e_arr = np.asarray(e, dtype=float).ravel()
-    if X_arr.ndim != 2 or X_arr.shape[0] != e_arr.shape[0]:
-        return None
-    n, k = X_arr.shape
-    if n <= k:
-        return None
-    XtX_inv = np.linalg.pinv(X_arr.T @ X_arr)
-    if vcov.upper() in ("HC2", "HC3"):
-        # h_ii = sum_j X_ij * (X · XtX_inv)_ij
-        H_full = X_arr @ XtX_inv  # n×k
-        h_ii = np.einsum("ij,ij->i", X_arr, H_full)
-        h_ii = np.clip(h_ii, 0.0, 1.0 - 1e-10)
-    omega: np.ndarray
-    if vcov.upper() == "HC0":
-        omega = e_arr**2
-    elif vcov.upper() in ("HC1", "ROBUST"):
-        omega = (e_arr**2) * (n / (n - k))
-    elif vcov.upper() == "HC2":
-        omega = (e_arr**2) / (1.0 - h_ii)
-    elif vcov.upper() == "HC3":
-        omega = (e_arr**2) / ((1.0 - h_ii) ** 2)
-    else:
-        raise MethodIncompatibility(
-            f"vcov={vcov!r} not supported for OLS recompute. Choose "
-            f"from 'HC0', 'HC1' (Stata robust), 'HC2', 'HC3', 'robust'."
-        )
-    XtOX = X_arr.T @ (omega[:, None] * X_arr)
-    V = XtX_inv @ XtOX @ XtX_inv
-    se_arr = np.sqrt(np.maximum(np.diag(V), 0.0))
-    var_names = list(model_data.params.index)
-    if len(var_names) != len(se_arr):
-        # var_cov ordering vs params ordering mismatch; use data_info if present
-        dvn = dinfo.get("var_names")
-        if dvn is not None and len(dvn) == len(se_arr):
-            var_names = list(dvn)
-        else:
+    names = list(model_data.params.index)
+    out: Dict[str, Any] = {}
+    for key in (
+        "std_errors",
+        "tvalues",
+        "pvalues",
+        "conf_int_lower",
+        "conf_int_upper",
+    ):
+        value = getattr(new, key, None)
+        if not isinstance(value, pd.Series):
             return None
-    se_series = pd.Series(se_arr, index=var_names)
-    b = pd.Series(np.asarray(model_data.params, dtype=float), index=var_names)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        t_arr = b.values / se_arr
-    tvalues = pd.Series(t_arr, index=var_names)
-    df_resid = getattr(model_data, "df_resid", None)
-    if df_resid is None or not np.isfinite(df_resid) or df_resid <= 0:
-        df_resid = float(n - k)
-    pvalues = pd.Series(
-        2.0 * sp_stats.t.sf(np.abs(t_arr), df_resid),
-        index=var_names,
-    )
-    crit = sp_stats.t.ppf(0.975, df_resid)
-    ci_lo = pd.Series(b.values - crit * se_arr, index=var_names)
-    ci_hi = pd.Series(b.values + crit * se_arr, index=var_names)
-    return {
-        "std_errors": se_series,
-        "tvalues": tvalues,
-        "pvalues": pvalues,
-        "conf_int_lower": ci_lo,
-        "conf_int_upper": ci_hi,
-    }
+        out[key] = value.reindex(names)
+    return out
 
 
 def _apply_vcov_to_panels(
@@ -196,8 +150,9 @@ def _apply_vcov_to_panels(
         warnings.warn(
             f"vcov={vcov!r}: recompute skipped for "
             f"column{'s' if len(skipped) != 1 else ''} "
-            f"{cols} — the result lacks data_info['X']/['residuals'] needed for "
-            f"HC reweighting. Those columns retain their fit-time SEs.",
+            f"{cols} — the estimator does not offer that vce, or the result "
+            f"cannot be re-run (see sp.vcov). Those columns retain their "
+            f"fit-time SEs.",
             UserWarning,
             stacklevel=3,
         )
@@ -3119,6 +3074,7 @@ class _PanelData:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(vce="vcov")
 def regtable(
     *args: Any,
     panel_labels: Optional[List[str]] = None,
@@ -3420,21 +3376,20 @@ def regtable(
         adapter; other estimators silently no-op. Mirrors R fixest's
         ``etable(..., fixef_sizes=TRUE)``.
     vcov : str, optional
-        Recompute the SE / t / p / 95% CI columns at print time using
-        a different variance estimator. Currently supports OLS-style
-        results that store ``data_info['X']`` and
-        ``data_info['residuals']``:
+        Re-report the SE / t / p / CI columns under another ``vce=``
+        (also accepted as ``vce=``): ``"HC1"`` / ``"robust"``, ``"HC3"``,
+        ``"cluster state"``, or any kind the column's estimator offers.
+        Each column is re-run through :func:`statspai.vcov`, so the numbers
+        are what that estimator returns with ``vce=`` -- weights, fixed
+        effects and the estimator's own sandwich (the ML sandwich for
+        logit) included. Columns whose estimator does not offer the kind,
+        or whose result cannot be re-run, keep their fit-time SEs and are
+        listed in a ``UserWarning``.
 
-        - ``"HC0"``                 — White heteroskedasticity-robust
-        - ``"HC1"`` / ``"robust"``  — Stata's ``robust`` (HC0 × n/(n-k))
-        - ``"HC2"``                 — leverage-weighted
-        - ``"HC3"``                 — leverage-squared (recommended for
-          small samples; Long-Ervin)
-
-        Columns whose underlying result lacks the X/residuals fields
-        emit a ``UserWarning`` and retain their fit-time SEs, so a
-        heterogeneous mix of OLS + non-OLS does not blow up — the
-        warning lists the affected columns so the user can audit.
+        .. versionchanged:: 1.39.6
+           Previously re-weighted ``data_info['X']`` and the residuals
+           itself, which ignored regression weights and applied the
+           least-squares formula to logit fits.
     transpose : bool, default False
         Render with axes swapped: rows become models, columns become
         variables. Single-panel only; multi-panel input or
@@ -3606,21 +3561,12 @@ def regtable(
                 names.extend(str(v) for v in index)
         coef_labels = {**term_labels(names, labels), **(coef_labels or {})}
 
-    # --- vcov= : recompute SE / t / p / CI for OLS-style results ------
-    # The recompute happens *after* extraction so that journal templates
-    # and other pre-extraction logic stay untouched. Non-OLS results
-    # whose data_info lacks X / residuals are silently skipped (with a
-    # UserWarning) so heterogeneous tables don't blow up — the user can
-    # audit which columns retained their fit-time SEs.
+    # --- vcov= : re-report SE / t / p / CI under another vce= ----------
+    # Runs after extraction so journal templates and other pre-extraction
+    # logic stay untouched. Each column goes through sp.vcov (a re-run of
+    # the estimator with vce= swapped); a column it cannot re-report keeps
+    # its fit-time SEs and is named in a UserWarning.
     if vcov is not None:
-        valid = {"HC0", "HC1", "HC2", "HC3", "ROBUST"}
-        if vcov.upper() not in valid:
-            raise MethodIncompatibility(
-                f"vcov={vcov!r} not supported. Valid choices: "
-                f"{sorted(valid)} (Stata's 'robust' is an alias for HC1).",
-                recovery_hint="Use vcov='HC0', 'HC1', 'HC2', 'HC3', or 'robust'.",
-                diagnostics={"vcov": vcov},
-            )
         _apply_vcov_to_panels(panels, flat_results, vcov)
 
     # --- transpose validation (must run BEFORE we lose multi-panel info) ----

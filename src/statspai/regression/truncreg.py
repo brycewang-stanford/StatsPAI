@@ -20,6 +20,7 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from .._aliases import accepts_aliases, accepts_formula_first
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
@@ -29,6 +30,7 @@ def _as_float_array(value: Any) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
 
+@records_call("truncreg")
 @accepts_formula_first()
 @accepts_aliases(vce="robust")
 @markout_clusters

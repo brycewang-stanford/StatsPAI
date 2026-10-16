@@ -277,7 +277,7 @@ def _aggregate_variance(
     return summed.T @ summed
 
 
-@accepts_aliases(unit="id")
+@accepts_aliases(unit="id", seed="random_state")
 @_calendar_time_aware(time="time", cohort="cohort")
 def did_forest(
     data: pd.DataFrame,

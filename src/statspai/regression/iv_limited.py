@@ -30,6 +30,7 @@ from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..core._validate import require_numeric_columns
 from ..core._vcov import ml_vcov
 from ..core.results import CausalResult, EconometricResults
@@ -644,6 +645,7 @@ def _resolve(
     return m, req.kind, req.cluster
 
 
+@records_call("ivprobit")
 @accepts_aliases(robust="vce", covariates="x")
 def ivprobit(
     data: pd.DataFrame,
@@ -737,6 +739,7 @@ def ivprobit(
     return _assemble(d, "ivprobit", m, False, None, None, se_kind, cl, alpha)
 
 
+@records_call("ivtobit")
 @accepts_aliases(robust="vce", covariates="x")
 def ivtobit(
     data: pd.DataFrame,

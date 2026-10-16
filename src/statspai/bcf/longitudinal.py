@@ -201,7 +201,7 @@ def _fit_mu_tau_at_time(
     return mu_hat, tau_hat
 
 
-@accepts_aliases(id="unit", treat="treatment", y="outcome")
+@accepts_aliases(id="unit", treat="treatment", y="outcome", seed="random_state")
 def bcf_longitudinal(
     data: pd.DataFrame,
     *,

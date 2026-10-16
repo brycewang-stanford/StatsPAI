@@ -37,8 +37,10 @@ from scipy.special import expit, logit
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._targeting import cluster_se
@@ -289,7 +291,9 @@ class _Sequence:
 # ----------------------------------------------------------------------
 
 
-@accepts_aliases(_strict=True, controls="covariates")
+@records_call("ctmle")
+@accepts_aliases(_strict=True, controls="covariates", seed="random_state")
+@accepts_vce(default="robust", native={"bootstrap": {"se_method": "bootstrap"}})
 @_expands_categorical("covariates")
 def ctmle(
     data: pd.DataFrame,

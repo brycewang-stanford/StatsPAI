@@ -33,8 +33,10 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import (
     ColumnNotFound,
@@ -47,7 +49,9 @@ from .basic_tests import _check_alpha
 _OUTCOME_MODELS = ("linear", "logit", "probit", "poisson")
 
 
+@records_call("aipw")
 @accepts_aliases(_strict=True, controls="covariates")
+@accepts_vce(default="robust", native={"robust": {"se_method": "influence"}})
 @_expands_categorical("covariates")
 def aipw(
     data: pd.DataFrame,

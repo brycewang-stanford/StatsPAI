@@ -200,7 +200,7 @@ def _prediction_type(value: str) -> str:
     )
 
 
-@accepts_aliases(_strict=True, n_trees="n_estimators")
+@accepts_aliases(_strict=True, n_trees="n_estimators", seed="random_state")
 def survival_forest(
     data: Optional[pd.DataFrame] = None,
     time: Any = None,

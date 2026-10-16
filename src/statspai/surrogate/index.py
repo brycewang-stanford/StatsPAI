@@ -368,7 +368,7 @@ def _delta_variance(
 # ---------------------------------------------------------------------------
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def surrogate_index(
     experimental: pd.DataFrame,
     observational: pd.DataFrame,
@@ -583,7 +583,7 @@ def surrogate_index(
 # ---------------------------------------------------------------------------
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def long_term_from_short(
     experimental: pd.DataFrame,
     observational: pd.DataFrame,
@@ -767,7 +767,7 @@ def long_term_from_short(
 # ---------------------------------------------------------------------------
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def proximal_surrogate_index(
     experimental: pd.DataFrame,
     observational: pd.DataFrame,

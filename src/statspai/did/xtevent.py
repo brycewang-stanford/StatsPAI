@@ -30,6 +30,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -65,6 +66,7 @@ def _label(k: int) -> str:
     return f"_k_eq_m{-k}" if k < 0 else f"_k_eq_p{k}"
 
 
+@records_call("xtevent")
 @accepts_aliases(controls="covariates")
 def xtevent(
     data: pd.DataFrame,

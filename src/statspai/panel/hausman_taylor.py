@@ -22,6 +22,7 @@ from scipy import stats
 from scipy.linalg import qr
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -42,6 +43,7 @@ def _iv(y: np.ndarray, X: np.ndarray, W: np.ndarray) -> tuple:
     return np.linalg.lstsq(PX, y, rcond=None)[0], PX
 
 
+@records_call("xthtaylor")
 def xthtaylor(
     formula: str,
     data: pd.DataFrame,

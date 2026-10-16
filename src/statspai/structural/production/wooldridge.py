@@ -43,6 +43,7 @@ import pandas as pd
 from scipy import optimize
 
 from ..._aliases import accepts_aliases
+from ...core._call_record import records_call
 from ...exceptions import ConvergenceFailure
 from ._core import polynomial_basis
 from ._result import ProductionResult
@@ -254,6 +255,7 @@ def _gmm_start(design: Dict[str, Any], degree: int) -> np.ndarray:
     return np.concatenate([[b[0], b[0] + b[1]], b[2:], rho0])
 
 
+@records_call("wooldridge_prod")
 @accepts_aliases(id="panel_id")
 def wooldridge_prod(
     data: pd.DataFrame,

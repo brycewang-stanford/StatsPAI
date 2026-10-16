@@ -69,6 +69,7 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -219,6 +220,7 @@ def _cross_fit_pi(
     return np.clip(pred, *clip)
 
 
+@accepts_aliases(seed="random_state")
 def ml_bounds(
     data: pd.DataFrame,
     y: str,

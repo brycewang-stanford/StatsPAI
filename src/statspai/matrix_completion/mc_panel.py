@@ -41,7 +41,7 @@ from ._core import _check_fixed_effects, mc_nnm_fit
 # ======================================================================
 
 
-@accepts_aliases(id="unit")
+@accepts_aliases(id="unit", seed="random_state")
 def mc_panel(
     data: pd.DataFrame,
     y: str,

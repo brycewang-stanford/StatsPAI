@@ -25,6 +25,7 @@ import pandas as pd
 from scipy.linalg import expm
 from scipy.optimize import minimize
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..utils._rng import preserve_global_rng
 
@@ -33,6 +34,7 @@ from ..utils._rng import preserve_global_rng
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def notears(
     data: pd.DataFrame,
     variables: Optional[List[str]] = None,

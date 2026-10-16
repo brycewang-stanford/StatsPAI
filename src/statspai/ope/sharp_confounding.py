@@ -27,6 +27,7 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.tree import DecisionTreeClassifier
 
+from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -360,6 +361,7 @@ def sharp_ope_unobserved(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(seed="random_state")
 def causal_policy_forest(
     data: pd.DataFrame,
     *,

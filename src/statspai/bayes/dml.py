@@ -76,7 +76,7 @@ class BayesianDMLResult(ResultProtocolMixin):
         )
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def bayes_dml(
     data: pd.DataFrame,
     *,

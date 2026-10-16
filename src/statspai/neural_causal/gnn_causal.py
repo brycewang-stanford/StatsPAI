@@ -43,6 +43,7 @@ from scipy import stats
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
 
+from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -139,6 +140,7 @@ def _row_normalise(A: np.ndarray) -> np.ndarray:
     return np.asarray(A / rs, dtype=float)
 
 
+@accepts_aliases(seed="random_state")
 def gnn_causal(
     data: pd.DataFrame,
     y: str,

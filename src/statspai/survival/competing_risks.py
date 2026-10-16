@@ -62,6 +62,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..exceptions import MethodIncompatibility
 
 __all__ = [
@@ -731,6 +732,7 @@ def _censoring_km_left(time: np.ndarray, event: np.ndarray) -> np.ndarray:
     return out
 
 
+@records_call("finegray")
 def finegray(
     data: pd.DataFrame,
     duration: str,

@@ -79,6 +79,7 @@ from typing import Any, List, Optional, Sequence, Tuple, Union, cast
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ._base import (
     PROBIT_CLIP,
@@ -142,6 +143,7 @@ def integrated_mte_powers(
     return np.column_stack(cols[: poly_u + 1])
 
 
+@accepts_aliases(seed="random_state")
 def bayes_mte(
     data: pd.DataFrame,
     y: str,

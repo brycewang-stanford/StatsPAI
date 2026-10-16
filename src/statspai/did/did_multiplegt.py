@@ -48,7 +48,9 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns, missing_named_columns
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound
 
@@ -57,9 +59,11 @@ from ..exceptions import ColumnNotFound
 # ======================================================================
 
 
+@records_call("did_multiplegt")
 @accepts_aliases(
     _strict=True, id="group", unit="group", treat="treatment", covariates="controls"
 )
+@accepts_vce(default="bootstrap")
 @_expands_categorical("controls")
 def did_multiplegt(
     data: pd.DataFrame,

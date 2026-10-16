@@ -19,6 +19,8 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 
@@ -112,6 +114,8 @@ class SuestResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
+@records_call("suest")
+@accepts_vce(default="robust")
 def suest(
     data: pd.DataFrame,
     equations: Sequence[Any],

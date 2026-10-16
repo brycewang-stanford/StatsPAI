@@ -68,6 +68,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .hdfe import Absorber, SlopeSpec, _factorize_multi, absorb_ols
 
@@ -723,6 +724,7 @@ def _materialize_fe(
 # ======================================================================
 
 
+@records_call("hdfe_ols")
 def feols(
     formula: str,
     data: pd.DataFrame,

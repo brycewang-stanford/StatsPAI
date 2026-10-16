@@ -48,6 +48,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
@@ -382,6 +383,7 @@ def _validate_learners(learners: Sequence[str]) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(seed="random_state")
 @_expands_categorical("covariates")
 def auto_cate(
     data: pd.DataFrame,

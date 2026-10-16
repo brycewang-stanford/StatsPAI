@@ -25,6 +25,7 @@ from scipy import stats
 from scipy.optimize import minimize
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
@@ -34,6 +35,7 @@ def _as_float_array(value: Any) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
 
+@records_call("biprobit")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def biprobit(
@@ -451,6 +453,7 @@ def _sandwich(H: Any, scores: Any, cluster_vals: Any) -> Any:
     return (g / (g - 1.0)) * (Hinv @ meat @ Hinv)
 
 
+@records_call("etregress")
 @accepts_aliases(treat="treatment", vce="robust")
 @markout_clusters
 def etregress(

@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 
@@ -39,6 +40,7 @@ from ..core.results import CausalResult
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def bunching(
     data: pd.DataFrame,
     running_var: str,

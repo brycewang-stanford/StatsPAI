@@ -45,7 +45,10 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["zero_first_stage", "ZeroFirstStageResult"]
@@ -219,6 +222,9 @@ def _fit_ols(
     return regress(f"{lhs} ~ {rhs_str}", data=data, cluster=cl, robust="hc1")
 
 
+@records_call("zero_first_stage")
+@accepts_aliases(seed="random_state")
+@accepts_vce(default=None, multiway=True)
 def zero_first_stage(
     data: pd.DataFrame,
     y: str,

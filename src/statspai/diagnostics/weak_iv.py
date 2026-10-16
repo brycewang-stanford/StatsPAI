@@ -48,6 +48,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..exceptions import MethodIncompatibility
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -219,6 +220,7 @@ def _mop_bias_bounds(
     return {"tsls": _mop_sup(tsls), "liml": _mop_sup(liml)}
 
 
+@records_call("effective_f_test")
 @accepts_aliases(vce="vcov")
 def effective_f_test(
     data: pd.DataFrame,
@@ -825,6 +827,7 @@ def _prep_matrices_absorbed(
     return Y, D, Z, W, n, cluster_frame, fe_dof
 
 
+@records_call("anderson_rubin_test")
 @accepts_aliases(vce="vcov")
 def anderson_rubin_test(
     data: pd.DataFrame,
@@ -1303,7 +1306,8 @@ class WeakRobustResult(ResultProtocolMixin):
         return self.summary()
 
 
-@accepts_aliases(vce="vcov")
+@records_call("weakrobust")
+@accepts_aliases(vce="vcov", seed="random_state")
 def weakrobust(
     data: pd.DataFrame,
     y: str,

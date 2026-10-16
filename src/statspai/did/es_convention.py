@@ -47,6 +47,8 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._result_serialize import attach_result_protocol
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
 
 __all__ = [
@@ -438,7 +440,9 @@ def _default_runners(
     }
 
 
+@records_call("compare_event_study_conventions")
 @accepts_aliases(id="unit")
+@accepts_vce(default="cluster")
 def compare_event_study_conventions(
     data: pd.DataFrame,
     y: str,

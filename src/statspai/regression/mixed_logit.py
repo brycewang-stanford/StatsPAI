@@ -58,7 +58,9 @@ from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._validate import require_bool_flag
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult, EconometricResults
 
 
@@ -160,7 +162,13 @@ def _halton_draws(
 # ---------------------------------------------------------------------------
 
 
+@records_call("mixlogit")
 @accepts_aliases(id="panel_id")
+@accepts_vce(
+    default="robust",
+    cluster=None,
+    native={"robust": {"robust": True}, "nonrobust": {"robust": False}},
+)
 def mixlogit(
     data: pd.DataFrame,
     y: str,

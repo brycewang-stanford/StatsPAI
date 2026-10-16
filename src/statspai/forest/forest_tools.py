@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..exceptions import MethodIncompatibility
 from ._grf_family import (
     GRFFamilyForest,
@@ -213,6 +214,7 @@ def get_scores(forest: Any, **kwargs: Any) -> np.ndarray:
     return np.asarray(fn(**kwargs), dtype=float)
 
 
+@records_call("best_linear_projection")
 @accepts_aliases(_strict=True, vcov_type="vce")
 def best_linear_projection(
     forest: Any,

@@ -30,6 +30,7 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._forecast_common import require_time_order
 
@@ -776,6 +777,7 @@ def _series_argument(y: object, data: Optional[pd.DataFrame], who: str) -> np.nd
     return np.asarray(values[keep[0] : keep[-1] + 1], dtype=float)
 
 
+@records_call("garch")
 def garch(
     y: object,
     p: int = 1,

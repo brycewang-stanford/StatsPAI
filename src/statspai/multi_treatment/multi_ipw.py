@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -33,6 +34,7 @@ from ..exceptions import DataInsufficient, MethodIncompatibility
 # file when the user never touches multi_treatment.
 
 
+@accepts_aliases(seed="random_state")
 def multi_treatment(
     data: pd.DataFrame,
     y: str,

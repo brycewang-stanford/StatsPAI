@@ -409,7 +409,12 @@ def csf_dr_scores(
 # --------------------------------------------------------------------------- #
 
 
-@accepts_aliases(_strict=True, n_trees="n_estimators", min_leaf="min_samples_leaf")
+@accepts_aliases(
+    _strict=True,
+    n_trees="n_estimators",
+    min_leaf="min_samples_leaf",
+    seed="random_state",
+)
 def causal_survival_forest(
     data: Optional[pd.DataFrame] = None,
     time: Any = None,

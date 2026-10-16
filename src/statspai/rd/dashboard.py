@@ -41,6 +41,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 
 # =============================================================================
 # rd_dashboard
@@ -482,6 +483,7 @@ def rd_compare(
 # =============================================================================
 
 
+@records_call("rd_robustness_table")
 @accepts_aliases(covariates="covs")
 def rd_robustness_table(
     data: pd.DataFrame,
@@ -495,6 +497,7 @@ def rd_robustness_table(
     donuts: Sequence[float] = (0.0,),
     covs: Optional[List[str]] = None,
     cluster: Optional[str] = None,
+    vce: str = "nn",
     alpha: float = 0.05,
 ) -> pd.DataFrame:
     """
@@ -513,6 +516,10 @@ def rd_robustness_table(
     y, x : str
     c : float
     fuzzy, covs, cluster : optional, forwarded to rdrobust
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+        Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust``
+        (it also enters the bandwidth selection). With ``cluster=``,
+        ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.
     kernels, bwselects, polynomials, donuts : sequences
         Specification grid.
     alpha : float
@@ -573,6 +580,7 @@ def rd_robustness_table(
                             donut=float(donut),
                             covs=covs,
                             cluster=cluster,
+                            vce=vce,
                             alpha=alpha,
                             warn_mass_points=False,
                             warn_weak_first_stage=False,

@@ -24,6 +24,8 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ._core import _kernel_fn
 
@@ -49,7 +51,9 @@ class RKDResult(CausalResult):
 # ======================================================================
 
 
+@records_call("rkd")
 @accepts_aliases(treat="treatment", _strict=True, running="x", cutoff="c")
+@accepts_vce(default=("hc1", "robust"))
 def rkd(
     data: pd.DataFrame,
     y: str,

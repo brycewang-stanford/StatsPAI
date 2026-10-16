@@ -146,14 +146,18 @@ def collect() -> Dict[str, Any]:
             theme = spelling_theme.get(param)
             if theme is None:
                 continue
-            if hs.is_false_friend(param, name, module):
+            if hs.is_false_friend(param, name, module, params):
                 acknowledged.append(
                     {"function": name, "param": param, "module": module}
                 )
                 continue
             if param in canonical_names:
                 participation[theme]["canonical"] += 1
-            elif accepted.get(alias_to_canonical.get(param, "")) == param:
+            elif (
+                accepted.get(alias_to_canonical.get(param, "")) == param
+                or alias_to_canonical.get(param) in params
+                or alias_to_canonical.get(param) in accepted
+            ):
                 # The signature keeps the reference package's spelling (R
                 # ``did``'s ``i``, Stata's ``robust``) but callers can already
                 # write the canonical one; the lint measures what users can
@@ -218,7 +222,7 @@ def _baseline_floor() -> Dict[str, int]:
 
 def check(report: Dict[str, Any]) -> int:
     floor = _baseline_floor()
-    if not floor:
+    if not floor and not BASELINE_PATH.exists():
         print(
             "[signature_house_style] no baseline frozen yet; run "
             "--update-baseline first.",
@@ -257,7 +261,9 @@ def update_baseline(report: Dict[str, Any]) -> int:
             "--update-baseline`."
         ),
         "totals": report["totals"],
-        "by_theme": report["by_theme"],
+        # Every theme is written, zeros included: an empty mapping would read
+        # as "no baseline frozen" once the lint reaches zero.
+        "by_theme": {t: int(report["by_theme"].get(t, 0)) for t in report["coverage"]},
         "coverage": report["coverage"],
     }
     BASELINE_PATH.write_text(

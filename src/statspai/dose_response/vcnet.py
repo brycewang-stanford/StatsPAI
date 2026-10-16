@@ -321,7 +321,7 @@ def _prepare_t_grid(t_grid: Optional[Sequence[float]], T: np.ndarray) -> np.ndar
     return grid
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def vcnet(
     data: pd.DataFrame,
     y: str,

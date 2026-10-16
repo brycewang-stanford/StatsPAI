@@ -25,7 +25,9 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._vcov import sandwich_vcov
+from ..core._vcov_spec import cluster_from_vce
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -71,6 +73,7 @@ def _robust_cov(
     return bread @ meat @ bread
 
 
+@records_call("cnsreg")
 def cnsreg(
     formula: str,
     data: pd.DataFrame,
@@ -153,6 +156,7 @@ def cnsreg(
     ----------
     hansen2022econometrics
     """
+    vce, cluster = cluster_from_vce(vce, cluster, function="cnsreg", native="robust")
     from ..postestimation.hypothesis import _independent_restrictions, _parse_hypothesis
     from .ols import regress
 

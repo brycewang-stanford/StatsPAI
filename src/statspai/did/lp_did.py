@@ -59,13 +59,17 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from . import _core as _dc
 from .event_study import _outer_sum, _unsortable
 
 
+@records_call("lp_did")
 @accepts_aliases(_strict=True, id="unit", treat="treatment", covariates="controls")
+@accepts_vce(default="cluster")
 @_expands_categorical("controls")
 def lp_did(
     data: pd.DataFrame,

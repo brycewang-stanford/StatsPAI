@@ -59,7 +59,7 @@ def _draw(
     return out
 
 
-@accepts_aliases(covariates="X")
+@accepts_aliases(covariates="X", seed="random_state")
 def tune_causal_forest(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,

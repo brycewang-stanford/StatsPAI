@@ -12,6 +12,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ._base import BayesianIVResult, _require_pymc, _sample_model, _summarise_posterior
 
@@ -61,6 +62,7 @@ def _prepare_iv_frame(
     }
 
 
+@accepts_aliases(seed="random_state")
 def bayes_iv(
     data: pd.DataFrame,
     y: str,

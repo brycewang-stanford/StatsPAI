@@ -54,6 +54,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..exceptions import (
     AssumptionWarning,
     DataInsufficient,
@@ -234,6 +235,7 @@ def _stored_training_nuisances(
 # ======================================================================
 
 
+@records_call("grf_calibration")
 @accepts_aliases(vcov_type="vce")
 def grf_calibration(
     *,
@@ -451,6 +453,7 @@ def _resolve_calibration_method(forest: "CausalForest", method: str) -> str:
     return "imputation" if binary and twoway else "within"
 
 
+@records_call("calibration_test")
 @accepts_aliases(_strict=True, controls="covariates")
 def calibration_test(
     forest: "CausalForest",

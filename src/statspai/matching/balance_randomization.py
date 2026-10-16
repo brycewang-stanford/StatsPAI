@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import require_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -154,6 +155,7 @@ def _chisq_p(x: np.ndarray, zmat: np.ndarray) -> np.ndarray:
     return np.asarray(stats.chi2.sf(chi2, k - 1))
 
 
+@accepts_aliases(seed="random_state")
 def balance_vs_randomization(
     data: pd.DataFrame,
     treat: str,

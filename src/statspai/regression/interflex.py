@@ -45,6 +45,7 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -368,6 +369,7 @@ def _kernel_cv(
 # ----------------------------------------------------------------------
 
 
+@records_call("interflex")
 def interflex(
     data: pd.DataFrame,
     y: str,

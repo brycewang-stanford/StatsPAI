@@ -29,6 +29,7 @@ from scipy import special as sp_special
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, IdentificationFailure, MethodIncompatibility
 from . import _locrand_core as _lr
@@ -481,6 +482,7 @@ def _asymptotic_for(
 # ======================================================================
 
 
+@records_call("rdrandinf")
 @accepts_aliases(covariates="covs")
 def rdrandinf(
     data: pd.DataFrame,
@@ -972,6 +974,7 @@ def rdrandinf(
 _WINSELECT_STATS = ("diffmeans", "ksmirnov", "ranksum", "hotelling")
 
 
+@records_call("rdwinselect")
 @accepts_aliases(covariates="covs")
 def rdwinselect(
     data: pd.DataFrame,
@@ -1334,6 +1337,7 @@ def _balance_pvalue(
     return float(test["pvalue"][statistic])
 
 
+@records_call("rdsensitivity")
 def rdsensitivity(
     data: pd.DataFrame,
     y: str,

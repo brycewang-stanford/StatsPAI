@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 import numpy as np
 from scipy.optimize import minimize
 
+from .._aliases import accepts_aliases
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # sklearn is imported lazily inside the methods that need it so that
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def super_learner(
     X: np.ndarray,
     y: np.ndarray,

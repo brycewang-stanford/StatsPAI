@@ -19,8 +19,10 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._collinear import independent_columns
 from ..core._validate import require_numeric_columns
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["xtsum", "xtserial", "xtoverid", "xt_statistics"]
@@ -488,6 +490,8 @@ def xt_statistics(
 
 
 # ------------------------------------------------------------- xtoverid
+@records_call("xtoverid")
+@accepts_vce(default="cluster")
 def xtoverid(
     data: pd.DataFrame,
     y: str,

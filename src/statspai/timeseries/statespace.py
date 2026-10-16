@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..exceptions import (
     ColumnNotFound,
     ConvergenceWarning,
@@ -360,6 +361,7 @@ def kalman_filter(
     return package(res, names, index, burn, state_names, kappa)
 
 
+@records_call("statespace")
 def statespace(
     y: Any,
     build: Callable[[np.ndarray], Dict[str, Any]],

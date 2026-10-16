@@ -31,6 +31,7 @@ from scipy.optimize import minimize_scalar
 
 from ..._aliases import accepts_aliases, accepts_formula_first
 from ..._result_serialize import ResultProtocolMixin
+from ...core._call_record import records_call
 from ...exceptions import ConvergenceFailure, MethodIncompatibility
 from ..models.ml import _coerce_W
 
@@ -118,6 +119,7 @@ class SpatialPanelResult(ResultProtocolMixin):
 # --------------------------------------------------------------------- #
 
 
+@records_call("spatial_panel")
 @accepts_formula_first()
 @accepts_aliases(id="entity")
 def spatial_panel(

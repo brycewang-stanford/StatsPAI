@@ -24,6 +24,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._call_record import records_call
+from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -78,6 +80,7 @@ def _independent(design: np.ndarray) -> np.ndarray:
     return keep
 
 
+@records_call("lm_lin")
 def lm_lin(
     data: pd.DataFrame,
     y: str,
@@ -164,6 +167,7 @@ def lm_lin(
     ----------
     [@lin2013agnostic]
     """
+    vce, cluster = cluster_from_vce(vce, cluster, function="lm_lin", native=None)
     context = "lm_lin"
     covariates = [covariates] if isinstance(covariates, str) else list(covariates)
     if not covariates:

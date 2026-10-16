@@ -19,6 +19,8 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import cluster_from_vce
 from ..exceptions import MethodIncompatibility
 from ._common import add_constant as _add_constant
 from ._common import sig_stars as _significance_stars
@@ -790,6 +792,7 @@ def _shapley_shares(
     return shares
 
 
+@records_call("gelbach")
 def gelbach(
     data: pd.DataFrame,
     y: str,
@@ -900,6 +903,7 @@ def gelbach(
     ----------
     gelbach2016covariates
     """
+    vce, cluster = cluster_from_vce(vce, cluster, function="gelbach", native="robust")
     # ── Validate ─────────────────────────────────────────────────────
     data = data.copy()
     base_x = list(base_x)

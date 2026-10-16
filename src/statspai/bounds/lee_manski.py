@@ -45,6 +45,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 from scipy.optimize import brentq
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import AssumptionViolation, MethodIncompatibility
@@ -86,6 +87,7 @@ def _imbens_manski_cn(delta: float, sigma_max: float, alpha: float = 0.05) -> fl
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def lee_bounds(
     data: pd.DataFrame,
     y: str,
@@ -662,6 +664,7 @@ def _compute_lee_bounds(
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def manski_bounds(
     data: pd.DataFrame,
     y: str,

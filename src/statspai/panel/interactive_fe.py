@@ -31,11 +31,23 @@ from typing import Any, List
 import numpy as np
 import pandas as pd
 
+from ..core._call_record import records_call
 from ..core._validate import require_bool_flag
+from ..core._vcov_spec import accepts_vce
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
 
 
+@records_call("interactive_fe")
+@accepts_vce(
+    default="cluster",
+    cluster=None,
+    native={
+        "robust": {"robust": True},
+        "cluster": {"robust": True},
+        "nonrobust": {"robust": False},
+    },
+)
 def interactive_fe(
     data: pd.DataFrame,
     y: str,

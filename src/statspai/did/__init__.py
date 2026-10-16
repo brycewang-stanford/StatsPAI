@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import (
     AssumptionWarning,
@@ -276,6 +277,7 @@ def _indicator_to_cohort(
     return cohort
 
 
+@records_call("did")
 @accepts_aliases(
     _strict=True, unit="id", controls="covariates", outcome="y", treatment="treat"
 )

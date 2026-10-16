@@ -21,6 +21,8 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
+from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning
 from ._core import drop_unusable_rows as _drop_unusable_rows
@@ -75,6 +77,7 @@ def _did2x2_bayes_engine(
     )
 
 
+@records_call("did_2x2")
 @accepts_aliases(_strict=True, controls="covariates")
 def did_2x2(
     data: pd.DataFrame,
@@ -171,6 +174,7 @@ def did_2x2(
     >>> bool(abs(result.estimate - 5.0) < 1.0)
     True
     """
+    vce, cluster = cluster_from_vce(vce, cluster, function="did_2x2", native=None)
     from ..core._param_aliases import resolve_alias
 
     treat = resolve_alias("treat", treat, "d", d)

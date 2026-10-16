@@ -38,9 +38,9 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.agent.pipeline_tools import PIPELINE_TOOL_NAMES
 from statspai.agent.tools import TOOL_REGISTRY, execute_tool, tool_manifest
 from statspai.agent.tools._dispatch import _filter_to_signature
-from statspai.agent.pipeline_tools import PIPELINE_TOOL_NAMES
 from statspai.agent.workflow_tools import WORKFLOW_TOOL_NAMES
 
 # Server-handled envelope keys are stripped before estimator dispatch
@@ -123,7 +123,7 @@ def manifest_by_name() -> dict:
 
 class TestNoAutoToolDrift:
     def test_auto_tool_params_subset_of_signature(self, manifest_by_name):
-        """Every advertised param of an auto tool is in its fn signature.
+        """Every advertised param of an auto tool is accepted by its fn.
 
         Auto tools forward ``sp.<name>(**kwargs)`` after filtering to the
         registry ParamSpec, so a param advertised but absent from the
@@ -144,7 +144,11 @@ class TestNoAutoToolDrift:
                 continue
             if any(p.kind == p.VAR_KEYWORD for p in params.values()):
                 continue
-            missing = sorted(set(_advertised(tool)) - set(params))
+            # Call-time spellings the wrapper accepts (``@accepts_aliases``,
+            # and ``vce=`` from ``@accepts_vce``) are forwarded by the
+            # dispatcher too.
+            accepted = set(params) | set(getattr(fn, "__statspai_aliases__", {}) or {})
+            missing = sorted(set(_advertised(tool)) - accepted)
             if missing:
                 drift[name] = missing
         assert drift == {}, (

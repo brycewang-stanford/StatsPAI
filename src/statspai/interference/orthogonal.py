@@ -170,7 +170,7 @@ class InwardOutwardResult(ResultProtocolMixin):
 # ---------------------------------------------------------------------------
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def network_hte(
     data: pd.DataFrame,
     *,

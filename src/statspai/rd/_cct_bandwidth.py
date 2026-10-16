@@ -49,7 +49,7 @@ calonico2014robust, calonico2019regression
 from __future__ import annotations
 
 import math
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -230,6 +230,32 @@ def _nn_residuals(
 
 
 _VCE_KINDS = frozenset({"nn", "hc0", "hc1", "hc2", "hc3"})
+
+
+def _split_rd_vce(vce: Any, cluster: Any, function: str) -> Tuple[Any, Any]:
+    """Read Stata's ``vce(cluster v)`` / ``vce(nncluster v)`` into ``(vce, cluster)``.
+
+    Stata ``rdrobust`` and ``rdbwselect`` name the cluster variable inside
+    ``vce()``; R and this package pass it as ``cluster=``. ``cluster v`` is
+    the CR1 variance (``hc1`` residuals) and ``nncluster v`` the
+    nearest-neighbour one, which ``cluster=`` promotes to the same CR1, as R
+    does. Anything else is returned unchanged for the caller to validate.
+    """
+    if not isinstance(vce, str):
+        return vce, cluster
+    text = vce.strip()
+    if text.lower().startswith("vce(") and text.endswith(")"):
+        text = text[4:-1]
+    parts = text.replace(",", " ").split()
+    if len(parts) != 2 or parts[0].lower() not in ("cluster", "nncluster", "cl"):
+        return vce, cluster
+    name = parts[1]
+    if cluster is not None and cluster != name:
+        raise ValueError(
+            f"{function}: vce={vce!r} clusters on {name!r} but "
+            f"cluster={cluster!r} was also passed."
+        )
+    return ("nn" if parts[0].lower() == "nncluster" else "hc1"), name
 
 
 def _hc_scale(

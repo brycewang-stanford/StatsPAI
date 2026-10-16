@@ -237,7 +237,7 @@ def _with_shared_options(doc: Optional[str]) -> str:
     return _SHARED_OPTIONS_PLACEHOLDER.sub(lambda _: shared, cleaned, count=1)
 
 
-@accepts_aliases(_strict=True, n_trees="n_estimators")
+@accepts_aliases(_strict=True, n_trees="n_estimators", seed="random_state")
 def regression_forest(
     data: Optional[pd.DataFrame] = None,
     y: Any = None,
@@ -353,7 +353,7 @@ def _multi_reg(ctx, X, Ymat, opts, common):  # type: ignore[no-untyped-def]
     )
 
 
-@accepts_aliases(_strict=True, n_trees="n_estimators")
+@accepts_aliases(_strict=True, n_trees="n_estimators", seed="random_state")
 def multi_regression_forest(
     data: Optional[pd.DataFrame] = None,
     y: Any = None,
@@ -442,7 +442,7 @@ def multi_regression_forest(
 multi_regression_forest.__doc__ = _with_shared_options(multi_regression_forest.__doc__)
 
 
-@accepts_aliases(_strict=True, n_trees="n_estimators")
+@accepts_aliases(_strict=True, n_trees="n_estimators", seed="random_state")
 def probability_forest(
     data: Optional[pd.DataFrame] = None,
     y: Any = None,
@@ -566,7 +566,7 @@ def _encode_classes(labels: np.ndarray, ctx: str):  # type: ignore[no-untyped-de
     return codes, classes
 
 
-@accepts_aliases(_strict=True, n_trees="n_estimators")
+@accepts_aliases(_strict=True, n_trees="n_estimators", seed="random_state")
 def quantile_forest(
     data: Optional[pd.DataFrame] = None,
     y: Any = None,

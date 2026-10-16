@@ -45,7 +45,9 @@ from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns, missing_named_columns
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
@@ -341,7 +343,9 @@ def _cohort_atts_from_cells(
     return detail, cohort_vcov, att_overall, att_se, p_overall, ci
 
 
+@records_call("wooldridge_did")
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@accepts_vce(default="cluster")
 @_expands_categorical("controls")
 @_calendar_time_aware(time="time", cohort="first_treat")
 def wooldridge_did(
@@ -728,7 +732,9 @@ def _etwfe_glm(
     )
 
 
+@records_call("etwfe")
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@accepts_vce(default="cluster")
 @_calendar_time_aware(time="time", cohort="first_treat")
 @_expands_categorical("controls")
 def etwfe(

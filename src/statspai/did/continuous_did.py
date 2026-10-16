@@ -43,11 +43,15 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 
 
+@records_call("continuous_did")
 @accepts_aliases(_strict=True, unit="id", covariates="controls")
+@accepts_vce(default=None)
 @_expands_categorical("controls")
 def continuous_did(
     data: pd.DataFrame,

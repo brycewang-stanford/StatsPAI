@@ -12,6 +12,7 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ._base import (
     BayesianCausalResult,
@@ -42,6 +43,7 @@ def _local_polynomial_design(
     return np.column_stack(cols)
 
 
+@accepts_aliases(seed="random_state")
 def bayes_rd(
     data: pd.DataFrame,
     y: str,

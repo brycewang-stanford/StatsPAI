@@ -26,12 +26,14 @@ from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases, accepts_formula_first
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._limited_dep_result import LimitedDepResult
 from ._optim_helpers import robust_convergence
 
 
+@records_call("tobit")
 @accepts_formula_first()
 @accepts_aliases(robust="vce", covariates="x")
 def tobit(

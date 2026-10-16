@@ -16,6 +16,7 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 
@@ -406,6 +407,7 @@ def _cddf_inputs(
     return Y, D, p, B, S, p_source, s_source
 
 
+@records_call("blp_test")
 def blp_test(
     result: CausalResult,
     data: pd.DataFrame,
@@ -554,6 +556,7 @@ def blp_test(
     return out
 
 
+@records_call("gate_test")
 def gate_test(
     result: CausalResult,
     data: pd.DataFrame,

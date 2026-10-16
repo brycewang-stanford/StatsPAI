@@ -1509,6 +1509,17 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "hc1",
+            "nonrobust",
+            "robust"
+          ]
+        },
         "weights": {
           "description": "Analytical weights column, as Stata's [aweight=...].",
           "type": "string",
@@ -1680,7 +1691,11 @@
         },
         "random_state": {
           "description": "Seed for the multiplier bootstrap.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "se_method": {
           "description": "Shared DiD spelling for the inference procedure: 'analytic', 'multiplier' (aka 'wboot'), or 'auto'. Synonym layer over bstrap=; passing both raises.",
@@ -1699,6 +1714,15 @@
           ],
           "x-canonical": "time",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap'. Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "bootstrap",
+            "cluster"
+          ]
         },
         "weights": {
           "description": "Unit-level sampling/population weights omega (R did::att_gt(weightsname=), Stata csdid [aweight=]). NOT a precision knob: omega enters the definition of the target parameter. Unweighted answers 'the average effect across treated units'; weighted answers 'across the population those units represent'. The two are different estimands and can differ in sign, so comparing them is not a robustness check. Must be constant within unit.",
@@ -1868,7 +1892,11 @@
         },
         "random_state": {
           "description": "Bootstrap RNG seed",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "rho": {
           "description": "Ratio h/b for bias correction",
@@ -1881,7 +1909,7 @@
         },
         "vce": {
           "default": "nn",
-          "description": "Variance estimator, matching R ``rdrobust``'s argument of the same name. ``'nn'`` uses nearest-neighbour residuals (``nnmatch=3``); the ``hc*`` family uses regression residuals with the usual heteroskedasticity corrections. Supplying ``cluster`` promotes ``'nn'``/``'hc0'``/``'hc1'`` to R's ``'cr1'``, whose residuals are ``hc1``'s -- nearest-neighbour differencing removes exactly the within-cluster correlation a clustered variance exists to capture, and pairing the two understates the SE by roughly 10x. This mirrors R, which makes the same substitution silently.",
+          "description": "Variance estimator, matching R ``rdrobust``'s argument of the same name. ``'nn'`` uses nearest-neighbour residuals (``nnmatch=3``); the ``hc*`` family uses regression residuals with the usual heteroskedasticity corrections. Supplying ``cluster`` promotes ``'nn'``/``'hc0'``/``'hc1'`` to R's ``'cr1'``, whose residuals are ``hc1``'s -- nearest-neighbour differencing removes exactly the within-cluster correlation a clustered variance exists to capture, and pairing the two understates the SE by roughly 10x. This mirrors R, which makes the same substitution silently. Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also inside ``'vce(...)'``) are read as ``cluster='v'`` with that variance.",
           "enum": [
             "nn",
             "hc0",
@@ -2373,7 +2401,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "refit_bootstrap": {
           "default": 0,
@@ -2513,7 +2545,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "refit_bootstrap": {
           "default": 0,
@@ -2653,7 +2689,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "repr_layers": {
           "default": [
@@ -2800,7 +2840,11 @@
         },
         "random_state": {
           "description": "Random seed",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "split_rule": {
           "default": "grf",
@@ -2981,7 +3025,11 @@
         "random_state": {
           "default": 0,
           "description": "Seeds the sequence of splits.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "train_frac": {
           "default": 0.5,
@@ -3125,7 +3173,11 @@
         "random_state": {
           "default": 42,
           "description": "Seed; different seeds give independent forests.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "reduced_form_weight": {
           "default": 0.0,
@@ -3262,7 +3314,11 @@
         "random_state": {
           "default": 42,
           "description": "Seed; different seeds give independent forests.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "reference": {
           "description": "Reference arm; defaults to the smallest label (``0`` for integer arms, matching the previous API).",
@@ -3389,7 +3445,11 @@
         "random_state": {
           "default": 42,
           "description": "Seed; different seeds give independent forests.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "regressors": {
           "description": "The regressors ``W_1..W_K`` whose coefficients vary with ``x``.",
@@ -3529,7 +3589,11 @@
         "random_state": {
           "default": 42,
           "description": "Seed; different seeds give independent forests.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "split_alpha": {
           "default": 0.05,
@@ -3764,7 +3828,11 @@
         "random_state": {
           "default": 0,
           "description": "Seeds the sequence of splits.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "se_method": {
           "default": "auto",
@@ -3981,7 +4049,11 @@
         "random_state": {
           "default": 0,
           "description": "Seed; cell k uses random_state + k.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "time": {
           "description": "Numeric period.",
@@ -4089,6 +4161,15 @@
           "description": "Binary treatment column (0/1)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "robust"
+          ]
         },
         "weights": {
           "description": "Sampling weights for the AIPW average (estimate/se): weighted nuisance fits, mean and influence function. The CATE fit is unweighted.",
@@ -4617,6 +4698,10 @@
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "se_method": {
@@ -4632,6 +4717,16 @@
           "description": "Binary treatment column (0/1)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "bootstrap",
+            "cluster",
+            "robust"
+          ]
         },
         "weights": {
           "description": "Observation weights (R tmle obsWeights): weighted Super Learner fits, fluctuation, plug-in and influence function (for ATT / ATC the treated share is weighted too). Not with fold_indices.",
@@ -4972,6 +5067,16 @@
           "description": "Use two-step GMM with the efficient weight matrix. When ``robust=True`` the Windmeijer (2005) finite-sample correction is applied to the two-step standard errors; with ``robust=False`` the conventional (downward-biased) two-step SEs are returned and a warning is issued.",
           "type": "boolean"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "nonrobust",
+            "robust"
+          ]
+        },
         "x": {
           "description": "Exogenous regressors",
           "items": {
@@ -5067,6 +5172,15 @@
           "default": false,
           "description": "As in :func:`xtabond`.",
           "type": "boolean"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "nonrobust",
+            "robust"
+          ]
         },
         "x": {
           "description": "Exogenous regressors",
@@ -5334,7 +5448,6 @@
           "default": "parentheses",
           "description": "Kept for compatibility: the standard error is always shown in parentheses. ``'brackets'`` and ``'none'`` warn and fall back to it; use ``show_ci=True`` for ``[lo, hi]`` intervals.",
           "type": "string",
-          "x-canonical": "vce",
           "x-statspai-source": "signature"
         },
         "show_ci": {
@@ -5593,8 +5706,7 @@
             "p",
             "ci"
           ],
-          "type": "string",
-          "x-canonical": "vce"
+          "type": "string"
         },
         "star_levels": {
           "description": "Thresholds for ``*``, ``**``, ``***``.",
@@ -5668,6 +5780,9 @@
             "robust"
           ],
           "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
           "x-canonical": "vce"
         }
       },
@@ -5805,7 +5920,6 @@
           "default": false,
           "description": "What to show beneath each coefficient: the standard error (default), the t statistic, the p-value or the confidence interval. When several are true the first of ``ci``, ``p``, ``t`` wins.",
           "type": "boolean",
-          "x-canonical": "time",
           "x-statspai-source": "signature"
         },
         "title": {
@@ -8144,6 +8258,14 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "x": {
           "description": "Regressors",
           "items": {
@@ -8828,7 +8950,11 @@
         },
         "random_state": {
           "description": "Seed",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "test": {
           "default": "auto",
@@ -9255,7 +9381,11 @@
         },
         "random_state": {
           "description": "Seed",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "tune_reps": {
           "default": 2,
@@ -10718,7 +10848,11 @@
         "random_state": {
           "default": 0,
           "description": "Seed of the S search",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "scale": {
           "default": "mad",
@@ -11623,6 +11757,16 @@
           "default": 0.0,
           "description": "Propensity score trimming threshold",
           "type": "number"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap', 'robust'. Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "bootstrap",
+            "cluster",
+            "robust"
+          ]
         },
         "weights": {
           "description": "Sampling-weight column (Stata [pw=]); weights the logit and multiplies each IPW weight",
@@ -12830,6 +12974,10 @@
           "default": 42,
           "description": ":func:`bayes_did`.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "rope": {
@@ -12961,6 +13109,10 @@
           "default": 42,
           "description": "NUTS sampler controls.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "regularize_late": {
@@ -13122,6 +13274,10 @@
           "default": 42,
           "description": "NUTS sampler controls.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "rope": {
@@ -15395,6 +15551,9 @@
         "vcov": {
           "description": "Variance estimator",
           "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
           "x-canonical": "vce"
         },
         "weights": {
@@ -15646,6 +15805,10 @@
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "surrogates": {
@@ -15720,6 +15883,10 @@
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "surrogates_waves": {
@@ -15976,6 +16143,10 @@
           "default": 0,
           "description": "rng_seed parameter (int).",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         }
       },
@@ -16121,6 +16292,10 @@
           "default": 0,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "treatment": {
@@ -16187,6 +16362,10 @@
           "default": 0,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "test_data": {
@@ -16261,6 +16440,10 @@
           "default": 0,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "test_clusters": {
@@ -16379,6 +16562,10 @@
           "default": 0,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "rewards": {
@@ -16438,6 +16625,10 @@
           "default": 0,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "treatment": {
@@ -20956,6 +21147,10 @@
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "treatment": {
@@ -21088,6 +21283,10 @@
           "default": 42,
           "description": "NUTS sampler controls.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "rope": {
@@ -21243,6 +21442,10 @@
           "default": 42,
           "description": "Sampler controls -- see :func:`bayes_did`.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "rope": {
@@ -21854,6 +22057,10 @@
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "time": {
@@ -22345,6 +22552,10 @@
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "surrogates": {
@@ -22656,7 +22867,11 @@
         "random_state": {
           "default": 0,
           "description": "Seeds the fold assignment.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "time": {
           "description": "Period column",
@@ -22968,7 +23183,19 @@
         },
         "random_state": {
           "description": "Bootstrap seed.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "y": {
           "description": "Outcome column",
@@ -23080,7 +23307,11 @@
         },
         "random_state": {
           "description": "Seed for bootstrap and CLR Monte-Carlo.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "vcov": {
           "default": "HC1",
@@ -23324,7 +23555,11 @@
         "random_state": {
           "default": 42,
           "description": "Seeds the fold assignment and the Super Learner.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "se_method": {
           "default": "influence",
@@ -23339,6 +23574,16 @@
           "description": "Binary treatment (0/1)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "bootstrap",
+            "cluster",
+            "robust"
+          ]
         },
         "y": {
           "description": "Outcome, binary or continuous",
@@ -23426,7 +23671,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Binary treatment",
@@ -24080,6 +24329,10 @@
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "risk": {
@@ -24161,6 +24414,10 @@
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "scm_intervention": {
@@ -24233,7 +24490,11 @@
         "random_state": {
           "default": 42,
           "description": "Forwarded to :func:`sp.bcf.bcf` for each incremental BCF fit.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Integer/ordered-categorical treatment column with values ``0, 1, ..., K``.",
@@ -24331,6 +24592,10 @@
           "default": 42,
           "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "y": {
@@ -25228,6 +25493,10 @@
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "standard_errors": {
@@ -25782,6 +26051,10 @@
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "treat": {
@@ -25856,6 +26129,10 @@
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "treat": {
@@ -26131,7 +26408,6 @@
         "i": {
           "description": "First-node id column",
           "type": "string",
-          "x-canonical": "id",
           "x-statspai-role": "column"
         },
         "intercept": {
@@ -26240,6 +26516,10 @@
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "reference": {
@@ -26960,7 +27240,11 @@
         "random_state": {
           "default": 0,
           "description": "Seed for the folds",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "standardize": {
           "default": true,
@@ -27078,6 +27362,14 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "y": {
           "description": "Outcome variable",
           "type": "string",
@@ -27176,6 +27468,15 @@
           ],
           "x-canonical": "treat",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap'. Any other kind raises. Omitting it gives the default: bootstrap standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "bootstrap",
+            "cluster"
+          ]
         },
         "y": {
           "description": "Outcome variable",
@@ -27511,6 +27812,14 @@
           ],
           "x-canonical": "time",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "weights": {
           "description": "Unit-level sampling/population weights omega. Enters the fixed-effect projection, the least-squares solve, the cluster-robust variance, and the interaction weights (which become shares of omega-mass). Changes the target parameter, not the precision.",
@@ -28046,6 +28355,14 @@
           "x-canonical": "id",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "window": {
           "description": "Relative-time window; defaults to the widest the panel supports.",
           "items": {
@@ -28119,6 +28436,14 @@
           "description": "Time period variable (integer-valued).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "y": {
           "description": "Outcome variable.",
@@ -28267,6 +28592,14 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "weights": {
           "description": "Column of non-negative observation weights. The cohort-by-period regression becomes weighted least squares with R fixest weights= / Stata reghdfe [pw=] semantics (zero-weight rows are dropped, NaN or negative weights raise), keeping the unweighted fit's cluster-robust small-sample convention. Not available with xvar or family='poisson'/'logit'.",
           "type": "string",
@@ -28342,6 +28675,14 @@
           "description": "0/1 treatment status, 1 in the periods a group is treated",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "y": {
           "description": "Outcome",
@@ -28601,6 +28942,14 @@
           "description": "Pre-built stack: 1 for the sub-experiment's treated units",
           "type": "string"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "weights": {
           "description": "Observation weights (e.g. population); reghdfe [aw=] semantics",
           "type": "string",
@@ -28707,6 +29056,14 @@
           "x-canonical": "id",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "weights": {
           "description": "Analytical weights column, as Stata's [aweight=...].",
           "type": "string",
@@ -28800,6 +29157,15 @@
           "default": 5,
           "description": "Industries listed in panel D",
           "type": "integer"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "robust"
+          ]
         },
         "weights": {
           "description": "Analytic weights",
@@ -29093,6 +29459,17 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "hc1",
+            "nonrobust",
+            "robust"
+          ]
+        },
         "y": {
           "description": "Outcome variable name.",
           "type": "string",
@@ -29307,6 +29684,14 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "y": {
           "description": "Outcome variable column name or outcome array.",
           "type": "string",
@@ -29368,6 +29753,14 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "y": {
           "description": "Same conventions as :func:`callaway_santanna`.",
           "type": "string",
@@ -29428,6 +29821,14 @@
           "description": "First-treatment period (possibly noisy)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",
@@ -29592,6 +29993,15 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap'. Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "bootstrap",
+            "cluster"
+          ]
         },
         "weights": {
           "description": "Observation weights (Stata did_multiplegt_dyn weight(), R weight=, both accepted as the alias weight=): read at the row a unit contributes from; switcher means, control means, cohort weights and the switchers aggregation all become weighted.",
@@ -29935,6 +30345,14 @@
           ],
           "x-canonical": "id",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "y": {
           "description": "Outcome column.",
@@ -30855,6 +31273,15 @@
           "description": "Fitted propensity scores are clipped to [trim, 1 - trim] (rows are kept). trim=0 applies no clipping and gives the textbook AIPW formula. The number clipped is in model_info['n_propensity_clipped'] and a warning is issued when it is positive.",
           "type": "number"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "robust"
+          ]
+        },
         "weights": {
           "description": "Sampling-weight column (Stata [pw=]): weighted logit and outcome fits, weighted mean of the AIPW scores, weighted robust SEs.",
           "type": "string",
@@ -30935,7 +31362,11 @@
         },
         "random_state": {
           "description": "Seed for the multiplier bootstrap. When the bootstrap runs without one, a seed is drawn and recorded in ``model_info['random_state']`` so the reported SE can be reproduced exactly.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "result": {
           "description": "Output of sp.callaway_santanna or sp.did with staggered=True",
@@ -31310,6 +31741,14 @@
           ],
           "type": "string"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "y": {
           "description": "Outcome column",
           "type": "string",
@@ -31441,7 +31880,11 @@
         },
         "random_state": {
           "description": "Seed for the permutation draws",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "se_type": {
           "default": "neyman",
@@ -31555,7 +31998,11 @@
         },
         "random_state": {
           "description": "As in :func:`staggered_rollout`.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "se_type": {
           "default": "neyman",
@@ -31659,7 +32106,11 @@
         },
         "random_state": {
           "description": "As in :func:`staggered_rollout`.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "se_type": {
           "default": "neyman",
@@ -31933,6 +32384,14 @@
           ],
           "x-canonical": "id",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "y": {
           "description": "Outcome column.",
@@ -32282,7 +32741,11 @@
         "random_state": {
           "default": 0,
           "description": "Seed for the simulation. Fixed by default so the p-value is reproducible; pass ``None`` for a fresh draw.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "t": {
           "description": "Time period column.",
@@ -32528,6 +32991,68 @@
     }
   },
   {
+    "description": "Re-report a fitted result under another standard-error choice (vce=) without rebuilding the call: re-runs the recorded call with only vce= replaced, after checking that an unchanged replay reproduces the original estimates. The new SEs are exactly what sp.<estimator>(..., vce=...) returns.",
+    "name": "vcov",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "The frame the model was fitted on; needed only when that frame no longer exists (results hold it weakly).",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "result": {
+          "description": "A result from any estimator that accepts vce=.",
+          "type": "string"
+        },
+        "vce": {
+          "description": "Stata-style request: 'robust', 'hc3', 'cluster state', 'cluster state year' (where multiway clustering is offered), 'bootstrap'. The kinds an estimator accepts are listed in its function_schema.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "vce"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Standard errors of one fit under several vce= choices, side by side (one row per request and term, with the ratio to the fitted SE). Each row is a re-run of the recorded call with that vce=; a kind the estimator does not implement is reported in the note column.",
+    "name": "vcov_compare",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "As in sp.vcov: the fitted frame, when it no longer exists.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "result": {
+          "description": "A fitted result.",
+          "type": "string"
+        },
+        "terms": {
+          "description": "Keep only these coefficients.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "vce": {
+          "description": "One request or a list, e.g. ['robust', 'cluster state', 'cluster state year'].",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "result",
+        "vce"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: certified parity evidence. Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
     "name": "wild_cluster_bootstrap",
     "parameters": {
@@ -32660,6 +33185,14 @@
             "T"
           ],
           "type": "string"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "x": {
           "description": "Running variable",
@@ -32836,10 +33369,27 @@
         "random_state": {
           "description": "Seed for the cross-fit splitter and for built-in learners.",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed",
           "x-statspai-source": "signature"
         },
         "sklearn_estimator": {
           "description": "Any object exposing ``fit(X, y)`` and ``predict(X)``. If provided, supersedes ``learner``. ``random_state`` is *not* injected into a user-provided estimator.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "vce": {
+          "default": "nn",
+          "description": "Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust`` (it also enters the bandwidth selection). With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.",
+          "enum": [
+            "nn",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
           "type": "string",
           "x-statspai-source": "signature"
         },
@@ -32919,6 +33469,14 @@
           "description": "Grid resolution for the AR-style test inversion.",
           "type": "integer",
           "x-statspai-source": "signature"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "x": {
           "description": "Running variable column.",
@@ -35004,6 +35562,14 @@
           "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
           "type": "string"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "x": {
           "description": "``indepvars`` of ``jwdid y x``: covariates that moderate each treatment effect. ``\"i.region\"`` marks a categorical covariate -- the per-level ATTs of ``estat simple, over(region)`` are ``sp.etwfe_emfx(result, type='simple', by_xvar=True)``.",
           "items": {
@@ -35089,6 +35655,14 @@
           "description": "Time / period variable (integer-valued).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "verbose": {
           "default": false,
@@ -35254,6 +35828,14 @@
           "description": "Same as :func:`did_summary`.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
         },
         "verbose": {
           "default": false,
@@ -35646,6 +36228,18 @@
           "description": "Polynomial order for bias correction. Default is p + 1.",
           "type": "integer"
         },
+        "vce": {
+          "default": "nn",
+          "description": "Variance estimator inside the bandwidth cascade, R ``rdbwselect(vce=)``: ``'nn'`` uses nearest-neighbour residuals, the ``hc*`` family regression residuals. With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``. The bandwidths equal ``sp.rdrobust``'s with the same ``vce``. Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also inside ``'vce(...)'``) are read as ``cluster='v'`` with that variance.",
+          "enum": [
+            "nn",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        },
         "x": {
           "description": "Running variable column name.",
           "type": "string",
@@ -35750,6 +36344,18 @@
           "description": "Polynomial order.",
           "type": "integer"
         },
+        "vce": {
+          "default": "nn",
+          "description": "Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust`` (it also enters the bandwidth selection). With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.",
+          "enum": [
+            "nn",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        },
         "x": {
           "description": "Outcome and running variable names.",
           "type": "string",
@@ -35824,6 +36430,18 @@
           "default": 1,
           "description": "p parameter (int).",
           "type": "integer"
+        },
+        "vce": {
+          "default": "nn",
+          "description": "Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust`` (it also enters the bandwidth selection). With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.",
+          "enum": [
+            "nn",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Running variable name.",
@@ -35919,6 +36537,18 @@
           ],
           "type": "string"
         },
+        "vce": {
+          "default": "nn",
+          "description": "Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust`` (it also enters the bandwidth selection). With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.",
+          "enum": [
+            "nn",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        },
         "x": {
           "description": "Outcome and running variable names.",
           "type": "string",
@@ -35996,6 +36626,16 @@
         "post": {
           "description": "0/1 period indicator (1 = the period in which the cutoff policy is active).",
           "type": "string"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "hc1",
+            "robust"
+          ]
         },
         "x": {
           "description": "Outcome and running variable.",
@@ -36107,6 +36747,18 @@
           "description": "Generate a multi-panel diagnostic plot.",
           "type": "boolean"
         },
+        "vce": {
+          "default": "nn",
+          "description": "Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust`` (it also enters the bandwidth selection). With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.",
+          "enum": [
+            "nn",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        },
         "verbose": {
           "default": true,
           "description": "Print formatted summary to console.",
@@ -36186,6 +36838,16 @@
           ],
           "x-canonical": "treat",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "hc1",
+            "robust"
+          ]
         },
         "x": {
           "description": "Running variable name.",
@@ -36271,6 +36933,15 @@
           "description": "Time variable name (datetime or numeric).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hac'. Any other kind raises. Omitting it gives the default: HAC standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "hac"
+          ]
         },
         "y": {
           "description": "Outcome variable name.",
@@ -39304,7 +39975,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "score": {
           "default": "observational",
@@ -39420,7 +40095,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed for reproducibility.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "refit_bootstrap": {
           "default": 0,
@@ -40485,7 +41164,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Binary treatment indicator.",
@@ -44713,7 +45396,11 @@
         },
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "vcov": {
           "default": "HC1",
@@ -45098,6 +45785,15 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "robust"
+          ]
         }
       },
       "required": [
@@ -46505,7 +47201,11 @@
         "random_state": {
           "default": 42,
           "description": "Seed for all K-fold splits.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "score": {
           "default": "r_loss",
@@ -46594,7 +47294,11 @@
         "random_state": {
           "default": 42,
           "description": "Passed through / see :func:`auto_cate`.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "sampler": {
           "description": "Passed through / see :func:`auto_cate`.",
@@ -46719,7 +47423,11 @@
         "random_state": {
           "default": 42,
           "description": "Sampler controls; see :func:`sp.bayes_did`.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "rope": {
           "description": "Region of practical equivalence for the level change.",
@@ -46825,7 +47533,11 @@
         "random_state": {
           "default": 42,
           "description": "Sampler controls; see :func:`sp.bayes_did`.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "rope": {
           "description": "Region of practical equivalence for the ATT.",
@@ -46973,7 +47685,11 @@
         "random_state": {
           "default": 42,
           "description": ":func:`bayes_did`.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "rope": {
           "description": "rope parameter (Optional[Tuple[float, float]]).",
@@ -47344,7 +48060,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "rho_max": {
           "default": 1e+16,
@@ -47460,7 +48180,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "task": {
           "default": "regression",
@@ -47624,7 +48348,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Binary treatment variable (0/1).",
@@ -47692,7 +48420,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Binary treatment variable (0/1).",
@@ -47778,7 +48510,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "running_var": {
           "description": "Name of the running variable (e.g., income).",
@@ -47909,7 +48645,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "time": {
           "description": "Time period variable.",
@@ -47982,7 +48722,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "se_method": {
           "default": "bootstrap",
@@ -48061,7 +48805,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Binary treatment variable (0/1).",
@@ -48121,7 +48869,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treatment": {
           "description": "Binary treatment variable (0/1).",
@@ -48204,7 +48956,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treatment": {
           "description": "Endogenous treatment (binary).",
@@ -48274,7 +49030,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "x_base": {
           "description": "Key treatment/variable(s) of interest.",
@@ -48345,7 +49105,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "selection": {
           "description": "Binary indicator: 1 = outcome observed, 0 = missing.",
@@ -48462,7 +49226,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treatments": {
           "description": "Treatment variables at each stage, in temporal order. E.g., ['A1', 'A2'] for a two-stage DTR.",
@@ -49869,6 +50637,14 @@
           "description": "Random seed for reproducibility (uses ``np.random.default_rng``).",
           "type": "integer"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "x": {
           "description": "Treatment / regressor(s) of interest. The adjusted p-value corresponds to the *first* element of ``x``.",
           "items": {
@@ -49933,6 +50709,16 @@
           "description": "Binary (0/1) treatment.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "hc1",
+            "robust"
+          ]
         },
         "y": {
           "description": "Outcomes (one hypothesis each).",
@@ -51214,6 +52000,15 @@
           "description": "Numerical convergence tolerance.",
           "type": "number"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "nonrobust",
+            "robust"
+          ]
+        },
         "verbose": {
           "default": false,
           "description": "verbose parameter (bool).",
@@ -51304,7 +52099,11 @@
         "random_state": {
           "default": 1234,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "refine": {
           "default": true,
@@ -51863,6 +52662,15 @@
           "description": "Post-Lasso inside the selection steps.",
           "type": "boolean"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "robust"
+          ]
+        },
         "x": {
           "description": "Primary running variable, regressor, or feature input for this estimator.",
           "items": {
@@ -51891,7 +52699,10 @@
       "properties": {
         "X": {
           "description": "Feature matrix or covariate DataFrame.",
-          "type": "string"
+          "type": "string",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "cluster": {
           "description": "Cluster identifier column for clustered standard errors.",
@@ -51931,6 +52742,15 @@
           "default": true,
           "description": "post parameter (bool).",
           "type": "boolean"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "robust"
+          ]
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",
@@ -51990,6 +52810,15 @@
           "default": true,
           "description": "Lasso-select among the instruments.",
           "type": "boolean"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "robust"
+          ]
         },
         "x": {
           "description": "Primary running variable, regressor, or feature input for this estimator.",
@@ -52124,7 +52953,10 @@
         },
         "X": {
           "description": "Feature matrix or covariate DataFrame.",
-          "type": "string"
+          "type": "string",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -55438,6 +56270,16 @@
           "default": 1e-10,
           "description": "Convergence criterion on max |Deltabeta|. The iteration converges linearly, so the default is tight (``regife``'s own default is 1e-9).",
           "type": "number"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "nonrobust",
+            "robust"
+          ]
         },
         "x": {
           "description": "Regressors.",
@@ -58783,6 +59625,9 @@
             "cluster"
           ],
           "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
           "x-canonical": "vce"
         }
       },
@@ -61221,7 +62066,6 @@
             "m"
           ],
           "type": "string",
-          "x-canonical": "id",
           "x-statspai-role": "column"
         }
       },
@@ -61294,7 +62138,6 @@
             "m"
           ],
           "type": "string",
-          "x-canonical": "id",
           "x-statspai-role": "column"
         }
       },
@@ -61782,6 +62625,15 @@
           "description": "row_normalize parameter (bool).",
           "type": "boolean"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: model-based standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "nonrobust",
+            "robust"
+          ]
+        },
         "w_lags": {
           "default": 1,
           "description": "w_lags parameter (int).",
@@ -61830,6 +62682,15 @@
           "description": "Divide the residual sum of squares by ``n - k`` instead of ``n`` in the homoskedastic variance (``gstsls(sig2n_k = TRUE)``).",
           "type": "boolean"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: model-based standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "nonrobust",
+            "robust"
+          ]
+        },
         "w_lags": {
           "default": 2,
           "description": "Spatial lags of ``X`` used as instruments: ``[W X, ..., W^w_lags X]``. ``2`` is Kelejian-Prucha's ``H = [X, WX, W^2 X]`` and the only choice ``gstsls`` offers (its ``W2X`` argument is not used by the code); ``1`` is PySAL ``spreg.GM_Combo``'s default.",
@@ -61872,6 +62733,15 @@
           "default": true,
           "description": "row_normalize parameter (bool).",
           "type": "boolean"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: model-based standard errors.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "nonrobust",
+            "robust"
+          ]
         }
       },
       "required": [
@@ -64272,6 +65142,14 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster"
+          ]
+        },
         "y": {
           "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
@@ -64369,7 +65247,11 @@
         "random_state": {
           "default": 0,
           "description": "Seed for the bootstrap (set to ``None`` for non-reproducibility).",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "rr_method": {
           "default": "smoothness",
@@ -65361,7 +66243,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "d": {
           "description": "d parameter (str).",
@@ -65403,7 +66288,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "d": {
           "description": "d parameter (str).",
@@ -65440,7 +66328,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "d": {
           "description": "d parameter (str).",
@@ -65531,7 +66422,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "assumptions": {
           "description": "assumptions parameter (Optional[List[str]]).",
@@ -65715,7 +66609,11 @@
         },
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",
@@ -66007,7 +66905,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "d": {
           "description": "d parameter (str).",
@@ -67414,7 +68315,11 @@
         },
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Outcome and 0/1 treatment column names.",
@@ -68062,6 +68967,18 @@
           },
           "type": "array"
         },
+        "vce": {
+          "default": "nn",
+          "description": "Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust`` (it also enters the bandwidth selection). With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.",
+          "enum": [
+            "nn",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        },
         "x": {
           "description": "Primary running variable, regressor, or feature input for this estimator.",
           "type": "string",
@@ -68640,7 +69557,11 @@
         "random_state": {
           "default": 0,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "target": {
           "default": "AUTOC",
@@ -69434,7 +70355,11 @@
         },
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Outcome and 0/1 treatment column names.",
@@ -69498,7 +70423,11 @@
         },
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
@@ -69676,7 +70605,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
@@ -70022,7 +70955,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "split_alpha": {
           "default": 0.05,
@@ -70124,7 +71061,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "split_alpha": {
           "default": 0.05,
@@ -70226,7 +71167,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "split_alpha": {
           "default": 0.05,
@@ -70335,7 +71280,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "regression_splitting": {
           "default": false,
@@ -70449,7 +71398,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "split_alpha": {
           "default": 0.05,
@@ -70582,7 +71535,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "split_alpha": {
           "default": 0.05,
@@ -71316,7 +72273,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "ridge": {
           "default": 0.01,

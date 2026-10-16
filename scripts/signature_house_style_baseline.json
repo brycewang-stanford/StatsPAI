@@ -1,82 +1,94 @@
 {
   "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.",
   "by_theme": {
-    "covariates": 40,
-    "outcome": 3,
-    "se": 21,
-    "time": 2,
-    "unit": 3
+    "cluster": 0,
+    "covariates": 0,
+    "data": 0,
+    "outcome": 0,
+    "se": 0,
+    "seed": 0,
+    "time": 0,
+    "treatment": 0,
+    "unit": 0,
+    "weights": 0
   },
   "coverage": {
     "cluster": {
       "aliased": 2,
-      "canonical": 124,
+      "canonical": 163,
       "canonical_pct": 100.0,
       "legacy": 0,
-      "total": 126
+      "total": 165
     },
     "covariates": {
-      "aliased": 43,
-      "canonical": 156,
-      "canonical_pct": 83.3,
-      "legacy": 40,
-      "total": 239
-    },
-    "data": {
-      "aliased": 5,
-      "canonical": 536,
+      "aliased": 54,
+      "canonical": 181,
       "canonical_pct": 100.0,
       "legacy": 0,
-      "total": 541
+      "total": 235
+    },
+    "data": {
+      "aliased": 7,
+      "canonical": 688,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 695
     },
     "outcome": {
-      "aliased": 52,
-      "canonical": 362,
-      "canonical_pct": 99.3,
-      "legacy": 3,
-      "total": 417
+      "aliased": 56,
+      "canonical": 459,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 515
     },
     "se": {
-      "aliased": 41,
-      "canonical": 39,
-      "canonical_pct": 79.2,
-      "legacy": 21,
-      "total": 101
+      "aliased": 60,
+      "canonical": 72,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 132
+    },
+    "seed": {
+      "aliased": 94,
+      "canonical": 218,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 312
     },
     "time": {
-      "aliased": 14,
-      "canonical": 140,
-      "canonical_pct": 98.7,
-      "legacy": 2,
-      "total": 156
+      "aliased": 15,
+      "canonical": 163,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 178
     },
     "treatment": {
       "aliased": 63,
-      "canonical": 114,
+      "canonical": 143,
       "canonical_pct": 100.0,
       "legacy": 0,
-      "total": 177
+      "total": 206
     },
     "unit": {
-      "aliased": 82,
-      "canonical": 39,
-      "canonical_pct": 97.6,
-      "legacy": 3,
-      "total": 124
+      "aliased": 84,
+      "canonical": 48,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 132
     },
     "weights": {
       "aliased": 5,
-      "canonical": 73,
+      "canonical": 86,
       "canonical_pct": 100.0,
       "legacy": 0,
-      "total": 78
+      "total": 91
     }
   },
   "totals": {
-    "acknowledged_false_friends": 45,
-    "aliased": 307,
-    "introspected": 913,
-    "public_callables": 935,
-    "violations": 69
+    "acknowledged_false_friends": 102,
+    "aliased": 440,
+    "introspected": 1142,
+    "public_callables": 1166,
+    "violations": 0
   }
 }

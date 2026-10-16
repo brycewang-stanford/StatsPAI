@@ -33,6 +33,8 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
 
 
@@ -61,7 +63,9 @@ def _stata_tstats(
     return np.asarray(B[0] / np.sqrt(var))
 
 
+@records_call("rotemberg_summary")
 @accepts_aliases(controls="covariates", period="time")
+@accepts_vce(default="robust")
 def rotemberg_summary(
     data: pd.DataFrame,
     y: str,

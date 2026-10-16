@@ -196,6 +196,8 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import (
     ColumnNotFound,
@@ -217,6 +219,7 @@ _REPLICATE_ERRORS = (
 )
 
 
+@records_call("did_multiplegt_dyn")
 @accepts_aliases(
     covariates="controls",
     _strict=True,
@@ -225,6 +228,7 @@ _REPLICATE_ERRORS = (
     treat="treatment",
     weight="weights",
 )
+@accepts_vce(default=None, native={"bootstrap": {"se_method": "bootstrap"}})
 def did_multiplegt_dyn(
     data: pd.DataFrame,
     y: str,

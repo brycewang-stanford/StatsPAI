@@ -31,6 +31,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
+
 # sklearn is imported lazily inside the methods that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches dose_response. ``BaseEstimator`` only
@@ -48,6 +50,7 @@ from ..exceptions import ColumnNotFound
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 @_expands_categorical("covariates")
 def dose_response(
     data: pd.DataFrame,

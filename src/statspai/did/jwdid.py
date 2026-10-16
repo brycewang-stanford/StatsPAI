@@ -7,6 +7,8 @@ from typing import Any, List, Optional, Sequence, Union
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
@@ -32,7 +34,9 @@ def _as_list(v: Optional[Union[str, Sequence[str]]]) -> Optional[List[str]]:
     return list(v)
 
 
+@records_call("jwdid")
 @accepts_aliases(id="ivar")
+@accepts_vce(default="cluster")
 def jwdid(
     data: pd.DataFrame,
     y: str,

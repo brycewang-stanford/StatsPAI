@@ -57,7 +57,9 @@ from scipy import stats as sp_stats
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
@@ -404,6 +406,7 @@ def _sparse_normal_solve(
     return out[:, 0] if B.ndim == 1 else out
 
 
+@records_call("gardner_did")
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
 @_expands_categorical("controls")
 @_calendar_time_aware(time="time", cohort="first_treat")
@@ -559,6 +562,9 @@ def gardner_did(
     >>> round(res.estimate, 2)  # true ATT = 2.0
     2.03
     """
+    vce, cluster = cluster_from_vce(
+        vce, cluster, function="gardner_did", native="analytic"
+    )
     if vce not in ("analytic", "stage2", "bootstrap", "none"):
         raise ValueError(
             "vce must be 'analytic', 'stage2', 'bootstrap', or 'none'; " f"got {vce!r}"

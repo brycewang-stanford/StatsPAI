@@ -27,6 +27,7 @@ from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..core._vcov import ml_vcov
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -43,6 +44,7 @@ def _as_list(value: Union[str, Sequence[str], None]) -> List[str]:
     return list(value)
 
 
+@records_call("nlogit")
 @accepts_aliases(robust="vce", covariates="x")
 def nlogit(
     data: pd.DataFrame,

@@ -25,6 +25,7 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 
@@ -461,6 +462,7 @@ def _wrap_re_result(
 # ====================== Public API ======================
 
 
+@records_call("panel_logit")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def panel_logit(
@@ -667,6 +669,7 @@ def panel_logit(
     )
 
 
+@records_call("panel_probit")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def panel_probit(

@@ -48,6 +48,7 @@ from scipy import stats
 from .._aliases import accepts_aliases, accepts_formula_first
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..exceptions import ColumnNotFound
 
 
@@ -489,6 +490,7 @@ def _interaction_het_test(
 # ---------------------------------------------------------------------------
 
 
+@records_call("subgroup_analysis")
 @accepts_formula_first()
 @accepts_aliases(vce="robust")
 def subgroup_analysis(

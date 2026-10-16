@@ -282,7 +282,12 @@ def _oob_probabilities(
     return np.asarray(pred, dtype=float)
 
 
-@accepts_aliases(_strict=True, n_trees="n_estimators", min_leaf="min_samples_leaf")
+@accepts_aliases(
+    _strict=True,
+    n_trees="n_estimators",
+    min_leaf="min_samples_leaf",
+    seed="random_state",
+)
 def multi_arm_forest(
     data: Optional[pd.DataFrame] = None,
     y: Any = None,

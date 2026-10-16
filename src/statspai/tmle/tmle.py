@@ -36,6 +36,9 @@ import pandas as pd
 from scipy import stats as sp_stats
 from scipy.special import expit, logit
 
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
+
 # sklearn is imported lazily inside the functions that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches tmle. ``BaseEstimator`` only appears
@@ -60,7 +63,9 @@ _ESTIMANDS = ("ATE", "ATT", "ATC") + _ARM_ESTIMANDS
 # ======================================================================
 
 
-@accepts_aliases(_strict=True, controls="covariates")
+@records_call("tmle")
+@accepts_aliases(_strict=True, controls="covariates", seed="random_state")
+@accepts_vce(default="robust", native={"bootstrap": {"se_method": "bootstrap"}})
 @_expands_categorical("covariates")
 def tmle(
     data: pd.DataFrame,

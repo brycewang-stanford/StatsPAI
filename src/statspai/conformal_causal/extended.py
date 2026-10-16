@@ -118,7 +118,7 @@ class InterferenceConformalResult(ResultProtocolMixin):
 # -------------------------------------------------------------------------
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def conformal_continuous(
     data: pd.DataFrame,
     *,
@@ -288,7 +288,7 @@ def conformal_continuous(
 # -------------------------------------------------------------------------
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def conformal_interference(
     data: pd.DataFrame,
     *,

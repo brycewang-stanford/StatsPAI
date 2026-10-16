@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
@@ -89,6 +90,7 @@ def _parse_liml_formula(
     return lhs.strip(), _terms(parts[0]), _terms(parts[1]), _terms(parts[2])
 
 
+@records_call("liml")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def liml(
@@ -377,6 +379,7 @@ def liml(
     return _result
 
 
+@records_call("jive")
 @accepts_aliases(vce="robust")
 def jive(
     data: pd.DataFrame,
@@ -587,6 +590,7 @@ def jive(
     return _result
 
 
+@records_call("lasso_iv")
 @accepts_aliases(vce="robust")
 def lasso_iv(
     data: pd.DataFrame,

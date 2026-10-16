@@ -28,6 +28,7 @@ import pandas as pd
 
 from ._aliases import accepts_aliases
 from ._result_serialize import ResultProtocolMixin
+from .core._call_record import records_call
 from .exceptions import MethodIncompatibility
 
 __all__ = [
@@ -602,6 +603,7 @@ def _se(result: Any, name: str) -> Optional[float]:
     return None
 
 
+@records_call("auto_iv")
 @accepts_aliases(vce="robust")
 def auto_iv(
     data: pd.DataFrame,

@@ -28,6 +28,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
@@ -403,6 +405,8 @@ def _stacked_cov(
 # ---------------------------------------------------------------------------
 
 
+@records_call("robreg")
+@accepts_aliases(seed="random_state")
 def robreg(
     formula: str,
     data: pd.DataFrame,

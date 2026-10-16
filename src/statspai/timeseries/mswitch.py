@@ -17,6 +17,7 @@ from scipy import stats
 
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..core._collinear import drop_collinear
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from . import _mswitch_core as core
@@ -458,6 +459,7 @@ def _setup(
     return spec, dat, ys, xn, zn, omitted
 
 
+@records_call("mswitch")
 def mswitch(
     y: Union[str, np.ndarray, pd.Series],
     x: ArrayLike = None,

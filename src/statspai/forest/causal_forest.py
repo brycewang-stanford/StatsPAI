@@ -2224,6 +2224,7 @@ class CausalForest(BaseModel):
     unit="id",
     treat="d",
     covariates="x",
+    seed="random_state",
 )
 def causal_forest(
     formula: Optional[str] = None,

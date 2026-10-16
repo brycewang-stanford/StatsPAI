@@ -49,6 +49,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..core.results import SummaryText, _to_jsonable
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -1150,6 +1151,7 @@ def _spatial_diagnostics(
     return diagnostics
 
 
+@records_call("spatial_did")
 @accepts_aliases(id="unit", vce="se_type")
 def spatial_did(
     data: pd.DataFrame,

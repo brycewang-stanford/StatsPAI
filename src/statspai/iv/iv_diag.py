@@ -62,6 +62,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..diagnostics.weak_iv import anderson_rubin_test, tF_critical_value
 from ..exceptions import MethodIncompatibility
 
@@ -807,7 +808,8 @@ def _check_tsls_late_caveat(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-@accepts_aliases(vce="vcov")
+@records_call("iv_diag")
+@accepts_aliases(vce="vcov", seed="random_state")
 def iv_diag(
     data: pd.DataFrame,
     y: str,

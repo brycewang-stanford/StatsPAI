@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..core.results import CausalResult  # noqa: F401 - re-exported via result
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -330,6 +331,7 @@ def _r_loss_per_learner(
     return _r_loss(tau_oof, Y, D, m_hat, e_hat)
 
 
+@accepts_aliases(seed="random_state")
 def auto_cate_tuned(
     data: pd.DataFrame,
     y: str,

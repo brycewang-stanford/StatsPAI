@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import require_binary_treatment
@@ -309,6 +310,7 @@ def _arm_mean(
 # --------------------------------------------------------------------
 
 
+@accepts_aliases(seed="random_state")
 @_expands_categorical("covariates")
 def residual_balance(
     data: pd.DataFrame,

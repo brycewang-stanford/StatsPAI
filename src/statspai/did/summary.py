@@ -38,6 +38,8 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound
 
@@ -304,7 +306,9 @@ def _extract(res: CausalResult) -> dict:
     return dict(estimate=est, se=se, pvalue=p, ci_low=ci_lo, ci_high=ci_hi, n_obs=n)
 
 
+@records_call("did_summary")
 @accepts_aliases(covariates="controls")
+@accepts_vce(default="cluster")
 def did_summary(
     data: pd.DataFrame,
     y: str,
@@ -799,7 +803,9 @@ def did_summary_to_latex(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@records_call("did_report")
 @accepts_aliases(covariates="controls")
+@accepts_vce(default="cluster")
 def did_report(
     data: pd.DataFrame,
     y: str,

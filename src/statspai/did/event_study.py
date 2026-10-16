@@ -37,7 +37,9 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
@@ -223,7 +225,9 @@ def _build_bins(
     return out
 
 
+@records_call("event_study")
 @accepts_aliases(_strict=True, id="unit", controls="covariates")
+@accepts_vce(default="cluster")
 @_expands_categorical("covariates")
 def event_study(
     data: pd.DataFrame,

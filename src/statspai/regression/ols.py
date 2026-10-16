@@ -11,6 +11,7 @@ from scipy import stats
 from scipy.linalg import solve_triangular
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
@@ -1779,6 +1780,7 @@ def _refuse_weights(weights: Any, what: str) -> None:
         )
 
 
+@records_call("regress")
 @accepts_aliases(vce="robust")
 @markout_clusters
 def regress(
@@ -2413,15 +2415,31 @@ def regress(
         _attach_prov(
             _result,
             function="sp.regress",
+            # Every option that changes the numbers. ``weights`` is a named
+            # parameter, so the old ``kwargs`` filter never saw it and a
+            # weighted fit was recorded as unweighted.
             params={
                 "formula": formula,
                 "robust": robust,
                 "cluster": cluster,
                 **{
                     k: v
-                    for k, v in kwargs.items()
-                    if k in ("weights", "vcov", "se_type")
+                    for k, v in {
+                        "weights": weights,
+                        "weights_as": weights_as,
+                        "hac_lags": hac_lags,
+                        "hac_small": hac_small or None,
+                        "hac_panel": hac_panel,
+                        "ewc_df": ewc_df,
+                        "dfadjust": dfadjust or None,
+                        "conley_lat": conley_lat,
+                        "conley_lon": conley_lon,
+                        "conley_cutoff": conley_cutoff,
+                        "collinear": collinear if collinear != "omit" else None,
+                    }.items()
+                    if v is not None
                 },
+                **{k: v for k, v in kwargs.items() if k in ("vcov", "se_type")},
             },
             data=data,
             overwrite=False,

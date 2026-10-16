@@ -27,6 +27,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ._base import (
     BayesianHTEIVResult,
@@ -115,6 +116,7 @@ def _prepare_hte_iv_frame(
     }
 
 
+@accepts_aliases(seed="random_state")
 def bayes_hte_iv(
     data: pd.DataFrame,
     y: str,

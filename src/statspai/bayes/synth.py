@@ -65,7 +65,7 @@ def _wide_panel(
     return times, treated, donor_mat, donor_names
 
 
-@accepts_aliases(id="unit", y="outcome")
+@accepts_aliases(id="unit", y="outcome", seed="random_state")
 def bayes_synth(
     data: pd.DataFrame,
     outcome: str,

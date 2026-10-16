@@ -37,6 +37,7 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..exceptions import (
     ConvergenceFailure,
@@ -975,6 +976,7 @@ class _FrontierSpec:
 # ---------------------------------------------------------------------------
 
 
+@records_call("frontier")
 def frontier(
     data: pd.DataFrame,
     y: str,

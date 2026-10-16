@@ -22,6 +22,8 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
@@ -39,7 +41,9 @@ def _kernel(u: np.ndarray, kernel: str) -> np.ndarray:
     )
 
 
+@records_call("rd_diff_in_disc")
 @accepts_aliases(covs="covariates")
+@accepts_vce(default=("hc1", "robust"))
 def rd_diff_in_disc(
     data: pd.DataFrame,
     y: str,

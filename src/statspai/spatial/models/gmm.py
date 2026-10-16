@@ -19,6 +19,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
+from ...core._call_record import records_call
+from ...core._vcov_spec import accepts_vce
 from ...core.results import EconometricResults
 from ...exceptions import MethodIncompatibility, NumericalInstability
 from .ml import _coerce_W, _parse_formula
@@ -56,6 +58,12 @@ def _kp_moment_residuals(
     return np.array([m1, m2, m3])
 
 
+@records_call("sem_gmm")
+@accepts_vce(
+    default="nonrobust",
+    cluster=None,
+    native={"robust": {"robust": "het"}, "nonrobust": {"robust": None}},
+)
 def sem_gmm(
     W: Any,
     data: pd.DataFrame,
@@ -173,6 +181,12 @@ def sem_gmm(
 # --------------------------------------------------------------------- #
 
 
+@records_call("sar_gmm")
+@accepts_vce(
+    default="nonrobust",
+    cluster=None,
+    native={"robust": {"robust": "het"}, "nonrobust": {"robust": None}},
+)
 def sar_gmm(
     W: Any,
     data: pd.DataFrame,
@@ -371,6 +385,12 @@ def _kp_gm_lambda(u: np.ndarray, M: Any):
     return lam_hat, s2_hat, obj
 
 
+@records_call("sarar_gmm")
+@accepts_vce(
+    default="nonrobust",
+    cluster=None,
+    native={"robust": {"robust": "het"}, "nonrobust": {"robust": None}},
+)
 def sarar_gmm(
     W: Any,
     data: pd.DataFrame,

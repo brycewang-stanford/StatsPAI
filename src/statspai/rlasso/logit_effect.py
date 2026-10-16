@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ._core import rlasso
 from ._logit import rlassologit
@@ -228,6 +229,7 @@ def rlassologit_effect(
     )
 
 
+@accepts_aliases(covariates="X")
 def rlassologit_effects(
     X: Union[np.ndarray, pd.DataFrame],
     y: Union[np.ndarray, pd.Series],

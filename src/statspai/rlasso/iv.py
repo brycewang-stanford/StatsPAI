@@ -44,6 +44,8 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
 from ._core import _cluster_codes, rlasso
 
@@ -469,6 +471,8 @@ def _grab(v: Any, data: Optional[pd.DataFrame], cols: bool = False) -> np.ndarra
     return out
 
 
+@records_call("rlasso_iv")
+@accepts_vce(default="robust")
 def rlasso_iv(
     y: Union[np.ndarray, pd.Series, str],
     d: Union[np.ndarray, pd.Series, str],

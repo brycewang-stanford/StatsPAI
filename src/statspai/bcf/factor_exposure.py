@@ -32,6 +32,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from .bcf import bcf as _bcf_binary
@@ -123,6 +124,7 @@ def _svd_factors(Z: np.ndarray, n_factors: int) -> tuple:
     return scores, loadings, evr
 
 
+@accepts_aliases(seed="random_state")
 def bcf_factor_exposure(
     data: pd.DataFrame,
     *,

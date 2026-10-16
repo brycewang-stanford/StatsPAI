@@ -44,6 +44,7 @@ from .sdtest import SDTestResult, sdtest, ztest
 from .suest import SuestResult, suest
 from .ttest import TTestResult, ttest
 from .twoway_cluster import twoway_cluster
+from .vcov_refit import vcov, vcov_compare
 from .wild_bootstrap import wild_cluster_bootstrap
 from .wild_subcluster import subcluster_wild_bootstrap, wild_cluster_ci_inv
 
@@ -61,6 +62,8 @@ __all__ = [
     "bootstrap",
     "BootstrapResult",
     "twoway_cluster",
+    "vcov",
+    "vcov_compare",
     "conley",
     "pate",
     "PATEEstimator",

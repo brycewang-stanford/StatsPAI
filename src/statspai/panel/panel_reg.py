@@ -35,6 +35,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases, accepts_formula_first
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..exceptions import (
     AssumptionWarning,
@@ -2481,6 +2482,7 @@ def _fit_gmm(
 # ======================================================================
 
 
+@records_call("panel_compare")
 @accepts_formula_first()
 @accepts_aliases(id="entity", vce="robust")
 def panel_compare(

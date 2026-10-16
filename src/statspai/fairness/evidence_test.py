@@ -46,6 +46,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..exceptions import (
     ColumnNotFound,
@@ -282,6 +283,7 @@ def _intervene_frame(
     return out.copy()
 
 
+@accepts_aliases(seed="random_state")
 def evidence_without_injustice(
     data: pd.DataFrame,
     predictor: Callable[[pd.DataFrame], np.ndarray],

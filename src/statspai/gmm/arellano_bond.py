@@ -56,7 +56,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._call_record import records_call
 from ..core._validate import require_bool_flag as _require_bool
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ._dynpanel import fit_dynamic_panel
 from ._dynpanel._moments import first_difference_H as _ab_H  # noqa: F401  (re-export)
@@ -64,6 +66,8 @@ from ._dynpanel._moments import first_difference_H as _ab_H  # noqa: F401  (re-e
 __all__ = ["xtabond", "xtdpdsys"]
 
 
+@records_call("xtabond")
+@accepts_vce(default="robust", native={"nonrobust": {"robust": False}})
 def xtabond(
     data: pd.DataFrame,
     y: str,
@@ -510,6 +514,12 @@ def xtabond(
     )
 
 
+@records_call("xtdpdsys")
+@accepts_vce(
+    default="robust",
+    cluster=None,
+    native={"robust": {"robust": True}, "nonrobust": {"robust": False}},
+)
 def xtdpdsys(
     data: pd.DataFrame,
     y: str,

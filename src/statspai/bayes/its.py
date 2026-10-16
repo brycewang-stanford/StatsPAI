@@ -15,6 +15,7 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ._base import (
     BayesianCausalResult,
@@ -24,6 +25,7 @@ from ._base import (
 )
 
 
+@accepts_aliases(seed="random_state")
 def bayes_its(
     data: pd.DataFrame,
     y: str,

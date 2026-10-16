@@ -16,6 +16,7 @@ from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._cox_core import CoxKernel, harrell_c, km_left_survival
@@ -996,6 +997,7 @@ def _schoenfeld_residuals(
 # ===================================================================
 
 
+@records_call("cox")
 @accepts_aliases(vce="robust")
 def cox(
     formula: Optional[str] = None,
@@ -1373,6 +1375,7 @@ def _aft_log_density_survivor(z: np.ndarray, family: str) -> Tuple[Any, Any]:
     return z - 2.0 * sp_z, -sp_z
 
 
+@records_call("survreg")
 @accepts_aliases(vce="robust")
 def survreg(
     formula: Optional[str] = None,

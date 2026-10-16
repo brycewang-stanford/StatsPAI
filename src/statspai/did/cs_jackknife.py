@@ -29,6 +29,8 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 from .aggte import aggte
@@ -40,7 +42,9 @@ _AGG_TYPES = ("simple", "dynamic", "group", "calendar")
 _FORBIDDEN_KWARGS = ("bstrap", "cband", "se_method", "biters", "clustervars")
 
 
+@records_call("cs_jackknife")
 @accepts_aliases(_strict=True, t="time", i="id")
+@accepts_vce(default="cluster")
 def cs_jackknife(
     data: pd.DataFrame,
     y: str,

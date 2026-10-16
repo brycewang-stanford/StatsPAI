@@ -37,9 +37,13 @@ import pandas as pd
 from scipy import stats
 
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 
 
+@records_call("cohort_anchored_event_study")
+@accepts_vce(default="cluster")
 def cohort_anchored_event_study(
     data: pd.DataFrame,
     y: str,

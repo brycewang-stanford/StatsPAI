@@ -21,6 +21,8 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
 from ..inference.randomization import _enumerate_assignments, _ols_stat_factory
 
@@ -50,6 +52,8 @@ def _stepdown_maxt(t_obs: np.ndarray, t_perm: np.ndarray) -> np.ndarray:
     return adj
 
 
+@records_call("westfall_young")
+@accepts_vce(default=("hc1", "robust"))
 def westfall_young(
     data: pd.DataFrame,
     y: Sequence[str],

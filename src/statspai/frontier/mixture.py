@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+from ..core._call_record import records_call
 from ..exceptions import ConvergenceFailure
 from . import _core as _fc
 from .sfa import FrontierResult
@@ -45,6 +46,7 @@ from .sfa import FrontierResult
 # ---------------------------------------------------------------------------
 
 
+@records_call("zisf")
 def zisf(
     data: pd.DataFrame,
     y: str,
@@ -312,6 +314,7 @@ def zisf(
 # ---------------------------------------------------------------------------
 
 
+@records_call("lcsf")
 def lcsf(
     data: pd.DataFrame,
     y: str,

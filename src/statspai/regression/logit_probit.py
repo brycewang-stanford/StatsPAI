@@ -31,6 +31,7 @@ from scipy import stats
 from scipy.special import expit as _expit
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
@@ -1153,6 +1154,7 @@ def _bound_classification_table(
 # =========================================================================
 
 
+@records_call("logit")
 @accepts_aliases(vce="robust")
 @records_provenance("sp.logit")
 @markout_clusters
@@ -1268,6 +1270,7 @@ def logit(
     )
 
 
+@records_call("probit")
 @accepts_aliases(vce="robust")
 @records_provenance("sp.probit")
 @markout_clusters
@@ -1376,6 +1379,7 @@ def probit(
     )
 
 
+@records_call("cloglog")
 @accepts_aliases(vce="robust")
 @records_provenance("sp.cloglog")
 @markout_clusters

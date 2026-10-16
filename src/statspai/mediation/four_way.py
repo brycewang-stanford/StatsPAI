@@ -39,6 +39,7 @@ import pandas as pd
 
 from .._input_validation import clean_frame
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..exceptions import MethodIncompatibility
 
 # sklearn is imported lazily inside ``four_way_decomposition`` so that
@@ -100,6 +101,7 @@ class FourWayResult(ResultProtocolMixin):
         return f"FourWayResult(TE={self.total_effect:+.4f})"
 
 
+@records_call("four_way_decomposition")
 def four_way_decomposition(
     data: pd.DataFrame,
     y: str,

@@ -266,7 +266,7 @@ def overlap_weighted_did(
     )
 
 
-@accepts_aliases(treat="treatment")
+@accepts_aliases(treat="treatment", seed="random_state")
 def dl_propensity_score(
     data: pd.DataFrame,
     *,

@@ -45,6 +45,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -300,6 +301,7 @@ def _crossfit_nuisances(
     return m_hat, e_hat, mu1, mu0
 
 
+@accepts_aliases(seed="random_state")
 def cate_eval(
     cate: np.ndarray,
     Y: np.ndarray,

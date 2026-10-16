@@ -20,6 +20,7 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
@@ -1389,6 +1390,7 @@ def _overdispersion_test(
 # ===========================================================================
 
 
+@records_call("poisson")
 @accepts_aliases(vce="robust")
 @records_provenance("sp.poisson")
 @markout_clusters
@@ -1708,6 +1710,7 @@ def poisson(
     )
 
 
+@records_call("nbreg")
 @accepts_aliases(vce="robust")
 @records_provenance("sp.nbreg")
 @markout_clusters
@@ -2079,6 +2082,7 @@ def nbreg(
     )
 
 
+@records_call("xtnbreg")
 @accepts_aliases(id="entity", vce="robust")
 def xtnbreg(
     formula: Optional[str] = None,
@@ -3056,6 +3060,7 @@ def _ppmlhdfe_conley(
     return base
 
 
+@records_call("ppmlhdfe")
 @markout_clusters
 def ppmlhdfe(
     formula: Optional[str] = None,

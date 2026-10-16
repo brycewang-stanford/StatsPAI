@@ -380,3 +380,77 @@ class TestDebugFlagGatesTraceback:
             assert "traceback" in msg["error"]["data"]
         finally:
             mcp_server._METHODS["initialize"] = original
+
+
+# ----------------------------------------------------------------------
+# vcov_from_result: SEs of a cached fit under another vce
+# ----------------------------------------------------------------------
+
+
+class TestVcovFromResult:
+    @pytest.fixture()
+    def fitted(self, tmp_path):
+        rng = np.random.default_rng(0)
+        n = 300
+        df = pd.DataFrame({"x": rng.normal(size=n), "g": rng.integers(0, 30, n)})
+        df["y"] = 1 + 2 * df["x"] + rng.normal(size=n)
+        path = tmp_path / "d.csv"
+        df.to_csv(path, index=False)
+        loaded = _rpc(
+            "tools/call",
+            {"name": "load_data", "arguments": {"data_path": str(path)}},
+        )
+        data_id = json.loads(loaded["result"]["content"][0]["text"])["data_id"]
+        fit = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {
+                    "formula": "y ~ x",
+                    "data_id": data_id,
+                    "as_handle": True,
+                },
+            },
+        )
+        rid = json.loads(fit["result"]["content"][0]["text"])["result_id"]
+        return df, rid
+
+    def _call(self, arguments):
+        out = _rpc("tools/call", {"name": "vcov_from_result", "arguments": arguments})
+        return json.loads(out["result"]["content"][0]["text"])
+
+    def test_single_vce_equals_a_direct_refit(self, fitted):
+        import statspai as sp
+
+        df, rid = fitted
+        payload = self._call({"result_id": rid, "vce": "cluster g"})
+        assert "error" not in payload, payload
+        direct = sp.regress("y ~ x", data=df, vce="cluster g")
+        assert payload["coefficients"]["x"]["std_error"] == pytest.approx(
+            direct.std_errors["x"], rel=1e-12
+        )
+
+    def test_list_returns_a_table(self, fitted):
+        _, rid = fitted
+        payload = self._call(
+            {"result_id": rid, "vce": ["hc1", "cluster g"], "terms": ["x"]}
+        )
+        assert payload["method"] == "vcov_compare"
+        assert [r["vce"] for r in payload["table"]] == [
+            "(as fitted)",
+            "hc1",
+            "cluster g",
+        ]
+
+    def test_missing_vce_is_a_recoverable_error(self, fitted):
+        import statspai as sp
+
+        df, rid = fitted
+        payload = self._call({"result_id": rid})
+        assert payload["expected_argument"] == "vce"
+        # The same handle then answers once vce is supplied.
+        fixed = self._call({"result_id": rid, "vce": "hc3"})
+        direct = sp.regress("y ~ x", data=df, vce="hc3")
+        assert fixed["coefficients"]["x"]["std_error"] == pytest.approx(
+            direct.std_errors["x"], rel=1e-12
+        )

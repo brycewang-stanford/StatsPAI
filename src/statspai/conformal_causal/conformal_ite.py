@@ -31,6 +31,7 @@ from scipy import stats as sp_stats
 from sklearn.base import BaseEstimator, clone
 from sklearn.ensemble import GradientBoostingRegressor
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 
@@ -39,6 +40,7 @@ from ..core.results import CausalResult
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def conformal_cate(
     data: pd.DataFrame,
     y: str,

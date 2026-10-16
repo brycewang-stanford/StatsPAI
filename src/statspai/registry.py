@@ -297,6 +297,7 @@ class FunctionSpec:
         properties = {}
         required = []
         spelling = _param_spelling_for(self.name)
+        vce_grammar = _vce_grammar_for(self.name)
         for p in self.params:
             prop: Dict[str, Any] = {
                 "description": _param_description(p.name, p.type, p.description)
@@ -340,6 +341,10 @@ class FunctionSpec:
                 ):
                     key = canonical
                     aliases = [p.name] + [a for a in aliases if a != canonical]
+                if vce_grammar is not None:
+                    # vce= is its own property below: it takes a grammar
+                    # ("cluster firm"), not this parameter's value.
+                    aliases = [a for a in aliases if a != "vce"]
                 if aliases:
                     prop["x-aliases"] = aliases
                 if canonical and canonical != key:
@@ -347,6 +352,8 @@ class FunctionSpec:
             properties[key] = prop
             if p.required:
                 required.append(key)
+        if vce_grammar is not None and "vce" not in properties:
+            properties["vce"] = vce_grammar
 
         description = self.description
         if self.stability != "stable":
@@ -796,6 +803,49 @@ def _live_callable(name: str) -> Any:
 
 
 _SPELLING_CACHE: Dict[str, Tuple[int, Dict[str, Dict[str, Any]]]] = {}
+
+
+def _vce_grammar_for(name: str) -> Optional[Dict[str, Any]]:
+    """Schema property for the ``vce=`` that ``@accepts_vce`` adds to ``sp.<name>``.
+
+    The keyword is not in the signature, so without this an agent sees it
+    only as an ``x-aliases`` entry of ``cluster`` and would pass a column
+    name; it takes a Stata-style request and only the kinds listed here.
+    """
+    obj = _live_callable(name)
+    info = getattr(obj, "__statspai_vce__", None) if obj is not None else None
+    if not info:
+        return None
+    kinds = list(info["supported"])
+    parts = []
+    if "cluster" in kinds and info.get("cluster"):
+        parts.append("'cluster <column>' (equivalently cluster=<column>)")
+    others = [k for k in kinds if k != "cluster"]
+    if others:
+        parts.append(", ".join(repr(k) for k in others))
+    defaults = list(info.get("default") or [])
+    text = (
+        "Stata-style standard-error request (vce(...) grammar). Accepted "
+        f"here: {'; '.join(parts)}. Any other kind raises."
+    )
+    if defaults:
+        meaning = {
+            "cluster": "panel-unit clustered",
+            "robust": "heteroskedasticity-robust (sandwich or influence-function)",
+            "hc1": "HC1",
+            "nonrobust": "model-based",
+            "hac": "HAC",
+            "bootstrap": "bootstrap",
+            "nn": "nearest-neighbour",
+        }
+        said = sorted({meaning.get(d, d) for d in defaults} - {"HC1"}) or ["HC1"]
+        text += f" Omitting it gives the default: {' / '.join(said)} standard errors."
+    return {
+        "description": text,
+        "type": "string",
+        "x-statspai-grammar": "vce",
+        "x-statspai-vce-kinds": kinds,
+    }
 
 
 def _param_spelling_for(name: str) -> Dict[str, Dict[str, Any]]:
@@ -32949,6 +32999,104 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="vcov",
+            category="inference",
+            description=(
+                "Re-report a fitted result under another standard-error choice "
+                "(vce=) without rebuilding the call: re-runs the recorded call "
+                "with only vce= replaced, after checking that an unchanged "
+                "replay reproduces the original estimates. The new SEs are "
+                "exactly what sp.<estimator>(..., vce=...) returns."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "object",
+                    True,
+                    description="A result from any estimator that accepts vce=.",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    True,
+                    description=(
+                        "Stata-style request: 'robust', 'hc3', 'cluster state', "
+                        "'cluster state year' (where multiway clustering is "
+                        "offered), 'bootstrap'. The kinds an estimator accepts "
+                        "are listed in its function_schema."
+                    ),
+                ),
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    False,
+                    None,
+                    "The frame the model was fitted on; needed only when that "
+                    "frame no longer exists (results hold it weakly).",
+                ),
+            ],
+            returns="Result of the same type; model_info['vcov_refit'] records the request.",
+            example='sp.vcov(sp.regress("y ~ x", data=df), "cluster state")',
+            tags=["vce", "standard errors", "cluster", "robust", "postestimation"],
+            pre_conditions=[
+                "The result came from an estimator that accepts vce=",
+                "The fitted DataFrame still exists, or is passed as data=",
+            ],
+            alternatives=["vcov_compare"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="vcov_compare",
+            category="inference",
+            description=(
+                "Standard errors of one fit under several vce= choices, side "
+                "by side (one row per request and term, with the ratio to the "
+                "fitted SE). Each row is a re-run of the recorded call with "
+                "that vce=; a kind the estimator does not implement is "
+                "reported in the note column."
+            ),
+            params=[
+                ParamSpec("result", "object", True, description="A fitted result."),
+                ParamSpec(
+                    "vce",
+                    "list",
+                    True,
+                    description=(
+                        "One request or a list, e.g. ['robust', 'cluster state', "
+                        "'cluster state year']."
+                    ),
+                ),
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    False,
+                    None,
+                    "As in sp.vcov: the fitted frame, when it no longer exists.",
+                ),
+                ParamSpec(
+                    "terms",
+                    "list",
+                    False,
+                    None,
+                    "Keep only these coefficients.",
+                ),
+            ],
+            returns=(
+                "DataFrame with columns vce, term, estimate, se, ci_lower, "
+                "ci_upper, pvalue, se_ratio, note"
+            ),
+            example=(
+                'sp.vcov_compare(fit, ["hc1", "hc3", "cluster state"], ' 'terms=["x"])'
+            ),
+            tags=["vce", "standard errors", "sensitivity", "cluster", "robustness"],
+            alternatives=["vcov"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="wild_cluster_bootstrap",
             category="inference",
             description=(
@@ -35397,6 +35545,12 @@ def _harvest_example(
     return ""
 
 
+#: Entry points whose ``**kwargs`` is forwarded to another estimator, so the
+#: accepted keywords are not knowable from the signature and aliases
+#: (mirrors ``scripts/registry_example_audit.py::_FORWARDS_KWARGS``).
+_KWARGS_FORWARDERS = frozenset({"psm", "cs_jackknife", "xtdpdsys"})
+
+
 def _example_binds(example: str, name: str, obj: Any) -> bool:
     """True when ``example`` parses and its ``sp.<name>(...)`` keywords are
     accepted by ``obj``'s signature (or ``obj`` takes ``**kwargs``)."""
@@ -35416,8 +35570,9 @@ def _example_binds(example: str, name: str, obj: Any) -> bool:
         # Same rule as scripts/registry_example_audit.py: a bare ``**kwargs``
         # is open-ended, but ``@accepts_aliases`` adds ``**kwargs`` only to
         # take alternative spellings and still rejects unknown names, so
-        # the accepted set is the signature plus the recorded aliases.
-        if not aliases:
+        # the accepted set is the signature plus the recorded aliases --
+        # except where the ``**kwargs`` is forwarded to a delegate.
+        if not aliases or getattr(obj, "__name__", "") in _KWARGS_FORWARDERS:
             return True
     names = {name, getattr(obj, "__name__", name)}
     for node in ast.walk(tree):

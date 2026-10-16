@@ -321,6 +321,8 @@ from .inference import (
     swilk,
     ttest,
     twoway_cluster,
+    vcov,
+    vcov_compare,
     wild_cluster_boot,
     wild_cluster_bootstrap,
     wild_cluster_ci_inv,
@@ -1866,6 +1868,8 @@ __all__ = [
     "FisherResult",
     "jackknife_se",
     "cr2_se",
+    "vcov",
+    "vcov_compare",
     "wild_cluster_boot",
     # G-methods family (g-computation / front-door)
     "g_computation",

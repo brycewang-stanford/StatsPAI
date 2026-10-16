@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -245,6 +246,7 @@ def _fold_labels(
     return np.asarray(codes, dtype=np.int64)
 
 
+@accepts_aliases(seed="random_state")
 def dml_did(
     data: pd.DataFrame,
     y: str,

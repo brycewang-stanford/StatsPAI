@@ -498,6 +498,7 @@ _DATALESS_OVERRIDES = frozenset(
         "interpret_result",
         "sensitivity_from_result",
         "honest_did_from_result",
+        "vcov_from_result",
         "plot_from_result",
         "bibtex",
         "from_stata",

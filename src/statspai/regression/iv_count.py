@@ -31,6 +31,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._call_record import records_call
 from ..core._validate import require_numeric_columns
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import (
@@ -71,6 +72,7 @@ def _moment_cov(
     return np.asarray(Zu.T @ Zu / n)
 
 
+@records_call("ivpoisson")
 @accepts_aliases(robust="vce", covariates="x")
 def ivpoisson(
     data: pd.DataFrame,

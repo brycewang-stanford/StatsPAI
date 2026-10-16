@@ -297,6 +297,7 @@ def _compliance_forest(
     _strict=True,
     n_trees="n_estimators",
     min_leaf="min_samples_leaf",
+    seed="random_state",
 )
 def iv_forest(
     data: Optional[pd.DataFrame] = None,

@@ -22,6 +22,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 
@@ -170,6 +171,7 @@ class StructuralMDPResult(ResultProtocolMixin):
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(seed="rng_seed")
 def causal_bandit(
     arms: Sequence[str],
     *,

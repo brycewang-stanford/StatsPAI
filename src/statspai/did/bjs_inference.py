@@ -30,12 +30,16 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 from .did_imputation import did_imputation
 
 
+@records_call("bjs_pretrend_joint")
 @accepts_aliases(covariates="controls")
+@accepts_vce(default=None)
 def bjs_pretrend_joint(
     result: CausalResult,
     data: pd.DataFrame,

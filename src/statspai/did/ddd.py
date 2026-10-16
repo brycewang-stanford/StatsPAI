@@ -35,6 +35,8 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, MethodIncompatibility
 from ._core import require_bool
@@ -138,7 +140,9 @@ def _delegate_to_heterogeneous(
     return res
 
 
+@records_call("ddd")
 @accepts_aliases(_strict=True, controls="covariates")
+@accepts_vce(default=("hc1", "robust"), native={"nonrobust": {"robust": False}})
 def ddd(
     data: pd.DataFrame,
     y: str,

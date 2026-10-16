@@ -21,12 +21,14 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 
 # ======================================================================
 # Bandwidth sensitivity
 # ======================================================================
 
 
+@records_call("rdbwsensitivity")
 def rdbwsensitivity(
     data: pd.DataFrame,
     y: str,
@@ -40,6 +42,7 @@ def rdbwsensitivity(
     bw_range: Tuple[float, float] = (0.5, 2.0),
     alpha: float = 0.05,
     cluster: Optional[str] = None,
+    vce: str = "nn",
     ax: Optional[Any] = None,
     figsize: Tuple[float, float] = (10, 6),
 ) -> pd.DataFrame:
@@ -76,6 +79,10 @@ def rdbwsensitivity(
         Cluster column for the standard errors of every ``rdrobust`` fit
         (``vce(cluster)``; also the bandwidth selection, as ``rdrobust``
         does).
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+        Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust``
+        (it also enters the bandwidth selection). With ``cluster=``,
+        ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.
     Returns
     -------
     pd.DataFrame
@@ -112,6 +119,7 @@ def rdbwsensitivity(
         kernel=kernel,
         alpha=alpha,
         cluster=cluster,
+        vce=vce,
     )
     h_opt = base.model_info["bandwidth_h"]
 
@@ -133,6 +141,7 @@ def rdbwsensitivity(
                 h=bw,
                 alpha=alpha,
                 cluster=cluster,
+                vce=vce,
             )
             rows.append(
                 {
@@ -199,6 +208,7 @@ def rdbwsensitivity(
 # ======================================================================
 
 
+@records_call("rdbalance")
 @accepts_aliases(covariates="covs")
 def rdbalance(
     data: pd.DataFrame,
@@ -210,6 +220,7 @@ def rdbalance(
     h: Optional[float] = None,
     alpha: float = 0.05,
     cluster: Optional[str] = None,
+    vce: str = "nn",
 ) -> pd.DataFrame:
     """
     Covariate balance test at the RD cutoff.
@@ -238,6 +249,10 @@ def rdbalance(
         Cluster column for the standard errors of every ``rdrobust`` fit
         (``vce(cluster)``; also the bandwidth selection, as ``rdrobust``
         does).
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+        Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust``
+        (it also enters the bandwidth selection). With ``cluster=``,
+        ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.
     Returns
     -------
     pd.DataFrame
@@ -282,6 +297,7 @@ def rdbalance(
                 h=h,
                 alpha=alpha,
                 cluster=cluster,
+                vce=vce,
             )
             rows.append(
                 {
@@ -313,6 +329,7 @@ def rdbalance(
 # ======================================================================
 
 
+@records_call("rdplacebo")
 def rdplacebo(
     data: pd.DataFrame,
     y: str,
@@ -326,6 +343,7 @@ def rdplacebo(
     kernel: str = "triangular",
     alpha: float = 0.05,
     cluster: Optional[str] = None,
+    vce: str = "nn",
     ax: Optional[Any] = None,
     figsize: Tuple[float, float] = (10, 6),
 ) -> pd.DataFrame:
@@ -363,6 +381,10 @@ def rdplacebo(
         Cluster column for the standard errors of every ``rdrobust`` fit
         (``vce(cluster)``; also the bandwidth selection, as ``rdrobust``
         does).
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+        Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust``
+        (it also enters the bandwidth selection). With ``cluster=``,
+        ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.
     Returns
     -------
     pd.DataFrame
@@ -420,6 +442,7 @@ def rdplacebo(
                 kernel=kernel,
                 alpha=alpha,
                 cluster=cluster,
+                vce=vce,
             )
             rows.append(
                 {
@@ -521,6 +544,7 @@ def _auto_placebo_cutoffs(
 # ======================================================================
 
 
+@records_call("rdsummary")
 @accepts_aliases(covariates="covs")
 def rdsummary(
     data: pd.DataFrame,
@@ -533,6 +557,7 @@ def rdsummary(
     kernel: str = "triangular",
     alpha: float = 0.05,
     cluster: Optional[str] = None,
+    vce: str = "nn",
     verbose: bool = True,
     plot: bool = False,
     full: bool = False,
@@ -580,6 +605,10 @@ def rdsummary(
         Cluster column for the standard errors of every ``rdrobust`` fit
         (``vce(cluster)``; also the bandwidth selection, as ``rdrobust``
         does).
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+        Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust``
+        (it also enters the bandwidth selection). With ``cluster=``,
+        ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.
     Returns
     -------
     dict with keys:
@@ -626,6 +655,7 @@ def rdsummary(
         kernel=kernel,
         alpha=alpha,
         cluster=cluster,
+        vce=vce,
     )
     results["estimate"] = est
 
@@ -647,6 +677,7 @@ def rdsummary(
             kernel=kernel,
             alpha=alpha,
             cluster=cluster,
+            vce=vce,
         )
         results["balance"] = bal
     else:
@@ -670,6 +701,7 @@ def rdsummary(
             n_grid=7,
             alpha=alpha,
             cluster=cluster,
+            vce=vce,
         )
         results["bw_sensitivity"] = bws
     except Exception as exc:  # pragma: no cover
@@ -747,6 +779,7 @@ def rdsummary(
                 kernel=kernel,
                 alpha=alpha,
                 cluster=cluster,
+                vce=vce,
             )
             results["placebos"] = placebos
         except Exception as exc:  # pragma: no cover

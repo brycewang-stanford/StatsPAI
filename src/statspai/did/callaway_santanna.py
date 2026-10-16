@@ -32,7 +32,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import (
     AssumptionWarning,
@@ -219,6 +221,7 @@ def _require_columns(
 # ======================================================================
 
 
+@records_call("callaway_santanna")
 @accepts_aliases(
     _strict=True,
     id="i",
@@ -231,6 +234,10 @@ def _require_columns(
     # House-style cluster= (every other DiD estimator); clustervars= is
     # R did::att_gt's spelling and stays the parameter name.
     cluster="clustervars",
+    seed="random_state",
+)
+@accepts_vce(
+    default=None, cluster="clustervars", native={"bootstrap": {"bstrap": True}}
 )
 @_calendar_time_aware(time="t", cohort="g")
 @_expands_categorical("x")
@@ -713,6 +720,20 @@ def callaway_santanna(
                 diagnostics={"clustervars": clustervars, "extras": extras},
             )
         extra_cluster = extras[0] if extras else None
+    if extra_cluster is not None:
+        n_clusters = int(data[extra_cluster].nunique(dropna=True))
+        if n_clusters < 2:
+            # The influence functions summed within one cluster are identically
+            # zero: before this check the call returned SE ~1e-17 (gardner_did
+            # and did_imputation already refused the same input).
+            raise DataInsufficient(
+                f"callaway_santanna: cluster variable {extra_cluster!r} takes "
+                f"{n_clusters} value(s); a cluster-robust variance needs at "
+                "least two clusters.",
+                recovery_hint="Cluster on a variable with several values, or "
+                "drop clustervars= to cluster on the unit.",
+                diagnostics={"clustervar": extra_cluster, "n_clusters": n_clusters},
+            )
     # Analytic SEs honour the cluster too: the influence functions are
     # summed within cluster (Stata csdid, cluster()).  On a panel the
     # influence functions live at the unit level, so the cluster must be

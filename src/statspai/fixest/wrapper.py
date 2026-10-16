@@ -19,7 +19,8 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
-from ..core._vcov_spec import markout_clusters
+from ..core._call_record import records_call
+from ..core._vcov_spec import markout_clusters, stata_vce_to_fixest
 from ..core.results import EconometricResults
 from ..core.utils import (
     _widen_narrow_integers,
@@ -1264,6 +1265,7 @@ def _feglm_conley(
     return base
 
 
+@records_call("feols")
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.feols")
 @markout_clusters
@@ -1405,6 +1407,7 @@ def feols(
     >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
+    vcov = stata_vce_to_fixest(vcov, function="feols")
     if weights_as is not None:
         # Resolve the declaration once, then run the ordinary call inside
         # it: the fit has several return paths and the weight diagnostic
@@ -1728,6 +1731,7 @@ def _note_multiway_adjustment(out: Any, vcov: Any, n_negative: int) -> None:
 # --------------------------------------------------------------------------- #
 
 
+@records_call("fepois")
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.fepois")
 @markout_clusters
@@ -1823,6 +1827,7 @@ def fepois(
     >>> res = sp.fepois("y ~ x1 | firm", data=df, vce="CR2",  # doctest: +SKIP
     ...                 cluster="firm")
     """
+    vcov = stata_vce_to_fixest(vcov, function="fepois")
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
     fml = r_formula_idioms(fml)
@@ -1948,6 +1953,7 @@ def fepois(
 # --------------------------------------------------------------------------- #
 
 
+@records_call("feglm")
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.feglm")
 @markout_clusters
@@ -2019,6 +2025,7 @@ def feglm(
     >>> "x1" in res.params.index  # doctest: +SKIP
     True
     """
+    vcov = stata_vce_to_fixest(vcov, function="feglm")
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
     fml = r_formula_idioms(fml)

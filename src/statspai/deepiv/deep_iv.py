@@ -91,6 +91,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning
@@ -101,6 +102,7 @@ from ..utils._rng import preserve_global_rng
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(seed="random_state")
 def deepiv(
     data: pd.DataFrame,
     y: str,

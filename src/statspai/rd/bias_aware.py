@@ -46,6 +46,8 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient
 from ._rdhonest import (
@@ -59,6 +61,8 @@ from ._rdhonest import (
 )
 
 
+@records_call("rd_bias_aware_fuzzy")
+@accepts_vce(default=None)
 def rd_bias_aware_fuzzy(
     data: pd.DataFrame,
     y: str,

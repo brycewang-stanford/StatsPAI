@@ -56,6 +56,8 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+from .._aliases import accepts_aliases
+from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
 
@@ -142,6 +144,8 @@ def _safe_inv(A: np.ndarray) -> np.ndarray:
         return np.linalg.pinv(A)
 
 
+@records_call("gmm")
+@accepts_aliases(vce="vcov")
 def gmm(
     moment_fn: Callable[[np.ndarray, Optional[pd.DataFrame]], Any],
     theta0: np.ndarray,

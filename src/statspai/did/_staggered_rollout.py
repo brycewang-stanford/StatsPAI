@@ -801,7 +801,7 @@ def _event_study_vcv(
     return vcv_neyman, vcv
 
 
-@accepts_aliases(id="i", time="t")
+@accepts_aliases(id="i", time="t", seed="random_state")
 def staggered_rollout(
     data: pd.DataFrame,
     y: str,
@@ -1087,7 +1087,15 @@ def _drop_treated_at_start(data: pd.DataFrame, t: str, g: str) -> pd.DataFrame:
     return data.loc[~early, :]
 
 
-@accepts_aliases(_strict=True, id="i", unit="i", time="t", first_treat="g", cohort="g")
+@accepts_aliases(
+    _strict=True,
+    id="i",
+    unit="i",
+    time="t",
+    first_treat="g",
+    cohort="g",
+    seed="random_state",
+)
 def staggered_cs(
     data: pd.DataFrame,
     y: str,
@@ -1158,7 +1166,15 @@ def staggered_cs(
     return res
 
 
-@accepts_aliases(_strict=True, id="i", unit="i", time="t", first_treat="g", cohort="g")
+@accepts_aliases(
+    _strict=True,
+    id="i",
+    unit="i",
+    time="t",
+    first_treat="g",
+    cohort="g",
+    seed="random_state",
+)
 def staggered_sa(
     data: pd.DataFrame,
     y: str,

@@ -34,6 +34,7 @@ from scipy import stats
 
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .structural_break import _EXACT_FIT
 
@@ -643,6 +644,7 @@ def _position(index: pd.Index, label: Any) -> int:
     )
 
 
+@records_call("ardl")
 def ardl(
     data: pd.DataFrame,
     y: str,

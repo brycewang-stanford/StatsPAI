@@ -39,8 +39,10 @@ def test_regress_suggests_cluster_for_clustr():
 
 
 def test_aliases_path_puts_the_synonym_first():
-    with pytest.raises(TypeError, match=r"'seed' \(did you mean 'random_state'"):
-        sp.rate_split(None, seed=1)
+    # seed= is itself accepted (an alias of random_state), so the synonym
+    # list is exercised with rng=, whose first meaning is seed.
+    with pytest.raises(TypeError, match=r"'rng' \(did you mean 'seed'"):
+        sp.rate_split(None, rng=1)
 
 
 def test_call_shaped_function_names_are_not_doubled():

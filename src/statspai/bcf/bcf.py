@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -41,6 +42,7 @@ from ..exceptions import DataInsufficient, MethodIncompatibility
 # ======================================================================
 
 
+@accepts_aliases(seed="random_state")
 def bcf(
     data: pd.DataFrame,
     y: str,

@@ -33,6 +33,7 @@ from scipy.interpolate import BSpline
 
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..core._collinear import drop_collinear, independent_columns
 from ..core.utils import create_design_matrices
 from ..exceptions import (
@@ -648,6 +649,7 @@ class GAMResult(ResultProtocolMixin):
         }
 
 
+@records_call("gam")
 def gam(
     formula: str,
     data: pd.DataFrame,

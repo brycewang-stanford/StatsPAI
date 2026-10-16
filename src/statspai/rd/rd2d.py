@@ -44,6 +44,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._rd2d_distance import rd2d_distance_bw, rd2d_distance_estimate
@@ -369,6 +370,7 @@ def _rd2d_pooled(
 # ======================================================================
 
 
+@records_call("rd2d")
 @accepts_aliases(treat="treatment")
 def rd2d(
     data: pd.DataFrame,
@@ -922,6 +924,7 @@ def _build_result(
     )
 
 
+@records_call("rd2d_bw")
 @accepts_aliases(treat="treatment")
 def rd2d_bw(
     data: pd.DataFrame,

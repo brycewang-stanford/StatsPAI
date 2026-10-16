@@ -34,11 +34,15 @@ from typing import Any, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from .rdrobust import rdrobust
 
 
+@records_call("rd_flex")
+@accepts_aliases(seed="random_state")
 def rd_flex(
     data: pd.DataFrame,
     y: str,
@@ -54,6 +58,7 @@ def rd_flex(
     kernel: str = "triangular",
     p: int = 1,
     cluster: Optional[str] = None,
+    vce: str = "nn",
     alpha: float = 0.05,
     random_state: Optional[int] = None,
 ) -> CausalResult:
@@ -98,6 +103,10 @@ def rd_flex(
         indicator (numerator and denominator of the Wald ratio).
     bwselect, kernel, p, cluster, alpha
         Forwarded to :func:`rdrobust`.
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+        Variance estimator of every ``rdrobust`` fit, as in ``sp.rdrobust``
+        (it also enters the bandwidth selection). With ``cluster=``,
+        ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``.
     random_state : int, optional
         Seed for the cross-fit splitter and for built-in learners.
 
@@ -153,6 +162,7 @@ def rd_flex(
             kernel=kernel,
             bwselect=bwselect,
             cluster=cluster,
+            vce=vce,
             alpha=alpha,
         )
 
@@ -208,6 +218,7 @@ def rd_flex(
             kernel=kernel,
             bwselect=bwselect,
             cluster=cluster,
+            vce=vce,
             alpha=alpha,
         )
     else:
@@ -220,6 +231,7 @@ def rd_flex(
             kernel=kernel,
             bwselect=bwselect,
             cluster=cluster,
+            vce=vce,
             alpha=alpha,
         )
 
@@ -234,6 +246,7 @@ def rd_flex(
         kernel=kernel,
         bwselect=bwselect,
         cluster=cluster,
+        vce=vce,
         alpha=alpha,
     )
     se_plain = float(r_plain.se) if r_plain.se else np.nan

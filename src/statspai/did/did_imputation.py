@@ -25,7 +25,9 @@ from scipy.sparse.linalg import lsqr
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns, missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 from ._bjs_pretrends import EVENT_STUDY_CONVENTION as _EVENT_STUDY_CONVENTION
@@ -108,6 +110,7 @@ def _raise_missing(df: pd.DataFrame, columns: Dict[str, Any], what: str) -> None
         )
 
 
+@records_call("did_imputation")
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
 @_calendar_time_aware(time="time", cohort="first_treat")
 @_expands_categorical("controls")
@@ -386,6 +389,9 @@ def did_imputation(
     designs: Robust and efficient estimation. *Review of Economic Studies*.
     [@borusyak2024revisiting]
     """
+    vce, cluster = cluster_from_vce(
+        vce, cluster, function="did_imputation", native="analytic"
+    )
     # ── Input validation ─────────────────────────────────────────── #
     df = data.copy()
     control_names = list(controls or [])

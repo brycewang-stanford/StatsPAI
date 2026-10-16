@@ -378,7 +378,7 @@ def _population_design(
 # ---------------------------------------------------------------------------
 
 
-@accepts_aliases(id="unit", y="outcome")
+@accepts_aliases(id="unit", y="outcome", seed="random_state")
 def synth_experimental_design(
     data: pd.DataFrame,
     *,

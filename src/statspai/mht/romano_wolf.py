@@ -49,6 +49,8 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 
 # ──────────────────────────────────────────────────────────────────────
 # Classical (non-resampling) adjustments
@@ -593,7 +595,9 @@ class RomanoWolfResult(ResultProtocolMixin):
 # ──────────────────────────────────────────────────────────────────────
 
 
+@records_call("romano_wolf")
 @accepts_aliases(covariates="controls")
+@accepts_vce(default=None)
 def romano_wolf(
     data: pd.DataFrame,
     y: List[str],

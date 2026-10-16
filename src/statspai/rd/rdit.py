@@ -21,6 +21,8 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ._core import _kernel_fn
 
@@ -135,6 +137,8 @@ def _deseasonalise(y: np.ndarray, time_vals: pd.Series, method: str) -> np.ndarr
 # ======================================================================
 
 
+@records_call("rdit")
+@accepts_vce(default="hac")
 def rdit(
     data: pd.DataFrame,
     y: str,

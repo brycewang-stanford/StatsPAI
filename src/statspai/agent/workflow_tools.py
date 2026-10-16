@@ -169,6 +169,40 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
         },
     },
     {
+        "name": "vcov_from_result",
+        "description": (
+            "Standard errors of a cached fit (result_id) under another vce: "
+            "re-runs the fit's own call with only vce= changed, so the SEs "
+            "equal a direct refit. One vce returns the new result; a list "
+            "returns a side-by-side table with the ratio to the fitted SE."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "result_id": {
+                    "type": "string",
+                    "description": "Handle to a fit from an estimator with vce=.",
+                },
+                "vce": {
+                    "description": (
+                        "Stata-style request ('robust', 'hc3', 'cluster state', "
+                        "'cluster state year') or a list of them."
+                    ),
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "string"}},
+                    ],
+                },
+                "terms": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Table: keep only these coefficients.",
+                },
+            },
+            "required": ["result_id", "vce"],
+        },
+    },
+    {
         "name": "honest_did_from_result",
         "description": (
             "Rambachan-Roth (2023) honest CIs on a fitted DID / "
@@ -833,6 +867,11 @@ def execute_workflow_tool(
             rid_arg, arguments, detail=detail, as_handle=as_handle, data=data
         )
 
+    if name == "vcov_from_result":
+        return _tool_vcov_from_result(
+            rid_arg, arguments, detail=detail, as_handle=as_handle, data=data
+        )
+
     if name == "honest_did_from_result":
         return _tool_honest_did_from_result(
             rid_arg, arguments, detail=detail, as_handle=as_handle
@@ -1230,6 +1269,85 @@ def _ols_sensitivity_inputs(
     if isinstance(controls, str):
         controls = [c.strip() for c in controls.split(",") if c.strip()]
     return {"data": data, "y": y, "treat": treat, "controls": list(controls or [])}
+
+
+def _tool_vcov_from_result(
+    rid: Optional[str],
+    arguments: Dict[str, Any],
+    *,
+    detail: str,
+    as_handle: bool,
+    data: Optional[pd.DataFrame] = None,
+) -> Dict[str, Any]:
+    """``sp.vcov`` / ``sp.vcov_compare`` on a cached fit.
+
+    The fit is re-run, so it needs its data: the frame passed with this
+    call, else the ``data_id`` the fit was made on. ``sp.vcov`` refuses
+    unless an unchanged replay reproduces the cached estimates, so a
+    mismatched frame is an error, not a wrong table.
+    """
+    obj = _need_result(rid)
+    if isinstance(obj, dict) and "error" in obj:
+        return obj
+    vce = arguments.get("vce")
+    if vce in (None, "", []):
+        return _missing_argument_error(
+            tool="vcov_from_result",
+            argument="vce",
+            arguments=arguments,
+            corrected="vce='cluster <column>'",
+            hint="Name the standard errors to report, e.g. 'robust' or "
+            "'cluster state', or a list of them for a comparison table.",
+        )
+    if data is None:
+        entry = RESULT_CACHE.get_entry(str(rid))
+        fit_args: Dict[str, Any] = dict(entry.arguments) if entry is not None else {}
+        prov = fit_args.get("_mcp_data_provenance") or {}
+        handle = prov.get("data_id") if isinstance(prov, dict) else None
+        if handle:
+            from ._data_cache import DATA_CACHE
+
+            data = DATA_CACHE.get(handle)
+
+    import statspai as sp
+
+    try:
+        if isinstance(vce, (list, tuple)):
+            table = sp.vcov_compare(
+                obj, list(vce), data=data, terms=arguments.get("terms")
+            )
+            records = table.replace({float("nan"): None}).to_dict(orient="records")
+            return {
+                "method": "vcov_compare",
+                "source_result_id": rid,
+                "table": records,
+                "columns": list(table.columns),
+            }
+        result = sp.vcov(obj, vce, data=data)
+    except Exception as e:  # noqa: BLE001 - returned to the agent with remediation
+        from .remediation import remediate
+
+        return {
+            "error": f"{type(e).__name__}: {e}",
+            "remediation": remediate(e, context={"tool": "vcov_from_result"}),
+        }
+
+    from .tools import _default_serializer
+
+    out = _default_serializer(result, detail=detail)
+    if not isinstance(out, dict):
+        out = {"value": out}
+    out["source_result_id"] = rid
+    out["vce"] = vce
+    if as_handle:
+        new_rid = RESULT_CACHE.put(
+            result,
+            tool="vcov_from_result",
+            arguments={"source": rid, "vce": vce},
+        )
+        out["result_id"] = new_rid
+        out["result_uri"] = f"statspai://result/{new_rid}"
+    return out
 
 
 def _tool_sensitivity_from_result(

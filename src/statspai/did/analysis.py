@@ -27,6 +27,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ._core import require_bool
 
@@ -167,6 +169,8 @@ class DIDAnalysis:
 _DESIGN_BASED_METHODS = ("staggered_rollout", "staggered_cs", "staggered_sa")
 
 
+@records_call("did_analysis")
+@accepts_vce(default=("hc1", "robust"), native={"nonrobust": {"robust": False}})
 def did_analysis(
     data: pd.DataFrame,
     y: str,

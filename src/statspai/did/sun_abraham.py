@@ -51,7 +51,9 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
@@ -277,6 +279,7 @@ def _resolve_control_cohort(
     return mask, f"{g} in {wanted}"
 
 
+@records_call("sun_abraham")
 @accepts_aliases(
     _strict=True,
     id="i",
@@ -286,6 +289,7 @@ def _resolve_control_cohort(
     cohort="g",
     controls="covariates",
 )
+@accepts_vce(default="cluster")
 @_calendar_time_aware(time="t", cohort="g", numeric_gaps=True)
 @_expands_categorical("covariates")
 def sun_abraham(

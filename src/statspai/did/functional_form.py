@@ -504,7 +504,7 @@ def _cut(y_all: np.ndarray, edges: np.ndarray) -> _Binning:
     return _Binning(codes=codes, lower=edges[:-1], upper=edges[1:], discrete=False)
 
 
-@accepts_aliases(id="i", time="t")
+@accepts_aliases(id="i", time="t", seed="random_state")
 def functional_form_test(
     data: pd.DataFrame,
     y: str,

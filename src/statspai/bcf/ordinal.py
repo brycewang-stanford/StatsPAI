@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -170,6 +171,7 @@ class BCFOrdinalResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
+@accepts_aliases(seed="random_state")
 def bcf_ordinal(
     data: pd.DataFrame,
     *,

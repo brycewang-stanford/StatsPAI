@@ -1184,7 +1184,7 @@ def _rate_split_once(
     return out
 
 
-@accepts_aliases(_strict=True, controls="covariates")
+@accepts_aliases(_strict=True, controls="covariates", seed="random_state")
 def rate_split(
     forest: Any,
     target: str = "AUTOC",
@@ -1671,7 +1671,7 @@ def _forest_policy_tree_once(
     }
 
 
-@accepts_aliases(_strict=True, controls="covariates")
+@accepts_aliases(_strict=True, controls="covariates", seed="random_state")
 def forest_policy_tree(
     forest: Any,
     *,

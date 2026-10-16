@@ -20,6 +20,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 
 __all__ = ["ancova", "negd"]
@@ -156,6 +157,7 @@ def _fit_adjusted(
     )
 
 
+@records_call("ancova")
 @accepts_aliases(y="outcome", vce="robust")
 def ancova(
     data: pd.DataFrame,
@@ -224,6 +226,7 @@ def ancova(
     )
 
 
+@records_call("negd")
 @accepts_aliases(vce="robust")
 def negd(
     data: pd.DataFrame,

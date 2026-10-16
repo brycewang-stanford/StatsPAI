@@ -22,6 +22,8 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
+from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 
 # --------------------------------------------------------------------------- #
@@ -66,6 +68,8 @@ def _honest_pvalue(tau: float, se: float, bias: float) -> float:
     return float(0.5 * (lo + hi))
 
 
+@records_call("rd_honest")
+@accepts_vce(default=None)
 def rd_honest(
     data: pd.DataFrame,
     y: str,

@@ -165,6 +165,7 @@ def rdd(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(covariates="X")
 def frontdoor(
     data: pd.DataFrame,
     y: str,
@@ -214,6 +215,7 @@ def frontdoor(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(covariates="X")
 def xlearner(
     data: pd.DataFrame,
     y: str,
@@ -278,6 +280,7 @@ def xlearner(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(covariates="X")
 def conformal_ite(
     data: pd.DataFrame,
     y: str,
@@ -392,6 +395,7 @@ def psm(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(covariates="X")
 def partial_identification(
     data: pd.DataFrame,
     y: str,
@@ -613,6 +617,7 @@ def _transplant_signature(wrapper: Any, target: Any) -> None:
     wrapper.__signature__ = inspect.signature(target)
 
 
+@accepts_aliases(seed="random_state")
 def conditional_lr_ci(*args: Any, **kwargs: Any) -> Any:
     """Moreira (2003) CLR confidence set — re-export of
     :func:`statspai.iv.weak_iv_ci.conditional_lr_ci`.
@@ -833,6 +838,7 @@ def causal_discovery(
     return _cd.lingam(data=data, **kwargs)
 
 
+@accepts_aliases(covariates="X")
 def mediation(
     data: pd.DataFrame,
     y: str,
