@@ -705,7 +705,7 @@
     "name": "anderson_rubin_test"
   },
   {
-    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ardl: unknown trend <trend> -> Use 'c', 'ct' or 'n'; ardl: column(s) <missing_cols> are not in data -> Check the column names; ardl: x=<xs> repeats a column or lists the outcome <y>. The lags of the outcome enter through lags=, not x= -> Name each regressor once and leave the outcome o...",
+    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ardl: unknown trend <trend> -> Use 'c', 'ct' or 'n'; ardl: x=<xs> repeats a column or lists the outcome <y>. The lags of the outcome enter through lags=, not x= -> Name each regressor once and leave the outcome out of x=; ardl: the time index has repeated values -> Pass one row per per...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -943,7 +943,7 @@
     "name": "audit"
   },
   {
-    "description": "Reviewer-grade audit on a previously-fitted result. Pass the result_id returned by an earlier tool call (with as_handle=true). Returns the same checklist sp.audit() produces -- every robustness check the literature expects for the design, each with status 'passed|failed|missing|not_applicable' and a concrete suggest_function for the missing ones. A not_applicable check (e.g. an over-identification test on a just-identified IV fit) carries a 'reason' and is excluded from the summary's n_total.",
+    "description": "Reviewer-grade audit of a fitted result (result_id from an as_handle=true call): every robustness check the literature expects for the design, with status 'passed|failed|missing|not_applicable' and a suggest_function for each missing one. not_applicable checks (an overid test on a just-identified IV) carry a 'reason' and are left out of n_total.",
     "input_schema": {
       "properties": {
         "result_id": {
@@ -962,10 +962,25 @@
     "description": "Augmented Synthetic Control with ridge bias correction (Ben-Michael et al. 2021). Validation: certified parity evidence. Do NOT use when: pre-treatment fit from plain sp.synth is already good -- the ridge augmentation mainly buys bias correction for poor fit and adds a tuning parameter to justify; many treated units -- use sp.gsynth or sp.sdid. Cost: One ridge solve on the donor pre-period matrix; placebo=True adds one fit per donor. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimat...",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "backend": {
           "default": "native",
           "description": "Computation backend: native or augsynth/R bridge backend",
           "type": "string"
+        },
+        "covariates": {
+          "description": "Additional predictors (currently informational; main adjustment comes from pre-treatment outcomes).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
         },
         "outcome": {
           "description": "Column names.",
@@ -975,6 +990,17 @@
           ],
           "x-canonical": "y",
           "x-statspai-role": "column"
+        },
+        "placebo": {
+          "default": true,
+          "description": "Run in-space placebo permutation tests for SE / p-value.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "ridge_lambda": {
+          "description": "Ridge penalty. When ``None``, selected by time-holdout CV matching ``augsynth``'s one-standard-error rule.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Column names.",
@@ -1099,11 +1125,11 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "number"
         },
         "covariates": {
-          "description": "Covariate matrix, DataFrame, or column names.",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": "string"
         },
         "learners": {
@@ -1114,7 +1140,7 @@
             "r",
             "dr"
           ],
-          "description": "learners parameter (LearnersArg).",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": [
             "string",
             "array"
@@ -1122,12 +1148,12 @@
         },
         "n_bootstrap": {
           "default": 200,
-          "description": "Number of bootstrap replications.",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "integer"
         },
         "n_folds": {
           "default": 5,
-          "description": "Number of cross-fitting or cross-validation folds.",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "integer"
         },
         "n_trials": {
@@ -1140,7 +1166,7 @@
           "type": "integer"
         },
         "per_learner_search_space": {
-          "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`. Passed through / see :func:`auto_cate`.",
+          "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
           "items": {
             "type": "string"
           },
@@ -1148,15 +1174,15 @@
         },
         "random_state": {
           "default": 42,
-          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "integer"
         },
         "sampler": {
-          "description": "sampler parameter (Optional[Any]).",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "string"
         },
         "search_space": {
-          "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`. Passed through / see :func:`auto_cate`.",
+          "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
           "items": {
             "type": "string"
           },
@@ -1167,7 +1193,7 @@
           "type": "number"
         },
         "treat": {
-          "description": "Treatment indicator or first-treatment-period column.",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -1183,11 +1209,11 @@
         },
         "verbose": {
           "default": false,
-          "description": "verbose parameter (bool).",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "boolean"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -1778,6 +1804,12 @@
     "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure. Validation: certified parity evidence. Do NOT use when: there are few shocks (industries / sectors) -- shock-level asymptotics need many; report the Herfindahl of the shares and the effective number of shocks. Cost: Share matrix is n_units x n_industries; leave_one_out doubles the work. Assumptions: Exogeneity of shocks conditional on pre-period exposure structure (Borusyak-Hull-Jaravel); Shock-level IV: shocks are independent of region-level unobserved trends; Asymptotic framework: many shocks (L -> inf) -- check via sp.ssaggregate Herfindahl. Pre-conditions: pre-period shares are pre-determined (measured strictly before the outcome window); shocks are as-good-as-random conditional on unit-level controls; >= 50 regions for AKM shift-share SE to be well-sized. Failure modes: Herfindahl of shares too concentrated (one industry dominates) -> Shift-share SE unreliable -- use Adao-Kolesar-Morales shock-level SE via sp.shift_share_se; First-stage F < 10 -> Shares don't predict exposure enough -...",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Exogenous control variables.",
           "items": {
@@ -1790,6 +1822,30 @@
           "description": "Endogenous local exposure being instrumented (e.g. employment growth)",
           "type": "string",
           "x-statspai-role": "columns"
+        },
+        "leave_one_out": {
+          "description": "Compute leave-one-out shocks (exclude own region from national average), which needs ``regional_shocks`` -- without the per-region industry growth panel ``g_k`` excluding region ``i`` cannot be reconstructed. ``None`` (default) uses leave-one-out exactly when ``regional_shocks`` is supplied; ``True`` without ``regional_shocks`` raises; ``False`` always uses the simple instrument. (Until 1.32 the default was ``True``, which on the basic API only ever warned and fell back.)",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "regional_shocks": {
+          "description": "Regional industry growth matrix (n_units x n_industries). Row ``i``, column ``k`` is the realised growth of industry ``k`` in region ``i``. When provided with ``leave_one_out=True``, the instrument uses ``g_k^{-i} = (sum_j g_{jk} - g_{ik}) / (n - 1)`` (Borusyak- Hull-Jaravel 2022-style exact leave-one-out). Row index must align with ``shares``; columns must be a superset of ``shocks.index``.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "robust": {
+          "default": "hc1",
+          "description": "Standard error type: ``'hc1'`` is the 2SLS sandwich with the ``n / (n - k)`` factor (Stata ``ivregress 2sls, vce(robust) small``, R ``sandwich::vcovHC(type = \"HC1\")``); ``'nonrobust'`` uses ``sigma^2 = RSS / (n - k)`` (``ivregress 2sls, small``). Other values raise. For shift-share (AKM) inference pass the result to :func:`sp.shift_share_se`.",
+          "enum": [
+            "hc1",
+            "nonrobust"
+          ],
+          "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
+          "x-canonical": "vce",
+          "x-statspai-source": "signature"
         },
         "shares": {
           "description": "Pre-period share column (e.g. industry share)",
@@ -1993,6 +2049,30 @@
           "description": "Number of PCA factors to keep. Ignored if ``loadings`` is given.",
           "type": "integer"
         },
+        "n_folds": {
+          "default": 5,
+          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_trees_mu": {
+          "default": 200,
+          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_trees_tau": {
+          "default": 50,
+          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "y": {
           "description": "Outcome column.",
           "type": "string",
@@ -2012,6 +2092,12 @@
     "description": "Hierarchical Bayesian Causal Forest for longitudinal data (BCFLong) -- allows mu_t(X), tau_t(X) to evolve across time with unit-level random intercepts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -2043,6 +2129,12 @@
           ],
           "x-canonical": "y",
           "x-statspai-role": "column"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time period column.",
@@ -2146,7 +2238,7 @@
     "name": "bcf_ordinal"
   },
   {
-    "description": "BDS test that a series is independent and identically distributed, from the share of pairs of m-histories that stay within epsilon of each other. Standard normal under the null for each embedding dimension 2..max_dim. Has power against linear and nonlinear dependence alike, so it is run on the residuals of a fitted model to ask whether structure is left; a rejection does not say which kind. Reproduces statsmodels bds. The normal approximation is poor below about 200 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Consecutive observations with no gaps; A sample long enough for the normal approximation (a few hundred observations); On residuals: a model fitted by least squares; the limit law differs for GARCH standardised residuals. Failure modes: bds: the series has missing values -> Drop them; the test needs consecutive observations; bds: y= names the column to test -> sp.bds(df, \"resid\"); bds: column <y> not found -> Check the name. Alternatives: sp.corrgram, sp.estat.",
+    "description": "BDS test that a series is independent and identically distributed, from the share of pairs of m-histories that stay within epsilon of each other. Standard normal under the null for each embedding dimension 2..max_dim. Has power against linear and nonlinear dependence alike, so it is run on the residuals of a fitted model to ask whether structure is left; a rejection does not say which kind. Reproduces statsmodels bds. The normal approximation is poor below about 200 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Consecutive observations with no gaps; A sample long enough for the normal approximation (a few hundred observations); On residuals: a model fitted by least squares; the limit law differs for GARCH standardised residuals. Failure modes: bds: the series has missing values -> Drop them; the test needs consecutive observations; bds: y= names the column to test -> sp.bds(df, \"resid\"). Alternatives: sp.corrgram, sp.estat.",
     "input_schema": {
       "properties": {
         "distance": {
@@ -2392,10 +2484,22 @@
     "description": "Beyond-average LATE (Xie-Wu 2025). Identifies the entire treatment-effect distribution among compliers under incomplete compliance, not just its mean. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse. Alternatives: sp.qte, sp.iv, sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "instrument": {
           "description": "instrument parameter (str).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "quantiles": {
           "description": "Quantiles tau at which to evaluate QTE (default 0.1..0.9 step 0.1)",
@@ -2403,6 +2507,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
@@ -2484,6 +2594,12 @@
     "description": "Bidirectional proximal causal inference (Min, Zhang & Luo 2025). Solves for both outcome and treatment bridges simultaneously in a single two-way regression system. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The proxies are valid negative controls (relevant to the confounder, excluded from the causal channel); A bridge function exists (completeness conditions hold). Pre-conditions: Treatment-inducing and outcome-inducing proxy variables (negative controls) for the unobserved confounder. Failure modes: Proxies are weak or invalid -- the bridge function is poorly identified -> Test proxy relevance, select stronger proxies, or fall back to sensitivity analysis. Alternatives: sp.select_pci_proxies, sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": ":func:`statspai.proximal.proximal`.",
           "items": {
@@ -2491,6 +2607,12 @@
           },
           "type": "array",
           "x-statspai-role": "columns"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "proxy_w": {
           "description": ":func:`statspai.proximal.proximal`.",
@@ -2505,6 +2627,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": ":func:`statspai.proximal.proximal`.",
@@ -2881,12 +3009,12 @@
     "input_schema": {
       "properties": {
         "cluster": {
-          "description": "Cluster identifier column for clustered standard errors.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "controls": {
-          "description": "Control-variable column names.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "items": {
             "type": "string"
           },
@@ -2898,12 +3026,12 @@
           "x-statspai-role": "columns"
         },
         "first_treat": {
-          "description": "first_treat parameter (str).",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Group or cohort identifier.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -2920,7 +3048,7 @@
           "type": "integer"
         },
         "result": {
-          "description": "Output of :func:`did_imputation` on ``data`` with a non-trivial ``horizon`` that covers negative values. Only its ``model_info['event_study']`` frame is consulted, to look up the observed pre-period point estimates that we re-test with a covariance-aware statistic. Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
+          "description": "Output of :func:`did_imputation` on ``data`` with a non-trivial ``horizon`` that covers negative values. Only its ``model_info['event_study']`` frame is consulted, to look up the observed pre-period point estimates that we re-test with a covariance-aware statistic.",
           "type": "string"
         },
         "seed": {
@@ -2928,12 +3056,12 @@
           "type": "integer"
         },
         "time": {
-          "description": "Time period column.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -3050,6 +3178,17 @@
     "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Observations (or clusters/blocks) are exchangeable under the resampling scheme used; cluster= resamples whole clusters, block= preserves within-block ordering for serial dependence; The statistic callable is a smooth, well-defined functional of the data so its sampling distribution is approximable by resampling; BCa intervals further assume an estimable bias/acceleration; percentile/normal CIs assume approximate pivotality of the resampled distribution. Pre-conditions: statistic is a deterministic callable returning a finite scalar on any resampled DataFrame; Enough independent resampling units (rows, clusters, or blocks) to populate n_boot replicates; Specify cluster= or block= when data are clustered/serially dependent rather than iid. Failure modes: Few clusters yields anti-conservative CIs / wildly unstable bootstrap distribution -> Use a wild cluster bootstrap with Rademacher weights when the number of clusters is small (<~40); Statistic raises or returns NaN on a resample (e...",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "block": {
+          "description": "Column name for block bootstrap (resample blocks, preserve within-block ordering). Useful for panel/time-series data. With ``cluster=`` or ``block=`` the BCa acceleration is a delete-one-group jackknife, the unit that is resampled. A grouping column with missing ids or a single group is refused.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "ci_method": {
           "default": "percentile",
           "description": "CI method",
@@ -3073,6 +3212,17 @@
           "default": 1000,
           "description": "Number of bootstrap replications.",
           "type": "integer"
+        },
+        "null_value": {
+          "default": 0.0,
+          "description": "Value under H0 for p-value computation.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "statistic": {
           "description": "Function f(df) -> float",
@@ -3313,10 +3463,11 @@
     "name": "bridge"
   },
   {
-    "description": "One-line agent-friendly brief for a fitted result. Cheaper than calling brief_result if you already have the result object in scope.",
+    "description": "One-line brief of a fitted result (estimand, estimate, SE, CI, N). Same output as brief_result.",
     "input_schema": {
       "properties": {
         "result_id": {
+          "description": "Handle from a fit made with as_handle=true.",
           "type": "string"
         }
       },
@@ -3642,7 +3793,7 @@
     "name": "california_tobacco"
   },
   {
-    "description": "Run ANY registered StatsPAI function by name with keyword arguments -- the escape hatch for the ~1,200 functions that are not individually listed as tools. `arguments` follows the parameter schema from describe_function; column names refer to the file loaded via data_path. Unknown arguments are reported under `_unsupported_args`, never silently dropped. Supports as_handle / result_id chaining like every other tool.",
+    "description": "Run ANY registered StatsPAI function by name with keyword arguments -- the escape hatch for the ~1,200 functions that are not individually listed as tools. `arguments` follows the parameter schema from describe_function; column names refer to the dataset passed as data_id / data_path. An argument the function does not accept refuses the call (error_kind unknown_argument, with did_you_mean). Supports as_handle / result_id chaining like every other tool.",
     "input_schema": {
       "properties": {
         "arguments": {
@@ -4188,6 +4339,18 @@
           "description": "Discount factor",
           "type": "number"
         },
+        "gamma_bound": {
+          "default": 0.1,
+          "description": "Bound on the proportion of reward variance that can be attributed to unmeasured confounding. Penalty term shrinks the Bellman target by (1 - gamma_bound) per iteration.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "lr": {
+          "default": 0.05,
+          "description": "lr parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "n_iter": {
           "default": 100,
           "description": "Fitted-Q iterations",
@@ -4200,6 +4363,12 @@
         "reward": {
           "description": "Column names. State and action must be discrete (ints).",
           "type": "string"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "state": {
           "description": "State column(s)",
@@ -4240,6 +4409,12 @@
           ],
           "x-statspai-role": "column"
         },
+        "discrete_treatment": {
+          "default": true,
+          "description": "Whether treatment is discrete",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "fe": {
           "description": "Panel fixed effects removed within nodes and leaves.",
           "enum": [
@@ -4261,6 +4436,11 @@
           ],
           "x-statspai-role": "column"
         },
+        "max_depth": {
+          "description": "Maximum tree depth",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "max_samples": {
           "default": 0.5,
           "description": "Share of clusters per tree.",
@@ -4270,6 +4450,16 @@
           "default": 5,
           "description": "GRF min.node.size.",
           "type": "integer"
+        },
+        "model_t": {
+          "description": "First-stage treatment model",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "model_y": {
+          "description": "First-stage outcome model",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "n_estimators": {
           "default": 2000,
@@ -4380,9 +4570,29 @@
     "description": "Causal impact of an intervention on a time series: pre-period OLS on the covariate series with an AR(1) latent state (Kalman filter), post-period counterfactual forecasts and frequentist prediction intervals for pointwise, average and cumulative effects. Not the Bayesian structural time-series model of R CausalImpact. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: No simultaneous shocks affect treated and control series differently at intervention; Pre-period relationship extrapolates into the post-period absent treatment. Pre-conditions: Observed time series has a clearly defined intervention date; Pre-intervention period is long enough to fit the counterfactual model. Failure modes: Poor pre-period fit or unstable posterior predictive interval -> Add controls, lengthen the pre-period, or use synthetic control as a robustness check. Alternatives: sp.synth, sp.sequential_sdid, sp.local_projections. Typical minimum N: 30.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the (frequentist) prediction intervals.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "covariates": {
+          "description": "Control time series (not affected by the intervention). If None, uses a local-level model without covariates.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
+        },
         "intervention_time": {
           "description": "Date/index of intervention",
           "type": "string"
+        },
+        "n_seasons": {
+          "description": "Accepted for API compatibility but currently not used: the model has no seasonal component.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time / date column",
@@ -5008,7 +5218,7 @@
     "name": "chilean_households"
   },
   {
-    "description": "Chow test for a structural break at a date fixed in advance: F test that the regression coefficients are equal before and after break_point. All coefficients or the subset in break_vars, one break or several jointly, classical or heteroskedasticity-robust covariance. Returns the F and Wald statistics and the coefficients regime by regime. strucchange sctest(type='Chow'), Stata estat sbknown. For a date chosen by looking at the data use sp.structural_break(method='sup-f'), whose reference distribution allows for the search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The break date was chosen before looking at the data; With vce='nonrobust': errors with the same variance in every regime; Each regime has at least as many rows as coefficients that change. Failure modes: chow_test: column(s) <missing> not found in data -> Check the column names; chow_test: missing values in y or x -> Drop or fill them first; dropping rows silently would move the break date; chow_test: the regressors are collinear within a regime -> A regressor that is constant inside a regime cannot have its own coefficient there; leave it out of...",
+    "description": "Chow test for a structural break at a date fixed in advance: F test that the regression coefficients are equal before and after break_point. All coefficients or the subset in break_vars, one break or several jointly, classical or heteroskedasticity-robust covariance. Returns the F and Wald statistics and the coefficients regime by regime. strucchange sctest(type='Chow'), Stata estat sbknown. For a date chosen by looking at the data use sp.structural_break(method='sup-f'), whose reference distribution allows for the search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The break date was chosen before looking at the data; With vce='nonrobust': errors with the same variance in every regime; Each regime has at least as many rows as coefficients that change. Failure modes: chow_test: missing values in y or x -> Drop or fill them first; dropping rows silently would move the break date; chow_test: the regressors are collinear within a regime -> A regressor that is constant inside a regime cannot have its own coefficient there; leave it out of break_vars; chow_test: missing values in the time column <time> -> Every ob...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5409,6 +5619,12 @@
     "description": "Cluster-randomised trial under cross-cluster interference (Ding et al. 2025). Estimates direct + spillover effects when treatment of one cluster affects outcomes in adjacent clusters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Partial interference: spillovers operate within clusters but not across cluster boundaries; Exposure mapping correctly captured by neighbour_treat_share (user-precomputed share of treated neighbours); Cluster-level treatment is binary and randomized (cluster RCT). Pre-conditions: Cluster identifier column plus individual-level outcome; Cluster-level binary treatment column; Precomputed neighbour_treat_share column from spatial/network adjacency. Failure modes: neighbour_treat_share missing or not a valid 0-1 share -> Precompute the treated-neighbour share per cluster from your adjacency matrix before calling; Too few clusters for cluster-robust inference -> Increase the number of clusters or use a design with weaker cluster requirements. Alternatives: sp.inward_outward_spillover, sp.network_hte, sp.interference, sp.spillover. Typical minimum N: 30.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster identifier.",
           "type": "string",
@@ -5948,6 +6164,17 @@
           "description": "Protected-attribute column",
           "type": "string"
         },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "test_data": {
+          "description": "test_data parameter (Optional[pd.DataFrame]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
           "type": "string",
@@ -6266,7 +6493,7 @@
     "name": "conley"
   },
   {
-    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable. Do NOT use when: a paper-faithful continuous-treatment ATT(d|g,t) is required -- this is a heuristic family; use sp.cgs_continuous_did. Cost: method='att_gt' / 'dose_response' bootstrap n_boot fits. Assumptions: Parallel trends in potential outcomes across dose levels; No anticipation of treatment;...",
+    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [formulas unverified] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable. Do NOT use when: a paper-faithful continuous-treatment ATT(d|g,t) is required -- this is a heuristic family; use sp.cgs_continuous_did. Cost: method='att_gt' / 'dose_response' bootstrap n_boot fits. Assumptions: Parallel trends in potential outcomes across dose levels; No anticipation of treatment; S...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7900,9 +8127,11 @@
     "input_schema": {
       "properties": {
         "id_col_hint": {
+          "description": "Unit id column.",
           "type": "string"
         },
         "time_col_hint": {
+          "description": "Time column.",
           "type": "string"
         }
       },
@@ -8055,6 +8284,18 @@
     "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The result object carries a recognizable method_type so the correct diagnostic battery can be routed; Each sub-check (e.g. parallel-trends, weak-IV, overid, balance) is only valid under that method's own identifying assumptions; Tests use the supplied alpha as the significance threshold; p-values are interpreted, not corrected for multiplicity. Pre-conditions: A fitted EconometricResults or CausalResult from a StatsPAI estimator; The estimator must expose enough fitted internals (residuals, first-stage, design info) for its checks. Failure modes: Passed a raw DataFrame, dict, or estimate float instead of a fitted result object -> Fit an estimator first and pass the returned result object, not the input data; Method type is unrecognized so no diagnostic battery applies and 'checks' comes back empty -> Run the method-appropriate standalone diagnostic directly instead of the router. Alternatives: sp.unified_sensitivity, sp.sensemakr, sp.oster_bounds, sp.spec_curve. Typical minimum N...",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "print_results": {
+          "default": true,
+          "description": "If True, print formatted diagnostics to stdout.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "result": {
           "description": "Fitted result from any StatsPAI estimator",
           "type": "string"
@@ -8164,10 +8405,25 @@
           ],
           "x-statspai-role": "columns"
         },
+        "engine": {
+          "default": "ols",
+          "description": "Inference backend for the same 2x2 design. ``'ols'`` (default) is the frequentist OLS estimator above. ``'bayes'`` routes to :func:`statspai.bayes.bayes_did` (``treat`` -> group, ``time`` -> post), returning a :class:`~statspai.bayes.BayesianDIDResult` with the full posterior + HDI (requires the ``bayes`` extra). ``cluster`` / ``weights`` are OLS-only and raise under ``engine='bayes'``; for full prior / sampler control call ``sp.bayes_did`` directly.",
+          "enum": [
+            "ols",
+            "bayes"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "robust": {
           "default": true,
           "description": "Heteroskedasticity-robust SE when no cluster provided",
           "type": "boolean"
+        },
+        "seed": {
+          "description": "RNG seed for ``vce=\"wild\"``.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time / period indicator",
@@ -8179,10 +8435,27 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "``\"wild\"`` (with ``cluster=``) replaces the ATT p-value and CI with the WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008) on the DID interaction regression -- the canonical few-clusters DID inference (validated against Stata ``boottest`` after ``reg y d t dt, vce(cluster ...)``). Point estimate and cluster SE stand.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "weights": {
           "description": "Optional column name for sampling weights",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "wild_reps": {
+          "default": 999,
+          "description": "Bootstrap replications for ``vce=\"wild\"``.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "wild_weight_type": {
+          "default": "rademacher",
+          "description": "Wild weight distribution.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome variable",
@@ -10437,6 +10710,18 @@
           },
           "type": "array"
         },
+        "max_iter": {
+          "default": 300,
+          "description": "Maximum number of optimisation iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "treatment": {
           "description": "Treatment indicator, treatment variable, or treatment array.",
           "type": "string",
@@ -10611,6 +10896,16 @@
             "iivm"
           ],
           "type": "string"
+        },
+        "model_d": {
+          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "model_y": {
+          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "n_folds": {
           "default": 5,
@@ -10813,6 +11108,15 @@
           "description": "Cross-fitting folds per candidate.",
           "type": "integer"
         },
+        "sample_weight": {
+          "description": "Per-observation weights. If supplied, every nuisance fit uses ``sample_weight=`` (with a graceful fallback warning if the learner does not accept it), the CLS stacking objective becomes weighted least squares, and the PLR moment + sandwich variance use weighted sums. The MSE used for ``inverse_risk`` / ``single_best`` weighting is also the weighted MSE.",
+          "type": "string",
+          "x-aliases": [
+            "weights"
+          ],
+          "x-canonical": "weights",
+          "x-statspai-source": "signature"
+        },
         "seed": {
           "default": 0,
           "description": "Random seed for reproducible stochastic steps.",
@@ -10892,6 +11196,15 @@
           "default": 5,
           "description": "Cross-fit folds over units. Must be >= 2 and <= n_units.",
           "type": "integer"
+        },
+        "sample_weight": {
+          "description": "Per-observation weights (e.g., survey/probability weights). Pass either a 1-D array of length ``len(data)`` or a column name in ``data``. The within transform becomes a *weighted* within transform (subtract weighted unit / time means), and the PLR moment + cluster-robust SE use weighted sums. Required if your survey design carries informative sampling probabilities.",
+          "type": "string",
+          "x-aliases": [
+            "weights"
+          ],
+          "x-canonical": "weights",
+          "x-statspai-source": "signature"
         },
         "seed": {
           "default": 0,
@@ -10983,6 +11296,12 @@
     "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: certified parity evidence. Assumptions: Weak unconfoundedness: Y(d) perp D | X for each d; Generalised overlap: positive conditional density of D at each evaluated dose; Smoothness of dose-response function (for local-polynomial / kernel smoothing). Pre-conditions: treat is continuous (numeric, not binary); covariates comprise the confounding set; n >= 1000 for stable dose-response curves. Failure modes: Sparse data at extreme doses -> Narrow dose_range; CIs at tails will be wide and uninformative; Heavy-tailed generalised propensity weights -> Use stabilised weights or restrict to common-support dose window. Alternatives: sp.dml, sp.metalearner, sp.causal_forest. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate names.",
           "items": {
@@ -11008,10 +11327,26 @@
           "description": "Number of dose levels to evaluate.",
           "type": "integer"
         },
+        "outcome_model": {
+          "description": "Model for E[Y|T, GPS]. Default: GBM.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "treat": {
           "description": "Continuous treatment / dose",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "treatment_model": {
+          "description": "Model for E[T|X]. Default: GBM.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome variable.",
@@ -12326,23 +12661,27 @@
       "properties": {
         "measure": {
           "default": "SMD",
-          "description": "How to interpret ``result.estimate`` (for ATE/ATT on continuous outcomes ``'SMD'`` is appropriate; pass ``'RR'`` / ``'OR'`` / ``'HR'`` for ratio estimates). Passed through to :func:`evalue`.",
+          "description": "How to interpret ``result.estimate``. ``'SMD'`` / ``'MD'`` read it as a difference in means on the outcome's scale and divide it (with its SE and CI) by ``sd`` before converting to the risk-ratio scale; pass ``'RR'`` / ``'OR'`` / ``'HR'`` for ratio estimates.",
           "type": "string"
         },
         "rare": {
-          "description": "rare parameter (Optional[bool]).",
+          "description": "Passed through to :func:`evalue`.",
           "type": "boolean"
         },
         "rare_outcome": {
-          "description": "rare_outcome parameter (Optional[bool]).",
+          "description": "Passed through to :func:`evalue`.",
           "type": "boolean"
         },
         "result": {
           "description": "Result from any StatsPAI causal estimator exposing a scalar ``estimate`` (and ideally ``se`` / ``ci``).",
           "type": "string"
         },
+        "sd": {
+          "description": "Standard deviation of the outcome, required for ``'SMD'`` / ``'MD'``: the E-value of a mean difference depends on it, and the raw ATT is not a standardised difference unless the outcome already has unit variance (then pass ``sd=1``). Usually ``df[y].std()``. Ignored for ratio measures.",
+          "type": "number"
+        },
         "true": {
-          "description": "true parameter (Optional[float]).",
+          "description": "Passed through to :func:`evalue`.",
           "type": "number"
         }
       },
@@ -13815,6 +14154,12 @@
     "description": "Fortified proximal causal inference (Yu, Shi & Tchetgen Tchetgen 2025). Adds a bridge-function stability constraint that gives robust ATT under mild misspecification of the outcome/treatment bridge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The proxies are valid negative controls (relevant to the confounder, excluded from the causal channel); A bridge function exists (completeness conditions hold). Pre-conditions: Treatment-inducing and outcome-inducing proxy variables (negative controls) for the unobserved confounder. Failure modes: Proxies are weak or invalid -- the bridge function is poorly identified -> Test proxy relevance, select stronger proxies, or fall back to sensitivity analysis. Alternatives: sp.select_pci_proxies, sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -13822,6 +14167,12 @@
           },
           "type": "array",
           "x-statspai-role": "columns"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Bootstrap reps for SE.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "proxy_w": {
           "description": "Outcome-side proxies",
@@ -13836,6 +14187,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
@@ -13985,6 +14342,12 @@
     "description": "Pearl's front-door adjustment: identifies ATE with unmeasured confounding when a mediator fully transmits the effect of D on Y. Supports binary or continuous mediator; integrate_by controls Pearl (marginal) vs Fulcher et al. (conditional) aggregation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: The mediator does not vary within a treatment arm, so E[Y | D, M] cannot be estimated there -> outcome_model='additive' extrapolates under no D-by-M interaction; report it as resting on that; Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Pre-treatment covariates",
           "items": {
@@ -14017,6 +14380,18 @@
           ],
           "type": "string"
         },
+        "n_boot": {
+          "default": 500,
+          "description": "Nonparametric bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_mc": {
+          "default": 200,
+          "description": "Monte Carlo samples per observation for the continuous-M case.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "outcome_model": {
           "default": "by_arm",
           "description": "E[Y | D, M]: a regression per arm, or one pooled regression without D-by-M interaction (the linear two-stage front door)",
@@ -14025,6 +14400,11 @@
             "additive"
           ],
           "type": "string"
+        },
+        "seed": {
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment (0/1)",
@@ -15927,6 +16307,18 @@
           "description": "Cross-fitting folds passed to :func:`sp.tmle`.",
           "type": "integer"
         },
+        "propensity_bounds": {
+          "default": [
+            0.025,
+            0.975
+          ],
+          "description": "Truncation bounds for the propensity score.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
@@ -16381,7 +16773,7 @@
     "name": "het_test"
   },
   {
-    "description": "Build a hierarchical or grouped time series structure from a long table: aggregate the bottom-level series along the key columns of each level and return every series (wide), the summing matrix S and the level tags. Input of sp.reconcile. hierarchicalforecast aggregate, R hts / fabletools aggregate_key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: Balanced bottom level: every series in every period. Failure modes: hierarchy: spec must be a non-empty list of non-empty key lists -> E.g. spec=[[\"country\"], [\"country\", \"state\"]]; hierarchy: columns <absent> are not in data -> Check spec, time= and value=; hierarchy: <int(work[value].isna().sum())> missing values in <value> -> Fill or drop them before aggregating. Alternatives: sp.reconcile.",
+    "description": "Build a hierarchical or grouped time series structure from a long table: aggregate the bottom-level series along the key columns of each level and return every series (wide), the summing matrix S and the level tags. Input of sp.reconcile. hierarchicalforecast aggregate, R hts / fabletools aggregate_key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: Balanced bottom level: every series in every period. Failure modes: hierarchy: spec must be a non-empty list of non-empty key lists -> E.g. spec=[[\"country\"], [\"country\", \"state\"]]; hierarchy: <int(work[value].isna().sum())> missing values in <value> -> Fill or drop them before aggregating; hierarchy: <int(dup.sum())> duplicated (series, period) rows at the bottom level <bottom_keys> -> Add the key that distinguishes them to the last entry of spec, or aggregate first. Alternatives: sp.reconcile.",
     "input_schema": {
       "properties": {
         "sep": {
@@ -17452,7 +17844,7 @@
     "name": "interflex_plot"
   },
   {
-    "description": "Natural-language interpretation of a fitted result. When the connected MCP client advertised sampling, this REUSES the agent's own model (no API key) to explain the estimate, its uncertainty, and what the design does / does not identify -- optionally focused by a `question` and tuned for an `audience`. With no sampling available it falls back to a deterministic structured brief: it NEVER fabricates a narrative. Every claim is grounded in the result's own numbers -- the model is told not to invent estimates. Pass the result_id from an earlier as_handle=true call.",
+    "description": "Natural-language interpretation of a fitted result (result_id): the estimate, its uncertainty and what the design does / does not identify, grounded in the result's own numbers. Uses the client's model via MCP sampling when advertised (no API key); otherwise returns a deterministic structured brief, never an invented narrative.",
     "input_schema": {
       "properties": {
         "audience": {
@@ -17546,6 +17938,12 @@
     "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Reports each arm's effective sample size and warns when the weights leave an arm less than a fifth of its size. Validation: certified parity evidence. Assumptions: The propensity model is correctly specified: IPW has no outcome model to fall back on (sp.aipw is doubly robust); Unconfoundedness: no unmeasured confounding of the point treatment given the covariates; Positivity / overlap: 0 < P(D=1 | X) < 1 on the estimand's support. Pre-conditions: A binary (0/1) point treatment measured once, and covariates measured before it. Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster column: cluster bootstrap, or cluster-summed sandwich with se_method='sandwich'",
           "type": "string",
@@ -17572,6 +17970,18 @@
           ],
           "type": "string"
         },
+        "n_bootstrap": {
+          "default": 500,
+          "description": "Number of bootstrap iterations for standard error estimation (at least 2). ``n_bootstrap=0`` asks for the point estimate alone: no resampling is done and the standard error, interval and p-value are missing. A resample that holds a single treatment arm has no",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "normalize": {
+          "default": true,
+          "description": "If True, use Hajek (normalised) weights. Generally recommended for finite-sample stability, and the estimate does not change when a constant is added to the outcome. ``False`` is Horvitz-Thompson: the weighted sums are divided by the size of the target population (``n`` for the ATE, the number of treated for the ATT, of controls for the ATC).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "propensity": {
           "description": "Known treatment probability: one number, or a column of per-unit design probabilities. No propensity model is fitted; the sandwich drops the first-stage term. Fitting the propensity is more precise even when it is known.",
           "type": "number"
@@ -17593,6 +18003,11 @@
             "sandwich"
           ],
           "type": "string"
+        },
+        "seed": {
+          "description": "Random seed for reproducibility.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment indicator (0/1).",
@@ -18611,7 +19026,7 @@
     "name": "ivtobit"
   },
   {
-    "description": "Delete-one (or delete-one-cluster) jackknife standard errors for any statistic: a function of a DataFrame that returns a number, a vector or a fitted model. Covers Stata's `jackknife (exp): command` and `vce(jackknife)` and reproduces their numbers, since nothing is random. Use it for smooth functions of estimates (ratios, predicted levels, turning points); it is not consistent for quantiles, where sp.bootstrap applies. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The statistic is a quantile or another non-smooth functional -- use sp.bootstrap; The sample is large and each evaluation is slow -- the cost is one evaluation per observation; sp.nlcom gives the delta-method answer at once. Cost: One evaluation of the statistic per observation or cluster. Assumptions: The statistic is a smooth function of sample moments; Independent observations, or independent clusters with cluster=. Failure modes: sp.jackknife: statistic must be a function of a DataFrame -> Pass e.g. lambda d: sp.regress('y ~ x', data=d); sp.jackknife: cluster=<cluster> is not a column -> Pass the name of the cluster variable; sp.jackknife: fe...",
+    "description": "Delete-one (or delete-one-cluster) jackknife standard errors for any statistic: a function of a DataFrame that returns a number, a vector or a fitted model. Covers Stata's `jackknife (exp): command` and `vce(jackknife)` and reproduces their numbers, since nothing is random. Use it for smooth functions of estimates (ratios, predicted levels, turning points); it is not consistent for quantiles, where sp.bootstrap applies. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The statistic is a quantile or another non-smooth functional -- use sp.bootstrap; The sample is large and each evaluation is slow -- the cost is one evaluation per observation; sp.nlcom gives the delta-method answer at once. Cost: One evaluation of the statistic per observation or cluster. Assumptions: The statistic is a smooth function of sample moments; Independent observations, or independent clusters with cluster=. Failure modes: sp.jackknife: statistic must be a function of a DataFrame -> Pass e.g. lambda d: sp.regress('y ~ x', data=d); sp.jackknife: fewer than three replications succeeded -> Check that the statistic runs on a sample with on...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20013,6 +20428,10 @@
     "description": "Load a dataset into the server and get a data_id handle. Source: data_path (file or URL), data_records (JSON rows) or data_csv (CSV text). Returns the handle plus shape, dtypes, missing counts, the first rows and a numeric summary. Pass data_id to any later tool instead of re-sending the file; chain transform_data to filter / reshape / winsorise / impute and get a new handle whose lineage is recorded in every result's data_provenance.",
     "input_schema": {
       "properties": {
+        "dataset": {
+          "description": "Built-in example by name (sp.list_datasets).",
+          "type": "string"
+        },
         "name": {
           "description": "Optional label recorded with the handle.",
           "type": "string"
@@ -21684,6 +22103,22 @@
           ],
           "type": "string"
         },
+        "pvalue_method": {
+          "default": "bootstrap_sign",
+          "description": "How each effect's p-value is computed: - ``'bootstrap_sign'`` (default, preserves v0.9.x behaviour): twice the fraction of bootstrap replications that fall on the side of zero opposite to the **bootstrap mean**. For well-behaved (symmetric) bootstrap distributions the mean and the point estimate coincide, but under skew this is the self-consistent \"is the bootstrap distribution straddling zero?\" test and is robust to skew. - ``'wald'``: conventional 2*(1-Phi(|theta/se|)), using the reported SE. Consistent with the Wald convention used across the rest of the causal-inference surface (:func:`sp.aipw`, :func:`sp.dml`, etc.). ``inference='delta'`` has no bootstrap distribution, so p-values are reported with the Wald convention. ``inference='robust'`` reports Wald p-values as well. The matching kwarg is also accepted by :func:`sp.mediate_interventional`; pass the same value to keep reporting conventions aligned across a mediation study.",
+          "enum": [
+            "bootstrap_sign",
+            "wald"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed for reproducibility.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "treat": {
           "description": "Binary treatment",
           "type": "string",
@@ -21715,6 +22150,12 @@
     "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Baseline covariates",
           "items": {
@@ -21727,6 +22168,34 @@
           "description": "Mediator variable",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "n_boot": {
+          "default": 500,
+          "description": "Nonparametric bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_mc": {
+          "default": 500,
+          "description": "Monte Carlo draws of M for the stochastic intervention.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "pvalue_method": {
+          "default": "bootstrap_sign",
+          "description": "How the per-effect p-value is computed: - ``'bootstrap_sign'`` (default, matches :func:`sp.mediate`): the bootstrap-CI-inversion p-value, i.e. twice the fraction of bootstrap replications on the opposite side of zero from the point estimate. Respects skewed bootstrap distributions. - ``'wald'``: the conventional 2*(1-Phi(|theta/se|)) p-value, using the bootstrap SE. Consistent with the Wald pvalue convention used across the rest of StatsPAI's causal-inference surface (e.g. ``sp.aipw``, ``sp.dml``).",
+          "enum": [
+            "bootstrap_sign",
+            "wald"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment",
@@ -22278,6 +22747,12 @@
     "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1; For R-Learner / DR-Learner: orthogonality between treatment residual and outcome residual. Pre-conditions: binary treatment (0/1); covariates numeric; categoricals encoded; enough treated AND control to train separate outcome models (T/X/DR-Learner). Failure modes: Large divergence across learner types -> Use sp.compare_metalearners to identify which learner is biased; DR-Learner is safest under model misspecification; S-Learner estimates near zero regardless of true effect -> S-Learner regularization smooths treatment coefficient toward zero; use T/X/DR instead; X-Learner fails when treated group is very small -> X-Learner needs well-identified control-outcome model; fall back to T-Learner or weighted T-Learner. Alternatives: sp.causal_forest, sp.dml, sp.tmle, sp.bcf. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cate_model": {
           "description": "Final-stage CATE learner (x, r, dr). For learner='x' a pair (fit_on_controls, fit_on_treated) sets the two second-stage regressions separately.",
           "type": "string"
@@ -22314,9 +22789,26 @@
           ],
           "type": "string"
         },
+        "n_bootstrap": {
+          "default": 200,
+          "description": "**Deprecated and ignored** as of v1.11.4. Previously the SE for S/T/X/R-Learner came from a re-sampling bootstrap of the fitted CATE values, which treats tau as fixed and severely under-estimates uncertainty. The function now uses the AIPW influence function for SE regardless of ``learner=``. The argument is kept for backward compatibility and will be removed in a future minor release.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Cross-fitting folds for nuisance estimation (used by R/DR learners and the unified AIPW SE path; see Notes).",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "outcome_model": {
           "description": "Outcome learner. For learner='t' or 'x' a pair (control_model, treated_model) fits a different learner in each arm.",
           "type": "string"
+        },
+        "propensity_model": {
+          "description": "Custom propensity score model (used by X/R/DR learners).",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment column (0/1)",
@@ -22918,6 +23410,12 @@
     "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: certified parity evidence. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "baseline": {
           "description": "Baseline covariates",
           "items": {
@@ -22985,10 +23483,27 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "treat_type": {
+          "default": "auto",
+          "description": "Treatment type for weight construction. 'auto' detects from data.",
+          "enum": [
+            "auto",
+            "binary",
+            "continuous"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "trim": {
           "default": 0.01,
           "description": "Weight truncation quantile",
           "type": "number"
+        },
+        "trim_per_period": {
+          "default": false,
+          "description": "When True, apply ``trim`` at each period's per-period ratio *before* taking the cumulative product. This is a more aggressive stabilisation strategy used in some longitudinal literature (Cole & Hernan 2008 Section 3) -- it prevents a single outlier period from dominating the cumulative product. When False (the default), trimming is applied once on the final cumulative-product weight, which is the most common convention and matches the original Robins (1998) formulation.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome",
@@ -23557,6 +24072,12 @@
             "linear"
           ],
           "type": "string"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "reference": {
           "description": "Reference treatment level (defaults to 0 / smallest)",
@@ -24987,6 +25508,12 @@
     "description": "Estimate the same model with multiple panel methods and return a side-by-side comparison table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "Passed to each ``panel()`` call.",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
+        },
         "entity": {
           "description": "Panel entity identifier column.",
           "type": "string",
@@ -25007,6 +25534,16 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "robust": {
+          "default": "nonrobust",
+          "description": "Passed to each ``panel()`` call.",
+          "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
+          "x-canonical": "vce",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time period column.",
@@ -25819,9 +26356,30 @@
     "description": "Proximal causal inference for modified treatment policies (Park & Ying 2025). Estimates the effect of a policy that shifts the treatment distribution (e.g., raises the dose by 10%) under unobserved confounding identified by PCI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The proxies are valid negative controls (relevant to the confounder, excluded from the causal channel); A bridge function exists (completeness conditions hold). Pre-conditions: Treatment-inducing and outcome-inducing proxy variables (negative controls) for the unobserved confounder. Failure modes: Proxies are weak or invalid -- the bridge function is poorly identified -> Test proxy relevance, select stronger proxies, or fall back to sensitivity analysis. Alternatives: sp.select_pci_proxies, sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
+        },
         "delta": {
           "description": "Additive shift applied to the treatment under the modified policy",
           "type": "number"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "proxy_w": {
           "description": "Standard PCI proxies.",
@@ -25836,6 +26394,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Outcome and continuous treatment.",
@@ -26073,7 +26637,7 @@
     "name": "pipeline_rd"
   },
   {
-    "description": "Render the canonical diagnostic plot for a fitted result and return it as an inline PNG image content block. MCP clients with vision (Claude Desktop, vision-capable agents) get the plot for free; clients that don't support image content see only the JSON metadata. Plot kind is auto-selected from the result type: event-study for DID, rdplot for RD, gap plot for synth, balance plot for matching, ROC for classification, etc.",
+    "description": "Render the canonical diagnostic plot for a fitted result as an inline PNG image block (clients without image support see the JSON metadata only). The kind follows the result type: event study for DID, rdplot for RD, gap plot for synth, balance plot for matching, ROC for classification.",
     "input_schema": {
       "properties": {
         "figsize": {
@@ -27151,6 +27715,12 @@
     "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Existence of an outcome bridge function h(w, a, x) that recovers E[Y(a) | U, X]; Z and W are conditionally independent given U and (A, X); Z perp Y | U, A, X (exclusion on Z). Pre-conditions: at least one treatment-side proxy Z (independent of outcome given U, X); at least one outcome-side proxy W (independent of treatment given U, X); proxy_z and proxy_w measure the same unmeasured confounder U from different angles. Failure modes: First-stage (Z -> W) too weak -> Try richer Z or more proxies; without first-stage strength the bridge is underidentified; Proxies collapse to nearly-constant -> Proxy variation insufficient -- redesign measurement or fall back to sensitivity (sp.sensemakr); Estimate highly sensitive to bridge specification -> Report multiple bridge families; compare with sp.negative_control_outcome / _exposure. Alternatives: sp.neg...",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "bridge": {
           "default": "linear",
           "description": "Bridge function family",
@@ -27185,6 +27755,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Treatment",
@@ -27427,7 +28002,7 @@
     "name": "ps_weights"
   },
   {
-    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap of the score between treated and controls. Pre-conditions: binary treatment 0/1; covariates are pre-treatment. Failure modes: pscore: data must be a pandas DataFrame -> Pass the DataFrame holding the treatment and covariates; pscore: columns not found in data: <missing> -> Check the treat and covariates column names; pscore: at least one covariate is needed -> Pass the covariates of the treatment model. Alternatives: sp.psmatch2, sp.match, sp.ps_balance, sp.balance_table.",
+    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap of the score between treated and controls. Pre-conditions: binary treatment 0/1; covariates are pre-treatment. Failure modes: pscore: data must be a pandas DataFrame -> Pass the DataFrame holding the treatment and covariates; pscore: at least one covariate is needed -> Pass the covariates of the treatment model; pscore: ps_model must be 'logit' or 'probit', got <ps_model> -> Use ps_model='logit' or ps_model='probit'. Alternatives: sp.psmatch2, sp.match, sp.ps_balance, sp.balance_table.",
     "input_schema": {
       "properties": {
         "common_support": {
@@ -27887,6 +28462,12 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "method": {
+          "default": "qdid",
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "n_boot": {
           "default": 500,
           "description": "Bootstrap replications.",
@@ -27898,6 +28479,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Binary pre / post indicator",
@@ -27989,6 +28576,12 @@
     "description": "Quantile regression at specified quantile(s). Validation: certified parity evidence. Assumptions: Conditional quantile is linear in covariates; Outcome continuous (or finely discretized) so the check-function minimization is well-posed; Powell (1991) sandwich SEs require a consistent kernel density of the conditional density at zero. Pre-conditions: Continuous outcome variable; Quantile tau strictly in (0,1). Failure modes: Sparse data in tail quantiles gives unstable density estimate and wide SEs -> Estimate a more central quantile or pool more data near the tail; Crossing/degenerate fit when regressors are collinear -> Drop or combine collinear regressors before refitting. Alternatives: sp.regress, sp.feols. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Also sets the Hall-Sheather bandwidth's ``z_{1-alpha/2}``, as Stata's ``level()`` does.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster column; implies vce='cluster' (Stata qreg2, cluster(); t(N-k) inference)",
           "type": "string",
@@ -28092,6 +28685,23 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "se": {
+          "default": "auto",
+          "description": "Standard-error method for the Firpo estimators. ``'auto'`` uses the analytic influence function without covariates and the bootstrap with them (the analytic form treats ``p(X)`` as known, which is conservative when it is estimated). Ignored by the other methods, which are bootstrap-only.",
+          "enum": [
+            "auto",
+            "analytic",
+            "bootstrap"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treatment": {
           "description": "Binary treatment indicator.",
@@ -29211,6 +29821,12 @@
           "description": "RD cutoff.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster variable. The variance of the jump estimator is then the cluster-sum form RDHonest uses (EHW residuals, no finite-sample factor); without clusters it is RDHonest's nearest-neighbour variance (``J = 3``).",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
+        },
         "fuzzy": {
           "description": "Treatment indicator column",
           "type": "string"
@@ -29228,6 +29844,12 @@
             "uniform"
           ],
           "type": "string"
+        },
+        "n_grid": {
+          "default": 401,
+          "description": "Grid resolution for the AR-style test inversion.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "x": {
           "description": "Running variable column.",
@@ -29911,10 +30533,22 @@
           "description": "Forwarded to :func:`rdrobust`.",
           "type": "number"
         },
+        "bwselect": {
+          "default": "mserd",
+          "description": "Forwarded to :func:`rdrobust`.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "c": {
           "default": 0.0,
           "description": "Cutoff value.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Forwarded to :func:`rdrobust`.",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
         },
         "fuzzy": {
           "description": "Fuzzy treatment column. When provided the same flexible residualisation is applied to both ``y`` and the treatment indicator (numerator and denominator of the Wald ratio).",
@@ -29945,6 +30579,22 @@
           "default": 5,
           "description": "Cross-fit folds (1 disables CV)",
           "type": "integer"
+        },
+        "p": {
+          "default": 1,
+          "description": "Forwarded to :func:`rdrobust`.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "description": "Seed for the cross-fit splitter and for built-in learners.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "sklearn_estimator": {
+          "description": "Any object exposing ``fit(X, y)`` and ``predict(X)``. If provided, supersedes ``learner``. ``random_state`` is *not* injected into a user-provided estimator.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "x": {
           "description": "Running variable column.",
@@ -34704,7 +35354,7 @@
     "name": "sdtest"
   },
   {
-    "description": "Search the StatsPAI function registry by task keywords or a short natural-language phrase (e.g. 'staggered adoption event study', 'weak instrument robust CI', 'regression discontinuity density test'). Returns ranked matches with one-line descriptions, category and validation tier. Use this first when no listed tool fits; then call describe_function for the full parameter schema and call_function to run it.",
+    "description": "Search the StatsPAI function registry by task keywords or a short phrase (e.g. 'staggered adoption event study', 'weak instrument robust CI'). Returns ranked matches with one-line descriptions, category and validation tier. Use it when no listed tool fits, then describe_function for the parameters and call_function to run it.",
     "input_schema": {
       "properties": {
         "category": {
@@ -35006,11 +35656,29 @@
     "name": "sensitivity_dashboard"
   },
   {
-    "description": "Run sp.sensitivity / sp.evalue / sp.oster_bounds / sp.sensemakr on a cached result. Pass method='evalue' (default) for the omitted-confounder-strength bound, 'oster' for delta/R-max, 'cinelli_hazlett' for OVB bounds.",
+    "description": "Sensitivity of a cached fit (result_id). 'evalue' (default): E-value from the estimate. 'oster' (delta / R-max) and 'cinelli_hazlett' (OVB bounds) refit OLS of y on treat + controls on the fit's data: from a regress formula (name the term with treat) or passed as y / treat / controls. 'auto': sensitivity dashboard.",
     "input_schema": {
       "properties": {
         "benchmark_covariate": {
           "description": "Cinelli-Hazlett benchmark column (optional).",
+          "type": "string"
+        },
+        "controls": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "measure": {
+          "default": "SMD",
+          "description": "evalue: scale of the estimate. SMD / MD (a mean difference) need sd; RR / OR / HR are ratios.",
+          "enum": [
+            "SMD",
+            "MD",
+            "RR",
+            "OR",
+            "HR"
+          ],
           "type": "string"
         },
         "method": {
@@ -35025,6 +35693,18 @@
         },
         "result_id": {
           "description": "Handle to a fitted causal result.",
+          "type": "string"
+        },
+        "sd": {
+          "description": "evalue with SMD / MD: the outcome's standard deviation (1 if already standardised).",
+          "type": "number"
+        },
+        "treat": {
+          "description": "Term to bound.",
+          "type": "string"
+        },
+        "y": {
+          "description": "oster / cinelli_hazlett.",
           "type": "string"
         }
       },
@@ -35097,11 +35777,11 @@
     "name": "sensitivity_plot"
   },
   {
-    "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Pre-period violations bound the magnitude of post-period violations (relative-magnitude family); Post-treatment effects are constant across event time (relax via alternative parameter families in Rambachan-Roth 2023 Section 3). Pre-conditions: result has at least one pre-period and one post-period coefficient; result carries the variance-covariance matrix of those coefficients. Failure modes: Breakdown Mbar < 1.0 (small parallel-trends violation overturns the sign) -> The result is fragile to plausible pretrends violations; report the breakdown alongside the point estimate; Confidence set is the entire real line (Mbar grid too coarse) -> Re-run with a finer grid (n_grid=50+) or restrict Mbar to a tighter inte...",
+    "description": "Quick linear-extrapolation sensitivity band for DiD in the spirit of Rambachan-Roth (2023): the post-period violation is bounded by the fitted pre-trend slope plus Mbar of slack, giving a symmetric conservative interval and a breakdown Mbar. A heuristic, not the Rambachan-Roth confidence set; use sp.honest_did / sp.breakdown_m for the FLCI and the conditional / hybrid sets. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Pre-period violations bound the magnitude of post-period violations (relative-magnitude family); Post-treatment effects are constant across event time (relax via alternative parameter families in Rambachan-Roth 2023 Section 3). Pre-conditions: result has at least one pre-period and one post-period coefficient; result carries the variance-covariance matrix of those coefficients. Failure modes: Breakdown Mbar < 1.0 (small parallel-trends violation overturns the sign) -> The result is fragile to plausible pretrends violations; report the breakdown alongside the point estimate; Confidence set is the entire real line (Mbar grid too coarse) -> Re-run with a finer grid (n_grid=50+) or restrict Mbar to a...",
     "input_schema": {
       "properties": {
         "Mbar": {
-          "description": "Grid of relative-magnitude bounds; default is np.linspace(0, 2, n_grid)",
+          "description": "Grid of slack values on the pre-trend slope; default is np.linspace(0, 3 * |fitted pre-trend slope|, n_grid)",
           "type": "string"
         },
         "alpha": {
@@ -35138,6 +35818,12 @@
     "description": "Cohort-by-cohort synthetic DID for staggered-adoption panels: runs sp.sdid on each adoption cohort's sub-panel with not-yet-treated donors (each ATT(g) equals synthdid::synthdid_estimate) and aggregates across cohorts. Not the Arkhangelsky-Samkov sequential SDID estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends in the absence of treatment, after the synthetic/DiD weighting; No anticipation and no interference between units (SUTVA); The control pool's outcome process is stable around the intervention. Pre-conditions: Panel with treated and control units and a clear treatment date; Pre-treatment periods available to assess comparability of trends. Failure modes: Weighted pre-treatment trends still diverge between treated and synthetic control -> Inspect the unit/time weights and pre-trend fit; consider event-study DiD with honest bounds. Alternatives: sp.synth, sp.augsynth, sp.callaway_santanna, sp.gardner_did. Typical minimum N: 15.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cohort": {
           "description": "First-treated period column; never-treated = 0",
           "type": "string",
@@ -35183,6 +35869,11 @@
             "jackknife"
           ],
           "type": "string"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time period column.",
@@ -35669,6 +36360,12 @@
           "default": 500,
           "description": "Number of bootstrap replications.",
           "type": "integer"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary individual treatment variable (0/1).",
@@ -37568,10 +38265,25 @@
     "description": "Unified synthetic control estimator. method= selects variant: 'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', 'augmented', 'sdid', 'gsynth', 'staggered'. inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'. Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required. Do NOT use when: many units are treated at once -- classic SCM is built for one (or few) treated units; use sp.gsynth, sp.sdid or sp.callaway_santanna; the pre-treatment window is short (fewer than ~10 periods) -- the donor weights overfit noise and pre-period fit stops being evidence; the treated unit's pre-period outcome lies outside the convex hull of the donors -- no non-negative weighting can match it; check t...",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "backend": {
           "default": "native",
           "description": "Optional reference backend for exact R parity: synth for classic SCM",
           "type": "string"
+        },
+        "covariates": {
+          "description": "Additional covariates to match on.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
         },
         "inference": {
           "description": "Inference method: placebo/conformal/bootstrap/jackknife",
@@ -37628,6 +38340,18 @@
           "description": "Outcome variable column name or outcome array.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "penalization": {
+          "default": 0.0,
+          "description": "Ridge penalty for donor weights.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "placebo": {
+          "default": true,
+          "description": "Run placebo inference. For ``method='classic'`` pass ``n_jobs=`` (e.g. ``-1``) to fit the in-space placebos in parallel worker processes; results are bit-identical to the serial loop. See :class:`SyntheticControl`. The classic fit then also returns ``model_info['placebo_table']`` (pre- and post-treatment MSPE and their ratio, per unit) and ``model_info['placebo_effects']`` (two-, right- and left-sided placebo p-values per post-treatment period, the treated unit counted among the units compared). Further keywords of ``method='classic'``: ``placebo_cutoff=c`` leaves out of those p-values the pretend units whose pre-treatment MSPE exceeds ``c`` times the treated unit's; ``placebo_time=t`` refits as if the treatment had started at ``t`` (``model_info['placebo_time']``); ``loo=True`` drops, one at a time, each donor with a weight of at least 0.0005 and reports the range of the synthetic path (``model_info['loo']``); ``placebo_units=[...]`` restricts the pretend-treated units of those tables (and of ``pvalue``); ``pre_periods=[...]`` and ``post_periods=[...]`` restrict the periods the fit and the effect use. These are the reports of Stata's ``synth2``.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time period column.",
@@ -39378,6 +40102,12 @@
           "description": "Initial outcome predictions, shape (n, 2) = [Q(0,W), Q(1,W)] on the outcome scale, replacing the Super Learner.",
           "type": "string"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster column: influence function summed within clusters with G/(G-1) (R tmle id= for equal cluster sizes).",
           "type": "string",
@@ -39429,10 +40159,50 @@
           "description": "Bootstrap resamples for se_method='bootstrap' (>= 20)",
           "type": "integer"
         },
+        "n_folds": {
+          "default": 5,
+          "description": "Cross-validation folds for Super Learner.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "outcome_library": {
+          "description": "Candidate learners for the outcome model Q(Y|A,W). If None, uses a default diverse library.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "propensity_bounds": {
+          "default": [
+            0.025,
+            0.975
+          ],
+          "description": "Bounds for propensity score truncation.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "propensity_library": {
+          "description": "Candidate learners for propensity model g(A|W). If None, uses a default diverse library.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "q_bound": {
           "default": 1e-05,
           "description": "The initial outcome predictions, on the [0, 1] scale the logistic fluctuation works on (continuous outcomes are min-max rescaled), are truncated to ``[q_bound, 1 - q_bound]`` before targeting. ``tmle::tmle`` truncates at ``1 - alpha = 5e-4`` (its default ``alpha = 0.9995``); pass ``q_bound=5e-4`` to reproduce it.",
           "type": "number"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "se_method": {
           "default": "influence",
@@ -40455,9 +41225,38 @@
           "description": "Whether to include sensemakr.",
           "type": "boolean"
         },
+        "measure": {
+          "default": "auto",
+          "description": "Scale the estimate lives on, for the **E-value** component. The E-value is defined for risk ratios, so a raw regression coefficient must be standardised before it means anything: ``RR ~ exp(0.91 * d)`` for a standardised mean difference ``d`` (``vanderweele2017sensitivity``). ``'auto'`` reads the result's own ``estimand`` / ``measure`` and uses ``'RR'`` when it names a ratio, otherwise treats the estimate as a difference on the outcome's scale and standardises it. Pass ``'RR'`` explicitly if the estimate really is a ratio the result does not advertise.",
+          "enum": [
+            "auto",
+            "RR",
+            "OR",
+            "HR",
+            "OLS",
+            "SMD"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "outcome_sd": {
+          "description": "Standard deviation of the outcome, used to standardise the coefficient. Taken from ``data[y]`` when both are supplied. Without it the E-value is skipped with a note instead of being computed on an unknown scale.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "r2_controlled": {
           "description": "Deprecated aliases for ``r2_short`` / ``r2_long``. The old names read like sensemakr's partial R^2 (outcome/treatment variance explained by an unobservable) but were consumed as the short/long regression R^2, so supplying sensemakr-style values silently produced a wrong delta*. Use the new names.",
           "type": "number"
+        },
+        "r2_long": {
+          "description": "R^2 of the short (treatment-only) and long (with controls) regression, for Oster's delta. Usually unnecessary: when ``data``, ``y``, ``treat`` and ``controls`` are supplied these are derived from the data, which is what keeps this delta equal to the one ``sp.oster_delta`` reports on the same specification.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "r2_short": {
+          "description": "R^2 of the short (treatment-only) and long (with controls) regression, for Oster's delta. Usually unnecessary: when ``data``, ``y``, ``treat`` and ``controls`` are supplied these are derived from the data, which is what keeps this delta equal to the one ``sp.oster_delta`` reports on the same specification.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "r2_treated": {
           "description": "Deprecated aliases for ``r2_short`` / ``r2_long``. The old names read like sensemakr's partial R^2 (outcome/treatment variance explained by an unobservable) but were consumed as the short/long regression R^2, so supplying sensemakr-style values silently produced a wrong delta*. Use the new names.",
@@ -40470,6 +41269,11 @@
         "rho_max": {
           "description": "Oster R_max; None -> min(1, 1.3 R^2_long), the sp.oster_delta default.",
           "type": "number"
+        },
+        "term": {
+          "description": "Which coefficient to analyse, when ``result`` carries a vector of them (e.g. an OLS fit). Required whenever there is more than one non-intercept coefficient -- the dashboard raises rather than guess, because guessing silently answers the sensitivity question about the wrong parameter. Ignored for results that expose a single scalar ``estimate`` / ``ate``.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Outcome / treatment column names in ``data`` (Sensemakr only).",
@@ -40680,7 +41484,7 @@
     "name": "variable_importance"
   },
   {
-    "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every lag order is fitted on the same sample, the one the longest lag allows; Stationary VAR, or a VAR in levels where the rank of cointegration is not the question; The likelihood-ratio column assumes Gaussian errors. Failure modes: sp.varsoc: trend=<trend> is not 'c', 'ct' or 'n' -> Use trend='c'; sp.varsoc: exog=<exog_names> must name columns that are not among the endogenous variables -> Check the names passed to exog=; sp.varsoc: <n> observations cannot support maxlag=<maxlag> with <k> variable(s) -> Lower maxlag.",
+    "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every lag order is fitted on the same sample, the one the longest lag allows; Stationary VAR, or a VAR in levels where the rank of cointegration is not the question; The likelihood-ratio column assumes Gaussian errors. Failure modes: sp.varsoc: no variables given -> Name the endogenous series; sp.varsoc: trend=<trend> is not 'c', 'ct' or 'n' -> Use trend='c'; sp.varsoc: exog=<exog_names> must name columns that are not among the endogenous variables -> Check the names passed to exog=.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -40798,7 +41602,7 @@
     "name": "vcnet"
   },
   {
-    "description": "Vector error-correction model by Johansen maximum likelihood for a given cointegration rank: adjustment coefficients (alpha), cointegrating vectors (beta, Johansen normalisation, with standard errors), short-run dynamics, log likelihood and information criteria; reproduces Stata vec. Methods: equation_table(), lm_test() (veclmar), stability() (vecstable). Choose the rank with sp.johansen first; lags counts lagged differences (Stata's lags(p) is lags = p - 1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every series is I(1) and the cointegrating rank passed is the true one (test it with sp.johansen first); Gaussian errors for the likelihood and the reported standard errors; The lag order is that of the VAR in levels; the VECM has one lag fewer. Failure modes: sp.vec: trend=<trend> is not one of 'c', 'rc', 'n', 'rt', 'ct' (or Stata's constant / rconstant / none / rtrend / trend) -> Use trend='c' for an unrestricted constant; sp.vec: lags=<lags>, rank=<rank> with <k> series; need lags >= 0 and 1 <= rank <= <k - 1> -> rank = K means the levels are stationary (fit sp.var); rank = 0 means no cointegration (fit a VA...",
+    "description": "Vector error-correction model by Johansen maximum likelihood for a given cointegration rank: adjustment coefficients (alpha), cointegrating vectors (beta, Johansen normalisation, with standard errors), short-run dynamics, log likelihood and information criteria; reproduces Stata vec. Methods: equation_table(), lm_test() (veclmar), stability() (vecstable). Choose the rank with sp.johansen first; lags counts lagged differences (Stata's lags(p) is lags = p - 1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Every series is I(1) and the cointegrating rank passed is the true one (test it with sp.johansen first); Gaussian errors for the likelihood and the reported standard errors; The lag order is that of the VAR in levels; the VECM has one lag fewer. Failure modes: sp.vec: trend=<trend> is not one of 'c', 'rc', 'n', 'rt', 'ct' (or Stata's constant / rconstant / none / rtrend / trend) -> Use trend='c' for an unrestricted constant; sp.vec needs at least two series -> Name the series of the system; sp.vec: lags=<lags>, rank=<rank> with <k> series; need lags >= 0 and 1 <= rank <= <k - 1> -> rank = K means the levels are...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -41610,6 +42414,12 @@
           ],
           "type": "string"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster SEs on a coarser unit than the panel id (must be constant within unit)",
           "type": "string",
@@ -41620,12 +42430,36 @@
           "description": "Collapse instruments (Roodman 2009) to curb proliferation",
           "type": "boolean"
         },
+        "constant": {
+          "description": "Include an intercept. Defaults to ``True`` for ``method='system'`` (where the level equation identifies it, as in ``xtabond2``) and ``False`` for ``method='difference'`` (where it differences away); requesting it for difference GMM raises ``NotImplementedError``.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "endogenous": {
           "description": "Endogenous regressors (own lags 2+ as instruments)",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "endogenous_lags": {
+          "description": "Instrument lag windows for the two classes above. ``None`` on either element means \"class default\" for the minimum and \"all available deeper lags\" for the maximum. Lags are **absolute**, i.e. counted from the equation period, which is ``xtabond2``'s ``gmm(x, lag(a b))`` convention and the one the modern literature states. Stata's older ``xtabond`` counts *further* lags beyond the deepest lag of the variable that appears as a regressor, so ``xtabond ..., pre(w, lagstruct(p, .))`` maps to ``predetermined=['l(0/p).w'], predetermined_lags=(p + 1, None)`` and ``endogenous(w, lagstruct(p, .))`` to ``endogenous_lags=(p + 2, None)``. Both mappings are pinned by reference-parity tests.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "gmm_lags": {
+          "default": [
+            2
+          ],
+          "description": "Range of lags of Y (in levels) used as GMM instruments. ``min`` must be >= 2 (deeper lags are orthogonal to the differenced error). ``max=None`` uses **all** available deeper lags, matching Stata's ``xtabond`` default. Setting ``max`` caps the instrument count (Stata's ``maxldep()``).",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
         },
         "h": {
           "default": 3,
@@ -41637,6 +42471,18 @@
           "description": "Unit identifier",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "iter_maxiter": {
+          "default": 100,
+          "description": "Convergence tolerance on the maximum coefficient change, and the iteration cap, for ``steps='iterated'`` / ``'cue'``. Failure to converge warns rather than silently returning the last iterate.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "iter_tol": {
+          "default": 1e-10,
+          "description": "Convergence tolerance on the maximum coefficient change, and the iteration cap, for ``steps='iterated'`` / ``'cue'``. Failure to converge warns rather than silently returning the last iterate.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "iv_equation": {
           "description": "System GMM: equation(s) the exogenous regressors instrument; None means 'both' (xtabond2), 'diff' is Stata xtdpdsys.",
@@ -41673,6 +42519,20 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "predetermined_lags": {
+          "description": "Instrument lag windows for the two classes above. ``None`` on either element means \"class default\" for the minimum and \"all available deeper lags\" for the maximum. Lags are **absolute**, i.e. counted from the equation period, which is ``xtabond2``'s ``gmm(x, lag(a b))`` convention and the one the modern literature states. Stata's older ``xtabond`` counts *further* lags beyond the deepest lag of the variable that appears as a regressor, so ``xtabond ..., pre(w, lagstruct(p, .))`` maps to ``predetermined=['l(0/p).w'], predetermined_lags=(p + 1, None)`` and ``endogenous(w, lagstruct(p, .))`` to ``endogenous_lags=(p + 2, None)``. Both mappings are pinned by reference-parity tests.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "robust": {
+          "default": true,
+          "description": "Heteroskedasticity-robust standard errors (Windmeijer-corrected for two-step). When ``False``, the classical one/two-step VCE.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "steps": {
           "description": "Number of GMM steps, or 'iterated' / 'cue'",
@@ -42075,7 +42935,7 @@
     "name": "xtserial"
   },
   {
-    "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Long panel, one row per unit and period; The within deviation adds the grand mean back, as Stata does, so it is comparable with the overall column. Failure modes: sp.xtsum: id=<id> is not a column -> Pass the panel identifier; sp.xtsum: <name> has no observed value -> Drop the variable.",
+    "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Long panel, one row per unit and period; The within deviation adds the grand mean back, as Stata does, so it is comparable with the overall column. Failure modes: sp.xtsum: <name> has no observed value -> Drop the variable.",
     "input_schema": {
       "properties": {
         "id": {

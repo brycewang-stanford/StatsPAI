@@ -531,12 +531,9 @@ from .regression.ols import regress
 from .regression.prais import prais
 from .regression.rolling import rolling
 from .regression.scaling import invlogit, standardize
+from .synth import SynthComparison, SyntheticControl, augsynth
+from .synth import california_prop99 as _synth_california_prop99
 from .synth import (
-    SynthComparison,
-    SyntheticControl,
-    augsynth,
-    basque_terrorism,
-    california_prop99,
     california_tobacco,
     conformal_synth,
     demeaned_synth,
@@ -545,7 +542,6 @@ from .synth import (
     discos_plot,
     discos_test,
     fect,
-    german_reunification,
     gsynth,
     mc_synth,
     multi_outcome_synth,
@@ -1405,7 +1401,7 @@ basque_terrorism = datasets.basque_terrorism
 german_reunification = datasets.german_reunification
 california_prop99 = datasets._flagged(
     "california_prop99",
-    california_prop99,
+    _synth_california_prop99,
     call="sp.california_prop99",
     real_alternative=(
         "sp.load_dataset('california_prop99'), the Abadie-Diamond-Hainmueller panel"

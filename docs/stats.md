@@ -89,7 +89,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `crossval` | 2,809 | 7 | 2 |
 | `epi` | 2,645 | 6 | 21 |
 | `mediation` | 2,603 | 6 | 6 |
-| `datasets` | 2,460 | 4 | 3 |
+| `datasets` | 2,632 | 4 | 5 |
 | `selection` | 2,460 | 5 | 8 |
 | `nonparametric` | 3,108 | 6 | 14 |
 | `fixest` | 2,272 | 3 | 4 |

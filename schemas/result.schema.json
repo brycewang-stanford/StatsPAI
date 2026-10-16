@@ -10,6 +10,10 @@
         "category": {
           "type": "string"
         },
+        "executable": {
+          "description": "True when action runs as written with result and df bound; False when it keeps a '...' placeholder.",
+          "type": "boolean"
+        },
         "priority": {
           "type": [
             "string",
@@ -99,6 +103,10 @@
         "null"
       ]
     },
+    "coef_head": {
+      "description": "Minimal regression payloads without a focal term: {term: [estimate, se]} for up to four terms.",
+      "type": "object"
+    },
     "coefficients": {
       "additionalProperties": {
         "type": "object"
@@ -119,8 +127,11 @@
       "type": "object"
     },
     "estimand": {
-      "description": "ATE / ATT / LATE / CATE / ... (causal payloads).",
-      "type": "string"
+      "description": "ATE / ATT / LATE / CATE / ... (causal payloads); 'coefficient on <term>' for a regression with a focal term; null when the result designates none.",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "estimate": {
       "description": "Point estimate (causal payloads).",
@@ -131,6 +142,16 @@
     },
     "fit_stats": {
       "type": "object"
+    },
+    "focal_term": {
+      "description": "Regression payloads: the coefficient estimate / se / ci report (single endogenous regressor, a recorded treatment, or the only regressor); null when none is designated.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "focal_term_rule": {
+      "type": "string"
     },
     "glance": {
       "type": "object"

@@ -53,6 +53,19 @@ def _require_frame_columns(
         raise ColumnNotFound.from_missing(missing, data.columns, context=context)
 
 
+def _name_lookup_errors() -> Tuple[type, ...]:
+    """What pyfixest raises for a name that is not a column.
+
+    A formula term it cannot find surfaces from formulaic as a
+    ``FormulaicError``; a misspelled cluster column as a ``KeyError``.
+    """
+    try:
+        from formulaic.errors import FormulaicError
+    except ImportError:  # pragma: no cover - formulaic ships with pyfixest
+        return (LookupError, ValueError)
+    return (LookupError, ValueError, FormulaicError)
+
+
 def _raise_if_names_missing(
     pf_kwargs: Dict[str, Any], exc: BaseException, context: str
 ) -> None:
@@ -1572,7 +1585,7 @@ def feols(
     try:
         with _written_fe_order(), _first_stage_demeaner(pf_kwargs["fml"], pf_kwargs):
             fit = pf.feols(**pf_kwargs)
-    except Exception as exc:
+    except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.feols")
         raise
 
@@ -1903,7 +1916,7 @@ def fepois(
         _prefer_compiled_demeaner(pf.fepois, pf_kwargs)
         with _written_fe_order():
             fit = pf.fepois(**pf_kwargs)
-    except Exception as exc:
+    except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.fepois")
         if not isinstance(exc, ValueError) or "Demeaning failed" not in str(exc):
             raise
@@ -2074,7 +2087,7 @@ def feglm(
     try:
         with _written_fe_order():
             fit = pf.feglm(**pf_kwargs)
-    except Exception as exc:
+    except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.feglm")
         raise
 

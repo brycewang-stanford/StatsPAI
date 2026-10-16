@@ -22,11 +22,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Check the column names.",
-            "symptom": "ardl: column(s) <missing_cols> are not in data.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
             "remedy": "Name each regressor once and leave the outcome out of " "x=.",
             "symptom": "ardl: x=<xs> repeats a column or lists the outcome <y>. "
             "The lags of the outcome enter through lags=, not x=.",
@@ -36,6 +31,11 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Pass one row per period; for a panel, fit each unit "
             "separately.",
             "symptom": "ardl: the time index has repeated values.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Check the columns.",
+            "symptom": "ardl: no row has all of the series observed.",
         },
     ],
     "bagged_forecast": [
@@ -67,6 +67,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "individuals.",
         }
     ],
+    "bayes_arima": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass data=<DataFrame>, or pass y as an array.",
+            "symptom": "y=<y> names a column, but data= was not given.",
+        }
+    ],
     "bds": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -77,11 +84,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": 'sp.bds(df, "resid")',
             "symptom": "bds: y= names the column to test.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Check the name.",
-            "symptom": "bds: column <y> not found.",
         },
     ],
     "best_subset": [
@@ -249,11 +251,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "chow_test": [
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Check the column names.",
-            "symptom": "chow_test: column(s) <missing> not found in data.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
             "remedy": "Drop or fill them first; dropping rows silently "
             "would move the break date.",
             "symptom": "chow_test: missing values in y or x.",
@@ -269,6 +266,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Every observation needs a date to be placed in a " "regime.",
             "symptom": "chow_test: missing values in the time column " "<time>.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Move the break, or let fewer coefficients change.",
+            "symptom": "chow_test: a regime of <b - a> observations cannot "
+            "identify <q> coefficients.",
         },
     ],
     "ci": [
@@ -438,14 +441,22 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "scm_intervention must be " "callable.",
         },
         {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Check the protected column name.",
-            "symptom": "`protected` column <protected> " "not in data.",
+            "exception": "statspai.ConvergenceFailure",
+            "remedy": "Check that predictor and "
+            "scm_intervention work on bootstrap "
+            "resamples, or increase n_boot.",
+            "symptom": "EWI bootstrap only produced "
+            "<n_ok>/<n_boot> valid "
+            "replicates.",
         },
         {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Check admissible feature names " "against data.columns.",
-            "symptom": "admissible_features not in data: " "<missing>",
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Provide at least two "
+            "protected-attribute levels or "
+            "explicit alternative_values.",
+            "symptom": "Protected attribute <protected> "
+            "has only one level; EWI test is "
+            "undefined.",
         },
     ],
     "factor": [
@@ -587,11 +598,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Check spec, time= and value=.",
-            "symptom": "hierarchy: columns <absent> are not in data.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
             "remedy": "Fill or drop them before aggregating.",
             "symptom": "hierarchy: <int(work[value].isna().sum())> missing "
             "values in <value>.",
@@ -602,6 +608,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "entry of spec, or aggregate first.",
             "symptom": "hierarchy: <int(dup.sum())> duplicated (series, "
             "period) rows at the bottom level <bottom_keys>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Fill the gaps (e.g. with zeros for counts) first.",
+            "symptom": "hierarchy: the bottom level is unbalanced (<n_bad> "
+            "missing series-period cells).",
         },
     ],
     "hill_climb": [
@@ -653,11 +665,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass e.g. lambda d: sp.regress('y ~ x', data=d).",
             "symptom": "sp.jackknife: statistic must be a function of a " "DataFrame.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass the name of the cluster variable.",
-            "symptom": "sp.jackknife: cluster=<cluster> is not a column.",
         },
         {
             "exception": "statspai.DataInsufficient",
@@ -1022,11 +1029,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Check the treat and covariates column names.",
-            "symptom": "pscore: columns not found in data: <missing>",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass the covariates of the treatment model.",
             "symptom": "pscore: at least one covariate is needed.",
         },
@@ -1035,6 +1037,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Use ps_model='logit' or ps_model='probit'.",
             "symptom": "pscore: ps_model must be 'logit' or 'probit', got "
             "<ps_model>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "The default is 0.01.",
+            "symptom": "pscore: level must lie strictly between 0 and 1, got "
+            "<level>.",
         },
     ],
     "ranksum": [
@@ -1064,8 +1072,10 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Check y/x1/x2/treatment names against data.columns.",
-            "symptom": "Column '<col>' not found in data",
+            "remedy": "Re-estimate with rd2d(..., eval_points=...) or " "n_eval > 1.",
+            "symptom": "plot_type='boundary_effects' requires a result "
+            "from rd2d() with boundary eval points "
+            "(approach='location' or 'distance').",
         },
     ],
     "ridge": [
@@ -1231,6 +1241,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "periods.",
         },
     ],
+    "stochvol": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass data=<DataFrame>, or pass y as an array.",
+            "symptom": "y=<y> names a column, but data= was not given.",
+        }
+    ],
     "suest": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1243,11 +1260,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Use 'linear' or 'stata'.",
             "symptom": "sumstats: unknown percentile_method " "<percentile_method>.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass the name of a numeric column.",
-            "symptom": "sumstats: the weights column <weights> is not in " "the data.",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1453,6 +1465,11 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "varsoc": [
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Name the endogenous series.",
+            "symptom": "sp.varsoc: no variables given.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Use trend='c'.",
             "symptom": "sp.varsoc: trend=<trend> is not 'c', 'ct' or 'n'.",
         },
@@ -1479,6 +1496,11 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Name the series of the system.",
+            "symptom": "sp.vec needs at least two series.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "rank = K means the levels are stationary (fit sp.var); "
             "rank = 0 means no cointegration (fit a VAR in "
             "differences).",
@@ -1490,13 +1512,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Use fewer lags or a longer sample.",
             "symptom": "sp.vec: <n> observations are too few for <lags> lagged "
             "difference(s) of <k> series.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Reorder `variables` so that a series that belongs to the "
-            "long-run relation comes first.",
-            "symptom": "sp.vec: the cointegrating relation cannot be normalised "
-            "on the first <rank> variable(s); they do not enter it.",
         },
     ],
     "weighted_rank_power": [
@@ -1572,15 +1587,10 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     ],
     "xtsum": [
         {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass the panel identifier.",
-            "symptom": "sp.xtsum: id=<id> is not a column.",
-        },
-        {
             "exception": "statspai.DataInsufficient",
             "remedy": "Drop the variable.",
             "symptom": "sp.xtsum: <name> has no observed value.",
-        },
+        }
     ],
     "zivot_andrews": [
         {

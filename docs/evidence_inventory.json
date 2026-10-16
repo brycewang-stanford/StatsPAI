@@ -18143,6 +18143,39 @@
         ]
       },
       {
+        "study": "rate_cross_section",
+        "source": "tests/reliability/rate_cross_section_results.json",
+        "script": "tests/reliability/rate_cross_section.py",
+        "rows": [
+          {
+            "study": "rate_cross_section",
+            "block": "cells",
+            "design": "n=800",
+            "method": "rate_own_ranking",
+            "quantity": "rejection",
+            "B": 400,
+            "refused": 0,
+            "rate": 0.36,
+            "mc_se": 0.024,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          },
+          {
+            "study": "rate_cross_section",
+            "block": "cells",
+            "design": "n=800",
+            "method": "rate_split",
+            "quantity": "rejection",
+            "B": 100,
+            "refused": 0,
+            "rate": 0.0,
+            "mc_se": 0.0,
+            "nominal": 0.05,
+            "within_2_mc_se_of_nominal": false
+          }
+        ]
+      },
+      {
         "study": "rd_mass_points",
         "source": "tests/reliability/rd_mass_points_results.json",
         "script": "tests/reliability/rd_mass_points.py",

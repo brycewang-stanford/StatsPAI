@@ -766,6 +766,8 @@ Simulation studies under `tests/reliability/`, each with its design fixed in the
 | `forest_split_evaluation` | split_bjs/QINI | rejection | 400 | 1 | 0 | 0.000 (model=tau = 0.3 + 0.0 z, N=150) |
 | `forest_split_evaluation` | split_forest/QINI | rejection | 400 | 1 | 0 | 0.000 (model=tau = 0.3 + 0.0 z, N=150) |
 | `forest_split_evaluation` | split/gain | rejection | 400 | 1 | 0 | 0.000 (model=tau = 0.3 + 0.0 z, N=200) |
+| `rate_cross_section` | rate_own_ranking | rejection | 400 | 1 | 0 | 0.360 (n=800) |
+| `rate_cross_section` | rate_split | rejection | 100 | 1 | 0 | 0.000 (n=800) |
 | `rd_mass_points` | adjust | coverage | 1000 | 10 | 6 | 0.689 (n=4000, support_per_side=10) |
 | `rd_mass_points` | off | coverage | 1000 | 10 | 6 | 0.214 (n=1000, support_per_side=5, 708 refused) |
 | `rd_mass_points` | cluster | coverage | 1000 | 8 | 0 | 0.224 (n=4000, support_per_side=5) |

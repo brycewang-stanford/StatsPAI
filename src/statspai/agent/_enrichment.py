@@ -638,7 +638,14 @@ def enrich_payload(
             nc = build_next_calls(
                 tool_name, result_id=result_id, base_args=base_args or {}
             )
-        except Exception as exc:  # noqa: BLE001 - the fit itself succeeded
+        except (
+            AttributeError,
+            ImportError,
+            KeyError,
+            OSError,
+            TypeError,
+            ValueError,
+        ) as exc:  # the fit itself succeeded; say the follow-ups are missing
             from ..workflow._degradation import record_degradation
 
             degradations = payload.setdefault("degradations", [])

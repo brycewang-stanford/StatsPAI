@@ -18,6 +18,21 @@
           ],
           "type": "string"
         },
+        "conley_cutoff": {
+          "description": "With ``vce='conley'``: the distance cutoff in km for the Conley spatial HAC standard errors (uniform kernel, Stata ``acreg``'s planar 111 km-per-degree distance). Required for that ``vce``.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "conley_lat": {
+          "description": "With ``vce='conley'``: the latitude and longitude columns, in degrees. Required for that ``vce`` and ignored otherwise.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "conley_lon": {
+          "description": "With ``vce='conley'``: the latitude and longitude columns, in degrees. Required for that ``vce`` and ignored otherwise.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "pandas DataFrame with variables",
           "type": "object",
@@ -202,6 +217,21 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "conley_cutoff": {
+          "description": "With ``vce=\"conley\"``: the distance cutoff in km for the Conley spatial HAC standard errors (uniform kernel, Stata ``acreg`` compatible). Required for that ``vce``.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "conley_lat": {
+          "description": "With ``vce=\"conley\"`` (2SLS only): the latitude and longitude columns, in degrees. Required for that ``vce``.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "conley_lon": {
+          "description": "With ``vce=\"conley\"`` (2SLS only): the latitude and longitude columns, in degrees. Required for that ``vce``.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "pandas DataFrame",
           "type": "object",
@@ -216,6 +246,11 @@
           "default": "nonrobust",
           "description": "Standard error type",
           "type": "string"
+        },
+        "seed": {
+          "description": "Controls for the ``vce=\"wild\"`` path.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "vce": {
           "description": "Alias of robust=. vce='wild' with cluster= runs the WRE wild cluster bootstrap on the endogenous coefficient (Stata boottest after ivreg2)",
@@ -232,6 +267,18 @@
             "sampling"
           ],
           "type": "string"
+        },
+        "wild_reps": {
+          "default": 999,
+          "description": "Controls for the ``vce=\"wild\"`` path.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "wild_weight_type": {
+          "default": "rademacher",
+          "description": "Controls for the ``vce=\"wild\"`` path.",
+          "type": "string",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -246,6 +293,12 @@
     "name": "qreg",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Also sets the Hall-Sheather bandwidth's ``z_{1-alpha/2}``, as Stata's ``level()`` does.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster column; implies vce='cluster' (Stata qreg2, cluster(); t(N-k) inference)",
           "type": "string",
@@ -1197,10 +1250,26 @@
           "description": "Staggered (method='cs') only. False lets units missing a period drop out of the affected ATT(g,t) cells; True keeps every observed row by switching to the repeated-cross-section estimators, with influence functions folded back to the unit level (R did::att_gt(allow_unbalanced_panel=TRUE)). Inert on a balanced panel. The two are different estimators.",
           "type": "boolean"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "anticipation": {
           "default": 0,
           "description": "Periods of anticipation before treatment (method='cs')",
           "type": "integer"
+        },
+        "base_period": {
+          "default": "universal",
+          "description": "For staggered DID: ``'universal'`` or ``'varying'``.",
+          "enum": [
+            "universal",
+            "varying"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "cluster": {
           "description": "Cluster column for cluster-robust standard errors",
@@ -1268,6 +1337,45 @@
           ],
           "type": "string"
         },
+        "n_boot": {
+          "default": 1000,
+          "description": "Bootstrap replications for the multiplier bootstrap when ``aggregation`` is set.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "panel": {
+          "default": true,
+          "description": "Forwarded to :func:`callaway_santanna`; set ``panel=False`` for repeated cross-sections.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "description": "Seed for the multiplier bootstrap.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "robust": {
+          "default": true,
+          "description": "HC1 robust standard errors (2x2 / DDD only).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "se_method": {
+          "default": "placebo",
+          "description": "For SDID: 'placebo', 'bootstrap', or 'jackknife'.",
+          "enum": [
+            "placebo",
+            "bootstrap",
+            "jackknife"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "subgroup": {
           "description": "Affected-subgroup column for DDD",
           "type": "string"
@@ -1285,10 +1393,37 @@
           ],
           "x-statspai-role": "column"
         },
+        "treat_time": {
+          "description": "For SDID: treatment time.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "treat_unit": {
+          "description": "For SDID: treated unit(s).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "vce": {
+          "description": "``\"wild\"`` (with ``cluster=``) replaces the ATT p-value and CI with the WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008) on the DID interaction regression -- the canonical few-clusters DID inference (validated against Stata ``boottest`` after ``reg y d t dt, vce(cluster ...)``). Point estimate and cluster SE stand.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "weights": {
           "description": "Unit-weight column (2x2 / cs / sa)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "wild_reps": {
+          "default": 999,
+          "description": "Bootstrap replications for ``vce=\"wild\"``.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "wild_weight_type": {
+          "default": "rademacher",
+          "description": "Wild weight distribution.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome variable",
@@ -1675,6 +1810,16 @@
           "description": "Donut-hole radius",
           "type": "number"
         },
+        "engine": {
+          "default": "ols",
+          "description": "Inference backend for the same sharp-RD design. ``'ols'`` (default) is the frequentist CCT local-polynomial estimator described above. ``'bayes'`` routes to :func:`statspai.bayes.bayes_rd` (priors on the jump, full posterior + HDI; requires the ``bayes`` extra) and returns",
+          "enum": [
+            "ols",
+            "bayes"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "fuzzy": {
           "description": "Treatment variable for fuzzy RD",
           "type": "string"
@@ -1733,6 +1878,19 @@
           "default": 1.0,
           "description": "Rescale the estimate, SEs and CI (rdrobust scalepar). For a sharp kink design with deriv=1, 1 / (kink in the policy rule) turns the slope change into the policy effect.",
           "type": "number"
+        },
+        "vce": {
+          "default": "nn",
+          "description": "Variance estimator, matching R ``rdrobust``'s argument of the same name. ``'nn'`` uses nearest-neighbour residuals (``nnmatch=3``); the ``hc*`` family uses regression residuals with the usual heteroskedasticity corrections. Supplying ``cluster`` promotes ``'nn'``/``'hc0'``/``'hc1'`` to R's ``'cr1'``, whose residuals are ``hc1``'s -- nearest-neighbour differencing removes exactly the within-cluster correlation a clustered variance exists to capture, and pairing the two understates the SE by roughly 10x. This mirrors R, which makes the same substitution silently.",
+          "enum": [
+            "nn",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "warn_mass_points": {
           "default": true,
@@ -1891,10 +2049,25 @@
     "name": "synth",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "backend": {
           "default": "native",
           "description": "Optional reference backend for exact R parity: synth for classic SCM",
           "type": "string"
+        },
+        "covariates": {
+          "description": "Additional covariates to match on.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -1956,6 +2129,18 @@
           "description": "Outcome variable column name or outcome array.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "penalization": {
+          "default": 0.0,
+          "description": "Ridge penalty for donor weights.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "placebo": {
+          "default": true,
+          "description": "Run placebo inference. For ``method='classic'`` pass ``n_jobs=`` (e.g. ``-1``) to fit the in-space placebos in parallel worker processes; results are bit-identical to the serial loop. See :class:`SyntheticControl`. The classic fit then also returns ``model_info['placebo_table']`` (pre- and post-treatment MSPE and their ratio, per unit) and ``model_info['placebo_effects']`` (two-, right- and left-sided placebo p-values per post-treatment period, the treated unit counted among the units compared). Further keywords of ``method='classic'``: ``placebo_cutoff=c`` leaves out of those p-values the pretend units whose pre-treatment MSPE exceeds ``c`` times the treated unit's; ``placebo_time=t`` refits as if the treatment had started at ``t`` (``model_info['placebo_time']``); ``loo=True`` drops, one at a time, each donor with a weight of at least 0.0005 and reports the range of the synthetic path (``model_info['loo']``); ``placebo_units=[...]`` restricts the pretend-treated units of those tables (and of ``pvalue``); ``pre_periods=[...]`` and ``post_periods=[...]`` restrict the periods the fit and the effect use. These are the reports of Stata's ``synth2``.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time period column.",
@@ -2044,6 +2229,16 @@
           ],
           "type": "string"
         },
+        "model_d": {
+          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "model_y": {
+          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "n_folds": {
           "default": 5,
           "description": "Cross-fitting folds",
@@ -2103,6 +2298,12 @@
     "name": "tarnet",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "batch_size": {
           "default": 256,
           "description": "Mini-batch size",
@@ -2151,6 +2352,24 @@
           "description": "Adam learning rate",
           "type": "number"
         },
+        "min_delta": {
+          "default": 0.0001,
+          "description": "Minimum validation-loss improvement counted by early stopping.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "n_bootstrap": {
+          "default": 500,
+          "description": "Draws for the plug-in dispersion reported as ``se`` when ``refit_bootstrap`` is 0. It resamples the fitted effects with the network held fixed and is not a standard error for the ATE (``model_info['se_valid_for_ate']`` is ``False``).",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "patience": {
+          "default": 20,
+          "description": "Validation-loss patience for early stopping.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "random_state": {
           "default": 42,
           "description": "Random seed",
@@ -2182,6 +2401,18 @@
           "description": "Holdout fraction for validation-loss diagnostics",
           "type": "number"
         },
+        "verbose": {
+          "default": false,
+          "description": "Print training progress.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "weight_decay": {
+          "default": 0.0001,
+          "description": "L2 regularisation strength.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "y": {
           "description": "Outcome",
           "type": "string",
@@ -2202,6 +2433,12 @@
     "name": "cfrnet",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "batch_size": {
           "default": 256,
           "description": "Mini-batch size",
@@ -2255,6 +2492,24 @@
           "description": "Adam learning rate",
           "type": "number"
         },
+        "min_delta": {
+          "default": 0.0001,
+          "description": "Minimum validation-loss improvement counted by early stopping.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "n_bootstrap": {
+          "default": 500,
+          "description": "Draws for the plug-in dispersion reported as ``se`` when ``refit_bootstrap`` is 0. It resamples the fitted effects with the network held fixed and is not a standard error for the ATE (``model_info['se_valid_for_ate']`` is ``False``).",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "patience": {
+          "default": 20,
+          "description": "Validation-loss patience for early stopping.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "random_state": {
           "default": 42,
           "description": "Random seed",
@@ -2286,6 +2541,18 @@
           "description": "Holdout fraction for validation-loss diagnostics",
           "type": "number"
         },
+        "verbose": {
+          "default": false,
+          "description": "Print training progress.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "weight_decay": {
+          "default": 0.0001,
+          "description": "L2 regularisation strength.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "y": {
           "description": "Outcome",
           "type": "string",
@@ -2306,6 +2573,12 @@
     "name": "dragonnet",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "batch_size": {
           "default": 256,
           "description": "Mini-batch size",
@@ -2354,6 +2627,24 @@
           "description": "Adam learning rate",
           "type": "number"
         },
+        "min_delta": {
+          "default": 0.0001,
+          "description": "Minimum validation-loss improvement counted by early stopping.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "n_bootstrap": {
+          "default": 500,
+          "description": "Bootstrap iterations for standard error estimation.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "patience": {
+          "default": 20,
+          "description": "Validation-loss patience for early stopping.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "propensity_weight": {
           "default": 1.0,
           "description": "Weight on the propensity cross-entropy loss",
@@ -2389,6 +2680,18 @@
           "default": 0.0,
           "description": "Holdout fraction for validation-loss diagnostics",
           "type": "number"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print training progress.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "weight_decay": {
+          "default": 0.0001,
+          "description": "L2 regularisation strength.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome",
@@ -2435,6 +2738,12 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "discrete_treatment": {
+          "default": true,
+          "description": "Whether treatment is discrete",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "fe": {
           "description": "Panel fixed effects removed within nodes and leaves.",
           "enum": [
@@ -2456,6 +2765,11 @@
           ],
           "x-statspai-role": "column"
         },
+        "max_depth": {
+          "description": "Maximum tree depth",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "max_samples": {
           "default": 0.5,
           "description": "Share of clusters per tree.",
@@ -2465,6 +2779,16 @@
           "default": 5,
           "description": "GRF min.node.size.",
           "type": "integer"
+        },
+        "model_t": {
+          "description": "First-stage treatment model",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "model_y": {
+          "description": "First-stage outcome model",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "n_estimators": {
           "default": 2000,
@@ -3693,6 +4017,12 @@
     "name": "metalearner",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cate_model": {
           "description": "Final-stage CATE learner (x, r, dr). For learner='x' a pair (fit_on_controls, fit_on_treated) sets the two second-stage regressions separately.",
           "type": "string"
@@ -3734,9 +4064,26 @@
           ],
           "type": "string"
         },
+        "n_bootstrap": {
+          "default": 200,
+          "description": "**Deprecated and ignored** as of v1.11.4. Previously the SE for S/T/X/R-Learner came from a re-sampling bootstrap of the fitted CATE values, which treats tau as fixed and severely under-estimates uncertainty. The function now uses the AIPW influence function for SE regardless of ``learner=``. The argument is kept for backward compatibility and will be removed in a future minor release.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Cross-fitting folds for nuisance estimation (used by R/DR learners and the unified AIPW SE path; see Notes).",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "outcome_model": {
           "description": "Outcome learner. For learner='t' or 'x' a pair (control_model, treated_model) fits a different learner in each arm.",
           "type": "string"
+        },
+        "propensity_model": {
+          "description": "Custom propensity score model (used by X/R/DR learners).",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment column (0/1)",
@@ -4165,6 +4512,12 @@
           "description": "Initial outcome predictions, shape (n, 2) = [Q(0,W), Q(1,W)] on the outcome scale, replacing the Super Learner.",
           "type": "string"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster column: influence function summed within clusters with G/(G-1) (R tmle id= for equal cluster sizes).",
           "type": "string",
@@ -4221,10 +4574,50 @@
           "description": "Bootstrap resamples for se_method='bootstrap' (>= 20)",
           "type": "integer"
         },
+        "n_folds": {
+          "default": 5,
+          "description": "Cross-validation folds for Super Learner.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "outcome_library": {
+          "description": "Candidate learners for the outcome model Q(Y|A,W). If None, uses a default diverse library.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "propensity_bounds": {
+          "default": [
+            0.025,
+            0.975
+          ],
+          "description": "Bounds for propensity score truncation.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "propensity_library": {
+          "description": "Candidate learners for propensity model g(A|W). If None, uses a default diverse library.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "q_bound": {
           "default": 1e-05,
           "description": "The initial outcome predictions, on the [0, 1] scale the logistic fluctuation works on (continuous outcomes are min-max rescaled), are truncated to ``[q_bound, 1 - q_bound]`` before targeting. ``tmle::tmle`` truncates at ``1 - alpha = 5e-4`` (its default ``alpha = 0.9995``); pass ``q_bound=5e-4`` to reproduce it.",
           "type": "number"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "se_method": {
           "default": "influence",
@@ -4362,6 +4755,12 @@
     "name": "panel_compare",
     "parameters": {
       "properties": {
+        "cluster": {
+          "description": "Passed to each ``panel()`` call.",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
@@ -4387,6 +4786,16 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "robust": {
+          "default": "nonrobust",
+          "description": "Passed to each ``panel()`` call.",
+          "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
+          "x-canonical": "vce",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time period column.",
@@ -4417,6 +4826,12 @@
           ],
           "type": "string"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster SEs on a coarser unit than the panel id (must be constant within unit)",
           "type": "string",
@@ -4426,6 +4841,11 @@
           "default": false,
           "description": "Collapse instruments (Roodman 2009) to curb proliferation",
           "type": "boolean"
+        },
+        "constant": {
+          "description": "Include an intercept. Defaults to ``True`` for ``method='system'`` (where the level equation identifies it, as in ``xtabond2``) and ``False`` for ``method='difference'`` (where it differences away); requesting it for difference GMM raises ``NotImplementedError``.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "data": {
           "description": "Balanced or unbalanced panel in long format.",
@@ -4439,6 +4859,26 @@
           },
           "type": "array"
         },
+        "endogenous_lags": {
+          "description": "Instrument lag windows for the two classes above. ``None`` on either element means \"class default\" for the minimum and \"all available deeper lags\" for the maximum. Lags are **absolute**, i.e. counted from the equation period, which is ``xtabond2``'s ``gmm(x, lag(a b))`` convention and the one the modern literature states. Stata's older ``xtabond`` counts *further* lags beyond the deepest lag of the variable that appears as a regressor, so ``xtabond ..., pre(w, lagstruct(p, .))`` maps to ``predetermined=['l(0/p).w'], predetermined_lags=(p + 1, None)`` and ``endogenous(w, lagstruct(p, .))`` to ``endogenous_lags=(p + 2, None)``. Both mappings are pinned by reference-parity tests.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "gmm_lags": {
+          "default": [
+            2,
+            null
+          ],
+          "description": "Range of lags of Y (in levels) used as GMM instruments. ``min`` must be >= 2 (deeper lags are orthogonal to the differenced error). ``max=None`` uses **all** available deeper lags, matching Stata's ``xtabond`` default. Setting ``max`` caps the instrument count (Stata's ``maxldep()``).",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "h": {
           "default": 3,
           "description": "xtabond2 h(): one-step error covariance; 3 is xtabond2's default, 2 zeroes the system cross quadrants (Stata xtdpdsys), 1 the identity.",
@@ -4449,6 +4889,18 @@
           "description": "Unit identifier",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "iter_maxiter": {
+          "default": 100,
+          "description": "Convergence tolerance on the maximum coefficient change, and the iteration cap, for ``steps='iterated'`` / ``'cue'``. Failure to converge warns rather than silently returning the last iterate.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "iter_tol": {
+          "default": 1e-10,
+          "description": "Convergence tolerance on the maximum coefficient change, and the iteration cap, for ``steps='iterated'`` / ``'cue'``. Failure to converge warns rather than silently returning the last iterate.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "iv_equation": {
           "description": "System GMM: equation(s) the exogenous regressors instrument; None means 'both' (xtabond2), 'diff' is Stata xtdpdsys.",
@@ -4485,6 +4937,20 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "predetermined_lags": {
+          "description": "Instrument lag windows for the two classes above. ``None`` on either element means \"class default\" for the minimum and \"all available deeper lags\" for the maximum. Lags are **absolute**, i.e. counted from the equation period, which is ``xtabond2``'s ``gmm(x, lag(a b))`` convention and the one the modern literature states. Stata's older ``xtabond`` counts *further* lags beyond the deepest lag of the variable that appears as a regressor, so ``xtabond ..., pre(w, lagstruct(p, .))`` maps to ``predetermined=['l(0/p).w'], predetermined_lags=(p + 1, None)`` and ``endogenous(w, lagstruct(p, .))`` to ``endogenous_lags=(p + 2, None)``. Both mappings are pinned by reference-parity tests.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "robust": {
+          "default": true,
+          "description": "Heteroskedasticity-robust standard errors (Windmeijer-corrected for two-step). When ``False``, the classical one/two-step VCE.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "steps": {
           "description": "Number of GMM steps, or 'iterated' / 'cue'",
@@ -4531,6 +4997,12 @@
     "name": "xtdpdsys",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "As in :func:`xtabond`.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "collapse": {
           "default": false,
           "description": "Collapse instruments (Roodman 2009) to curb proliferation",
@@ -4540,6 +5012,18 @@
           "description": "As in :func:`xtabond`.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "gmm_lags": {
+          "default": [
+            2,
+            null
+          ],
+          "description": "As in :func:`xtabond`.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
         },
         "h": {
           "default": 2,
@@ -4566,6 +5050,12 @@
           "default": 1,
           "description": "As in :func:`xtabond`.",
           "type": "integer"
+        },
+        "robust": {
+          "default": true,
+          "description": "As in :func:`xtabond`.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "time": {
           "default": "time",
@@ -4603,6 +5093,21 @@
     "name": "causal_impact",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the (frequentist) prediction intervals.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "covariates": {
+          "description": "Control time series (not affected by the intervention). If None, uses a local-level model without covariates.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "Time-series data (one row per time period).",
           "type": "object",
@@ -4611,6 +5116,11 @@
         "intervention_time": {
           "description": "Date/index of intervention",
           "type": "string"
+        },
+        "n_seasons": {
+          "description": "Accepted for API compatibility but currently not used: the model has no seasonal component.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time / date column",
@@ -4662,6 +5172,12 @@
           ],
           "type": "string"
         },
+        "nest": {
+          "default": false,
+          "description": "nest parameter (bool).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "strata": {
           "description": "Stratification variable",
           "type": "string",
@@ -4693,12 +5209,63 @@
           "description": "Output file path (.xlsx, .tex, .docx)",
           "type": "string"
         },
+        "format": {
+          "default": "auto",
+          "description": "``\"auto\"`` (default) detects from filename extension: ``.xlsx`` -> Excel, ``.docx`` -> Word, ``.tex`` -> LaTeX. Override with ``\"excel\"``, ``\"word\"``, or ``\"latex\"``.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "model_names": {
+          "description": "Labels for each model.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "notes": {
+          "description": "Notes appended below the table.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "results": {
           "description": "One or more EconometricResults objects",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "show_se": {
+          "default": true,
+          "description": "Whether to keep the standard-errors row. ``False`` is no longer supported and will emit a ``UserWarning``.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "show_stars": {
+          "default": true,
+          "description": "Whether to show significance stars.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "show_tstat": {
+          "default": false,
+          "description": "If ``True``, the parenthesised cell shows the *t*-statistic instead of the standard error.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "title": {
+          "default": "Regression Results",
+          "description": "Table title.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "variable_labels": {
+          "description": "Custom variable labels (mapped to ``regtable.coef_labels``).",
+          "type": "object",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -4713,6 +5280,19 @@
     "name": "modelsummary",
     "parameters": {
       "properties": {
+        "add_rows": {
+          "description": "Extra rows beneath the coefficients, ``{\"Row label\": [cell per model]}``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "coef_map": {
+          "description": "Rename and reorder coefficients ``{\"raw_name\": \"Label\"}``; only the listed coefficients are shown, as in R ``modelsummary``.",
+          "type": "object",
+          "x-statspai-source": "signature"
+        },
         "digits": {
           "description": "Decimal places for coefficients; SEs follow unless se_fmt overrides them. Shorthand for the paired coefficient/SE precision controls.",
           "type": "integer"
@@ -4721,12 +5301,67 @@
           "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
           "type": "integer"
         },
+        "model_names": {
+          "description": "Column header labels; defaults to ``(1), (2), ...``. Passed to regtable's ``model_labels``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "notes": {
+          "description": "Notes printed beneath the table.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "output": {
+          "default": "text",
+          "description": "``'text'``, ``'latex'``, ``'html'`` or ``'markdown'`` return the rendered string; ``'dataframe'`` returns a DataFrame; a path ending in ``.xlsx`` or ``.docx`` writes that file and returns a confirmation string.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "results": {
           "description": "List of EconometricResults",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "se_type": {
+          "default": "parentheses",
+          "description": "Kept for compatibility: the standard error is always shown in parentheses. ``'brackets'`` and ``'none'`` warn and fall back to it; use ``show_ci=True`` for ``[lo, hi]`` intervals.",
+          "type": "string",
+          "x-canonical": "vce",
+          "x-statspai-source": "signature"
+        },
+        "show_ci": {
+          "default": false,
+          "description": "Show the confidence interval beneath each coefficient instead of the standard error.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "stars": {
+          "default": true,
+          "description": "Append significance stars. A dict such as ``{\"*\": 0.10, \"**\": 0.05, \"***\": 0.01}`` sets the thresholds; only its values are used, the symbols stay ``*`` / ``**`` / ``***``.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "stats": {
+          "description": "Summary rows. R spellings are translated (``nobs`` -> ``N``, ``r_squared`` -> ``r2``, ``adj_r_squared`` -> ``adj_r2``, ``f_stat`` -> ``F``); ``method`` / ``bandwidth`` / ``estimand`` have no regtable equivalent and are dropped.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "title": {
+          "default": "",
+          "description": "Table title / caption.",
+          "type": "string",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -4740,6 +5375,20 @@
     "name": "regtable",
     "parameters": {
       "properties": {
+        "add_rows": {
+          "description": "Custom rows: ``{\"Controls\": [\"No\", \"Yes\", \"Yes\"]}``. User-provided rows take precedence over auto-extracted diagnostic rows with the same label.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level used when ``se_type='ci'``. Displayed CI is ``(1 - alpha) * 100``%. With ``alpha=0.05`` (default) the bounds come from the model's stored 95% CI; for any other ``alpha`` the bounds are recomputed as ``b +/- crit * se``, using the t-distribution when ``df_resid`` is known, else the standard normal.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "apply_coef": {
           "description": "Arbitrary coefficient transform (generalises eform); mutually exclusive with eform",
           "type": "string"
@@ -4747,6 +5396,11 @@
         "apply_coef_deriv": {
           "description": "Derivative of apply_coef for delta-method SE rescaling",
           "type": "string"
+        },
+        "coef_labels": {
+          "description": "Rename variables: ``{\"education\": \"Years of Education\"}``.",
+          "type": "object",
+          "x-statspai-source": "signature"
         },
         "coef_map": {
           "description": "Single-shot rename + reorder + drop (mutually exclusive with coef_labels/keep/drop/order)",
@@ -4764,6 +5418,14 @@
           "description": "Warn when sample sizes differ across columns",
           "type": "boolean"
         },
+        "dep_var_labels": {
+          "description": "Dependent variable labels shown below column headers.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "diagnostics": {
           "default": "auto",
           "description": "Auto-extract FE/Cluster/IV/DiD/RD rows",
@@ -4775,6 +5437,14 @@
         "digits": {
           "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
           "type": "integer"
+        },
+        "drop": {
+          "description": "Hide these variables.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
         },
         "eform": {
           "default": false,
@@ -4803,9 +5473,25 @@
           "description": "Coefficient/SE precision. Unset resolves to the journal template's precision, else 'auto', which picks decimals per row so an estimate and its own SE always agree (journal style); an int N or printf '%.Nf' fixes it",
           "type": "integer"
         },
+        "keep": {
+          "description": "Only show these variables.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "labels": {
           "description": "The estimation data; rows are labelled from its variable and value labels (df.attrs), as Stata's esttab, label does. coef_labels entries take precedence",
           "type": "string"
+        },
+        "model_labels": {
+          "description": "Column header labels. Defaults to ``(1), (2), ...``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
         },
         "multi_se": {
           "description": "Stack alternative SE specs under primary SE",
@@ -4826,6 +5512,22 @@
             "string"
           ]
         },
+        "notes": {
+          "description": "Additional notes beneath the table.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "order": {
+          "description": "Reorder variables.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "output": {
           "default": "text",
           "description": "Render format",
@@ -4838,6 +5540,24 @@
             "excel"
           ],
           "type": "string"
+        },
+        "panel_labels": {
+          "description": "Labels for each panel (e.g., ``[\"Panel A: Wages\", \"Panel B: Hours\"]``).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "quarto_caption": {
+          "description": "Caption rendered alongside the Quarto cross-ref id. Falls back to ``title`` when omitted; if both are absent, a generic ``\"Regression results\"`` is used and a warning is emitted.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "quarto_label": {
+          "description": "Quarto cross-reference id. Pass ``\"main\"`` to make the table referenceable as ``@tbl-main`` from the manuscript prose. The ``tbl-`` prefix is auto-prepended when missing. Required for ``to_quarto()`` and ``output=\"quarto\"``.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "repro": {
           "description": "Append reproducibility footer (version+seed+data hash)",
@@ -4876,9 +5596,31 @@
           "type": "string",
           "x-canonical": "vce"
         },
+        "star_levels": {
+          "description": "Thresholds for ``*``, ``**``, ``***``.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "stars": {
+          "default": true,
+          "description": "Append significance stars.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "statistic": {
           "description": "Bottom-line cell template (same placeholders as estimate)",
           "type": "string"
+        },
+        "stats": {
+          "description": "Summary statistics. Defaults to ``[\"N\", \"R2\", \"adj_R2\", \"F\"]``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
         },
         "stats_fmt": {
           "default": "stat",
@@ -4905,6 +5647,11 @@
         "tests": {
           "description": "Hypothesis-test rows: {label: [(stat,p) | p | None per model]} (stars honour notation)",
           "type": "object"
+        },
+        "title": {
+          "description": "Table title / caption.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "transpose": {
           "default": false,
@@ -4949,9 +5696,71 @@
           "description": "Decimal places for coefficients; SEs follow unless se_fmt overrides them. Shorthand for the paired coefficient/SE precision controls.",
           "type": "integer"
         },
+        "drop": {
+          "description": "Show only these coefficients / hide these coefficients.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "filename": {
+          "description": "Write the table to this path. With ``output='text'`` the format follows the extension (``.tex``, ``.html`` / ``.htm``, ``.md``, ``.csv``); otherwise ``output`` decides.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "fmt": {
           "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
           "type": "integer"
+        },
+        "keep": {
+          "description": "Show only these coefficients / hide these coefficients.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "labels": {
+          "description": "Rename coefficients ``{\"raw_name\": \"Label\"}`` (regtable's ``coef_labels``).",
+          "type": "object",
+          "x-statspai-source": "signature"
+        },
+        "names": {
+          "description": "Column header labels (regtable's ``model_labels``); defaults to ``(1), (2), ...``, or the :func:`eststo` names. Must have one entry per model.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "notes": {
+          "description": "Notes printed beneath the table.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "order": {
+          "description": "Coefficients to list first, in this order.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "output": {
+          "default": "text",
+          "description": "Format of ``str(result)``: ``'text'``, ``'latex'``, ``'html'``, ``'markdown'`` or ``'csv'``.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "p": {
+          "default": false,
+          "description": "What to show beneath each coefficient: the standard error (default), the t statistic, the p-value or the confidence interval. When several are true the first of ``ci``, ``p``, ``t`` wins.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "results": {
           "description": "Models; falls back to global eststo store",
@@ -4964,6 +5773,45 @@
           "default": true,
           "description": "Show standard errors",
           "type": "boolean"
+        },
+        "star_levels": {
+          "default": [
+            0.1,
+            0.05,
+            0.01
+          ],
+          "description": "p-value thresholds for ``*``, ``**``, ``***``.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "stars": {
+          "default": true,
+          "description": "Append significance stars.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "stats": {
+          "description": "Summary-statistic rows, as in regtable (default ``N``, ``R2``, ``adj_R2``, ``F``).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "t": {
+          "default": false,
+          "description": "What to show beneath each coefficient: the standard error (default), the t statistic, the p-value or the confidence interval. When several are true the first of ``ci``, ``p``, ``t`` wins.",
+          "type": "boolean",
+          "x-canonical": "time",
+          "x-statspai-source": "signature"
+        },
+        "title": {
+          "description": "Table title / caption.",
+          "type": "string",
+          "x-statspai-source": "signature"
         }
       },
       "required": [],
@@ -4975,6 +5823,21 @@
     "name": "paper_tables",
     "parameters": {
       "properties": {
+        "coef_labels": {
+          "description": "Rename coefficients consistently across all panels. Column labels per panel.",
+          "type": "object",
+          "x-statspai-source": "signature"
+        },
+        "docx_filename": {
+          "description": "If provided, write a single Word document with all panels in AER/QJE book-tab style (one panel per page).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "filename": {
+          "description": "If provided, write the Markdown version to this path.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "heterogeneity": {
           "description": "Subsample / interaction results",
           "items": {
@@ -4982,12 +5845,57 @@
           },
           "type": "array"
         },
+        "keep": {
+          "description": "Variable-name whitelist (shown across all panels).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "latex_filename": {
+          "description": "If provided, write the concatenated LaTeX to this path.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "main": {
           "description": "Main-spec results",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "model_labels_heterogeneity": {
+          "description": "model_labels_heterogeneity parameter (Optional[List[str]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "model_labels_main": {
+          "description": "model_labels_main parameter (Optional[List[str]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "model_labels_placebo": {
+          "description": "model_labels_placebo parameter (Optional[List[str]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "model_labels_robustness": {
+          "description": "model_labels_robustness parameter (Optional[List[str]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
         },
         "placebo": {
           "description": "Placebo-outcome results",
@@ -5017,6 +5925,11 @@
             "restud"
           ],
           "type": "string"
+        },
+        "xlsx_filename": {
+          "description": "If provided, write a single Excel workbook with each panel as its own worksheet, styled in AER/QJE book-tab convention.",
+          "type": "string",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -5034,6 +5947,12 @@
           "default": 0.05,
           "description": "CI level when second_row='ci'",
           "type": "number"
+        },
+        "bold_estimate": {
+          "default": false,
+          "description": "For ``output=\"text\"`` / ``\"latex\"``, whether to bold the estimate (HTML / Markdown bold the estimate by default for readability).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "fmt": {
           "default": "%.3f",
@@ -5066,6 +5985,19 @@
             "none"
           ],
           "type": "string"
+        },
+        "star_levels": {
+          "default": [
+            0.1,
+            0.05,
+            0.01
+          ],
+          "description": "Star thresholds -- same convention as :func:`sp.regtable`.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
         },
         "term": {
           "description": "Coefficient name (default: estimand or first param)",
@@ -10358,6 +11290,11 @@
           "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
           "type": "integer"
         },
+        "filename": {
+          "description": "Save to file (format auto-detected from extension).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "fmt": {
           "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
           "type": "integer"
@@ -10366,6 +11303,26 @@
           "description": "Binary grouping variable",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "group_labels": {
+          "description": "Labels for (control, treated) groups. Defaults to ``(\"Control\", \"Treated\")``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "output": {
+          "default": "text",
+          "description": "Output format: ``\"text\"``, ``\"latex\"``, ``\"html\"``, ``\"markdown\"``.",
+          "enum": [
+            "text",
+            "latex",
+            "html",
+            "markdown"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "test": {
           "default": "ttest",
@@ -10377,12 +11334,24 @@
           ],
           "type": "string"
         },
+        "title": {
+          "default": "Balance Table",
+          "description": "Table title.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "variables": {
           "description": "Columns to compare",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "weights": {
+          "description": "Column name for weights (reserved for future use).",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -10569,6 +11538,12 @@
     "name": "ipw",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster column: cluster bootstrap, or cluster-summed sandwich with se_method='sandwich'",
           "type": "string",
@@ -10600,6 +11575,18 @@
           ],
           "type": "string"
         },
+        "n_bootstrap": {
+          "default": 500,
+          "description": "Number of bootstrap iterations for standard error estimation (at least 2). ``n_bootstrap=0`` asks for the point estimate alone: no resampling is done and the standard error, interval and p-value are missing. A resample that holds a single treatment arm has no",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "normalize": {
+          "default": true,
+          "description": "If True, use Hajek (normalised) weights. Generally recommended for finite-sample stability, and the estimate does not change when a constant is added to the outcome. ``False`` is Horvitz-Thompson: the weighted sums are divided by the size of the target population (``n`` for the ATE, the number of treated for the ATT, of controls for the ATC).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "propensity": {
           "description": "Known treatment probability: one number, or a column of per-unit design probabilities. No propensity model is fitted; the sandwich drops the first-stage term. Fitting the propensity is more precise even when it is known.",
           "type": "number"
@@ -10621,6 +11608,11 @@
             "sandwich"
           ],
           "type": "string"
+        },
+        "seed": {
+          "description": "Random seed for reproducibility.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment indicator (0/1).",
@@ -10707,10 +11699,25 @@
     "name": "augsynth",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "backend": {
           "default": "native",
           "description": "Computation backend: native or augsynth/R bridge backend",
           "type": "string"
+        },
+        "covariates": {
+          "description": "Additional predictors (currently informational; main adjustment comes from pre-treatment outcomes).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
         },
         "data": {
           "description": "Panel data in long format.",
@@ -10725,6 +11732,17 @@
           ],
           "x-canonical": "y",
           "x-statspai-role": "column"
+        },
+        "placebo": {
+          "default": true,
+          "description": "Run in-space placebo permutation tests for SE / p-value.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "ridge_lambda": {
+          "description": "Ridge penalty. When ``None``, selected by time-holdout CV matching ``augsynth``'s one-standard-error rule.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Column names.",
@@ -10769,8 +11787,14 @@
           "description": "(n,n) spatial weights matrix",
           "type": "string"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Data with the variables named in ``formula``.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -10778,6 +11802,12 @@
           "description": "'y ~ x1 + x2'",
           "type": "string",
           "x-statspai-role": "formula"
+        },
+        "row_normalize": {
+          "default": true,
+          "description": "Divide each row of ``W`` by its sum before fitting (rows that sum to zero are left as they are).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -10797,15 +11827,27 @@
           "description": "(n,n) spatial weights matrix",
           "type": "string"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Data with the variables named in ``formula``.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
         "formula": {
-          "description": "Model formula using patsy/R-style syntax.",
+          "description": "Model formula ``\"y ~ x1 + x2\"``; a constant is added.",
           "type": "string",
           "x-statspai-role": "formula"
+        },
+        "row_normalize": {
+          "default": true,
+          "description": "Divide each row of ``W`` by its sum before fitting (rows that sum to zero are left as they are).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -10825,15 +11867,27 @@
           "description": "(n,n) spatial weights matrix",
           "type": "string"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Data with the variables named in ``formula``.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
         "formula": {
-          "description": "Model formula using patsy/R-style syntax.",
+          "description": "Model formula ``\"y ~ x1 + x2\"``; a constant is added.",
           "type": "string",
           "x-statspai-role": "formula"
+        },
+        "row_normalize": {
+          "default": true,
+          "description": "Divide each row of ``W`` by its sum before fitting (rows that sum to zero are left as they are).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -10849,6 +11903,17 @@
     "name": "bootstrap",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "block": {
+          "description": "Column name for block bootstrap (resample blocks, preserve within-block ordering). Useful for panel/time-series data. With ``cluster=`` or ``block=`` the BCa acceleration is a delete-one-group jackknife, the unit that is resampled. A grouping column with missing ids or a single group is refused.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "ci_method": {
           "default": "percentile",
           "description": "CI method",
@@ -10878,6 +11943,17 @@
           "description": "Number of bootstrap replications.",
           "type": "integer"
         },
+        "null_value": {
+          "default": 0.0,
+          "description": "Value under H0 for p-value computation.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "statistic": {
           "description": "Function f(df) -> float",
           "type": "string"
@@ -10895,6 +11971,18 @@
     "name": "diagnose_result",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "print_results": {
+          "default": true,
+          "description": "If True, print formatted diagnostics to stdout.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "result": {
           "description": "Fitted result from any StatsPAI estimator",
           "type": "string"
@@ -11005,6 +12093,12 @@
     "name": "front_door",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Pre-treatment covariates",
           "items": {
@@ -11042,6 +12136,18 @@
           ],
           "type": "string"
         },
+        "n_boot": {
+          "default": 500,
+          "description": "Nonparametric bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_mc": {
+          "default": 200,
+          "description": "Monte Carlo samples per observation for the continuous-M case.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "outcome_model": {
           "default": "by_arm",
           "description": "E[Y | D, M]: a regression per arm, or one pooled regression without D-by-M interaction (the linear two-stage front door)",
@@ -11050,6 +12156,11 @@
             "additive"
           ],
           "type": "string"
+        },
+        "seed": {
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment (0/1)",
@@ -11076,6 +12187,12 @@
     "name": "msm",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "baseline": {
           "description": "Baseline covariates",
           "items": {
@@ -11148,10 +12265,27 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "treat_type": {
+          "default": "auto",
+          "description": "Treatment type for weight construction. 'auto' detects from data.",
+          "enum": [
+            "auto",
+            "binary",
+            "continuous"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "trim": {
           "default": 0.01,
           "description": "Weight truncation quantile",
           "type": "number"
+        },
+        "trim_per_period": {
+          "default": false,
+          "description": "When True, apply ``trim`` at each period's per-period ratio *before* taking the cumulative product. This is a more aggressive stabilisation strategy used in some longitudinal literature (Cole & Hernan 2008 Section 3) -- it prevents a single outlier period from dominating the cumulative product. When False (the default), trimming is applied once on the final cumulative-product weight, which is the most common convention and matches the original Robins (1998) formulation.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome",
@@ -11175,6 +12309,12 @@
     "name": "mediate_interventional",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Baseline covariates",
           "items": {
@@ -11192,6 +12332,34 @@
           "description": "Mediator variable",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "n_boot": {
+          "default": 500,
+          "description": "Nonparametric bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_mc": {
+          "default": 500,
+          "description": "Monte Carlo draws of M for the stochastic intervention.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "pvalue_method": {
+          "default": "bootstrap_sign",
+          "description": "How the per-effect p-value is computed: - ``'bootstrap_sign'`` (default, matches :func:`sp.mediate`): the bootstrap-CI-inversion p-value, i.e. twice the fraction of bootstrap replications on the opposite side of zero from the point estimate. Respects skewed bootstrap distributions. - ``'wald'``: the conventional 2*(1-Phi(|theta/se|)) p-value, using the bootstrap SE. Consistent with the Wald pvalue convention used across the rest of StatsPAI's causal-inference surface (e.g. ``sp.aipw``, ``sp.dml``).",
+          "enum": [
+            "bootstrap_sign",
+            "wald"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment",
@@ -11225,6 +12393,12 @@
     "name": "proximal",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "bridge": {
           "default": "linear",
           "description": "Bridge function family",
@@ -11264,6 +12438,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Treatment",
@@ -11435,6 +12614,22 @@
           ],
           "type": "string"
         },
+        "pvalue_method": {
+          "default": "bootstrap_sign",
+          "description": "How each effect's p-value is computed: - ``'bootstrap_sign'`` (default, preserves v0.9.x behaviour): twice the fraction of bootstrap replications that fall on the side of zero opposite to the **bootstrap mean**. For well-behaved (symmetric) bootstrap distributions the mean and the point estimate coincide, but under skew this is the self-consistent \"is the bootstrap distribution straddling zero?\" test and is robust to skew. - ``'wald'``: conventional 2*(1-Phi(|theta/se|)), using the reported SE. Consistent with the Wald convention used across the rest of the causal-inference surface (:func:`sp.aipw`, :func:`sp.dml`, etc.). ``inference='delta'`` has no bootstrap distribution, so p-values are reported with the Wald convention. ``inference='robust'`` reports Wald p-values as well. The matching kwarg is also accepted by :func:`sp.mediate_interventional`; pass the same value to keep reporting conventions aligned across a mediation study.",
+          "enum": [
+            "bootstrap_sign",
+            "wald"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed for reproducibility.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "treat": {
           "description": "Binary treatment",
           "type": "string",
@@ -11467,6 +12662,12 @@
     "name": "bartik",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Exogenous control variables.",
           "items": {
@@ -11484,6 +12685,30 @@
           "description": "Endogenous local exposure being instrumented (e.g. employment growth)",
           "type": "string",
           "x-statspai-role": "columns"
+        },
+        "leave_one_out": {
+          "description": "Compute leave-one-out shocks (exclude own region from national average), which needs ``regional_shocks`` -- without the per-region industry growth panel ``g_k`` excluding region ``i`` cannot be reconstructed. ``None`` (default) uses leave-one-out exactly when ``regional_shocks`` is supplied; ``True`` without ``regional_shocks`` raises; ``False`` always uses the simple instrument. (Until 1.32 the default was ``True``, which on the basic API only ever warned and fell back.)",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "regional_shocks": {
+          "description": "Regional industry growth matrix (n_units x n_industries). Row ``i``, column ``k`` is the realised growth of industry ``k`` in region ``i``. When provided with ``leave_one_out=True``, the instrument uses ``g_k^{-i} = (sum_j g_{jk} - g_{ik}) / (n - 1)`` (Borusyak- Hull-Jaravel 2022-style exact leave-one-out). Row index must align with ``shares``; columns must be a superset of ``shocks.index``.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "robust": {
+          "default": "hc1",
+          "description": "Standard error type: ``'hc1'`` is the 2SLS sandwich with the ``n / (n - k)`` factor (Stata ``ivregress 2sls, vce(robust) small``, R ``sandwich::vcovHC(type = \"HC1\")``); ``'nonrobust'`` uses ``sigma^2 = RSS / (n - k)`` (``ivregress 2sls, small``). Other values raise. For shift-share (AKM) inference pass the result to :func:`sp.shift_share_se`.",
+          "enum": [
+            "hc1",
+            "nonrobust"
+          ],
+          "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
+          "x-canonical": "vce",
+          "x-statspai-source": "signature"
         },
         "shares": {
           "description": "Pre-period share column (e.g. industry share)",
@@ -11519,6 +12744,17 @@
     "name": "bayes_rd",
     "parameters": {
       "properties": {
+        "advi_iterations": {
+          "default": 20000,
+          "description": "ADVI fit iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "bandwidth": {
+          "description": "Half-width of the local window around ``cutoff``. If ``None``, uses the rule-of-thumb ``0.5 * std(running)``.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "chains": {
           "default": 4,
           "description": ":func:`bayes_did`.",
@@ -11539,15 +12775,81 @@
           "description": ":func:`bayes_did`.",
           "type": "integer"
         },
+        "hdi_prob": {
+          "default": 0.95,
+          "description": "hdi_prob parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "inference": {
+          "default": "nuts",
+          "description": "- ``'nuts'`` : call :func:`pm.sample` (exact MCMC). - ``'advi'`` : call :func:`pm.fit` with mean-field ADVI, then draw ``draws`` samples from the fitted approximation. Much faster but mean-field assumes independent Gaussians so correlated posteriors look tighter than they are.",
+          "enum": [
+            "nuts",
+            "advi"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "poly": {
           "default": 1,
           "description": "Polynomial order",
           "type": "integer"
         },
+        "prior_noise": {
+          "default": 5.0,
+          "description": "Prior scales for the polynomial slopes and residual SD.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_slope_sigma": {
+          "default": 10.0,
+          "description": "Prior scales for the polynomial slopes and residual SD.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_tau": {
+          "default": [
+            0.0,
+            10.0
+          ],
+          "description": "Mean / SD of the Normal prior on the discontinuity.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "progressbar": {
+          "default": false,
+          "description": ":func:`bayes_did`.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": ":func:`bayes_did`.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "rope": {
+          "description": "Region of practical equivalence.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "running": {
           "description": "Running variable",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "target_accept": {
+          "default": 0.9,
+          "description": ":func:`bayes_did`.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "tune": {
           "default": 1000,
@@ -11573,6 +12875,17 @@
     "name": "bayes_fuzzy_rd",
     "parameters": {
       "properties": {
+        "advi_iterations": {
+          "default": 20000,
+          "description": "ADVI fit iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "bandwidth": {
+          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "chains": {
           "default": 4,
           "description": "chains parameter (int).",
@@ -11593,15 +12906,87 @@
           "description": "draws parameter (int).",
           "type": "integer"
         },
+        "hdi_prob": {
+          "default": 0.95,
+          "description": "hdi_prob parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "inference": {
+          "default": "nuts",
+          "description": "- ``'nuts'`` : call :func:`pm.sample` (exact MCMC). - ``'advi'`` : call :func:`pm.fit` with mean-field ADVI, then draw ``draws`` samples from the fitted approximation. Much faster but mean-field assumes independent Gaussians so correlated posteriors look tighter than they are.",
+          "enum": [
+            "nuts",
+            "advi"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "poly": {
           "default": 1,
           "description": "Polynomial order",
           "type": "integer"
         },
+        "prior_late": {
+          "default": [
+            0.0,
+            10.0
+          ],
+          "description": "Mean / SD of a *regularising* Normal prior on the LATE. Only applied when ``regularize_late=True``.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "prior_noise": {
+          "default": 5.0,
+          "description": "prior_noise parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_slope_sigma": {
+          "default": 10.0,
+          "description": "prior_slope_sigma parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "progressbar": {
+          "default": false,
+          "description": "NUTS sampler controls.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "NUTS sampler controls.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "regularize_late": {
+          "default": false,
+          "description": "If ``True``, add an explicit Normal(``mu_late``, ``sigma_late``) soft-prior on the deterministic ratio ``itt_Y / itt_D``. OFF by default -- the default posterior is driven purely by the data and the priors on ``itt_Y`` / ``itt_D``. Turn on if you observe ratio explosions under weak compliance; note that the resulting posterior will be biased toward ``mu_late`` when the data is only weakly informative (stacks on top of the implicit prior through the constituents).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "rope": {
+          "description": "rope parameter (Optional[Tuple[float, float]]).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "running": {
           "description": "Running variable",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "target_accept": {
+          "default": 0.9,
+          "description": "NUTS sampler controls.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Take-up / treatment received",
@@ -11633,6 +13018,12 @@
     "name": "bayes_mte",
     "parameters": {
       "properties": {
+        "advi_iterations": {
+          "default": 20000,
+          "description": "ADVI fit iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "chains": {
           "default": 4,
           "description": "chains parameter (int).",
@@ -11656,10 +13047,102 @@
           "description": "draws parameter (int).",
           "type": "integer"
         },
+        "first_stage": {
+          "default": "plugin",
+          "description": "Selection-equation strategy. - ``'plugin'`` : frequentist logit MLE on ``(Z, X) -> D`` computed once; propensities enter the MTE polynomial as fixed constants. Fast and the v0.9.8 behaviour. - ``'joint'`` : first-stage logit coefficients live inside the PyMC graph with Normal priors and ``D ~ Bernoulli(p)``; the propensity ``p_i`` is a Deterministic and the MTE polynomial sees it directly, so first-stage uncertainty propagates into the MTE curve. 2-4x slower than plugin. With a strong instrument the two give nearly the same posterior (identical to two digits on 1,000 observations in a simulation).",
+          "enum": [
+            "plugin",
+            "joint"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "hdi_prob": {
+          "default": 0.95,
+          "description": "hdi_prob parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "inference": {
+          "default": "nuts",
+          "description": "- ``'nuts'`` : call :func:`pm.sample` (exact MCMC). - ``'advi'`` : call :func:`pm.fit` with mean-field ADVI, then draw ``draws`` samples from the fitted approximation. Much faster but mean-field assumes independent Gaussians so correlated posteriors look tighter than they are.",
+          "enum": [
+            "nuts",
+            "advi"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "instrument": {
           "description": "Instrument(s)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "mte_method": {
+          "default": "polynomial",
+          "description": "``'polynomial'`` MTE parameterisation. - ``'polynomial'`` : local instrumental variables. With ``MTE(u) = sum_k b_k a(u)^k`` (``a(u) = u``, or ``Phi^{-1}(u)`` under ``selection='normal'``) the mean of the outcome given the propensity is ``E[Y | p] = alpha + sum_k b_k int_0^p a(u)^k du`` (Heckman and Vytlacil 2005), and that is the regression fitted; ``alpha`` is ``E[Y_0]``. It needs additive separability of the covariates and a polynomial MTE, not normal errors, and it allows selection on the untreated outcome. Before 1.39 this mode fitted ``Y = alpha + D * g(p)``, whose ``g`` is the MTE only when the untreated outcome does not depend on ``U_D``; see ``MIGRATION.md``. - ``'hv_latent'`` : sample a latent ``U_D_i`` per unit from the HV-correct truncated uniform (via ``raw_U_i ~ U(0,1)`` and a deterministic reparameterisation), then evaluate the polynomial at ``U_D_i``. The untreated outcome has its own polynomial in ``U_D_i`` (``b_sel``, added in 1.39), so selection on levels is not read as a treatment effect. Slower (adds shape-n latent; ``O(n*draws*chains)`` memory) but mathematically faithful. A UserWarning is emitted if the expected latent storage exceeds ~50M floats. - ``'bivariate_normal'`` : full textbook Heckman-Vytlacil trivariate-normal model ``(U_0, U_1, V) ~ N(0, Sigma)`` with ``D = 1{Z'pi > V}``. Identifies the structural intercept ``beta_D = mu_1 - mu_0`` and the two error covariances ``sigma_0V, sigma_1V``, so ``MTE(v) = beta_D + (sigma_1V - sigma_0V)*v`` is closed-form linear (no user polynomial choice). Requires ``selection='normal'`` (V-scale is the natural fit scale) and ``first_stage='joint'`` (to identify V). The structural equation gets inverse-Mills-ratio correction terms ``-D*sigma_1V*lambda_1(p) + (1-D)*sigma_0V*lambda_0(p)`` with ``lambda_1(p) = phi(Phi^{-1}(p))/p`` and ``lambda_0(p) = phi(Phi^{-1}(p))/(1-p)``. ``poly_u`` is ignored (the model is inherently linear in V). Exposes ``b_mte`` as a 2-vector Deterministic ``[beta_D, sigma_1V - sigma_0V]`` so downstream ``mte_curve``, ``ATT/ATU`` and ``policy_effect`` code paths work without change.",
+          "enum": [
+            "polynomial",
+            "hv_latent",
+            "bivariate_normal"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "poly_u": {
+          "description": "Polynomial order of the MTE in ``U_D``. ``poly_u=0`` reduces to a constant treatment effect; ``poly_u=2`` captures U-shaped or inverted-U selection on gains. Default resolves per ``mte_method``: 2 for ``'polynomial'`` / ``'hv_latent'``, and 1 for ``'bivariate_normal'`` (the model is inherently linear in ``V`` there and ignores any other value). Passing an explicit non-1 value with ``mte_method='bivariate_normal'`` emits a UserWarning before the override.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "prior_coef_sigma": {
+          "default": 10.0,
+          "description": "Priors on structural intercept + covariate slopes + residual SD.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_mte_sigma": {
+          "default": 5.0,
+          "description": "SD on each MTE polynomial coefficient (Normal prior).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_noise": {
+          "default": 5.0,
+          "description": "Priors on structural intercept + covariate slopes + residual SD.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "progressbar": {
+          "default": false,
+          "description": "NUTS sampler controls.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "NUTS sampler controls.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "rope": {
+          "description": "rope parameter (Optional[Tuple[float, float]]).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "selection": {
+          "default": "uniform",
+          "description": "selection parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "target_accept": {
+          "default": 0.9,
+          "description": "NUTS sampler controls.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Binary treatment",
@@ -11670,6 +13153,11 @@
           "default": 1000,
           "description": "tune parameter (int).",
           "type": "integer"
+        },
+        "u_grid": {
+          "description": "Grid of propensity-to-be-treated values on which to evaluate the MTE posterior. Default: ``np.linspace(0.05, 0.95, 19)``.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome, endogenous binary treatment, scalar instrument.",
@@ -11727,6 +13215,12 @@
         "followup_end": {
           "description": "followup_end parameter (str).",
           "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "description": "notes parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "outcome": {
           "description": "Outcome variable column name or outcome array.",
@@ -12376,6 +13870,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "seed": {
+          "description": "Random seed for bootstrap.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "time_col": {
           "description": "Present for documentation / downstream hooks; ICE itself works on the wide-format table.",
           "type": "string",
@@ -12848,6 +14347,11 @@
           ],
           "type": "string"
         },
+        "se_exposure": {
+          "description": "Required for Rucker's Q' (Egger); if omitted we default to first-order weights and raise for ``method='egger'``.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "se_outcome": {
           "description": "se_outcome parameter (ndarray).",
           "type": "string"
@@ -13264,6 +14768,21 @@
     "name": "target_trial_report",
     "parameters": {
       "properties": {
+        "authors": {
+          "description": "authors parameter (Optional[str]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "background": {
+          "description": "Used by the ``'jama'`` / ``'bmj'`` renderer to populate TARGET items that cannot be derived automatically (title, funding, registration, data statement, background narrative, and limitations). Missing values are rendered as ``(supply text)`` placeholders.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "data_availability": {
+          "description": "data_availability parameter (Optional[str]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "fmt": {
           "default": "markdown",
           "description": "``'target'`` renders the JAMA/BMJ 2025 TARGET 21-item checklist as Markdown; ``'jama'`` / ``'bmj'`` renders a structured JAMA/BMJ-style manuscript that fills in all 21 TARGET items that can be auto-derived from the protocol + result, flagging the remaining items for author attention; other formats render the shorter STROBE-style Methods & Results block.",
@@ -13273,6 +14792,26 @@
             "text"
           ],
           "type": "string"
+        },
+        "funding": {
+          "description": "funding parameter (Optional[str]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "journal": {
+          "description": "journal parameter (Optional[str]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "limitations": {
+          "description": "Used by the ``'jama'`` / ``'bmj'`` renderer to populate TARGET items that cannot be derived automatically (title, funding, registration, data statement, background narrative, and limitations). Missing values are rendered as ``(supply text)`` placeholders.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "registration": {
+          "description": "registration parameter (Optional[str]).",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "result": {
           "description": "Output of :func:`sp.target_trial.emulate`.",
@@ -13333,6 +14872,12 @@
     "name": "causal_question",
     "parameters": {
       "properties": {
+        "cohort": {
+          "description": "Treatment cohort or group identifier.",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -13368,6 +14913,12 @@
           ],
           "type": "string"
         },
+        "engine": {
+          "default": "ols",
+          "description": "engine parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "estimand": {
           "default": "ATE",
           "description": "estimand parameter (str).",
@@ -13393,6 +14944,12 @@
           },
           "type": "array",
           "x-statspai-role": "columns"
+        },
+        "notes": {
+          "default": "",
+          "description": "notes parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "outcome": {
           "description": "Outcome variable column name or outcome array.",
@@ -13720,6 +15277,20 @@
     "name": "cross_validate",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "cluster": {
+          "description": "Structured model specification (see :class:`EstimandSpec`).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Structured model specification (see :class:`EstimandSpec`).",
           "items": {
@@ -13793,10 +15364,20 @@
           "type": "array",
           "x-statspai-role": "columns"
         },
+        "reference": {
+          "description": "Engine to anchor pairwise comparison on (default: ``\"statspai\"``).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "t": {
           "description": "DiD time column",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "term": {
+          "description": "Focal coefficient to reconcile. Defaults to ``treatment`` (or the first endogenous regressor for IV).",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "tol": {
           "description": "Override tolerance, e.g. {'coef_rtol':1e-4}",
@@ -13815,6 +15396,12 @@
           "description": "Variance estimator",
           "type": "string",
           "x-canonical": "vce"
+        },
+        "weights": {
+          "description": "Structured model specification (see :class:`EstimandSpec`).",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome column",
@@ -13839,6 +15426,18 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "value_name": {
+          "default": "value",
+          "description": "Name of the value column in long form.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "wide": {
+          "default": false,
+          "description": "If True, pivot indicators to columns indexed by (iso3, year) -- handy when several indicators were fetched and you want one regression frame.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -13858,6 +15457,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "series_id": {
+          "description": "Column name for the value series when a single series is passed (default ``\"value\"``).",
+          "type": "string",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -13877,6 +15481,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "value_name": {
+          "default": "value",
+          "description": "value_name parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -13926,9 +15536,38 @@
           "description": "Whether to include sensemakr.",
           "type": "boolean"
         },
+        "measure": {
+          "default": "auto",
+          "description": "Scale the estimate lives on, for the **E-value** component. The E-value is defined for risk ratios, so a raw regression coefficient must be standardised before it means anything: ``RR ~ exp(0.91 * d)`` for a standardised mean difference ``d`` (``vanderweele2017sensitivity``). ``'auto'`` reads the result's own ``estimand`` / ``measure`` and uses ``'RR'`` when it names a ratio, otherwise treats the estimate as a difference on the outcome's scale and standardises it. Pass ``'RR'`` explicitly if the estimate really is a ratio the result does not advertise.",
+          "enum": [
+            "auto",
+            "RR",
+            "OR",
+            "HR",
+            "OLS",
+            "SMD"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "outcome_sd": {
+          "description": "Standard deviation of the outcome, used to standardise the coefficient. Taken from ``data[y]`` when both are supplied. Without it the E-value is skipped with a note instead of being computed on an unknown scale.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "r2_controlled": {
           "description": "Deprecated aliases for ``r2_short`` / ``r2_long``. The old names read like sensemakr's partial R^2 (outcome/treatment variance explained by an unobservable) but were consumed as the short/long regression R^2, so supplying sensemakr-style values silently produced a wrong delta*. Use the new names.",
           "type": "number"
+        },
+        "r2_long": {
+          "description": "R^2 of the short (treatment-only) and long (with controls) regression, for Oster's delta. Usually unnecessary: when ``data``, ``y``, ``treat`` and ``controls`` are supplied these are derived from the data, which is what keeps this delta equal to the one ``sp.oster_delta`` reports on the same specification.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "r2_short": {
+          "description": "R^2 of the short (treatment-only) and long (with controls) regression, for Oster's delta. Usually unnecessary: when ``data``, ``y``, ``treat`` and ``controls`` are supplied these are derived from the data, which is what keeps this delta equal to the one ``sp.oster_delta`` reports on the same specification.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "r2_treated": {
           "description": "Deprecated aliases for ``r2_short`` / ``r2_long``. The old names read like sensemakr's partial R^2 (outcome/treatment variance explained by an unobservable) but were consumed as the short/long regression R^2, so supplying sensemakr-style values silently produced a wrong delta*. Use the new names.",
@@ -13941,6 +15580,11 @@
         "rho_max": {
           "description": "Oster R_max; None -> min(1, 1.3 R^2_long), the sp.oster_delta default.",
           "type": "number"
+        },
+        "term": {
+          "description": "Which coefficient to analyse, when ``result`` carries a vector of them (e.g. an OLS fit). Required whenever there is more than one non-intercept coefficient -- the dashboard raises rather than guess, because guessing silently answers the sensitivity question about the wrong parameter. Ignored for results that expose a single scalar ``estimate`` / ``ate``.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Outcome / treatment column names in ``data`` (Sensemakr only).",
@@ -13999,6 +15643,11 @@
           "description": "Observational / historical sample with ``surrogates`` and ``long_term_outcome``. Need not contain ``treatment``.",
           "type": "string"
         },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "surrogates": {
           "description": "Names of short-term surrogates -- present in both samples.",
           "items": {
@@ -14031,6 +15680,12 @@
     "name": "long_term_from_short",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -14047,6 +15702,12 @@
           "description": "long_term_outcome parameter (str).",
           "type": "string"
         },
+        "model": {
+          "default": "ols",
+          "description": "Model variant or parameterisation to fit.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "n_boot": {
           "default": 200,
           "description": "Number of bootstrap replications.",
@@ -14055,6 +15716,11 @@
         "observational": {
           "description": "observational parameter (DataFrame).",
           "type": "string"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "surrogates_waves": {
           "description": "List of wave column lists",
@@ -14088,6 +15754,12 @@
     "name": "synthesise_evidence",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "rct_estimate": {
           "description": "RCT effect estimate and its SE.",
           "type": "number"
@@ -14165,6 +15837,12 @@
     "name": "rwd_rct_concordance",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "rct_estimate": {
           "description": "rct_estimate parameter (float).",
           "type": "number"
@@ -14227,6 +15905,39 @@
         "llm_client": {
           "description": "Function taking a prompt and returning a string.",
           "type": "string"
+        },
+        "llm_identifier": {
+          "default": "llm",
+          "description": "llm_identifier parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "pair_a_col": {
+          "default": "A",
+          "description": "Column name for pair a.",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
+        },
+        "pair_b_col": {
+          "default": "B",
+          "description": "Column name for pair b.",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
+        },
+        "prompt_template": {
+          "default": "Does variable {a} causally influence variable {b}? Answer 'yes' or 'no'.",
+          "description": "prompt_template parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "truth_col": {
+          "default": "a_causes_b",
+          "description": "Column name for truth.",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -14260,6 +15971,12 @@
         "reward_fn": {
           "description": "Stochastic reward sampler. Must accept (arm, context) and return a scalar reward.",
           "type": "string"
+        },
+        "rng_seed": {
+          "default": 0,
+          "description": "rng_seed parameter (int).",
+          "type": "integer",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -14282,6 +15999,12 @@
           "description": "One row per trajectory; must contain numeric ``state``, ``action``, and ``reward`` columns.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "noise_sd": {
+          "default": 1.0,
+          "description": "noise_sd parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "reward": {
           "description": "reward parameter (str).",
@@ -14388,6 +16111,18 @@
           },
           "type": "array"
         },
+        "max_iter": {
+          "default": 300,
+          "description": "Maximum number of optimisation iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "treatment": {
           "description": "Treatment indicator, treatment variable, or treatment array.",
           "type": "string",
@@ -14416,6 +16151,12 @@
           "description": "Target miscoverage rate (``1 - alpha`` is the nominal coverage).",
           "type": "number"
         },
+        "calibration_frac": {
+          "default": 0.5,
+          "description": "calibration_frac parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -14428,6 +16169,25 @@
           "description": "Training sample with continuous ``treatment`` and outcome ``y``.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "dose_grid": {
+          "description": "If provided, return conformal bands for the *entire curve* ``E[Y | T=t, X]`` at each ``t`` on the grid (one curve per test row).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "estimator": {
+          "description": "Model for ``E[Y | T, X]``. Must accept ``fit(X, y)`` and ``predict(X)``. Defaults to a gradient-boosting regressor.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "test_data": {
           "description": "Test rows to predict on.",
@@ -14468,6 +16228,12 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "calibration_frac": {
+          "default": 0.5,
+          "description": "calibration_frac parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster identifier column for clustered standard errors.",
           "type": "string",
@@ -14485,6 +16251,17 @@
           "description": "Full sample with cluster identifier ``cluster``.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "estimator": {
+          "description": "estimator parameter (Optional[Any]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "test_clusters": {
           "description": "Cluster IDs to predict on. Must appear in ``data``.",
@@ -14588,14 +16365,31 @@
           "description": "depth parameter (int).",
           "type": "integer"
         },
+        "n_actions": {
+          "description": "Number of possible actions. Inferred from data if missing.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "n_trees": {
           "default": 20,
           "description": "Number of trees.",
           "type": "integer"
         },
+        "random_state": {
+          "default": 0,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "rewards": {
           "description": "rewards parameter (str).",
           "type": "string"
+        },
+        "subsample_frac": {
+          "default": 0.7,
+          "description": "subsample_frac parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -14612,6 +16406,12 @@
     "name": "network_hte",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -14633,6 +16433,12 @@
         "neighbor_exposure": {
           "description": "neighbor_exposure parameter (str).",
           "type": "string"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treatment": {
           "description": "Treatment indicator, treatment variable, or treatment array.",
@@ -14664,6 +16470,21 @@
     "name": "inward_outward_spillover",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
@@ -19061,6 +20882,12 @@
     "name": "bayes_dml",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -19073,6 +20900,16 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "ml_g": {
+          "description": "Custom nuisance learners forwarded to :func:`sp.dml`.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "ml_m": {
+          "description": "Custom nuisance learners forwarded to :func:`sp.dml`.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "mode": {
           "default": "conjugate",
@@ -19093,6 +20930,18 @@
           ],
           "type": "string"
         },
+        "n_folds": {
+          "default": 5,
+          "description": "Number of cross-fitting or cross-validation folds.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_samples": {
+          "default": 2000,
+          "description": "Posterior draws (used only for ``mode='full'``).",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "prior_mean": {
           "default": 0.0,
           "description": "Parameters of the Normal prior on the treatment effect.",
@@ -19102,6 +20951,12 @@
           "default": 10.0,
           "description": "Parameters of the Normal prior on the treatment effect.",
           "type": "number"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treatment": {
           "description": "Treatment indicator, treatment variable, or treatment array.",
@@ -19132,6 +20987,12 @@
     "name": "bayes_did",
     "parameters": {
       "properties": {
+        "advi_iterations": {
+          "default": 20000,
+          "description": "ADVI fit iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "chains": {
           "default": 4,
           "description": "Number of parallel chains",
@@ -19141,6 +21002,15 @@
           "description": "First-treatment-period column for staggered adoption",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Additional time-varying regressors. Standardised inside PyMC via Normal(0, ``prior_covariate_sigma``) priors.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -19152,9 +21022,81 @@
           "description": "Post-warmup draws per chain",
           "type": "integer"
         },
+        "hdi_prob": {
+          "default": 0.95,
+          "description": "hdi_prob parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "inference": {
+          "default": "nuts",
+          "description": "- ``'nuts'`` : call :func:`pm.sample` (exact MCMC). - ``'advi'`` : call :func:`pm.fit` with mean-field ADVI, then draw ``draws`` samples from the fitted approximation. Much faster but mean-field assumes independent Gaussians so correlated posteriors look tighter than they are.",
+          "enum": [
+            "nuts",
+            "advi"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "post": {
           "description": "Post-treatment indicator (1 = post-period)",
           "type": "string"
+        },
+        "prior_ate": {
+          "default": [
+            0.0,
+            10.0
+          ],
+          "description": "Mean and SD of the Normal prior on ``tau``.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "prior_covariate_sigma": {
+          "default": 10.0,
+          "description": "Normal SD on fixed effects and covariate slopes.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_noise": {
+          "default": 5.0,
+          "description": "Half-Normal scale on the residual SD.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_time_sigma": {
+          "default": 5.0,
+          "description": "Half-Normal scale on the random-effect SDs.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_unit_sigma": {
+          "default": 5.0,
+          "description": "Half-Normal scale on the random-effect SDs.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "progressbar": {
+          "default": false,
+          "description": "PyMC progress bar -- off by default because this is often called inside notebooks / scripts and noise hurts readability.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "NUTS sampler controls.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "rope": {
+          "description": "Region of practical equivalence for the ATT. If supplied the result includes ``prob_rope = P(lo < tau < hi | data)``.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
         },
         "target_accept": {
           "default": 0.9,
@@ -19205,9 +21147,15 @@
     "name": "bayes_iv",
     "parameters": {
       "properties": {
+        "advi_iterations": {
+          "default": 20000,
+          "description": "ADVI fit iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "chains": {
           "default": 4,
-          "description": "chains parameter (int).",
+          "description": "Sampler controls -- see :func:`bayes_did`.",
           "type": "integer"
         },
         "covariates": {
@@ -19225,13 +21173,91 @@
         },
         "draws": {
           "default": 2000,
-          "description": "draws parameter (int).",
+          "description": "Sampler controls -- see :func:`bayes_did`.",
           "type": "integer"
+        },
+        "hdi_prob": {
+          "default": 0.95,
+          "description": "Sampler controls -- see :func:`bayes_did`.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "inference": {
+          "default": "nuts",
+          "description": "- ``'nuts'`` : call :func:`pm.sample` (exact MCMC). - ``'advi'`` : call :func:`pm.fit` with mean-field ADVI, then draw ``draws`` samples from the fitted approximation. Much faster but mean-field assumes independent Gaussians so correlated posteriors look tighter than they are.",
+          "enum": [
+            "nuts",
+            "advi"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "instrument": {
           "description": "Instrument(s) -- str or list",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "per_instrument": {
+          "default": false,
+          "description": "When ``True`` and multiple instruments are supplied, additionally fits one just-identified Bayesian IV sub-model per instrument and populates :attr:`BayesianIVResult.instrument_summaries`, letting ``tidy(terms='per_instrument')`` emit one LATE row per ``Z_j``. The top-level pooled LATE posterior remains the joint over-identified fit (v0.9.15 behaviour). Each per-instrument sub-fit reuses the same priors and sampler controls as the pooled fit (draws/tune/chains/target_accept/random_state), so runtime scales roughly as ``(K+1)x`` the pooled fit.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "prior_coef_sigma": {
+          "default": 10.0,
+          "description": "Priors for first-stage coefficients, structural coefficients, and the two residual scales.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_first_stage_sigma": {
+          "default": 5.0,
+          "description": "Priors for first-stage coefficients, structural coefficients, and the two residual scales.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "prior_late": {
+          "default": [
+            0.0,
+            10.0
+          ],
+          "description": "Normal prior on the structural LATE coefficient.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "prior_noise": {
+          "default": 5.0,
+          "description": "Priors for first-stage coefficients, structural coefficients, and the two residual scales.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "progressbar": {
+          "default": false,
+          "description": "Sampler controls -- see :func:`bayes_did`.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Sampler controls -- see :func:`bayes_did`.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "rope": {
+          "description": "Region of practical equivalence.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "target_accept": {
+          "default": 0.9,
+          "description": "Sampler controls -- see :func:`bayes_did`.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Endogenous treatment",
@@ -19240,7 +21266,7 @@
         },
         "tune": {
           "default": 1000,
-          "description": "tune parameter (int).",
+          "description": "Sampler controls -- see :func:`bayes_did`.",
           "type": "integer"
         },
         "y": {
@@ -19263,6 +21289,12 @@
     "name": "mr_multivariable",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "exposures": {
           "description": "Exposure-beta column names. If omitted, all ``beta_*`` columns other than the outcome are used.",
           "items": {
@@ -19316,6 +21348,42 @@
           "description": "beta_outcome parameter (str).",
           "type": "string"
         },
+        "exposure_name": {
+          "default": "exposure",
+          "description": "exposure_name parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "mediator_name": {
+          "default": "mediator",
+          "description": "mediator_name parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "outcome_name": {
+          "default": "outcome",
+          "description": "outcome_name parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "se_exposure": {
+          "default": "se_x",
+          "description": "se_exposure parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "se_mediator": {
+          "default": "se_m",
+          "description": "se_mediator parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "se_outcome": {
+          "default": "se_y",
+          "description": "se_outcome parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "snp_associations": {
           "description": "One row per SNP. Must contain SNP-associations with the exposure, mediator and outcome (both beta and SE).",
           "type": "string"
@@ -19366,6 +21434,12 @@
           "default": "se_y",
           "description": "outcome_se parameter (str).",
           "type": "string"
+        },
+        "prior_inclusion": {
+          "default": 0.5,
+          "description": "Prior probability that each exposure is in the true causal model (``prior_prob``); a model of size ``s`` has prior ``p^s (1 - p)^(k - s)``.",
+          "type": "number",
+          "x-statspai-source": "signature"
         },
         "prior_sd": {
           "default": 0.5,
@@ -19463,6 +21537,12 @@
           "description": "If True the first cluster is fixed at 0 (null).",
           "type": "boolean"
         },
+        "max_iter": {
+          "default": 200,
+          "description": "Maximum number of optimisation iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "se_exposure": {
           "description": "se_exposure parameter (ndarray).",
           "type": "string"
@@ -19475,6 +21555,12 @@
           "default": 0,
           "description": "EM initialisation rng.",
           "type": "integer"
+        },
+        "tol": {
+          "default": 1e-06,
+          "description": "Numerical convergence tolerance.",
+          "type": "number",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -19721,6 +21807,12 @@
     "name": "bcf_longitudinal",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -19757,6 +21849,12 @@
           ],
           "x-canonical": "y",
           "x-statspai-role": "column"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time period column.",
@@ -19803,10 +21901,21 @@
           "description": "Significance level for CI tests.",
           "type": "number"
         },
+        "ci_test": {
+          "description": "Custom CI test ``(x, y, Z) -> p_value``. Defaults to partial correlation (Gaussian).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "Long-format time series, one row per time stamp. Rows must be in chronological order; index is ignored.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "max_cond_dim": {
+          "default": 3,
+          "description": "Maximum size of conditioning set in the PC1 stage.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "tau_max": {
           "default": 3,
@@ -19837,6 +21946,12 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "h_tol": {
+          "default": 1e-08,
+          "description": "Acyclicity tolerance -- outer loop stops when ``h(W) < h_tol``.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "lag": {
           "default": 1,
           "description": "Number of lagged slices to include in the SVAR.",
@@ -19852,6 +21967,18 @@
           "description": "L1 regularisation for ``W`` and ``A``. The penalties are on the scale of the data: the defaults suit series with a standard deviation near one. On series with a standard deviation of 0.3 they shrink a contemporaneous coefficient of 0.4 to zero. Rescale the series or lower the penalties; a warning is issued when the median standard deviation is below 0.5 or above 2.",
           "type": "number"
         },
+        "max_iter": {
+          "default": 60,
+          "description": "Outer augmented-Lagrangian iterations.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "rho_max": {
+          "default": 1e+16,
+          "description": "Maximum augmented-Lagrangian penalty.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "threshold": {
           "default": 0.1,
           "description": "Coefficients with ``|value| <= threshold`` are pruned to 0 after optimisation.",
@@ -19863,6 +21990,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "verbose": {
+          "default": false,
+          "description": "verbose parameter (bool).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -19876,6 +22009,12 @@
     "name": "sequential_sdid",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cohort": {
           "description": "First-treated period column; never-treated = 0",
           "type": "string",
@@ -19927,6 +22066,11 @@
           ],
           "type": "string"
         },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "time": {
           "description": "Time period column.",
           "type": "string",
@@ -19957,6 +22101,14 @@
     "name": "counterfactual_fairness",
     "parameters": {
       "properties": {
+        "alternative_values": {
+          "description": "Values of ``A`` to intervene on. Defaults to all unique values of ``data[protected]`` other than the observed one.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "Observed covariates (including the protected attribute).",
           "type": "object",
@@ -20005,6 +22157,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "method": {
+          "default": "residualize",
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "protected": {
           "description": "Protected attribute column (numeric or categorical).",
@@ -20093,6 +22251,14 @@
     "name": "fairness_audit",
     "parameters": {
       "properties": {
+        "alternative_values": {
+          "description": "If ``predictor`` and ``scm_intervention`` are both supplied, also runs counterfactual-fairness.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
@@ -20117,6 +22283,12 @@
         "scm_intervention": {
           "description": "If ``predictor`` and ``scm_intervention`` are both supplied, also runs counterfactual-fairness.",
           "type": "string"
+        },
+        "threshold": {
+          "default": 0.1,
+          "description": "threshold parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -20132,6 +22304,12 @@
     "name": "proximal_surrogate_index",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -20163,6 +22341,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "surrogates": {
           "description": "surrogates parameter (list).",
@@ -20350,6 +22533,15 @@
           "default": 5,
           "description": "Cross-fitting folds per candidate.",
           "type": "integer"
+        },
+        "sample_weight": {
+          "description": "Per-observation weights. If supplied, every nuisance fit uses ``sample_weight=`` (with a graceful fallback warning if the learner does not accept it), the CLS stacking objective becomes weighted least squares, and the PLR moment + sandwich variance use weighted sums. The MSE used for ``inverse_risk`` / ``single_best`` weighting is also the weighted MSE.",
+          "type": "string",
+          "x-aliases": [
+            "weights"
+          ],
+          "x-canonical": "weights",
+          "x-statspai-source": "signature"
         },
         "seed": {
           "default": 0,
@@ -20541,6 +22733,15 @@
           "default": 5,
           "description": "Cross-fit folds over units. Must be >= 2 and <= n_units.",
           "type": "integer"
+        },
+        "sample_weight": {
+          "description": "Per-observation weights (e.g., survey/probability weights). Pass either a 1-D array of length ``len(data)`` or a column name in ``data``. The within transform becomes a *weighted* within transform (subtract weighted unit / time means), and the PLR moment + cluster-robust SE use weighted sums. Required if your survey design carries informative sampling probabilities.",
+          "type": "string",
+          "x-aliases": [
+            "weights"
+          ],
+          "x-canonical": "weights",
+          "x-statspai-source": "signature"
         },
         "seed": {
           "default": 0,
@@ -21210,6 +23411,18 @@
           "description": "Cross-fitting folds passed to :func:`sp.tmle`.",
           "type": "integer"
         },
+        "propensity_bounds": {
+          "default": [
+            0.025,
+            0.975
+          ],
+          "description": "Truncation bounds for the propensity score.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
@@ -21356,6 +23569,18 @@
           "description": "Discount factor",
           "type": "number"
         },
+        "gamma_bound": {
+          "default": 0.1,
+          "description": "Bound on the proportion of reward variance that can be attributed to unmeasured confounding. Penalty term shrinks the Bellman target by (1 - gamma_bound) per iteration.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "lr": {
+          "default": 0.05,
+          "description": "lr parameter (float).",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "n_iter": {
           "default": 100,
           "description": "Fitted-Q iterations",
@@ -21368,6 +23593,12 @@
         "reward": {
           "description": "Column names. State and action must be discrete (ints).",
           "type": "string"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "state": {
           "description": "State column(s)",
@@ -21389,6 +23620,12 @@
     "name": "fortified_pci",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -21401,6 +23638,12 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Bootstrap reps for SE.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "proxy_w": {
           "description": "Outcome-side proxies",
@@ -21415,6 +23658,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
@@ -21442,6 +23691,12 @@
     "name": "bidirectional_pci",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": ":func:`statspai.proximal.proximal`.",
           "items": {
@@ -21454,6 +23709,12 @@
           "description": ":func:`statspai.proximal.proximal`.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "proxy_w": {
           "description": ":func:`statspai.proximal.proximal`.",
@@ -21468,6 +23729,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": ":func:`statspai.proximal.proximal`.",
@@ -21495,6 +23762,21 @@
     "name": "pci_mtp",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
@@ -21503,6 +23785,12 @@
         "delta": {
           "description": "Additive shift applied to the treatment under the modified policy",
           "type": "number"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "proxy_w": {
           "description": "Standard PCI proxies.",
@@ -21517,6 +23805,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Outcome and continuous treatment.",
@@ -21545,6 +23839,12 @@
     "name": "cluster_cross_interference",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "cluster": {
           "description": "Cluster identifier.",
           "type": "string",
@@ -21585,6 +23885,12 @@
     "name": "beyond_average_late",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
@@ -21595,12 +23901,24 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "quantiles": {
           "description": "Quantiles tau at which to evaluate QTE (default 0.1..0.9 step 0.1)",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
@@ -21648,6 +23966,17 @@
         "protected": {
           "description": "Protected-attribute column",
           "type": "string"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "test_data": {
+          "description": "test_data parameter (Optional[pd.DataFrame]).",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
@@ -21740,6 +24069,19 @@
           "description": "Column, constant within unit, whose shares define the population average under criterion='population' (default: equal shares)",
           "type": "string"
         },
+        "pre_period": {
+          "description": "Closed interval of pre-treatment periods. Defaults to all timestamps in ``data``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "risk": {
           "default": "mspe",
           "description": "Loss functional for ranking candidates.",
@@ -21815,6 +24157,11 @@
         "protected": {
           "description": "Name of the protected-attribute column.",
           "type": "string"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "scm_intervention": {
           "description": "User-supplied SCM. Returns a DataFrame of the same shape with ``protected`` (and all non-admissible descendants) updated under ``do(A=value)``. The admissibility freeze is enforced *after* calling this function -- admissible columns are overwritten with their factual values.",
@@ -21962,6 +24309,30 @@
           "description": "Number of PCA factors to keep. Ignored if ``loadings`` is given.",
           "type": "integer"
         },
+        "n_folds": {
+          "default": 5,
+          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_trees_mu": {
+          "default": 200,
+          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "n_trees_tau": {
+          "default": 50,
+          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "y": {
           "description": "Outcome column.",
           "type": "string",
@@ -22054,6 +24425,12 @@
     "name": "paper",
     "parameters": {
       "properties": {
+        "allow_experimental": {
+          "default": false,
+          "description": "Forwarded to :func:`sp.causal` -> :func:`sp.recommend`. When ``False`` (the agent-safe default), auto-generated drafts cannot land on a function whose registry entry is ``stability='experimental'`` or ``'deprecated'``. Set ``True`` when you are explicitly drafting a paper around frontier methods (e.g. ``causal_text`` or ``did_multiplegt_dyn``); the Pipeline notes section records what was filtered.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "cite": {
           "default": true,
           "description": "Pull bibliography entries from the fitted result's ``cite()`` method (when available).",
@@ -22123,6 +24500,12 @@
           "description": "Include the Data section (descriptives + balance).",
           "type": "boolean"
         },
+        "include_methods": {
+          "default": true,
+          "description": "Include the \"Methods and Formulas\" appendix -- the estimand / estimator definitions, the inference actually used, and the verified citation for the fitted estimator (via ``result.to_appendix()``).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "include_robustness": {
           "default": true,
           "description": "Include the Robustness section.",
@@ -22133,6 +24516,22 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "llm": {
+          "description": "llm parameter (Optional[str]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "llm_client": {
+          "description": "llm_client parameter.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "llm_domain": {
+          "default": "",
+          "description": "llm_domain parameter (str).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "output_path": {
           "description": "When provided, write the rendered draft to disk in the format inferred from the path extension (``.md`` / ``.tex`` / ``.docx``).",
           "type": "string"
@@ -22140,6 +24539,12 @@
         "question": {
           "description": "Natural-language causal question",
           "type": "string"
+        },
+        "reviewer_mode": {
+          "default": false,
+          "description": "Add a \"Reviewer Audit\" section summarizing registry validation status, identification findings, post-estimation capabilities, provenance, violations, and a replication checklist.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "running_var": {
           "description": "Forwarded to :func:`sp.causal`. When omitted, the question parser tries to infer them from ``question``.",
@@ -22449,6 +24854,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print per-iteration progress.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -22789,10 +25200,20 @@
           "description": "Number of particles.",
           "type": "integer"
         },
+        "observation_log_pdf": {
+          "description": "``fn(theta_hat_t, particles, sigma_t) -> ndarray`` returns log ``p(theta_t | theta_t)`` for every particle. Defaults to the Gaussian obs model ``N(theta_t, sigma_t^2)``.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "prior_mean": {
           "default": 0.0,
           "description": "Used only when ``prior_sampler=None``.",
           "type": "number"
+        },
+        "prior_sampler": {
+          "description": "``fn(rng, n) -> ndarray`` draws ``n`` particles from ``p(theta_0)``. Defaults to ``N(prior_mean, prior_var)``.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "prior_var": {
           "default": 1.0,
@@ -22804,12 +25225,22 @@
           "description": "Used only when ``transition_sampler=None``. ``0`` = static effect.",
           "type": "number"
         },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "standard_errors": {
           "description": "Batch-level ``(theta_t, sigma_t)``.",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "transition_sampler": {
+          "description": "``fn(particles, rng) -> ndarray`` propagates the particles one step (the state-transition density). Defaults to a Gaussian random walk with SD ``process_sd``.",
+          "type": "string",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -22851,6 +25282,11 @@
           "description": "organization parameter (str).",
           "type": "string"
         },
+        "system_prompt": {
+          "description": "system_prompt parameter (Optional[str]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "temperature": {
           "default": 0.0,
           "description": "temperature parameter (float).",
@@ -22889,10 +25325,21 @@
           "description": "Model variant or parameterisation to fit.",
           "type": "string"
         },
+        "system_prompt": {
+          "description": "system_prompt parameter (Optional[str]).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "temperature": {
           "default": 0.0,
           "description": "temperature parameter (float).",
           "type": "number"
+        },
+        "thinking_budget": {
+          "default": 0,
+          "description": "Enable Claude **extended thinking** with this many reasoning tokens. Values ``>= 1024`` activate the feature; ``0`` disables it (the legacy behaviour). The budget is consumed from ``max_tokens``, so set ``max_tokens`` comfortably above ``thinking_budget + expected_answer_tokens``. The reasoning trace is captured on ``client.history[-1]['thinking']`` for auditability but is *not* returned as part of the chat response.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         }
       },
       "required": [],
@@ -23060,6 +25507,12 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "method": {
+          "default": "qdid",
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "n_boot": {
           "default": 500,
           "description": "Bootstrap replications.",
@@ -23071,6 +25524,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Binary pre / post indicator",
@@ -23233,6 +25692,23 @@
           },
           "type": "array"
         },
+        "se": {
+          "default": "auto",
+          "description": "Standard-error method for the Firpo estimators. ``'auto'`` uses the analytic influence function without covariates and the bootstrap with them (the analytic form treats ``p(X)`` as known, which is conservative when it is estimated). Ignored by the other methods, which are bootstrap-only.",
+          "enum": [
+            "auto",
+            "analytic",
+            "bootstrap"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "treatment": {
           "description": "Binary treatment indicator.",
           "type": "string",
@@ -23261,6 +25737,12 @@
     "name": "dose_response",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number",
+          "x-statspai-source": "signature"
+        },
         "covariates": {
           "description": "Covariate names.",
           "items": {
@@ -23291,10 +25773,26 @@
           "description": "Number of dose levels to evaluate.",
           "type": "integer"
         },
+        "outcome_model": {
+          "description": "Model for E[Y|T, GPS]. Default: GBM.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "treat": {
           "description": "Continuous treatment / dose",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "treatment_model": {
+          "description": "Model for E[T|X]. Default: GBM.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome variable.",
@@ -23354,6 +25852,12 @@
           "description": "Number of bootstrap replications.",
           "type": "integer"
         },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
         "treat": {
           "description": "Binary individual treatment variable (0/1).",
           "type": "string",
@@ -23401,6 +25905,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "weighted": {
+          "description": "Force weighted/unweighted interpretation (adjacency input).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "weights": {
           "description": "Per-edge weights (edge-list input only).",
@@ -23510,6 +26019,12 @@
           "description": "Whether dyads ``(i, j)`` and ``(j, i)`` are distinct. Inferred from the symmetry of ``y`` when ``None``.",
           "type": "boolean"
         },
+        "intercept": {
+          "default": true,
+          "description": "intercept parameter (bool).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
         "method": {
           "default": "dsp",
           "description": "Permutation scheme",
@@ -23552,6 +26067,18 @@
         "directed": {
           "description": "As in :func:`netlm`.",
           "type": "boolean"
+        },
+        "intercept": {
+          "default": true,
+          "description": "As in :func:`netlm`.",
+          "type": "boolean",
+          "x-statspai-source": "signature"
+        },
+        "max_iter": {
+          "default": 100,
+          "description": "IRLS iterations for the logistic fit.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "nperm": {
           "default": 1000,
@@ -23606,6 +26133,12 @@
           "type": "string",
           "x-canonical": "id",
           "x-statspai-role": "column"
+        },
+        "intercept": {
+          "default": true,
+          "description": "intercept parameter (bool).",
+          "type": "boolean",
+          "x-statspai-source": "signature"
         },
         "j": {
           "description": "Second-node id column",
@@ -23702,6 +26235,12 @@
             "linear"
           ],
           "type": "string"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "reference": {
           "description": "Reference treatment level (defaults to 0 / smallest)",
@@ -24454,7 +26993,7 @@
     }
   },
   {
-    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable. Do NOT use when: a paper-faithful continuous-treatment ATT(d|g,t) is required -- this is a heuristic family; use sp.cgs_continuous_did. Cost: method='att_gt' / 'dose_response' bootstrap n_boot fits.",
+    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [formulas unverified] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable. Do NOT use when: a paper-faithful continuous-treatment ATT(d|g,t) is required -- this is a heuristic family; use sp.cgs_continuous_did. Cost: method='att_gt' / 'dose_response' bootstrap n_boot fits.",
     "name": "continuous_did",
     "parameters": {
       "properties": {
@@ -24685,10 +27224,25 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "engine": {
+          "default": "ols",
+          "description": "Inference backend for the same 2x2 design. ``'ols'`` (default) is the frequentist OLS estimator above. ``'bayes'`` routes to :func:`statspai.bayes.bayes_did` (``treat`` -> group, ``time`` -> post), returning a :class:`~statspai.bayes.BayesianDIDResult` with the full posterior + HDI (requires the ``bayes`` extra). ``cluster`` / ``weights`` are OLS-only and raise under ``engine='bayes'``; for full prior / sampler control call ``sp.bayes_did`` directly.",
+          "enum": [
+            "ols",
+            "bayes"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "robust": {
           "default": true,
           "description": "Heteroskedasticity-robust SE when no cluster provided",
           "type": "boolean"
+        },
+        "seed": {
+          "description": "RNG seed for ``vce=\"wild\"``.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "time": {
           "description": "Time / period indicator",
@@ -24700,10 +27254,27 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "vce": {
+          "description": "``\"wild\"`` (with ``cluster=``) replaces the ATT p-value and CI with the WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008) on the DID interaction regression -- the canonical few-clusters DID inference (validated against Stata ``boottest`` after ``reg y d t dt, vce(cluster ...)``). Point estimate and cluster SE stand.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "weights": {
           "description": "Optional column name for sampling weights",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "wild_reps": {
+          "default": 999,
+          "description": "Bootstrap replications for ``vce=\"wild\"``.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "wild_weight_type": {
+          "default": "rademacher",
+          "description": "Wild weight distribution.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "y": {
           "description": "Outcome variable",
@@ -29789,12 +32360,12 @@
     }
   },
   {
-    "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Quick linear-extrapolation sensitivity band for DiD in the spirit of Rambachan-Roth (2023): the post-period violation is bounded by the fitted pre-trend slope plus Mbar of slack, giving a symmetric conservative interval and a breakdown Mbar. A heuristic, not the Rambachan-Roth confidence set; use sp.honest_did / sp.breakdown_m for the FLCI and the conditional / hybrid sets. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "sensitivity_rr",
     "parameters": {
       "properties": {
         "Mbar": {
-          "description": "Grid of relative-magnitude bounds; default is np.linspace(0, 2, n_grid)",
+          "description": "Grid of slack values on the pre-trend slope; default is np.linspace(0, 3 * |fitted pre-trend slope|, n_grid)",
           "type": "string"
         },
         "alpha": {
@@ -30204,10 +32775,22 @@
           "description": "Forwarded to :func:`rdrobust`.",
           "type": "number"
         },
+        "bwselect": {
+          "default": "mserd",
+          "description": "Forwarded to :func:`rdrobust`.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "c": {
           "default": 0.0,
           "description": "Cutoff value.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Forwarded to :func:`rdrobust`.",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -30243,6 +32826,22 @@
           "default": 5,
           "description": "Cross-fit folds (1 disables CV)",
           "type": "integer"
+        },
+        "p": {
+          "default": 1,
+          "description": "Forwarded to :func:`rdrobust`.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "random_state": {
+          "description": "Seed for the cross-fit splitter and for built-in learners.",
+          "type": "integer",
+          "x-statspai-source": "signature"
+        },
+        "sklearn_estimator": {
+          "description": "Any object exposing ``fit(X, y)`` and ``predict(X)``. If provided, supersedes ``learner``. ``random_state`` is *not* injected into a user-provided estimator.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "x": {
           "description": "Running variable column.",
@@ -30286,6 +32885,12 @@
           "description": "RD cutoff.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster variable. The variance of the jump estimator is then the cluster-sum form RDHonest uses (EHW residuals, no finite-sample factor); without clusters it is RDHonest's nearest-neighbour variance (``J = 3``).",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
@@ -30308,6 +32913,12 @@
             "uniform"
           ],
           "type": "string"
+        },
+        "n_grid": {
+          "default": 401,
+          "description": "Grid resolution for the AR-style test inversion.",
+          "type": "integer",
+          "x-statspai-source": "signature"
         },
         "x": {
           "description": "Running variable column.",
@@ -30710,7 +33321,7 @@
           "type": "string"
         },
         "m_grid": {
-          "description": "Grid of M values (maximum violation magnitude) to evaluate.",
+          "description": "Grid of M values (maximum violation magnitude) to evaluate. Default for ``'smoothness'``: [0, 0.5sigma, 1sigma, 1.5sigma, 2sigma, 3sigma] where sigma is the SE at e. Default for ``'relative_magnitude'``: ten equally spaced M from 0 to 2 (``HonestDiD``'s ``Mbarvec``), since M is a unitless ratio to the largest pre-period violation.",
           "items": {
             "type": "number"
           },
@@ -42167,23 +44778,27 @@
       "properties": {
         "measure": {
           "default": "SMD",
-          "description": "How to interpret ``result.estimate`` (for ATE/ATT on continuous outcomes ``'SMD'`` is appropriate; pass ``'RR'`` / ``'OR'`` / ``'HR'`` for ratio estimates). Passed through to :func:`evalue`.",
+          "description": "How to interpret ``result.estimate``. ``'SMD'`` / ``'MD'`` read it as a difference in means on the outcome's scale and divide it (with its SE and CI) by ``sd`` before converting to the risk-ratio scale; pass ``'RR'`` / ``'OR'`` / ``'HR'`` for ratio estimates.",
           "type": "string"
         },
         "rare": {
-          "description": "rare parameter (Optional[bool]).",
+          "description": "Passed through to :func:`evalue`.",
           "type": "boolean"
         },
         "rare_outcome": {
-          "description": "rare_outcome parameter (Optional[bool]).",
+          "description": "Passed through to :func:`evalue`.",
           "type": "boolean"
         },
         "result": {
           "description": "Result from any StatsPAI causal estimator exposing a scalar ``estimate`` (and ideally ``se`` / ``ci``).",
           "type": "string"
         },
+        "sd": {
+          "description": "Standard deviation of the outcome, required for ``'SMD'`` / ``'MD'``: the E-value of a mean difference depends on it, and the raw ATT is not a standardised difference unless the outcome already has unit variance (then pass ``sd=1``). Usually ``df[y].std()``. Ignored for ratio measures.",
+          "type": "number"
+        },
         "true": {
-          "description": "true parameter (Optional[float]).",
+          "description": "Passed through to :func:`evalue`.",
           "type": "number"
         }
       },
@@ -43883,15 +46498,15 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "number"
         },
         "covariates": {
-          "description": "Covariate matrix, DataFrame, or column names.",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": "string"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -43903,7 +46518,7 @@
             "r",
             "dr"
           ],
-          "description": "learners parameter (LearnersArg).",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": [
             "string",
             "array"
@@ -43911,12 +46526,12 @@
         },
         "n_bootstrap": {
           "default": 200,
-          "description": "Number of bootstrap replications.",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "integer"
         },
         "n_folds": {
           "default": 5,
-          "description": "Number of cross-fitting or cross-validation folds.",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "integer"
         },
         "n_trials": {
@@ -43929,7 +46544,7 @@
           "type": "integer"
         },
         "per_learner_search_space": {
-          "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`. Passed through / see :func:`auto_cate`.",
+          "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
           "items": {
             "type": "string"
           },
@@ -43937,15 +46552,15 @@
         },
         "random_state": {
           "default": 42,
-          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "integer"
         },
         "sampler": {
-          "description": "sampler parameter (Optional[Any]).",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "string"
         },
         "search_space": {
-          "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`. Passed through / see :func:`auto_cate`.",
+          "description": "Override default spaces. See :data:`DEFAULT_SEARCH_SPACE` and :data:`DEFAULT_PER_LEARNER_SEARCH_SPACE`.",
           "items": {
             "type": "string"
           },
@@ -43956,7 +46571,7 @@
           "type": "number"
         },
         "treat": {
-          "description": "Treatment indicator or first-treatment-period column.",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -43972,11 +46587,11 @@
         },
         "verbose": {
           "default": false,
-          "description": "verbose parameter (bool).",
+          "description": "Passed through / see :func:`auto_cate`.",
           "type": "boolean"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Same semantics as :func:`auto_cate`.",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -44017,7 +46632,7 @@
         },
         "hdi_prob": {
           "default": 0.95,
-          "description": "Sampler controls; see :func:`sp.bayes_did`.",
+          "description": "hdi_prob parameter (float).",
           "type": "number"
         },
         "inference": {
@@ -44057,12 +46672,12 @@
         },
         "progressbar": {
           "default": false,
-          "description": "progressbar parameter (bool).",
+          "description": "Sampler controls; see :func:`sp.bayes_did`.",
           "type": "boolean"
         },
         "random_state": {
           "default": 42,
-          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "description": "Sampler controls; see :func:`sp.bayes_did`.",
           "type": "integer"
         },
         "rope": {
@@ -44134,7 +46749,7 @@
         },
         "hdi_prob": {
           "default": 0.95,
-          "description": "Sampler controls; see :func:`sp.bayes_did`.",
+          "description": "hdi_prob parameter (float).",
           "type": "number"
         },
         "inference": {
@@ -44163,12 +46778,12 @@
         },
         "progressbar": {
           "default": false,
-          "description": "progressbar parameter (bool).",
+          "description": "Sampler controls; see :func:`sp.bayes_did`.",
           "type": "boolean"
         },
         "random_state": {
           "default": 42,
-          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "description": "Sampler controls; see :func:`sp.bayes_did`.",
           "type": "integer"
         },
         "rope": {
@@ -44238,7 +46853,7 @@
           "type": "integer"
         },
         "covariates": {
-          "description": "Covariate matrix, DataFrame, or column names.",
+          "description": "Same semantics as :func:`bayes_iv`.",
           "items": {
             "type": "string"
           },
@@ -44246,7 +46861,7 @@
           "x-statspai-role": "columns"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Same semantics as :func:`bayes_iv`.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -44277,7 +46892,7 @@
           "type": "string"
         },
         "instrument": {
-          "description": "instrument parameter (Union[str, Sequence[str]]).",
+          "description": "Same semantics as :func:`bayes_iv`.",
           "items": {
             "type": "string"
           },
@@ -44332,7 +46947,7 @@
           "type": "number"
         },
         "treat": {
-          "description": "Treatment indicator or first-treatment-period column.",
+          "description": "Same semantics as :func:`bayes_iv`.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -44342,7 +46957,7 @@
           "type": "integer"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Same semantics as :func:`bayes_iv`.",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -53869,6 +56484,31 @@
     }
   },
   {
+    "description": "Return a DataFrame describing all available datasets.",
+    "name": "list_datasets",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Load a bundled example dataset by name.",
+    "name": "load_dataset",
+    "parameters": {
+      "properties": {
+        "name": {
+          "description": "One of the names in :func:`list_datasets` (``\"mpdta\"``, ``\"card_1995\"``, ``\"nsw_dw\"``, ``\"lee_2008_senate\"``, ...).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Comprehensive assumption audit for any estimated model.",
     "name": "assumption_audit",
     "parameters": {
@@ -61535,12 +64175,12 @@
     "parameters": {
       "properties": {
         "cluster": {
-          "description": "Cluster identifier column for clustered standard errors.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "controls": {
-          "description": "Control-variable column names.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "items": {
             "type": "string"
           },
@@ -61552,17 +64192,17 @@
           "x-statspai-role": "columns"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
         "first_treat": {
-          "description": "first_treat parameter (str).",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Group or cohort identifier.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -61579,7 +64219,7 @@
           "type": "integer"
         },
         "result": {
-          "description": "Output of :func:`did_imputation` on ``data`` with a non-trivial ``horizon`` that covers negative values. Only its ``model_info['event_study']`` frame is consulted, to look up the observed pre-period point estimates that we re-test with a covariance-aware statistic. Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
+          "description": "Output of :func:`did_imputation` on ``data`` with a non-trivial ``horizon`` that covers negative values. Only its ``model_info['event_study']`` frame is consulted, to look up the observed pre-period point estimates that we re-test with a covariance-aware statistic.",
           "type": "string"
         },
         "seed": {
@@ -61587,12 +64227,12 @@
           "type": "integer"
         },
         "time": {
-          "description": "Time period column.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
           "x-statspai-role": "column"
         }
