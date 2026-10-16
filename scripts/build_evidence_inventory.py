@@ -39,7 +39,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import itertools
 import json
 import pathlib
 import sys
@@ -69,24 +68,105 @@ OVERALL = (
 )
 
 
+def _grid_counts(scope: Any) -> tuple:
+    """Per-output and overall status counts over every cell of ``scope``.
+
+    The same decision ``validation_scope(function=..., **cell)`` makes for
+    one cell, evaluated for the whole grid at once: each dimension's values
+    become integer codes, each evidence row a boolean mask over the cells.
+    Calling ``validation_scope`` once per cell took 70 s for the dynamic
+    panel maps alone (160,000 cells); this takes well under a second. The
+    committed inventory, built cell by cell before the switch, is
+    reproduced byte for byte.
+    """
+    import numpy as np
+
+    from statspai.validation_scope import _STATUS_OF_KIND, OUTPUTS
+
+    dims = list(scope.dimensions)
+    sizes = [len(scope.domains[d]) for d in dims]
+    cells = int(np.prod(sizes)) if sizes else 1
+    # codes[i] = the value index of dimension i in each cell, cells in
+    # itertools.product order (last dimension fastest).
+    codes = [
+        np.broadcast_to(
+            np.arange(n).reshape([-1 if j == i else 1 for j in range(len(dims))]),
+            sizes,
+        ).ravel()
+        for i, n in enumerate(sizes)
+    ]
+    status_rank = {s: k for k, s in enumerate(STATUSES)}
+    out_status: Dict[str, Any] = {}
+    for out in OUTPUTS:
+        rows = [r for r in scope.rows if out in r.outputs]
+        if not rows and out not in scope.primary:
+            continue
+        best = np.full(cells, status_rank["not_covered"], dtype=np.int8)
+        for row in rows:
+            mask = np.ones(cells, dtype=bool)
+            for i, d in enumerate(dims):
+                if scope.ignored(d, out):
+                    continue
+                allowed = [
+                    k for k, v in enumerate(scope.domains[d]) if v in row.config[d]
+                ]
+                mask &= np.isin(codes[i], allowed)
+            # validation_scope takes the first kind in KINDS order that
+            # matches; STATUSES lists those statuses in the same order.
+            rank = status_rank[_STATUS_OF_KIND[row.kind]]
+            best = np.where(mask, np.minimum(best, rank), best)
+        out_status[out] = best
+
+    ref = status_rank["reference"]
+    nc = np.full(cells, status_rank["not_covered"], dtype=np.int8)
+    prim = [out_status.get(o, nc) for o in scope.primary]
+    all_ref = np.all([p == ref for p in prim], axis=0) if prim else np.ones(cells, bool)
+    est_ref = (
+        out_status.get("estimate", nc) == ref
+        if "estimate" in scope.primary
+        else np.zeros(cells, bool)
+    )
+    stochastic = {
+        status_rank[s]
+        for s in (
+            "reference",
+            "seed_equivalence",
+            "stochastic_screen",
+            "coverage_simulation",
+        )
+    }
+    any_stoch = np.zeros(cells, bool)
+    any_disc = np.zeros(cells, bool)
+    for arr in out_status.values():
+        any_stoch |= np.isin(arr, list(stochastic))
+        any_disc |= arr == status_rank["disclosure"]
+    overall_code = np.select(
+        [all_ref, est_ref, any_stoch, any_disc],
+        [0, 1, 2, 3],
+        default=4,
+    )
+    overall = {
+        OVERALL[k]: int(n)
+        for k, n in enumerate(np.bincount(overall_code, minlength=5))
+        if n
+    }
+    by_output = {
+        out: {
+            STATUSES[k]: int(n)
+            for k, n in enumerate(np.bincount(arr, minlength=len(STATUSES)))
+            if n
+        }
+        for out, arr in out_status.items()
+    }
+    return cells, overall, by_output
+
+
 def _scope_inventory(name: str) -> Dict[str, Any]:
-    from statspai.validation_scope import OUTPUTS, SCOPES, validation_scope
+    from statspai.validation_scope import SCOPES
 
     scope = SCOPES[name]
     dims = list(scope.dimensions)
-    by_output: Dict[str, Dict[str, int]] = {}
-    overall: Dict[str, int] = {}
-    cells = 0
-    for values in itertools.product(*(scope.domains[d] for d in dims)):
-        cells += 1
-        res = validation_scope(function=name, **dict(zip(dims, values)))
-        overall[res["status"]] = overall.get(res["status"], 0) + 1
-        for out in OUTPUTS:
-            if out not in res["outputs"]:
-                continue
-            status = res["outputs"][out]["status"]
-            slot = by_output.setdefault(out, {})
-            slot[status] = slot.get(status, 0) + 1
+    cells, overall, by_output = _grid_counts(scope)
     return {
         "dimensions": {d: list(scope.domains[d]) for d in dims},
         "primary_outputs": list(scope.primary),
