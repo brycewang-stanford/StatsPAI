@@ -68,7 +68,7 @@ def test_conformal_continuous_dose_grid():
 
 def test_conformal_continuous_missing_columns():
     df = _make_continuous_data(n=100)
-    with pytest.raises(ValueError, match="missing"):
+    with pytest.raises(ValueError, match="not found"):
         sp.conformal_continuous(
             df,
             y="bogus",

@@ -35,6 +35,7 @@ from typing import Any, ClassVar, Dict, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 from ..panel.unit_root import _adf_unit, mackinnon1994_pvalue
@@ -216,20 +217,21 @@ def _series(
                 "unitroot: pass y=<column> when data is a DataFrame.",
                 recovery_hint="sp.unitroot(df, 'gdp')",
             )
-        if y not in data.columns:
-            raise MethodIncompatibility(
-                f"unitroot: column {y!r} is not in data.",
-                recovery_hint="Check the column name.",
-                diagnostics={"columns": [str(c) for c in data.columns][:20]},
-            )
+        shown = {"columns": [str(c) for c in data.columns][:20]}
+        check_columns(
+            data,
+            {"y": y},
+            message=f"unitroot: column {y!r} is not in data.",
+            extra_diagnostics=shown,
+        )
+        check_columns(
+            data,
+            {"time": time},
+            message=f"unitroot: time column {time!r} is not in data.",
+            extra_diagnostics=shown,
+        )
         frame = data
         if time is not None:
-            if time not in data.columns:
-                raise MethodIncompatibility(
-                    f"unitroot: time column {time!r} is not in data.",
-                    recovery_hint="Check the column name.",
-                    diagnostics={"columns": [str(c) for c in data.columns][:20]},
-                )
             if data[time].isna().any():
                 raise MethodIncompatibility(
                     f"unitroot: {int(data[time].isna().sum())} rows have a "

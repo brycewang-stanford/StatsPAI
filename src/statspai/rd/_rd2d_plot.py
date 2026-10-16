@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
@@ -84,13 +85,11 @@ def rd2d_plot(
             recovery_hint="Pass a DataFrame containing y, x1, x2, and treatment.",
             diagnostics={"type": type(data).__name__},
         )
-    for col in (y, x1, x2, treatment):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"Column '{col}' not found in data",
-                recovery_hint="Check y/x1/x2/treatment names against data.columns.",
-                diagnostics={"missing_columns": [col]},
-            )
+    check_columns(
+        data,
+        {"y": y, "x1": x1, "x2": x2, "treatment": treatment},
+        function="sp.rd2d_plot",
+    )
     if boundary is not None and not callable(boundary):
         raise MethodIncompatibility(
             "boundary must be callable or None",

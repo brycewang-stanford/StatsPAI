@@ -83,8 +83,9 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from .._result_serialize import attach_result_protocol
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ..core.results import CausalResult
@@ -146,13 +147,15 @@ class _Summaries(NamedTuple):
 
 def _wide_panel(data: pd.DataFrame, i: str, t: str, g: str, y: str) -> _Panel:
     """Pivot to units x periods, recoding never-treated and dropping singletons."""
-    for col in (i, t, g, y):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"staggered_rollout: column {col!r} not in data.",
-                recovery_hint="Check the y / i / t / g arguments.",
-                diagnostics={"columns": list(data.columns)},
-            )
+    missing = missing_named_columns({"y": y, "i": i, "t": t, "g": g}, data.columns)
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message="staggered_rollout: column "
+            f"{next(iter(missing.values()))!r} not in data.",
+            extra_hint="Check the y / i / t / g arguments.",
+        )
 
     df = data[[i, t, g, y]].copy()
     gv = pd.to_numeric(df[g], errors="coerce")

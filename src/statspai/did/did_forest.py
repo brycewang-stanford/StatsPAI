@@ -48,6 +48,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
@@ -403,12 +404,19 @@ def did_forest(
             alternative_functions=["sp.callaway_santanna"],
         )
     needed = [y, id, time, cohort, *x_cols] + ([clusters] if clusters else [])
-    missing = [c for c in needed if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"did_forest(): column(s) not in data: {missing}.",
-            recovery_hint="Check the column names against data.columns.",
-        )
+    check_columns(
+        data,
+        {
+            "y": y,
+            "id": id,
+            "time": time,
+            "cohort": cohort,
+            "x": x_cols,
+            "clusters": clusters or None,
+        },
+        message="did_forest(): column(s) not in data: "
+        f"{[c for c in needed if c not in data.columns]}.",
+    )
     if control_group not in ("notyettreated", "nevertreated"):
         raise MethodIncompatibility(
             "did_forest(): control_group must be 'notyettreated' or 'nevertreated'.",

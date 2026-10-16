@@ -24,7 +24,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility, StatsPAIWarning
+from ..exceptions import ColumnNotFound, MethodIncompatibility, StatsPAIWarning
 from ._covariance import coefficient_covariance, inference_df, require_covariance
 from ._design import design_for, model_setting
 
@@ -612,6 +612,16 @@ def _offset(result: Any, frame: pd.DataFrame) -> np.ndarray:
             continue
         if isinstance(spec, str) and spec in frame.columns:
             total = total + transform(frame[spec].to_numpy(dtype=float))
+        elif isinstance(spec, str):
+            raise ColumnNotFound.from_missing(
+                {key: spec},
+                list(frame.columns),
+                message=(
+                    f"margins: the fit used {key}={spec!r}, which is not a column "
+                    "of the data passed to margins."
+                ),
+                extra_hint="Pass data= containing the offset/exposure column.",
+            )
         else:
             raise MethodIncompatibility(
                 f"margins: the fit used {key}={spec!r}, which is not a column of "

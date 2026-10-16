@@ -53,6 +53,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ._rdhonest import cv_bias, honest_bandwidth, m_rule_of_thumb, sigma_nn
@@ -371,9 +372,7 @@ def rd_optimized(
     if not 0 < alpha < 1:
         raise MethodIncompatibility("alpha must be in (0, 1)")
     cols = [y, x] + ([fuzzy] if fuzzy is not None else [])
-    for col in cols:
-        if col not in data.columns:
-            raise MethodIncompatibility(f"column {col!r} not found in data")
+    check_columns(data, {"y": y, "x": x, "fuzzy": fuzzy}, function="sp.rd_optimized")
     df = data[cols].dropna()
     if len(df) < len(data):
         warnings.warn(

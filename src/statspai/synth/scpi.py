@@ -38,6 +38,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _scpi_solvers as _sv
@@ -115,6 +116,15 @@ def scdata(
     >>> prepared['Y_pre'].shape  # 19 pre-treatment years (1970-1988)
     (19,)
     """
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+        },
+        function="sp.scdata",
+    )
     if data.duplicated([unit, time]).any():
         raise MethodIncompatibility(f"Duplicate ({unit}, {time}) rows in data.")
     pivot = data.pivot(index=time, columns=unit, values=outcome).sort_index()

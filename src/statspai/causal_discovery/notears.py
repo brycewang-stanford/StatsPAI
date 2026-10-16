@@ -25,6 +25,7 @@ import pandas as pd
 from scipy.linalg import expm
 from scipy.optimize import minimize
 
+from .._input_validation import check_columns
 from ..utils._rng import preserve_global_rng
 
 # ======================================================================
@@ -192,9 +193,11 @@ class NOTEARS:
 
         # Prepare data
         if self.variables is not None:
-            missing = [v for v in self.variables if v not in self.data.columns]
-            if missing:
-                raise ValueError(f"Variables not found in data: {missing}")
+            check_columns(
+                self.data,
+                {"variables": list(self.variables)},
+                function="sp.notears",
+            )
             X = self.data[self.variables].dropna().values.astype(np.float64)
             var_names = list(self.variables)
         else:

@@ -15,6 +15,8 @@ from typing import List, Sequence, Tuple
 
 import pandas as pd
 
+from ..exceptions import ColumnNotFound
+
 _SEP = re.compile(r"\s*(?:\^|#)\s*")
 
 
@@ -55,7 +57,11 @@ def resolve_group_terms(
             continue
         missing = [a for a in atoms if a not in data.columns]
         if missing:
-            raise KeyError(f"interacted term {t!r}: column(s) {missing} not in data")
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(data.columns),
+                message=f"interacted term {t!r}: column(s) {missing} not in data",
+            )
         label = "^".join(atoms)
         codes = data.groupby(atoms, dropna=False, sort=True).ngroup()
         codes = codes.where(data[atoms].notna().all(axis=1))

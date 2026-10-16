@@ -64,6 +64,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import (
     AssumptionWarning,
@@ -310,12 +311,13 @@ def _prepare(
     data: pd.DataFrame, y: str, id: str, time: str, cohort: str
 ) -> Tuple[_Panel, Dict[str, Any]]:
     """Validate the panel and recode it to ``0..n-1`` / ``1..T`` integers."""
-    missing = [c for c in (y, id, time, cohort) if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"Columns not found in `data`: {missing}.",
-            diagnostics={"columns": list(data.columns)[:40]},
-        )
+    check_columns(
+        data,
+        {"y": y, "id": id, "time": time, "cohort": cohort},
+        message="Columns not found in `data`: "
+        f"{[c for c in (y, id, time, cohort) if c not in data.columns]}.",
+        extra_diagnostics={"columns": list(data.columns)[:40]},
+    )
     df = data[[y, id, time, cohort]].copy()
     if df[[y, id, time]].isna().any().any():
         raise MethodIncompatibility(

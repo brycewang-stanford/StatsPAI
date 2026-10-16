@@ -60,6 +60,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import NumericalInstability
 
@@ -153,9 +154,17 @@ def proximal(
 
     covariates = list(covariates or [])
     all_cols = [y, treat] + list(proxy_z) + list(proxy_w) + covariates
-    missing = [c for c in all_cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "proxy_z": list(proxy_z),
+            "proxy_w": list(proxy_w),
+            "covariates": covariates,
+        },
+        function="sp.proximal",
+    )
 
     df = data[all_cols].dropna().reset_index(drop=True)
     n = len(df)

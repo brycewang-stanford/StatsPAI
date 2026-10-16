@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import special, stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -34,11 +35,12 @@ ArrayLike = Union[pd.DataFrame, pd.Series, np.ndarray, Sequence[float]]
 
 def _series(data: ArrayLike, y: Optional[str], who: str) -> np.ndarray:
     if isinstance(data, pd.DataFrame):
-        if y is None or y not in data.columns:
+        if y is None:
             raise MethodIncompatibility(
                 f"sp.{who}: y={y!r} is not a column of the data.",
                 recovery_hint=f"Pass the name of the series, e.g. sp.{who}(df, 'x').",
             )
+        check_columns(data, {"y": y}, function=f"sp.{who}")
         x = data[y].to_numpy(dtype=float, na_value=np.nan)
     else:
         x = np.asarray(data, dtype=float).ravel()

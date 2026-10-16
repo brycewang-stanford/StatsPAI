@@ -41,6 +41,7 @@ import pandas as pd
 from scipy import stats
 from scipy.spatial.distance import cdist
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
 from . import _metric_tree
@@ -722,11 +723,12 @@ def _match_frequency_weighted(
     is how it is computed. Sampling weights have no matching estimator with
     a checked variance, so non-integer weights are refused.
     """
-    if weights not in data.columns:
-        raise MethodIncompatibility(
-            f"sp.match: weights column '{weights}' not in data.",
-            diagnostics={"weights": weights},
-        )
+    check_columns(
+        data,
+        {"weights": weights},
+        function="sp.match",
+        extra_diagnostics={"weights": weights},
+    )
     w = data[weights].to_numpy(dtype=float)
     ok = np.isfinite(w)
     if np.any(w[ok] < 1) or np.any(w[ok] != np.round(w[ok])):
@@ -1093,26 +1095,23 @@ class MatchEstimator:
         self._validate()
 
     def _validate(self) -> None:
-        required = [self.y, self.treat] + self.covariates
-        if self.pscore_col is not None:
-            required = required + [self.pscore_col]
-        if self.strata_col is not None:
-            required = required + [self.strata_col]
-            if self.method != "stratify":
-                raise MethodIncompatibility(
-                    "match: strata= names the strata of method='stratify'; "
-                    f"got method={self.method!r}.",
-                    recovery_hint="Pass method='stratify', or drop strata=.",
-                )
-        missing = [col for col in required if col not in self.data.columns]
-        if missing:
+        if self.strata_col is not None and self.method != "stratify":
             raise MethodIncompatibility(
-                f"match: columns not found in data: {missing}",
-                recovery_hint=(
-                    "Check y, treat, and covariates column names before matching."
-                ),
-                diagnostics={"missing_columns": missing},
+                "match: strata= names the strata of method='stratify'; "
+                f"got method={self.method!r}.",
+                recovery_hint="Pass method='stratify', or drop strata=.",
             )
+        check_columns(
+            self.data,
+            {
+                "y": self.y,
+                "treat": self.treat,
+                "covariates": self.covariates,
+                "pscore": self.pscore_col,
+                "strata": self.strata_col,
+            },
+            function="sp.match",
+        )
 
         if self.method not in _VALID_METHODS:
             raise MethodIncompatibility(

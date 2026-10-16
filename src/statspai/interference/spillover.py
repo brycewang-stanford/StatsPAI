@@ -24,7 +24,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import missing_named_columns
 from ..core.results import CausalResult
+from ..exceptions import ColumnNotFound
 
 
 def spillover(
@@ -168,7 +170,19 @@ class SpilloverEstimator:
             cols += self.covariates
         missing = [c for c in cols if c not in self.data.columns]
         if missing:
-            raise ValueError(f"Columns not found in data: {missing}")
+            raise ColumnNotFound.from_missing(
+                missing_named_columns(
+                    {
+                        "y": self.y,
+                        "treat": self.treat,
+                        "cluster": self.cluster,
+                        "covariates": self.covariates,
+                    },
+                    self.data.columns,
+                ),
+                self.data.columns,
+                message=f"Columns not found in data: {missing}",
+            )
 
         df = self.data[cols].dropna().copy()
         n = len(df)

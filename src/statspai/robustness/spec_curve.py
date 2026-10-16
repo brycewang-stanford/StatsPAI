@@ -49,8 +49,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 # ---------------------------------------------------------------------------
 # Result container
@@ -748,11 +749,25 @@ def spec_curve(
     if fe is None:
         fe = [[]]
     fe = [[f] if isinstance(f, str) else list(f) for f in fe]
+    named: Dict[str, Any] = {"y": y, "x": x, "cluster_var": cluster_var}
+    for i, ctrl_set in enumerate(controls):
+        ctrl_list = [ctrl_set] if isinstance(ctrl_set, str) else list(ctrl_set)
+        for j, col in enumerate(ctrl_list):
+            named[f"controls[{i}][{j}]"] = col
+    check_columns(data, named, function="spec_curve")
     missing_fe = sorted({f for fs in fe for f in fs} - set(data.columns))
     if missing_fe:
-        raise MethodIncompatibility(
-            f"Fixed-effect columns not found in data: {missing_fe}",
-            diagnostics={"missing": missing_fe},
+        fe_named = {
+            f"fe[{i}][{j}]": f
+            for i, fs in enumerate(fe)
+            for j, f in enumerate(fs)
+            if f not in data.columns
+        }
+        raise ColumnNotFound.from_missing(
+            fe_named,
+            list(data.columns),
+            context="spec_curve",
+            extra_diagnostics={"missing": missing_fe},
         )
 
     se_types = [_SE_ALIASES.get(str(s).lower(), str(s).lower()) for s in se_types]

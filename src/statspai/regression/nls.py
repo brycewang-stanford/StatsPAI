@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from .._input_validation import check_columns
 from ..core._vcov import sandwich_vcov
 from ..core.results import EconometricResults
 from ..exceptions import (
@@ -49,11 +50,12 @@ def _formula_function(
             "function with its parameters in braces.",
         )
     left, right = (part.strip() for part in formula.split("~", 1))
-    if left not in data.columns:
-        raise MethodIncompatibility(
-            f"sp.nls: the outcome {left!r} is not a column.",
-            recovery_hint="Transform the outcome into a column first.",
-        )
+    check_columns(
+        data,
+        {"y": left},
+        function="sp.nls",
+        extra_hint="Transform the outcome into a column first.",
+    )
     names: List[str] = []
     for name, value in _PARAM.findall(right):
         if name not in names:
@@ -329,17 +331,14 @@ def nls(
             f"sp.nls: vce={vce!r} is not 'ols', 'robust', 'hc2' or 'hc3'.",
             recovery_hint="Use vce='robust', or cluster='<column>'.",
         )
-    if cluster is not None and cluster not in data.columns:
-        raise MethodIncompatibility(
-            f"sp.nls: cluster={cluster!r} is not a column.",
-            recovery_hint="Pass the name of the cluster variable.",
-        )
+    check_columns(data, {"cluster": cluster}, function="sp.nls")
 
     start_values: Dict[str, float] = {}
     if isinstance(start, Mapping):
         start_values = {str(k): float(v) for k, v in start.items()}
     if callable(formula):
-        if y is None or y not in data.columns:
+        check_columns(data, {"y": y}, function="sp.nls")
+        if y is None:
             raise MethodIncompatibility(
                 "sp.nls: with a function, y= must name the outcome column.",
                 recovery_hint="Pass y='<column>'.",

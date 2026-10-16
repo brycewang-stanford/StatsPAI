@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, special
 
+from .._input_validation import check_columns
 from ..core.results import EconometricResults
 from ..exceptions import (
     ConvergenceWarning,
@@ -238,12 +239,17 @@ def mprobit(
             "alternative.",
         )
     cols = [y, chid, alt] + xs + zs
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"sp.mprobit: column(s) {missing} are not in the data.",
-            recovery_hint="Check y=, x=, case_vars=, chid=, alt=.",
-        )
+    check_columns(
+        data,
+        {
+            "y": y,
+            "chid": chid,
+            "alt": alt,
+            "x": x if isinstance(x, str) else xs,
+            "case_vars": case_vars if isinstance(case_vars, str) else zs,
+        },
+        function="sp.mprobit",
+    )
     df = data[list(dict.fromkeys(cols))].dropna().sort_values([chid, alt])
     alts = sorted(pd.unique(df[alt]).tolist())
     J = len(alts)

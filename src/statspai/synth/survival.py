@@ -39,6 +39,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["synth_survival", "SyntheticSurvivalResult"]
@@ -205,9 +206,11 @@ def synth_survival(
     ... )
     >>> _ = r.summary()
     """
-    for col in [unit, time, survival]:
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data")
+    check_columns(
+        data,
+        {"unit": unit, "time": time, "survival": survival},
+        function="sp.synth_survival",
+    )
 
     df = data.copy()
 

@@ -48,8 +48,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 _SUPPORTED_FIRST_STAGE = ("feols",)
 
@@ -273,12 +274,16 @@ def _parse_covariates(
     missing = [c for c in wanted if c not in data.columns]
     if missing:
         available = ", ".join(map(repr, list(data.columns)[:12]))
-        raise ValueError(
-            f"cic(): covariate column(s) {missing!r} not found in `data`. "
-            f"Available columns include: {available}. "
-            "Fix the names, e.g. "
-            f"sp.cic(data, y={y!r}, group={group!r}, time={time!r}, "
-            f"covariates={[c for c in wanted if c in data.columns] or ['x1']!r})."
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=(
+                f"cic(): covariate column(s) {missing!r} not found in `data`. "
+                f"Available columns include: {available}. "
+                "Fix the names, e.g. "
+                f"sp.cic(data, y={y!r}, group={group!r}, time={time!r}, "
+                f"covariates={[c for c in wanted if c in data.columns] or ['x1']!r})."
+            ),
         )
 
     clash = [c for c in wanted if c in (y, group, time)]
@@ -523,6 +528,7 @@ def cic(
             f"sp.cic(data, y={y!r}, group={group!r}, time={time!r}, "
             "covariates=[...], first_stage='feols')."
         )
+    check_columns(data, {"y": y, "group": group, "time": time}, function="sp.cic")
 
     use_cov = covariates is not None
     fe_terms: List[str] = []

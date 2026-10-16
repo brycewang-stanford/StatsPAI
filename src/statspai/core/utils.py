@@ -166,6 +166,112 @@ def formula_eval_env() -> Any:
     return EvalEnvironment([_FORMULA_FUNCTIONS])
 
 
+_PATSY_BUILTINS = frozenset(
+    {
+        "C", "I", "Q", "Treatment", "Sum", "Poly", "Helmert", "Diff",
+        "center", "standardize", "scale", "bs", "cr", "cc", "te",
+        "True", "False", "None", "and", "or", "not", "in", "is", "if", "else",
+    }
+)  # fmt: skip
+_QUOTED_NAME_RE = re.compile(r"""\bQ\(\s*(["'])(.*?)\1\s*\)""")
+_STRING_LITERAL_RE = re.compile(r"""(["'])(?:\\.|(?!\1).)*\1""")
+# a bare name that is neither called (``f(``) nor a keyword (``reference=``)
+_IDENTIFIER_RE = re.compile(r"(?<![\w.])([A-Za-z_]\w*)\b(?![\w.]*\s*\()(?!\s*=(?!=))")
+# patsy: "name 'x' is not defined" / "no data named 'x'"; formulaic (pyfixest):
+# "`x` is not present in the dataset"
+_NAME_ERROR_RE = re.compile(
+    r"""name '([^']+)' is not defined|no data named '([^']+)'"""
+    r"""|`([^`]+)` is not present in the dataset"""
+)
+
+
+def _formula_name_error(error: BaseException) -> Optional[str]:
+    """The name an evaluation failure could not resolve, if it was a lookup."""
+    seen = set()
+    exc: Optional[BaseException] = error
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, NameError):
+            name = getattr(exc, "name", None)
+            if name:
+                return str(name)
+            hit = _NAME_ERROR_RE.search(str(exc))
+            if hit:
+                return next(g for g in hit.groups() if g)
+        exc = exc.__cause__ or exc.__context__
+    hit = _NAME_ERROR_RE.search(str(error))
+    if hit:
+        return next(g for g in hit.groups() if g)
+    return None
+
+
+def formula_unknown_columns(formula: str, data: pd.DataFrame) -> List[str]:
+    """Names a formula reads as data columns that ``data`` does not have.
+
+    Bare identifiers that are not called as functions, plus the contents
+    of ``Q("...")``; names of the formula namespace (``log``, ``np`` ...)
+    and patsy's own helpers are not columns.  Order of first appearance.
+    """
+    cols = set(map(str, data.columns))
+    found: List[str] = []
+    for match in _QUOTED_NAME_RE.finditer(formula):
+        found.append(match.group(2))
+    bare = _STRING_LITERAL_RE.sub(" ", _QUOTED_NAME_RE.sub(" ", formula))
+    for match in _IDENTIFIER_RE.finditer(bare):
+        name = match.group(1)
+        if name in _FORMULA_FUNCTIONS or name in _PATSY_BUILTINS:
+            continue
+        found.append(name)
+    out: List[str] = []
+    for name in found:
+        if name not in cols and name not in out:
+            out.append(name)
+    return out
+
+
+def raise_if_formula_names_missing(
+    formula: str,
+    data: pd.DataFrame,
+    error: Optional[BaseException] = None,
+    *,
+    context: Optional[str] = None,
+) -> None:
+    """Raise :class:`~statspai.exceptions.ColumnNotFound` for unknown columns.
+
+    Called where a formula is turned into a design matrix.  With ``error``
+    (the exception patsy raised) it fires only when the failure was a name
+    lookup for something used as a variable, not a misspelled function
+    (``lg(x)``), so other evaluation errors keep their own message.
+    Without ``error`` it is a pre-flight check on the formula text.
+    """
+    from ..exceptions import ColumnNotFound
+
+    if error is not None:
+        name = _formula_name_error(error)
+        if name is None or re.search(
+            r"(?<![\w.])" + re.escape(name) + r"\s*\(", formula
+        ):
+            return
+    missing = formula_unknown_columns(formula, data)
+    if (
+        error is not None
+        and name not in missing
+        and name not in set(map(str, data.columns))
+    ):
+        missing.append(name)
+    if not missing:
+        return
+    exc = ColumnNotFound.from_missing(
+        missing,
+        list(data.columns),
+        context=context,
+        extra_diagnostics={"formula": formula},
+    )
+    if error is not None:
+        raise exc from error
+    raise exc
+
+
 def evaluate_formula_expression(expr: str, data: pd.DataFrame) -> pd.Series:
     """One formula expression (``np.log(wage)``, ``I(a / b)``) as a column.
 
@@ -187,6 +293,7 @@ def evaluate_formula_expression(expr: str, data: pd.DataFrame) -> pd.Series:
             NA_action=NAAction(on_NA="drop"),
         )
     except Exception as exc:
+        raise_if_formula_names_missing(expr, frame, exc)
         raise MethodIncompatibility(
             f"Could not evaluate {expr!r} on the data: {exc}",
             recovery_hint=(
@@ -672,6 +779,9 @@ def create_design_matrices(
         y = _logical_outcome_as_indicator(y, return_type)
         return y, X
     except Exception as patsy_error:
+        # A misspelled column is the common failure: name it, with a
+        # did-you-mean, before the manual-parse fallback below.
+        raise_if_formula_names_missing(formula, data, patsy_error)
         # Fallback to manual parsing if patsy fails
         parsed = parse_formula(formula)
         unknown = [

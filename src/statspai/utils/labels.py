@@ -41,6 +41,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..exceptions import MethodIncompatibility
 
 #: Suffix of the column holding a variable's ``.a`` ... ``.z`` codes; the
@@ -75,8 +76,7 @@ def label_var(df: pd.DataFrame, var: str, label: str) -> None:
     >>> sp.get_label(df, 'wage')
     'Monthly wage (CNY)'
     """
-    if var not in df.columns:
-        raise ValueError(f"Column '{var}' not found in DataFrame")
+    check_columns(df, {"var": var}, function="sp.label_var")
 
     if "_labels" not in df.attrs:
         df.attrs["_labels"] = {}
@@ -383,9 +383,12 @@ def label_values(
                 f"value labels attach to integer codes only; got {code!r}"
             )
         regular[int(code)] = str(text)
+    check_columns(
+        df,
+        {"var": var if isinstance(var, str) else names},
+        function="sp.label_values",
+    )
     for name in names:
-        if name not in df.columns:
-            raise MethodIncompatibility(f"Column '{name}' not found in DataFrame")
         if not pd.api.types.is_numeric_dtype(df[name]):
             raise MethodIncompatibility(
                 f"Column '{name}' is {df[name].dtype}, not numeric; value "
@@ -525,9 +528,12 @@ def decode(
         names = [c for c in df.columns if value_labels.get(c)]
     else:
         names = [columns] if isinstance(columns, str) else list(columns)
+        check_columns(
+            df,
+            {"columns": columns if isinstance(columns, str) else names},
+            function="sp.decode",
+        )
         for name in names:
-            if name not in df.columns:
-                raise MethodIncompatibility(f"Column '{name}' not found in DataFrame")
             if not value_labels.get(name):
                 raise MethodIncompatibility(
                     f"Column '{name}' has no value labels; attach them with "

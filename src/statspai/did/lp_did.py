@@ -58,6 +58,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from . import _core as _dc
@@ -161,10 +162,18 @@ def lp_did(
         )
 
     df = data.copy()
-    required = [y, unit, time, treatment]
-    for col in required:
-        if col not in df.columns:
-            raise ValueError(f"Column {col!r} not in data")
+    check_columns(
+        df,
+        {
+            "y": y,
+            "unit": unit,
+            "time": time,
+            "treatment": treatment,
+            "controls": None if controls is None else list(controls),
+            "cluster": cluster,
+        },
+        function="sp.lp_did",
+    )
 
     # Ensure sorted and treatment binary.
     if not set(df[treatment].dropna().unique()) <= {0, 1}:

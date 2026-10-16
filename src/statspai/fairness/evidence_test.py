@@ -46,7 +46,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import missing_named_columns
 from ..exceptions import (
+    ColumnNotFound,
     ConvergenceFailure,
     DataInsufficient,
     MethodIncompatibility,
@@ -386,24 +388,16 @@ def evidence_without_injustice(
     alpha = _require_probability(alpha, argument="alpha")
     threshold = _require_threshold(threshold)
     n_boot = _require_n_boot(n_boot)
-    if protected not in data.columns:
-        raise MethodIncompatibility(
-            f"`protected` column {protected!r} not in data.",
-            recovery_hint="Check the protected column name.",
-            diagnostics={
-                "protected": protected,
-                "available_columns": list(data.columns),
-            },
-        )
-    missing = [c for c in admissible_features if c not in data.columns]
+    missing = missing_named_columns(
+        {"protected": protected, "admissible_features": admissible_features},
+        data.columns,
+    )
     if missing:
-        raise MethodIncompatibility(
-            f"admissible_features not in data: {missing}",
-            recovery_hint="Check admissible feature names against data.columns.",
-            diagnostics={
-                "missing_columns": missing,
-                "available_columns": list(data.columns),
-            },
+        raise ColumnNotFound.from_missing(
+            missing,
+            data.columns,
+            context="evidence_without_injustice",
+            extra_diagnostics={"protected": protected},
         )
 
     # --- Predictor on factual ---------------------------------------------

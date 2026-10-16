@@ -2,16 +2,16 @@
 Tests for Conformal Causal, BCF, Bunching, and Matrix Completion.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
-from statspai.conformal_causal import conformal_cate, ConformalCATE
-from statspai.bcf import bcf, BayesianCausalForest
-from statspai.bunching import bunching, BunchingEstimator
-from statspai.matrix_completion import mc_panel, MCPanel
+from statspai.bcf import BayesianCausalForest, bcf
+from statspai.bunching import BunchingEstimator, bunching
+from statspai.conformal_causal import ConformalCATE, conformal_cate
 from statspai.core.results import CausalResult
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
+from statspai.matrix_completion import MCPanel, mc_panel
 
 # ======================================================================
 # Fixtures
@@ -351,7 +351,7 @@ class TestMCPanel:
         assert result.model_info["effective_rank"] <= 2
 
     def test_missing_column_raises(self, panel_data):
-        with pytest.raises(ValueError, match="Columns not found"):
+        with pytest.raises(ValueError, match=r"Column\(s\) not found"):
             mc_panel(
                 panel_data,
                 y="y",

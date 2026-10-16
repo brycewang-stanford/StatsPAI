@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..exceptions import MethodIncompatibility
 from ..inference.randomization import _enumerate_assignments, _ols_stat_factory
 
@@ -120,9 +121,17 @@ def westfall_young(
     ys = [y] if isinstance(y, str) else list(y)
     covariates = list(covariates or [])
     base_cols = [treat] + covariates + [c for c in (strata, cluster) if c]
-    missing = [c for c in ys + base_cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y if isinstance(y, str) else ys,
+            "treat": treat,
+            "covariates": covariates,
+            "strata": strata or None,
+            "cluster": cluster or None,
+        },
+        function="sp.westfall_young",
+    )
     df = data[list(dict.fromkeys(ys + base_cols))]
     df = df.dropna(subset=base_cols).reset_index(drop=True)
     D = df[treat].to_numpy(dtype=float)

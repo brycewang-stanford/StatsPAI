@@ -173,7 +173,7 @@ def test_fect_argument_checks(df):
         sp.fect(df, **KW, force="both")
     with pytest.raises(ValueError, match="vce must be None, 'bootstrap'"):
         sp.fect(df, **KW, vce="hc1")
-    with pytest.raises(ValueError, match="column 'nope' not in data"):
+    with pytest.raises(ValueError, match="not found in data: y='nope'"):
         sp.fect(df, y="nope", treat="d", unit="id", time="time")
     bad = df.copy()
     bad.loc[0, "d"] = 2

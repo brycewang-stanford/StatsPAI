@@ -8,8 +8,9 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 
 @dataclass
@@ -172,8 +173,13 @@ def poststratify(
     if not isinstance(cells, pd.DataFrame):
         raise MethodIncompatibility("cells must be a DataFrame, one row per cell.")
     if count not in cells.columns:
-        raise MethodIncompatibility(
-            f"cells has no column {count!r} with the population counts."
+        raise ColumnNotFound.from_missing(
+            {"count": count},
+            list(cells.columns),
+            message=(
+                f"sp.poststratify: cells has no column {count!r} with the "
+                "population counts."
+            ),
         )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
@@ -241,7 +247,11 @@ def poststratify(
         keys = [by] if isinstance(by, str) else list(by)
         missing = [k for k in keys if k not in cells.columns]
         if missing:
-            raise MethodIncompatibility(f"by columns not in cells: {missing}.")
+            raise ColumnNotFound.from_missing(
+                missing_named_columns({"by": by}, cells.columns),
+                list(cells.columns),
+                message=f"sp.poststratify: by columns not in cells: {missing}.",
+            )
         grouped = cells.groupby(keys, sort=True, observed=True).indices
         for key, idx in grouped.items():
             mask = np.zeros(len(cells), dtype=bool)

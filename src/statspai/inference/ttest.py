@@ -22,8 +22,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 __all__ = ["ttest", "TTestResult"]
 
@@ -208,12 +209,13 @@ def _summary_samples(
     return rows
 
 
-def _column(data: pd.DataFrame, name: str) -> pd.Series:
+def _column(data: pd.DataFrame, name: str, argument: str = "y") -> pd.Series:
     if name not in data.columns:
-        raise MethodIncompatibility(
-            f"ttest: column {name!r} is not in data.",
-            recovery_hint="Check the column name.",
-            diagnostics={"columns": [str(c) for c in data.columns][:20]},
+        raise ColumnNotFound.from_missing(
+            {argument: name},
+            data.columns,
+            message=f"ttest: column {name!r} is not in data.",
+            extra_diagnostics={"columns": [str(c) for c in data.columns][:20]},
         )
     col = data[name]
     if not pd.api.types.is_numeric_dtype(col):
@@ -362,6 +364,8 @@ def ttest(
             "ttest: y= names the variable to test.",
             recovery_hint="Pass the column name.",
         )
+    if not summary:
+        check_columns(data, {"y": y, "by": by, "other": other}, function="ttest")
     yv = _column(data, y) if not summary else None
 
     def too_small(label: str) -> MethodIncompatibility:
@@ -388,7 +392,7 @@ def ttest(
             x = yv.dropna().to_numpy()
             method, labels = "One-sample t test", {y: x}
         else:
-            ov = _column(data, other)
+            ov = _column(data, other, "other")
             keep = yv.notna() & ov.notna()
             x = (yv[keep] - ov[keep]).to_numpy()
             method = "Paired t test"
@@ -424,7 +428,7 @@ def ttest(
             names = [str(levels[0]), str(levels[1])]
         else:
             a = yv.dropna().to_numpy()
-            b = _column(data, str(other)).dropna().to_numpy()
+            b = _column(data, str(other), "other").dropna().to_numpy()
             names = [y, str(other)]
         if not summary:
             if a.size < 2:

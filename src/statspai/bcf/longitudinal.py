@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import AssumptionWarning, IdentificationFailure
 
@@ -277,10 +278,17 @@ def bcf_longitudinal(
     """
     if not isinstance(data, pd.DataFrame):
         raise TypeError("`data` must be a pandas DataFrame.")
-    required = {outcome, treatment, unit, time, *covariates}
-    missing = required - set(data.columns)
-    if missing:
-        raise ValueError(f"Missing columns in data: {sorted(missing)}")
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "treatment": treatment,
+            "unit": unit,
+            "time": time,
+            "covariates": list(covariates),
+        },
+        function="sp.bcf_longitudinal",
+    )
     if int(data[outcome].notna().sum()) < 2:
         raise ValueError(
             f"outcome '{outcome}' has fewer than 2 non-missing values; "

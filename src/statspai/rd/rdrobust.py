@@ -25,9 +25,11 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns, missing_named_columns
 from ..core.results import CausalResult
 from ..exceptions import (
     AssumptionWarning,
+    ColumnNotFound,
     ConvergenceFailure,
     DataInsufficient,
     MethodIncompatibility,
@@ -35,6 +37,20 @@ from ..exceptions import (
 )
 
 Bandwidth = Union[float, Tuple[float, float]]
+
+
+def _check_rd_columns(
+    data: pd.DataFrame, columns: Dict[str, Any], function: str = "sp.rdrobust"
+) -> None:
+    """Raise ``ColumnNotFound`` (with did-you-mean) for absent columns."""
+    missing = missing_named_columns(columns, data.columns)
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            context=function,
+            extra_diagnostics={"missing_column": next(iter(missing.values()))},
+        )
 
 
 def _require_dataframe(value: Any, name: str) -> pd.DataFrame:
@@ -605,14 +621,10 @@ def rdrobust(
     covs = _coerce_optional_column_list(covs, "covs")
     if cluster is not None:
         cluster = _require_column_name(cluster, "cluster")
-        if cluster not in data.columns:
-            raise MethodIncompatibility(
-                f"Cluster column '{cluster}' not found in data.",
-                diagnostics={
-                    "missing_column": cluster,
-                    "available_columns": list(data.columns),
-                },
-            )
+        _check_rd_columns(data, {"cluster": cluster})
+    if weights is not None:
+        weights = _require_column_name(weights, "weights")
+        _check_rd_columns(data, {"weights": weights})
     kernel = _require_string_option(kernel, "kernel")
     bwselect = _require_string_option(bwselect, "bwselect")
     deriv = _require_int_at_least(deriv, "deriv", 0)
@@ -713,13 +725,6 @@ def rdrobust(
         )
 
     # --- Parse and prepare data ---
-    if weights is not None:
-        weights = _require_column_name(weights, "weights")
-        if weights not in data.columns:
-            raise MethodIncompatibility(
-                f"weights column '{weights}' not found in data.",
-                diagnostics={"missing_column": weights},
-            )
     _extra = [col for col in (cluster, weights) if col is not None]
     Y, X_c, D, Z, _valid = _parse_data(
         data, y, x, c, fuzzy, covs, extra=_extra, return_mask=True
@@ -1814,6 +1819,11 @@ def rdplot(
         raise MethodIncompatibility(
             f"kernel must be 'uniform', 'triangular' or 'epanechnikov'; got {kernel!r}"
         )
+    check_columns(
+        data,
+        {"y": y, "x": x, "covs": covs, "weights": weights, "cluster": cluster},
+        function="sp.rdplot",
+    )
     Y = data[y].to_numpy(dtype=float)
     X = data[x].to_numpy(dtype=float)
     Zc = data[list(covs)].to_numpy(dtype=float) if covs else None
@@ -2100,6 +2110,7 @@ def rdplotdensity(
         raise ImportError("matplotlib required. Install: pip install matplotlib")
     from ._rdplot_core import lpdensity_numbers
 
+    check_columns(data, {"x": x}, function="sp.rdplotdensity")
     X = data[x].to_numpy(dtype=float)
     X = X[np.isfinite(X)]
     n = len(X)
@@ -2208,23 +2219,7 @@ def _parse_data(
     if fuzzy is not None:
         fuzzy = _require_column_name(fuzzy, "fuzzy")
     covs = _coerce_optional_column_list(covs, "covs")
-    for col in [y, x]:
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"Column '{col}' not found in data",
-                diagnostics={
-                    "missing_column": col,
-                    "available_columns": list(data.columns),
-                },
-            )
-    if fuzzy and fuzzy not in data.columns:
-        raise MethodIncompatibility(
-            f"Fuzzy variable '{fuzzy}' not found in data",
-            diagnostics={
-                "missing_column": fuzzy,
-                "available_columns": list(data.columns),
-            },
-        )
+    _check_rd_columns(data, {"y": y, "x": x, "fuzzy": fuzzy or None, "covs": covs})
 
     # a string or categorical column cannot enter the local regression; say
     # which one it is (Stata's rdrobust stops with r(2000) on the same input)
@@ -2253,14 +2248,6 @@ def _parse_data(
         valid &= np.isfinite(D)
     if covs:
         for col in covs:
-            if col not in data.columns:
-                raise MethodIncompatibility(
-                    f"Covariate '{col}' not found in data",
-                    diagnostics={
-                        "missing_column": col,
-                        "available_columns": list(data.columns),
-                    },
-                )
             valid &= np.isfinite(data[col].values.astype(float))
     for col in extra or []:
         valid &= data[col].notna().to_numpy()

@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["AbsorbingCheck", "check_absorbing"]
@@ -122,14 +123,12 @@ def check_absorbing(
     ----------
     dechaisemartin2024difference
     """
-    for col in (unit, time, treat):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"column {col!r} not found in data.",
-                recovery_hint="Pass the long-panel unit / time / treatment "
-                "column names.",
-                diagnostics={"missing": col, "columns": list(data.columns)[:20]},
-            )
+    check_columns(
+        data,
+        {"unit": unit, "time": time, "treat": treat},
+        function="sp.check_absorbing",
+        extra_hint="Pass the long-panel unit / time / treatment column names.",
+    )
 
     df = data[[unit, time, treat]].dropna()
     if df.empty:

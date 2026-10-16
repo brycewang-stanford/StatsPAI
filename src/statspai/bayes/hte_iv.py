@@ -27,6 +27,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ._base import (
     BayesianHTEIVResult,
     _az_hdi_compat,
@@ -51,9 +52,17 @@ def _prepare_hte_iv_frame(
     mod_cols = list(effect_modifiers)
     cov_cols = list(covariates) if covariates else []
 
-    for c in [y, treat] + iv_cols + mod_cols + cov_cols:
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "instrument": iv_cols,
+            "effect_modifiers": mod_cols,
+            "covariates": cov_cols,
+        },
+        function="sp.bayes_hte_iv",
+    )
     if not mod_cols:
         raise ValueError("effect_modifiers must list at least one covariate.")
 
@@ -171,6 +180,21 @@ def bayes_hte_iv(
     >>> # Posterior CATE at a specific modifier value:
     >>> res.predict_cate({'age': 40})  # doctest: +SKIP
     """
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "instrument": instrument,
+            "effect_modifiers": (
+                [effect_modifiers]
+                if isinstance(effect_modifiers, str)
+                else list(effect_modifiers)
+            ),
+            "covariates": list(covariates) if covariates else None,
+        },
+        function="sp.bayes_hte_iv",
+    )
     pm, _ = _require_pymc()
     prep = _prepare_hte_iv_frame(
         data,

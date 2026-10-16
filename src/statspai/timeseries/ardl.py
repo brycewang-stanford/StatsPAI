@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .structural_break import _EXACT_FIT
@@ -761,11 +762,12 @@ def ardl(
     _check_alpha(alpha, "ardl")
     xs = [x] if isinstance(x, str) else list(x or [])
     missing_cols = [c for c in [y] + xs if c not in data.columns]
-    if missing_cols:
-        raise MethodIncompatibility(
-            f"ardl: column(s) {missing_cols} are not in data.",
-            recovery_hint="Check the column names.",
-        )
+    check_columns(
+        data,
+        {"y": y, "x": x if isinstance(x, str) else xs},
+        message=f"ardl: column(s) {missing_cols} are not in data.",
+    )
+    check_columns(data, {"time": time}, function="sp.ardl")
     if y in xs or len(set(xs)) != len(xs):
         raise MethodIncompatibility(
             f"ardl: x={xs} repeats a column or lists the outcome {y!r}. The "

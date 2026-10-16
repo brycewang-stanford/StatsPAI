@@ -130,7 +130,7 @@ def test_one_support_point_a_side_is_refused_before_bandwidth_selection():
 
 
 def test_weights_column_is_validated(df):
-    with pytest.raises(MethodIncompatibility, match="weights column 'nope' not found"):
+    with pytest.raises(MethodIncompatibility, match="weights='nope'"):
         sp.rdrobust(df, y="y", x="x", weights="nope")
     bad = df.copy()
     bad.loc[3, "w"] = np.inf

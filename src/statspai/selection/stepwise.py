@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
@@ -394,6 +395,11 @@ def stepwise(
     >>> bool(set(res.selected).isdisjoint(res.dropped))
     True
     """
+    check_columns(
+        data,
+        {"y": y, "x": x if isinstance(x, str) else list(x)},
+        function="stepwise",
+    )
     df = data.dropna(subset=[y] + list(x)).reset_index(drop=True)
     y_vec = df[y].values.astype(float)
     candidates = list(x)
@@ -401,11 +407,6 @@ def stepwise(
     # Validate
     if len(candidates) == 0:
         raise ValueError("x must contain at least one variable name.")
-    if y not in df.columns:
-        raise ValueError(f"Dependent variable '{y}' not found in data.")
-    missing = [c for c in candidates if c not in df.columns]
-    if missing:
-        raise ValueError(f"Variables not found in data: {missing}")
 
     # Choose comparator
     if criterion in ("aic", "bic"):
@@ -796,6 +797,11 @@ def lasso_select(
     >>> bool(res.lasso_path["lambda_best"] > 0)
     True
     """
+    check_columns(
+        data,
+        {"y": y, "x": x if isinstance(x, str) else list(x)},
+        function="lasso_select",
+    )
     df = data.dropna(subset=[y] + list(x)).reset_index(drop=True)
     y_raw = df[y].values.astype(float)
     X_raw = df[x].values.astype(float)

@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from ..dag._ci_tests import discrete_ci_test
 from ..exceptions import MethodIncompatibility
 
@@ -284,9 +285,11 @@ class PCAlgorithm:
         """Run the PC algorithm and return learned structure."""
         # Prepare data
         if self.variables is not None:
-            missing = [v for v in self.variables if v not in self.data.columns]
-            if missing:
-                raise ValueError(f"Variables not found in data: {missing}")
+            check_columns(
+                self.data,
+                {"variables": list(self.variables)},
+                function="sp.pc_algorithm",
+            )
             frame = self.data[self.variables].dropna()
         elif self.ci_test in _DISCRETE_TESTS:
             frame = self.data.dropna()

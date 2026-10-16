@@ -30,6 +30,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._core import placebo_rank_pvalue
 
@@ -170,9 +171,11 @@ def multi_outcome_synth(
     method = method.lower()
     if method not in ("concatenated", "averaged"):
         raise ValueError(f"method must be 'concatenated' or 'averaged', got '{method}'")
-    for col in [unit, time] + outcomes:
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data.")
+    check_columns(
+        data,
+        {"unit": unit, "time": time, "outcomes": list(outcomes)},
+        function="sp.multi_outcome_synth",
+    )
 
     K = len(outcomes)
 

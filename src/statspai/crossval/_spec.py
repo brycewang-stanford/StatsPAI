@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
+from .._input_validation import check_columns
+
 # Canonical estimand aliases → internal key. Keeps the public surface forgiving
 # (``"2sls"``, ``"tsls"``, ``"reg"`` all land on the same adapter logic).
 _ESTIMAND_ALIASES = {
@@ -285,21 +287,20 @@ class EstimandSpec:
         if self.estimand == "did":
             self._validate_did(cols)
             return
-        needed: List[str] = []
-        for f in (self.y, self.treatment, self.weights):
-            if f:
-                needed.append(f)
-        needed += [c for c in self.covariates]
-        needed += [c for c in self.fixed_effects]
-        needed += [c for c in self.endog]
-        needed += [c for c in self.instruments]
-        needed += [c for c in self.cluster]
-        missing = [c for c in needed if c and c not in cols]
-        if missing:
-            raise ValueError(
-                f"Columns not found in data: {sorted(set(missing))}. "
-                f"Available: {sorted(cols)[:20]}..."
-            )
+        check_columns(
+            self.data,
+            {
+                "y": self.y or None,
+                "treatment": self.treatment or None,
+                "weights": self.weights or None,
+                "covariates": [c for c in self.covariates if c],
+                "fixed_effects": [c for c in self.fixed_effects if c],
+                "endog": [c for c in self.endog if c],
+                "instruments": [c for c in self.instruments if c],
+                "cluster": [c for c in self.cluster if c],
+            },
+            function="sp.cross_validate",
+        )
         if self.estimand == "iv" and not self.endog:
             raise ValueError(
                 "IV estimand requires endogenous regressors; pass `endog=` and "
@@ -318,13 +319,11 @@ class EstimandSpec:
                 "`i` (unit id). Example: sp.cross_validate(df, 'did', y='lemp', "
                 "g='first_treat', t='year', i='countyreal')."
             )
-        missing = [c for c in (self.y, g, t, i) if c not in cols]
-        if missing:
-            avail = sorted(str(c) for c in cols)
-            miss = sorted(str(c) for c in set(missing))
-            raise ValueError(
-                f"DiD columns not found in data: {miss}. " f"Available: {avail[:20]}..."
-            )
+        check_columns(
+            self.data,
+            {"y": self.y, "g": g, "t": t, "i": i},
+            function="sp.cross_validate (did)",
+        )
 
 
 # --------------------------------------------------------------------------- #

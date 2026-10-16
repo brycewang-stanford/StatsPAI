@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._cite import bib_citation
 
@@ -504,9 +505,11 @@ def fdid(
             f"got '{method}'."
         )
 
-    for col in (outcome, unit, time):
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data.")  # pragma: no cover
+    check_columns(
+        data,
+        {"outcome": outcome, "unit": unit, "time": time},
+        function="sp.synth(method='fdid')",
+    )
 
     if treated_unit not in data[unit].values:
         raise ValueError(f"treated_unit '{treated_unit}' not found in column '{unit}'.")

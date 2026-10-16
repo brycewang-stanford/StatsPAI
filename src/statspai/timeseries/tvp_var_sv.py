@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..exceptions import (
     ConvergenceWarning,
     DataInsufficient,
@@ -303,8 +304,7 @@ def tvp_var_sv(
         )
     work = data
     if time is not None:
-        if time not in data.columns:
-            raise MethodIncompatibility(f"tvp_var_sv: time column {time!r} not found.")
+        check_columns(data, {"time": time}, function="sp.tvp_var_sv")
         _refuse_repeated_dates(data[time], time, "tvp_var_sv")
         work = data.sort_values(time, kind="stable")
     if variables is None:
@@ -313,12 +313,7 @@ def tvp_var_sv(
         ]
     else:
         names = [str(v) for v in variables]
-        missing = [v for v in names if v not in work.columns]
-        if missing:
-            raise MethodIncompatibility(
-                f"tvp_var_sv: columns {missing} are not in data.",
-                recovery_hint="Check the names passed to variables=.",
-            )
+        check_columns(work, {"variables": names}, function="sp.tvp_var_sv")
     if len(names) < 2 or len(set(names)) != len(names):
         raise MethodIncompatibility(
             "tvp_var_sv: variables must name at least two distinct numeric " "columns.",

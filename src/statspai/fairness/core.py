@@ -11,8 +11,17 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from ..exceptions import (
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
+
+_FN_DP = "demographic_parity"
+_FN_EO = "equalized_odds"
 
 __all__ = [
     "counterfactual_fairness",
@@ -224,13 +233,20 @@ def _check_binary(arr: np.ndarray, name: str) -> np.ndarray:
     return arr.astype(int)
 
 
-def _column(df: pd.DataFrame, col: str) -> np.ndarray:
-    col = _require_column_name(col, argument="column")
+def _column(
+    df: pd.DataFrame,
+    col: str,
+    *,
+    argument: str = "column",
+    function: Optional[str] = None,
+) -> np.ndarray:
+    col = _require_column_name(col, argument=argument)
     if col not in df.columns:
-        raise MethodIncompatibility(
-            f"Column {col!r} not found in data.",
-            recovery_hint="Check the column names passed to the fairness diagnostic.",
-            diagnostics={"column": col, "available_columns": list(df.columns)},
+        raise ColumnNotFound.from_missing(
+            {argument: col},
+            df.columns,
+            context=function,
+            extra_diagnostics={"column": col},
         )
     arr = df[col].to_numpy()
     if pd.isna(arr).any():
@@ -366,8 +382,11 @@ def demographic_parity(
     predictions = _require_column_name(predictions, argument="predictions")
     protected = _require_column_name(protected, argument="protected")
     threshold = _require_threshold(threshold)
-    yhat = _check_binary(_column(data, predictions), predictions)
-    a = _column(data, protected)
+    yhat = _check_binary(
+        _column(data, predictions, argument="predictions", function=_FN_DP),
+        predictions,
+    )
+    a = _column(data, protected, argument="protected", function=_FN_DP)
     if len(np.unique(a)) < 2:
         raise DataInsufficient(
             f"`protected` column has only one level ({np.unique(a)}). "
@@ -466,9 +485,12 @@ def equalized_odds(
     labels = _require_column_name(labels, argument="labels")
     protected = _require_column_name(protected, argument="protected")
     threshold = _require_threshold(threshold)
-    yhat = _check_binary(_column(data, predictions), predictions)
-    y = _check_binary(_column(data, labels), labels)
-    a = _column(data, protected)
+    yhat = _check_binary(
+        _column(data, predictions, argument="predictions", function=_FN_EO),
+        predictions,
+    )
+    y = _check_binary(_column(data, labels, argument="labels", function=_FN_EO), labels)
+    a = _column(data, protected, argument="protected", function=_FN_EO)
     tprs: Dict[Any, float] = {}
     fprs: Dict[Any, float] = {}
     for g in np.unique(a):
@@ -614,15 +636,11 @@ def counterfactual_fairness(
             },
         )
     if protected not in data.columns:
-        raise MethodIncompatibility(
-            f"`protected` column {protected!r} not in data.",
-            recovery_hint=(
-                "Check the `protected` column name passed to counterfactual_fairness."
-            ),
-            diagnostics={
-                "protected": protected,
-                "available_columns": list(data.columns),
-            },
+        raise ColumnNotFound.from_missing(
+            {"protected": protected},
+            data.columns,
+            context="counterfactual_fairness",
+            extra_diagnostics={"protected": protected},
         )
     y_obs = _prediction_vector(predictor, data, name="predictor(data)")
     observed_a = data[protected].to_numpy()
@@ -774,21 +792,18 @@ def orthogonal_to_bias(
             recovery_hint="Use method='residualize'.",
             diagnostics={"method": method, "valid_methods": ["residualize"]},
         )
-    if protected not in data.columns:
-        raise MethodIncompatibility(
-            f"Protected column {protected!r} not in data.",
-            recovery_hint="Check the `protected` column name.",
-            diagnostics={
-                "protected": protected,
-                "available_columns": list(data.columns),
-            },
-        )
-    missing = [f for f in features if f not in data.columns]
+    missing = missing_named_columns(
+        {"protected": protected, "features": list(features)}, data.columns
+    )
     if missing:
-        raise MethodIncompatibility(
-            f"Feature columns not in data: {missing}",
-            recovery_hint="Pass feature names that exist in the DataFrame.",
-            diagnostics={"missing": missing, "available_columns": list(data.columns)},
+        raise ColumnNotFound.from_missing(
+            missing,
+            data.columns,
+            context="orthogonal_to_bias",
+            extra_diagnostics={
+                "protected": protected,
+                "missing": [c for c in missing.values() if c != protected],
+            },
         )
     out = data.copy()
     _column(data, protected)

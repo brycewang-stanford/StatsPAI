@@ -234,7 +234,7 @@ def test_akm_se_is_not_the_pre_fix_formula():
 
 
 def test_region_cluster_requires_existing_column():
-    with pytest.raises(ValueError, match="cluster column"):
+    with pytest.raises(ValueError, match="cluster=.nope. not found"):
         sp.ssaggregate(LOC, y="y", x="x", shares=S, shocks=G, cluster="nope")
 
 

@@ -77,7 +77,7 @@ def test_cfpo_detects_better_policy():
 
 def test_cfpo_missing_columns_errors():
     df = pd.DataFrame({"s": [0.1, 0.2], "a": [0.3, 0.4], "r": [0.5, 0.6]})
-    with pytest.raises(ValueError, match="Missing"):
+    with pytest.raises(ValueError, match="not found"):
         sp.counterfactual_policy_optimization(
             df,
             state="bogus",

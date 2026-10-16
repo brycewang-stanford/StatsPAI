@@ -28,6 +28,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 from .aggte import aggte
@@ -133,13 +134,17 @@ def cs_jackknife(
             diagnostics={"alpha": alpha},
         )
     cluster = id if cluster is None else cluster
-    for col in (y, g, time, id, cluster):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"cs_jackknife: column {col!r} not found in data.",
-                recovery_hint="Check the column names passed to cs_jackknife.",
-                diagnostics={"missing": col},
-            )
+    check_columns(
+        data,
+        {
+            "y": y,
+            "g": g,
+            "time": time,
+            "id": id,
+            "cluster": None if cluster == id else cluster,
+        },
+        function="sp.cs_jackknife",
+    )
     if cluster != id:
         varying = data.groupby(id)[cluster].nunique(dropna=False)
         if (varying > 1).any():

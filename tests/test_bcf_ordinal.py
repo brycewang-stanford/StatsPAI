@@ -1,9 +1,11 @@
 """Tests for BCF with ordinal/factor-exposure treatments."""
 
 import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
+
 import statspai as sp
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
@@ -121,9 +123,9 @@ def test_bcf_ordinal_validates_inputs():
             "x": np.random.randn(50),
         }
     )
-    with pytest.raises(MethodIncompatibility, match="missing") as exc:
+    with pytest.raises(MethodIncompatibility, match="not found") as exc:
         sp.bcf_ordinal(df, y="nonexistent_col", treat="t", covariates=["x"])
-    assert exc.value.diagnostics["missing_columns"] == ["nonexistent_col"]
+    assert exc.value.diagnostics["missing_columns"] == {"y": "nonexistent_col"}
 
 
 def test_bcf_ordinal_validates_levels_and_baseline():

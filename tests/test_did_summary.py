@@ -395,7 +395,9 @@ def test_etwfe_panel_false_with_never_is_not_implemented(staggered_df):
 
 
 def test_did_summary_rejects_missing_columns(staggered_df):
-    with pytest.raises(KeyError, match="columns not found"):
+    from statspai.exceptions import ColumnNotFound
+
+    with pytest.raises(ColumnNotFound, match="columns not found"):
         sp.did_summary(
             staggered_df,
             y="y",

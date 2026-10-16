@@ -153,7 +153,7 @@ def test_text_treatment_too_few_rows_raises():
 
 def test_text_treatment_missing_column_raises():
     df = _text_treatment_dgp()
-    with pytest.raises(ValueError, match="not in data"):
+    with pytest.raises(ValueError, match="not found in data"):
         sp.text_treatment_effect(
             df,
             text_col="missing",

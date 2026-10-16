@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 
 
 @accepts_aliases(covariates="controls")
@@ -201,9 +202,18 @@ def binscatter(
     if weights:
         required_cols.append(weights)
 
-    for col in required_cols:
-        if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found in data")
+    check_columns(
+        df,
+        {
+            "y": y,
+            "x": x,
+            "controls": controls or None,
+            "absorb": absorb or None,
+            "by": by or None,
+            "weights": weights or None,
+        },
+        function="binscatter",
+    )
 
     # Drop NaN in relevant columns
     df = df[required_cols].dropna()

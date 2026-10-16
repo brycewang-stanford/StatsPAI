@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -181,14 +182,12 @@ def _require_period_pair(value: Any, name: str) -> Tuple[Any, Any]:
 
 
 def _raise_missing_columns(
-    data: pd.DataFrame, columns: List[str], context: str
+    data: pd.DataFrame, columns: Dict[str, Any], function: str, context: str
 ) -> None:
-    missing = [col for col in columns if col not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"{context} missing columns: {missing}",
-            diagnostics={"missing_columns": missing, "context": context},
-        )
+    """``ColumnNotFound`` for absent columns (``columns`` is label -> name)."""
+    check_columns(
+        data, columns, function=function, extra_diagnostics={"context": context}
+    )
 
 
 # ====================================================================== #
@@ -741,8 +740,12 @@ def causal_impact(
     else:
         covariates = _coerce_optional_column_list(covariates, "covariates")
 
-    _raise_missing_columns(data, [outcome], "causal_impact outcome")
-    _raise_missing_columns(data, list(covariates), "causal_impact covariates")
+    _raise_missing_columns(
+        data,
+        {"outcome": outcome, "covariates": list(covariates)},
+        "statspai.synth.causal_impact",
+        "causal_impact",
+    )
 
     # ------------------------------------------------------------------
     # Period slicing
@@ -1060,7 +1063,12 @@ def bsts_synth(
     unit = _require_column_name(unit, "unit")
     time = _require_column_name(time, "time")
     covariates = _coerce_optional_column_list(covariates, "covariates")
-    _raise_missing_columns(data, [outcome, unit, time], "bsts_synth")
+    _raise_missing_columns(
+        data,
+        {"outcome": outcome, "unit": unit, "time": time, "covariates": covariates},
+        "sp.synth(method='bsts')",
+        "bsts_synth",
+    )
     if treated_unit not in data[unit].values:
         raise DataInsufficient(
             f"Treated unit '{treated_unit}' not found in '{unit}' column.",
@@ -1114,14 +1122,6 @@ def bsts_synth(
     extra_cov_names: List[str] = []
     if covariates:
         for cov in covariates:
-            if cov not in data.columns:
-                raise MethodIncompatibility(
-                    f"Covariate column '{cov}' not found in data.",
-                    diagnostics={
-                        "missing_column": cov,
-                        "available_columns": list(data.columns),
-                    },
-                )
             cov_panel = data.pivot_table(
                 index=time,
                 columns=unit,

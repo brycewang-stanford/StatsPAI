@@ -24,10 +24,16 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import missing_named_columns
 from ..core._collinear import drop_collinear
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from .glm import FAMILIES, _get_link, require_outcome_in_support
 
 _CORSTR = {
@@ -299,12 +305,14 @@ def gee(
             f"{', '.join(FAMILIES.keys())}.",
             diagnostics={"family": family},
         )
-    for col in [id] + ([time] if time is not None else []):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"gee: column {col!r} not found in data.",
-                diagnostics={"column": col},
-            )
+    named = missing_named_columns({"id": id, "time": time}, data.columns)
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="gee",
+            extra_diagnostics={"column": next(iter(named.values()))},
+        )
     fam = FAMILIES[fam_key]()
     lnk = _get_link(link, fam)
 

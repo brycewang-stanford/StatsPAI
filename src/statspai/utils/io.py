@@ -32,7 +32,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _dta_layout
 
 # Stata's limit on a variable label and on the dataset label (``help limits``).
@@ -812,8 +812,11 @@ def write_data(
     for name, given in (("labels", labels), ("value_labels", value_labels)):
         unknown = [c for c in (given or {}) if c not in data.columns]
         if unknown:
-            raise MethodIncompatibility(
-                f"{name} names columns not in the data: {unknown}"
+            raise ColumnNotFound.from_missing(
+                unknown,
+                list(data.columns),
+                message=f"{name} names columns not in the data: {unknown}",
+                extra_diagnostics={"argument": name},
             )
     var_lab = {c: v for c, v in var_lab.items() if c in data.columns and v}
     val_lab = {c: v for c, v in val_lab.items() if c in data.columns and v}

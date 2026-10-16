@@ -38,8 +38,10 @@ from scipy import stats as sp_stats
 if TYPE_CHECKING:
     from sklearn.base import BaseEstimator
 
+from .._input_validation import missing_named_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
+from ..exceptions import ColumnNotFound
 
 # ======================================================================
 # Public API
@@ -225,7 +227,14 @@ class DoseResponse:
         cols = [self.y, self.treat] + self.covariates
         missing = [c for c in cols if c not in self.data.columns]
         if missing:
-            raise ValueError(f"Columns not found in data: {missing}")
+            raise ColumnNotFound.from_missing(
+                missing_named_columns(
+                    {"y": self.y, "treat": self.treat, "covariates": self.covariates},
+                    self.data.columns,
+                ),
+                self.data.columns,
+                message=f"Columns not found in data: {missing}",
+            )
 
         clean = self.data[cols].dropna()
         Y = clean[self.y].values.astype(np.float64)

@@ -312,7 +312,7 @@ class TestJackknife:
                 _mean,
                 cluster="g",
             )
-        with pytest.raises(MethodIncompatibility, match="not a column"):
+        with pytest.raises(MethodIncompatibility, match="not found in data"):
             sp.jackknife(df, _mean, cluster="nope")
         with pytest.raises(MethodIncompatibility, match="function"):
             sp.jackknife(df, "mean")

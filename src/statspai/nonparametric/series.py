@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core._validate import require_numeric_columns
 from ..core._vcov import sandwich_vcov
 from ..core.results import EconometricResults
@@ -167,12 +168,7 @@ def series(
             f"sp.series: vce={vce!r} is not available.",
             recovery_hint="Use 'robust', 'ols', 'hc0', 'hc2', 'hc3', or cluster=.",
         )
-    for name, column in (("x", x), ("cluster", cluster)):
-        if column is not None and column not in data.columns:
-            raise MethodIncompatibility(
-                f"sp.series: {name}={column!r} is not a column of the data.",
-                recovery_hint="Check the spelling.",
-            )
+    check_columns(data, {"x": x, "cluster": cluster}, function="sp.series")
     if degree < 1:
         raise MethodIncompatibility(
             f"sp.series: degree={degree!r} has to be at least 1.",

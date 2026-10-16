@@ -158,7 +158,7 @@ def test_candidate_grids():
 
 def test_refusals_and_warnings():
     df = _data(n=200)
-    with pytest.raises(sp.exceptions.MethodIncompatibility, match="not a column"):
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="not found in data"):
         sp.threshold("y ~ x", df, "nope")
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="trim"):
         sp.threshold("y ~ x", df, "q", trim=0.6)

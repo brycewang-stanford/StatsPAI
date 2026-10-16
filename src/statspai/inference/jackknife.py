@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import EconometricResults
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._psd import se_from_vcov
 from .basic_tests import _check_alpha
 
@@ -1142,10 +1142,7 @@ def _align_to_fitted_sample(
     """
     missing = [c for c in columns if c not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"Column(s) {missing} not found in data. Available: "
-            f"{list(data.columns)[:20]}"
-        )
+        raise ColumnNotFound.from_missing(missing, data.columns)
 
     if len(data) != n:
         raise MethodIncompatibility(

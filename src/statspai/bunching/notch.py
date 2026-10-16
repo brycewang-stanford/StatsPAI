@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 
@@ -462,8 +463,7 @@ def notch(
     5. Find marginal buncher x* where cumulative H >= B.
     6. Elasticity e = (x* - z*) / (z* * dt) if notch_size given.
     """
-    if x not in data.columns:
-        raise ValueError(f"Column '{x}' not found in data.")
+    check_columns(data, {"x": x}, function="sp.notch")
 
     z = data[x].dropna().values.astype(np.float64)
     n = len(z)

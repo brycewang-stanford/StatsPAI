@@ -15,7 +15,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -131,9 +131,11 @@ def _require_columns_present(
 ) -> None:
     missing = [col for col in columns if col not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"{context}: missing columns {missing}",
-            diagnostics={"missing_columns": missing, "context": context},
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            context=context,
+            extra_diagnostics={"context": context},
         )
 
 
@@ -1394,12 +1396,11 @@ def _dispatch_estimator(
             if len(q.instruments) == 1:
                 z_col = q.instruments[0]
                 if z_col not in data.columns:
-                    raise MethodIncompatibility(
-                        f"instrument {z_col!r} not found in data columns",
-                        diagnostics={
-                            "missing_column": z_col,
-                            "available_columns": list(data.columns),
-                        },
+                    raise ColumnNotFound.from_missing(
+                        {"instruments[0]": z_col},
+                        list(data.columns),
+                        context="CausalQuestion.estimate",
+                        extra_diagnostics={"missing_column": z_col},
                     )
                 z_binary = data[z_col].dropna().nunique() == 2
                 d_binary = data[q.treatment].dropna().nunique() == 2

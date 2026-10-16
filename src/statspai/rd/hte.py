@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -85,13 +86,15 @@ def _hte_prepare(
     z: Union[str, List[str], None],
     c: float,
     cluster: Optional[str],
+    function: str = "sp.rdhte",
 ) -> Dict[str, Any]:
     z_cols = [] if z is None else ([z] if isinstance(z, str) else list(z))
     cols = [y, x] + z_cols + ([cluster] if cluster else [])
-    for col in cols:
-        if col not in data.columns:
-            role = "Cluster column" if col == cluster else "Column"
-            raise MethodIncompatibility(f"{role} '{col}' not found in data")
+    check_columns(
+        data,
+        {"y": y, "x": x, "z": z, "cluster": cluster or None},
+        function=function,
+    )
     frame = data[cols].dropna()
     Y = frame[y].to_numpy(dtype=float)
     Xc = frame[x].to_numpy(dtype=float) - c
@@ -582,7 +585,7 @@ def rdbwhte(
     """
     q = p + 1 if q is None else int(q)
     vce_n = _normalize_vce(vce, cluster is not None)
-    prep = _hte_prepare(data, y, x, z, c, cluster)
+    prep = _hte_prepare(data, y, x, z, c, cluster, function="sp.rdbwhte")
     _, h_lev, _ = _hte_bandwidths(prep, None, p, q, kernel, bwselect, vce_n)
     if len(h_lev) == 1:
         hl, hr = next(iter(h_lev.values()))

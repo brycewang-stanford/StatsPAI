@@ -47,8 +47,10 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns, missing_named_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
+from ..exceptions import ColumnNotFound
 
 # ======================================================================
 # Public API
@@ -201,14 +203,27 @@ def did_multiplegt(
     if placebo_sign not in {"stata", "r"}:
         raise ValueError(f"placebo_sign must be 'stata' or 'r', got {placebo_sign!r}")
     df = data.copy()
-    _required = [y, group, time, treatment]
-    for col in _required:
-        if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found in data.")
-    if controls is not None:
-        for col in controls:
-            if col not in df.columns:
-                raise ValueError(f"Control column '{col}' not found in data.")
+    check_columns(
+        df,
+        {
+            "y": y,
+            "group": group,
+            "time": time,
+            "treatment": treatment,
+            "cluster": cluster,
+        },
+        function="sp.did_multiplegt",
+    )
+    missing = missing_named_columns(
+        {"controls": None if controls is None else list(controls)}, df.columns
+    )
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(df.columns),
+            message=f"Control column '{next(iter(missing.values()))}' "
+            "not found in data.",
+        )
 
     cluster_var = cluster if cluster is not None else group
 

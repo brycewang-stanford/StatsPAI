@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
@@ -359,6 +360,20 @@ def event_study(
     >>> bool(result.model_info['pretrend_test']['pvalue'] >= 0)
     True
     """
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat_time": treat_time if isinstance(treat_time, str) else None,
+            "time": time,
+            "unit": unit,
+            "covariates": None if covariates is None else list(covariates),
+            "cluster": cluster,
+            "weights": weights,
+            "intensity": intensity,
+        },
+        function="sp.event_study",
+    )
     df = data.copy()
     min_lag, max_lag = int(window[0]), int(window[1])
     if min_lag > max_lag:

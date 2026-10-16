@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 
@@ -136,12 +137,11 @@ def did_bcf(
     from scipy import stats
 
     cov = list(covariates or [])
-    missing = [c for c in [y, treat, time, id, *cov] if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"did_bcf(): column(s) not in data: {missing}.",
-            recovery_hint="Check the column names against data.columns.",
-        )
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "time": time, "id": id, "covariates": cov},
+        function="sp.did_bcf",
+    )
     df = data[[y, treat, time, id] + cov].dropna(subset=[y, time, id, *cov])
     df = df.reset_index(drop=True)
     df[time] = pd.to_numeric(df[time])

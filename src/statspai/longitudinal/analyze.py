@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from .regime import Regime
 from .regime import regime as _regime
@@ -185,11 +186,20 @@ def analyze(
     if not isinstance(regime, Regime):
         regime = _regime(regime)
 
-    for col in (id, time, treatment, outcome):
-        if col not in data.columns:
-            raise KeyError(f"Column {col!r} not in data.")
     time_varying = list(time_varying or [])
     baseline = list(baseline or [])
+    check_columns(
+        data,
+        {
+            "id": id,
+            "time": time,
+            "treatment": treatment,
+            "outcome": outcome,
+            "time_varying": time_varying,
+            "baseline": baseline,
+        },
+        function="sp.longitudinal_analyze",
+    )
 
     n = int(data[id].nunique())
     n_periods = int(data[time].nunique())

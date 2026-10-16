@@ -32,6 +32,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._core import _check_fixed_effects, mc_nnm_fit
 
@@ -262,9 +263,11 @@ class MCPanel:
     def fit(self) -> CausalResult:
         """Run matrix completion and return treatment effect estimates."""
         cols = [self.y, self.unit, self.time, self.treat]
-        missing = [c for c in cols if c not in self.data.columns]
-        if missing:
-            raise ValueError(f"Columns not found in data: {missing}")
+        check_columns(
+            self.data,
+            {"y": self.y, "unit": self.unit, "time": self.time, "treat": self.treat},
+            function="sp.mc_panel",
+        )
 
         df = self.data[cols].dropna().copy()
 

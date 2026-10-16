@@ -44,6 +44,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -535,9 +536,11 @@ def interflex(
     cov_type = "homoscedastic" if vce == "homoscedastic" else "robust"
     zc = list(z) if z else []
     cols = [y, d, x, *zc] + ([weights] if weights else [])
-    for c in cols:
-        if c not in data.columns:
-            raise ValueError(f"column {c!r} not in data")
+    check_columns(
+        data,
+        {"y": y, "d": d, "x": x, "z": zc, "weights": weights or None},
+        function="interflex",
+    )
     df = data[cols].dropna().reset_index(drop=True)
     Y = df[y].to_numpy(dtype=float)
     D = df[d].to_numpy(dtype=float)

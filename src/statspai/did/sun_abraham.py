@@ -50,9 +50,10 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
@@ -238,10 +239,12 @@ def _resolve_control_cohort(
     # numeric column name still resolves as a column.
     if isinstance(control_cohort, str):
         if control_cohort not in df.columns:
-            raise ValueError(
-                f"control_cohort='{control_cohort}' is not a column in the "
-                f"data. Pass the name of a 0/1 indicator column, or a "
-                f"cohort value from '{g}'."
+            raise ColumnNotFound.from_missing(
+                {"control_cohort": control_cohort},
+                list(df.columns),
+                message=f"control_cohort='{control_cohort}' is not a column in "
+                f"the data. Pass the name of a 0/1 indicator column, or a "
+                f"cohort value from '{g}'.",
             )
         col = df[control_cohort]
         vals = set(pd.unique(col.dropna()))
@@ -450,13 +453,19 @@ def sun_abraham(
     """
     df = data.copy()
 
-    for col in [y, g, t, i]:
-        if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found")
-    if covariates:
-        for c in covariates:
-            if c not in df.columns:
-                raise ValueError(f"Covariate '{c}' not found")
+    check_columns(
+        df,
+        {
+            "y": y,
+            "g": g,
+            "t": t,
+            "i": i,
+            "covariates": list(covariates) if covariates else None,
+            "weights": weights,
+            "cluster": cluster,
+        },
+        function="sp.sun_abraham",
+    )
     # Drop rows the estimator cannot use before the cohort checks below, so a
     # wiped outcome surfaces as an error instead of a headline ATT of 0.0.
     df = _drop_unusable_rows(

@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._cite import bib_citation
 
@@ -110,7 +111,14 @@ def cluster_synth(
     # 1. Validate inputs
     # ------------------------------------------------------------------
     _validate_inputs(
-        data, outcome, unit, time, treated_unit, treatment_time, cluster_method
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
+        cluster_method,
+        covariates=covariates,
     )
 
     # ------------------------------------------------------------------
@@ -310,11 +318,19 @@ def _validate_inputs(
     treated_unit: Any,
     treatment_time: Any,
     cluster_method: str,
+    covariates: Optional[List[str]] = None,
 ) -> None:
     """Raise on invalid arguments."""
-    for col in [outcome, unit, time]:
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data.")
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+            "covariates": covariates,
+        },
+        function="sp.synth(method='cluster')",
+    )
     if treated_unit not in data[unit].values:
         raise ValueError(f"Treated unit '{treated_unit}' not in data.")
     if treatment_time not in data[time].values:

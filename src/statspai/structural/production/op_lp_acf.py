@@ -48,6 +48,7 @@ import pandas as pd
 from scipy import optimize
 
 from ..._aliases import accepts_aliases
+from ..._input_validation import check_columns
 from ...exceptions import ConvergenceFailure, ConvergenceWarning
 from ._core import elasticities_at, expand_inputs, panel_lag, polynomial_basis
 from ._result import ProductionResult
@@ -72,6 +73,34 @@ def _normalise_form(functional_form: str) -> str:
     )
 
 
+def _check_inputs(
+    data: pd.DataFrame,
+    output: str,
+    free: Sequence[str],
+    state: Sequence[str],
+    proxy: str,
+    panel_id: str,
+    time: str,
+    function: Optional[str],
+) -> None:
+    """Raise ColumnNotFound (with did-you-mean) for absent input columns."""
+    cols = [output, *free, *state, proxy, panel_id, time]
+    missing = list(dict.fromkeys(c for c in cols if c not in data.columns))
+    prefix = f"{function}: " if function else ""
+    check_columns(
+        data,
+        {
+            "output": output,
+            "free": list(free),
+            "state": list(state),
+            "proxy": proxy,
+            "panel_id": panel_id,
+            "time": time,
+        },
+        message=f"{prefix}Missing columns in data: {missing}",
+    )
+
+
 def _prepare_panel(
     data: pd.DataFrame,
     output: str,
@@ -80,6 +109,7 @@ def _prepare_panel(
     proxy: str,
     panel_id: str,
     time: str,
+    function: Optional[str] = None,
 ) -> pd.DataFrame:
     """Select, drop missing, sort by (id, time) and attach internal id/time.
 
@@ -87,9 +117,7 @@ def _prepare_panel(
     skipped period; their lags are ``NaN`` (see :func:`_core.panel_lag`).
     """
     cols = list(dict.fromkeys([output, *free, *state, proxy, panel_id, time]))
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Missing columns in data: {missing}")
+    _check_inputs(data, output, free, state, proxy, panel_id, time, function)
     df = data[cols].dropna().sort_values([panel_id, time]).reset_index(drop=True)
     if not pd.api.types.is_numeric_dtype(df[time]):
         raise TypeError(
@@ -928,10 +956,7 @@ def olley_pakes(
     telecommunications equipment industry. Econometrica, 64(6), 1263-1297.
     """
     free, state = _resolve_inputs(free, state, ["l"], ["k"])
-    cols = [output, *free, *state, proxy, panel_id, time]
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Missing columns in data: {missing}")
+    _check_inputs(data, output, free, state, proxy, panel_id, time, "sp.olley_pakes")
     frame = data.loc[data[proxy] > 0] if drop_zero_proxy else data
     n_dropped = int(len(data) - len(frame)) if drop_zero_proxy else 0
     n_negative = int((data[proxy] < 0).sum()) if drop_zero_proxy else 0
@@ -944,7 +969,9 @@ def olley_pakes(
             RuntimeWarning,
             stacklevel=2,
         )
-    df = _prepare_panel(frame, output, free, state, proxy, panel_id, time)
+    df = _prepare_panel(
+        frame, output, free, state, proxy, panel_id, time, "sp.olley_pakes"
+    )
     res = _estimate_oplp(
         df,
         method="op",
@@ -1057,7 +1084,9 @@ def levinsohn_petrin(
     Studies, 70(2), 317-341.
     """
     free, state = _resolve_inputs(free, state, ["l"], ["k"])
-    df = _prepare_panel(data, output, free, state, proxy, panel_id, time)
+    df = _prepare_panel(
+        data, output, free, state, proxy, panel_id, time, "sp.levinsohn_petrin"
+    )
     return _estimate_oplp(
         df,
         method="lp",
@@ -1178,7 +1207,9 @@ def ackerberg_caves_frazer(
     83(6), 2411-2451.
     """
     free, state = _resolve_inputs(free, state, ["l"], ["k"])
-    df = _prepare_panel(data, output, free, state, proxy, panel_id, time)
+    df = _prepare_panel(
+        data, output, free, state, proxy, panel_id, time, "sp.ackerberg_caves_frazer"
+    )
     return _estimate_acf(
         df,
         output=output,

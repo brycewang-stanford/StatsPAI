@@ -29,10 +29,11 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._validate import require_numeric_columns
 from ..core._vcov import ml_vcov
 from ..core.results import CausalResult, EconometricResults
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._optim_helpers import (
     complex_step_scores,
     inverse_information,
@@ -88,11 +89,24 @@ class _Design:
                 diagnostics={"overlap": overlap},
             )
         extra = [cluster] if isinstance(cluster, str) else []
-        missing = [c for c in needed + extra if c not in data]
-        if missing:
-            raise MethodIncompatibility(
-                f"{function}: columns not found in data: {missing}",
-                diagnostics={"missing": missing},
+        named = missing_named_columns(
+            {
+                "y": y,
+                "endog": endog if isinstance(endog, str) else self.endog,
+                "x": x if isinstance(x, str) else self.x,
+                "instruments": (
+                    instruments if isinstance(instruments, str) else self.instruments
+                ),
+                "cluster": cluster if isinstance(cluster, str) else None,
+            },
+            data.columns,
+        )
+        if named:
+            raise ColumnNotFound.from_missing(
+                named,
+                list(data.columns),
+                context=function,
+                extra_diagnostics={"missing": list(named.values())},
             )
         if len(self.instruments) < len(self.endog):
             raise MethodIncompatibility(

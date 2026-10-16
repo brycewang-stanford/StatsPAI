@@ -37,9 +37,11 @@ from sklearn.tree import DecisionTreeRegressor
 
 # Import our core classes
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core.base import BaseModel
 from ..exceptions import (
     AssumptionWarning,
+    ColumnNotFound,
     DataInsufficient,
     MethodIncompatibility,
     NumericalInstability,
@@ -982,12 +984,17 @@ class CausalForest(BaseModel):
             w_names = [name.strip() for name in w_part.split("+")]
 
         # Extract data
-        try:
-            Y = data[y_name].values
-            T = data[t_name].values
-            W = data[w_names].values if w_names else None
-        except KeyError as e:
-            raise ValueError(f"Variable {e} not found in data")
+        missing = [c for c in [y_name, t_name, *w_names] if c not in data.columns]
+        if missing:
+            raise ColumnNotFound.from_missing(
+                list(dict.fromkeys(missing)),
+                data.columns,
+                context="CausalForest.fit()",
+                extra_diagnostics={"formula": formula},
+            )
+        Y = data[y_name].values
+        T = data[t_name].values
+        W = data[w_names].values if w_names else None
         # Effect modifiers may be categorical: one 0/1 column per level.
         from ._grf_family import one_hot_covariates
 
@@ -1074,13 +1081,17 @@ class CausalForest(BaseModel):
                 data = one_hot_newdata(data, feature_names)
                 missing = [name for name in feature_names if name not in data.columns]
                 if missing:
-                    raise MethodIncompatibility(
-                        f"{context}: missing effect-modifier column(s) {missing}.",
-                        recovery_hint=(
+                    raise ColumnNotFound.from_missing(
+                        missing,
+                        data.columns,
+                        message=(
+                            f"{context}: missing effect-modifier column(s) "
+                            f"{missing}."
+                        ),
+                        extra_hint=(
                             "Pass a DataFrame containing the same effect "
                             "modifier columns used at fit time."
                         ),
-                        diagnostics={"missing_columns": missing},
                     )
                 selected = data[feature_names]
             else:
@@ -2338,7 +2349,16 @@ def causal_forest(
 
     def _column_or_array(value: Any, label: str) -> Any:
         if isinstance(value, str):
-            if frame is None or value not in frame.columns:
+            if frame is not None and value not in frame.columns:
+                raise ColumnNotFound.from_missing(
+                    {label: value},
+                    frame.columns,
+                    message=(
+                        f"causal_forest(): {label}={value!r} is not a column of data."
+                    ),
+                    extra_hint=f"Or pass {label} as an array.",
+                )
+            if frame is None:
                 raise MethodIncompatibility(
                     f"causal_forest(): {label}={value!r} is not a column of data.",
                     recovery_hint=f"Pass {label} as a column name in data or an array.",
@@ -2379,15 +2399,20 @@ def causal_forest(
 
         # An effect modifier may be written C(col), as in a formula: the
         # column that has to exist is col.
-        missing = [c for c in [y, d, *w_cols] if c not in data.columns] + [
-            c
-            for c in x_cols
-            if c not in data.columns and _factor_column(c) not in data.columns
-        ]
-        if missing:
-            raise MethodIncompatibility(
-                f"causal_forest(): column(s) not in data: {missing}.",
-                recovery_hint="Check the column names against data.columns.",
+        named = missing_named_columns({"y": y, "d": d, "w": w_cols}, data.columns)
+        named.update(
+            {
+                f"x[{i}]": c
+                for i, c in enumerate(x_cols)
+                if c not in data.columns and _factor_column(c) not in data.columns
+            }
+        )
+        if named:
+            missing = list(named.values())
+            raise ColumnNotFound.from_missing(
+                named,
+                data.columns,
+                message=f"causal_forest(): column(s) not in data: {missing}.",
             )
         Y = data[y].to_numpy()
         T = data[d].to_numpy()

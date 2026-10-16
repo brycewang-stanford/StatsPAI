@@ -73,8 +73,14 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from ..exceptions import (
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
 
 __all__ = ["DMLPanelResult", "dml_panel"]
 
@@ -491,15 +497,18 @@ def dml_panel(
     if time is not None:
         _require_column_name(time, "time")
         required.append(time)
-    missing = [c for c in required if c not in data.columns]
+    missing = missing_named_columns(
+        {
+            "y": y,
+            "treat": treat,
+            "unit": unit,
+            "time": time,
+            "covariates": covariates,
+        },
+        data.columns,
+    )
     if missing:
-        raise MethodIncompatibility(
-            f"missing columns in data: {missing}",
-            recovery_hint=(
-                "Check y/treat/unit/time/covariate names against data.columns."
-            ),
-            diagnostics={"missing_columns": missing},
-        )
+        raise ColumnNotFound.from_missing(missing, data.columns, context="dml_panel")
     if binary_treatment:
         import warnings  # pragma: no cover
 
@@ -530,10 +539,12 @@ def dml_panel(
     if sample_weight is not None:
         if isinstance(sample_weight, str):
             if sample_weight not in data.columns:
-                raise MethodIncompatibility(  # pragma: no cover
-                    f"sample_weight column '{sample_weight}' not in data",
-                    recovery_hint="Pass an existing weight column or a weight array.",
-                    diagnostics={"sample_weight": sample_weight},
+                raise ColumnNotFound.from_missing(  # pragma: no cover
+                    {"sample_weight": sample_weight},
+                    data.columns,
+                    context="dml_panel",
+                    extra_hint="Or pass a weight array.",
+                    extra_diagnostics={"sample_weight": sample_weight},
                 )
             work["__sw__"] = data[sample_weight].astype(float).values
         else:
@@ -552,9 +563,11 @@ def dml_panel(
     if fold_indices is not None:
         if isinstance(fold_indices, str):
             if fold_indices not in data.columns:
-                raise MethodIncompatibility(
-                    f"fold_indices column '{fold_indices}' not in data",
-                    recovery_hint="Pass an existing column or an array.",
+                raise ColumnNotFound.from_missing(
+                    {"fold_indices": fold_indices},
+                    data.columns,
+                    message=f"fold_indices column '{fold_indices}' not in data",
+                    extra_hint="Or pass an array of fold labels.",
                 )
             work["__fold__"] = data[fold_indices].to_numpy()
         else:

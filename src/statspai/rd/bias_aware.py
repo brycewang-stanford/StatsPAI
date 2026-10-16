@@ -45,6 +45,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient
 from ._rdhonest import (
@@ -170,9 +171,11 @@ def rd_bias_aware_fuzzy(
     needed = [y, x, fuzzy]
     if cluster is not None:
         needed.append(cluster)
-    missing = [n for n in needed if n not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")  # pragma: no cover
+    check_columns(
+        data,
+        {"y": y, "x": x, "fuzzy": fuzzy, "cluster": cluster},
+        function="sp.rd_bias_aware_fuzzy",
+    )
     df = data.dropna(subset=needed).copy()
     Y = df[y].to_numpy(dtype=float)
     X = df[x].to_numpy(dtype=float) - float(c)

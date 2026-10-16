@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._core import _kernel_fn
 
@@ -233,10 +234,7 @@ def rdit(
     # ------------------------------------------------------------------
     # 1. Validate inputs
     # ------------------------------------------------------------------
-    if y not in data.columns:
-        raise ValueError(f"Column '{y}' not found in data.")
-    if time not in data.columns:
-        raise ValueError(f"Column '{time}' not found in data.")
+    check_columns(data, {"y": y, "time": time, "cluster": cluster}, function="sp.rdit")
     if kernel not in _SUPPORTED_KERNELS:
         raise ValueError(
             f"Unknown kernel '{kernel}'. " f"Choose from {list(_SUPPORTED_KERNELS)}."
@@ -244,8 +242,6 @@ def rdit(
 
     df = data[[time, y]].dropna().copy()
     if cluster is not None:
-        if cluster not in data.columns:
-            raise ValueError(f"Cluster column '{cluster}' not found.")
         df[cluster] = data.loc[df.index, cluster]
 
     # ------------------------------------------------------------------

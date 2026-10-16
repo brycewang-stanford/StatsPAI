@@ -89,7 +89,7 @@ def test_rdrobust_argument_validation(kwargs, exc, match):
 
 def test_rdrobust_fuzzy_column_missing():
     df = _sharp(n=300)
-    with pytest.raises(MethodIncompatibility, match="Fuzzy variable 'nope'"):
+    with pytest.raises(MethodIncompatibility, match="fuzzy='nope'"):
         sp.rdrobust(df, y="y", x="x", fuzzy="nope")
 
 

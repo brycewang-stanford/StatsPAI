@@ -2,21 +2,14 @@
 Tests for Neural Causal Models (TARNet, CFRNet, DragonNet).
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 torch = pytest.importorskip("torch", reason="PyTorch required for neural causal tests")
 
-from statspai.neural_causal import (
-    tarnet,
-    cfrnet,
-    dragonnet,
-    TARNet,
-    CFRNet,
-    DragonNet,
-)
 from statspai.core.results import CausalResult
+from statspai.neural_causal import CFRNet, DragonNet, TARNet, cfrnet, dragonnet, tarnet
 
 
 def _spy_tensor_devices(monkeypatch):
@@ -241,7 +234,7 @@ class TestTARNet:
         assert "shalit2017" in bib
 
     def test_missing_column_raises(self, small_data):
-        with pytest.raises(ValueError, match="Columns not found"):
+        with pytest.raises(ValueError, match=r"Column\(s\) not found"):
             tarnet(
                 small_data,
                 y="y",

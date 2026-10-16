@@ -48,6 +48,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..utils._rng import preserve_global_rng
 
@@ -586,9 +587,7 @@ def _prepare_data(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
     """Validate and extract arrays from DataFrame."""
     cols = [y, treat] + covariates
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(data, {"y": y, "treat": treat, "covariates": list(covariates)})
 
     clean = data[cols].dropna()
     Y = clean[y].values.astype(np.float32)

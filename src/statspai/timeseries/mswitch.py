@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._collinear import drop_collinear
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
@@ -238,9 +239,8 @@ def _columns(
                 f"mswitch: column names {cols} need data=.",
                 recovery_hint="Pass the DataFrame as data=, or pass arrays.",
             )
-        missing = [c for c in cols if c not in data.columns]
-        if missing:
-            raise MethodIncompatibility(f"mswitch: column(s) {missing} not in data.")
+        label = {"x": "x", "z": "switch"}.get(stem, stem)
+        check_columns(data, {label: obj}, function="sp.mswitch")
         return data[cols].to_numpy(dtype=float).reshape(n, len(cols)), cols
     if isinstance(obj, pd.DataFrame):
         return obj.to_numpy(dtype=float), [str(c) for c in obj.columns]
@@ -398,10 +398,11 @@ def _setup(
         raise MethodIncompatibility("mswitch: switch_ar=True needs ar >= 1.")
 
     if isinstance(y, str):
-        if data is None or y not in data.columns:
+        if data is None:
             raise MethodIncompatibility(
                 f"mswitch: column {y!r} needs data= holding it."
             )
+        check_columns(data, {"y": y}, function="sp.mswitch")
         ys = data[y]
     else:
         ys = y if isinstance(y, pd.Series) else pd.Series(np.asarray(y, dtype=float))

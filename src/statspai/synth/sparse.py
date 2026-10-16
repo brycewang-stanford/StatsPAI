@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._cite import bib_citation
 from ._core import placebo_rank_pvalue
@@ -114,6 +115,17 @@ def sparse_synth(
     _VALID_MODES = ("lasso", "constrained_lasso", "joint")
     if mode not in _VALID_MODES:
         raise ValueError(f"mode must be one of {_VALID_MODES}, got {mode!r}")
+
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+            "covariates": covariates,
+        },
+        function="sp.synth(method='sparse')",
+    )
 
     # ------------------------------------------------------------------
     # 1. Reshape panel

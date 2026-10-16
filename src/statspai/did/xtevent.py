@@ -29,6 +29,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -161,9 +162,19 @@ def xtevent(
         raise MethodIncompatibility("xtevent: vce must be 'robust' (or use cluster=).")
     controls = list(covariates or [])
     need = [y, policy, panel, time] + controls + ([cluster] if cluster else [])
-    missing = [c for c in need if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"xtevent: columns not found: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "policy": policy,
+            "panel": panel,
+            "time": time,
+            "covariates": controls,
+            "cluster": cluster or None,
+        },
+        message="xtevent: columns not found: "
+        f"{[c for c in need if c not in data.columns]}",
+    )
 
     df = data[list(dict.fromkeys(need))].copy()
     df = df.sort_values([panel, time]).reset_index(drop=True)

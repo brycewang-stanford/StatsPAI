@@ -779,7 +779,7 @@ class TestFrequencyWeights:
             _fit(df.assign(w=bad), weights="w")
 
     def test_unknown_weight_column(self):
-        with pytest.raises(MethodIncompatibility, match="weights column 'nope'"):
+        with pytest.raises(MethodIncompatibility, match="weights='nope'"):
             _fit(_data(n=60), weights="nope")
 
     def test_cluster_is_refused_with_alternatives(self):
@@ -990,7 +990,7 @@ class TestValidation:
         df = _data(n=60)
         with pytest.raises(MethodIncompatibility, match="must be a pandas DataFrame"):
             sp.match(df.to_numpy(), y="y", treat="d", covariates=X)
-        with pytest.raises(MethodIncompatibility, match="columns not found"):
+        with pytest.raises(MethodIncompatibility, match="not found in data"):
             _fit(df, covariates=["x1", "zz"])
         with pytest.raises(MethodIncompatibility, match="column name or a list"):
             _fit(df, covariates=5)
@@ -1039,7 +1039,7 @@ class TestRemainingBranches:
 
     def test_more_argument_errors(self):
         df = _data(n=80)
-        with pytest.raises(MethodIncompatibility, match="columns not found in data"):
+        with pytest.raises(MethodIncompatibility, match="not found in data"):
             sp.match(df, y="zz", treat="d", covariates=X)
         with pytest.raises(MethodIncompatibility, match="needs 'nearest'"):
             _fit(df, method="kernel", se_method="abadie_imbens_2016")

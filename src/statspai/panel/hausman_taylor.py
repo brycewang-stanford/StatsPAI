@@ -21,6 +21,7 @@ import pandas as pd
 from scipy import stats
 from scipy.linalg import qr
 
+from .._input_validation import check_columns
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -160,19 +161,16 @@ def xthtaylor(
             f"sp.xthtaylor: vce={vce!r} is not 'conventional' or 'robust'.",
             recovery_hint="Use vce='robust' to cluster on the unit.",
         )
-    for name, value in (("id", id), ("cluster", cluster)):
-        if value is not None and value not in data.columns:
-            raise MethodIncompatibility(
-                f"sp.xthtaylor: {name}={value!r} is not a column.",
-                recovery_hint="Pass the name of the variable.",
-            )
+    check_columns(data, {"id": id, "cluster": cluster}, function="sp.xthtaylor")
     method = str(method).lower()
     if method not in ("ht", "amacurdy"):
         raise MethodIncompatibility(
             f"sp.xthtaylor: method={method!r} is not available.",
             recovery_hint="Use 'ht' or 'amacurdy'.",
         )
-    if method == "amacurdy" and (time is None or time not in data.columns):
+    if method == "amacurdy" and time is not None:
+        check_columns(data, {"time": time}, function="sp.xthtaylor")
+    if method == "amacurdy" and time is None:
         raise MethodIncompatibility(
             "sp.xthtaylor: method='amacurdy' needs time=, the period " "identifier.",
             recovery_hint="Pass time='year' (the panel has to be balanced).",

@@ -31,10 +31,16 @@ import pandas as pd
 from scipy import optimize, stats
 from scipy.interpolate import BSpline
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._collinear import drop_collinear, independent_columns
 from ..core.utils import create_design_matrices
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from ._gam_terms import (
     make_random_effect,
     make_tensor,
@@ -406,9 +412,11 @@ class GAMResult(ResultProtocolMixin):
             cols = [c for c in self._par_names if c != "Intercept"]
             absent = [c for c in cols if c not in data.columns]
             if absent:
-                raise MethodIncompatibility(
-                    f"gam: the new data lack column(s) {absent}.",
-                    diagnostics={"missing": absent},
+                raise ColumnNotFound.from_missing(
+                    absent,
+                    list(data.columns),
+                    message=f"gam: the new data lack column(s) {absent}.",
+                    extra_diagnostics={"missing": absent},
                 )
             P = np.column_stack(
                 [np.ones(len(data))] + [data[c].to_numpy(dtype=float) for c in cols]
@@ -848,9 +856,11 @@ def gam(
     grouping = {sp_["vars"][0] for sp_ in smooth_specs if sp_["kind"] == "re"}
     missing = [v for v in names_s if v not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"gam: smoothed column(s) {missing} not found in data.",
-            diagnostics={"missing": missing},
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"gam: smoothed column(s) {missing} not found in data.",
+            extra_diagnostics={"missing": missing},
         )
     for v in names_s:
         if v in factor_by or v in grouping:
@@ -867,11 +877,12 @@ def gam(
             f"gam: vce={vce!r} is not 'nonrobust', 'hc0' or 'robust'.",
             diagnostics={"vce": vce},
         )
-    if cluster is not None and cluster not in data.columns:
-        raise MethodIncompatibility(
-            f"gam: cluster column {cluster!r} not found in data.",
-            diagnostics={"cluster": cluster},
-        )
+    check_columns(
+        data,
+        {"cluster": cluster},
+        function="gam",
+        extra_diagnostics={"cluster": cluster},
+    )
     # rows are matched by position from here on: the labels of ``data``
     # need not be unique
     frame = data.dropna(subset=names_s + ([cluster] if cluster else []))

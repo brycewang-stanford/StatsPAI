@@ -323,7 +323,7 @@ class TestFactorialEffects:
         d = self._data()
         with pytest.raises(MethodIncompatibility, match="exactly two"):
             sp.factorial_effects(d.assign(A=[0, 1, 2, 3] * 4), "y", factors=["A", "B"])
-        with pytest.raises(Exception, match="not in the data"):
+        with pytest.raises(Exception, match="not found in data"):
             sp.factorial_effects(d, "nope")
         with pytest.raises(MethodIncompatibility, match="reference"):
             sp.factorial_effects(d, "y", reference="z")

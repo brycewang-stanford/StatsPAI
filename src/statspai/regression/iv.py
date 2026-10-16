@@ -43,6 +43,7 @@ from ..core.results import EconometricResults
 from ..core.utils import parse_formula
 from ..exceptions import (
     AssumptionWarning,
+    ColumnNotFound,
     DataInsufficient,
     MethodIncompatibility,
     StatsPAIWarning,
@@ -1398,13 +1399,11 @@ class IVRegression(BaseModel):
         all_vars = [self.dependent_var] + exog_names + endog_names + instrument_names
         missing = [v for v in all_vars if v not in data.columns]
         if missing:
-            raise MethodIncompatibility(
-                f"Variables not found in data: {missing}",
-                recovery_hint=(
-                    "Add the missing outcome, exogenous, endogenous, or "
-                    "instrument columns to the DataFrame."
-                ),
-                diagnostics={"missing_columns": missing},
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(data.columns),
+                message=f"Variables not found in data: {missing}",
+                extra_diagnostics={"formula": self.formula},
             )
 
         extra_cols = [c for c in data.columns if c not in all_vars]
@@ -1706,7 +1705,23 @@ class IVRegression(BaseModel):
                     src = self.data
                 cols = list(getattr(src, "columns", []))
                 missing = [c for c in cluster_spec if c not in cols]
-                if src is None or missing:
+                if src is not None and missing:
+                    raise ColumnNotFound.from_missing(
+                        (
+                            {"cluster": cluster_spec[0]}
+                            if len(cluster_spec) == 1
+                            else {
+                                f"cluster[{i}]": c
+                                for i, c in enumerate(cluster_spec)
+                                if c in missing
+                            }
+                        ),
+                        cols,
+                        message=f"Cluster variable not found in data: {missing}",
+                        extra_hint=("Or pass an array/Series aligned with the sample."),
+                        extra_diagnostics={"cluster": cluster, "missing": missing},
+                    )
+                if src is None:
                     raise MethodIncompatibility(
                         f"Cluster variable not found in data: {missing or cluster!r}",
                         recovery_hint=(
@@ -2097,7 +2112,14 @@ class IVRegression(BaseModel):
 
         if isinstance(weights, str):
             src = getattr(self, "_clean_data", None)
-            if src is None or weights not in getattr(src, "columns", ()):
+            if src is not None and weights not in getattr(src, "columns", ()):
+                raise ColumnNotFound.from_missing(
+                    {"weights": weights},
+                    list(src.columns),
+                    message=f"weights='{weights}' is not a column in the data.",
+                    extra_diagnostics={"weights": weights},
+                )
+            if src is None:
                 raise MethodIncompatibility(
                     f"weights='{weights}' is not a column in the data.",
                     recovery_hint="Pass the name of a weight column in `data`.",
@@ -2165,13 +2187,13 @@ class IVRegression(BaseModel):
         needed = exog + endog
         missing = [v for v in needed if v not in data.columns]
         if missing:
-            raise MethodIncompatibility(
-                f"New data is missing columns referenced by the model: {missing}",
-                recovery_hint=(
-                    "Add the missing formula columns to the prediction data "
-                    "or refit the model with the desired specification."
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(data.columns),
+                message=(
+                    f"New data is missing columns referenced by the model: {missing}"
                 ),
-                diagnostics={"missing_columns": missing},
+                extra_hint="Add them to the prediction data.",
             )
 
         params = _as_float_array(self._results.params)
@@ -2276,13 +2298,17 @@ def _materialise_interacted_fe(
         parts = [p.strip() for p in term.split("^") if p.strip()]
         missing = [p for p in parts if p not in out.columns]
         if missing:
-            raise MethodIncompatibility(
-                f"absorb term {term!r} references missing column(s): {missing}",
-                recovery_hint=(
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(out.columns),
+                message=(
+                    f"absorb term {term!r} references missing column(s): {missing}"
+                ),
+                extra_hint=(
                     "Interacted fixed effects use the fixest spelling "
                     '"a^b"; every component must be a column in `data`.'
                 ),
-                diagnostics={"term": term, "missing_columns": missing},
+                extra_diagnostics={"term": term},
             )
         name = "__fe_" + "_x_".join(parts)
         codes = out[parts[0]].astype(str)
@@ -2349,13 +2375,10 @@ def _iv_absorb_preprocess(
     needed = [c for c in needed if not (c in seen or seen.add(c))]
     missing = [v for v in needed if v not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"Variables not found in data: {missing}",
-            recovery_hint=(
-                "Add the missing formula, absorb, or cluster columns to the "
-                "DataFrame."
-            ),
-            diagnostics={"missing_columns": missing},
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"Variables not found in data: {missing}",
         )
     missing_absorb = [c for c in absorb_terms if c not in data.columns]
     if missing_absorb:
@@ -2814,6 +2837,7 @@ def _materialise_formula_terms(
         evaluate_formula_expression,
         formula_eval_env,
         r_formula_idioms,
+        raise_if_formula_names_missing,
     )
 
     frame = _coerce_string_extension_dtypes(data).copy()
@@ -2850,6 +2874,7 @@ def _materialise_formula_terms(
                 NA_action=NAAction(on_NA="drop"),
             )
         except Exception as exc:
+            raise_if_formula_names_missing(" + ".join(build), frame, exc)
             raise MethodIncompatibility(
                 f"IV formula: could not build the term(s) {build!r}: {exc}",
                 recovery_hint="Check the column names inside C(...) / I(...).",

@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -162,11 +163,7 @@ def prais(
             recovery_hint="Use vce='ols' or vce='robust'.",
         )
     if time is not None:
-        if time not in data.columns:
-            raise MethodIncompatibility(
-                f"sp.prais: time={time!r} is not a column.",
-                recovery_hint="Pass the name of the time variable.",
-            )
+        check_columns(data, {"time": time}, function="sp.prais")
         data = data.sort_values(time, kind="stable")
 
     ols = regress(formula, data=data)

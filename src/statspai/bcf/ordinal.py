@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .bcf import bcf as _bcf_binary
@@ -246,14 +247,11 @@ def bcf_ordinal(
             alternative_functions=_BCF_ORDINAL_ALTERNATIVES,
         )
     covariate_list = _normalize_covariates(covariates)
-    required_cols = [y, treat] + covariate_list
-    missing = [col for col in required_cols if col not in data.columns]
-    if missing:
-        raise _bcf_ordinal_error(
-            "bcf_ordinal input columns are missing from data.",
-            diagnostics={"missing_columns": sorted(str(col) for col in missing)},
-            recovery_hint="Pass column names present in the DataFrame.",
-        )
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "covariates": covariate_list},
+        function="sp.bcf_ordinal",
+    )
     if int(pd.Series(data[y]).notna().sum()) < 2:
         # Otherwise the inner BCF's dropna empties each pair and the failure
         # surfaces as a misleading "Treatment must be binary" error.

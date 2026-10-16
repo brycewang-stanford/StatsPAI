@@ -30,6 +30,8 @@ from typing import Dict, List, Sequence
 import numpy as np
 import pandas as pd
 
+from ...exceptions import ColumnNotFound
+
 __all__ = ["PanelArrays", "build_panel_arrays", "unit_cluster_codes"]
 
 
@@ -112,15 +114,15 @@ def build_panel_arrays(
         row would make the estimate depend on input ordering — or if a
         requested variable is absent from ``data``.
     """
-    missing = [v for v in dict.fromkeys(variables) if v not in data.columns]
-    if missing:
-        raise ValueError(
-            f"variable(s) {missing} not found in the data. Available columns: "
-            f"{list(data.columns)}"
-        )
-    for col, what in ((id_col, "id"), (time_col, "time")):
+    missing: Dict[str, str] = {}
+    for label, col in (("id", id_col), ("time", time_col)):
         if col not in data.columns:
-            raise ValueError(f"{what} column {col!r} not found in the data.")
+            missing[label] = col
+    for v in dict.fromkeys(variables):
+        if v not in data.columns and v not in missing.values():
+            missing[v if v not in missing else f"variable {v!r}"] = v
+    if missing:
+        raise ColumnNotFound.from_missing(missing, data.columns)
 
     # A variable may coincide with the id or time column (e.g. clustering on
     # the time index, which should fail later with a *meaningful* message

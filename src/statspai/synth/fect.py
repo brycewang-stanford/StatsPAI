@@ -48,6 +48,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 
@@ -892,9 +893,11 @@ def fect(
     if vce not in (None, "bootstrap", "jackknife"):
         raise ValueError("vce must be None, 'bootstrap', or 'jackknife'")
     covs = list(covariates) if covariates else []
-    for c in [y, treat, unit, time, *covs]:
-        if c not in data.columns:
-            raise ValueError(f"column {c!r} not in data")
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "unit": unit, "time": time, "covariates": covs},
+        function="sp.fect",
+    )
 
     df = data[[unit, time, y, treat, *covs]].copy()
     units = np.array(sorted(df[unit].unique(), key=lambda v: (str(type(v)), v)))

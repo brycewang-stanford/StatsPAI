@@ -26,6 +26,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import MethodIncompatibility, NumericalInstability
 from ._akm import _akm_fit, _bhj_aggregate, _resid
@@ -150,6 +151,19 @@ def ssaggregate(
     >>> bool(result.params.shape[0] >= 1)
     True
     """
+    check_columns(
+        data,
+        {
+            "y": y,
+            "x": x,
+            "controls": list(controls or []),
+            "cluster": cluster,
+            "weights": weights,
+        },
+        function="sp.ssaggregate",
+    )
+    if isinstance(shocks, str) and shock_data is not None:
+        check_columns(shock_data, {"shocks": shocks}, function="sp.ssaggregate")
     n = len(data)
     Y = data[y].values.astype(float)
     X_endog = data[x].values.astype(float)
@@ -199,9 +213,6 @@ def ssaggregate(
     # Control matrix (always with an intercept)
     # ------------------------------------------------------------------
     controls = controls or []
-    for c in controls:
-        if c not in data.columns:
-            raise ValueError(f"Control '{c}' not found in data")
     if controls:
         W = np.column_stack([np.ones(n), data[controls].values.astype(float)])
         control_names = ["Intercept"] + controls
@@ -211,11 +222,6 @@ def ssaggregate(
 
     region = None
     if cluster is not None:
-        if cluster not in data.columns:
-            raise MethodIncompatibility(
-                f"cluster column '{cluster}' not found in data",
-                recovery_hint="Check the column name passed as cluster=.",
-            )
         region = data[cluster].to_numpy()
 
     # ------------------------------------------------------------------
@@ -337,11 +343,7 @@ def _location_weights(
     """Validated location weights, or ``None``."""
     if weights is None:
         return None
-    if weights not in data.columns:
-        raise MethodIncompatibility(
-            f"weights column '{weights}' not found in data",
-            recovery_hint="Check the column name passed as weights=.",
-        )
+    check_columns(data, {"weights": weights}, function="sp.ssaggregate")
     w = pd.to_numeric(data[weights], errors="coerce").to_numpy(dtype=float)
     if not np.all(np.isfinite(w)) or (w < 0).any() or w.sum() <= 0:
         raise MethodIncompatibility(

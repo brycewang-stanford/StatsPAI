@@ -41,6 +41,7 @@ import pandas as pd
 from scipy import optimize
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._cite import bib_citation
 from ._core import placebo_rank_pvalue
@@ -467,6 +468,16 @@ def kernel_synth(
             f"Choose from {list(_KERNEL_DISPATCH.keys())}."
         )
 
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+            "covariates": covariates,
+        },
+        function="sp.synth(method='kernel')",
+    )
     # --- Reshape panel ---
     Y1_pre, Y1_post, Y0_pre, Y0_post, donors, pre_times, post_times = _reshape_panel(
         data, outcome, unit, time, treated_unit, treatment_time
@@ -647,6 +658,16 @@ def kernel_ridge_synth(
     if ridge_lambda <= 0:
         raise ValueError("ridge_lambda must be positive")
 
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+            "covariates": covariates,
+        },
+        function="sp.synth(method='kernel_ridge')",
+    )
     # --- Reshape panel ---
     Y1_pre, Y1_post, Y0_pre, Y0_post, donors, pre_times, post_times = _reshape_panel(
         data, outcome, unit, time, treated_unit, treatment_time

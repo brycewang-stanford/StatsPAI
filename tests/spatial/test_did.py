@@ -179,7 +179,7 @@ def test_spatial_did_rejects_duplicate_cells_and_missing_columns():
     with pytest.raises(MethodIncompatibility, match="one row per unit-period"):
         spatial_did(duplicated, y="y", treat="d", unit="i", time="t", W=_chain_w(n))
 
-    with pytest.raises(MethodIncompatibility, match="Columns not found"):
+    with pytest.raises(MethodIncompatibility, match=r"Column\(s\) not found"):
         spatial_did(df, y="missing", treat="d", unit="i", time="t", W=_chain_w(n))
 
 

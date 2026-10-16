@@ -35,6 +35,7 @@ from scipy import optimize, stats
 from scipy.special import expit
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import MethodIncompatibility
@@ -101,6 +102,11 @@ def propensity_score(
     weights) to :func:`sp.overlap_plot`, :func:`sp.ps_balance`, or
     :func:`sp.balance_diagnostics`.
     """
+    check_columns(
+        data,
+        {"treatment": treatment, "covariates": list(covariates)},
+        function="sp.propensity_score",
+    )
     D_all = data[treatment].values.astype(float)
     X_all = data[covariates].values.astype(float)
     # One missing value would enter the fit and turn every score into NaN;
@@ -704,6 +710,11 @@ def ps_balance(
     >>> fig, ax = bal.love_plot()  # doctest: +SKIP
     """
     _check_sd_denom(sd_denom)
+    check_columns(
+        data,
+        {"treatment": treatment, "covariates": list(covariates)},
+        function="sp.ps_balance",
+    )
     # Rows with a missing treatment or covariate value are left out, as the
     # estimators leave them out: a matched frame carries the rows sp.match
     # dropped, and one NaN would make the covariate's statistics NaN.
@@ -852,6 +863,11 @@ def balance_diagnostics(
     True
     """
     _check_sd_denom(sd_denom)
+    check_columns(
+        data,
+        {"treatment": treatment, "covariates": list(covariates)},
+        function="sp.balance_diagnostics",
+    )
     cols = [treatment] + list(covariates)
     df = data[cols].dropna().copy()
     if df.empty:
@@ -958,8 +974,13 @@ def _coerce_vector(
     if value is None:
         return None
     if isinstance(value, str):
-        if value not in data.columns:
-            raise ValueError(f"Column {value!r} not found for {name}.")
+        # the user typed ps= for the propensity_score vector
+        label = "ps" if name == "propensity_score" else name
+        check_columns(
+            data,
+            {label: value},
+            message=f"Column {value!r} not found for {name}.",
+        )
         return data.loc[index, value].astype(float).rename(name)
     if isinstance(value, pd.Series):
         return value.reindex(index).astype(float).rename(name)

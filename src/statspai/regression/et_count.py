@@ -22,10 +22,11 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._validate import require_numeric_columns
 from ..core._vcov import ml_vcov
 from ..core.results import CausalResult, EconometricResults
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._optim_helpers import inverse_information, ml_newton_polish, se_from_vcov
 
 __all__ = ["etpoisson"]
@@ -140,11 +141,22 @@ def etpoisson(
         raise MethodIncompatibility("etpoisson: intpoints must be at least 2.")
     extra = [cl] if isinstance(cl, str) else []
     cols = [y, treatment] + xs + zs + extra
-    missing = [c for c in cols if c not in data]
-    if missing:
-        raise MethodIncompatibility(
-            f"etpoisson: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+    named = missing_named_columns(
+        {
+            "y": y,
+            "treat": treatment,
+            "x": x if isinstance(x, str) else xs,
+            "z": z if isinstance(z, str) else zs,
+            "cluster": cl if isinstance(cl, str) else None,
+        },
+        data.columns,
+    )
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="etpoisson",
+            extra_diagnostics={"missing": list(named.values())},
         )
     require_numeric_columns(
         data, [y, treatment] + xs + zs, function="etpoisson", argument="y / x / z"

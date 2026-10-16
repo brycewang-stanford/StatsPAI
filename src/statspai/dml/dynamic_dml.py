@@ -79,8 +79,14 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 __all__ = ["dynamic_dml", "DynamicDMLResult"]
 
@@ -280,10 +286,11 @@ def _wide_panel(
     """Balanced wide arrays, or a message saying exactly what is missing."""
     missing = [c for c in [y, treat, unit, time, *needed] if c not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"dynamic_dml(): columns not in data: {missing}.",
-            recovery_hint="Check the spelling against data.columns.",
-            diagnostics={"missing": missing},
+        raise ColumnNotFound.from_missing(
+            missing,
+            data.columns,
+            context="dynamic_dml()",
+            extra_diagnostics={"missing": missing},
         )
     frame = data.loc[:, [unit, time, y, treat, *dict.fromkeys(needed)]].copy()
     labels = sorted(frame[time].unique()) if periods is None else list(periods)
@@ -540,6 +547,25 @@ def dynamic_dml(
     if not 0.0 < alpha < 1.0:
         raise MethodIncompatibility(
             "dynamic_dml(): alpha must be in (0, 1).", recovery_hint="Use alpha=0.05."
+        )
+    named = missing_named_columns(
+        {
+            "y": y,
+            "treat": treat,
+            "id": id,
+            "time": time,
+            "covariates": cov_cols,
+            "baseline": base_cols,
+            "modifiers": mod_cols,
+        },
+        data.columns,
+    )
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            data.columns,
+            context="dynamic_dml()",
+            extra_diagnostics={"missing": list(named.values())},
         )
     frame, labels, n_units, m, wide, dropped = _wide_panel(
         data, y, treat, id, time, [*cov_cols, *base_cols, *mod_cols], periods

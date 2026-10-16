@@ -62,6 +62,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._input_validation import check_columns
 from ..core.results import EconometricResults
 from .quantile import _qreg_fit
 
@@ -151,9 +152,16 @@ def ivqreg(
     inst_list = [instruments] if isinstance(instruments, str) else list(instruments)
     exog_list = list(exog) if exog else []
 
-    for col in [y] + endog_list + inst_list + exog_list:
-        if col not in data.columns:
-            raise ValueError(f"column '{col}' not in data")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "endog": endog if isinstance(endog, str) else endog_list,
+            "instruments": (instruments if isinstance(instruments, str) else inst_list),
+            "exog": exog_list,
+        },
+        function="ivqreg",
+    )
     if len(inst_list) < len(endog_list):
         raise ValueError(
             f"need at least {len(endog_list)} instruments for "

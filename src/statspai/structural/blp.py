@@ -55,6 +55,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._input_validation import check_columns
 from ..core._collinear import independent_columns
 from ..core._validate import require_numeric_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
@@ -160,10 +161,11 @@ def blp_instruments(
     """
     x = [x] if isinstance(x, str) else list(x)
     groups = [market_id] + [c for c in (firm_id, nest) if c is not None]
-    needed = [market_id] + x + [c for c in (firm_id, nest) if c is not None]
-    missing = [c for c in needed if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {"market_id": market_id, "x": x, "firm_id": firm_id, "nest": nest},
+        function="sp.blp_instruments",
+    )
     require_numeric_columns(data, x, function="blp_instruments", argument="x")
     unlabelled = {c: int(data[c].isna().sum()) for c in groups}
     unlabelled = {c: m for c, m in unlabelled.items() if m}
@@ -442,14 +444,22 @@ def blp(
     """
     # ---- Validate inputs --------------------------------------------------
     x_linear = list(x_linear)
-    required_cols = [shares, prices, market_id, product_id] + x_linear
     if instruments is not None:
         instruments = list(instruments)
-        required_cols += instruments
-    required_cols += [c for c in (firm_id, nest) if c is not None]
-    missing = [c for c in required_cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {
+            "shares": shares,
+            "prices": prices,
+            "market_id": market_id,
+            "product_id": product_id,
+            "x_linear": x_linear,
+            "instruments": instruments,
+            "firm_id": firm_id,
+            "nest": nest,
+        },
+        function="sp.blp",
+    )
 
     if x_random is None:
         x_random = list(x_linear)

@@ -49,6 +49,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from ..exceptions import MethodIncompatibility
 
 #: Weight regimes accepted by the matched-sample regression helpers.
@@ -162,12 +163,12 @@ def expand_frequency_weights(
         implausible number of rows.  Stata raises the analogous
         "may not use noninteger frequency weights" error.
     """
-    if weight_col not in frame.columns:
-        raise MethodIncompatibility(
-            f"{context}: weight column {weight_col!r} is not in the frame.",
-            diagnostics={"weight_col": weight_col, "columns": list(frame.columns)},
-            recovery_hint="Check the weight column name.",
-        )
+    check_columns(
+        frame,
+        {"weight_col": weight_col},
+        message=f"{context}: weight column {weight_col!r} is not in the frame.",
+        extra_diagnostics={"weight_col": weight_col, "columns": list(frame.columns)},
+    )
 
     raw = frame[weight_col].to_numpy(dtype=float)
     if not np.all(np.isfinite(raw)):

@@ -15,8 +15,9 @@ from typing import Dict, List, Literal, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import missing_named_columns
 from ..core._validate import require_numeric_columns
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from .stepwise import SelectionResult
 
 _MAX_CANDIDATES = 30
@@ -107,11 +108,15 @@ def best_subset(
     cand = list(dict.fromkeys(x))
     forced = list(dict.fromkeys(force or []))
     cand = [c for c in cand if c not in forced]
-    missing = [c for c in [y] + cand + forced if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"best_subset: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+    named = missing_named_columns(
+        {"y": y, "x": list(x), "force": list(force or [])}, data.columns
+    )
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="best_subset",
+            extra_diagnostics={"missing": list(dict.fromkeys(named.values()))},
         )
     p = len(cand)
     if p == 0:

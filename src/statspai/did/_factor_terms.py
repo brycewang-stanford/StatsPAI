@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 __all__ = ["expand_factor_terms", "factor_xvar", "is_factor_term"]
 
@@ -61,10 +61,12 @@ def _component(
     else:
         kind, var = "", token
     if var not in data.columns:
-        raise MethodIncompatibility(
-            f"{context}: {term!r} refers to {var!r}, which is not a column.",
-            recovery_hint="Name existing columns in i.<var> / c.<var> terms.",
-            diagnostics={"term": term, "variable": var},
+        raise ColumnNotFound.from_missing(
+            {"controls": var},
+            list(data.columns),
+            message=f"{context}: {term!r} refers to {var!r}, which is not a column.",
+            extra_hint="Name existing columns in i.<var> / c.<var> terms.",
+            extra_diagnostics={"term": term, "variable": var},
         )
     col = data[var]
     if kind == "c":
@@ -221,10 +223,12 @@ def factor_xvar(
             )
         var = x[2:]
         if var not in data.columns:
-            raise MethodIncompatibility(
-                f"{context}: xvar={x!r} refers to {var!r}, which is not a column.",
-                recovery_hint="Name an existing column.",
-                diagnostics={"xvar": x},
+            raise ColumnNotFound.from_missing(
+                {"xvar": var},
+                list(data.columns),
+                message=f"{context}: xvar={x!r} refers to {var!r}, "
+                "which is not a column.",
+                extra_diagnostics={"xvar": x},
             )
         if x.startswith("i."):
             out[var] = data[var].astype("category")

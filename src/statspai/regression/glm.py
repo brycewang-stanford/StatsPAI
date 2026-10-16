@@ -25,7 +25,7 @@ from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
 from ..core.utils import _coerce_string_extension_dtypes, create_design_matrices
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
 
 
@@ -1561,9 +1561,11 @@ class GLMRegression(BaseModel):
             if self.data is None:
                 raise MethodIncompatibility(f"{role} requires data=.")
             if column not in self.data.columns:
-                raise MethodIncompatibility(
-                    f"{role} column '{column}' is not in data.",
-                    diagnostics={"column": column, "role": role},
+                raise ColumnNotFound.from_missing(
+                    {role: column},
+                    list(self.data.columns),
+                    message=f"{role} column '{column}' is not in data.",
+                    extra_diagnostics={"column": column, "role": role},
                 )
             series = self.data[column]
             if design_index is not None:
@@ -1647,9 +1649,11 @@ class GLMRegression(BaseModel):
             if self.data is None:
                 raise MethodIncompatibility("cluster requires data=.")
             if cluster not in self.data.columns:
-                raise MethodIncompatibility(
-                    f"cluster column '{cluster}' is not in data.",
-                    diagnostics={"column": cluster},
+                raise ColumnNotFound.from_missing(
+                    {"cluster": cluster},
+                    list(self.data.columns),
+                    message=f"cluster column '{cluster}' is not in data.",
+                    extra_diagnostics={"column": cluster},
                 )
             cluster_var = self.data[cluster]
             if design_index is not None:
@@ -1911,6 +1915,12 @@ class GLMRegression(BaseModel):
                         return_type="dataframe",
                     )
             except (PatsyError, KeyError, ValueError) as exc:
+                if isinstance(exc, PatsyError):
+                    from ..core.utils import raise_if_formula_names_missing
+
+                    raise_if_formula_names_missing(
+                        self.formula.split("~", 1)[1], data, exc, context="predict"
+                    )
                 raise MethodIncompatibility(
                     "Could not build prediction design matrix from new data.",
                     recovery_hint=(

@@ -32,6 +32,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from .bcf import bcf as _bcf_binary
 
@@ -200,9 +201,11 @@ def bcf_factor_exposure(
     True
     """
     # --- Validation --------------------------------------------------------
-    missing = [c for c in (y, *exposures, *covariates) if c not in data.columns]
-    if missing:
-        raise ValueError(f"columns not in data: {missing}")
+    check_columns(
+        data,
+        {"y": y, "exposures": list(exposures), "covariates": list(covariates)},
+        function="sp.bcf_factor_exposure",
+    )
     if int(data[y].notna().sum()) < 2:
         # Otherwise the inner BCF's dropna empties the frame and the failure
         # surfaces as a misleading "Treatment must be binary" error.

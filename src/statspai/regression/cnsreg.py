@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core._vcov import sandwich_vcov
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -189,11 +190,7 @@ def cnsreg(
     n, k = X.shape
     clusters = None
     if cluster is not None:
-        if cluster not in data.columns:
-            raise MethodIncompatibility(
-                f"sp.cnsreg: cluster={cluster!r} is not a column.",
-                recovery_hint="Pass the name of the cluster variable.",
-            )
+        check_columns(data, {"cluster": cluster}, function="sp.cnsreg")
         used = data.loc[info["sample_index"]]
         if used[cluster].isna().any():
             raise MethodIncompatibility(

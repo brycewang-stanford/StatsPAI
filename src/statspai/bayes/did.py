@@ -14,6 +14,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from ..exceptions import (
+    ColumnNotFound,
     DataInsufficient,
     MethodIncompatibility,
     NumericalInstability,
@@ -65,19 +66,14 @@ def _require_column_name(name: Any, role: str) -> str:
     return name
 
 
-def _require_column(data: pd.DataFrame, name: Any, role: str) -> str:
+def _require_column(data: pd.DataFrame, name: Any, role: str, label: str) -> str:
     column = _require_column_name(name, role)
     if column not in data.columns:
-        raise MethodIncompatibility(
-            f"Column '{column}' not found in data.",
-            recovery_hint="Check the column spelling or rename the DataFrame "
-            "before calling sp.bayes_did().",
-            diagnostics={
-                "role": role,
-                "column": column,
-                "available_columns": _available_columns(data),
-            },
-            alternative_functions=_DID_ALTERNATIVES,
+        raise ColumnNotFound.from_missing(
+            {label: column},
+            _available_columns(data),
+            context="sp.bayes_did",
+            extra_diagnostics={"role": role, "column": column},
         )
     return column
 
@@ -212,9 +208,9 @@ def _prepare_did_frame(
     lengths (or same length but different rows).
     """
     frame = _require_dataframe(data)
-    y_col = _require_column(frame, y, "outcome")
-    treat_col = _require_column(frame, treat, "treatment indicator")
-    post_col = _require_column(frame, post, "post indicator")
+    y_col = _require_column(frame, y, "outcome", "y")
+    treat_col = _require_column(frame, treat, "treatment indicator", "treat")
+    post_col = _require_column(frame, post, "post indicator", "post")
     covariate_cols = _normalize_covariates(covariates)
 
     cols = [y_col, treat_col, post_col]
@@ -224,20 +220,20 @@ def _prepare_did_frame(
         ("post indicator", post_col),
     ]
     if unit is not None:
-        unit = _require_column(frame, unit, "unit")
+        unit = _require_column(frame, unit, "unit", "unit")
         cols.append(unit)
         role_columns.append(("unit", unit))
     if time is not None:
-        time = _require_column(frame, time, "time")
+        time = _require_column(frame, time, "time", "time")
         cols.append(time)
         role_columns.append(("time", time))
     if covariate_cols:
-        for covariate in covariate_cols:
-            _require_column(frame, covariate, "covariate")
+        for i, covariate in enumerate(covariate_cols):
+            _require_column(frame, covariate, "covariate", f"covariates[{i}]")
             role_columns.append((f"covariate {covariate}", covariate))
         cols.extend(covariate_cols)
     if cohort is not None:
-        cohort = _require_column(frame, cohort, "cohort")
+        cohort = _require_column(frame, cohort, "cohort", "cohort")
         cols.append(cohort)
         role_columns.append(("cohort", cohort))
     _ensure_distinct_roles(role_columns)

@@ -39,6 +39,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import NumericalInstability
 from ._common import embed_texts
@@ -217,13 +218,17 @@ def text_treatment_effect(
     >>> bool(np.isfinite(r.estimate) and r.se > 0)
     True
     """
-    for col in (text_col, outcome, treatment):
-        if col not in data.columns:
-            raise ValueError(f"Column {col!r} not in data.")
     cov = list(covariates or [])
-    for c in cov:
-        if c not in data.columns:
-            raise ValueError(f"Covariate {c!r} not in data.")
+    check_columns(
+        data,
+        {
+            "text_col": text_col,
+            "outcome": outcome,
+            "treatment": treatment,
+            "covariates": cov,
+        },
+        function="sp.text_treatment_effect",
+    )
 
     # Drop rows with NaN in any required column.
     use = data[[text_col, outcome, treatment, *cov]].copy()

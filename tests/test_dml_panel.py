@@ -27,7 +27,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.dml import dml_panel, DMLPanelResult
+from statspai.dml import DMLPanelResult, dml_panel
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
 
@@ -170,7 +170,7 @@ class TestValidation:
 
     def test_missing_column_raises(self):
         df = _sim_panel(N=20, T=5, seed=0)
-        with pytest.raises(MethodIncompatibility, match="missing columns"):
+        with pytest.raises(MethodIncompatibility, match="not found in data"):
             dml_panel(df, y="y", treat="d", covariates=["nonexistent"], unit="pid")
 
     def test_folds_exceed_units_raises(self):

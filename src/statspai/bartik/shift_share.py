@@ -23,6 +23,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import MethodIncompatibility
 
@@ -259,9 +260,11 @@ class BartikIV:
         self.shares, self.shocks = _coerce_shift_share(
             self.shares, self.shocks, self.data
         )
-        for col in [self.y, self.endog] + self.covariates:
-            if col not in self.data.columns:
-                raise ValueError(f"Column '{col}' not found in data")
+        check_columns(
+            self.data,
+            {"y": self.y, "endog": self.endog, "covariates": list(self.covariates)},
+            function="sp.bartik",
+        )
 
         if self.shares.shape[0] != len(self.data):
             raise ValueError(
@@ -424,11 +427,7 @@ class BartikIV:
         """Analytic weights normalised to mean one (Stata ``[aw=]``)."""
         if self.weights is None:
             return np.ones(n)
-        if self.weights not in self.data.columns:
-            raise MethodIncompatibility(
-                f"weights column '{self.weights}' not found in data",
-                recovery_hint="Check the column name passed as weights=.",
-            )
+        check_columns(self.data, {"weights": self.weights}, function="sp.bartik")
         w = pd.to_numeric(self.data[self.weights], errors="coerce").to_numpy(float)
         if not np.all(np.isfinite(w)) or (w < 0).any() or w.sum() <= 0:
             raise MethodIncompatibility(

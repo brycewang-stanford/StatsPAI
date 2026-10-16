@@ -28,7 +28,13 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from .._input_validation import missing_named_columns
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from . import _statespace_core as core
 from . import _statespace_diffuse as exact
 from ._statespace_results import KalmanResult, StateSpaceResult, inference, package
@@ -46,9 +52,10 @@ def _observations(
         cols = [y] if isinstance(y, str) else list(y)
         missing = [c for c in cols if c not in data.columns]
         if missing:
-            raise MethodIncompatibility(
-                f"Columns {missing} are not in data.",
-                recovery_hint="Check the column names passed as y.",
+            raise ColumnNotFound.from_missing(
+                missing_named_columns({"y": y}, data.columns),
+                list(data.columns),
+                message=f"Columns {missing} are not in data.",
             )
         frame = data[cols]
     elif isinstance(y, pd.DataFrame):

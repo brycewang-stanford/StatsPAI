@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import SummaryText
@@ -316,13 +317,9 @@ def pscore(
     if isinstance(covariates, str):
         covariates = [covariates]
     covariates = list(covariates)
-    missing = [c for c in [treat] + covariates if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"pscore: columns not found in data: {missing}",
-            recovery_hint="Check the treat and covariates column names.",
-            diagnostics={"missing_columns": missing},
-        )
+    check_columns(
+        data, {"treat": treat, "covariates": covariates}, function="sp.pscore"
+    )
     if not covariates:
         raise MethodIncompatibility(
             "pscore: at least one covariate is needed.",

@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import _kernel_fn
@@ -260,8 +261,15 @@ def _triangular_weights(x_vals: np.ndarray, c: float, h: float) -> np.ndarray:
 def _validate_covariates(
     data: pd.DataFrame,
     covs: Optional[Sequence[str] | str],
+    y: Optional[str] = None,
+    x: Optional[str] = None,
+    function: Optional[str] = None,
 ) -> List[str]:
-    """Return validated covariate list; raise on missing columns."""
+    """Return validated covariate list; raise on missing columns.
+
+    ``y`` / ``x`` (when given) are checked together with the covariates so
+    a misspelled outcome or running variable raises ``ColumnNotFound``.
+    """
     if covs is None:
         return []  # pragma: no cover
     if isinstance(covs, str):
@@ -283,15 +291,12 @@ def _validate_covariates(
             diagnostics={"argument": "covs", "bad_values": [repr(c) for c in bad]},
         )
     missing = [c for c in cov_list if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"Covariates not found in data: {missing}",
-            recovery_hint="Check `covs` against the DataFrame columns.",
-            diagnostics={
-                "missing_covariates": missing,
-                "available_columns": list(data.columns),
-            },
-        )  # pragma: no cover
+    check_columns(
+        data,
+        {"y": y, "x": x, "covs": covs if isinstance(covs, str) else cov_list},
+        function=function,
+        extra_diagnostics={"missing_covariates": missing},
+    )
     return cov_list
 
 
@@ -403,7 +408,7 @@ def rd_forest(
         )
 
     # --- Validate inputs ---
-    covs = _validate_covariates(data, covs)
+    covs = _validate_covariates(data, covs, y=y, x=x, function="sp.rd_forest")
     if not covs:
         raise MethodIncompatibility(  # pragma: no cover
             "rd_forest requires at least one covariate in `covs` for "
@@ -690,7 +695,7 @@ def rd_boost(
             "rd_boost requires scikit-learn. Install: pip install scikit-learn"
         )
 
-    covs = _validate_covariates(data, covs)
+    covs = _validate_covariates(data, covs, y=y, x=x, function="sp.rd_boost")
     if not covs:
         raise MethodIncompatibility(  # pragma: no cover
             "rd_boost requires at least one covariate in `covs`.",
@@ -944,7 +949,7 @@ def rd_lasso(
             "rd_lasso requires scikit-learn. Install: pip install scikit-learn"
         )
 
-    covs = _validate_covariates(data, covs)
+    covs = _validate_covariates(data, covs, y=y, x=x, function="sp.rd_lasso")
     if not covs:
         raise MethodIncompatibility(  # pragma: no cover
             "rd_lasso requires candidate covariates in `covs`.",

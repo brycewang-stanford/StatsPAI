@@ -123,7 +123,9 @@ def test_etwfe_bad_cgroup_raises(panel):
 
 
 def test_etwfe_xvar_missing_column_raises(panel):
-    with pytest.raises(KeyError, match="not found"):
+    from statspai.exceptions import ColumnNotFound
+
+    with pytest.raises(ColumnNotFound, match="not found"):
         sp.etwfe(
             panel,
             y="y",

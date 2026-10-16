@@ -29,6 +29,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
@@ -230,12 +231,15 @@ def _prepare_data(
     y: str,
     treat: str,
     covariates: List[str],
+    function: Optional[str] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
     """Extract and validate arrays from DataFrame."""
     cols = [y, treat] + covariates
-    for c in cols:
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "covariates": list(covariates)},
+        function=function,
+    )
     clean = data[cols].dropna()
     Y = clean[y].values.astype(float)
     D = _treatment_as_float(clean[treat], function="metalearner")
@@ -1137,13 +1141,13 @@ def metalearner(
         )
 
     design = [c for c in (weights, cluster) if c is not None]
-    for c in design:
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
+    check_columns(
+        data, {"weights": weights, "cluster": cluster}, function="sp.metalearner"
+    )
     if design:
         # Complete cases on the design columns too, before the usual prep.
         data = data.loc[data[design].notna().all(axis=1)]
-    Y, D, X, n = _prepare_data(data, y, treat, covariates)
+    Y, D, X, n = _prepare_data(data, y, treat, covariates, function="sp.metalearner")
     keep_rows = data[[y, treat] + list(covariates)].notna().all(axis=1).to_numpy()
     sw: Optional[np.ndarray] = None
     if weights is not None:

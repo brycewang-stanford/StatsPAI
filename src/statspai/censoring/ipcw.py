@@ -23,6 +23,7 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -189,11 +190,15 @@ def ipcw(
     >>> sorted(res.summary_stats)
     ['effective_sample_size', 'max', 'mean', 'min']
     """
-    if time not in data.columns or event not in data.columns:
-        raise KeyError("time/event columns not in data.")
-    missing = [c for c in censor_covariates if c not in data.columns]
-    if missing:
-        raise KeyError(f"Missing censor covariates: {missing}")
+    check_columns(
+        data,
+        {
+            "time": time,
+            "event": event,
+            "censor_covariates": list(censor_covariates),
+        },
+        function="sp.ipcw",
+    )
 
     n = len(data)
     t = data[time].to_numpy(dtype=float)

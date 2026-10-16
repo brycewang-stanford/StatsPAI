@@ -48,6 +48,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
@@ -326,9 +327,11 @@ class _Fit:
 def _prepare_panel(
     data: pd.DataFrame, outcome: str, unit: str, time: str, treatment: str
 ) -> _Panel:
-    for col in (outcome, unit, time, treatment):
-        if col not in data.columns:
-            raise MethodIncompatibility(f"column {col!r} not found in data")
+    check_columns(
+        data,
+        {"outcome": outcome, "unit": unit, "time": time, "treatment": treatment},
+        function="sp.staggered_synth",
+    )
     if data.duplicated([unit, time]).any():
         raise MethodIncompatibility("staggered_synth needs one row per (unit, time)")
     y_wide = data.pivot(index=unit, columns=time, values=outcome).sort_index()

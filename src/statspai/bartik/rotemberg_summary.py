@@ -32,6 +32,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..exceptions import MethodIncompatibility
 
 
@@ -141,9 +142,19 @@ def rotemberg_summary(
     controls = list(covariates or [])
     need = [y, x] + list(shares) + controls
     need += [c for c in (weights, cluster, period) if c]
-    missing = [c for c in need if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"rotemberg_summary: columns not found: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "x": x,
+            "shares": list(shares),
+            "covariates": controls,
+            "weights": weights,
+            "cluster": cluster,
+            "time": period,
+        },
+        function="sp.rotemberg_summary",
+    )
     if not {"industry", "g"} <= set(shocks.columns) or (
         period is not None and "period" not in shocks.columns
     ):

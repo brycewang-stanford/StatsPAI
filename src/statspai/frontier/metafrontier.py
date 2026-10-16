@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import linprog
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 from .sfa import FrontierResult
@@ -187,8 +188,9 @@ def metafrontier(
     >>> "Metafrontier" in res.summary()
     True
     """
-    if group not in data.columns:
-        raise KeyError(f"{group!r} is not a column in data.")
+    check_columns(
+        data, {"y": y, "x": list(x), "group": group}, function="sp.metafrontier"
+    )
     if envelope not in ("all", "own"):
         raise MethodIncompatibility(
             f"envelope must be 'all' or 'own', got {envelope!r}."

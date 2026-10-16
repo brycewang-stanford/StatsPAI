@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ._cite import bib_citation
 from ._core import placebo_rank_pvalue
@@ -111,6 +112,18 @@ def penalized_synth(
         raise ValueError(
             f"penalty_type must be one of {_VALID_PENALTIES}, " f"got {penalty_type!r}"
         )
+
+    check_columns(
+        data,
+        {
+            "outcome": outcome,
+            "unit": unit,
+            "time": time,
+            "covariates": covariates,
+            "predictors": predictors,
+        },
+        function="sp.synth(method='penscm')",
+    )
 
     # ------------------------------------------------------------------
     # 1. Reshape panel
@@ -330,8 +343,6 @@ def _build_covariate_matrix(
         pre_data = data[data[time].isin(pre_times)]
 
         for cov in covariates:
-            if cov not in data.columns:
-                raise ValueError(f"Covariate {cov!r} not found in data.")
             cov_means = pre_data.groupby(unit)[cov].mean()
             parts_treated.append(np.array([cov_means.loc[treated_unit]]))
             parts_donors.append(
@@ -347,10 +358,6 @@ def _build_covariate_matrix(
     if predictors is not None and len(predictors) > 0:
         pre_data = data[data[time].isin(pre_times)]
         for pred in predictors:
-            if pred not in data.columns:
-                raise ValueError(
-                    f"Predictor {pred!r} not found in data."
-                )  # pragma: no cover
             pred_means = pre_data.groupby(unit)[pred].mean()
             parts_treated.append(np.array([pred_means.loc[treated_unit]]))
             parts_donors.append(

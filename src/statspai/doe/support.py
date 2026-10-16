@@ -16,13 +16,9 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import (
-    ColumnNotFound,
-    ConvergenceWarning,
-    DataInsufficient,
-    MethodIncompatibility,
-)
+from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..exceptions import warn as _sp_warn
 from ._common import pair_sqdist
 
@@ -202,9 +198,7 @@ def _as_sample(
         return pd.DataFrame(cols), True
     if isinstance(data, pd.DataFrame):
         if columns is not None:
-            miss = [c for c in columns if c not in data.columns]
-            if miss:
-                raise ColumnNotFound(f"Not in the data: {', '.join(map(str, miss))}.")
+            check_columns(data, {"columns": list(columns)}, function="support_points")
             return data[list(columns)], False
         return data, False
     arr = np.asarray(data, dtype=float)
@@ -639,9 +633,7 @@ def split_data(
     if not 0.0 < test_size < 1.0:
         raise MethodIncompatibility(f"test_size must be in (0, 1); got {test_size}.")
     cols = list(data.columns) if columns is None else list(columns)
-    miss = [c for c in cols if c not in data.columns]
-    if miss:
-        raise ColumnNotFound(f"Not in the data: {', '.join(map(str, miss))}.")
+    check_columns(data, {"columns": cols}, function="split_data")
     N = data.shape[0]
     n_test = int(round(test_size * N))
     if n_test < 1 or n_test >= N:

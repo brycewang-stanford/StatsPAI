@@ -58,6 +58,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -615,12 +616,12 @@ def functional_form_test(
             diagnostics={"context": context, "n_sims": n_sims},
         )
 
-    for col in (y, g, t, i):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"{context}: column {col!r} not in data.",
-                diagnostics={"context": context, "columns": list(data.columns)},
-            )
+    check_columns(
+        data,
+        {"y": y, "g": g, "t": t, "i": i},
+        function=context,
+        extra_diagnostics={"context": context},
+    )
 
     df = data.copy()
     yv = np.asarray(df[y], dtype=float)
@@ -957,12 +958,12 @@ def distributional_did(
             f"{context}: `aggregation` must be one of {_AGGTE_TYPES}.",
             diagnostics={"context": context, "aggregation": aggregation},
         )
-    for col in (y, g, t, i):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"{context}: column {col!r} not in data.",
-                diagnostics={"context": context, "columns": list(data.columns)},
-            )
+    check_columns(
+        data,
+        {"y": y, "g": g, "t": t, "i": i},
+        function=context,
+        extra_diagnostics={"context": context},
+    )
 
     df = data.copy()
     yv = np.asarray(df[y], dtype=float)

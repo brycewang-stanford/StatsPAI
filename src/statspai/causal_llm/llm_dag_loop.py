@@ -61,6 +61,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
@@ -434,9 +435,7 @@ def llm_dag_constrained(
     """
     if variables is not None:
         var_list = [str(v) for v in variables]
-        for v in var_list:
-            if v not in data.columns:
-                raise ValueError(f"Variable {v!r} not in data.columns")
+        check_columns(data, {"variables": var_list}, function="sp.llm_dag_constrained")
     else:
         var_list = list(data.select_dtypes(include=[np.number]).columns)
     if len(var_list) < 2:

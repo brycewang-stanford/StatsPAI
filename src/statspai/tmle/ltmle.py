@@ -63,8 +63,10 @@ import pandas as pd
 from scipy import stats
 from scipy.special import expit, logit
 
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import (
+    ColumnNotFound,
     ConvergenceWarning,
     DataInsufficient,
     MethodIncompatibility,
@@ -455,16 +457,24 @@ def ltmle(
         )
     propensity_bounds = (p_lo, p_hi)
 
-    required = [y] + treatments + baseline + censoring
-    for block in covariates_time:
-        required.extend(block)
-    missing = set(required) - set(data.columns)
-    if missing:
-        raise _ltmle_error(
-            f"Missing columns: {missing}",
-            diagnostics={"missing_columns": sorted(str(col) for col in missing)},
-            recovery_hint="Pass LTMLE column names present in the DataFrame.",
+    named: Dict[str, Any] = {
+        "y": y,
+        "treatments": list(treatments),
+        "baseline": list(baseline),
+        "censoring": list(censoring),
+    }
+    for k, block in enumerate(covariates_time):
+        named[f"covariates_time[{k}]"] = list(block)
+    absent = missing_named_columns(named, data.columns)
+    if absent:
+        missing = sorted({str(col) for col in absent.values()})
+        err = ColumnNotFound.from_missing(
+            absent,
+            list(data.columns),
+            message=f"sp.ltmle: Missing columns: {missing}",
         )
+        err.alternative_functions = list(_LTMLE_ALTERNATIVES)
+        raise err
 
     if regime_treated is None:
         regime_treated = [1] * K

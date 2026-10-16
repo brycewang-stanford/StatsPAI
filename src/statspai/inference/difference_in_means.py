@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -183,9 +184,11 @@ def difference_in_means(
     for extra in (blocks, cluster):
         if extra is not None:
             columns.append(extra)
-    missing = [c for c in columns if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"{context}: columns not in data: {missing}.")
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "blocks": blocks, "cluster": cluster},
+        function=context,
+    )
 
     clean = data[columns].dropna()
     n_dropped = len(data) - len(clean)

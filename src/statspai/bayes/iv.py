@@ -12,6 +12,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import pandas as pd
 
+from .._input_validation import check_columns
 from ._base import BayesianIVResult, _require_pymc, _sample_model, _summarise_posterior
 
 
@@ -28,14 +29,12 @@ def _prepare_iv_frame(
     else:
         iv_cols = list(instrument)
 
-    for c in [y, treat] + iv_cols:
-        if c not in data.columns:
-            raise ValueError(f"Column '{c}' not found in data")
-
     cov_cols = list(covariates) if covariates else []
-    for c in cov_cols:
-        if c not in data.columns:
-            raise ValueError(f"Covariate '{c}' not found in data")
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "instrument": iv_cols, "covariates": cov_cols},
+        function="sp.bayes_iv",
+    )
 
     all_cols = [y, treat] + iv_cols + cov_cols
     clean = data[all_cols].dropna().reset_index(drop=True)
@@ -171,6 +170,16 @@ def bayes_iv(
     ...                    per_instrument=True)  # doctest: +SKIP
     >>> res2.tidy(terms='per_instrument')  # doctest: +SKIP
     """
+    check_columns(
+        data,
+        {
+            "y": y,
+            "treat": treat,
+            "instrument": instrument,
+            "covariates": list(covariates) if covariates else None,
+        },
+        function="sp.bayes_iv",
+    )
     pm, _ = _require_pymc()
 
     prep = _prepare_iv_frame(data, y, treat, instrument, covariates)

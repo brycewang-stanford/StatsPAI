@@ -36,10 +36,11 @@ from scipy import stats as sp_stats
 from scipy.special import expit, logit
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._targeting import cluster_se
 
 if TYPE_CHECKING:
@@ -517,11 +518,25 @@ def ctmle(
         order_idx = [g_names.index(c) for c in order]
     design = [c for c in (cluster,) if c is not None]
     cols = list(dict.fromkeys([y, treat] + list(covariates) + g_names + design))
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"ctmle: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+    named = missing_named_columns(
+        {
+            "y": y,
+            "treat": treat,
+            "covariates": list(covariates),
+            "propensity_covariates": (
+                None if propensity_covariates is None else g_names
+            ),
+            "cluster": cluster,
+        },
+        data.columns,
+    )
+    if named:
+        missing = [c for c in cols if c not in data.columns]
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="sp.ctmle",
+            extra_diagnostics={"missing": missing},
         )
     keep = data[cols].notna().all(axis=1).to_numpy()
     clean = data.loc[keep, cols]

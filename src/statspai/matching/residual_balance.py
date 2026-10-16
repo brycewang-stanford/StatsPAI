@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import require_binary_treatment
 from ..core.results import CausalResult
@@ -419,9 +420,11 @@ def residual_balance(
             "outcome_model must be 'elnet', 'lasso', 'none' or a linear estimator"
         )
     cols = [y, treat] + list(covariates)
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(f"columns not found in data: {missing}")
+    check_columns(
+        data,
+        {"y": y, "treat": treat, "covariates": list(covariates)},
+        function="sp.residual_balance",
+    )
     if not covariates:
         raise MethodIncompatibility("at least one covariate is required")
     df = data[cols].dropna()

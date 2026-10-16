@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import special
 
+from .._input_validation import check_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ._core import (
     check_mcmc_args,
@@ -336,8 +337,12 @@ def bayes_arima(
             f"horizon must be a non-negative integer; got {horizon}."
         )
     if isinstance(y, str):
-        if data is None or y not in data.columns:
-            raise MethodIncompatibility(f"{y!r} is not a column of data.")
+        if data is None:
+            raise MethodIncompatibility(
+                f"y={y!r} names a column, but data= was not given.",
+                recovery_hint="Pass data=<DataFrame>, or pass y as an array.",
+            )
+        check_columns(data, {"y": y}, function="sp.bayes_arima")
         raw = data[y].to_numpy(dtype=float)
         name = y
     else:

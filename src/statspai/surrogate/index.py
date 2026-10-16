@@ -35,9 +35,15 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 __all__ = [
     "surrogate_index",
@@ -225,11 +231,17 @@ def _require_int_at_least(value: Any, name: str, minimum: int) -> int:
     return out
 
 
-def _raise_missing_columns(sample: str, missing: set[str]) -> None:
+def _raise_missing_columns(
+    sample: str, frame: pd.DataFrame, columns: Dict[str, Any], function: str
+) -> None:
+    missing = missing_named_columns(columns, frame.columns)
     if missing:
-        raise MethodIncompatibility(
-            f"{sample} missing columns: {sorted(missing)}",
-            diagnostics={sample: sorted(missing)},
+        names = sorted({str(c) for c in missing.values()})
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(frame.columns),
+            message=f"{function}: {sample} missing columns: {names}",
+            extra_diagnostics={sample: names, "sample": sample},
         )
 
 
@@ -441,15 +453,23 @@ def surrogate_index(
     cov_list = _coerce_optional_column_list(covariates, "covariates")
     alpha = _require_open_unit_float(alpha, "alpha")
     n_boot = _require_int_at_least(n_boot, "n_boot", 0)
-    cols_e = {treatment, *surrogates}
-    cols_o = {long_term_outcome, *surrogates}
-    if cov_list:
-        cols_e |= set(cov_list)
-        cols_o |= set(cov_list)
-    missing_e = cols_e - set(experimental.columns)
-    missing_o = cols_o - set(observational.columns)
-    _raise_missing_columns("experimental", missing_e)
-    _raise_missing_columns("observational", missing_o)
+    fn = "sp.surrogate_index"
+    _raise_missing_columns(
+        "experimental",
+        experimental,
+        {"treatment": treatment, "surrogates": surrogates, "covariates": cov_list},
+        fn,
+    )
+    _raise_missing_columns(
+        "observational",
+        observational,
+        {
+            "long_term_outcome": long_term_outcome,
+            "surrogates": surrogates,
+            "covariates": cov_list,
+        },
+        fn,
+    )
 
     feat_cols: List[str] = list(surrogates) + cov_list
 
@@ -638,15 +658,27 @@ def long_term_from_short(
     alpha = _require_open_unit_float(alpha, "alpha")
     n_boot = _require_int_at_least(n_boot, "n_boot", 50)
     flat_surr: List[str] = [c for wave in surrogates_waves for c in wave]
-    base_cols_e = {treatment, *flat_surr}
-    base_cols_o = {long_term_outcome, *flat_surr}
-    if cov_list:
-        base_cols_e |= set(cov_list)
-        base_cols_o |= set(cov_list)
-    missing_e = base_cols_e - set(experimental.columns)
-    missing_o = base_cols_o - set(observational.columns)
-    _raise_missing_columns("experimental", missing_e)
-    _raise_missing_columns("observational", missing_o)
+    fn = "sp.long_term_from_short"
+    _raise_missing_columns(
+        "experimental",
+        experimental,
+        {
+            "treatment": treatment,
+            "surrogates_waves": flat_surr,
+            "covariates": cov_list,
+        },
+        fn,
+    )
+    _raise_missing_columns(
+        "observational",
+        observational,
+        {
+            "long_term_outcome": long_term_outcome,
+            "surrogates_waves": flat_surr,
+            "covariates": cov_list,
+        },
+        fn,
+    )
 
     K = len(surrogates_waves)
 
@@ -832,12 +864,24 @@ def proximal_surrogate_index(
                 "n_surrogates": len(surrogates),
             },
         )
-    cols_o = {long_term_outcome, *surrogates, *proxies, *cov_list}
-    cols_e = {treatment, *surrogates, *cov_list}
-    missing_o = cols_o - set(observational.columns)
-    missing_e = cols_e - set(experimental.columns)
-    _raise_missing_columns("observational", missing_o)
-    _raise_missing_columns("experimental", missing_e)
+    fn = "sp.proximal_surrogate_index"
+    _raise_missing_columns(
+        "observational",
+        observational,
+        {
+            "long_term_outcome": long_term_outcome,
+            "surrogates": surrogates,
+            "proxies": proxies,
+            "covariates": cov_list,
+        },
+        fn,
+    )
+    _raise_missing_columns(
+        "experimental",
+        experimental,
+        {"treatment": treatment, "surrogates": surrogates, "covariates": cov_list},
+        fn,
+    )
 
     def _bridge_predict(
         obs_df: pd.DataFrame,

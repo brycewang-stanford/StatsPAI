@@ -21,9 +21,10 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns, missing_named_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
 
 
@@ -165,16 +166,28 @@ def stacked_did(
     """
     # ── Input validation ─────────────────────────────────────────── #
     df = data.copy()
-    required_cols = [y, group, time] + (
-        [] if (event_id is not None or events is not None) else [first_treat]
+    check_columns(
+        df,
+        {
+            "y": y,
+            "group": group,
+            "time": time,
+            "first_treat": (
+                None if (event_id is not None or events is not None) else first_treat
+            ),
+        },
+        function="sp.stacked_did",
     )
-    for col in required_cols:
-        if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found in data.")
-    if controls:
-        for col in controls:
-            if col not in df.columns:
-                raise ValueError(f"Control column '{col}' not found in data.")
+    missing = missing_named_columns(
+        {"controls": list(controls) if controls else None}, df.columns
+    )
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(df.columns),
+            message=f"Control column '{next(iter(missing.values()))}' "
+            "not found in data.",
+        )
 
     if cluster is None:
         cluster = group
@@ -213,7 +226,11 @@ def stacked_did(
         if own_overlap not in ("drop", "keep"):
             raise MethodIncompatibility("own_overlap must be 'drop' or 'keep'.")
         if events not in df.columns:
-            raise MethodIncompatibility(f"Column '{events}' not found in data.")
+            raise ColumnNotFound.from_missing(
+                {"events": events},
+                list(df.columns),
+                message=f"Column '{events}' not found in data.",
+            )
         ev_col = pd.to_numeric(df[events], errors="coerce")
         if not ev_col.dropna().isin([0, 1]).all():
             raise MethodIncompatibility(f"Column '{events}' must be 0/1.")
@@ -237,9 +254,17 @@ def stacked_did(
                 f"missing {missing}.",
                 recovery_hint="Pass all three columns of the stack.",
             )
-        for col in (event_id, treated, event_time):
-            if col not in df.columns:
-                raise MethodIncompatibility(f"Column '{col}' not found in data.")
+        missing_stack = missing_named_columns(
+            {"event_id": event_id, "treated": treated, "event_time": event_time},
+            df.columns,
+        )
+        if missing_stack:
+            first_missing = next(iter(missing_stack.values()))
+            raise ColumnNotFound.from_missing(
+                missing_stack,
+                list(df.columns),
+                message=f"Column '{first_missing}' not found in data.",
+            )
         tr = pd.to_numeric(df[treated], errors="coerce")
         if not tr.dropna().isin([0, 1]).all():
             raise MethodIncompatibility(f"Column '{treated}' must be 0/1.")
@@ -382,7 +407,11 @@ def stacked_did(
     w_arr = None
     if weights is not None:
         if weights not in stacked.columns:
-            raise MethodIncompatibility(f"Weight column '{weights}' not found in data.")
+            raise ColumnNotFound.from_missing(
+                {"weights": weights},
+                list(stacked.columns),
+                message=f"Weight column '{weights}' not found in data.",
+            )
         w_arr = pd.to_numeric(stacked[weights], errors="coerce").to_numpy(float)
         if not np.all(np.isfinite(w_arr)) or (w_arr < 0).any():
             raise MethodIncompatibility("weights must be finite and non-negative.")
@@ -390,7 +419,11 @@ def stacked_did(
         stacked = stacked.loc[pos].reset_index(drop=True)
         w_arr = w_arr[pos]
     if cluster not in stacked.columns:
-        raise MethodIncompatibility(f"Cluster column '{cluster}' not found in data.")
+        raise ColumnNotFound.from_missing(
+            {"cluster": cluster},
+            list(stacked.columns),
+            message=f"Cluster column '{cluster}' not found in data.",
+        )
     complete = (
         stacked[[y] + x_cols + [cluster] + fe_cols].notna().all(axis=1).to_numpy()
     )

@@ -31,6 +31,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
@@ -55,12 +56,7 @@ def _validate_inputs(
             recovery_hint="Pass x='running_variable'.",
             diagnostics={"x": repr(x)},
         )
-    if x not in data.columns:
-        raise MethodIncompatibility(
-            f"Column '{x}' not found in data.",
-            recovery_hint="Check `x` against data.columns.",
-            diagnostics={"x": x, "available_columns": list(data.columns)},
-        )
+    check_columns(data, {"x": x}, function="sp.rddensity", extra_diagnostics={"x": x})
     if not np.isfinite(c):
         raise MethodIncompatibility(
             "`c` must be finite.",

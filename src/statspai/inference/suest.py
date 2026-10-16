@@ -19,7 +19,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 
 @dataclass
@@ -165,10 +165,12 @@ def suest(
             recovery_hint="Copy the column under a new name for a second equation.",
         )
     n = len(data)
-    cols = {c for y, xs in specs for c in [y] + xs} | ({cluster} if cluster else set())
-    missing = [c for c in cols if c not in data.columns]
+    named = {c: c for y, xs in specs for c in [y] + xs}
+    if cluster:
+        named["cluster" if "cluster" not in named else "cluster="] = cluster
+    missing = {k: c for k, c in named.items() if c not in data.columns}
     if missing:
-        raise MethodIncompatibility(f"Columns not found: {missing}")
+        raise ColumnNotFound.from_missing(missing, data.columns, context="sp.suest")
     if cluster is not None and data[cluster].isna().any():
         raise MethodIncompatibility("cluster has missing values.")
 

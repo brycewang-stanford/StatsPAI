@@ -49,8 +49,10 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
+from ..exceptions import ColumnNotFound
 
 __all__ = [
     "harvest_did",
@@ -351,9 +353,22 @@ def harvest_did(
     ... )
     >>> out.estimate  # doctest: +SKIP
     """
-    for col in (unit, time, outcome):
-        if col not in data.columns:
-            raise ValueError(f"column {col!r} not in data")
+    missing = missing_named_columns(
+        {
+            "unit": unit,
+            "time": time,
+            "outcome": outcome,
+            "treat": treat,
+            "cohort": cohort,
+        },
+        data.columns,
+    )
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"column {next(iter(missing.values()))!r} not in data",
+        )
     if treat is None and cohort is None:
         raise ValueError("either `treat` or `cohort` must be supplied")
     if horizons is None:

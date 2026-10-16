@@ -57,6 +57,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core._validate import require_bool_flag
 from ..core.results import CausalResult, EconometricResults
 
@@ -349,14 +350,18 @@ class _MixedLogitFitter:
         self.small_sample = bool(small_sample)
         if not self.x_random:
             raise ValueError("x_random must contain at least one column")
-        required = [self.y, self.chid] + self.x_fixed + self.x_random
-        for col in required:
-            if col not in self.data.columns:
-                raise ValueError(f"column '{col}' not in data")
-        if self.alt is not None and self.alt not in self.data.columns:
-            raise ValueError(f"alt '{self.alt}' not in data")
-        if self.panel_id is not None and self.panel_id not in self.data.columns:
-            raise ValueError(f"panel_id '{self.panel_id}' not in data")
+        check_columns(
+            self.data,
+            {
+                "y": self.y,
+                "chid": self.chid,
+                "x_fixed": list(self.x_fixed),
+                "x_random": list(self.x_random),
+                "alt": self.alt,
+                "panel_id": self.panel_id,
+            },
+            function="mixlogit",
+        )
         for name, d in (self.random_dist or {}).items():
             if d not in ("normal", "lognormal", "triangular"):
                 raise ValueError(f"distribution '{d}' not supported")

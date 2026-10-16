@@ -31,9 +31,10 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns, missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._collinear import drop_collinear
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from .ts_tools import _kpss_level as _kpss_stat  # noqa: F401  (re-exported)
 from .ts_tools import _ndiffs as _kpss_ndiffs
 from .ts_tools import _nsdiffs
@@ -741,11 +742,16 @@ def arima(
     index: Optional[pd.Index] = None
     exog_names: Tuple[str, ...] = ()
     if data is not None:
-        if not isinstance(y, str) or y not in data.columns:
+        if not isinstance(y, str):
             raise MethodIncompatibility(
                 "arima: with data=, y must be the name of one of its columns.",
                 recovery_hint="Check the column name.",
             )
+        check_columns(
+            data,
+            {"y": y},
+            message="arima: with data=, y must be the name of one of its columns.",
+        )
         col = data[y].to_numpy(dtype=float)
         keep = np.flatnonzero(~np.isnan(col))
         if keep.size == 0:
@@ -758,9 +764,10 @@ def arima(
             names = [exog] if isinstance(exog, str) else list(exog)
             absent = [c for c in names if c not in data.columns]
             if absent:
-                raise MethodIncompatibility(
-                    f"arima: exog columns {absent} are not in data.",
-                    recovery_hint="Check the column names.",
+                raise ColumnNotFound.from_missing(
+                    missing_named_columns({"exog": exog}, data.columns),
+                    list(data.columns),
+                    message=f"arima: exog columns {absent} are not in data.",
                 )
             exog_names = tuple(str(c) for c in names)
             exog = data[names].to_numpy(dtype=float)[rows]

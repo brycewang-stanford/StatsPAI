@@ -285,7 +285,7 @@ def test_averaging_weight_validations(avg_df):
             n_folds=3,
             sample_weight=np.ones(3),
         )
-    with pytest.raises(ValueError, match="sample_weight column"):
+    with pytest.raises(ValueError, match="sample_weight='nope'"):
         dml_model_averaging(
             avg_df,
             y="y",
@@ -495,7 +495,7 @@ def test_panel_time_fe_without_time(panel_df):
 
 
 def test_panel_missing_column(panel_df):
-    with pytest.raises(MethodIncompatibility, match="missing columns"):
+    with pytest.raises(MethodIncompatibility, match="not found in data"):
         dml_panel(panel_df, y="nope", treat="d", covariates=["x1"], unit="pid")
 
 
@@ -526,7 +526,7 @@ def test_panel_weight_validations(panel_df):
             n_folds=4,
             sample_weight=np.ones(3),
         )
-    with pytest.raises(MethodIncompatibility, match="sample_weight column"):
+    with pytest.raises(MethodIncompatibility, match="sample_weight='nope'"):
         dml_panel(
             panel_df,
             y="y",

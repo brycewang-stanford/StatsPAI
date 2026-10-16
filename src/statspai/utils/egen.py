@@ -22,11 +22,13 @@ from typing import Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._input_validation import check_columns
 
-def _select(data: pd.DataFrame, vars: Sequence[str]) -> pd.DataFrame:
-    missing = [v for v in vars if v not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found: {missing}")
+
+def _select(
+    data: pd.DataFrame, vars: Sequence[str], function: Optional[str] = None
+) -> pd.DataFrame:
+    check_columns(data, {"vars": list(vars)}, function=function)
     return data[list(vars)]
 
 
@@ -43,7 +45,7 @@ def rowmean(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
     >>> sp.rowmean(df, ["math", "read", "sci"]).tolist()
     [81.0, 91.0, 62.5]
     """
-    return _select(data, vars).mean(axis=1, skipna=True)
+    return _select(data, vars, "sp.rowmean").mean(axis=1, skipna=True)
 
 
 def rowtotal(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
@@ -59,7 +61,7 @@ def rowtotal(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
     >>> sp.rowtotal(df, ["math", "read", "sci"]).tolist()
     [243.0, 273.0, 125.0]
     """
-    return _select(data, vars).sum(axis=1, skipna=True)
+    return _select(data, vars, "sp.rowtotal").sum(axis=1, skipna=True)
 
 
 def rowmax(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
@@ -75,7 +77,7 @@ def rowmax(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
     >>> sp.rowmax(df, ["math", "read", "sci"]).tolist()
     [85.0, 95.0, 65.0]
     """
-    return _select(data, vars).max(axis=1, skipna=True)
+    return _select(data, vars, "sp.rowmax").max(axis=1, skipna=True)
 
 
 def rowmin(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
@@ -91,7 +93,7 @@ def rowmin(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
     >>> sp.rowmin(df, ["math", "read", "sci"]).tolist()
     [78.0, 88.0, 60.0]
     """
-    return _select(data, vars).min(axis=1, skipna=True)
+    return _select(data, vars, "sp.rowmin").min(axis=1, skipna=True)
 
 
 def rowsd(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
@@ -109,7 +111,7 @@ def rowsd(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
     >>> sp.rowsd(df, ["q1", "q2", "q3"]).tolist()
     [2.0, 0.0]
     """
-    return _select(data, vars).std(axis=1, skipna=True, ddof=1)
+    return _select(data, vars, "sp.rowsd").std(axis=1, skipna=True, ddof=1)
 
 
 def rowcount(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
@@ -125,7 +127,7 @@ def rowcount(data: pd.DataFrame, vars: Sequence[str]) -> pd.Series:
     >>> sp.rowcount(df, ["math", "read", "sci"]).tolist()
     [3, 3, 1]
     """
-    return _select(data, vars).notna().sum(axis=1).astype(int)
+    return _select(data, vars, "sp.rowcount").notna().sum(axis=1).astype(int)
 
 
 def rank(
@@ -171,16 +173,12 @@ def rank(
     >>> sp.rank(df, "score", by="grp").tolist()
     [2.0, 1.0, 2.0, 1.0]
     """
-    if var not in data.columns:
-        raise ValueError(f"Column '{var}' not found")
+    check_columns(data, {"var": var, "by": by}, function="sp.rank")
 
     if by is None:
         return data[var].rank(method=method, ascending=ascending)
 
     by_cols = [by] if isinstance(by, str) else list(by)
-    missing = [c for c in by_cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Group columns not found: {missing}")
 
     return data.groupby(by_cols, dropna=False)[var].rank(
         method=method, ascending=ascending
@@ -228,9 +226,8 @@ def outlier_indicator(
     lo_pct, hi_pct = cuts
     flag_cols = []
 
+    check_columns(df, {"vars": list(vars)}, function="sp.outlier_indicator")
     for v in vars:
-        if v not in df.columns:
-            raise ValueError(f"Column '{v}' not found")
         col = df[v].astype(float)
         valid = col.notna()
         if valid.any():

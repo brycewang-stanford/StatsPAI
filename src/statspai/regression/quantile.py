@@ -28,8 +28,9 @@ from scipy import stats
 from scipy.optimize import linprog
 
 from .._aliases import accepts_formula_first
+from .._input_validation import check_columns, missing_named_columns
 from ..core.results import CausalResult, EconometricResults
-from ..exceptions import MethodIncompatibility
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 
 def _as_float_array(value: object) -> np.ndarray:
@@ -238,21 +239,26 @@ def qreg(
             diagnostics={"kernel_scale": kernel_scale},
         )
     cols = [y_name] + x_names + ([cluster] if cluster is not None else [])
-    missing_cols = [c for c in cols if c not in data]
-    if missing_cols:
-        raise MethodIncompatibility(
-            f"qreg: columns not found in data: {missing_cols}",
-            diagnostics={"missing": missing_cols},
+    named = missing_named_columns(
+        {"y": y_name, "x": list(x_names), "cluster": cluster}, data.columns
+    )
+    if named:
+        raise ColumnNotFound.from_missing(
+            named,
+            list(data.columns),
+            context="qreg",
+            extra_diagnostics={"missing": list(named.values())},
         )
     df = data[list(dict.fromkeys(cols))]
     w_obs: Optional[np.ndarray] = None
     if weights is not None:
         if isinstance(weights, str):
-            if weights not in data:
-                raise MethodIncompatibility(
-                    f"qreg: weights column {weights!r} not found in data.",
-                    diagnostics={"weights": weights},
-                )
+            check_columns(
+                data,
+                {"weights": weights},
+                function="qreg",
+                extra_diagnostics={"weights": weights},
+            )
             w_all = data[weights].to_numpy(dtype=float)
         else:
             w_all = np.asarray(weights, dtype=float).ravel()

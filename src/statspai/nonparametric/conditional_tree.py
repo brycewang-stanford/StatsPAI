@@ -27,8 +27,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = ["ctree", "CTreeResult"]
 
@@ -414,9 +415,11 @@ class CTreeResult(ResultProtocolMixin):
     def _route(self, data: pd.DataFrame) -> np.ndarray:
         missing = [c for c in self.covariates if c not in data.columns]
         if missing:
-            raise _bad(
-                f"columns missing from the data: {missing}.",
-                "Pass the covariates the tree was fitted on.",
+            raise ColumnNotFound.from_missing(
+                missing,
+                list(data.columns),
+                message=f"ctree: columns missing from the data: {missing}.",
+                extra_hint="Pass the covariates the tree was fitted on.",
             )
         cols = {c.name: _covariate_values(c, data[c.name]) for c in self._covs}
         kinds = {c.name: c.kind for c in self._covs}
@@ -650,9 +653,7 @@ def ctree(
     covariates = list(covariates)
     if not covariates:
         raise _bad("no covariates were given.", "Pass at least one column.")
-    absent = [c for c in [y, *covariates] if c not in data.columns]
-    if absent:
-        raise _bad(f"columns not in the data: {absent}.", "Check the names.")
+    check_columns(data, {"y": y, "covariates": covariates}, function="sp.ctree")
     if y in covariates:
         raise _bad(f"the outcome '{y}' is also a covariate.", "Remove it.")
     if not 0.0 < alpha < 1.0:

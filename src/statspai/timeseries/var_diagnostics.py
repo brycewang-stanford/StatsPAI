@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = [
@@ -134,14 +135,10 @@ def varsoc(
     if variables is None:
         variables = data.select_dtypes(include=[np.number]).columns.tolist()
     variables = list(variables)
-    unknown = [v for v in variables if v not in data.columns]
-    if unknown or not variables:
+    check_columns(data, {"variables": variables}, function="sp.varsoc")
+    if not variables:
         raise MethodIncompatibility(
-            (
-                f"sp.varsoc: variable(s) {unknown} are not in the data."
-                if unknown
-                else "sp.varsoc: no variables given."
-            ),
+            "sp.varsoc: no variables given.",
             recovery_hint="Name the endogenous series.",
         )
     if trend not in ("c", "ct", "n"):
@@ -150,7 +147,8 @@ def varsoc(
             recovery_hint="Use trend='c'.",
         )
     exog_names = [str(v) for v in (exog or [])]
-    if [v for v in exog_names if v not in data.columns or v in variables]:
+    check_columns(data, {"exog": exog_names}, function="sp.varsoc")
+    if [v for v in exog_names if v in variables]:
         raise MethodIncompatibility(
             f"sp.varsoc: exog={exog_names} must name columns that are not "
             "among the endogenous variables.",

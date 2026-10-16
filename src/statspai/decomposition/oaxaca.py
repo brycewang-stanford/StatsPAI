@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..exceptions import MethodIncompatibility
 from ._common import add_constant as _add_constant
 from ._common import sig_stars as _significance_stars
@@ -585,9 +586,7 @@ def oaxaca(
     x = list(x)
 
     required_cols = [y, group] + x
-    missing = [c for c in required_cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(data, {"y": y, "group": group, "x": x}, function="sp.oaxaca")
 
     # Drop missing values
     data = data[required_cols].dropna()
@@ -929,9 +928,17 @@ def gelbach(
     required_cols = list(
         dict.fromkeys([y] + all_x + fe_cols + ([cluster] if cluster else []))
     )
-    missing = [c for c in required_cols if c not in data.columns]
-    if missing:
-        raise ValueError(f"Columns not found in data: {missing}")
+    check_columns(
+        data,
+        {
+            "y": y,
+            "base_x": base_x,
+            "added_x": added_x,
+            "absorb": fe_cols,
+            "cluster": cluster,
+        },
+        function="sp.gelbach",
+    )
 
     data = data[required_cols].dropna()
     n = len(data)

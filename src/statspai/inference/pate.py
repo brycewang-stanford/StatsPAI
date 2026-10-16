@@ -42,6 +42,7 @@ from scipy import stats
 from scipy.optimize import minimize
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .basic_tests import _check_alpha
@@ -231,12 +232,17 @@ class PATEEstimator:
             raise ValueError(
                 f"method must be one of {self._METHODS}, got '{self.method}'"
             )
-        for col in [self.y, self.treatment] + self.covariates:
-            if col not in self.data_exp.columns:
-                raise ValueError(f"Column '{col}' not found in data_experiment")
-        for col in self.covariates:
-            if col not in self.data_tgt.columns:
-                raise ValueError(f"Column '{col}' not found in data_target")
+        check_columns(
+            self.data_exp,
+            {"y": self.y, "treatment": self.treatment, "covariates": self.covariates},
+            function="pate (data_experiment)",
+        )
+        check_columns(
+            self.data_tgt,
+            {"covariates": self.covariates},
+            function="pate (data_target)",
+            extra_hint="data_target needs every covariate.",
+        )
         # Treatment must be binary
         vals = self.data_exp[self.treatment].dropna().unique()
         if not set(vals).issubset({0, 1, 0.0, 1.0, True, False}):

@@ -27,8 +27,9 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from sklearn.tree import DecisionTreeClassifier
 
+from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = [
     "sharp_ope_unobserved",
@@ -77,20 +78,22 @@ def _require_dataframe(data: Any, context: str) -> pd.DataFrame:
 
 def _require_columns(
     data: pd.DataFrame,
-    columns: Sequence[str],
+    columns: Dict[str, Any],
     *,
     context: str,
 ) -> None:
-    missing = set(columns) - set(data.columns)
+    """``columns`` maps each argument name to the column(s) it names."""
+    missing = missing_named_columns(columns, data.columns)
     if missing:
-        raise _ope_contract_error(
-            f"Missing columns: {missing}",
-            diagnostics={
-                "context": context,
-                "missing_columns": sorted(str(col) for col in missing),
-            },
-            recovery_hint="Pass valid column names from the input DataFrame.",
+        err = ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"{context}: Missing columns: "
+            f"{sorted(str(c) for c in missing.values())}",
+            extra_diagnostics={"context": context},
         )
+        err.alternative_functions = list(_OPE_ALTERNATIVES)
+        raise err
 
 
 def _normalize_covariates(covariates: Sequence[str] | str) -> List[str]:
@@ -267,8 +270,16 @@ def sharp_ope_unobserved(
             diagnostics={"gamma": gamma},
             recovery_hint="Use gamma >= 1.0; gamma=1 recovers IPS.",
         )
-    cols = {actions, rewards, logging_prob, target_prob}
-    _require_columns(data, list(cols), context="sharp_ope_unobserved")
+    _require_columns(
+        data,
+        {
+            "actions": actions,
+            "rewards": rewards,
+            "logging_prob": logging_prob,
+            "target_prob": target_prob,
+        },
+        context="sharp_ope_unobserved",
+    )
     R = data[rewards].to_numpy(dtype=float)
     e_hat = data[logging_prob].to_numpy(dtype=float)
     pi = data[target_prob].to_numpy(dtype=float)
@@ -421,7 +432,7 @@ def causal_policy_forest(
     covariates = _normalize_covariates(covariates)
     _require_columns(
         data,
-        [actions, rewards, *covariates],
+        {"actions": actions, "rewards": rewards, "covariates": covariates},
         context="causal_policy_forest",
     )
     if n_trees < 1:

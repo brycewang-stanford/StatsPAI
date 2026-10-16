@@ -35,8 +35,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import missing_named_columns
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._rdhonest import honest_rd
 
 __all__ = ["rd_discrete"]
@@ -113,13 +114,14 @@ def rd_discrete(
     ----------
     [@kolesar2018inference]
     """
-    for col in (y, x):
-        if col not in data.columns:
-            raise MethodIncompatibility(
-                f"Column '{col}' not found in data.",
-                recovery_hint="Check y / x against data.columns.",
-                diagnostics={"missing": col},
-            )
+    missing = missing_named_columns({"y": y, "x": x}, data.columns)
+    if missing:
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            context="sp.rd_discrete",
+            extra_diagnostics={"missing": next(iter(missing.values()))},
+        )
     if method == "bm":
         method = "bme"
     if method not in ("bsd", "bme"):

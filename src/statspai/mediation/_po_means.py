@@ -45,7 +45,13 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from .._input_validation import check_columns
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 __all__ = ["potential_outcome_mediation"]
 
@@ -106,6 +112,17 @@ def _mean_and_slope(eta: np.ndarray, link: str) -> Tuple[np.ndarray, np.ndarray]
 _CATEGORICAL = re.compile(r"^C\(\s*([^\W\d]\w*)\s*\)$")
 
 
+def _check_mediation_columns(
+    data: pd.DataFrame, y: str, treat: str, mediator: str, covariates: List[str]
+) -> None:
+    """Raise ColumnNotFound for an absent column (``C(g)`` names ``g``)."""
+    named: Dict[str, Any] = {"y": y, "treat": treat, "mediator": mediator}
+    for i, cov in enumerate(covariates):
+        m = _CATEGORICAL.match(cov)
+        named[f"covariates[{i}]"] = m.group(1) if m else cov
+    check_columns(data, named, function="sp.mediate")
+
+
 def _expand_categorical_covariates(
     data: pd.DataFrame, covariates: List[str]
 ) -> Tuple[pd.DataFrame, List[str]]:
@@ -126,9 +143,10 @@ def _expand_categorical_covariates(
             continue
         name = m.group(1)
         if name not in frame.columns:
-            raise MethodIncompatibility(
-                f"mediate: column {name!r} (from {cov!r}) not found in data.",
-                diagnostics={"missing_columns": [name]},
+            raise ColumnNotFound.from_missing(
+                [name],
+                list(frame.columns),
+                message=f"mediate: column {name!r} (from {cov!r}) not found in data.",
             )
         levels = sorted(frame[name].dropna().unique().tolist())
         for level in levels[1:]:
@@ -167,14 +185,9 @@ def potential_outcome_mediation(
             f"got {mediator_model!r}.",
             diagnostics={"mediator_model": mediator_model},
         )
+    _check_mediation_columns(data, y, treat, mediator, list(covariates or []))
     data, covs = _expand_categorical_covariates(data, list(covariates or []))
     cols = [y, treat, mediator, *covs]
-    missing = [c for c in cols if c not in data.columns]
-    if missing:
-        raise MethodIncompatibility(
-            f"mediate: column(s) not found in data: {missing}.",
-            diagnostics={"missing_columns": missing},
-        )
     clean = data[cols].dropna()
     n = len(clean)
     Y = clean[y].to_numpy(dtype=float)

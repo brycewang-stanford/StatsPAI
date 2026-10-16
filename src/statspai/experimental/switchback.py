@@ -31,8 +31,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import missing_named_columns
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = ["switchback", "switchback_design"]
 
@@ -390,11 +391,15 @@ def switchback(
         raise MethodIncompatibility(
             f"alpha must lie strictly between 0 and 1; got {alpha}."
         )
-    missing = [c for c in (y, treat, time) if c is not None and c not in data.columns]
+    missing = missing_named_columns(
+        {"y": y, "treat": treat, "time": time}, data.columns
+    )
     if missing:
-        raise MethodIncompatibility(
-            f"switchback: columns not found in data: {missing}",
-            diagnostics={"missing": missing},
+        raise ColumnNotFound.from_missing(
+            missing,
+            data.columns,
+            context="switchback",
+            extra_diagnostics={"missing": list(missing.values())},
         )
     frame = data if time is None else data.sort_values(time, kind="stable")
     if frame[[y, treat]].isna().any().any():
@@ -418,9 +423,14 @@ def switchback(
 
     if isinstance(design, str) and design not in ("optimal", "every"):
         if design not in frame.columns:
-            raise MethodIncompatibility(
-                f"switchback: design={design!r} is neither a design name "
-                "('optimal', 'every') nor a column of data."
+            raise ColumnNotFound.from_missing(
+                {"design": design},
+                frame.columns,
+                message=(
+                    f"switchback: design={design!r} is neither a design name "
+                    "('optimal', 'every') nor a column of data."
+                ),
+                extra_hint="Or pass design='optimal' or design='every'.",
             )
         design_label = f"column {design!r}"
         points = _resolve_points(frame[design].to_numpy(), n_periods, m)

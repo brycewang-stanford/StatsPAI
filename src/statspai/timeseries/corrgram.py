@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["corrgram"]
@@ -18,12 +19,13 @@ def _series(
     data: Union[pd.DataFrame, pd.Series, np.ndarray], y: Optional[str]
 ) -> np.ndarray:
     if isinstance(data, pd.DataFrame):
-        if y is None or y not in data.columns:
+        if y is None:
             raise MethodIncompatibility(
                 f"sp.corrgram: y={y!r} is not a column of the data.",
                 recovery_hint="Pass the name of the series, e.g. "
                 "sp.corrgram(df, 'resid').",
             )
+        check_columns(data, {"y": y}, function="sp.corrgram")
         x = data[y].to_numpy(dtype=float, na_value=np.nan)
     else:
         x = np.asarray(data, dtype=float).ravel()

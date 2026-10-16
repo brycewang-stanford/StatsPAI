@@ -26,6 +26,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, MethodIncompatibility
 from ._limited_dep_result import LimitedDepResult
@@ -158,21 +159,24 @@ def heckman(
             recovery_hint="Pass z=[...]; include at least one variable that "
             "is not in x (an exclusion restriction).",
         )
+    check_columns(
+        data,
+        {
+            "y": y,
+            "select": select,
+            "x": x,
+            "z": z,
+            "cluster": cluster,
+            "weights": weights,
+        },
+        function="heckman",
+    )
     if select is None:
-        if y not in data.columns:
-            raise MethodIncompatibility(
-                f"heckman: column {y!r} is not in data.",
-                recovery_hint="Check the outcome column name.",
-            )
         select = "_selected"
         while select in data.columns:
             select = "_" + select
         data = data.assign(**{select: data[y].notna().astype(float)})
     df = data.copy()
-
-    for col in [y, select] + x + z + [c for c in (cluster, weights) if c]:
-        if col not in df.columns:
-            raise ValueError(f"Column '{col}' not found")
 
     D = df[select].values.astype(float)
     n_total = len(df)
