@@ -36040,6 +36040,12 @@ def _apply_signature_param_completion() -> None:
                 # else the recognisable ``<name> parameter`` placeholder),
                 # so describe_function and function_schema agree.
                 derived.description = _param_description(derived.name, derived.type)
+            # Docstrings carry em dashes and math symbols; the committed
+            # schemas are ASCII (the JSS archive transliterates), and the
+            # live schema must equal the committed one.
+            from ._schema_export import ASCII_TRANSLITERATION
+
+            derived.description = derived.description.translate(ASCII_TRANSLITERATION)
             derived._derived = True  # type: ignore[attr-defined]
             spec.params.append(derived)
 

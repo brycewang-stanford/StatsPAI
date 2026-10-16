@@ -372,7 +372,7 @@ def test_rcm_does_not_select_the_saturated_model(G, data_x):
 
 
 def test_rcm_covariate_errors(data_x):
-    with pytest.raises(MethodIncompatibility, match="not a column"):
+    with pytest.raises(MethodIncompatibility, match="not found in data"):
         rcm_x(data_x.drop(columns="x"))
     holes = data_x.copy()
     holes.loc[(holes.unit == 4) & (holes.t == 7), "x"] = np.nan

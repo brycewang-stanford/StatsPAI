@@ -133,18 +133,24 @@ class TestExecuteToolStructuredError:
         assert reloaded["error_kind"] == "method_incompatibility"
 
     def test_non_statspai_error_omits_structured_fields(self):
-        # KeyError from a missing column is NOT a StatsPAIError → no
-        # error_kind / error_payload should appear (so agents using
+        # A TypeError from a malformed argument is NOT a StatsPAIError →
+        # no error_kind / error_payload should appear (so agents using
         # ``"error_kind" in out`` for branching get a clean signal).
         df = pd.DataFrame({"y": [1.0, 2.0], "treated": [0, 1], "t": [0, 1]})
-        out = execute_tool(
-            "regress",
-            {"formula": "y ~ does_not_exist"},
-            data=df,
-        )
+        out = execute_tool("regress", {"formula": 123}, data=df)
         assert "error" in out
         assert "error_kind" not in out
         assert "error_payload" not in out
+
+    def test_missing_formula_column_is_structured(self):
+        # A misspelled column in a formula is a ColumnNotFound (it used to
+        # be the KeyError the test above was written around).
+        df = pd.DataFrame({"y": [1.0, 2.0, 3.0], "treated": [0, 1, 1], "t": [0, 1, 2]})
+        out = execute_tool("regress", {"formula": "y ~ treatd"}, data=df)
+        assert out["error_kind"] == "column_not_found"
+        assert out["error_payload"]["diagnostics"]["did_you_mean"] == {
+            "treatd": "treated"
+        }
 
 
 # ---------------------------------------------------------------------------

@@ -88,18 +88,20 @@ def test_hand_written_entries_win():
 
 
 def test_forwarded_descriptions_come_from_the_target():
+    from statspai._schema_export import ASCII_TRANSLITERATION as ascii_
     from statspai.dml.double_ml import dml as dml_impl
     from statspai.synth.scm import _dispatch_synth_impl
 
+    # The docstring text, in the ASCII form the committed schemas carry.
     props = _schema_props("dml")
-    assert (
-        props["model_y"]["description"]
-        == R._doc_param_table(dml_impl)["ml_g"]["description"]
+    assert props["model_y"]["description"] == (
+        R._doc_param_table(dml_impl)["ml_g"]["description"].translate(ascii_)
     )
     synth = _schema_props("synth")
-    assert (
-        synth["penalization"]["description"]
-        == R._doc_param_table(_dispatch_synth_impl)["penalization"]["description"]
+    assert synth["penalization"]["description"] == (
+        R._doc_param_table(_dispatch_synth_impl)["penalization"][
+            "description"
+        ].translate(ascii_)
     )
 
 

@@ -1642,7 +1642,10 @@ class OLSRegression(BaseModel):
                     from ..core.utils import raise_if_formula_names_missing
 
                     raise_if_formula_names_missing(
-                        self.formula.split("~", 1)[1], data, exc, context="predict"
+                        self.formula.split("~", 1)[1],
+                        data,
+                        exc,
+                        context="predict: the prediction design matrix",
                     )
                 raise MethodIncompatibility(
                     "Could not build prediction design matrix from new data.",

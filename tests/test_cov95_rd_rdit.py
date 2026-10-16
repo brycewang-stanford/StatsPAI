@@ -119,7 +119,7 @@ def test_rdit_errors():
         sp.rdit(df, y="y", time="nope", cutoff=200.0)
     with pytest.raises(ValueError, match="kernel"):
         sp.rdit(df, y="y", time="t", cutoff=200.0, kernel="bad")
-    with pytest.raises(ValueError, match="Cluster"):
+    with pytest.raises(ValueError, match="cluster=.missing. not found"):
         sp.rdit(df, y="y", time="t", cutoff=200.0, cluster="missing")
 
 
