@@ -779,17 +779,17 @@ def handle_resources_read(
                 "Handles are process-local and LRU-bounded; reload with "
                 "load_data for a fresh data_id."
             )
-        payload: Dict[str, Any] = {"data_id": did}
-        payload.update(describe_frame(entry.obj))
-        payload["lineage"] = lineage(did)
-        payload["provenance"] = entry.to_metadata()
+        data_payload: Dict[str, Any] = {"data_id": did}
+        data_payload.update(describe_frame(entry.obj))
+        data_payload["lineage"] = lineage(did)
+        data_payload["provenance"] = entry.to_metadata()
         return {
             "contents": [
                 {
                     "uri": uri,
                     "mimeType": "application/json",
                     "text": json.dumps(
-                        _clean(payload), default=json_default, allow_nan=False
+                        _clean(data_payload), default=json_default, allow_nan=False
                     ),
                 },
             ],

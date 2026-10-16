@@ -386,7 +386,8 @@ def header_mismatch(headers: Any, msg: Dict[str, Any]) -> Optional[str]:
     name a target, ``Mcp-Name`` against ``params.name`` / ``params.uri``.
     """
     method = msg.get("method")
-    params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
+    raw_params = msg.get("params")
+    params: Dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
     meta = request_meta(params) or {}
     sent_version = headers.get("MCP-Protocol-Version")
     body_version = meta.get(META_PROTOCOL_VERSION)

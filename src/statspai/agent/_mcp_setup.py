@@ -422,7 +422,8 @@ def _self_test() -> Dict[str, Any]:
         line = json.dumps(
             {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
         )
-        return json.loads(srv.handle_request(line) or "{}")
+        reply: Dict[str, Any] = json.loads(srv.handle_request(line) or "{}")
+        return reply
 
     out: Dict[str, Any] = {}
     t0 = time.perf_counter()
