@@ -156,6 +156,31 @@ class TestInlineData:
 
 
 class TestTransformChain:
+    def test_common_op_aliases_run_and_record_the_canonical_op(self, panel_csv):
+        # filter / keep / mutate are what agents reach for first; they run
+        # as query / select / assign and the lineage names the real op.
+        path, df = panel_csv
+        base = _call("load_data", data_path=path)["data_id"]
+        derived = _call(
+            "transform_data",
+            data_id=base,
+            operations=[
+                {"op": "filter", "expr": "year >= 2003"},
+                {"op": "mutate", "column": "w2", "expr": "wage * 2"},
+                {"op": "keep", "columns": ["id", "year", "w2"]},
+            ],
+        )
+        assert [o["op"] for o in derived["operations"]] == [
+            "query",
+            "assign",
+            "select",
+        ]
+        assert derived["n_rows"] == int((df["year"] >= 2003).sum())
+        assert derived["columns"] == ["id", "year", "w2"]
+        frame = DATA_CACHE.get(derived["data_id"])
+        expected = df.loc[df["year"] >= 2003, "wage"].to_numpy() * 2
+        assert np.allclose(frame["w2"].to_numpy(), expected, equal_nan=True)
+
     def test_chain_and_fit_from_handle(self, panel_csv):
         path, df = panel_csv
         base = _call("load_data", data_path=path)["data_id"]

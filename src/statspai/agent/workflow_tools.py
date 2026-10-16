@@ -2087,6 +2087,25 @@ _TRANSFORM_OPS = (
 )
 
 
+#: Names agents reach for first (dplyr / SQL / Stata habits) mapped to the
+#: op that does the same thing. The step is rewritten to the canonical name
+#: before it runs, so lineage and replay only ever see canonical ops.
+_TRANSFORM_OP_ALIASES = {
+    "filter": "query",
+    "where": "query",
+    "keep": "select",
+    "mutate": "assign",
+    "winsorize": "winsor",
+}
+
+
+def _canonical_step(step: Dict[str, Any]) -> Dict[str, Any]:
+    op = step.get("op")
+    if isinstance(op, str) and op in _TRANSFORM_OP_ALIASES:
+        return {**step, "op": _TRANSFORM_OP_ALIASES[op]}
+    return step
+
+
 class UnsafeExpression(_MethodIncompatibility):
     """A ``transform_data`` expression uses syntax outside the allowlist."""
 
@@ -2533,6 +2552,7 @@ def _tool_transform_data(
     df = frame
     applied: List[Dict[str, Any]] = []
     for k, step in enumerate(ops):
+        step = _canonical_step(step)
         before = int(len(df))
         try:
             previous_attrs = df.attrs

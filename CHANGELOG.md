@@ -56,7 +56,10 @@ All notable changes to StatsPAI will be documented in this file.
   `MethodIncompatibility` naming both readings; a string inside the list
   is a one-column set, as `fe=` already treats it.
 - `call_function` accepts `name=` (as `describe_function` does) when
-  `function=` is absent.
+  `function=` is absent, and `transform_data` runs the ops agents reach
+  for first (`filter` / `where`, `keep`, `mutate`, `winsorize`) as
+  `query`, `select`, `assign` and `winsor`; the lineage records the
+  canonical op.
 - `data_provenance` on results fitted from a handle no longer repeats the
   root file record inside the lineage.
 
