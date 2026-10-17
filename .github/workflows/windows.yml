@@ -34,7 +34,9 @@ env:
   STATSPAI_SKIP_RUST: "1"
 
 concurrency:
-  group: windows-${{ github.ref }}-${{ github.event_name }}
+  # scope in the key: a gate dispatch must not cancel a running full run
+  # (one did on 2026-10-17, three hours in).
+  group: windows-${{ github.ref }}-${{ github.event_name }}-${{ inputs.scope || 'gate' }}
   cancel-in-progress: true
 
 jobs:
