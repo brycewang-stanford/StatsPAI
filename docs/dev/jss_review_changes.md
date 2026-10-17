@@ -3930,3 +3930,16 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/parity_table.md`
   - `tests/r_parity/results/parity_table_3way.md`
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-17 — fixture lock rehashed after a sort-key change
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `1d2e7d4b`.
+- **Reason.** `scripts/tier_a_fixture_lock.py` sorted `Path` objects, which
+  compare case-insensitively on Windows; it now sorts by POSIX string. The
+  lock hashes its own script, so the lock was rewritten.
+- **Effect on the paper.** None: no golden or result file changed, and the
+  file order (hence the aggregate hash) is unchanged on Linux and macOS.
+- **Paths.**
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
