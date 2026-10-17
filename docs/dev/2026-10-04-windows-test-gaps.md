@@ -71,11 +71,15 @@ failed 8, all handled in the next commit:
   structure, so the size of the treated unit's spectral cluster depends on
   ARPACK's eigenvectors; Windows put one donor there and the fit refused.
   The test now augments, which still runs the spectral branch.
-- `test_feols_iv_first_stage_demeaner` (6 cases): the Windows runner gets
-  pyfixest 0.60+, where the compiled demeaner is the default and
-  `demeaner_backend` a legacy argument that `sp.feols` no longer passes;
-  the reference model still passed it and differed in the 13th digit. It
-  is now built the way `sp.feols` builds it.
+- `test_feols_iv_first_stage_demeaner` (6 cases): not a Windows problem.
+  `sp.feols` sweeps fixed effects in the written order, raw pyfixest in
+  `set()` order, which follows the process's string-hash seed; with two
+  effects each order stops on its own at `fixef_tol`, so the test's
+  bit-for-bit comparison passed or failed with PYTHONHASHSEED on every
+  platform (seeds 1, 3, 4 fail locally with the same 5.1e-13). The first
+  attempt blamed the pyfixest version and was wrong (both CI legs run
+  0.60.0). The test is now exact with one fixed effect and bounded by the
+  sweep-order effect with two; it passes under 12 hash seeds.
 
 When the gate passes on both versions and one more full run is clean,
 Windows joins the nightly matrix.

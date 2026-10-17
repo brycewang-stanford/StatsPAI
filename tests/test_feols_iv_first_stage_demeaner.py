@@ -63,20 +63,27 @@ def test_first_stage_matches_the_old_numba_refit(fml, vcov, seed):
     out = sp.feols(fml, data=df, vcov=vcov)
 
     # The model: pyfixest's compiled demeaner, as sp.feols has asked for
-    # since c824af18; the first stage plays no part in these numbers. From
-    # pyfixest 0.60 that demeaner is the default and demeaner_backend is a
-    # legacy argument sp.feols no longer passes, so the reference is built
-    # the same way (on 0.60+ the legacy path differed in the 13th digit).
+    # since c824af18; the first stage plays no part in these numbers.
+    # Bit for bit only with one fixed effect: sp.feols sweeps the effects in
+    # the written order, raw pyfixest in set() order, which follows string
+    # hashing and so changes between processes (PYTHONHASHSEED 1, 3, 4 here;
+    # Windows CI too). With two effects each sweep order stops on its own at
+    # pyfixest's fixef_tol = 1e-8: coefficients then differ by up to 2e-12,
+    # standard errors by up to 5.5e-9. 1e-7 bounds that.
     import inspect
 
     legacy = "demeaner" not in inspect.signature(pf.feols).parameters
     extra = {"demeaner_backend": "rust"} if legacy else {}
     model = pf.feols(fml, data=df, vcov=vcov, **extra)
-    np.testing.assert_array_equal(out.params.to_numpy(), np.asarray(model._beta_hat))
+    n_fe = fml.split("|")[1].count("+") + 1 if fml.count("|") == 2 else 0
+    tol = dict(rtol=1e-7, atol=0) if n_fe > 1 else dict(rtol=0, atol=0)
+    np.testing.assert_allclose(
+        out.params.to_numpy(), np.asarray(model._beta_hat), **tol
+    )
     if "Multiway VCOV negative eigenvalues" not in out.diagnostics:
         # (sp.feols repairs an indefinite two-way covariance; pyfixest not)
-        np.testing.assert_array_equal(
-            out.std_errors.to_numpy(), np.sqrt(np.diag(model._vcov))
+        np.testing.assert_allclose(
+            out.std_errors.to_numpy(), np.sqrt(np.diag(model._vcov)), **tol
         )
 
     # Old first stage: pyfixest's default demeaner, refitted.
@@ -84,7 +91,9 @@ def test_first_stage_matches_the_old_numba_refit(fml, vcov, seed):
     old.first_stage()
     f_old = float(old._f_stat_1st_stage)
     f_new = float(out.model_info["first_stage_f"])
-    assert f_new == pytest.approx(f_old, rel=1e-12, abs=0)
+    # Same sweep-order effect with two fixed effects (observed 3e-8 to 9e-8
+    # under other hash seeds); one effect agrees to rounding.
+    assert f_new == pytest.approx(f_old, rel=1e-6 if n_fe > 1 else 1e-12, abs=0)
 
 
 def test_pyfixest_feols_is_restored_after_the_fit():
