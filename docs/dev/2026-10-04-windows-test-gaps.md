@@ -81,8 +81,9 @@ failed 8, all handled in the next commit:
   0.60.0). The test is now exact with one fixed effect and bounded by the
   sweep-order effect with two; it passes under 12 hash seeds.
 
-When the gate passes on both versions and one more full run is clean,
-Windows joins the nightly matrix.
+The gate then passed on both versions, and a full run on `49ca1b65` was
+clean on 3.10 and 3.13. Windows 3.10 and 3.13 are back in the nightly full
+matrix of `ci-cd.yml` (2026-10-17). 3.11 and 3.12 have not had a full run.
 
 
 Status on 2026-10-04: the Windows legs are out of the full CI matrix

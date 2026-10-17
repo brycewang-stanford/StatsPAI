@@ -76,19 +76,19 @@ jobs:
       - id: compute
         shell: bash
         run: |
-          # Full matrix: Linux and macOS on Python 3.10 to 3.13.
-          # Windows is not in it for now (2026-10-04). A full run there
-          # failed about 18 tests the other platforms pass (the MCP stdio
-          # subprocess tests time out, two assertions hard-code POSIX paths,
-          # two parity checks miss by a few ulp), nobody on the project has a
-          # Windows machine to debug them, and a Windows leg takes five
-          # hours. The list is in docs/dev/2026-10-04-windows-test-gaps.md;
-          # put the legs back when it is empty.
+          # Full matrix: Linux and macOS on Python 3.10 to 3.13, Windows on
+          # 3.10 and 3.13. Windows left on 2026-10-04 (some twenty tests that
+          # pass elsewhere failed there, nobody had a Windows machine) and
+          # came back on 2026-10-17 after the new Windows workflow
+          # (.github/workflows/windows.yml) drove the list to zero: a full
+          # run on 49ca1b65 was clean on both versions. The history is in
+          # docs/dev/2026-10-04-windows-test-gaps.md. A Windows leg takes
+          # about 3.5 hours.
           if [ "$EVENT_NAME" = "release" ] ||
              [ "$EVENT_NAME" = "schedule" ] ||
              [ "$TEST_SCOPE" = "full" ] ||
              [ "$PUBLISH_TARGET" != "none" ]; then
-            echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.10","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.11","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.12","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.13","test_scope":"full"},{"os":"macos-latest","python-version":"3.10","test_scope":"full"},{"os":"macos-latest","python-version":"3.11","test_scope":"full"},{"os":"macos-latest","python-version":"3.12","test_scope":"full"},{"os":"macos-latest","python-version":"3.13","test_scope":"full"}]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.10","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.11","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.12","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.13","test_scope":"full"},{"os":"macos-latest","python-version":"3.10","test_scope":"full"},{"os":"macos-latest","python-version":"3.11","test_scope":"full"},{"os":"macos-latest","python-version":"3.12","test_scope":"full"},{"os":"macos-latest","python-version":"3.13","test_scope":"full"},{"os":"windows-latest","python-version":"3.10","test_scope":"full"},{"os":"windows-latest","python-version":"3.13","test_scope":"full"}]}' >> "$GITHUB_OUTPUT"
           else
             echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.10","test_scope":"fast"}]}' >> "$GITHUB_OUTPUT"
           fi
