@@ -1547,6 +1547,8 @@ def _fit_linearmodels(
         ssc_inf=ssc_inf,
     )
     result.model_info["weights"] = weights
+    if method in ("fe", "re", "be") and w is None:
+        _use_xtreg_rsquared(result, data, dep_var, indep_vars, entity)
     if w is not None:
         from ..core._agent_summary import note_weight_diagnostics
 
@@ -1570,6 +1572,38 @@ def _fit_linearmodels(
             cluster=cluster,
         )
     return result
+
+
+def _use_xtreg_rsquared(
+    result: PanelResults,
+    data: pd.DataFrame,
+    dep_var: str,
+    indep_vars: List[str],
+    entity: str,
+) -> None:
+    """Report the within / between / overall R-squared as Stata ``xtreg``
+    defines them (squared correlations, the same formulas after fe, re and
+    be). linearmodels' 1 - SSR/SST versions answer another question under
+    the same labels: on a fixed-effects fit the between value was 0.47 where
+    ``xtreg, fe`` reports 0.87. They stay in ``model_info``."""
+    from .xt_tools import _xtreg_rsquared
+
+    xs = [v for v in indep_vars if v in result.params.index]
+    r2 = _xtreg_rsquared(
+        data, dep_var, xs, entity, result.params[xs].to_numpy(dtype=float)
+    )
+    old = result.diagnostics
+    result.model_info["r2_linearmodels"] = {
+        k: old.pop(f"R-squared ({k})")
+        for k in ("within", "between")
+        if f"R-squared ({k})" in old
+    }
+    new = {"R-squared": old.pop("R-squared")}
+    for k in ("within", "between", "overall"):
+        new[f"R-squared ({k})"] = r2[f"r2_{k}"]
+    new.update(old)
+    result.diagnostics = new
+    result.model_info["r2_convention"] = "xtreg"
 
 
 def _fd_row_order(
@@ -1840,6 +1874,9 @@ def _convert_lm_result(
         "method": method,
         "robust": robust,
         "cluster": cluster,
+        # what the within / between R-squared mean; sp.panel switches fe /
+        # re / be to Stata's xtreg definitions (_use_xtreg_rsquared)
+        "r2_convention": "linearmodels",
     }
 
     # Record the binding number of clusters so few-cluster inference risk is

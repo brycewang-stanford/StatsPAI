@@ -406,6 +406,23 @@ def _corr2(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.corrcoef(a, b)[0, 1] ** 2)
 
 
+def _xtreg_rsquared(
+    data: pd.DataFrame, y: str, xs: Sequence[str], id: str, b: np.ndarray
+) -> Dict[str, float]:
+    """Stata ``xtreg``'s within / between / overall R-squared of the slopes
+    ``b`` on ``xs``: squared correlations of the within-deviated, panel-mean
+    and raw outcome with the corresponding linear prediction. They are the
+    same formulas after ``fe``, ``re`` and ``be``; only ``b`` changes."""
+    yv, X, codes, n = _complete(data, y, list(xs), id)
+    b = np.asarray(b, dtype=float)
+    yb, Xb = _group_mean(yv, codes, n), _group_mean(X, codes, n)
+    return {
+        "r2_within": _corr2((X - Xb[codes]) @ b, yv - yb[codes]),
+        "r2_between": _corr2(Xb @ b, yb),
+        "r2_overall": _corr2(X @ b, yv),
+    }
+
+
 def xt_statistics(
     data: pd.DataFrame,
     y: str,
@@ -442,9 +459,7 @@ def xt_statistics(
     b = np.array([float(dict(params)[name]) for name in xs])
     parts = _swamy_arora(yv, X, codes, n, components=method != "fe")
     out: Dict[str, Any] = {
-        "r2_within": _corr2(parts["Xw"] @ b, parts["yw"]),
-        "r2_between": _corr2(parts["Xb"] @ b, parts["yb"]),
-        "r2_overall": _corr2(X @ b, yv),
+        **_xtreg_rsquared(data, y, xs, id, b),
         "n_obs": int(yv.size),
         "n_groups": int(n),
     }

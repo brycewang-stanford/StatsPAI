@@ -147,6 +147,15 @@ them carefully:
 - **R-squared (within)** — fit of the demeaned regression. This is the
   R² that corresponds to the variation FE actually uses.
 - **R-squared (between)** — fit across unit means.
+- **R-squared (overall)** — fit of the raw outcome.
+
+  After `method='fe'`, `'re'` and `'be'` these three are Stata `xtreg`'s
+  definitions: squared correlations between the (demeaned, unit-mean,
+  raw) outcome and the linear prediction from the slopes. With a single
+  regressor they are identical across the three methods, as in Stata.
+  Weighted fits, `'twoway'`, `'pooled'` and the CRE methods report
+  linearmodels' 1 - SSR/SST versions instead;
+  `model_info['r2_convention']` says which.
 - **R-squared** — for `method='fe'` this is the within R², matching
   Stata's `xtreg, fe` convention. Do not compare it to a pooled-OLS R²:
   the FE specification "explains" all between-unit variation by

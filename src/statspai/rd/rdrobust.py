@@ -390,10 +390,11 @@ def rdrobust(
         - 'msetwo'   : MSE-optimal, separate left/right
         - 'cerrd'    : CER-optimal, common (Calonico-Cattaneo-Farrell 2020)
         - 'certwo'   : CER-optimal, separate left/right
-        - 'msecomb1' : min of mserd and msetwo
-        - 'msecomb2' : median of mserd, mseleft, mseright
-        - 'cercomb1' : min of cerrd and certwo
-        - 'cercomb2' : median of cerrd, cerleft, cerright
+        - 'msesum'   : MSE-optimal, common, for the sum of the two sides
+        - 'msecomb1' : min(mserd, msesum)
+        - 'msecomb2' : median(msetwo, mserd, msesum), side by side
+        - 'cersum', 'cercomb1', 'cercomb2' : the CER-optimal counterparts
+          (``sp.rdbwselect`` documents the full menu)
         - 'cct'      : delegate to the official ``rdrobust`` Python port
                        (the method authors' code); requires the optional
                        ``statspai[rd-cct]`` extra. The native default

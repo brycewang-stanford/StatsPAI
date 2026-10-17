@@ -542,6 +542,9 @@ def aggte(
         "source_method": result.method,
         "share_variance": bool(share_variance),
     }
+    if "base_period" in (result.model_info or {}):
+        # sp.honest_did reads it: its bounds need the universal-base path
+        agg_info["base_period"] = result.model_info["base_period"]
     if type == "dynamic":
         # Where Sun-Abraham, stacked and BJS keep theirs, so one accessor
         # (``model_info['event_study']`` / ``sp.event_study_table``) serves

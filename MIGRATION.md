@@ -5,6 +5,17 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.panel` within / between / overall R-squared
+
+**What changed.** After `method="fe"`, `"re"` and `"be"` (unweighted),
+`diagnostics["R-squared (within)"]` and `["R-squared (between)"]` are
+Stata `xtreg`'s squared correlations, and `["R-squared (overall)"]` is
+new. They used to be linearmodels' 1 - SSR/SST values (a fixed-effects
+between R-squared of 0.47 where `xtreg, fe` prints 0.87).
+
+**What to do.** Nothing if you compare with Stata. For the old numbers,
+read `result.model_info["r2_linearmodels"]`.
+
 ## 1.39.6 → unreleased: ⚠️ mixed-model standard errors in the eighth digit
 
 **What changed.** `sp.melogit` / `meglm` / `mepoisson` / `meologit` and

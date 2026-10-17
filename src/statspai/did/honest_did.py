@@ -479,8 +479,24 @@ def honest_did(
     win = _coerce_window(window)
     source = _vcov_source(result)
     method_given = method
+    varying_base = (getattr(result, "model_info", None) or {}).get(
+        "base_period"
+    ) == "varying"
+    if varying_base:
+        warnings.warn(
+            "honest_did: this event study uses base_period='varying', so "
+            "each pre-treatment coefficient is a one-period change, not the "
+            "pre-trend path relative to the reference period that the "
+            "smoothness and relative-magnitude restrictions bound. The "
+            "intervals below are not the Rambachan-Roth ones. Refit with "
+            "callaway_santanna(..., base_period='universal').",
+            UserWarning,
+            stacklevel=2,
+        )
 
     def _stamp(out: pd.DataFrame, code_path: str) -> pd.DataFrame:
+        if varying_base:
+            out.attrs["base_period"] = "varying"
         # What sp.validation_scope reads back from the table.
         out.attrs.update(
             _scope_attrs(

@@ -4,6 +4,42 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Panel R-squared, honest DiD on a varying base, rdrobust docs
+
+#### ⚠️ Correctness
+
+- **`sp.panel` labelled linearmodels' R-squared as if it were Stata's.**
+  After `method="fe"`, `"re"` and `"be"` the "R-squared (within)" and
+  "R-squared (between)" were linearmodels' 1 - SSR/SST quantities. On the
+  panel of `examples/notebooks/07-tutorial_panel_fe` the between value of
+  the fixed-effects fit was 0.4669 where `xtreg, fe` reports 0.8658, and
+  the within value of the random-effects fit was 0.4258 where `xtreg, re`
+  reports 0.4624. They are now Stata's squared correlations, with an added
+  "R-squared (overall)", and equal Stata 18 `e(r2_w)` / `e(r2_b)` /
+  `e(r2_o)` to 1e-14 on an unbalanced two-regressor panel
+  (`tests/test_panel_xtreg_rsquared.py`). The old values stay in
+  `model_info["r2_linearmodels"]`; `model_info["r2_convention"]` says
+  which definition a fit reports. Weighted fits, `twoway`, `pooled`, `fd`
+  and the CRE methods keep linearmodels' (Stata's `xtreg` has no
+  counterpart to match). Coefficients, standard errors and the headline
+  "R-squared" do not change.
+
+#### Fixed
+
+- `sp.honest_did` returned intervals for a `callaway_santanna(...,
+  base_period="varying")` event study without a word. Its pre-treatment
+  coefficients are one-period changes, not the pre-trend path the
+  smoothness and relative-magnitude restrictions bound; on mpdta every M up
+  to 0.0224 rejected zero. It now warns and sets
+  `attrs["base_period"] = "varying"` on the table. `sp.aggte` carries
+  `base_period` into its `model_info` so the check also sees aggregated
+  event studies.
+- The `sp.rdrobust` docstring gave the comb bandwidths as
+  `min(mserd, msetwo)` and `median(mserd, mseleft, mseright)`. The
+  selector computes `min(mserd, msesum)` and `median(msetwo, mserd,
+  msesum)` side by side, as R / Stata `rdrobust` do and as
+  `sp.rdbwselect` documents.
+
 ### Example notebooks numbered in reading order
 
 #### Changed
