@@ -41,7 +41,17 @@ def test_committed_tutorial_is_executed_and_clean(path):
     nb = _load(path)
     assert nb["metadata"]["kernelspec"]["name"] == "python3"
     code = [c for c in nb["cells"] if c["cell_type"] == "code"]
-    assert code and all(c["outputs"] for c in code if "".join(c["source"]).strip())
+    # A cell that is only comments (e.g. "# sp.interactive(fig)" left for
+    # the reader to uncomment) produces no output by construction.
+    runnable = [
+        c
+        for c in code
+        if any(
+            ln.strip() and not ln.strip().startswith("#")
+            for ln in "".join(c["source"]).splitlines()
+        )
+    ]
+    assert runnable and all(c["outputs"] for c in runnable)
     for cell in code:
         for out in cell["outputs"]:
             assert out["output_type"] != "error", "".join(cell["source"])[:200]
