@@ -1,26 +1,34 @@
 [package]
 name = "statspai_hdfe"
-version = "0.7.0-alpha.1"
+version = "0.8.0"
 edition = "2021"
 authors = ["Bryce Wang <brycew6m@stanford.edu>"]
-description = "PyO3 + Rayon HDFE group-demean kernel for StatsPAI"
+description = "Rust kernels (HDFE demeaning, Poisson IRLS, cluster meat) for the StatsPAI Python package"
 license = "MIT"
 readme = "README.md"
-rust-version = "1.76"
+rust-version = "1.80"
+repository = "https://github.com/brycewang-stanford/StatsPAI"
 
 [lib]
 name = "statspai_hdfe"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Pin PyO3 conservatively: abi3 compatibility across Python 3.9-3.13
-pyo3 = { version = "0.21", features = ["extension-module", "abi3-py39"] }
+# abi3: one wheel per platform serves every CPython >= 3.10 (the floor
+# of StatsPAI's ``requires-python``).
+pyo3 = { version = "0.21", features = ["abi3-py310"] }
 numpy = "0.21"
-ndarray = "0.16"
 rayon = "1.10"
+
+[features]
+# maturin turns this on (pyproject.toml); plain ``cargo test`` leaves it
+# off so the test binary links against libpython.
+extension-module = ["pyo3/extension-module"]
 
 [profile.release]
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-panic = "abort"
+# Unwind, not abort: PyO3 turns a panic into a Python exception only
+# when it can unwind; with "abort" any bug would kill the interpreter.
+panic = "unwind"

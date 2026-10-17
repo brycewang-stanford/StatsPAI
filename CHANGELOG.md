@@ -4,6 +4,87 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Rust kernels: shippable, safe, and faster than fixest
+
+The Rust kernels in `rust/statspai_hdfe` had never reached a user: StatsPAI
+builds as a pure-Python wheel, no wheel of the extension was published, no
+CI job built it or ran a test against it, and even the repository's own
+environment did not have it. This release makes it a separate, optional
+package and rewrites the kernels.
+
+On one million rows, one thread (`benchmarks/hdfe/RUST_KERNELS.md`):
+`sp.fast.feols` with firm and year effects takes 0.053 s (NumPy 0.144,
+fixest 0.078); with worker, firm and year effects and low mobility 0.63 s
+(NumPy 6.2, fixest 0.74); `sp.fast.fepois` on the latter 3.2 s (NumPy 23.9,
+fixest 4.6). Coefficients agree with the NumPy path to 3e-9.
+
+#### Added
+
+- **`pip install "statspai[rust]"`** installs `statspai-hdfe` (crate 0.8.0,
+  kernel API 2), published from `rust/statspai_hdfe` with abi3 wheels (one
+  per platform for every CPython >= 3.10). StatsPAI stays pure Python and
+  falls back to NumPy / Numba without it.
+- `sp.fast.backend_info()` says whether the kernels are in use and why not;
+  `sp.fast.set_num_threads()` / `sp.fast.get_num_threads()` size their pool
+  (initial size from `STATSPAI_NUM_THREADS`). `STATSPAI_SKIP_RUST=1` now
+  actually disables an installed extension (the variable was set across CI
+  but nothing read it).
+- `FeolsResult.fe_kernel` / `FePoisResult.fe_kernel` (also in `to_dict()`)
+  and `absorb_ols(...)["fe_kernel"]` record which kernel residualised.
+- `.github/workflows/rust-hdfe.yml`: `cargo test` and the Rust-path Python
+  tests on Linux, macOS and Windows with `STATSPAI_REQUIRE_RUST=1`; wheels on
+  demand; publication to PyPI only on an `hdfe-v*` tag. It replaces
+  `build-wheels.yml`, which had been inert since it was added.
+- `benchmarks/hdfe/rust_kernels_bench.py`.
+
+#### Changed
+
+- **New demean algorithm** (`demean_2d`, `demean_2d_weighted`): the
+  projection is solved in the space of the FE coefficients, as fixest does
+  (Berge 2018, `berge2018efficient`). Two FEs iterate on a sparse
+  cross-tabulation, so a sweep costs the number of distinct FE pairs rather
+  than the number of rows; with three or more, the two largest FEs form an
+  exactly solved block inside an accelerated outer loop. Results agree with
+  the NumPy path to within the stopping tolerance, not bit for bit.
+- `sp.fast.fepois` runs its whole IRLS in Rust with the FE structure built
+  once and every column warm-started from its previous FE coefficients.
+- `sp.hdfe_ols`, `sp.Absorber`, `sp.demean` and `sp.absorb_ols` use the
+  Rust kernels for plain FEs (`solver="map"`, no varying slopes) when they
+  are installed.
+- `cluster_meat` sums fixed blocks of clusters and adds them in order: the
+  cluster-robust meat of `sp.regress(cluster=)` is now the same bit for bit
+  at any thread count (it varied in the last digits from run to run).
+- `sp.fast.feols`, `sp.fast.fepois` and `sp.fast.event_study` raise
+  `NumericalInstability` when a regressor is absorbed by the fixed effects
+  or collinear with the others. They relied on the inverse of the normal
+  equations failing, which only happens for an exactly singular matrix; an
+  absorbed regressor comes back from any iterative residualisation as
+  rounding noise, and the estimates were then finite garbage.
+
+#### Fixed
+
+- Every Rust entry point validates its inputs and raises `ValueError`; the
+  crate was built with `panic = "abort"`, so an out-of-range FE code, a
+  non-contiguous array or `n = 0` killed the Python interpreter. Weighted
+  `sp.fast.feols` on data where singleton pruning drops every row did reach
+  that path; it now raises `DataInsufficient`.
+- The Rust Poisson IRLS added a silent ridge to a singular weighted design
+  and returned its coefficients; it now reports the design as singular and
+  `sp.fast.fepois` raises. A non-converged inner residualisation warns
+  (`ConvergenceWarning`).
+- The sort-plan cache of the weighted Rust dispatcher was keyed on the FE
+  arrays' address, size and end values and could hand back another
+  problem's permutation; the cache is gone with the sorted path.
+- `Absorber` reported `converged=True` when any column had converged; it is
+  now True only if every column did.
+- The Rust kernels ran on Rayon's global pool, which ignores
+  `OMP_NUM_THREADS` / `NUMBA_NUM_THREADS` and hangs in a forked child; they
+  now run on their own pool, rebuilt after `fork`.
+- Track C: `run_when_idle.sh` pins the Rust pool to one thread, and
+  `scripts/trace_perf_path.py` binds the crate's sources only to timings
+  that loaded it (`rust_loaded`), so editing the crate no longer stales
+  timings measured without it.
+
 ### Panel R-squared, honest DiD on a varying base, rdrobust docs
 
 #### ⚠️ Correctness

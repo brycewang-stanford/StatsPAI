@@ -116,6 +116,10 @@ def run_one(module: str, timeout: int) -> dict:
     env = dict(os.environ)
     env["STATSPAI_R_PARITY_RESULTS_DIR"] = str(STAGING_DIR)
     env["STATSPAI_R_PARITY_DATA_DIR"] = str(STAGING_DATA_DIR)
+    # The committed results were produced without the optional Rust
+    # kernels, which solve the FE projections to the same tolerance but not
+    # bit for bit; reproduce them on the same path.
+    env.setdefault("STATSPAI_SKIP_RUST", "1")
     # Editable installs pin `statspai` to whichever tree was installed;
     # a worktree must test its own source (see CLAUDE.md section 9.2).
     src = ROOT / "src"

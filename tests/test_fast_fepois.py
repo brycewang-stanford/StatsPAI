@@ -563,14 +563,25 @@ def test_se_matches_r_fixest_iid(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_rust_weighted_demean_matches_numpy_kernel():
-    """The Rust ``demean_2d_weighted`` must match the existing pure-NumPy
-    weighted demean to atol 1e-14 across 5 random seeds.
+def _exact_weighted_projection_residual(X, codes_list, weights):
+    """Residual of X on the FE dummies by dense weighted least squares."""
+    n = X.shape[0]
+    D = np.column_stack(
+        [np.eye(int(c.max()) + 1)[c] for c in codes_list]
+    )  # (n, G1 + G2), rank-deficient by one: lstsq takes the minimum norm
+    sw = np.sqrt(weights)
+    beta, *_ = np.linalg.lstsq(D * sw[:, None], X * sw[:, None], rcond=None)
+    return X - D @ beta
 
-    This is the first end-to-end FFI test for Phase A: it exercises the
-    Rust path through PyO3 and confirms it produces the same residualised
-    matrix as ``_weighted_ap_demean_numpy`` (the canonical reference,
-    retained as the Rust-unavailable fallback).
+
+def test_rust_weighted_demean_matches_numpy_kernel():
+    """The Rust ``demean_2d_weighted`` and the NumPy weighted demean solve
+    the same weighted projection.
+
+    The two iterate differently (coefficient space with a cross-tabulation
+    vs data-space alternating projections), so they agree to within the
+    stopping tolerance, not bit for bit. Both are checked against the exact
+    projection from dense weighted least squares.
     """
     pytest.importorskip("statspai_hdfe")
     import statspai_hdfe as _r
@@ -585,8 +596,8 @@ def test_rust_weighted_demean_matches_numpy_kernel():
         codes2 = rng.integers(0, G2, n).astype(np.int64)
         weights = rng.uniform(0.5, 2.0, n)
         X = rng.standard_normal((n, 3))
+        exact = _exact_weighted_projection_residual(X, [codes1, codes2], weights)
 
-        # NumPy reference path (current implementation).
         counts1 = np.bincount(codes1, minlength=G1).astype(np.float64)
         counts2 = np.bincount(codes2, minlength=G2).astype(np.float64)
         X_ref, _, conv_ref = _numpy_weighted(
@@ -594,14 +605,13 @@ def test_rust_weighted_demean_matches_numpy_kernel():
             [codes1, codes2],
             [counts1, counts2],
             weights,
-            max_iter=1000,
-            tol=1e-10,
+            max_iter=10_000,
+            tol=1e-13,
             accelerate=True,
             accel_period=5,
         )
         assert conv_ref, f"seed={seed}: NumPy reference did not converge"
 
-        # Rust path: caller precomputes wsum (weighted group sums) per FE dim.
         wsum1 = np.bincount(codes1, weights=weights, minlength=G1)
         wsum2 = np.bincount(codes2, weights=weights, minlength=G2)
         X_rust = np.asfortranarray(X.copy())
@@ -610,9 +620,9 @@ def test_rust_weighted_demean_matches_numpy_kernel():
             [codes1, codes2],
             [wsum1, wsum2],
             weights,
-            1000,
+            10_000,
             0.0,
-            1e-10,
+            1e-13,
             True,
             5,
         )
@@ -620,13 +630,11 @@ def test_rust_weighted_demean_matches_numpy_kernel():
             d["converged"] for d in infos
         ), f"seed={seed}: Rust path did not converge (infos={infos})"
 
-        np.testing.assert_allclose(
-            X_rust,
-            X_ref,
-            atol=1e-14,
-            rtol=0,
-            err_msg=f"seed={seed}: Rust weighted demean diverged from NumPy reference",
-        )
+        # Exact projection to 1e-10: the stopping threshold is 1e-13 * max|x|
+        # (about 4e-13 here) on the change between sweeps; the distance to
+        # the fixed point is a small multiple of that.
+        np.testing.assert_allclose(X_rust, exact, atol=1e-10, rtol=0)
+        np.testing.assert_allclose(X_ref, exact, atol=1e-10, rtol=0)
 
 
 def _make_synthetic_panel(seed: int = 0, n: int = 50_000, G1: int = 500, G2: int = 50):

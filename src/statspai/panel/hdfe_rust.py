@@ -1,36 +1,25 @@
-"""Rust-kernel bridge for HDFE (branch-only; main has no Rust code).
+"""Legacy single-FE bridge to the Rust ``group_demean`` kernel.
 
-This module is imported at runtime by the HDFE absorber only when
-``feat/rust-hdfe`` wheels are available. On ``main`` the import falls
-through to :mod:`statspai.panel._hdfe_kernels`, which is the Numba
-path. Users never see an `ImportError` because the absorber wraps
-every call to :func:`group_demean` in a try/except that falls back to
-Numba (and from Numba to NumPy).
+Nothing in the package calls it; it is kept for code written against
+the early Rust spike. Multi-way demeaning goes through
+:func:`statspai.fast.demean`. ``statspai._rust_backend`` decides whether
+the extension is usable.
 
 Contract:
 
-1. ``group_demean(codes, y, sums, counts)`` must produce bit-equal
-   output to the NumPy reference within ``1e-10`` absolute tolerance.
+1. ``group_demean(codes, y, sums, counts)`` matches the NumPy group
+   demean to rounding.
 2. The caller owns all buffers — this bridge never reallocates.
-3. The PyO3 extension never spawns threads without the caller
-   explicitly opting in (we hold back Rayon until Phase 3).
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-try:
-    # The compiled PyO3 extension lives at the top level as a sibling
-    # of the ``statspai`` package. This mirrors the numpy/pandas model
-    # where a binary extension and a pure-Python package sit
-    # side-by-side in ``site-packages``.
-    from statspai_hdfe import group_demean as _rust_group_demean  # type: ignore
+from .._rust_backend import rust as _rust
 
-    HAS_RUST = True  # pragma: no cover
-except ImportError:  # pragma: no cover
-    HAS_RUST = False  # pragma: no cover
-    _rust_group_demean = None  # type: ignore  # pragma: no cover
+HAS_RUST = _rust is not None
+_rust_group_demean = _rust.group_demean if _rust is not None else None
 
 
 def group_demean_rust(

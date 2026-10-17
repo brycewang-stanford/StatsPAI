@@ -261,8 +261,9 @@ StatsPAI ships three layers; pick by dependency budget and scale:
 > **Backend note.** `sp.hdfe_ols` runs everywhere: the within
 > transformation uses Numba-compiled kernels when Numba is available
 > and transparently falls back to pure NumPy otherwise. The optional
-> Rust extension (`statspai_hdfe`, built with maturin) and the JAX path
-> are exposed under `sp.fast.*`; nothing in this section requires them.
+> Rust kernels (`pip install "statspai[rust]"`, see
+> [Rust kernels](rust_kernels.md)) and the JAX path serve `sp.fast.*`;
+> nothing in this section requires them.
 
 A worker-firm wage regression with three-way FE:
 

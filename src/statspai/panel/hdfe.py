@@ -71,6 +71,7 @@ from typing import Any, List, NamedTuple, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._rust_backend import rust as _rust
 from ..exceptions import MethodIncompatibility
 
 _VALID_SOLVERS = ("map", "lsmr", "lsqr")
@@ -497,6 +498,8 @@ class Absorber:
         "solver",
         "_converged",
         "_iters",
+        "_seen",
+        "fe_kernel",
     )
 
     def __init__(
@@ -654,6 +657,15 @@ class Absorber:
         self.solver = solver
         self._converged = False
         self._iters = 0
+        self._seen = False
+        #: Kernel of the last multi-FE sweep: ``"rust"`` (the optional
+        #: ``statspai_hdfe`` extension) or ``"native"`` (Numba / NumPy).
+        self.fe_kernel = "native"
+
+    def _note_converged(self, converged: bool) -> None:
+        """``_converged`` is True only if every column so far converged."""
+        self._converged = bool(converged) and (self._converged or not self._seen)
+        self._seen = True
 
     # ------------------------------------------------------------------
     # Demean
@@ -722,8 +734,8 @@ class Absorber:
                     col = np.ascontiguousarray(x[:, j])
                     _slope_sweep(col, slope_ops[0], weights)
                     x[:, j] = col
-            self._converged = True
-            self._iters = 1
+            self._note_converged(True)
+            self._iters = max(self._iters, 1)
             return x.ravel() if squeeze else x
 
         # K>=2: alternating projections with optional Irons-Tuck acceleration
@@ -748,7 +760,45 @@ class Absorber:
                 )
                 x[:, j] = r
                 self._iters = max(self._iters, iters)
-                self._converged = self._converged or converged
+                self._note_converged(converged)
+            return x.ravel() if squeeze else x
+
+        # Plain FEs with the optional Rust kernels: the same weighted
+        # projection solved in the space of the FE coefficients, in parallel
+        # over columns (``statspai._rust_backend``). The stopping rule is the
+        # one below with ``max|dx| <= tol * max|x0|``.
+        if _rust is not None and not slope_ops:
+            xf = np.array(x, dtype=np.float64, order="F", copy=True)
+            codes = [np.ascontiguousarray(c, dtype=np.int64) for c in fe_codes]
+            groups = [np.ascontiguousarray(c, dtype=np.float64) for c in counts_list]
+            if weights is None:
+                infos = _rust.demean_2d(
+                    xf,
+                    codes,
+                    groups,
+                    int(maxiter),
+                    0.0,
+                    float(tol),
+                    bool(accelerate),
+                    5,
+                )
+            else:
+                infos = _rust.demean_2d_weighted(
+                    xf,
+                    codes,
+                    groups,
+                    np.ascontiguousarray(weights, dtype=np.float64),
+                    int(maxiter),
+                    0.0,
+                    float(tol),
+                    bool(accelerate),
+                    5,
+                )
+            for info in infos:
+                self._iters = max(self._iters, int(info["iters"]))
+                self._note_converged(bool(info["converged"]))
+            self.fe_kernel = "rust"
+            x[:, :] = xf
             return x.ravel() if squeeze else x
 
         # Per-column AP loop
@@ -782,7 +832,8 @@ class Absorber:
                         if np.max(np.abs(col_acc)) < 10 * base_scale:
                             col = col_acc
                         col_hist = []
-            self._converged = self._converged or converged
+            self._note_converged(converged)
+            self.fe_kernel = "native"
             if not converged:
                 self._iters = maxiter
             x[:, j] = col
@@ -1226,6 +1277,7 @@ def absorb_ols(
         "n_singletons_dropped": ab.n_dropped,
         "converged": ab._converged,
         "iters": ab._iters,
+        "fe_kernel": ab.fe_kernel,
         "n_fe": ab.n_fe,
         "n_slope_levels": ab.n_slope_levels,
         "slope_names": [op.name for op in ab.slope_ops],

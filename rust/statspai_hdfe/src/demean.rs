@@ -1,9 +1,11 @@
-//! K-way alternating-projection HDFE demean kernel with Irons–Tuck (vector
-//! Aitken) acceleration.
+//! K-way data-space alternating-projection demean with vector Aitken
+//! acceleration (API 1).
 //!
-//! Mirrors the algorithm used by the existing Python/Numba path in
-//! ``src/statspai/panel/hdfe.py``, but pushes the inner sweep + extrapolation
-//! into Rust for ~3-10× speedup on large panels.
+//! The production entry points use the coefficient-space solver in
+//! ``coef.rs``. This module keeps the API-1 kernels: the sorted weighted
+//! variant behind ``demean_2d_weighted_sorted``, and the unweighted and
+//! weighted loops, which mirror ``fast/demean.py``'s NumPy reference and
+//! serve as the test oracle for ``coef.rs``.
 //!
 //! ## Convergence criterion
 //!
@@ -52,6 +54,7 @@ pub struct DemeanInfo {
 /// entry. Caller owns its allocation; this function never reallocates on
 /// the hot path.
 #[inline]
+#[cfg_attr(not(test), allow(dead_code))]
 fn group_sweep(x: &mut [f64], codes: &[i64], counts: &[f64], scratch: &mut [f64]) {
     debug_assert_eq!(scratch.len(), counts.len());
     debug_assert_eq!(codes.len(), x.len());
@@ -82,6 +85,7 @@ fn group_sweep(x: &mut [f64], codes: &[i64], counts: &[f64], scratch: &mut [f64]
 /// ``wsum.len()`` and is zero-filled on entry. Caller owns the
 /// allocation; this function never reallocates on the hot path.
 #[inline]
+#[cfg_attr(not(test), allow(dead_code))]
 fn weighted_group_sweep(
     x: &mut [f64],
     codes: &[i64],
@@ -162,6 +166,7 @@ pub fn weighted_group_sweep_sorted(
 }
 
 /// Sweep all K FE dimensions once, weighted variant.
+#[cfg_attr(not(test), allow(dead_code))]
 fn weighted_sweep_all_fe(
     x: &mut [f64],
     fe_codes: &[&[i64]],
@@ -177,6 +182,7 @@ fn weighted_sweep_all_fe(
 }
 
 /// Sweep through all K FEs once.
+#[cfg_attr(not(test), allow(dead_code))]
 fn sweep_all_fe(
     x: &mut [f64],
     fe_codes: &[&[i64]],
@@ -217,6 +223,7 @@ fn aitken_step(x0: &[f64], x1: &[f64], x2: &[f64]) -> Vec<f64> {
 /// Demean a single column in place. ``scratch`` is a per-FE workspace owned
 /// by the caller; pre-allocating it lets us reuse buffers across columns.
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn demean_column_inplace(
     x: &mut [f64],
     fe_codes: &[&[i64]],
@@ -270,8 +277,8 @@ pub fn demean_column_inplace(
         let mut local_max = 0.0_f64;
         for i in 0..x.len() {
             let d = (x[i] - before[i]).abs();
-            if d > local_max {
-                local_max = d;
+            if d > local_max || d.is_nan() {
+                local_max = if d.is_nan() { f64::INFINITY } else { d };
             }
         }
         max_dx = local_max;
@@ -315,6 +322,7 @@ pub fn demean_column_inplace(
 /// columns. Mirrors `demean_column_inplace` exactly except for the
 /// weighted sweep math.
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn weighted_demean_column_inplace(
     x: &mut [f64],
     fe_codes: &[&[i64]],
@@ -369,8 +377,8 @@ pub fn weighted_demean_column_inplace(
         let mut local_max = 0.0_f64;
         for i in 0..x.len() {
             let d = (x[i] - before[i]).abs();
-            if d > local_max {
-                local_max = d;
+            if d > local_max || d.is_nan() {
+                local_max = if d.is_nan() { f64::INFINITY } else { d };
             }
         }
         max_dx = local_max;
@@ -416,6 +424,7 @@ pub fn weighted_demean_column_inplace(
 /// range ``[j*n, (j+1)*n)``. This matches NumPy ``.copy(order='F')`` /
 /// `np.asfortranarray` layout.
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn demean_matrix_fortran_inplace(
     mat: &mut [f64],
     n: usize,
@@ -468,6 +477,7 @@ pub fn demean_matrix_fortran_inplace(
 /// `.len()` calls inside the Rayon closure when sizing the per-thread
 /// scratch buffers.
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn weighted_demean_matrix_fortran_inplace(
     mat: &mut [f64],
     n: usize,

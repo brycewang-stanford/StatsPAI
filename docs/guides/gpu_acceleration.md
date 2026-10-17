@@ -164,8 +164,8 @@ Performance Shaders) when CUDA is unavailable.
 
 | Family | Status | Why no GPU |
 | --- | --- | --- |
-| HDFE alternating-projection demean (CPU default) | Rust + Rayon | Bincount-style memory pattern is bandwidth-bound; tuned Rust matches GPU at typical FE counts. |
-| Cluster-robust sandwich `crve()` | Rust + Rayon (Phase 2) | Same — the per-cluster reduce is bandwidth-bound. |
+| HDFE demean in `sp.fast` (CPU) | Optional Rust kernels (`pip install "statspai[rust]"`, see [Rust kernels](rust_kernels.md)); NumPy otherwise | Group sums are memory-bound gathers and scatters; there is no batch dimension to move to a GPU. |
+| Cluster-robust sandwich `crve()` | NumPy (`np.add.at`) | The per-cluster reduce is memory-bound. |
 | Synthetic control (Abadie 2003 family, GSC, Augmented SC) | NumPy + scipy | Optimisation is small-K convex programs; no batch dimension to vmap over. |
 | DiD estimators (Callaway-Sant'Anna, Sun-Abraham, BJS) | NumPy + pandas | Group-by-time accumulation is sequential; per-cohort fits are tiny. |
 | Regression discontinuity | NumPy + scipy | Local-poly bandwidth choice is sequential. |

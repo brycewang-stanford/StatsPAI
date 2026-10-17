@@ -1,0 +1,28 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "statspai-hdfe"
+description = "Rust kernels for StatsPAI: HDFE demeaning, Poisson IRLS, cluster-robust meat"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Biaoyue Wang", email = "brycew6m@stanford.edu" }]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.20"]
+dynamic = ["version"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Homepage = "https://github.com/brycewang-stanford/StatsPAI"
+Source = "https://github.com/brycewang-stanford/StatsPAI/tree/main/rust/statspai_hdfe"
+
+[tool.maturin]
+module-name = "statspai_hdfe"
+features = ["extension-module"]

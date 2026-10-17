@@ -55,17 +55,13 @@ _NUMBA_CACHE = HAS_NUMBA and Path(__file__).exists()
 
 
 # --------------------------------------------------------------------------- #
-#  Optional Rust HDFE backend — provides cluster_meat with Rayon parallelism
-#  over clusters. Falls through to the numba kernel below if the wheel is not
-#  built (in which case numerics are bit-identical to the previous release).
+#  Optional Rust backend — cluster_meat in parallel over fixed blocks of
+#  clusters (the same result at any thread count). Without it the numba
+#  kernel below runs. ``statspai._rust_backend`` decides availability.
 # --------------------------------------------------------------------------- #
-try:
-    import statspai_hdfe as _rust_hdfe  # type: ignore
+from .._rust_backend import rust as _rust_hdfe  # noqa: E402
 
-    _HAS_RUST_CLUSTER = hasattr(_rust_hdfe, "cluster_meat")
-except ImportError:  # pragma: no cover
-    _rust_hdfe = None  # type: ignore[assignment]
-    _HAS_RUST_CLUSTER = False
+_HAS_RUST_CLUSTER = _rust_hdfe is not None
 
 
 # --------------------------------------------------------------------------- #

@@ -92,6 +92,14 @@ performance = [
     "jax[cpu]>=0.4.0",
     "jaxlib>=0.4.0",
 ]
+rust = [
+    # Optional Rust kernels (rust/statspai_hdfe, published as its own
+    # package): HDFE demeaning, the native Poisson IRLS and the cluster
+    # meat behind sp.fast / sp.ppmlhdfe / sp.iv(absorb=) / sp.regress
+    # (cluster=). Without it those paths run on NumPy / Numba;
+    # sp.fast.backend_info() reports which one is in use.
+    "statspai-hdfe>=0.8.0",
+]
 deepiv = [
     "torch>=2.0.0",
 ]

@@ -41,25 +41,15 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+# Optional Rust backend (``statspai._rust_backend`` decides once per
+# process whether it is usable). Without it the NumPy path runs.
+from .._rust_backend import HAS_RUST as _HAS_RUST
+from .._rust_backend import VERSION as _RUST_VERSION  # noqa: F401
+from .._rust_backend import rust as _rust
 from ..exceptions import DataInsufficient, MethodIncompatibility
-from ._validation import (
-    nonempty_sample as _nonempty_sample,
-    nonnegative_finite_float as _nonnegative_finite_float,
-    positive_int as _positive_int,
-)
-
-# Optional Rust backend. Failure to import is silent: the NumPy fallback
-# always works, just slower on large panels.
-try:
-    import statspai_hdfe as _rust  # type: ignore
-
-    _HAS_RUST = True
-    _RUST_VERSION: Optional[str] = getattr(_rust, "__version__", None)
-except ImportError:  # pragma: no cover  - exercised in CI on no-Rust wheels
-    _rust = None  # type: ignore
-    _HAS_RUST = False
-    _RUST_VERSION = None
-
+from ._validation import nonempty_sample as _nonempty_sample
+from ._validation import nonnegative_finite_float as _nonnegative_finite_float
+from ._validation import positive_int as _positive_int
 
 # ---------------------------------------------------------------------------
 # Public result type
@@ -487,7 +477,7 @@ def _demean_core(
     if backend == "jax":
         # JAX backend (Phase 7): structurally GPU-ready; on CPU it's the
         # slowest of the three options. We trust the user's explicit ask.
-        from .jax_backend import demean_jax, _HAS_JAX
+        from .jax_backend import _HAS_JAX, demean_jax
 
         if not _HAS_JAX:
             raise RuntimeError(
@@ -515,9 +505,12 @@ def _demean_core(
 
     use_rust = _HAS_RUST and (backend in ("auto", "rust"))
     if backend == "rust" and not _HAS_RUST:
+        from .._rust_backend import INSTALL_HINT
+        from .._rust_backend import info as _rust_info
+
         raise RuntimeError(
-            "backend='rust' requested but statspai_hdfe extension not installed; "
-            "build via `cd rust/statspai_hdfe && maturin develop --release` "
+            "backend='rust' requested but the Rust kernels are unavailable "
+            f"({_rust_info()['reason']}); install them with {INSTALL_HINT} "
             "or use backend='numpy'/'auto'."
         )
     if backend == "numpy":

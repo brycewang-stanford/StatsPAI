@@ -41,13 +41,14 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility, NumericalInstability
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
 from ._validation import nonempty_sample as _nonempty_sample
 from ._validation import nonnegative_finite_float as _nonnegative_finite_float
 from ._validation import positive_int as _positive_int
 from ._validation import positive_weight_mass as _positive_weight_mass
+from ._validation import require_identified_regressors as _require_identified_regressors
 
 # ---------------------------------------------------------------------------
 # Result type
@@ -81,6 +82,9 @@ class FeolsResult(ResultProtocolMixin):
     backend: str = "statspai-native"
     #: Kish effective sizes of a weighted fit (``None`` without weights)
     weight_info: Optional[Dict[str, Any]] = None
+    #: Kernel that residualised on the fixed effects: ``"rust"``,
+    #: ``"numpy"`` or ``"none"`` (no fixed effects)
+    fe_kernel: str = "none"
 
     def coef(self) -> pd.Series:
         return pd.Series(self.coef_vec, index=self.coef_names, name="Estimate")
@@ -158,6 +162,7 @@ class FeolsResult(ResultProtocolMixin):
             "ssc": self.ssc,
             "cluster_var": self.cluster_var,
             "backend": self.backend,
+            "fe_kernel": self.fe_kernel,
             "fixed_effects": [
                 {"name": name, "cardinality": cardinality}
                 for name, cardinality in zip(
@@ -201,6 +206,7 @@ class FeolsResult(ResultProtocolMixin):
             "n_terms": n_terms,
             "truncated_terms": max(n_terms - limit, 0),
             "backend": self.backend,
+            "fe_kernel": self.fe_kernel,
         }
         return cast(dict[str, Any], _jsonable(payload))
 
@@ -444,10 +450,12 @@ def feols(
             y_dem = stacked_dem[:, 0]
             X_dem = stacked_dem[:, 1:]
             fe_card = list(info.n_fe)
+            fe_kernel = info.backend
         else:
             # Weighted: the FE projection is W-weighted, so the
             # arithmetic-mean Rust kernel is wrong here. Route through
             # the same weighted-AP loop ``fepois`` uses internally.
+            from .._rust_backend import HAS_RUST as _has_rust
             from .demean import _detect_singletons as _ds_helper
             from .fepois import _weighted_ap_demean
 
@@ -471,6 +479,15 @@ def feols(
             )
             n_kept = int(keep_mask.sum())
             n_dropped_singletons = n_obs - n_kept
+            if n_kept == 0:
+                raise DataInsufficient(
+                    "feols: every row was dropped as a singleton of the fixed "
+                    "effects, so nothing is left to estimate on",
+                    recovery_hint=(
+                        "Use coarser fixed effects, or pass drop_singletons=False "
+                        "to keep the singleton rows."
+                    ),
+                )
             # Re-densify codes on kept rows
             fe_codes_kept: List[np.ndarray] = []
             counts_list: List[np.ndarray] = []
@@ -498,6 +515,7 @@ def feols(
             y_dem = stacked_dem[:, 0]
             X_dem = stacked_dem[:, 1:]
             fe_card = weighted_fe_card
+            fe_kernel = "rust" if _has_rust and len(fe_terms) >= 2 else "numpy"
         fe_dof_statspai = _statspai_fe_dof(fe_card)
     else:
         keep_mask = np.ones(n_obs, dtype=bool)
@@ -507,6 +525,7 @@ def feols(
         X_dem = X.copy()
         fe_card = []
         fe_dof_statspai = 0
+        fe_kernel = "none"
 
     # Apply mask to weights / cluster (demean already returned masked X̃, ỹ)
     if w_full is not None:
@@ -538,6 +557,26 @@ def feols(
     else:
         fe_dof = fe_dof_statspai
         cr1_extra_df = fe_dof_statspai
+
+    # ---------- identification ----------
+    # Inverting the normal equations only fails on an exactly singular
+    # matrix; an absorbed regressor comes back from the residualisation as
+    # rounding noise, so check explicitly against the demean's threshold.
+    if not fe_terms:
+        tol_abs_id, tol_rel_id = 0.0, 0.0
+    elif w_full is None:
+        tol_abs_id, tol_rel_id = fe_tol, 1e-12
+    else:
+        tol_abs_id, tol_rel_id = 0.0, fe_tol
+    _require_identified_regressors(
+        X[keep_mask] if (fe_terms and n_kept < n_obs) else X,
+        X_dem,
+        coef_names_full,
+        context="feols",
+        weights=w if w_full is not None else None,
+        tol_abs=tol_abs_id,
+        tol_rel=tol_rel_id,
+    )
 
     # ---------- WLS solve ----------
     Xw = X_dem * w[:, None]  # diag(w) X̃
@@ -628,6 +667,7 @@ def feols(
         ssc=ssc,
         cluster_var=cluster,
         weight_info=weight_info,
+        fe_kernel=fe_kernel,
     )
 
 

@@ -164,14 +164,21 @@ StatsPAI 承诺的不是「和 Stata / R 数字一样」，而是**每一个数�
 
 ## 6. Rust 组件
 
-路径 [`rust/statspai_hdfe/`](rust/statspai_hdfe/)，HDFE 高性能后端，PyO3 打包，在 Python 侧通过 `sp.fast.*` / `sp.fixest.*` 暴露。
+路径 [`rust/statspai_hdfe/`](rust/statspai_hdfe/)：HDFE demean、`fepois` 的整段 IRLS、聚类 meat 的 Rust 内核，PyO3 + maturin，**单独发布为 PyPI 包 `statspai-hdfe`**（`pip install "statspai[rust]"`）。StatsPAI 本体仍是纯 Python wheel，不改 build-backend。
 
 ```bash
-cd rust/statspai_hdfe && maturin develop --release   # 本地装入 venv
+uvx maturin build --release -o /tmp/w && pip install /tmp/w/statspai_hdfe-*.whl   # 本地装
+PYO3_PYTHON=python cargo test --release                                         # crate 单测（rust/statspai_hdfe 下）
 ```
 
-- **可选**：Python 侧检测到 Rust 不可用会回退 numpy / pyfixest，不报错。
-- **CI 跳过 Rust**：`STATSPAI_SKIP_RUST=1`。
+- **唯一入口是 `statspai/_rust_backend.py`**：每个想用 Rust 的模块都从这里拿 `rust`（模块或 `None`），不要再写 `import statspai_hdfe`。它认 `STATSPAI_SKIP_RUST=1`（2026-10-18 之前这个变量在 CI 里到处设，却从没有代码读它），并检查 `statspai_hdfe.API_VERSION >= MIN_API_VERSION`；入口语义一变就升 `lib.rs::API_VERSION`，并同步 `MIN_API_VERSION`。
+- **谁用它**：`sp.fast.*`、`sp.hdfe_ols` / `sp.Absorber` / `sp.demean`（纯 FE、`solver="map"`、无 slope 时）、`sp.ppmlhdfe`（K≥2）、`sp.iv(absorb=)`、`didregress`、一维聚类的 `sp.regress`（`cluster_meat`）。`sp.feols`（pyfixest）、`sp.panel(method="fe")`（linearmodels）不用。
+- **数值约定**：Rust 与 NumPy 解的是同一个投影，只在停止容差内一致，**不是逐位一致**；测试对照稠密最小二乘的精确投影（`tests/test_rust_backend.py`），不要写"两条路径 atol=1e-14"那种断言。结果与线程数无关（demean 按列独立；`cluster_meat` 固定分块后按序相加）。
+- **Parity 一律在无 Rust 路径上生成与复现**：`verify_reproduce_py.py` 与 `trace_parity_provenance.py` 给子进程设 `STATSPAI_SKIP_RUST=1`（`setdefault`）。装了扩展的环境里 `sp.hdfe_ols` 等的末位会变（容差内），已提交的 `*_py.json` 只对无扩展路径成立。
+- **共线检测不能靠 `np.linalg.inv` 抛错**：被 FE 吸收的列从任何迭代 demean 回来都是舍入噪声，不是精确的 0。`fast/_validation.py::require_identified_regressors` 是共用检查，新的 `sp.fast` 估计器在解正规方程前调用它。
+- **安全**：所有 PyO3 入口在进入 Rust 前校验长度 / 连续性 / 编码范围并抛 `ValueError`；`panic = "unwind"`（以前是 `abort`，任何越界都会直接杀掉解释器）。线程池是 crate 自己的（`sp.fast.set_num_threads` / `STATSPAI_NUM_THREADS`），fork 后在子进程里重建。
+- **CI**：`.github/workflows/rust-hdfe.yml` 在三个平台跑 `cargo test` 和带 `STATSPAI_REQUIRE_RUST=1` 的 Rust 路径测试；wheels 在手动触发或 `hdfe-v*` tag 时构建；**推 `hdfe-v*` tag = 发布 `statspai-hdfe` 到 PyPI**（trusted publishing，环境 `pypi`，需先在 PyPI 配置），属于 §9 需要当次授权的操作。发 StatsPAI 新版前若 `[rust]` extra 要求的版本还没上 PyPI，先发 `statspai-hdfe`。
+- **Track C**：`run_when_idle.sh` 把 `STATSPAI_NUM_THREADS` / `RAYON_NUM_THREADS` 钉为 1；`trace_perf_path.py` 只在计时时加载了 Rust 的记录里绑定 crate 源码哈希（`rust_loaded`），所以没装 Rust 时改 crate 不会让计时过期。
 
 ---
 

@@ -1,198 +1,120 @@
-//! PyO3 bindings for StatsPAI's HDFE inner kernel.
+//! PyO3 bindings for StatsPAI's HDFE kernels.
 //!
-//! Phase 1 contents:
-//! - ``group_demean``      — single-FE, in-place column demean (legacy entry point).
-//! - ``demean_2d``         — K-way alternating-projection demean with Irons-Tuck
-//!                           acceleration; in-place on a Fortran-order matrix,
-//!                           parallel over columns via Rayon.
-//! - ``singleton_mask``    — iterative K-way singleton-row detection; returns
-//!                           a boolean keep-mask.
+//! - ``demean_2d`` / ``demean_2d_weighted`` — K-way FE residualisation of a
+//!   Fortran-order matrix in place, by the coefficient-space solver in
+//!   ``coef.rs`` (sparse cross-tabulation of the two largest FEs,
+//!   Irons-Tuck acceleration), parallel over columns.
+//! - ``demean_2d_weighted_sorted`` — the earlier data-space weighted kernel
+//!   on input pre-sorted by the largest FE (kept for callers built
+//!   against API 1).
+//! - ``fepois_irls`` — the whole Poisson IRLS loop of ``sp.fast.fepois``.
+//! - ``singleton_mask`` / ``separation_mask`` — iterative row-drop
+//!   pre-passes, returning a uint8 keep-mask.
+//! - ``cluster_meat`` — cluster-robust sandwich meat, parallel over fixed
+//!   blocks of clusters (reproducible bit for bit at any thread count).
+//! - ``group_demean`` — legacy single-FE in-place demean.
+//! - ``set_num_threads`` / ``get_num_threads`` — size of the crate's pool.
 //!
-//! Phase A additions (v0.3.0, weighted variants for IRLS-internal demean):
-//! - ``demean_2d_weighted`` — same as ``demean_2d`` but takes per-observation
-//!                            weights and a caller-precomputed wsum
-//!                            (``Σ_{i ∈ g} weights[i]``); used by the IRLS
-//!                            inner loop in ``sp.fast.fepois``.
+//! Every entry point validates its inputs (lengths, contiguity, code
+//! ranges) before entering Rust code and raises ``ValueError`` instead of
+//! indexing out of bounds. The crate is built with ``panic = "unwind"``,
+//! so an unexpected panic surfaces as ``pyo3_runtime.PanicException``
+//! rather than aborting the interpreter.
 //!
-//! All functions take pre-factorised int64 codes and float64 counts. The
-//! Python wrapper at ``statspai.fast.demean`` packs DataFrames / mixed
-//! dtypes via ``pd.factorize`` before calling here.
-//!
-//! All wheels are optional — the Python side falls back to the NumPy /
-//! Numba kernel gracefully when the compiled extension is missing.
+//! The Python side (``statspai._rust_backend``) checks ``API_VERSION``
+//! before using the module and falls back to NumPy / Numba otherwise.
 
-mod demean;
-mod singletons;
-mod sort_perm;
 mod cholesky;
-mod irls;
-mod separation;
 mod cluster;
+mod coef;
+mod demean;
+mod irls;
+mod pool;
+mod separation;
+mod singletons;
 
+use numpy::ndarray::Array2;
 use numpy::{
     PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1,
     PyReadwriteArray2, PyUntypedArrayMethods,
 };
-use numpy::ndarray::Array2;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use pyo3::wrap_pyfunction;
 
-/// In-place group demean: `y[i] -= mean(y[codes == codes[i]])`.
+/// Interface level of this build. The Python loader requires a minimum
+/// level; bump it whenever an entry point changes meaning.
 ///
-/// Legacy single-FE entry point. Kept for backward compatibility with
-/// ``statspai.panel.hdfe_rust.group_demean_rust``; new callers should
-/// prefer the more general ``demean_2d``.
-#[pyfunction]
-fn group_demean(
-    codes: PyReadonlyArray1<i64>,
-    mut y: PyReadwriteArray1<f64>,
-    mut sums: PyReadwriteArray1<f64>,
-    counts: PyReadonlyArray1<i64>,
-) -> PyResult<()> {
-    let codes = codes.as_slice()?;
-    let y_slice = y.as_slice_mut()?;
-    let sums_slice = sums.as_slice_mut()?;
-    let counts_slice = counts.as_slice()?;
+/// 1 = 0.1-0.7 (data-space AP kernels). 2 = 0.8 (coefficient-space
+/// solver, validated inputs, ``fepois_irls`` reports ``singular`` and
+/// ``fe_converged``, thread-pool control).
+const API_VERSION: u32 = 2;
 
-    for s in sums_slice.iter_mut() {
-        *s = 0.0;
+fn err<T>(msg: String) -> PyResult<T> {
+    Err(PyValueError::new_err(msg))
+}
+
+fn slice1<'a, T: numpy::Element>(arr: &'a PyReadonlyArray1<'_, T>, name: &str) -> PyResult<&'a [T]> {
+    arr.as_slice()
+        .map_err(|_| PyValueError::new_err(format!("{name} must be a contiguous 1-D array")))
+}
+
+/// Every code lies in ``[0, g)``.
+fn check_codes(codes: &[i64], g: usize, name: &str) -> PyResult<()> {
+    let mut lo = i64::MAX;
+    let mut hi = i64::MIN;
+    for &c in codes {
+        lo = lo.min(c);
+        hi = hi.max(c);
     }
-    for i in 0..y_slice.len() {
-        let g = codes[i] as usize;
-        sums_slice[g] += y_slice[i];
-    }
-    for g in 0..sums_slice.len() {
-        let c = counts_slice[g];
-        if c > 0 {
-            sums_slice[g] /= c as f64;
-        }
-    }
-    for i in 0..y_slice.len() {
-        let g = codes[i] as usize;
-        y_slice[i] -= sums_slice[g];
+    if !codes.is_empty() && (lo < 0 || hi as u64 >= g as u64) {
+        return err(format!(
+            "{name}: codes must lie in [0, {g}); found range [{lo}, {hi}]"
+        ));
     }
     Ok(())
 }
 
-/// Helper: extract a list of int64 array views from a PyList.
-fn py_list_to_i64_views<'py>(
-    list: &Bound<'py, PyList>,
-) -> PyResult<Vec<PyReadonlyArray1<'py, i64>>> {
-    let mut out = Vec::with_capacity(list.len());
-    for item in list.iter() {
-        let arr: PyReadonlyArray1<i64> = item.extract()?;
-        out.push(arr);
-    }
-    Ok(out)
-}
-
-/// Helper: extract a list of float64 array views from a PyList.
-fn py_list_to_f64_views<'py>(
-    list: &Bound<'py, PyList>,
-) -> PyResult<Vec<PyReadonlyArray1<'py, f64>>> {
-    let mut out = Vec::with_capacity(list.len());
-    for item in list.iter() {
-        let arr: PyReadonlyArray1<f64> = item.extract()?;
-        out.push(arr);
-    }
-    Ok(out)
-}
-
-/// K-way alternating-projection demean of a Fortran-order (n, p) matrix in
-/// place. Returns a list of dicts (one per column) with iter / converged /
-/// max_dx fields.
-///
-/// Parameters
-/// ----------
-/// x : 2-D float64 ndarray, shape (n, p), Fortran-contiguous
-///     The matrix to residualise. Each column is a contiguous slice we can
-///     split for parallel processing. Pass ``np.asfortranarray(X)`` on the
-///     Python side to materialise.
-/// fe_codes : list[ndarray[int64, shape (n,)]]
-///     One code array per FE dimension (K total).
-/// counts : list[ndarray[float64, shape (G_k,)]]
-///     Per-group sizes for each FE dimension. Float so weighted variants
-///     can drop in later.
-/// max_iter : int
-///     Cap on AP iterations per column.
-/// tol_abs, tol_rel : float
-///     Stop when ``max|dx| <= tol_abs + tol_rel * base_scale``.
-/// accelerate : bool
-/// accel_period : int
-#[pyfunction]
-#[pyo3(signature = (x, fe_codes, counts, max_iter, tol_abs, tol_rel, accelerate, accel_period))]
-#[allow(clippy::too_many_arguments)]
-fn demean_2d<'py>(
-    py: Python<'py>,
-    mut x: PyReadwriteArray2<'py, f64>,
-    fe_codes: &Bound<'py, PyList>,
-    counts: &Bound<'py, PyList>,
-    max_iter: u32,
-    tol_abs: f64,
-    tol_rel: f64,
-    accelerate: bool,
-    accel_period: u32,
-) -> PyResult<Bound<'py, PyList>> {
-    if fe_codes.len() != counts.len() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "len(fe_codes)={} but len(counts)={}",
-            fe_codes.len(),
-            counts.len()
-        )));
-    }
-
-    let code_views = py_list_to_i64_views(fe_codes)?;
-    let count_views = py_list_to_f64_views(counts)?;
-
-    let arr = x.as_array();
-    let shape = arr.shape();
-    if shape.len() != 2 {
-        return Err(pyo3::exceptions::PyValueError::new_err("x must be 2-D"));
-    }
-    let n = shape[0];
-    let p = shape[1];
-
-    for v in &code_views {
-        if v.as_slice()?.len() != n {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "fe_codes entry has length {} but n={}",
-                v.as_slice()?.len(),
-                n
-            )));
+fn check_weights(w: &[f64], name: &str) -> PyResult<()> {
+    for &v in w {
+        if !(v >= 0.0) || !v.is_finite() {
+            return err(format!("{name} must be finite and non-negative; found {v}"));
         }
     }
+    Ok(())
+}
 
-    if !x.is_fortran_contiguous() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "x must be Fortran-contiguous; pass np.asfortranarray(X)",
-        ));
+fn i64_views<'py>(list: &Bound<'py, PyList>) -> PyResult<Vec<PyReadonlyArray1<'py, i64>>> {
+    list.iter().map(|item| item.extract()).collect()
+}
+
+fn f64_views<'py>(list: &Bound<'py, PyList>) -> PyResult<Vec<PyReadonlyArray1<'py, f64>>> {
+    list.iter().map(|item| item.extract()).collect()
+}
+
+/// Code slices of length ``n``, each validated against its level count.
+fn code_slices<'a>(
+    views: &'a [PyReadonlyArray1<'_, i64>],
+    n_groups: &[usize],
+    n: usize,
+    name: &str,
+) -> PyResult<Vec<&'a [i64]>> {
+    let mut out = Vec::with_capacity(views.len());
+    for (k, v) in views.iter().enumerate() {
+        let s = slice1(v, name)?;
+        if s.len() != n {
+            return err(format!("{name}[{k}] has length {} but n={n}", s.len()));
+        }
+        check_codes(s, n_groups[k], &format!("{name}[{k}]"))?;
+        out.push(s);
     }
-    let mat = x.as_slice_mut()?;
-    let codes_slices: Vec<&[i64]> =
-        code_views.iter().map(|v| v.as_slice().unwrap()).collect();
-    let counts_slices: Vec<&[f64]> =
-        count_views.iter().map(|v| v.as_slice().unwrap()).collect();
-    let counts_lens: Vec<usize> = counts_slices.iter().map(|s| s.len()).collect();
+    Ok(out)
+}
 
-    let infos = py.allow_threads(|| {
-        demean::demean_matrix_fortran_inplace(
-            mat,
-            n,
-            p,
-            &codes_slices,
-            &counts_slices,
-            &counts_lens,
-            max_iter,
-            tol_abs,
-            tol_rel,
-            accelerate,
-            accel_period,
-        )
-    });
-
+fn infos_to_list<'py>(py: Python<'py>, infos: &[demean::DemeanInfo]) -> PyResult<Bound<'py, PyList>> {
     let out = PyList::empty_bound(py);
-    for info in &infos {
+    for info in infos {
         let d = PyDict::new_bound(py);
         d.set_item("iters", info.iters)?;
         d.set_item("converged", info.converged)?;
@@ -202,31 +124,199 @@ fn demean_2d<'py>(
     Ok(out)
 }
 
-/// K-way **weighted** alternating-projection demean of a Fortran-order
-/// (n, p) matrix in place. Returns a list of dicts (one per column)
-/// with ``iters`` / ``converged`` / ``max_dx`` fields, mirroring
-/// ``demean_2d``.
+/// ``(n, p)`` of a Fortran-contiguous matrix, or an error.
+fn fortran_shape(x: &PyReadwriteArray2<'_, f64>) -> PyResult<(usize, usize)> {
+    let shape = x.shape();
+    let (n, p) = (shape[0], shape[1]);
+    if !x.is_fortran_contiguous() {
+        return err("x must be Fortran-contiguous; pass np.asfortranarray(X)".into());
+    }
+    if n > u32::MAX as usize {
+        return err(format!("n={n} exceeds the supported 2^32 - 1 rows"));
+    }
+    Ok((n, p))
+}
+
+/// In-place group demean: `y[i] -= mean(y[codes == codes[i]])`.
+///
+/// Legacy single-FE entry point; new callers use ``demean_2d``.
+#[pyfunction]
+fn group_demean(
+    py: Python<'_>,
+    codes: PyReadonlyArray1<i64>,
+    mut y: PyReadwriteArray1<f64>,
+    mut sums: PyReadwriteArray1<f64>,
+    counts: PyReadonlyArray1<i64>,
+) -> PyResult<()> {
+    let codes = slice1(&codes, "codes")?;
+    let counts = slice1(&counts, "counts")?;
+    let y = y
+        .as_slice_mut()
+        .map_err(|_| PyValueError::new_err("y must be a contiguous 1-D array"))?;
+    let sums = sums
+        .as_slice_mut()
+        .map_err(|_| PyValueError::new_err("sums must be a contiguous 1-D array"))?;
+    if codes.len() != y.len() {
+        return err(format!("codes has length {} but y has {}", codes.len(), y.len()));
+    }
+    if counts.len() != sums.len() {
+        return err(format!(
+            "counts has length {} but sums has {}",
+            counts.len(),
+            sums.len()
+        ));
+    }
+    check_codes(codes, sums.len(), "codes")?;
+    py.allow_threads(|| {
+        for s in sums.iter_mut() {
+            *s = 0.0;
+        }
+        for i in 0..y.len() {
+            sums[codes[i] as usize] += y[i];
+        }
+        for g in 0..sums.len() {
+            if counts[g] > 0 {
+                sums[g] /= counts[g] as f64;
+            }
+        }
+        for i in 0..y.len() {
+            y[i] -= sums[codes[i] as usize];
+        }
+    });
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn demean_coef<'py>(
+    py: Python<'py>,
+    mut x: PyReadwriteArray2<'py, f64>,
+    fe_codes: &Bound<'py, PyList>,
+    group_lists: &Bound<'py, PyList>,
+    weights: Option<PyReadonlyArray1<'py, f64>>,
+    max_iter: u32,
+    tol_abs: f64,
+    tol_rel: f64,
+    accelerate: bool,
+    accel_period: u32,
+    lists_name: &str,
+) -> PyResult<Bound<'py, PyList>> {
+    if fe_codes.len() != group_lists.len() {
+        return err(format!(
+            "len(fe_codes)={} but len({lists_name})={}",
+            fe_codes.len(),
+            group_lists.len()
+        ));
+    }
+    if accel_period == 0 {
+        return err("accel_period must be >= 1".into());
+    }
+    if max_iter == 0 {
+        return err("max_iter must be >= 1".into());
+    }
+    if !(tol_abs >= 0.0) || !(tol_rel >= 0.0) {
+        return err("tol_abs and tol_rel must be non-negative".into());
+    }
+    let (n, p) = fortran_shape(&x)?;
+    let code_views = i64_views(fe_codes)?;
+    let group_views = f64_views(group_lists)?;
+    let mut n_groups = Vec::with_capacity(group_views.len());
+    for v in &group_views {
+        n_groups.push(slice1(v, lists_name)?.len());
+    }
+    let codes = code_slices(&code_views, &n_groups, n, "fe_codes")?;
+    let w: Option<Vec<f64>> = match &weights {
+        None => None,
+        Some(wv) => {
+            let s = slice1(wv, "weights")?;
+            if s.len() != n {
+                return err(format!("weights length {} but n={n}", s.len()));
+            }
+            check_weights(s, "weights")?;
+            Some(s.to_vec())
+        }
+    };
+    let mat = x
+        .as_slice_mut()
+        .map_err(|_| PyValueError::new_err("x must be Fortran-contiguous"))?;
+
+    let done = demean::DemeanInfo {
+        iters: 0,
+        converged: true,
+        max_dx: 0.0,
+    };
+    if codes.is_empty() || n == 0 || p == 0 {
+        return infos_to_list(py, &vec![done; p]);
+    }
+    let infos = py.allow_threads(|| {
+        pool::install(|| {
+            let mut problem = coef::Problem::new(codes, n_groups, w);
+            problem.accelerate = accelerate;
+            coef::demean_matrix(&problem, mat, n, p, max_iter, tol_abs, tol_rel)
+        })
+    });
+    infos_to_list(py, &infos)
+}
+
+/// K-way FE residualisation of a Fortran-order ``(n, p)`` matrix in
+/// place. Returns a list of dicts (one per column) with ``iters`` /
+/// ``converged`` / ``max_dx``.
 ///
 /// Parameters
 /// ----------
 /// x : 2-D float64 ndarray, shape (n, p), Fortran-contiguous
-///     The matrix to residualise (in place).
 /// fe_codes : list[ndarray[int64, shape (n,)]]
-///     One code array per FE dimension (K total).
+///     One code array per FE, codes in ``[0, G_k)``.
+/// counts : list[ndarray[float64, shape (G_k,)]]
+///     One array per FE; only its length (the level count) is used.
+/// max_iter : int
+///     Cap on sweeps per column.
+/// tol_abs, tol_rel : float
+///     Stop when the bound on the change of the residual between two
+///     sweeps is at most ``tol_abs + tol_rel * max|x|``.
+/// accelerate : bool
+///     Irons-Tuck acceleration (on by default upstream).
+/// accel_period : int
+///     Accepted for compatibility with API 1; must be >= 1.
+#[pyfunction]
+#[pyo3(signature = (x, fe_codes, counts, max_iter, tol_abs, tol_rel, accelerate, accel_period))]
+#[allow(clippy::too_many_arguments)]
+fn demean_2d<'py>(
+    py: Python<'py>,
+    x: PyReadwriteArray2<'py, f64>,
+    fe_codes: &Bound<'py, PyList>,
+    counts: &Bound<'py, PyList>,
+    max_iter: u32,
+    tol_abs: f64,
+    tol_rel: f64,
+    accelerate: bool,
+    accel_period: u32,
+) -> PyResult<Bound<'py, PyList>> {
+    demean_coef(
+        py, x, fe_codes, counts, None, max_iter, tol_abs, tol_rel, accelerate, accel_period,
+        "counts",
+    )
+}
+
+/// Weighted K-way FE residualisation of a Fortran-order ``(n, p)`` matrix
+/// in place: the projection minimises ``sum_i w_i (x_i - fe_i)^2``.
+///
+/// Parameters
+/// ----------
+/// x : 2-D float64 ndarray, shape (n, p), Fortran-contiguous
+/// fe_codes : list[ndarray[int64, shape (n,)]]
 /// wsum : list[ndarray[float64, shape (G_k,)]]
-///     Per-group **weighted** sum ``Σ_{i ∈ g} weights[i]``. Caller
-///     precomputes via ``np.bincount(codes, weights=weights, minlength=G)``.
+///     One array per FE; only its length (the level count) is used, the
+///     group weights are recomputed from ``weights``.
 /// weights : ndarray[float64, shape (n,)]
-///     Per-observation weights. Caller is responsible for non-negativity
-///     and finiteness — no re-validation here on the hot path.
+///     Finite, non-negative observation weights.
 /// max_iter, tol_abs, tol_rel, accelerate, accel_period
-///     Same semantics as ``demean_2d``.
+///     As in ``demean_2d``.
 #[pyfunction]
 #[pyo3(signature = (x, fe_codes, wsum, weights, max_iter, tol_abs, tol_rel, accelerate, accel_period))]
 #[allow(clippy::too_many_arguments)]
 fn demean_2d_weighted<'py>(
     py: Python<'py>,
-    mut x: PyReadwriteArray2<'py, f64>,
+    x: PyReadwriteArray2<'py, f64>,
     fe_codes: &Bound<'py, PyList>,
     wsum: &Bound<'py, PyList>,
     weights: PyReadonlyArray1<'py, f64>,
@@ -236,106 +326,36 @@ fn demean_2d_weighted<'py>(
     accelerate: bool,
     accel_period: u32,
 ) -> PyResult<Bound<'py, PyList>> {
-    if fe_codes.len() != wsum.len() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "len(fe_codes)={} but len(wsum)={}",
-            fe_codes.len(),
-            wsum.len()
-        )));
-    }
-
-    let code_views = py_list_to_i64_views(fe_codes)?;
-    let wsum_views = py_list_to_f64_views(wsum)?;
-    let weights_view = weights.as_slice()?;
-
-    let arr = x.as_array();
-    let shape = arr.shape();
-    if shape.len() != 2 {
-        return Err(pyo3::exceptions::PyValueError::new_err("x must be 2-D"));
-    }
-    let n = shape[0];
-    let p = shape[1];
-
-    if weights_view.len() != n {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "weights length {} but n={}",
-            weights_view.len(),
-            n
-        )));
-    }
-
-    for v in &code_views {
-        if v.as_slice()?.len() != n {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "fe_codes entry has length {} but n={}",
-                v.as_slice()?.len(),
-                n
-            )));
-        }
-    }
-
-    if !x.is_fortran_contiguous() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "x must be Fortran-contiguous; pass np.asfortranarray(X)",
-        ));
-    }
-    let mat = x.as_slice_mut()?;
-    let codes_slices: Vec<&[i64]> =
-        code_views.iter().map(|v| v.as_slice().unwrap()).collect();
-    let wsum_slices: Vec<&[f64]> =
-        wsum_views.iter().map(|v| v.as_slice().unwrap()).collect();
-    let wsum_lens: Vec<usize> = wsum_slices.iter().map(|s| s.len()).collect();
-
-    let infos = py.allow_threads(|| {
-        demean::weighted_demean_matrix_fortran_inplace(
-            mat,
-            n,
-            p,
-            &codes_slices,
-            weights_view,
-            &wsum_slices,
-            &wsum_lens,
-            max_iter,
-            tol_abs,
-            tol_rel,
-            accelerate,
-            accel_period,
-        )
-    });
-
-    let out = PyList::empty_bound(py);
-    for info in &infos {
-        let d = PyDict::new_bound(py);
-        d.set_item("iters", info.iters)?;
-        d.set_item("converged", info.converged)?;
-        d.set_item("max_dx", info.max_dx)?;
-        out.append(d)?;
-    }
-    Ok(out)
+    demean_coef(
+        py,
+        x,
+        fe_codes,
+        wsum,
+        Some(weights),
+        max_iter,
+        tol_abs,
+        tol_rel,
+        accelerate,
+        accel_period,
+        "wsum",
+    )
 }
 
-/// Sort-aware weighted demean of a Fortran-order (n, p) matrix in place.
-/// Caller has applied the primary-FE sort permutation π to ``x`` (rows),
-/// ``weights``, and the secondary FE codes; this function does NOT
-/// permute. Result is in π-order; caller applies π⁻¹ on return.
+/// Data-space weighted demean of a Fortran-order ``(n, p)`` matrix whose
+/// rows are pre-sorted by the primary FE (API 1 entry point). The result
+/// stays in the sorted order.
 ///
 /// Parameters
 /// ----------
-/// x : 2-D float64 ndarray, shape (n, p), Fortran-contiguous, in π order.
+/// x : 2-D float64 ndarray, shape (n, p), Fortran-contiguous, sorted.
 /// primary_starts : ndarray[int64, shape (G1+1,)]
-///     Group-start offsets for the primary FE (caller computes once via
-///     ``primary_fe_sort_perm`` + cumulative count).
+///     Non-decreasing group offsets with ``primary_starts[0] == 0`` and
+///     ``primary_starts[G1] == n``.
 /// primary_wsum : ndarray[float64, shape (G1,)]
-///     Weighted group sums for the primary FE, computed in π order
-///     (i.e., ``np.bincount(codes_perm, weights=weights_perm)``).
 /// secondary_codes : list[ndarray[int64, shape (n,)]]
-///     K-1 arrays, one per non-primary FE; codes are under π.
 /// secondary_wsum : list[ndarray[float64, shape (G_k,)]]
-///     Weighted group sums for non-primary FEs.
 /// weights_sorted : ndarray[float64, shape (n,)]
-///     Per-obs weights in π order.
-/// max_iter, tol_abs, tol_rel, accelerate, accel_period :
-///     Same semantics as ``demean_2d_weighted``.
+/// max_iter, tol_abs, tol_rel, accelerate, accel_period
 #[pyfunction]
 #[pyo3(signature = (x, primary_starts, primary_wsum, secondary_codes, secondary_wsum, weights_sorted, max_iter, tol_abs, tol_rel, accelerate, accel_period))]
 #[allow(clippy::too_many_arguments)]
@@ -354,141 +374,102 @@ fn demean_2d_weighted_sorted<'py>(
     accel_period: u32,
 ) -> PyResult<Bound<'py, PyList>> {
     if secondary_codes.len() != secondary_wsum.len() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+        return err(format!(
             "len(secondary_codes)={} but len(secondary_wsum)={}",
             secondary_codes.len(),
             secondary_wsum.len()
-        )));
-    }
-
-    let primary_starts_view = primary_starts.as_slice()?;
-    let primary_wsum_view = primary_wsum.as_slice()?;
-    let weights_view = weights_sorted.as_slice()?;
-    let sec_code_views = py_list_to_i64_views(secondary_codes)?;
-    let sec_wsum_views = py_list_to_f64_views(secondary_wsum)?;
-
-    let arr = x.as_array();
-    let shape = arr.shape();
-    if shape.len() != 2 {
-        return Err(pyo3::exceptions::PyValueError::new_err("x must be 2-D"));
-    }
-    let n = shape[0];
-    let p = shape[1];
-
-    if weights_view.len() != n {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "weights_sorted length {} but n={}",
-            weights_view.len(),
-            n
-        )));
-    }
-    if primary_starts_view.len() != primary_wsum_view.len() + 1 {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "primary_starts length {} but expected {} (= primary_wsum.len + 1)",
-            primary_starts_view.len(),
-            primary_wsum_view.len() + 1
-        )));
-    }
-    for v in &sec_code_views {
-        if v.as_slice()?.len() != n {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "secondary_codes entry has length {} but n={}",
-                v.as_slice()?.len(),
-                n
-            )));
-        }
-    }
-
-    if !x.is_fortran_contiguous() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "x must be Fortran-contiguous; pass np.asfortranarray(X)",
         ));
     }
-    let mat = x.as_slice_mut()?;
-
-    // Convert primary_starts (passed as i64 from Python) to usize.
-    let primary_starts_usize: Vec<usize> =
-        primary_starts_view.iter().map(|&v| v as usize).collect();
-
-    let sec_codes_slices: Vec<&[i64]> =
-        sec_code_views.iter().map(|v| v.as_slice().unwrap()).collect();
-    let sec_wsum_slices: Vec<&[f64]> =
-        sec_wsum_views.iter().map(|v| v.as_slice().unwrap()).collect();
-    let sec_lens: Vec<usize> = sec_wsum_slices.iter().map(|s| s.len()).collect();
-
-    let infos = py.allow_threads(|| {
-        demean::weighted_demean_matrix_fortran_inplace_sorted(
-            mat,
-            n,
-            p,
-            &primary_starts_usize,
-            primary_wsum_view,
-            &sec_codes_slices,
-            &sec_wsum_slices,
-            &sec_lens,
-            weights_view,
-            max_iter,
-            tol_abs,
-            tol_rel,
-            accelerate,
-            accel_period,
-        )
-    });
-
-    let out = PyList::empty_bound(py);
-    for info in &infos {
-        let d = PyDict::new_bound(py);
-        d.set_item("iters", info.iters)?;
-        d.set_item("converged", info.converged)?;
-        d.set_item("max_dx", info.max_dx)?;
-        out.append(d)?;
+    if accel_period == 0 {
+        return err("accel_period must be >= 1".into());
     }
-    Ok(out)
+    let (n, p) = fortran_shape(&x)?;
+    let starts = slice1(&primary_starts, "primary_starts")?;
+    let pw = slice1(&primary_wsum, "primary_wsum")?;
+    let wts = slice1(&weights_sorted, "weights_sorted")?;
+    if wts.len() != n {
+        return err(format!("weights_sorted length {} but n={n}", wts.len()));
+    }
+    check_weights(wts, "weights_sorted")?;
+    if starts.len() != pw.len() + 1 {
+        return err(format!(
+            "primary_starts length {} but expected {} (= primary_wsum.len + 1)",
+            starts.len(),
+            pw.len() + 1
+        ));
+    }
+    if starts[0] != 0 || starts[starts.len() - 1] != n as i64 || starts.windows(2).any(|w| w[1] < w[0]) {
+        return err(format!(
+            "primary_starts must be non-decreasing from 0 to n={n}"
+        ));
+    }
+    let sec_views = i64_views(secondary_codes)?;
+    let sec_w_views = f64_views(secondary_wsum)?;
+    let mut sec_lens = Vec::with_capacity(sec_w_views.len());
+    let mut sec_w: Vec<&[f64]> = Vec::with_capacity(sec_w_views.len());
+    for v in &sec_w_views {
+        let s = slice1(v, "secondary_wsum")?;
+        sec_lens.push(s.len());
+        sec_w.push(s);
+    }
+    let sec_codes = code_slices(&sec_views, &sec_lens, n, "secondary_codes")?;
+    let mat = x
+        .as_slice_mut()
+        .map_err(|_| PyValueError::new_err("x must be Fortran-contiguous"))?;
+    let done = demean::DemeanInfo {
+        iters: 0,
+        converged: true,
+        max_dx: 0.0,
+    };
+    if n == 0 || p == 0 || pw.is_empty() {
+        return infos_to_list(py, &vec![done; p]);
+    }
+    let starts_usize: Vec<usize> = starts.iter().map(|&v| v as usize).collect();
+    let infos = py.allow_threads(|| {
+        pool::install(|| {
+            demean::weighted_demean_matrix_fortran_inplace_sorted(
+                mat,
+                n,
+                p,
+                &starts_usize,
+                pw,
+                &sec_codes,
+                &sec_w,
+                &sec_lens,
+                wts,
+                max_iter,
+                tol_abs,
+                tol_rel,
+                accelerate,
+                accel_period,
+            )
+        })
+    });
+    infos_to_list(py, &infos)
 }
 
-/// Native Rust Poisson IRLS for ``sp.fast.fepois``.
-///
-/// Single PyO3 entry point that runs the entire IRLS state machine
-/// in Rust — no per-iter FFI round-trips. The Python side parses the
-/// formula and runs the singleton/separation pre-passes; this function
-/// runs the IRLS body and returns the final β plus the demeaned X̃ and
-/// working weights so the caller can compute the requested vcov in
-/// Python.
+/// Native Poisson IRLS for ``sp.fast.fepois``.
 ///
 /// Parameters
 /// ----------
 /// y : ndarray[float64, shape (n,)]
-///     Outcome vector (after pre-passes).
-/// x : ndarray[float64, shape (n, p)], Fortran-contiguous
-///     Regressor matrix. The function does NOT mutate `x`.
+/// x : ndarray[float64, shape (n, p)], Fortran-contiguous (not mutated)
 /// fe_codes : list[ndarray[int64, shape (n,)]]
-///     K dense FE code arrays.
+///     K >= 1 code arrays, codes in ``[0, g_per_fe[k])``.
 /// g_per_fe : ndarray[int64, shape (K,)]
-///     Cardinality of each FE.
 /// obs_weights : ndarray[float64, shape (n,)]
-///     Per-observation weights. Pass an all-1 array for unweighted MLE.
 /// config : dict
-///     IRLS knobs: maxiter / tol / fe_tol / fe_maxiter / eta_clip /
-///     accel_period / max_halvings. Missing keys fall back to
-///     `FePoisIRLSConfig::default()`.
+///     maxiter / tol / fe_tol / fe_maxiter / eta_clip / accel_period /
+///     max_halvings; missing keys take the defaults.
 ///
 /// Returns
 /// -------
-/// dict with keys: ``beta`` (ndarray, shape (p,)),
-/// ``x_tilde_flat`` (ndarray, shape (n*p,), F-order data),
-/// ``x_tilde_n`` (int), ``x_tilde_p`` (int),
-/// ``w`` (shape (n,)), ``eta`` (shape (n,)), ``mu`` (shape (n,)),
-/// ``deviance`` (float), ``log_likelihood`` (float), ``iters`` (int),
-/// ``converged`` (bool), ``n_halvings`` (int), ``max_inner_dx`` (float).
-///
-/// Notes
-/// -----
-/// ``x_tilde`` is returned as a flat 1-D array in Fortran (column-major)
-/// order together with shape scalars ``x_tilde_n`` and ``x_tilde_p``.
-/// Reconstruct on the Python side with:
-/// ``x_tilde = result["x_tilde_flat"].reshape(result["x_tilde_p"],
-///              result["x_tilde_n"]).T``
-/// which produces a row-major (n, p) view of the F-order data.
+/// dict with ``beta``, ``x_tilde_flat`` (F-order data of the residualised
+/// X, reshape with ``.reshape(p, n).T``), ``x_tilde_n``, ``x_tilde_p``,
+/// ``w``, ``eta``, ``mu``, ``deviance``, ``log_likelihood``, ``iters``,
+/// ``converged``, ``n_halvings``, ``max_inner_dx``, ``fe_converged`` and
+/// ``singular`` (the weighted normal equations could not be solved: a
+/// regressor is collinear with the FEs or with the other regressors).
 #[pyfunction]
 #[pyo3(signature = (y, x, fe_codes, g_per_fe, obs_weights, config))]
 fn fepois_irls<'py>(
@@ -500,94 +481,85 @@ fn fepois_irls<'py>(
     obs_weights: PyReadonlyArray1<'py, f64>,
     config: &Bound<'py, PyDict>,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let y_view = y.as_slice()?;
-    let obs_w_view = obs_weights.as_slice()?;
-    let g_view = g_per_fe.as_slice()?;
-    let code_views = py_list_to_i64_views(fe_codes)?;
-
-    let arr = x.as_array();
-    let shape = arr.shape();
-    if shape.len() != 2 {
-        return Err(pyo3::exceptions::PyValueError::new_err("x must be 2-D"));
+    let y_view = slice1(&y, "y")?;
+    let obs_w_view = slice1(&obs_weights, "obs_weights")?;
+    let g_view = slice1(&g_per_fe, "g_per_fe")?;
+    let shape = x.shape();
+    let (n, p) = (shape[0], shape[1]);
+    if !x.is_fortran_contiguous() {
+        return err("x must be Fortran-contiguous; pass np.asfortranarray(X)".into());
     }
-    let n = shape[0];
-    let p = shape[1];
-
     if y_view.len() != n {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "y length {} but x has {} rows", y_view.len(), n
-        )));
+        return err(format!("y length {} but x has {n} rows", y_view.len()));
     }
     if obs_w_view.len() != n {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "obs_weights length {} but x has {} rows", obs_w_view.len(), n
-        )));
+        return err(format!("obs_weights length {} but x has {n} rows", obs_w_view.len()));
     }
-    if g_view.len() != code_views.len() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+    check_weights(obs_w_view, "obs_weights")?;
+    if fe_codes.is_empty() {
+        return err("fepois_irls needs at least one FE".into());
+    }
+    if g_view.len() != fe_codes.len() {
+        return err(format!(
             "len(g_per_fe)={} but len(fe_codes)={}",
-            g_view.len(), code_views.len()
-        )));
-    }
-    for v in &code_views {
-        if v.as_slice()?.len() != n {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "fe_codes entry has length {} but n={}",
-                v.as_slice()?.len(), n
-            )));
-        }
-    }
-    if !x.is_fortran_contiguous() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "x must be Fortran-contiguous; pass np.asfortranarray(X)",
+            g_view.len(),
+            fe_codes.len()
         ));
     }
+    if g_view.iter().any(|&g| g < 0) {
+        return err("g_per_fe must be non-negative".into());
+    }
+    if n == 0 || p == 0 {
+        return err(format!("fepois_irls needs n > 0 and p > 0 (got n={n}, p={p})"));
+    }
+    if n > u32::MAX as usize {
+        return err(format!("n={n} exceeds the supported 2^32 - 1 rows"));
+    }
+    let g_per_fe_vec: Vec<usize> = g_view.iter().map(|&g| g as usize).collect();
+    let code_views = i64_views(fe_codes)?;
+    let codes = code_slices(&code_views, &g_per_fe_vec, n, "fe_codes")?;
+    let x_view = x
+        .as_slice()
+        .map_err(|_| PyValueError::new_err("x must be Fortran-contiguous"))?;
 
-    // Read config knobs (each optional — fall back to default).
     let mut cfg = irls::FePoisIRLSConfig::default();
-    if let Ok(Some(v)) = config.get_item("maxiter") {
+    if let Some(v) = config.get_item("maxiter")? {
         cfg.maxiter = v.extract::<u32>()?;
     }
-    if let Ok(Some(v)) = config.get_item("tol") {
+    if let Some(v) = config.get_item("tol")? {
         cfg.tol = v.extract::<f64>()?;
     }
-    if let Ok(Some(v)) = config.get_item("fe_tol") {
+    if let Some(v) = config.get_item("fe_tol")? {
         cfg.fe_tol = v.extract::<f64>()?;
     }
-    if let Ok(Some(v)) = config.get_item("fe_maxiter") {
+    if let Some(v) = config.get_item("fe_maxiter")? {
         cfg.fe_maxiter = v.extract::<u32>()?;
     }
-    if let Ok(Some(v)) = config.get_item("eta_clip") {
+    if let Some(v) = config.get_item("eta_clip")? {
         cfg.eta_clip = v.extract::<f64>()?;
     }
-    if let Ok(Some(v)) = config.get_item("accel_period") {
+    if let Some(v) = config.get_item("accel_period")? {
         cfg.accel_period = v.extract::<u32>()?;
     }
-    if let Ok(Some(v)) = config.get_item("max_halvings") {
+    if let Some(v) = config.get_item("max_halvings")? {
         cfg.max_halvings = v.extract::<u32>()?;
     }
-
-    // Build code slices + g_per_fe Vec.
-    let codes_slices: Vec<&[i64]> =
-        code_views.iter().map(|v| v.as_slice().unwrap()).collect();
-    let g_per_fe_vec: Vec<usize> = g_view.iter().map(|&g| g as usize).collect();
-
-    // Snapshot x into an owned Vec (the Rust IRLS doesn't mutate the
-    // input but needs slice access; the workspace handles π internally).
-    let x_owned = x.as_slice()?.to_vec();
+    if cfg.maxiter == 0 || cfg.fe_maxiter == 0 {
+        return err("maxiter and fe_maxiter must be >= 1".into());
+    }
+    if !(cfg.tol >= 0.0) || !(cfg.fe_tol >= 0.0) || !(cfg.eta_clip > 0.0) {
+        return err("tol and fe_tol must be non-negative and eta_clip positive".into());
+    }
+    if y_view.iter().any(|&v| !(v >= 0.0) || !v.is_finite()) {
+        return err("y must be finite and non-negative for a Poisson model".into());
+    }
 
     let result = py.allow_threads(|| {
-        let mut ws = irls::FePoisIRLSWorkspace::new(
-            n, p, &codes_slices, &g_per_fe_vec,
-        );
-        irls::fepois_loop(y_view, &x_owned, obs_w_view, &cfg, &mut ws)
+        pool::install(|| irls::fepois_loop(y_view, x_view, obs_w_view, &codes, &g_per_fe_vec, &cfg))
     });
 
     let out = PyDict::new_bound(py);
     out.set_item("beta", PyArray1::from_vec_bound(py, result.beta))?;
-    // x_tilde is F-order flat Vec (length n*p). Return it as a 1-D array
-    // together with shape scalars so the Python caller can reconstruct:
-    //   x_tilde = result["x_tilde_flat"].reshape(p, n).T
     out.set_item("x_tilde_flat", PyArray1::from_vec_bound(py, result.x_tilde))?;
     out.set_item("x_tilde_n", n)?;
     out.set_item("x_tilde_p", p)?;
@@ -600,33 +572,45 @@ fn fepois_irls<'py>(
     out.set_item("converged", result.converged)?;
     out.set_item("n_halvings", result.n_halvings)?;
     out.set_item("max_inner_dx", result.max_inner_dx)?;
+    out.set_item("fe_converged", result.fe_converged)?;
+    out.set_item("singular", result.singular)?;
     Ok(out)
 }
 
 /// Iterative K-way singleton detection. Returns a uint8 keep-mask
-/// (1 = keep, 0 = drop).
+/// (1 = keep, 0 = drop). Codes must be non-negative.
 #[pyfunction]
 fn singleton_mask<'py>(
     py: Python<'py>,
     fe_codes: &Bound<'py, PyList>,
 ) -> PyResult<Bound<'py, PyArray1<u8>>> {
-    let code_views = py_list_to_i64_views(fe_codes)?;
+    let code_views = i64_views(fe_codes)?;
     if code_views.is_empty() {
         return Ok(PyArray1::<u8>::zeros_bound(py, 0, false));
     }
-    let codes_slices: Vec<&[i64]> =
-        code_views.iter().map(|v| v.as_slice().unwrap()).collect();
-
-    let keep = py.allow_threads(|| singletons::detect_singletons(&codes_slices));
-    let as_u8: Vec<u8> = keep.into_iter().map(|b| if b { 1 } else { 0 }).collect();
+    let mut codes: Vec<&[i64]> = Vec::with_capacity(code_views.len());
+    for (k, v) in code_views.iter().enumerate() {
+        let s = slice1(v, "fe_codes")?;
+        if let Some(&first) = codes.first().map(|c: &&[i64]| c) {
+            if s.len() != first.len() {
+                return err(format!("fe_codes[{k}] has length {} but fe_codes[0] has {}", s.len(), first.len()));
+            }
+        }
+        if let Some(&m) = s.iter().min() {
+            if m < 0 {
+                return err(format!("fe_codes[{k}]: codes must be non-negative; found {m}"));
+            }
+        }
+        codes.push(s);
+    }
+    let keep = py.allow_threads(|| singletons::detect_singletons(&codes));
+    let as_u8: Vec<u8> = keep.into_iter().map(u8::from).collect();
     Ok(PyArray1::from_vec_bound(py, as_u8))
 }
 
 /// Iterative Poisson-separation detection. Returns a uint8 keep-mask
 /// (1 = keep, 0 = drop). Drops rows whose FE group has a zero y-sum;
-/// iterates until fixed point. The Python wrapper at
-/// ``statspai.fast.fepois._drop_separation_dispatcher`` falls back to
-/// a pure-NumPy implementation when this entry point is missing.
+/// iterates until fixed point.
 #[pyfunction]
 fn separation_mask<'py>(
     py: Python<'py>,
@@ -634,64 +618,43 @@ fn separation_mask<'py>(
     fe_codes: &Bound<'py, PyList>,
     g_per_fe: PyReadonlyArray1<'py, i64>,
 ) -> PyResult<Bound<'py, PyArray1<u8>>> {
-    let y_view = y.as_slice()?;
-    let g_view = g_per_fe.as_slice()?;
-    let code_views = py_list_to_i64_views(fe_codes)?;
-
+    let y_view = slice1(&y, "y")?;
+    let g_view = slice1(&g_per_fe, "g_per_fe")?;
+    let code_views = i64_views(fe_codes)?;
+    let n = y_view.len();
     if code_views.is_empty() {
-        // No FE → no separation possible; keep every row.
-        let all_keep: Vec<u8> = vec![1u8; y_view.len()];
-        return Ok(PyArray1::from_vec_bound(py, all_keep));
+        return Ok(PyArray1::from_vec_bound(py, vec![1u8; n]));
     }
     if g_view.len() != code_views.len() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+        return err(format!(
             "len(g_per_fe)={} but len(fe_codes)={}",
             g_view.len(),
             code_views.len()
-        )));
+        ));
     }
-    let n = y_view.len();
-    for v in &code_views {
-        if v.as_slice()?.len() != n {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "fe_codes entry has length {} but n={}",
-                v.as_slice()?.len(),
-                n
-            )));
-        }
+    if g_view.iter().any(|&g| g < 0) {
+        return err("g_per_fe must be non-negative".into());
     }
-
-    let codes_slices: Vec<&[i64]> =
-        code_views.iter().map(|v| v.as_slice().unwrap()).collect();
-    let g_per_fe_vec: Vec<usize> = g_view.iter().map(|&g| g as usize).collect();
-
-    let keep = py.allow_threads(|| {
-        separation::separation_mask(y_view, &codes_slices, &g_per_fe_vec)
-    });
-    let as_u8: Vec<u8> = keep.into_iter().map(|b| if b { 1 } else { 0 }).collect();
+    let g_vec: Vec<usize> = g_view.iter().map(|&g| g as usize).collect();
+    let codes = code_slices(&code_views, &g_vec, n, "fe_codes")?;
+    let keep = py.allow_threads(|| separation::separation_mask(y_view, &codes, &g_vec));
+    let as_u8: Vec<u8> = keep.into_iter().map(u8::from).collect();
     Ok(PyArray1::from_vec_bound(py, as_u8))
 }
 
-/// Cluster-robust sandwich "meat" matrix.
+/// Cluster-robust sandwich "meat" matrix ``sum_g (X_g' r_g)(X_g' r_g)'``.
 ///
-/// ``X`` and ``residuals`` must be **pre-sorted by cluster** (the
-/// Python wrapper at ``statspai.core._numba_kernels.cluster_meat`` does
-/// this with ``np.argsort(cluster_ids, kind='mergesort')``).
-/// ``cluster_starts[g] .. cluster_ends[g]`` is the row range of cluster
-/// ``g`` (half-open).
-///
-/// Parallelism: clusters are summed independently with Rayon over a
-/// thread-local k×k upper-tri accumulator and reduced.
+/// ``x`` and ``residuals`` must be pre-sorted by cluster;
+/// ``cluster_starts[g] .. cluster_ends[g]`` is the half-open row range of
+/// cluster ``g``. Fixed blocks of clusters are summed in parallel and the
+/// block sums are added in order, so the result is the same at any
+/// thread count.
 ///
 /// Parameters
 /// ----------
 /// x : 2-D float64 ndarray, shape (n, k), C-contiguous
-///     Pre-sorted design matrix.
 /// residuals : 1-D float64 ndarray, shape (n,)
-///     Pre-sorted residuals.
-/// cluster_starts : 1-D int64 ndarray, shape (G,)
-/// cluster_ends   : 1-D int64 ndarray, shape (G,)
-///     Half-open row ranges per cluster.
+/// cluster_starts, cluster_ends : 1-D int64 ndarray, shape (G,)
 ///
 /// Returns
 /// -------
@@ -705,71 +668,56 @@ fn cluster_meat<'py>(
     cluster_ends: PyReadonlyArray1<'py, i64>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     if !x.is_c_contiguous() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "x must be C-contiguous; pass np.ascontiguousarray(X)",
-        ));
+        return err("x must be C-contiguous; pass np.ascontiguousarray(X)".into());
     }
     let arr = x.as_array();
-    let shape = arr.shape();
-    if shape.len() != 2 {
-        return Err(pyo3::exceptions::PyValueError::new_err("x must be 2-D"));
-    }
-    let n = shape[0];
-    let k = shape[1];
-
-    let r = residuals.as_slice()?;
+    let (n, k) = (arr.shape()[0], arr.shape()[1]);
+    let r = slice1(&residuals, "residuals")?;
     if r.len() != n {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "len(residuals)={} but n={}",
-            r.len(),
-            n
-        )));
+        return err(format!("len(residuals)={} but n={n}", r.len()));
     }
-    let starts_i = cluster_starts.as_slice()?;
-    let ends_i = cluster_ends.as_slice()?;
+    let starts_i = slice1(&cluster_starts, "cluster_starts")?;
+    let ends_i = slice1(&cluster_ends, "cluster_ends")?;
     if starts_i.len() != ends_i.len() {
-        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+        return err(format!(
             "len(cluster_starts)={} but len(cluster_ends)={}",
             starts_i.len(),
             ends_i.len()
-        )));
+        ));
     }
-    // Validate cluster bounds before going into ``allow_threads``: any
-    // out-of-range index would otherwise panic inside the parallel
-    // section, which is harder to surface as a Python exception.
     for (g, (&s, &e)) in starts_i.iter().zip(ends_i.iter()).enumerate() {
-        if s < 0 || e < 0 {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "cluster {g}: negative start/end ({s},{e})"
-            )));
-        }
-        let (su, eu) = (s as usize, e as usize);
-        if eu < su || eu > n {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "cluster {g}: invalid range [{su},{eu}) with n={n}"
-            )));
+        if s < 0 || e < s || e as u64 > n as u64 {
+            return err(format!("cluster {g}: invalid range [{s},{e}) with n={n}"));
         }
     }
     let starts: Vec<usize> = starts_i.iter().map(|&v| v as usize).collect();
     let ends: Vec<usize> = ends_i.iter().map(|&v| v as usize).collect();
-
-    let x_slice = arr.as_slice().ok_or_else(|| {
-        pyo3::exceptions::PyValueError::new_err(
-            "internal: x.as_slice() failed despite C-contiguous check",
-        )
-    })?;
+    let x_slice = arr
+        .as_slice()
+        .ok_or_else(|| PyValueError::new_err("x must be C-contiguous"))?;
 
     let meat_flat = py.allow_threads(|| {
-        cluster::cluster_meat_sorted(x_slice, n, k, r, &starts, &ends)
+        pool::install(|| cluster::cluster_meat_sorted(x_slice, n, k, r, &starts, &ends))
     });
-
-    let arr2 = Array2::from_shape_vec((k, k), meat_flat).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("from_shape_vec: {e}"))
-    })?;
+    let arr2 = Array2::from_shape_vec((k, k), meat_flat)
+        .map_err(|e| PyValueError::new_err(format!("from_shape_vec: {e}")))?;
     Ok(PyArray2::from_owned_array_bound(py, arr2))
 }
 
-/// Python module definition.
+/// Set the number of threads the parallel kernels use (0 = default: one
+/// per logical CPU, or ``RAYON_NUM_THREADS``). The environment variable
+/// ``STATSPAI_NUM_THREADS`` sets the initial size.
+#[pyfunction]
+fn set_num_threads(n: usize) -> PyResult<()> {
+    pool::set_num_threads(n).map_err(PyValueError::new_err)
+}
+
+/// Number of threads the parallel kernels use.
+#[pyfunction]
+fn get_num_threads() -> usize {
+    pool::num_threads()
+}
+
 #[pymodule]
 fn statspai_hdfe(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(group_demean, m)?)?;
@@ -779,7 +727,10 @@ fn statspai_hdfe(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fepois_irls, m)?)?;
     m.add_function(wrap_pyfunction!(singleton_mask, m)?)?;
     m.add_function(wrap_pyfunction!(separation_mask, m)?)?;
-    m.add_function(wrap_pyfunction!(cluster_meat, m)?)?;  // Phase 2
-    m.add("__version__", "0.7.0-alpha.1")?;               // BUMPED 0.6.0 → 0.7.0-alpha.1
+    m.add_function(wrap_pyfunction!(cluster_meat, m)?)?;
+    m.add_function(wrap_pyfunction!(set_num_threads, m)?)?;
+    m.add_function(wrap_pyfunction!(get_num_threads, m)?)?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add("API_VERSION", API_VERSION)?;
     Ok(())
 }

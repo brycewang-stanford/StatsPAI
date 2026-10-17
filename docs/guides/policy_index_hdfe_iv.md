@@ -69,7 +69,7 @@ with citizen-science data, observation effort enters the outcome mechanically.
 res = sp.iv(
     "shannon ~ (policy ~ z) + temp + wind + log_pop + log_birding_hours",
     data=panel,
-    absorb=["county", "ym"],       # HDFE, partialled out (Rust backend)
+    absorb=["county", "ym"],       # HDFE, partialled out (sp.fast.demean)
     cluster="county",
 )
 print(res.summary())

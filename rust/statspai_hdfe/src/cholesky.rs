@@ -13,35 +13,35 @@
 //! `cholesky_solve` does forward + back substitution to solve
 //! `L L^T x = b` in-place on `b`.
 
-const RIDGE: f64 = 1e-12;
+/// A pivot is treated as zero when, after elimination, it is at most
+/// this fraction of the original diagonal element: the column is then a
+/// linear combination of the earlier ones up to an R² of ``1 - COLLINEAR``.
+pub const COLLINEAR: f64 = 1e-12;
 
-/// In-place Cholesky factor of a k×k SPD matrix stored row-major.
+/// In-place Cholesky factor of a k×k symmetric matrix stored row-major.
 /// On return, the lower triangle of `a` holds L (the factor); the
-/// strict upper triangle is unchanged. If a diagonal pivot would
-/// underflow below `RIDGE`, a small ridge is added (matches the
-/// `lapack_lite` policy in the Python NumPy fallback).
+/// strict upper triangle is unchanged.
 ///
-/// Returns `Err(())` if the input is too poorly conditioned to factor
-/// even with ridge regularization (currently unreachable on
-/// well-formed Σ_i w_i x_i x_i' for the IRLS use case).
+/// Returns `Err(j)` when column `j` is numerically collinear with the
+/// earlier columns (see [`COLLINEAR`]), or its diagonal is zero or not
+/// finite. No ridge is added: a singular system is reported, not
+/// silently regularised.
 #[allow(clippy::needless_range_loop)]
-pub fn cholesky_factor(a: &mut [f64], k: usize) -> Result<(), ()> {
+pub fn cholesky_factor(a: &mut [f64], k: usize) -> Result<(), usize> {
     debug_assert_eq!(a.len(), k * k);
 
     for j in 0..k {
-        // Diagonal element: a[j,j] -= Σ_{m<j} L[j,m]^2; sqrt; ridge guard.
-        let mut diag = a[j * k + j];
+        let orig = a[j * k + j];
+        // Diagonal element: a[j,j] -= Σ_{m<j} L[j,m]^2; sqrt.
+        let mut diag = orig;
         for m in 0..j {
             let ljm = a[j * k + m];
             diag -= ljm * ljm;
         }
-        if diag <= RIDGE {
-            diag = diag.max(RIDGE);
+        if !(orig > 0.0) || !diag.is_finite() || diag <= COLLINEAR * orig {
+            return Err(j);
         }
         let l_jj = diag.sqrt();
-        if !l_jj.is_finite() || l_jj <= 0.0 {
-            return Err(());
-        }
         a[j * k + j] = l_jj;
         // Sub-diagonal elements in column j: L[i,j] = (a[i,j] - Σ_{m<j} L[i,m] L[j,m]) / L[j,j]
         for i in (j + 1)..k {
@@ -112,6 +112,30 @@ mod tests {
         for &v in b.iter() {
             assert!((v - 1.0).abs() < 1e-10, "expected 1.0, got {v}");
         }
+    }
+
+    #[test]
+    fn collinear_columns_are_reported() {
+        // Column 2 = column 0 + column 1.
+        let x = [[1.0, 2.0, 3.0], [0.5, -1.0, -0.5], [2.0, 0.0, 2.0], [1.0, 1.0, 2.0]];
+        let mut a = vec![0.0; 9];
+        for row in &x {
+            for i in 0..3 {
+                for j in 0..3 {
+                    a[i * 3 + j] += row[i] * row[j];
+                }
+            }
+        }
+        assert_eq!(cholesky_factor(&mut a, 3), Err(2));
+        let mut z = vec![0.0, 0.0, 0.0, 1.0];
+        assert_eq!(cholesky_factor(&mut z, 2), Err(0));
+    }
+
+    #[test]
+    fn small_scale_regressor_is_not_collinear() {
+        // A legitimate regressor of scale 1e-7 next to one of scale 1.
+        let mut a = vec![1.0, 1e-9, 1e-9, 1e-14];
+        assert!(cholesky_factor(&mut a, 2).is_ok());
     }
 
     /// Random k×k SPD matrices via A = M^T M + I; verify L L^T x ≈ b.

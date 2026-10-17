@@ -17,7 +17,9 @@ redirected to a scratch directory, under the same profiler as
   (``import statspai`` happens before profiling, so this is the timed path,
   not the package), including the Python source behind any Numba-compiled
   function that was called, and
-* the Rust HDFE backend sources,
+* the Rust HDFE backend sources, when the traced run loaded the Rust
+  kernels (``rust_loaded``; without them no Rust code is on the timed
+  path, so editing the crate cannot stale the timings),
 
 next to the package version the committed timings were measured with. The
 record is ``tests/perf/results/_timed_path.json``.
@@ -147,9 +149,12 @@ def _trace_child(stem: str, scratch: str) -> dict:
         sys.setprofile(None)
         sys.argv = old_argv
 
+    from statspai import _rust_backend
+
     repo = str(REPO) + os.sep
     return {
         "error": error,
+        "rust_loaded": bool(_rust_backend.HAS_RUST),
         "exercised_sources": {
             f[len(repo) :].replace(os.sep, "/"): _sha256(Path(f))
             for f in sorted(exercised)
@@ -185,7 +190,7 @@ def _trace(stem: str) -> dict:
         }
     rec["script_sha256"] = _sha256(PERF / f"{stem}_perf.py")
     rec["harness_sha256"] = {rel: _sha256(REPO / rel) for rel in HARNESS}
-    rec["rust_sources"] = _rust_sources()
+    rec["rust_sources"] = _rust_sources() if rec.get("rust_loaded", True) else {}
     rec["timings_measured_with"] = _measured_version(stem)
     return rec
 
@@ -207,7 +212,9 @@ def stale_reasons(stem: str, rec: dict) -> list:
     for rel, digest in (sources or {}).items():
         if not (REPO / rel).exists() or _sha256(REPO / rel) != digest:
             reasons.append(f"{rel} changed")
-    if rec.get("rust_sources") != _rust_sources():
+    # Records written before ``rust_loaded`` existed bind the crate
+    # unconditionally; newer ones only when the timed run loaded it.
+    if rec.get("rust_loaded", True) and rec.get("rust_sources") != _rust_sources():
         reasons.append("rust/statspai_hdfe sources changed")
     if rec.get("timings_measured_with") != _measured_version(stem):
         reasons.append(

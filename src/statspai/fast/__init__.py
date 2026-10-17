@@ -4,33 +4,37 @@
 Contents (v1.8 / Phase 1+):
 
 - :func:`hdfe_bench` — wall-time + correctness regression harness.
-- :func:`demean`     — multi-way HDFE within-transform with Aitken
-  acceleration, backed by a Rust kernel (NumPy fallback).
+- :func:`demean`     — multi-way HDFE within-transform, backed by the
+  optional Rust kernels (NumPy fallback).
+- :func:`backend_info` / :func:`set_num_threads` / :func:`get_num_threads`
+  — whether the Rust kernels (``pip install "statspai[rust]"``) are in
+  use, and the size of their thread pool.
 
 The module exposes building blocks that Phase 2+ (PPML / GLM HDFE),
 Phase 3 (`sp.within`), and Phase 5 (Polars/Arrow direct) sit on top of.
 """
 
-from .bench import hdfe_bench, HDFEBenchResult
-from .demean import demean, DemeanInfo
-from .fepois import fepois, FePoisResult
-from .feols import feols, FeolsResult
-from .within import within, WithinTransformer
-from .dsl import i, fe_interact, sw, csw
+from ._backend import backend_info, get_num_threads, set_num_threads
+from .bench import HDFEBenchResult, hdfe_bench
+from .demean import DemeanInfo, demean
+from .dsl import csw, fe_interact, i, sw
+from .etable import etable
+from .event_study import EventStudyResult, event_study
+from .feols import FeolsResult, feols
+from .fepois import FePoisResult, fepois
 from .inference import (
-    crve,
-    boottest,
     BootTestResult,
-    boottest_wald,
     BootWaldResult,
+    WaldTestResult,
+    boottest,
+    boottest_wald,
     cluster_dof_bm,
     cluster_dof_wald_bm,
     cluster_dof_wald_htz,
     cluster_wald_htz,
-    WaldTestResult,
+    crve,
 )
-from .event_study import event_study, EventStudyResult
-from .etable import etable
+from .within import WithinTransformer, within
 
 # Optional JAX backend — exposes diagnostic helper at module level.
 try:
@@ -46,9 +50,9 @@ except ImportError:  # pragma: no cover
 # the Rust/numpy default. Lazy-load — module import stays jax-free.
 try:
     from .jax_feols import (  # noqa: F401
+        FeolsBootstrapResult,
         feols_jax,
         feols_jax_bootstrap,
-        FeolsBootstrapResult,
     )
 
     _HAS_JAX_FEOLS = True
@@ -58,9 +62,9 @@ except ImportError:  # pragma: no cover
     # ``def``). The shadowing form trips griffe's alias resolver and breaks
     # ``mkdocs build --strict``; behaviour is byte-identical either way.
     from ._jax_fallback import (  # type: ignore[assignment]  # noqa: F401
+        FeolsBootstrapResult,
         feols_jax,
         feols_jax_bootstrap,
-        FeolsBootstrapResult,
     )
 
     _HAS_JAX_FEOLS = False
@@ -81,6 +85,9 @@ except ImportError:  # pragma: no cover
     _HAS_POLARS_IO = False
 
 __all__ = [
+    "backend_info",
+    "set_num_threads",
+    "get_num_threads",
     "hdfe_bench",
     "HDFEBenchResult",
     "demean",

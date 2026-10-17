@@ -1,0 +1,184 @@
+name: Rust kernels (statspai-hdfe)
+
+# The optional Rust kernels live in rust/statspai_hdfe and ship as their own
+# PyPI package, statspai-hdfe (`pip install "statspai[rust]"`). StatsPAI
+# itself stays a pure-Python wheel and falls back to NumPy / Numba without
+# them (src/statspai/_rust_backend.py).
+#
+# * test    — every push / PR that touches the crate or the Python code that
+#             calls it: `cargo test`, then the extension is built into the
+#             job's environment and the Python tests that exercise the Rust
+#             path run with STATSPAI_REQUIRE_RUST=1, so a missing or
+#             unusable extension fails the job instead of skipping tests.
+#             Linux, macOS (arm64) and Windows. Before this workflow no CI
+#             job built the crate or ran a single Rust-path test.
+# * wheels  — on workflow_dispatch or an `hdfe-v*` tag: abi3 wheels (one
+#             per platform, every CPython >= 3.10) for manylinux x86_64 /
+#             aarch64, musllinux x86_64, macOS x86_64 / arm64 and Windows
+#             x64, plus the sdist.
+# * publish — only on an `hdfe-v*` tag, through PyPI trusted publishing
+#             (environment "pypi"). Pushing such a tag is the release
+#             decision; nothing else uploads.
+#
+# Security note: only `matrix.*` values defined in this file are
+# interpolated into `run:` blocks; no `github.event.*` strings are.
+
+on:
+  push:
+    branches: [main]
+    tags: ["hdfe-v*"]
+    paths:
+      - "rust/**"
+      - "src/statspai/_rust_backend.py"
+      - "src/statspai/fast/**"
+      - "src/statspai/core/_numba_kernels.py"
+      - "src/statspai/panel/hdfe.py"
+      - "tests/test_rust_backend.py"
+      - ".github/workflows/rust-hdfe.yml"
+  pull_request:
+    paths:
+      - "rust/**"
+      - "src/statspai/_rust_backend.py"
+      - "src/statspai/fast/**"
+      - "src/statspai/core/_numba_kernels.py"
+      - "src/statspai/panel/hdfe.py"
+      - "tests/test_rust_backend.py"
+      - ".github/workflows/rust-hdfe.yml"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: rust-hdfe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo test
+        working-directory: rust/statspai_hdfe
+        env:
+          PYO3_PYTHON: python
+        run: |
+          # The unit tests link against libpython (the extension-module
+          # feature is off for `cargo test`); point the loader at it.
+          export LD_LIBRARY_PATH="${pythonLocation}/lib:${LD_LIBRARY_PATH:-}"
+          export DYLD_LIBRARY_PATH="${pythonLocation}/lib:${DYLD_LIBRARY_PATH:-}"
+          cargo test --release
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/pip
+            ~/Library/Caches/pip
+            ~\AppData\Local\pip\Cache
+          key: rust-hdfe-pip-${{ matrix.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: rust-hdfe-pip-${{ matrix.os }}-
+
+      - name: Build and install the extension
+        run: |
+          python -m pip install --upgrade pip maturin
+          maturin build --release -m rust/statspai_hdfe/Cargo.toml -o rust-dist
+          pip install rust-dist/*.whl
+          pip install -e ".[dev]"
+
+      - name: Rust-path tests
+        env:
+          STATSPAI_REQUIRE_RUST: "1"
+          STATSPAI_NUM_THREADS: "2"
+        run: |
+          python -m pytest -q --no-header -o addopts='' -p no:cacheprovider \
+            tests/test_rust_backend.py \
+            tests/test_fast_demean.py \
+            tests/test_fast_feols.py \
+            tests/test_fast_fepois.py \
+            tests/test_fast_event_study.py \
+            tests/test_fast_within_dsl.py \
+            tests/test_fast_inference.py \
+            tests/test_cluster_meat_rust.py \
+            tests/test_numba_kernels.py \
+            tests/reference_parity/test_fast_fepois_fixest_parity.py \
+            tests/reference_parity/test_fast_feols_weights_fixest_parity.py \
+            tests/reference_parity/test_panel_absorb_ols_parity.py
+
+  wheels:
+    name: Wheel (${{ matrix.os }} / ${{ matrix.target }})
+    if: startsWith(github.ref, 'refs/tags/hdfe-v') || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64, manylinux: auto }
+          - { os: ubuntu-latest, target: aarch64, manylinux: auto }
+          - { os: ubuntu-latest, target: x86_64, manylinux: musllinux_1_2 }
+          - { os: macos-14, target: x86_64, manylinux: "" }
+          - { os: macos-14, target: aarch64, manylinux: "" }
+          - { os: windows-latest, target: x64, manylinux: "" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: rust/statspai_hdfe
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --out dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-${{ matrix.os }}-${{ matrix.target }}-${{ matrix.manylinux }}
+          path: rust/statspai_hdfe/dist/*.whl
+
+  sdist:
+    name: sdist
+    if: startsWith(github.ref, 'refs/tags/hdfe-v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: rust/statspai_hdfe
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: rust/statspai_hdfe/dist/*.tar.gz
+
+  publish:
+    name: Publish statspai-hdfe to PyPI
+    needs: [test, wheels, sdist]
+    if: startsWith(github.ref, 'refs/tags/hdfe-v')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

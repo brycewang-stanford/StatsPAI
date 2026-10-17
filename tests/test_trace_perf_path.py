@@ -86,3 +86,21 @@ def test_a_version_bump_alone_does_not_stale_the_timings(tmp_path):
         encoding="utf-8",
     )
     assert tpp._sha256(bumped) == tpp._sha256(init)
+
+
+def test_rust_sources_bind_only_timings_that_loaded_the_rust_kernels():
+    # A timing measured without the optional Rust extension ran no Rust
+    # code, so editing the crate must not stale it; one that loaded it must.
+    stem = "01_hdfe"
+    edited = {"rust/statspai_hdfe/src/coef.rs": "0" * 64}
+    without = copy.deepcopy(RECORD[stem])
+    without["rust_loaded"] = False
+    without["rust_sources"] = edited
+    assert "rust/statspai_hdfe sources changed" not in tpp.stale_reasons(stem, without)
+    with_rust = copy.deepcopy(without)
+    with_rust["rust_loaded"] = True
+    assert "rust/statspai_hdfe sources changed" in tpp.stale_reasons(stem, with_rust)
+    # Records from before the flag existed keep binding the crate.
+    legacy = copy.deepcopy(with_rust)
+    del legacy["rust_loaded"]
+    assert "rust/statspai_hdfe sources changed" in tpp.stale_reasons(stem, legacy)

@@ -122,12 +122,12 @@ def _detect_backends() -> Dict[str, _Backend]:
             note="statspai.panel._hdfe_kernels missing",
         )
 
-    # Rust path: present for forward-compat but marked unavailable
-    # until the PyO3 wheel lands (see spec 2026-04-20-v095-rust-hdfe-spike).
-    try:
-        from statspai_hdfe import (
-            group_demean as _rust_group_demean,  # type: ignore[import-untyped]
-        )
+    # Rust path: the legacy single-FE kernel of the optional extension.
+    from .._rust_backend import info as _rust_info
+    from .._rust_backend import rust as _rust_mod
+
+    if _rust_mod is not None:
+        _rust_group_demean = _rust_mod.group_demean
 
         def _hdfe_rust(
             y: np.ndarray,
@@ -150,12 +150,12 @@ def _detect_backends() -> Dict[str, _Backend]:
             available=True,
             note="PyO3 + Rayon kernel (statspai_hdfe crate)",
         )
-    except Exception:
+    else:
         backends["rust"] = _Backend(
             name="rust",
             fn=_hdfe_numpy,
             available=False,
-            note="Rust kernel not built (expected pre-1.0)",
+            note=f"Rust kernels unavailable: {_rust_info()['reason']}",
         )
 
     return backends

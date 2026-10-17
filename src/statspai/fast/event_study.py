@@ -45,6 +45,7 @@ from ..did.event_study import _build_bins, _resolve_ref_set
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
+from ._validation import require_identified_regressors as _require_identified_regressors
 from .inference import crve as _crve
 from .within import within as _within
 
@@ -397,6 +398,18 @@ def event_study(
     wt = _within(df_aug, fe=[unit, time], drop_singletons=drop_singletons)
     y_dem, _ = wt.transform(y_values)
     X_dem = wt.transform_columns(df_aug, dummy_cols).to_numpy()
+
+    # An absorbed dummy comes back as rounding noise, which inverting the
+    # normal equations would not catch; check explicitly.
+    X_raw = dummies.to_numpy()[wt.keep_mask]
+    _require_identified_regressors(
+        X_raw,
+        X_dem,
+        dummy_cols,
+        context="event_study",
+        tol_abs=wt._tol_abs,
+        tol_rel=wt._tol,
+    )
 
     # OLS on residualised
     XtX = X_dem.T @ X_dem

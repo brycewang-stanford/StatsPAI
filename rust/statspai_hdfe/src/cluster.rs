@@ -5,9 +5,9 @@
 //!
 //!     M = Σ_g (Σ_{i ∈ g} s_i) (Σ_{i ∈ g} s_i)ᵀ
 //!
-//! Clusters are independent → embarrassingly parallel via Rayon. We
-//! fold over clusters with a thread-local ``k × k`` accumulator, then
-//! reduce. Within each cluster only the upper triangle is updated; the
+//! Clusters are independent → embarrassingly parallel via Rayon. Fixed
+//! blocks of clusters are accumulated in parallel and the block sums are
+//! added in order, so the result does not depend on the thread count. Within each cluster only the upper triangle is updated; the
 //! caller-visible side is symmetrised at the end.
 //!
 //! The Python wrapper at ``statspai.core._numba_kernels.cluster_meat``
@@ -16,6 +16,10 @@
 //! / object-id comparisons cross the FFI boundary.
 
 use rayon::prelude::*;
+
+/// Clusters per parallel block. Part of the result's definition: the
+/// partial sums are grouped by these blocks.
+const CLUSTERS_PER_BLOCK: usize = 64;
 
 /// Compute the cluster-robust meat matrix.
 ///
@@ -52,15 +56,17 @@ pub fn cluster_meat_sorted(
         return vec![0f64; k * k];
     }
 
-    // Parallel fold: each Rayon thread maintains its own k×k upper-tri
-    // accumulator + a scratch score vector. Reduce sums them
-    // element-wise.
-    let mut meat = (0..g)
-        .into_par_iter()
-        .fold(
-            || (vec![0f64; k * k], vec![0f64; k]),
-            |(mut acc, mut score), gi| {
-                // Reset score scratch.
+    // Fixed blocks of clusters, summed in parallel and then added in
+    // block order. The grouping of the partial sums depends only on the
+    // input, not on the number of threads or on work stealing, so the
+    // result is reproducible bit for bit.
+    let block_meats: Vec<Vec<f64>> = (0..g)
+        .collect::<Vec<usize>>()
+        .par_chunks(CLUSTERS_PER_BLOCK)
+        .map(|block| {
+            let mut acc = vec![0f64; k * k];
+            let mut score = vec![0f64; k];
+            for &gi in block {
                 for s in score.iter_mut() {
                     *s = 0.0;
                 }
@@ -85,19 +91,16 @@ pub fn cluster_meat_sorted(
                         acc[row_off + b] += sa * score[b];
                     }
                 }
-                (acc, score)
-            },
-        )
-        .map(|(acc, _scratch)| acc)
-        .reduce(
-            || vec![0f64; k * k],
-            |mut a, b| {
-                for i in 0..(k * k) {
-                    a[i] += b[i];
-                }
-                a
-            },
-        );
+            }
+            acc
+        })
+        .collect();
+    let mut meat = vec![0f64; k * k];
+    for bm in &block_meats {
+        for i in 0..(k * k) {
+            meat[i] += bm[i];
+        }
+    }
 
     // Mirror upper triangle to lower so callers can treat the result as
     // a fully symmetric matrix.
@@ -178,5 +181,33 @@ mod tests {
         // meat = 9 + 49 = 58.
         let got = cluster_meat_sorted(&x, 4, 1, &r, &starts, &ends);
         assert_eq!(got, vec![58.0]);
+    }
+
+    #[test]
+    fn bit_identical_across_thread_counts() {
+        let (n, k, g) = (20_000usize, 4usize, 1_500usize);
+        let mut state: u64 = 3;
+        let mut next = || {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((state >> 11) as f64) / ((1u64 << 53) as f64) - 0.5
+        };
+        let x: Vec<f64> = (0..n * k).map(|_| next()).collect();
+        let r: Vec<f64> = (0..n).map(|_| next()).collect();
+        let starts: Vec<usize> = (0..g).map(|c| c * n / g).collect();
+        let ends: Vec<usize> = (0..g).map(|c| (c + 1) * n / g).collect();
+        let mut results = Vec::new();
+        for threads in [1usize, 3, 8] {
+            crate::pool::set_num_threads(threads).unwrap();
+            results.push(crate::pool::install(|| {
+                cluster_meat_sorted(&x, n, k, &r, &starts, &ends)
+            }));
+        }
+        for res in &results[1..] {
+            assert!(res.iter().zip(&results[0]).all(|(a, b)| a.to_bits() == b.to_bits()));
+        }
+        let want = reference(&x, n, k, &r, &starts, &ends);
+        for i in 0..k * k {
+            assert!((results[0][i] - want[i]).abs() < 1e-9);
+        }
     }
 }

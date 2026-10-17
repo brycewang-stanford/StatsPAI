@@ -2,12 +2,10 @@
 
 This module ships an API-compatible backend for :func:`statspai.fast.feols`
 whose **WLS solve + HC1 sandwich** computations execute on JAX/XLA
-(CPU / GPU / TPU). The FE residualisation step still goes through the
-Rust ``demean`` kernel because, on typical FE cardinalities, the
-bincount-style memory pattern beats anything XLA emits on CPU. The
-``cr1`` cluster-robust path also stays on the existing
-:func:`statspai.fast.inference.crve`, which itself dispatches to the
-Phase-2 Rust ``cluster_meat`` kernel when built. The unique value of
+(CPU / GPU / TPU). The FE residualisation step still goes through
+:func:`statspai.fast.demean` (the optional Rust kernels when installed,
+NumPy otherwise). The ``cr1`` cluster-robust path also stays on the
+existing :func:`statspai.fast.inference.crve` (NumPy). The unique value of
 this module is on **GPU** boxes: the post-demean dense linear algebra
 step runs at GPU speed without any host↔device ping-pong inside the
 solve.

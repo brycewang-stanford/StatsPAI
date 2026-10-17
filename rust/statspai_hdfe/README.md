@@ -1,60 +1,99 @@
-# statspai_hdfe
+# statspai-hdfe
 
-PyO3 + Rayon HDFE group-demean kernel for [StatsPAI](https://github.com/brycewang-stanford/StatsPAI).
+Rust kernels for [StatsPAI](https://github.com/brycewang-stanford/StatsPAI):
+high-dimensional fixed-effect (HDFE) demeaning, the native Poisson IRLS
+behind `sp.fast.fepois`, and the cluster-robust sandwich meat.
 
-See
-[`docs/superpowers/specs/2026-04-20-v095-rust-hdfe-spike.md`](../../docs/superpowers/specs/2026-04-20-v095-rust-hdfe-spike.md)
-on the parent repo for the full rollout plan.
+```bash
+pip install "statspai[rust]"     # or: pip install statspai-hdfe
+```
 
-## Build
+StatsPAI never requires this package. Without it the same functions run
+on NumPy / Numba and agree with the Rust path to within the
+residualisation tolerance. Check which one is in use:
+
+```python
+import statspai as sp
+sp.fast.backend_info()      # {'available': True, 'version': '0.8.0', 'threads': 8, ...}
+sp.fast.set_num_threads(4)  # or set STATSPAI_NUM_THREADS before starting Python
+```
+
+`STATSPAI_SKIP_RUST=1` makes StatsPAI ignore an installed extension.
+
+## What uses it
+
+| StatsPAI entry point | Kernel |
+| --- | --- |
+| `sp.fast.feols`, `sp.fast.demean`, `sp.fast.within`, `sp.fast.event_study` | `demean_2d` |
+| `sp.fast.feols(weights=)`, `sp.ppmlhdfe` (two or more FEs) | `demean_2d_weighted` |
+| `sp.fast.fepois` | `fepois_irls`, `separation_mask` |
+| `sp.iv(absorb=)`, `sp.didregress`, `sp.iv.iv_diag`, weak-IV diagnostics | `demean_2d` |
+| `sp.regress(cluster=)` (one-way) | `cluster_meat` |
+| singleton pruning in `sp.fast` | `singleton_mask` |
+
+`sp.hdfe_ols` / `sp.Absorber`, `sp.panel` and the pyfixest-backed
+`sp.feols` do not use it.
+
+## Algorithm
+
+The fixed-effect projection is solved in the space of FE coefficients,
+as `fixest` does (Bergé 2018; `paper.bib` key `berge2018efficient`):
+
+* **Two FEs.** One Gauss-Seidel sweep needs only the group sums of the
+  column and the sparse cross-tabulation of the two FEs, so it costs
+  `O(nnz)` instead of `O(n)`; on panels where a unit meets few levels of
+  the other FE (worker x firm, firm x year) that is a small fraction of
+  the rows. The iteration runs on the coefficients of the smaller FE and
+  is accelerated with Irons-Tuck at every step.
+* **Three or more FEs.** The two FEs with the most levels form a block
+  solved by the two-FE routine (warm-started) inside an outer
+  Gauss-Seidel over the others, accelerated with Irons-Tuck. The inner
+  tolerance starts loose and follows the outer change down.
+* **Stopping rule.** Stop when the bound on the change of the residual
+  between two sweeps is at most `tol_abs + tol_rel * max|x|`, the rule of
+  the NumPy reference in `statspai.fast.demean`.
+* **IRLS.** The FE structure is built once per `fepois` call; each
+  iteration re-weights it and restarts every column from its FE
+  coefficients of the previous iteration.
+
+Columns are processed in parallel. The cluster meat sums fixed blocks of
+clusters in parallel and adds the block sums in order, so its result is
+the same at any thread count; the demeaning is per column and therefore
+also independent of the thread count.
+
+## Safety
+
+Every entry point validates lengths, contiguity and code ranges before
+running and raises `ValueError` on bad input. The crate is built with
+`panic = "unwind"`, so an unexpected panic surfaces as a Python exception
+instead of aborting the interpreter. The kernels run on their own thread
+pool (never Rayon's global one), which is rebuilt in a forked child.
+
+## Build from source
 
 ```bash
 pip install maturin
 cd rust/statspai_hdfe
-maturin develop --release     # dev-time install into current venv
-# or
-maturin build --release       # produce a wheel for redistribution
+maturin develop --release       # into the active environment
+maturin build --release         # a wheel in target/wheels
+PYO3_PYTHON=python cargo test --release
 ```
 
-After install, verify activation from the parent repo:
+Wheels are abi3: one per platform serves every CPython >= 3.10. The
+`rust-hdfe` GitHub workflow tests the crate on Linux, macOS and Windows,
+builds wheels on demand, and publishes on an `hdfe-v*` tag.
 
-```bash
-python -c "from statspai.fast.demean import _HAS_RUST; print('rust:', _HAS_RUST)"
-python -c "from statspai.core._numba_kernels import _HAS_RUST_CLUSTER; print('cluster:', _HAS_RUST_CLUSTER)"
-```
+## Kernel API
 
-## Exposed kernels
+`statspai_hdfe.API_VERSION` names the interface level; StatsPAI ignores
+an extension older than the level it was written against
+(`statspai._rust_backend.MIN_API_VERSION`) and warns once.
 
-| Function | Purpose | Parallelism |
+| Level | Crate | Change |
 | --- | --- | --- |
-| `group_demean` | Legacy single-FE in-place demean | none |
-| `demean_2d` | K-way alternating-projection demean (Fortran in-place) | Rayon over columns |
-| `demean_2d_weighted` / `_sorted` | Weighted variants for IRLS-internal demean | Rayon over columns |
-| `fepois_irls` | Full Poisson IRLS inner loop (Phase B) | Rayon over columns |
-| `singleton_mask` | Iterative K-way singleton-row detection | none |
-| `separation_mask` | Iterative Poisson-separation detection | none |
-| `cluster_meat` *(0.7)* | Cluster-robust sandwich meat matrix `Σ_g (X_g'r_g)(X_g'r_g)ᵀ` | Rayon over clusters |
+| 1 | 0.1 – 0.7 | data-space alternating projections; inputs not validated |
+| 2 | 0.8 | coefficient-space solver; validated inputs; `fepois_irls` reports `singular` / `fe_converged`; thread-pool control; reproducible `cluster_meat` |
 
-## Phases
+## License
 
-- **Phase 1:** single-threaded `group_demean` reference.
-- **Phase 2 (legacy):** wire into `statspai.panel.hdfe` with numba fallback.
-- **Phase 3 (legacy):** Rayon-parallelised `group_demean_block`.
-- **Phase 4:** `cibuildwheel` matrix (macOS arm64/x86_64,
-  manylinux_2_17 x86_64/aarch64, musllinux_1_2 x86_64, Windows x86_64).
-- **Phase B (0.6):** Poisson IRLS + separation detection.
-- **Phase 2 of post-fixest catch-up (0.7-alpha.1):** `cluster_meat`
-  with Rayon over clusters; wired into
-  [`statspai.core._numba_kernels.cluster_meat`](../../src/statspai/core/_numba_kernels.py)
-  with the numba kernel as automatic fallback.
-
-## Contract
-
-Every release on this branch must:
-
-1. Bit-identically reproduce the NumPy reference kernel on 16+ DGPs
-   (`atol=1e-10`).
-2. Pass `statspai.fast.hdfe_bench` correctness gate when built into
-   the current venv (see `--atol 1e-10`).
-3. Never require end users to install Rust at `pip install` time —
-   missing wheels must fall back to the Python path silently.
+MIT.

@@ -293,6 +293,8 @@ def _worker(stem: str, scratch: str, ledger: str = "r") -> dict:
     env[LEDGERS[ledger]["env"]] = str(Path(scratch) / "results")
     Path(scratch, "results").mkdir(parents=True, exist_ok=True)
     env["STATSPAI_R_PARITY_DATA_DIR"] = str(Path(scratch) / "data")
+    # Parity results are produced without the optional Rust kernels.
+    env.setdefault("STATSPAI_SKIP_RUST", "1")
     env["PYTHONPATH"] = os.pathsep.join(
         [str(REPO / "src"), str(parity), env.get("PYTHONPATH", "")]
     )

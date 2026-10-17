@@ -53,10 +53,10 @@ that want to drive the HDFE machinery directly. Singletons are dropped by
 default (`drop_singletons=True`).
 
 !!! tip "Performance"
-    The HDFE path is backed by a Rust demeaning kernel when available and
-    transparently falls back to NumPy / pyfixest otherwise — see
-    [GPU acceleration](../guides/gpu_acceleration.md) and the `sp.fast.*`
-    namespace.
+    `sp.hdfe_ols` / `sp.Absorber` run on Numba-compiled kernels (NumPy
+    without Numba). The `sp.fast.*` estimators can use the optional Rust
+    kernels (`pip install "statspai[rust]"`) — see
+    [Rust kernels](../guides/rust_kernels.md).
 
 ## Interactive fixed effects — `sp.interactive_fe`
 

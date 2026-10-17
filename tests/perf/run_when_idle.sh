@@ -26,6 +26,8 @@ MAX_TRIES="${MAX_TRIES:-3}"
 export PYTHONPATH="$SRC"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 export VECLIB_MAXIMUM_THREADS=1 NUMBA_NUM_THREADS=1
+# The optional Rust kernels (statspai_hdfe) run on their own pool.
+export STATSPAI_NUM_THREADS=1 RAYON_NUM_THREADS=1
 export STATSPAI_PERF_RUN_ID="${STATSPAI_PERF_RUN_ID:-$(date +%Y%m%dT%H%M%S)}"
 PY="${PYTHON:-python3}"
 command -v Rscript >/dev/null || { echo "Rscript not found: the reference legs cannot run" >&2; exit 2; }
