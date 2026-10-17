@@ -18,6 +18,7 @@ on:
     paths:
       - "src/**"
       - "tests/**"
+      - "scripts/**"
       - "pyproject.toml"
       - ".github/workflows/windows.yml"
   workflow_dispatch:
