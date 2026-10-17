@@ -416,12 +416,11 @@ def _reliability_studies() -> List[Dict[str, Any]]:
         studies.append(
             {
                 "study": payload["study"],
-                "source": str(path.relative_to(REPO_ROOT)),
-                "script": str(
-                    path.with_name(
-                        path.name.replace("_results.json", ".py")
-                    ).relative_to(REPO_ROOT)
-                ),
+                # as_posix: str() gives backslashes on Windows
+                "source": path.relative_to(REPO_ROOT).as_posix(),
+                "script": path.with_name(path.name.replace("_results.json", ".py"))
+                .relative_to(REPO_ROOT)
+                .as_posix(),
                 "rows": rows,
             }
         )
