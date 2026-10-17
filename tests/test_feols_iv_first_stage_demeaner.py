@@ -63,8 +63,15 @@ def test_first_stage_matches_the_old_numba_refit(fml, vcov, seed):
     out = sp.feols(fml, data=df, vcov=vcov)
 
     # The model: pyfixest's compiled demeaner, as sp.feols has asked for
-    # since c824af18; the first stage plays no part in these numbers.
-    model = pf.feols(fml, data=df, vcov=vcov, demeaner_backend="rust")
+    # since c824af18; the first stage plays no part in these numbers. From
+    # pyfixest 0.60 that demeaner is the default and demeaner_backend is a
+    # legacy argument sp.feols no longer passes, so the reference is built
+    # the same way (on 0.60+ the legacy path differed in the 13th digit).
+    import inspect
+
+    legacy = "demeaner" not in inspect.signature(pf.feols).parameters
+    extra = {"demeaner_backend": "rust"} if legacy else {}
+    model = pf.feols(fml, data=df, vcov=vcov, **extra)
     np.testing.assert_array_equal(out.params.to_numpy(), np.asarray(model._beta_hat))
     if "Multiway VCOV negative eigenvalues" not in out.diagnostics:
         # (sp.feols repairs an indefinite two-way covariance; pyfixest not)

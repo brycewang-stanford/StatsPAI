@@ -106,7 +106,10 @@ jobs:
             tests/test_read_data_eviews_xlsx.py \
             tests/test_frame_input.py \
             tests/test_nb_dispersion_boundary.py \
-            tests/agent_eval/test_agent_bench_harness.py
+            tests/agent_eval/test_agent_bench_harness.py \
+            tests/test_cov95_rd_misc.py \
+            tests/test_cov95_synth_r3_cluster_fdid_core.py \
+            tests/test_feols_iv_first_stage_demeaner.py
 
       - name: Full suite
         if: inputs.scope == 'full'

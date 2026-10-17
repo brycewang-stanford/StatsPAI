@@ -16,9 +16,9 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.synth import _core
 from statspai.synth.cluster import cluster_synth
 from statspai.synth.fdid import fdid
-from statspai.synth import _core
 
 T_TREAT = 11
 
@@ -124,10 +124,16 @@ def test_cluster_synth_spectral_method():
         treatment_time=T_TREAT,
         n_clusters=3,
         cluster_method="spectral",
+        # These donors have no cluster structure, so whether the treated
+        # unit's cluster holds two donors depends on ARPACK's eigenvectors,
+        # which differ by platform (Windows put one donor there and the fit
+        # refused). Augmenting keeps the test about the spectral branch.
+        augment=True,
         placebo=False,
         seed=3,
     )
     assert np.isfinite(r.estimate)
+    assert r.model_info["cluster_method"] == "spectral"
 
 
 # ===========================================================================

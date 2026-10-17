@@ -57,8 +57,28 @@ are handled in the commit after `968a5897`:
   test skips without them.
 - ICC (3.13): already fixed in `506099db`.
 
-These tests are now in the Windows gate. The next clean full run puts
-Windows back into the main matrix.
+These tests are now in the Windows gate.
+
+A second full run on `4ae3af69`: Python 3.10 clean (38,490 passed); 3.13
+failed 8, all handled in the next commit:
+
+- `test_cov95_rd_misc` (`sp.rd_honest` bias bound vs RDHonest, 1.1e-7 over
+  a 1e-7 budget): the bandwidth minimises a smooth criterion by comparing
+  values, which places it to about sqrt(eps) on any optimiser (R's too);
+  the bias bound grows like h^2. That one quantity now has 1e-6, with the
+  mechanism stated; the other four stay at 1e-7.
+- `test_cluster_synth_spectral_method`: the donors have no cluster
+  structure, so the size of the treated unit's spectral cluster depends on
+  ARPACK's eigenvectors; Windows put one donor there and the fit refused.
+  The test now augments, which still runs the spectral branch.
+- `test_feols_iv_first_stage_demeaner` (6 cases): the Windows runner gets
+  pyfixest 0.60+, where the compiled demeaner is the default and
+  `demeaner_backend` a legacy argument that `sp.feols` no longer passes;
+  the reference model still passed it and differed in the 13th digit. It
+  is now built the way `sp.feols` builds it.
+
+When the gate passes on both versions and one more full run is clean,
+Windows joins the nightly matrix.
 
 
 Status on 2026-10-04: the Windows legs are out of the full CI matrix

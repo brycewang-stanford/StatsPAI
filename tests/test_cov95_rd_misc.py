@@ -94,21 +94,16 @@ def test_rd_honest_mse_and_flci_and_manual_M():
 
     # R: RDHonest(y ~ x, data, opt.criterion="MSE", kern="triangular")
     np.testing.assert_allclose(
-        [
-            r_mse.estimate,
-            r_mse.se,
-            r_mse.ci[0],
-            r_mse.ci[1],
-            r_mse.model_info["bias_bound"],
-        ],
-        [
-            3.087622208854458,
-            0.084018374895136,
-            2.903585486938229,
-            3.271658930770687,
-            0.042947117607393,
-        ],
+        [r_mse.estimate, r_mse.se, r_mse.ci[0], r_mse.ci[1]],
+        [3.087622208854458, 0.084018374895136, 2.903585486938229, 3.271658930770687],
         rtol=1e-7,
+    )
+    # The bandwidth minimises a smooth MSE criterion by comparing values, so
+    # any optimiser (R's optimize too) places it only to about sqrt(eps)
+    # relative; the bias bound grows like h^2 and inherits that. Observed:
+    # 5.2e-8 on macOS, 1.1e-7 on Windows (Python 3.13).
+    np.testing.assert_allclose(
+        r_mse.model_info["bias_bound"], 0.042947117607393, rtol=1e-6
     )
     # R: RDHonest(y ~ x, data, opt.criterion="FLCI", kern="triangular")
     np.testing.assert_allclose(
