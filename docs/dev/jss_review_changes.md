@@ -31,6 +31,26 @@ Rules:
 
 ## Entries
 
+### 2026-10-18 — Rust kernels rebuilt; parity traces re-recorded
+
+- **Commits.** `eb2d830f` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 01, 03, 14,
+  15, 47, 51, 53, 54, 55, 56, 68, 75) and
+  `tests/orig_parity/results/_implementation_trace.json` (01, 04, 04b, 09).
+- **Reason.** Source files on those modules' estimation paths changed:
+  `core/_numba_kernels.py`, `fast/*` and `panel/hdfe.py` now load the
+  optional Rust kernels through `statspai/_rust_backend.py`, and
+  `fast.feols` / `fast.fepois` check for absorbed regressors. The parity
+  environment has no Rust extension (the harnesses now set
+  `STATSPAI_SKIP_RUST=1`), so the Python path is the NumPy / Numba one.
+- **Effect on the paper.** None. Before re-recording, every affected module
+  was re-run into a scratch directory and compared with its committed
+  `*_py.json`: the largest relative difference was 1.6e-11 (01_card_original;
+  1.1e-11 for 01_ols), inside the 1e-9 reproducibility tolerance, so no
+  result file changed and no table number moves. Track C 01_hdfe's timed
+  path changed too (`tests/perf/results/_timed_path.json` is not touched
+  here); it is to be re-timed on main.
+
 ### 2026-10-14 — release 1.39.6: parity tables carry the new version string
 
 - **Commits.** `b840bef4` (release 1.39.6) regenerated
