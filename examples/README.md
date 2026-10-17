@@ -46,9 +46,14 @@ The scripts cover canonical causal-inference designs:
   schooling, recovering the classic pattern that the IV estimate exceeds the
   partialling-out one. The DoubleML-aligned, high-dimensional entry point.
 
+The notebooks in `notebooks/` are numbered in a suggested reading order:
+01 is the first-contact tour, 02-11 the method tutorials, 12 the networked
+DML reproduction, 13 figure editing, and 14 the live comparison that needs
+a local Stata.
+
 ## 5-minute tutorial for Stata users (offline, in Chinese)
 
-- `notebooks/statspai_vs_stata_5min.ipynb` - a first-contact tutorial that puts
+- `notebooks/01-statspai_vs_stata_5min.ipynb` - a first-contact tutorial that puts
   each Stata command (`summarize`, `regress`, `reghdfe`, `ivregress 2sls`,
   `esttab`, `csdid`, `rdrobust`) next to its one-line StatsPAI equivalent on
   the bundled datasets, and ends with `sp.from_stata` (translate one command)
@@ -60,12 +65,12 @@ The scripts cover canonical causal-inference designs:
 
 ```bash
 python -m pip install "statspai[plotting]" jupyter
-jupyter notebook examples/notebooks/statspai_vs_stata_5min.ipynb
+jupyter notebook examples/notebooks/01-statspai_vs_stata_5min.ipynb
 ```
 
 ## Live comparison with Stata (requires a local Stata 17+)
 
-- `notebooks/statspai_vs_stata_live.ipynb` - runs Stata and StatsPAI side by
+- `notebooks/14-statspai_vs_stata_live.ipynb` - runs Stata and StatsPAI side by
   side in one Python-kernel notebook. `%%stata` cells (Stata's own `pystata`)
   execute `regress`, `reghdfe`, `ivregress 2sls`, `csdid`, `rdrobust` and a
   do-file snippet on the bundled data; the results are read back from
@@ -85,60 +90,59 @@ be trusted, and closes with a checklist. Prose and code comments are in Chinese;
 English. They need only core StatsPAI plus matplotlib, and the committed
 notebooks ship their executed outputs.
 
-- `notebooks/tutorial_did_staggered.ipynb` - staggered difference-in-differences.
-  A simulated panel with a known truth shows TWFE missing the ATT by a third,
-  the Goodman-Bacon decomposition shows why, and `sp.callaway_santanna` /
-  `sp.aggte` recover it. Then the full workflow on `mpdta`: event study,
-  uniform bands, Sun-Abraham / imputation / ETWFE / two-stage cross-checks, and
-  `sp.honest_did` sensitivity to parallel-trends violations.
-- `notebooks/tutorial_iv_card.ipynb` - instrumental variables on Card (1995).
-  First stage, reduced form and the Wald ratio by hand, why hand-rolled
-  two-step standard errors are wrong, a weak-instrument Monte Carlo,
-  `sp.iv.iv_diag` (effective F, tF, Anderson-Rubin), over-identification and
-  LIML, the LATE interpretation, and a plausibly-exogenous sensitivity check.
-- `notebooks/tutorial_rd_senate.ipynb` - regression discontinuity on the U.S.
-  Senate close-election data. `sp.rdplot`, a local linear fit by hand,
-  `sp.rdrobust` and what the robust bias-corrected row means, bandwidth and
-  specification sensitivity, why not global polynomials, the density test,
-  placebo cutoffs, `sp.rd_honest`, and a simulated fuzzy design.
-- `notebooks/tutorial_synth_prop99.ipynb` - synthetic control on California's
-  Proposition 99. Donor weights and pre-treatment fit, placebo inference and
-  where the permutation p-value comes from, in-time placebo, leave-one-out,
-  and a comparison with demeaned, augmented and synthetic DID estimators.
-- `notebooks/tutorial_matching_lalonde.ipynb` - matching and weighting on the
-  LaLonde data against the experimental benchmark. Balance tables and SMDs,
-  propensity scores and overlap, `sp.match`, `sp.ipw`, `sp.ebalance`,
-  `sp.aipw`, effective sample size, all estimates side by side, and
-  `sp.sensemakr` for unobserved confounding.
-
-- `notebooks/tutorial_regression_se.ipynb` - regression and standard errors.
+- `notebooks/02-tutorial_regression_se.ipynb` - regression and standard errors.
   Monte Carlo rejection rates show classical standard errors failing under
   heteroskedasticity, robust ones failing under within-group correlation, and
   cluster-robust ones failing with eight clusters; then HC0-HC3, where to
   cluster, the wild cluster bootstrap and CR2, `sp.test` / `sp.lincom`, and
   `sp.regtable`.
-- `notebooks/tutorial_panel_fe.ipynb` - panel data and fixed effects. Pooled
-  OLS, fixed effects three ways, random effects, the Hausman test (including
-  the negative statistic and what to do about it), the Mundlak regression,
-  what fixed effects cannot estimate, and two-way fixed effects on the
-  castle-doctrine state panel.
-- `notebooks/tutorial_rct_thornton.ipynb` - analysing a randomized experiment
+- `notebooks/03-tutorial_rct_thornton.ipynb` - analysing a randomized experiment
   (Thornton's HIV-results incentive). Balance, the difference in means and
   the Neyman standard error, randomization inference by hand and with
   `sp.fisher_exact`, Lin's covariate adjustment, dose response, subgroup
   interactions with a Holm correction, and power.
-- `notebooks/tutorial_hte_causal_forest.ipynb` - heterogeneous treatment
+- `notebooks/04-tutorial_matching_lalonde.ipynb` - matching and weighting on the
+  LaLonde data against the experimental benchmark. Balance tables and SMDs,
+  propensity scores and overlap, `sp.match`, `sp.ipw`, `sp.ebalance`,
+  `sp.aipw`, effective sample size, all estimates side by side, and
+  `sp.sensemakr` for unobserved confounding.
+- `notebooks/05-tutorial_iv_card.ipynb` - instrumental variables on Card (1995).
+  First stage, reduced form and the Wald ratio by hand, why hand-rolled
+  two-step standard errors are wrong, a weak-instrument Monte Carlo,
+  `sp.iv.iv_diag` (effective F, tF, Anderson-Rubin), over-identification and
+  LIML, the LATE interpretation, and a plausibly-exogenous sensitivity check.
+- `notebooks/06-tutorial_rd_senate.ipynb` - regression discontinuity on the U.S.
+  Senate close-election data. `sp.rdplot`, a local linear fit by hand,
+  `sp.rdrobust` and what the robust bias-corrected row means, bandwidth and
+  specification sensitivity, why not global polynomials, the density test,
+  placebo cutoffs, `sp.rd_honest`, and a simulated fuzzy design.
+- `notebooks/07-tutorial_panel_fe.ipynb` - panel data and fixed effects. Pooled
+  OLS, fixed effects three ways, random effects, the Hausman test (including
+  the negative statistic and what to do about it), the Mundlak regression,
+  what fixed effects cannot estimate, and two-way fixed effects on the
+  castle-doctrine state panel.
+- `notebooks/08-tutorial_did_staggered.ipynb` - staggered difference-in-differences.
+  A simulated panel with a known truth shows TWFE missing the ATT by a third,
+  the Goodman-Bacon decomposition shows why, and `sp.callaway_santanna` /
+  `sp.aggte` recover it. Then the full workflow on `mpdta`: event study,
+  uniform bands, Sun-Abraham / imputation / ETWFE / two-stage cross-checks, and
+  `sp.honest_did` sensitivity to parallel-trends violations.
+- `notebooks/09-tutorial_synth_prop99.ipynb` - synthetic control on California's
+  Proposition 99. Donor weights and pre-treatment fit, placebo inference and
+  where the permutation p-value comes from, in-time placebo, leave-one-out,
+  and a comparison with demeaned, augmented and synthetic DID estimators.
+- `notebooks/10-tutorial_gmethods_nhefs.ipynb` - g-methods on NHEFS, following
+  Hernan and Robins. IP weighting and standardization by hand and in one
+  call, g-estimation, AIPW and TMLE, the E-value, and a two-visit simulation
+  in which every regression specification is wrong while the g-formula and a
+  marginal structural model recover the truth.
+- `notebooks/11-tutorial_hte_causal_forest.ipynb` - heterogeneous treatment
   effects on a simulation with a known CATE. Five meta-learners, the causal
   forest and out-of-bag predictions, the calibration test and sample-split
   RATE (with a homogeneous-effect placebo), best linear projection, group
   effects, and a policy tree under a treatment cost. Takes about three
   minutes to run.
-- `notebooks/tutorial_gmethods_nhefs.ipynb` - g-methods on NHEFS, following
-  Hernan and Robins. IP weighting and standardization by hand and in one
-  call, g-estimation, AIPW and TMLE, the E-value, and a two-visit simulation
-  in which every regression specification is wrong while the g-formula and a
-  marginal structural model recover the truth.
-- `notebooks/tutorial_figure_editor.ipynb` - editing a paper figure with
+- `notebooks/13-tutorial_figure_editor.ipynb` - editing a paper figure with
   `sp.interactive`. Which elements count as data and stay locked, edits as a
   list of actions, how axis limits are widened to keep intervals visible,
   recolouring a series with its band and legend, the reproducible code
@@ -147,7 +151,7 @@ notebooks ship their executed outputs.
 
 ```bash
 python -m pip install "statspai[plotting]" jupyter
-jupyter notebook examples/notebooks/tutorial_did_staggered.ipynb
+jupyter notebook examples/notebooks/02-tutorial_regression_se.ipynb
 ```
 
 ## Networked notebook (requires internet + `doubleml`)
@@ -155,7 +159,7 @@ jupyter notebook examples/notebooks/tutorial_did_staggered.ipynb
 One reviewer notebook is **not** offline — it fetches the canonical 401(k)
 data from DoubleML's public distribution (StatsPAI bundles no copy):
 
-- `notebooks/reproduce_401k_doubleml.ipynb` - reproduces the DoubleML / `hdm`
+- `notebooks/12-reproduce_401k_doubleml.ipynb` - reproduces the DoubleML / `hdm`
   401(k) result with `sp.dml`, side by side with `doubleml-for-py` on the same
   data. The partially linear estimates match to the displayed precision; the
   committed notebook ships its executed outputs. Written as a DML tutorial
@@ -166,5 +170,5 @@ data from DoubleML's public distribution (StatsPAI bundles no copy):
 
 ```bash
 python -m pip install statspai doubleml scikit-learn matplotlib jupyter
-jupyter nbconvert --to notebook --execute --inplace examples/notebooks/reproduce_401k_doubleml.ipynb
+jupyter nbconvert --to notebook --execute --inplace examples/notebooks/12-reproduce_401k_doubleml.ipynb
 ```

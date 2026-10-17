@@ -4,6 +4,18 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Example notebooks numbered in reading order
+
+#### Changed
+
+- The fourteen notebooks in `examples/notebooks/` carry a two-digit prefix
+  giving a suggested reading order: `01-statspai_vs_stata_5min` first, the
+  method tutorials as `02-tutorial_regression_se` through
+  `11-tutorial_hte_causal_forest`, then `12-reproduce_401k_doubleml`,
+  `13-tutorial_figure_editor` and `14-statspai_vs_stata_live`. Links in
+  `examples/README.md` and between notebooks follow the new names; old links
+  to the unprefixed files no longer resolve.
+
 ### Evidence maps for dynamic panel GMM
 
 #### Added

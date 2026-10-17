@@ -24,7 +24,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 NB_DIR = ROOT / "examples" / "notebooks"
-TUTORIALS = sorted(NB_DIR.glob("tutorial_*.ipynb"))
+TUTORIALS = sorted(NB_DIR.glob("[0-9][0-9]-tutorial_*.ipynb"))
 IDS = [p.stem for p in TUTORIALS]
 
 
