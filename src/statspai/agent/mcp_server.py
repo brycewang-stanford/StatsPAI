@@ -2203,6 +2203,16 @@ def _run_tools_call(
         _phrase_error_for_mcp(result, name, data_given=df is not None)
 
     rid = result.get("result_id")
+    capped = result.get("arrays_capped")
+    if isinstance(capped, list):
+        # The cut arrays stay readable in full, one at a time, while the
+        # handle is live; without a handle there is nothing to read from.
+        for item in capped:
+            if isinstance(item, dict) and isinstance(item.get("path"), str):
+                if isinstance(rid, str):
+                    item["full"] = f"statspai://result/{rid}/arrays{item['path']}"
+                else:
+                    item["full"] = "re-run with as_handle=true to read it in full"
     if data_prov is not None:
         result.setdefault("data_provenance", data_prov)
         if isinstance(rid, str):

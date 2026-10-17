@@ -238,6 +238,36 @@ def _scrub_payload(out: Dict[str, Any], detail: str) -> Dict[str, Any]:
     return clean
 
 
+def full_array(obj: Any, path: str) -> List[Any]:
+    """The whole per-observation array a payload capped at ``path``.
+
+    ``path`` is the ``arrays_capped`` entry's path (``/residuals``,
+    ``/diagnostics/residuals``). The result is serialized again without
+    the cap and the array is read off it. Only arrays of the capped kinds
+    are served, so this cannot be used to read anything else out of a
+    cached result.
+    """
+    parts = [p for p in str(path).split("/") if p]
+    if not parts or parts[-1] not in OBS_ARRAY_KEYS:
+        raise KeyError(
+            f"{path!r} is not a per-observation array; the paths are the "
+            "ones listed under arrays_capped."
+        )
+    for detail in ("agent", "standard"):
+        node: Any = _serialize_value(obj, detail=detail)
+        for part in parts:
+            if isinstance(node, dict) and part in node:
+                node = node[part]
+            elif isinstance(node, list) and part.isdigit() and int(part) < len(node):
+                node = node[int(part)]
+            else:
+                node = None
+                break
+        if isinstance(node, (list, tuple, np.ndarray)):
+            return list(node)
+    raise KeyError(f"{path!r} is not in this result.")
+
+
 def _serialize_mapping(r: Any, detail: str) -> Dict[str, Any]:
     """A dict (or dict subclass) result, sanitised, plus its envelope.
 

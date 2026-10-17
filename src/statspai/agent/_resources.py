@@ -33,6 +33,9 @@ FUNCTION_URI_PREFIX = "statspai://function/"
 RESULT_URI_PREFIX = "statspai://result/"
 #: ``statspai://result/<id>/bundle``: the reproduction bundle of a result.
 BUNDLE_SUFFIX = "/bundle"
+#: ``statspai://result/<id>/arrays/<path>``: one capped per-observation
+#: array of a result, in full.
+ARRAYS_SEGMENT = "/arrays/"
 DATA_URI_PREFIX = "statspai://data/"
 GUIDE_URI_PREFIX = "statspai://guide/"
 PARITY_TRACK_A_URI = "statspai://parity/track-a-summary"
@@ -650,6 +653,41 @@ def handle_resources_read(
             ],
         }
 
+    if uri.startswith(RESULT_URI_PREFIX) and ARRAYS_SEGMENT in uri:
+        rid, _, path = uri[len(RESULT_URI_PREFIX) :].partition(ARRAYS_SEGMENT)
+        if not rid or "/" in rid or not path:
+            raise InvalidParamsError(
+                f"Malformed array URI {uri!r}; expected "
+                f"{RESULT_URI_PREFIX}<id>{ARRAYS_SEGMENT}<path from arrays_capped>."
+            )
+        from ._result_cache import RESULT_CACHE
+        from .tools._helpers import full_array
+
+        entry = RESULT_CACHE.get_entry(rid)
+        if entry is None:
+            raise ResourceNotFoundError(
+                f"Result {rid!r} not in server cache; re-fit with as_handle=true."
+            )
+        try:
+            values = full_array(entry.obj, "/" + path)
+        except KeyError as exc:
+            raise ResourceNotFoundError(str(exc).strip("'\"")) from None
+        body = {
+            "result_id": rid,
+            "path": "/" + path,
+            "n": len(values),
+            "values": values,
+        }
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "application/json",
+                    "text": json.dumps(_clean(body), default=json_default),
+                },
+            ],
+        }
+
     if uri.startswith(RESULT_URI_PREFIX) and uri.endswith(BUNDLE_SUFFIX):
         rid = uri[len(RESULT_URI_PREFIX) : -len(BUNDLE_SUFFIX)]
         if not rid or "/" in rid:
@@ -863,6 +901,17 @@ def handle_resources_templates_list(params: Dict[str, Any]) -> Dict[str, Any]:
                     "that produced it. Cache is LRU; missing handles "
                     "raise -32002 (resource not found) — re-fit with "
                     "as_handle=true to refresh."
+                ),
+            },
+            {
+                "uriTemplate": RESULT_URI_PREFIX + "{id}" + ARRAYS_SEGMENT + "{path}",
+                "name": "StatsPAI per-observation array",
+                "mimeType": "application/json",
+                "description": (
+                    "One per-observation array (residuals, fitted values, "
+                    "scores, ...) of a cached result in full. Tool payloads "
+                    "show 20 values and list the cut under arrays_capped, "
+                    "whose 'full' field is this URI."
                 ),
             },
             {

@@ -59,8 +59,15 @@ def _data_ids() -> List[str]:
     return list(DATA_CACHE.keys())
 
 
+def _array_names() -> List[str]:
+    from .tools._helpers import OBS_ARRAY_KEYS
+
+    return sorted(OBS_ARRAY_KEYS)
+
+
 def _template_sources() -> Dict[str, Dict[str, Callable[[], List[str]]]]:
     from ._resources import (
+        ARRAYS_SEGMENT,
         BUNDLE_SUFFIX,
         DATA_URI_PREFIX,
         FUNCTION_URI_PREFIX,
@@ -74,6 +81,13 @@ def _template_sources() -> Dict[str, Dict[str, Callable[[], List[str]]]]:
         DATA_URI_PREFIX + "{id}": {"id": _data_ids},
         RESULT_URI_PREFIX + "{id}": {"id": _result_ids},
         RESULT_URI_PREFIX + "{id}" + BUNDLE_SUFFIX: {"id": _result_ids},
+        RESULT_URI_PREFIX
+        + "{id}"
+        + ARRAYS_SEGMENT
+        + "{path}": {
+            "id": _result_ids,
+            "path": _array_names,
+        },
     }
 
 

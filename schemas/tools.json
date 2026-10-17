@@ -11330,37 +11330,26 @@
     "name": "dlm"
   },
   {
-    "description": "Double/Debiased Machine Learning supports PLR, binary-D IRM, PLIV, and binary-D/binary-Z IIVM. Python-only external OOFPredictions supports unweighted, unnormalised IRM ATE scoring with exact alignment; caller_declared records are declarations rather than proof against leakage. Validation: certified evidence with scoped limitations. Known limitations: external_predictions, store_oof, and observation_ids are Python-only and absent from JSON/MCP inputs; external records accept no dict, JSON string, or file path; store_oof=True retains individual-level records for get_oof() and get_residuals() in memory only; ordinary serialization omits them; Retained IRM needs at least 10 rows per treatment arm in each training fold or raises DataInsufficient instead of fallback; internal explicit fold_indices require n_rep=1, while external repeated IRM records are allowed when the explicit partition is equivalent for every repeat. Do NOT use when: the treatment is assigned repeatedly and moves later covariates -- static DML is biased; use sp.dynamic_dml; unit fixed effects carry the confounding -- use sp.dml_panel. Cost: n_folds x n_rep nuisance fits per model (two learners for PLR / IRM, three o...",
+    "description": "Double/debiased machine learning (Chernozhukov et al. 2018) with cross-fitting: partially linear (plr), interactive (irm, binary treatment), and the IV versions (pliv, iivm). Treatment effect under selection on observables with flexible nuisance models. Validation: certified evidence with scoped limitations. Known limitations: external_predictions, store_oof, and observation_ids are Python-only and absent from JSON/MCP inputs; external records accept no dict, JSON string, or file path; store_oof=True retains individual-level records for get_oof() and get_residuals() in memory only; ordinary serialization omits them; Retained IRM needs at least 10 rows per treatment arm in each training fold or raises DataInsufficient instead of fallback; internal explicit fold_indices require n_rep=1, while external repeated IRM records are allowed when the explicit partition is equivalent for every repeat.",
     "input_schema": {
       "properties": {
         "cluster": {
-          "description": "One-way cluster column: folds over whole clusters and the Chiang-Kato-Ma-Sasaki cluster variance (DoubleML DoubleMLClusterData, all four models).",
-          "type": "string",
-          "x-statspai-role": "column"
+          "description": "Cluster column (folds and variance).",
+          "type": "string"
         },
         "covariates": {
-          "description": "List of control variable names",
+          "description": "Control columns.",
           "items": {
             "type": "string"
           },
-          "type": "array",
-          "x-aliases": [
-            "controls"
-          ],
-          "x-statspai-role": "columns"
-        },
-        "fold_indices": {
-          "description": "Explicit cross-fitting folds: one label per row (array or column name), or scikit-learn style splits, a list of (train, test) positional index pairs whose test sets partition the rows and whose training sets are their complements. Requires n_rep=1. With a shared partition the estimate is reproducible across implementations.",
-          "type": "string"
+          "type": "array"
         },
         "instrument": {
-          "description": "Instrument (required for pliv/iivm)",
-          "type": "string",
-          "x-statspai-role": "column"
+          "description": "Instrument, pliv / iivm only.",
+          "type": "string"
         },
         "model": {
           "default": "plr",
-          "description": "DML model family",
           "enum": [
             "plr",
             "irm",
@@ -11370,64 +11359,54 @@
           "type": "string"
         },
         "model_d": {
-          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default.",
-          "type": "string",
-          "x-statspai-source": "signature"
-        },
-        "model_y": {
-          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default.",
-          "type": "string",
-          "x-statspai-source": "signature"
-        },
-        "n_folds": {
-          "default": 5,
-          "description": "Cross-fitting folds",
-          "type": "integer"
-        },
-        "n_rep": {
-          "default": 1,
-          "description": "Repeated cross-fitting splits (median aggregation)",
-          "type": "integer"
-        },
-        "normalize_ipw": {
-          "default": false,
-          "description": "Self-normalize the inverse-propensity weights for the IPW models (irm/iivm); matches DoubleML's normalize_ipw. Rejected for plr/pliv.",
-          "type": "boolean"
-        },
-        "sample_weight": {
-          "description": "Observation weights (column or array); weights= is an alias.",
-          "type": "string"
-        },
-        "score": {
-          "description": "Orthogonal score variant (DoubleML-compatible). PLR: 'partialling out' (default) or 'IV-type'. IRM: 'ATE' (default) or 'ATTE'. None selects the model default; defaults reproduce historical output exactly.",
+          "description": "Treatment learner; irm uses its classifier.",
           "enum": [
-            "partialling out",
-            "IV-type",
-            "ATE",
-            "ATTE"
+            "rf",
+            "gbm",
+            "lasso",
+            "rlasso",
+            "ridge",
+            "linear",
+            "xgb",
+            "lgbm"
           ],
           "type": "string"
         },
-        "treat": {
-          "description": "Treatment variable. model='plr' also accepts a list of treatment columns: each is fitted with the others as controls on one split, and the result carries the joint covariance across treatments.",
-          "type": "string",
-          "x-statspai-role": "column"
+        "model_y": {
+          "description": "Outcome learner (default gbm).",
+          "enum": [
+            "rf",
+            "gbm",
+            "lasso",
+            "rlasso",
+            "ridge",
+            "linear",
+            "xgb",
+            "lgbm"
+          ],
+          "type": "string"
         },
-        "trimming_threshold": {
-          "default": 0.01,
-          "description": "Symmetric propensity clip [t, 1-t] for irm/iivm (DoubleML trimming_rule='truncate'). Default 0.01 = historical clip.",
-          "type": "number"
+        "n_folds": {
+          "default": 5,
+          "type": "integer"
+        },
+        "random_state": {
+          "default": 42,
+          "type": "integer"
+        },
+        "treat": {
+          "description": "Treatment column.",
+          "type": "string"
         },
         "y": {
-          "description": "Outcome",
-          "type": "string",
-          "x-statspai-role": "column"
+          "description": "Outcome column.",
+          "type": "string"
         }
       },
       "required": [
-        "covariates",
+        "y",
         "treat",
-        "y"
+        "covariates"
       ],
       "type": "object"
     },
@@ -39321,133 +39300,85 @@
     "name": "swilk"
   },
   {
-    "description": "Unified synthetic control estimator. method= selects variant: 'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', 'augmented', 'sdid', 'gsynth', 'staggered'. inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'. Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required. Do NOT use when: many units are treated at once -- classic SCM is built for one (or few) treated units; use sp.gsynth, sp.sdid or sp.callaway_santanna; the pre-treatment window is short (fewer than ~10 periods) -- the donor weights overfit noise and pre-period fit stops being evidence; the treated unit's pre-period outcome lies outside the convex hull of the donors -- no non-negative weighting can match it; check t...",
+    "description": "Synthetic control (Abadie et al.) and its variants through one entry: classic SCM with placebo inference, synthetic DiD, augmented / penalized SCM, generalized SC (gsynth), staggered adoption and more via method=. Panel in long format, one treated unit (staggered: a treatment column instead). Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required.",
     "input_schema": {
       "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level.",
-          "type": "number",
-          "x-statspai-source": "signature"
-        },
-        "backend": {
-          "default": "native",
-          "description": "Optional reference backend for exact R parity: synth for classic SCM",
-          "type": "string"
-        },
         "covariates": {
-          "description": "Additional covariates to match on.",
+          "description": "Predictor columns matched on.",
           "items": {
             "type": "string"
           },
-          "type": "array",
-          "x-statspai-role": "columns",
-          "x-statspai-source": "signature"
-        },
-        "inference": {
-          "description": "Inference method: placebo/conformal/bootstrap/jackknife",
-          "type": "string"
+          "type": "array"
         },
         "method": {
           "default": "classic",
-          "description": "SCM variant: classic/demeaned/detrended/unconstrained/elastic_net/augmented/sdid/gsynth/staggered",
           "enum": [
             "classic",
-            "classic_adh",
-            "adh",
             "penalized",
-            "ridge",
             "demeaned",
             "detrended",
             "unconstrained",
             "elastic_net",
             "augmented",
-            "ascm",
             "sdid",
-            "factor",
             "gsynth",
             "staggered",
             "mc",
-            "matrix_completion",
             "discos",
-            "distributional",
             "multi_outcome",
-            "multi",
             "scpi",
-            "prediction_interval",
             "bayesian",
             "bsts",
-            "causal_impact",
             "penscm",
-            "abadie_lhour",
-            "pairwise",
             "fdid",
-            "forward_did",
             "rcm",
-            "hcw",
-            "regression_control",
-            "pda",
             "cluster",
             "sparse",
-            "lasso",
-            "kernel",
-            "kernel_ridge"
+            "kernel"
           ],
           "type": "string"
         },
         "outcome": {
-          "description": "Outcome variable column name or outcome array.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "penalization": {
-          "default": 0.0,
-          "description": "Ridge penalty for donor weights.",
-          "type": "number",
-          "x-statspai-source": "signature"
+          "description": "Outcome column.",
+          "type": "string"
         },
         "placebo": {
           "default": true,
-          "description": "Run placebo inference. For ``method='classic'`` pass ``n_jobs=`` (e.g. ``-1``) to fit the in-space placebos in parallel worker processes; results are bit-identical to the serial loop. See :class:`SyntheticControl`. The classic fit then also returns ``model_info['placebo_table']`` (pre- and post-treatment MSPE and their ratio, per unit) and ``model_info['placebo_effects']`` (two-, right- and left-sided placebo p-values per post-treatment period, the treated unit counted among the units compared). Further keywords of ``method='classic'``: ``placebo_cutoff=c`` leaves out of those p-values the pretend units whose pre-treatment MSPE exceeds ``c`` times the treated unit's; ``placebo_time=t`` refits as if the treatment had started at ``t`` (``model_info['placebo_time']``); ``loo=True`` drops, one at a time, each donor with a weight of at least 0.0005 and reports the range of the synthetic path (``model_info['loo']``); ``placebo_units=[...]`` restricts the pretend-treated units of those tables (and of ``pvalue``); ``pre_periods=[...]`` and ``post_periods=[...]`` restrict the periods the fit and the effect use. These are the reports of Stata's ``synth2``.",
-          "type": "boolean",
-          "x-statspai-source": "signature"
+          "description": "In-space placebo inference.",
+          "type": "boolean"
         },
         "time": {
-          "description": "Time period column.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "treated_unit": {
-          "description": "Treated unit (not needed for staggered)",
+          "description": "Period column.",
           "type": "string"
         },
+        "treated_unit": {
+          "description": "Value of unit that is treated.",
+          "type": [
+            "string",
+            "integer"
+          ]
+        },
         "treatment": {
-          "description": "Binary treatment column (staggered only)",
-          "type": "string",
-          "x-aliases": [
-            "treat"
-          ],
-          "x-canonical": "treat",
-          "x-statspai-role": "column"
+          "description": "0/1 column, method='staggered' only.",
+          "type": "string"
         },
         "treatment_time": {
-          "description": "First treatment period",
-          "type": "integer"
+          "description": "First treated period.",
+          "type": [
+            "integer",
+            "number",
+            "string"
+          ]
         },
         "unit": {
-          "description": "Unit identifier column.",
-          "type": "string",
-          "x-aliases": [
-            "id"
-          ],
-          "x-canonical": "id",
-          "x-statspai-role": "column"
+          "description": "Unit column.",
+          "type": "string"
         }
       },
       "required": [
         "outcome",
-        "time",
-        "unit"
+        "unit",
+        "time"
       ],
       "type": "object"
     },

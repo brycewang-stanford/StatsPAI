@@ -466,6 +466,15 @@ call, the cause is fixed below.
 
 - `load_data(dataset=...)` in the MCP server loads a built-in example
   as a data handle, flagged when it is simulated.
+- `synth` and `dml` are curated MCP tools in the default profile (not in
+  `core`, whose byte budget is spent). They were named in the core list
+  but, not being curated, were never served; until now they were
+  reachable only through `call_function`.
+- Per-observation arrays capped at 20 values in a tool payload are
+  readable in full from `statspai://result/<id>/arrays/<path>` while the
+  handle is live; each `arrays_capped` entry carries that URI (or says
+  to re-run with `as_handle=true`). Before this nothing in the MCP
+  surface returned the rest of a capped array.
 - `sp.list_datasets()` and `sp.load_dataset(name)` at top level
   (searchable in English and Chinese). Six built-in datasets are
   simulated replicas named after real ones (`mpdta`, `nsw_dw`,

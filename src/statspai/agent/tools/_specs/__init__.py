@@ -11,15 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from . import (
-    _regression,
-    _did,
-    _iv,
-    _rd,
-    _matching,
-    _diag,
-    _orchestrate,
-)
+from . import _diag, _did, _iv, _matching, _ml, _orchestrate, _rd, _regression, _synth
 
 # Order matters only insofar as ``tool_manifest`` returns this list
 # verbatim and a few tests depend on the regression entry being first.
@@ -31,6 +23,8 @@ TOOL_REGISTRY: List[Dict[str, Any]] = (
     + _iv.SPECS
     + _rd.SPECS
     + _matching.SPECS
+    + _synth.SPECS
+    + _ml.SPECS
     + _diag.SPECS
     + _orchestrate.SPECS
 )
