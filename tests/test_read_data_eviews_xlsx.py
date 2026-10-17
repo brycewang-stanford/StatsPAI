@@ -1,7 +1,7 @@
 """``sp.read_data`` reads a workbook written with backslashes in its
 archive member names (as EViews does), which pandas alone refuses."""
 
-import io
+import sys
 import zipfile
 
 import pandas as pd
@@ -28,7 +28,12 @@ def _eviews_style(tmp_path):
         assert moved <= present
         for name in src.namelist():
             if name in moved:
-                out.writestr(name.replace("/", "\\"), src.read(name))
+                # Set the name after construction: ZipInfo() turns "\\" into
+                # "/" on Windows, which would make the fixture a normal file.
+                info = zipfile.ZipInfo("placeholder")
+                info.filename = name.replace("/", "\\")
+                info.compress_type = zipfile.ZIP_DEFLATED
+                out.writestr(info, src.read(name))
             else:
                 out.writestr(name, src.read(name))
         # the placeholder sheets EViews leaves under the regular names
@@ -39,8 +44,11 @@ def _eviews_style(tmp_path):
 
 def test_backslash_member_names_are_repaired(tmp_path):
     frame, good, bad = _eviews_style(tmp_path)
-    with pytest.raises(Exception):
-        pd.read_excel(bad)  # the failure being worked around
+    if sys.platform != "win32":
+        # The failure being worked around. On Windows zipfile itself reads
+        # "\\" in member names as "/", so pandas reads the file unaided.
+        with pytest.raises(Exception):
+            pd.read_excel(bad)
     got = sp.read_data(str(bad))
     pd.testing.assert_frame_equal(got, frame)
     pd.testing.assert_frame_equal(sp.read_data(str(good)), frame)
@@ -51,5 +59,6 @@ def test_file_on_disk_is_not_modified(tmp_path):
     before = bad.read_bytes()
     sp.read_data(str(bad))
     assert bad.read_bytes() == before
-    with zipfile.ZipFile(io.BytesIO(before)) as z:
-        assert any("\\" in n for n in z.namelist())
+    # Still the EViews layout on disk (raw bytes: zipfile would normalise
+    # the names on Windows while reading them).
+    assert b"xl\\worksheets\\sheet1.xml" in before

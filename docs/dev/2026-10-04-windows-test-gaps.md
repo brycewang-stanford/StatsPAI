@@ -36,9 +36,29 @@ much shorter than on 10-03:
     there were enough cosine terms; Windows' BLAS noticed the singularity
     first. The check now comes first.
 
-The full suite on Windows (`workflow_dispatch`, scope `full`) has not been
-run since 10-03. Windows goes back into the main matrix once a full run is
-clean.
+A full Windows run on `9d8b3705` (dispatch, 3 h 20 min and 3 h 39 min)
+passed 38,480 tests on 3.10 and 38,478 on 3.13 and failed 5 and 8. All
+are handled in the commit after `968a5897`:
+
+- `sp.ges` collider (3.13): the tie margin applied only against zero, so
+  `i -> j` versus `j -> i` was still decided by rounding. Fixed; a test
+  injecting 1e-13 noise into the score reproduces the old failure.
+- `docs/parity.md` and `docs/evidence_inventory.json` "stale": the
+  builders sorted `Path` objects, which compare case-insensitively on
+  Windows. Now sorted by POSIX string (also the fixture lock and the JSS
+  freeze manifest).
+- EViews workbook tests: Windows' `zipfile` rewrites `\\` in member names
+  both when writing the fixture and when reading, so the bug being worked
+  around does not exist there. The fixture now writes real backslashes and
+  the "pandas fails" assertion is POSIX-only.
+- HDFE NUL truncation demo (3.13 job, pandas 3): Arrow strings keep the
+  NUL; the demonstration is now limited to object strings.
+- Agent-bench R oracle: the runner's R has no `EValue` / `jsonlite`; the
+  test skips without them.
+- ICC (3.13): already fixed in `506099db`.
+
+These tests are now in the Windows gate. The next clean full run puts
+Windows back into the main matrix.
 
 
 Status on 2026-10-04: the Windows legs are out of the full CI matrix

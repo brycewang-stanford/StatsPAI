@@ -251,7 +251,11 @@ def ges(
 
     # Forward phase: greedily add the edge that most improves BIC
     for _ in range(max_iter):
-        best_gain = _tie_tol(best_bic)
+        tol = _tie_tol(best_bic)
+        # The incumbent must be beaten by more than ``tol`` -- not only zero
+        # (before 2026-10-17 the margin applied to the first candidate only,
+        # so i -> j against j -> i was again decided by rounding).
+        best_gain = 0.0
         best_edge = None
         best_new_bic = best_bic
         for i in range(p):
@@ -263,7 +267,7 @@ def ges(
                 adj[i, j] = 1
                 new_bic = _score()
                 gain = best_bic - new_bic
-                if gain > best_gain:
+                if gain > best_gain + tol:
                     best_gain = gain
                     best_edge = (i, j)
                     best_new_bic = new_bic
@@ -275,7 +279,8 @@ def ges(
 
     # Backward phase: greedily remove edges that improve BIC
     for _ in range(max_iter):
-        best_gain = _tie_tol(best_bic)
+        tol = _tie_tol(best_bic)
+        best_gain = 0.0
         best_edge = None
         best_new_bic = best_bic
         for i in range(p):
@@ -285,7 +290,7 @@ def ges(
                 adj[i, j] = 0
                 new_bic = _score()
                 gain = best_bic - new_bic
-                if gain > best_gain:
+                if gain > best_gain + tol:
                     best_gain = gain
                     best_edge = (i, j)
                     best_new_bic = new_bic

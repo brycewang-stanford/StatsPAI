@@ -20,6 +20,17 @@ if str(ROOT / "scripts") not in sys.path:
 
 from ascii_source import normalized_source_bytes  # noqa: E402
 
+
+def _posix(path) -> str:
+    """Sort key that orders paths the same on every platform.
+
+    ``WindowsPath`` compares case-insensitively, so ``sorted(paths)`` put
+    ``test_timeseries_parity.py`` before ``test_timeseries_R_parity.py`` on
+    Windows and after it elsewhere, and the generated file differed.
+    """
+    return path.as_posix()
+
+
 MANIFEST_PATH = ROOT / "tests" / "r_parity" / "TIER_A_FIXTURE_LOCK.json"
 SCHEMA_VERSION = 1
 
@@ -86,7 +97,7 @@ def discover_files() -> list[Path]:
     """Return the deterministic set of files covered by the lock."""
     files: dict[str, Path] = {}
     for pattern in LOCK_PATTERNS:
-        matches = sorted(ROOT.glob(pattern))
+        matches = sorted(ROOT.glob(pattern), key=_posix)
         if not matches:
             raise FileNotFoundError(f"Lock pattern matched no files: {pattern}")
         for path in matches:

@@ -35,6 +35,22 @@ GOLDS = {
 HAVE_R = shutil.which("Rscript") is not None
 
 
+def _r_has(*packages: str) -> bool:
+    """Rscript is on PATH and can load ``packages`` (CI runners ship bare R)."""
+    if not HAVE_R:
+        return False
+    import subprocess
+
+    expr = "; ".join(f"library({p})" for p in packages)
+    try:
+        done = subprocess.run(
+            ["Rscript", "--vanilla", "-e", expr], capture_output=True, timeout=120
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return done.returncode == 0
+
+
 def test_fifty_tasks_each_with_a_gold_for_its_headline():
     assert len(TASKS) == 50 and set(TASKS) == set(GOLDS)
     for tid, task in TASKS.items():
@@ -109,7 +125,9 @@ def test_oracle_trial_in_the_pythonic_cell():
     assert score["task_success"] == 1 and score["toolset_violation"] == 0
 
 
-@pytest.mark.skipif(not HAVE_R, reason="Rscript not installed")
+@pytest.mark.skipif(
+    not _r_has("EValue", "jsonlite"), reason="R with EValue and jsonlite needed"
+)
 def test_oracle_trial_in_the_r_cell():
     from oracle_other import R_SOLUTIONS
 

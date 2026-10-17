@@ -672,9 +672,13 @@ def test_factorize_multi_does_not_collapse_on_nul_truncation():
     assert g == 6
     assert len(set(map(int, codes))) == 6
 
-    # The old string-join approach really does collapse these.
+    # The old string-join approach really does collapse these -- with object
+    # strings. pandas' Arrow-backed string dtype (the pandas 3 default) keeps
+    # the NUL, so there the demonstration does not apply; the integer-code
+    # path above is right under both.
     joined = pd.DataFrame({"a": a, "b": b}).astype(str).agg("\0".join, axis=1)
-    assert len(pd.factorize(joined.values, sort=False)[1]) < 6
+    if joined.dtype == object:
+        assert len(pd.factorize(joined.values, sort=False)[1]) < 6
 
 
 def test_interacted_fe_has_full_level_count():

@@ -36,6 +36,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+
+def _posix(path) -> str:
+    """Sort key that orders paths the same on every platform.
+
+    ``WindowsPath`` compares case-insensitively, so ``sorted(paths)`` put
+    ``test_timeseries_parity.py`` before ``test_timeseries_R_parity.py`` on
+    Windows and after it elsewhere, and the generated file differed.
+    """
+    return path.as_posix()
+
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "tests" / "jss_review_freeze.json"
 LEDGER = ROOT / "docs" / "dev" / "jss_review_changes.md"
@@ -60,7 +71,9 @@ def _sha256(path: Path) -> str:
 
 
 def current_hashes() -> dict[str, str]:
-    files = sorted({p for pattern in GLOBS for p in ROOT.glob(pattern) if p.is_file()})
+    files = sorted(
+        {p for pattern in GLOBS for p in ROOT.glob(pattern) if p.is_file()}, key=_posix
+    )
     return {p.relative_to(ROOT).as_posix(): _sha256(p) for p in files}
 
 

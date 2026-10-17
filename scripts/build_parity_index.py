@@ -7786,6 +7786,18 @@ _FROZEN_PROMOTIONS.update(
 # --------------------------------------------------------------------------- #
 #  Source parsers
 # --------------------------------------------------------------------------- #
+
+
+def _posix(path) -> str:
+    """Sort key that orders paths the same on every platform.
+
+    ``WindowsPath`` compares case-insensitively, so ``sorted(paths)`` put
+    ``test_timeseries_parity.py`` before ``test_timeseries_R_parity.py`` on
+    Windows and after it elsewhere, and the generated file differed.
+    """
+    return path.as_posix()
+
+
 def _load_compare_module() -> Any:
     """Import ``tests/r_parity/compare.py`` to reuse its registered tolerances."""
     compare = R_PARITY / "compare.py"
@@ -8078,7 +8090,7 @@ def _scan_test_calls(directory: Path) -> Dict[str, List[str]]:
     out: Dict[str, List[str]] = {}
     if not directory.exists():
         return out
-    for path in sorted(directory.glob("test_*.py")):
+    for path in sorted(directory.glob("test_*.py"), key=_posix):
         text = path.read_text(encoding="utf-8")
         rel = path.relative_to(REPO_ROOT).as_posix()
         leaves = {m.split(".")[-1] for m in _SP_CALL_RE.findall(text)}

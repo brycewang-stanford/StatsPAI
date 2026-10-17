@@ -96,7 +96,14 @@ jobs:
             tests/test_marginaleffects.py \
             tests/test_core_api_freeze.py \
             tests/test_cli.py \
-            tests/test_help.py
+            tests/test_help.py \
+            tests/test_evidence_inventory.py \
+            tests/test_parity_index.py \
+            tests/test_hdfe_varying_slopes.py \
+            tests/test_read_data_eviews_xlsx.py \
+            tests/test_frame_input.py \
+            tests/test_nb_dispersion_boundary.py \
+            tests/agent_eval/test_agent_bench_harness.py
 
       - name: Full suite
         if: inputs.scope == 'full'

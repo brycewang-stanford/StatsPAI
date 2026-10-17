@@ -34,6 +34,13 @@ All notable changes to StatsPAI will be documented in this file.
 
 #### ⚠️ Correctness
 
+- `sp.ges`: the tie margin that keeps `i -> j` and `j -> i` (equal scores in
+  exact arithmetic) from being decided by rounding applied only against
+  zero, not between candidates, so the choice still came down to the last
+  bit. On a collider `X -> Z <- Y` the Windows full run (Python 3.12 / 3.13)
+  picked the reverse edge and returned a complete undirected triangle with
+  a spurious `X -- Y`. Every comparison now needs the margin; a test that
+  perturbs the score by 1e-13 reproduces the old failure and pins the fix.
 - Mixed-model standard errors (`sp.melogit` / `meglm` / `mepoisson` /
   `meologit` and the variance components behind `sp.icc`): the observed
   information is now a Richardson-extrapolated central-difference Hessian
@@ -60,6 +67,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 #### Fixed
 
+- Generated files (`docs/parity.md`, `docs/evidence_inventory.*`, the Tier A
+  fixture lock, the JSS freeze manifest) sorted `Path` objects, which
+  compare case-insensitively on Windows, so they came out in a different
+  order there. They now sort by the POSIX path string.
+- Three tests assumed a POSIX platform or a full R library: the EViews
+  workbook fixture (Windows' `zipfile` rewrites `\\` in member names, and
+  pandas reads such files natively there), the NUL-truncation demonstration
+  (pandas' Arrow string dtype keeps the NUL), and the agent-bench R oracle
+  (skips without the `EValue` and `jsonlite` R packages).
 - `scripts/release_gate.py` compared its allowlist against Windows paths
   (`src\...`) and failed there.
 - `examples/gmethods_timevarying.py` printed non-ASCII characters, which

@@ -69,3 +69,31 @@ def test_adjacency_is_acyclic_dag_before_cpdag_undirection():
         for j in range(p):
             if adj[i, j] and not adj[j, i]:
                 assert not adj[j, i]  # strictly one-directional (v-structure)
+
+
+def test_result_does_not_depend_on_last_bit_rounding(monkeypatch):
+    """X -> Z and Z -> X score the same in exact arithmetic; the search must
+    not let rounding pick between them (the Windows CI leg did). Perturb
+    every BIC by a relative 1e-13 and require the same CPDAG each time."""
+    import importlib
+
+    # the package exports the function under the module's name
+    ges_mod = importlib.import_module("statspai.causal_discovery.ges")
+
+    real = ges_mod._total_bic
+    rng = np.random.default_rng(0)
+    data_rng = np.random.default_rng(1)
+    X = data_rng.normal(0, 1, N)
+    Y = data_rng.normal(0, 1, N)
+    Z = 0.8 * X + 0.8 * Y + data_rng.normal(0, 1, N)
+    frame = pd.DataFrame({"X": X, "Y": Y, "Z": Z})
+    want = set(sp.ges(frame).edges())
+    assert ("X", "Z", "-->") in want and ("Y", "Z", "-->") in want
+
+    def noisy(data, adj):
+        b = real(data, adj)
+        return b * (1.0 + 1e-13 * rng.standard_normal())
+
+    monkeypatch.setattr(ges_mod, "_total_bic", noisy)
+    for _ in range(20):
+        assert set(sp.ges(frame).edges()) == want

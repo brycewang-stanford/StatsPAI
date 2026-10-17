@@ -44,6 +44,17 @@ import pathlib
 import sys
 from typing import Any, Dict, List
 
+
+def _posix(path) -> str:
+    """Sort key that orders paths the same on every platform.
+
+    ``WindowsPath`` compares case-insensitively, so ``sorted(paths)`` put
+    ``test_timeseries_parity.py`` before ``test_timeseries_R_parity.py`` on
+    Windows and after it elsewhere, and the generated file differed.
+    """
+    return path.as_posix()
+
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 JSON_OUT = REPO_ROOT / "docs" / "evidence_inventory.json"
 MD_OUT = REPO_ROOT / "docs" / "evidence_inventory.md"
@@ -202,7 +213,7 @@ def _option_fixtures() -> List[Dict[str, Any]]:
     tests = sorted((REPO_ROOT / "tests").rglob("test_*.py"))
     sources = {p: p.read_text(encoding="utf-8") for p in tests}
     out = []
-    for fixture in sorted(OPTION_DIR.rglob("*_Stata.json")):
+    for fixture in sorted(OPTION_DIR.rglob("*_Stata.json"), key=_posix):
         rel = fixture.relative_to(REPO_ROOT).as_posix()
         consumers = sorted(
             p.relative_to(REPO_ROOT).as_posix()
@@ -231,7 +242,7 @@ def _option_inputs() -> List[Dict[str, Any]]:
             "input": path.relative_to(REPO_ROOT).as_posix(),
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
-        for path in sorted(OPTION_DIR.glob("data_*.csv"))
+        for path in sorted(OPTION_DIR.glob("data_*.csv"), key=_posix)
     ]
 
 
@@ -395,7 +406,7 @@ def _reliability_studies() -> List[Dict[str, Any]]:
     run and stores every cell; this reads the stored files as they stand.
     """
     studies = []
-    for path in sorted(STUDY_DIR.glob("*_results.json")):
+    for path in sorted(STUDY_DIR.glob("*_results.json"), key=_posix):
         payload = json.loads(path.read_text(encoding="utf-8"))
         rows: List[Dict[str, Any]] = []
         for block, cells in payload.items():
