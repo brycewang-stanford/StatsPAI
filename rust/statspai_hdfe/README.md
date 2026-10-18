@@ -81,7 +81,8 @@ PYO3_PYTHON=python cargo test --release
 
 Wheels are abi3: one per platform serves every CPython >= 3.10. The
 `rust-hdfe` GitHub workflow tests the crate on Linux, macOS and Windows,
-builds wheels on demand, and publishes on an `hdfe-v*` tag.
+and builds wheels on demand; releases are uploaded from those wheels with
+twine.
 
 ## Kernel API
 
