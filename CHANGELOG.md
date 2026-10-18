@@ -4,6 +4,82 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.feols` / `sp.fepois` / `sp.feglm` run on StatsPAI's own engine
+
+`sp.feols`, `sp.fepois` and `sp.feglm` reached their numbers through
+pyfixest, an optional dependency, so the fast native kernels never served
+the most used entry points, and a plain `pip install statspai` could not
+run them. They now fit plain calls natively (`sp.fast.feols`,
+`sp.fast.fepois`, and a new binomial IRLS for logit / probit) and keep
+pyfixest for everything else. Track A module 67 (panel GLM) no longer
+calls pyfixest: the parity table counts 87 native modules and 2
+third-party ones (was 86 and 3).
+
+One million rows, firm and year effects, one thread, against R `fixest`
+0.14 on the same CSV (`benchmarks/hdfe/fixest_matrix.py`, minimum of five
+runs, Rust kernels installed), in milliseconds:
+
+| call | before (pyfixest) | now | fixest |
+| --- | ---: | ---: | ---: |
+| `sp.feols`, iid | 260 | 62 | 81 |
+| `sp.feols`, clustered | | 79 | 92 |
+| `sp.feols`, 10 regressors, clustered | | 176 | 293 |
+| `sp.fepois`, iid | 487 | 342 | 424 |
+| `sp.fepois`, clustered | | 367 | 468 |
+
+#### Changed
+
+- `sp.feols(backend=)` defaults to `'auto'` (was `'pyfixest'`);
+  `sp.fepois` gained the argument. `'auto'` fits `y ~ x1 + ... | fe1 + ...`
+  with numeric regressors, `vcov` in iid / hetero / one-way CRV1, no `ssc=`
+  and no extra pyfixest keyword natively, with the delegate's conventions
+  (singletons kept unless `fixef_rm='singleton'`, rows with missing values
+  dropped, the same degrees of freedom, p-values and R-squared). On 128
+  configurations (absorbed effects, vcov, weights, singletons, separation)
+  coefficients agree with pyfixest to 2e-7 relative and `sp.feols` standard
+  errors to 1e-6. Absorbed or collinear regressors, which fixest drops,
+  still go to pyfixest. `model_info['backend']` says which engine ran.
+  See MIGRATION.md.
+- `sp.fepois` on the native engine iterates IRLS to a relative deviance
+  change of 1e-10. At pyfixest's and fixest's 1e-8 stop the fixed effects,
+  and with them the standard errors, can sit 1e-5 from the optimum; the
+  native standard errors are within 3e-9 of it on every configuration
+  above (pyfixest's within 1.2e-5, fixest's 5e-8 on the reference panel).
+  It warns when it drops observations for separation, as pyfixest does.
+- `sp.feglm(family='logit' | 'probit')` gained `backend=` (default
+  `'auto'`) and fits natively under the same conditions (`weights=` is the
+  one extra keyword it takes natively; `family='gaussian'` stays with
+  pyfixest). It follows `fixest::feglm`: observations in a fixed-effect
+  group with only 0 or only 1 outcomes are dropped (with a warning),
+  Fisher-scoring variance, fixest's small-sample factors, normal p-values
+  (pyfixest used a t distribution). Against `fixest::feglm` at tight
+  tolerances on 32 configurations (logit / probit, one and two effects,
+  iid / hetero / clustered, weights) coefficients agree to 1.3e-13 and
+  standard errors to 1e-6; pyfixest's defaults sat 6e-5 to 1.4e-4 from
+  fixest's on the same panel.
+
+#### Fixed
+
+- Provenance hashing no longer adds its cost to every fit: the SHA-256 of
+  the input frame (45 ms of a 110 ms `sp.feols` on a million rows) runs on
+  a second thread while the estimator works, with the same digest.
+- `sp.fast.feols(vcov='cr1')`: the cluster scores are summed with
+  `bincount` instead of `np.add.at`, the cluster and fixed-effect codes are
+  reused instead of factorised again, and the nested-in-cluster check is
+  vectorised (it looped over rows in Python). 95 to 61 ms on a million
+  rows; results bit-identical on 66 configurations.
+- `sp.fast.demean` no longer re-factorises codes that are already dense
+  when no singleton was dropped, and returns them in `DemeanInfo.fe_codes`.
+- `sp.fast.fepois` no longer recounts each fixed effect's levels with
+  `np.unique` at the end of the fit (15 ms on a million rows).
+
+#### Added
+
+- `benchmarks/hdfe/fixest_matrix.py`: StatsPAI against R `fixest` on a
+  matrix of models (OLS iid / clustered / hetero / weighted / ten
+  regressors, Poisson, logit, a low-mobility three-way panel), sizes and
+  thread counts, on the same CSV bytes, with coefficient and SE agreement.
+
 ### Rust kernels: shippable, safe, and faster than fixest
 
 The Rust kernels in `rust/statspai_hdfe` had never reached a user: StatsPAI

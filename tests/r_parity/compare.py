@@ -293,10 +293,6 @@ IMPLEMENTATION_PROVENANCE: dict[str, tuple[str, str]] = {
         "sp.arima wraps statsmodels' ARIMA / SARIMAX likelihood "
         "(method='innovations_mle' here).",
     ),
-    "67_panel_glm": (
-        "third_party_python",
-        "sp.feglm / sp.fepois route to pyfixest's feglm / fepois.",
-    ),
 }
 
 #: Packages a *native* module may still touch, but only to produce rows that

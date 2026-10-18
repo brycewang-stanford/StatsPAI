@@ -6,7 +6,7 @@ Each card is checked against a real call on small data: the required arguments, 
 
 - functions audited: **70**
 - functions with a card defect: **0**
-- enum values tried: **570** (513 accepted, 57 need a precondition, 0 refused by the function)
+- enum values tried: **596** (539 accepted, 57 need a precondition, 0 refused by the function)
 
 `precondition` means the call failed for a reason other than the value itself: it needs other arguments, other data or an optional package. Those are listed below so the card can say what the value needs. `rejected` means the schema advertises a value the function does not accept, which is a defect.
 
@@ -19,9 +19,9 @@ Each card is checked against a real call on small data: the required arguments, 
 | `probit` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
 | `poisson` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
 | `qreg` | QuantileRegressionResult | 8 / 1 / 0 | 7 / 0 / 0 | none |
-| `feols` | EconometricResults | 6 / 0 / 0 | 8 / 0 / 2 | none |
+| `feols` | EconometricResults | 7 / 0 / 0 | 8 / 0 / 2 | none |
 | `panel` | PanelResults | 14 / 0 / 0 | 8 / 0 / 0 | none |
-| `did` | CausalResult | 17 / 3 / 0 | 10 / 0 / 0 | none |
+| `did` | CausalResult | 22 / 3 / 0 | 10 / 0 / 0 | none |
 | `callaway_santanna` | CausalResult | 20 / 0 / 0 | 5 / 0 / 5 | none |
 | `sun_abraham` | CausalResult | 9 / 0 / 0 | 5 / 0 / 5 | none |
 | `did_imputation` | CausalResult | 8 / 0 / 0 | 5 / 0 / 5 | none |
@@ -30,7 +30,7 @@ Each card is checked against a real call on small data: the required arguments, 
 | `stacked_did` | CausalResult | 9 / 0 / 0 | 10 / 0 / 0 | none |
 | `event_study` | CausalResult | 0 / 0 / 0 | 10 / 0 / 0 | none |
 | `bacon_decomposition` | dict | 2 / 0 / 0 | 10 / 0 / 0 | none |
-| `rdrobust` | CausalResult | 16 / 0 / 0 | 9 / 0 / 1 | none |
+| `rdrobust` | CausalResult | 22 / 1 / 0 | 9 / 0 / 1 | none |
 | `rddensity` | CausalResult | 2 / 0 / 0 | 6 / 0 / 2 | none |
 | `synth` | CausalResult | 33 / 7 / 0 | 10 / 0 / 0 | none |
 | `sdid` | CausalResult | 9 / 3 / 0 | 3 / 0 / 7 | none |
@@ -50,10 +50,10 @@ Each card is checked against a real call on small data: the required arguments, 
 | `mlogit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
 | `tobit` | LimitedDepResult | 2 / 0 / 0 | 8 / 0 / 0 | none |
 | `cloglog` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
-| `fepois` | EconometricResults | 0 / 0 / 0 | 6 / 0 / 2 | none |
-| `feglm` | EconometricResults | 3 / 0 / 0 | 0 / 0 / 7 | none |
+| `fepois` | EconometricResults | 3 / 0 / 0 | 6 / 0 / 2 | none |
+| `feglm` | EconometricResults | 6 / 0 / 0 | 0 / 0 / 7 | none |
 | `heckman` | LimitedDepResult | 3 / 0 / 0 | 3 / 0 / 4 | none |
-| `mediate` | CausalResult | 5 / 5 / 0 | 8 / 0 / 0 | none |
+| `mediate` | CausalResult | 7 / 5 / 0 | 8 / 0 / 0 | none |
 | `oaxaca` | OaxacaResult | 3 / 0 / 0 | 5 / 0 / 3 | none |
 | `ebalance` | CausalResult | 2 / 0 / 0 | 0 / 0 / 7 | none |
 | `cbps` | CausalResult | 4 / 0 / 0 | 0 / 0 / 7 | none |
@@ -68,12 +68,12 @@ Each card is checked against a real call on small data: the required arguments, 
 | `xtabond` | CausalResult | 8 / 0 / 0 | 8 / 0 / 0 | none |
 | `sensemakr` | dict | 0 / 0 / 0 | 8 / 0 / 0 | none |
 | `oster_bounds` | dict | 0 / 0 / 0 | 8 / 0 / 0 | none |
-| `rdbwselect` | DataFrame | 16 / 0 / 0 | 0 / 0 / 10 | none |
+| `rdbwselect` | DataFrame | 21 / 0 / 0 | 0 / 0 / 10 | none |
 | `rd_discrete` | CausalResult | 7 / 1 / 0 | 4 / 0 / 6 | none |
 | `mixed` | MixedResult | 2 / 0 / 0 | 5 / 0 / 2 | none |
 | `liml` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
 | `aggte` | CausalResult | 6 / 1 / 0 | 10 / 0 / 0 | none |
-| `honest_did` | DataFrame | 8 / 1 / 0 | 7 / 0 / 3 | none |
+| `honest_did` | DataFrame | 9 / 0 / 0 | 7 / 0 / 3 | none |
 | `drdid` | CausalResult | 7 / 0 / 0 | 10 / 0 / 0 | none |
 | `did_multiplegt` | CausalResult | 2 / 0 / 0 | 5 / 0 / 5 | none |
 | `gsynth` | CausalResult | 7 / 0 / 0 | 2 / 0 / 7 | none |
@@ -107,6 +107,7 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.etwfe(family='binomial')`: MethodIncompatibility: family='binomial' needs a 0/1 outcome; column 'lemp' has 2500 value(s) outside {0, 1}. -> recovery: Recode the outcome to 0/1 or use famil
 - `sp.etwfe(separated='drop')`: MethodIncompatibility: etwfe(separated='drop') applies to family='poisson' with fe='unit'. -> recovery: Drop separated= for the linear ETWFE.
 - `sp.etwfe(response_se='unconditional')`: MethodIncompatibility: etwfe(response_se='unconditional') applies to the nonlinear families (family='poisson' / 'logit'); the linear ETWFE accepts only 'profile' o
+- `sp.rdrobust(engine='bayes')`: ImportError: The statspai.bayes module requires PyMC + ArviZ. Install with: pip install 'statspai[bayes]' or directly: pip install pymc arviz
 - `sp.synth(method='staggered')`: MethodIncompatibility: method='staggered' requires the `treatment` parameter (binary treatment indicator column name)
 - `sp.synth(method='multi_outcome')`: ValueError: Need at least 2 outcome columns for multi-outcome SCM.
 - `sp.synth(method='multi')`: ValueError: Need at least 2 outcome columns for multi-outcome SCM.
@@ -141,7 +142,6 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.interflex(vce='bootstrap')`: MethodIncompatibility: vce='bootstrap' is available for estimator='kernel'; the linear and binning estimators report delta-method SEs -> recovery: Use estimator=
 - `sp.rd_discrete(method='bm')`: DataInsufficient: Too few observations for the BME regressions. -> recovery: Widen h or lower order.
 - `sp.aggte(agg_weights='csdid')`: MethodIncompatibility: agg_weights='csdid' is defined here for type='simple' and type='group', the two aggregates csdid's rule was read off and rebuilt from; got t
-- `sp.honest_did(honestdid_method='C-F')`: JSONDecodeError: Expecting value: line 1 column 1 (char 0)
 
 ## Arguments the schema requires beyond the signature
 

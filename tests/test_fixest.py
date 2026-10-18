@@ -2,15 +2,15 @@
 Tests for statspai.fixest module — pyfixest integration.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 # Skip the entire module if pyfixest is not installed
 pyfixest = pytest.importorskip("pyfixest")
 
-from statspai.fixest import feols, fepois, feglm, etable
 from statspai.core.results import EconometricResults
+from statspai.fixest import etable, feglm, feols, fepois
 from statspai.output.outreg2 import outreg2
 
 # --------------------------------------------------------------------------- #
@@ -136,9 +136,19 @@ class TestFeols:
 
     def test_pyfixest_fit_attached(self, panel_data):
         """Original pyfixest fit should be accessible."""
-        result = feols("y ~ x1 + x2 | firm_id", data=panel_data)
+        result = feols("y ~ x1 + x2 | firm_id", data=panel_data, backend="pyfixest")
         assert hasattr(result, "_pyfixest_fit")
         assert result._pyfixest_fit is not None
+
+    def test_plain_formula_runs_on_the_native_engine(self, panel_data):
+        """The default backend fits plain formulas without pyfixest."""
+        native = feols("y ~ x1 + x2 | firm_id", data=panel_data)
+        assert native.model_info["backend"] == "statspai-native"
+        assert not hasattr(native, "_pyfixest_fit")
+        delegate = feols("y ~ x1 + x2 | firm_id", data=panel_data, backend="pyfixest")
+        np.testing.assert_allclose(native.params, delegate.params, rtol=1e-10)
+        np.testing.assert_allclose(native.std_errors, delegate.std_errors, rtol=1e-8)
+        assert native.data_info["df_resid"] == delegate.data_info["df_resid"]
 
     def test_multiple_estimation(self, panel_data):
         """csw0 syntax should return list of EconometricResults."""

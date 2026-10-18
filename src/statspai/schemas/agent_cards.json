@@ -113321,7 +113321,7 @@
     ],
     "category": "panel",
     "cost_profile": "Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows.",
-    "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows.",
+    "description": "Estimate OLS / IV with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -113399,14 +113399,15 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows.",
+      "description": "Estimate OLS / IV with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows.",
       "name": "feols",
       "parameters": {
         "properties": {
           "backend": {
-            "default": "pyfixest",
-            "description": "``'native'`` fits the regression on StatsPAI's HDFE kernel (``sp.hdfe_ols``) and reports it as ``feols`` does: same coefficients, SEs within the demeaning tolerance (~1e-9) for ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}``, and 10-60x faster on millions of rows (2M rows, two effects: 1.9 s vs 110 s). No IV part, multiple-estimation syntax or ``ssc=``. With the default, a regression of at least a million rows that the native kernel can fit warns once with this suggestion.",
+            "default": "auto",
+            "description": "``'auto'`` fits on StatsPAI's own engine (``sp.fast.feols``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and no ``ssc=`` or extra pyfixest keyword, and through pyfixest otherwise (also when regressors are absorbed or collinear, which fixest drops). ``model_info['backend']`` says which ran. The native fit follows fixest's conventions: same coefficients, SEs within the demeaning tolerance, rows with missing values dropped first. ``'pyfixest'`` always delegates. ``'native'`` uses StatsPAI's engine for everything it supports, including varying slopes (``sp.hdfe_ols``), and refuses the rest.",
             "enum": [
+              "auto",
               "pyfixest",
               "native"
             ],
@@ -113532,7 +113533,7 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence.",
+    "description": "Estimate Poisson regression with high-dimensional fixed effects. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -113604,10 +113605,20 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence.",
+      "description": "Estimate Poisson regression with high-dimensional fixed effects. Validation: certified parity evidence.",
       "name": "fepois",
       "parameters": {
         "properties": {
+          "backend": {
+            "default": "auto",
+            "description": "``'auto'`` fits on StatsPAI's own PPML-HDFE engine (``sp.fast.fepois``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and no ``ssc=`` or extra pyfixest keyword, and through pyfixest otherwise. Both follow fixest: observations in a fixed-effect group whose outcomes are all zero are dropped, rows with missing values are dropped, singletons are kept unless ``fixef_rm='singleton'``. ``model_info['backend']`` says which ran. ``'pyfixest'`` always delegates; ``'native'`` refuses calls the native engine cannot fit.",
+            "enum": [
+              "auto",
+              "pyfixest",
+              "native"
+            ],
+            "type": "string"
+          },
           "cluster": {
             "description": "Cluster id column for the extended ``vce=`` menu; also a shorthand for one-way ``{\"CRV1\": cluster}``.",
             "type": "string",
@@ -113699,7 +113710,7 @@
     "validation_notes": [
       "R parity module 67_panel_glm",
       "Stata parity module 67_panel_glm",
-      "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 67_panel_glm; implementation: third party python -- tests/r_parity/67_panel_glm.py",
+      "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 67_panel_glm -- tests/r_parity/67_panel_glm.py",
       "tests/reference_parity/test_fast_fepois_fixest_parity.py",
       "tests/reference_parity/test_feglm_wild_boottest_parity.py",
       "tests/reference_parity/test_ppmlhdfe_extended_vce_parity.py"
@@ -113790,6 +113801,16 @@
       "name": "feglm",
       "parameters": {
         "properties": {
+          "backend": {
+            "default": "auto",
+            "description": "``'auto'`` fits ``family='logit'`` / ``'probit'`` on StatsPAI's own IRLS engine whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and at most ``weights=`` among the extra keywords, and through pyfixest otherwise (``family='gaussian'`` always). The native fit follows ``fixest::feglm``: observations in a fixed-effect group whose outcomes are all 0 or all 1 are dropped, p-values are normal, and IRLS runs to a relative deviance change of 1e-10. ``'pyfixest'`` always delegates; ``'native'`` refuses calls the native engine cannot fit.",
+            "enum": [
+              "auto",
+              "pyfixest",
+              "native"
+            ],
+            "type": "string"
+          },
           "cluster": {
             "description": "Cluster id column for the extended ``vce=`` menu (also a shorthand for one-way ``{\"CRV1\": cluster}``).",
             "type": "string",
@@ -113862,7 +113883,8 @@
     "validation_notes": [
       "R parity module 67_panel_glm",
       "Stata parity module 67_panel_glm",
-      "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 67_panel_glm; implementation: third party python -- tests/r_parity/67_panel_glm.py",
+      "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 67_panel_glm -- tests/r_parity/67_panel_glm.py",
+      "tests/reference_parity/test_feglm_native_fixest_parity.py",
       "tests/reference_parity/test_feglm_wild_boottest_parity.py"
     ],
     "validation_status": "certified"

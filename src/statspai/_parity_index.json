@@ -7570,6 +7570,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_feglm_native_fixest_parity.py",
         "tests/reference_parity/test_feglm_wild_boottest_parity.py"
       ],
       "also_verified_by": [
@@ -7579,8 +7580,8 @@
       "function": "feglm",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 9.712933277486466e-09,
-        "rel_vs_Stata": 1.778602979749374e-09,
+        "rel_vs_R": 9.728099018844314e-09,
+        "rel_vs_Stata": 1.7937687209868933e-09,
         "statistic": [
           "feglm_logit_x1",
           "feglm_logit_x2",
@@ -7589,14 +7590,14 @@
         ],
         "tolerance": 1e-06
       },
-      "implementation": "third_party_python",
+      "implementation": "native",
       "label": "Panel GLM (feglm / fepois)",
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "67_panel_glm",
       "notes": [],
       "point_estimate_rel": {
-        "R": 9.712933277486466e-09,
-        "Stata": 1.778602979749374e-09
+        "R": 9.728099018844314e-09,
+        "Stata": 1.7937687209868933e-09
       },
       "python_call": "sp.feglm / sp.fepois",
       "reference": "fixest::feglm (family=\"logit\") / fixest::fepois",
@@ -7605,7 +7606,7 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 1.8453380512369875e-05,
+        "R": 1.9194012690801436e-05,
         "Stata": null
       },
       "sides": [
@@ -7667,8 +7668,8 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "03_hdfe",
       "notes": [
-        "Alias of sp.fast.feols(ssc='fixest') -- proven equivalent on the committed 03_hdfe + 15_hdfe_cluster bytes to rtol 1e-07 (observed 3.3e-09) by tests/reference_parity/test_track_a_alias_equivalence.py.",
-        "The module runs the native sp.fast.feols; the registered name feols is the top-level sp.feols, which delegates to pyfixest (model_info['backend'] == 'pyfixest'). The credit is therefore evidence about that delegation, measured on the module bytes, not about a native algorithm. The clustered leg is looser because pyfixest demeans iteratively to its default fixef_tol=1e-6 on a threaded numba backend: the clustered standard error moved between 2.0e-10 and 3.3e-9 from sp.fast.feols across runs, while coefficients and iid errors stay near 1e-14."
+        "Alias of sp.fast.feols(ssc='fixest') -- proven equivalent on the committed 03_hdfe + 15_hdfe_cluster bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py.",
+        "The module runs the native sp.fast.feols; the registered name feols is the top-level sp.feols, which fits these calls on the same engine (model_info['backend'] == 'statspai-native'), so the legs are identities on the module bytes. Until 2026-10 sp.feols delegated them to pyfixest and the clustered leg moved by up to 3.3e-9 with pyfixest's iterative demeaning (budget 1e-7 then)."
       ],
       "point_estimate_rel": {
         "R": 5.181108180688351e-15,
@@ -7713,8 +7714,8 @@
       "function": "fepois",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 9.712933277486466e-09,
-        "rel_vs_Stata": 1.778602979749374e-09,
+        "rel_vs_R": 9.728099018844314e-09,
+        "rel_vs_Stata": 1.7937687209868933e-09,
         "statistic": [
           "feglm_logit_x1",
           "feglm_logit_x2",
@@ -7723,14 +7724,14 @@
         ],
         "tolerance": 1e-06
       },
-      "implementation": "third_party_python",
+      "implementation": "native",
       "label": "Panel GLM (feglm / fepois)",
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "67_panel_glm",
       "notes": [],
       "point_estimate_rel": {
-        "R": 9.712933277486466e-09,
-        "Stata": 1.778602979749374e-09
+        "R": 9.728099018844314e-09,
+        "Stata": 1.7937687209868933e-09
       },
       "python_call": "sp.feglm / sp.fepois",
       "reference": "fixest::feglm (family=\"logit\") / fixest::fepois",
@@ -7739,7 +7740,7 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 1.8453380512369875e-05,
+        "R": 1.9194012690801436e-05,
         "Stata": null
       },
       "sides": [

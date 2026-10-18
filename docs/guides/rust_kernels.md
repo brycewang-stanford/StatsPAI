@@ -43,8 +43,13 @@ Set `STATSPAI_SKIP_RUST=1` to make StatsPAI ignore an installed extension
 | `sp.iv(..., absorb=)`, `sp.didregress`, `sp.iv.iv_diag`, weak-IV diagnostics | demeaning |
 | `sp.regress(..., cluster=)` (one-way) | cluster-robust meat |
 
-`sp.feols` / `sp.fepois` (backed by pyfixest) and `sp.panel(method="fe")`
-(backed by linearmodels) do not use it.
+`sp.feols`, `sp.fepois` and `sp.feglm(family="logit" | "probit")` use it
+for every call their own engine fits (`backend="auto"`, the default:
+`y ~ x1 + ... | fe1 + ...` with numeric regressors and an iid, hetero or
+one-way clustered variance); `model_info["backend"]` is then
+`"statspai-native"`. Calls that need pyfixest (IV, `i()`, `sw()` /
+`csw()`, other variances, `ssc=`) and `sp.panel(method="fe")` (backed by
+linearmodels) do not use it.
 
 ## How it works
 

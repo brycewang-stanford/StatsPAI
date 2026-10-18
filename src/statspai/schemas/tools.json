@@ -13827,6 +13827,16 @@
     "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem. Assumptions: The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples); Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs. Pre-conditions: Outcome support matches the family (no exact 0/1 for betareg; values inside the truncation region for truncreg). Failure modes: Outcome values outside the family's support -> Rescale or switch family: exact 0/1 shares -> sp.fracreg; censoring rather than truncation -> a tobit / censored model. Alternatives: sp.sp.fracreg, sp.sp.glm, sp.sp.regress.",
     "input_schema": {
       "properties": {
+        "backend": {
+          "default": "auto",
+          "description": "``'auto'`` fits ``family='logit'`` / ``'probit'`` on StatsPAI's own IRLS engine whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and at most ``weights=`` among the extra keywords, and through pyfixest otherwise (``family='gaussian'`` always). The native fit follows ``fixest::feglm``: observations in a fixed-effect group whose outcomes are all 0 or all 1 are dropped, p-values are normal, and IRLS runs to a relative deviance change of 1e-10. ``'pyfixest'`` always delegates; ``'native'`` refuses calls the native engine cannot fit.",
+          "enum": [
+            "auto",
+            "pyfixest",
+            "native"
+          ],
+          "type": "string"
+        },
         "cluster": {
           "description": "Cluster id column for the extended ``vce=`` menu (also a shorthand for one-way ``{\"CRV1\": cluster}``).",
           "type": "string",
@@ -13890,13 +13900,14 @@
     "name": "feglm"
   },
   {
-    "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows. Assumptions: Strict exogeneity conditional on the absorbed fixed effects; No perfect collinearity after FE absorption (within-transformation rank); Cluster structure for `vcov={'CRV1': '...'}` matches the relevant dependence. Pre-conditions: Data is a long-format DataFrame; FE columns are categorical or convertible; Every absorbed FE level has more than one observation (singleton dropping behaviour controlled by `drop_singletons`); Optional IV stage: instruments are at least as many as endogenous regressors. Failure modes: Singleton groups dropped warning -> Aggregate small categories or...",
+    "description": "Estimate OLS / IV with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows. Assumptions: Strict exogeneity conditional on the absorbed fixed effects; No perfect collinearity after FE absorption (within-transformation rank); Cluster structure for `vcov={'CRV1': '...'}` matches the relevant dependence. Pre-conditions: Data is a long-format DataFrame; FE columns are categorical or convertible; Every absorbed FE level has more than one observation (singleton dropping behaviour controlled by `drop_singletons`); Optional IV stage: instruments are at least as many as endogenous regressors. Failure modes: Singleton groups dropped warning -> Aggregate small categories or accept the dr...",
     "input_schema": {
       "properties": {
         "backend": {
-          "default": "pyfixest",
-          "description": "``'native'`` fits the regression on StatsPAI's HDFE kernel (``sp.hdfe_ols``) and reports it as ``feols`` does: same coefficients, SEs within the demeaning tolerance (~1e-9) for ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}``, and 10-60x faster on millions of rows (2M rows, two effects: 1.9 s vs 110 s). No IV part, multiple-estimation syntax or ``ssc=``. With the default, a regression of at least a million rows that the native kernel can fit warns once with this suggestion.",
+          "default": "auto",
+          "description": "``'auto'`` fits on StatsPAI's own engine (``sp.fast.feols``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and no ``ssc=`` or extra pyfixest keyword, and through pyfixest otherwise (also when regressors are absorbed or collinear, which fixest drops). ``model_info['backend']`` says which ran. The native fit follows fixest's conventions: same coefficients, SEs within the demeaning tolerance, rows with missing values dropped first. ``'pyfixest'`` always delegates. ``'native'`` uses StatsPAI's engine for everything it supports, including varying slopes (``sp.hdfe_ols``), and refuses the rest.",
           "enum": [
+            "auto",
             "pyfixest",
             "native"
           ],
@@ -13991,9 +14002,19 @@
     "name": "feols"
   },
   {
-    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Assumptions: Conditional mean exponential link: E[y | x, alpha] = exp(x'beta + alpha); Strict exogeneity conditional on the absorbed fixed effects (PPML consistency). Pre-conditions: Outcome is a non-negative count or non-negative continuous variable; Fixed effects columns are categorical; absorbed groups exist. Failure modes: Convergence failure or extreme exponentiated predictions -> Drop large-magnitude regressors, rescale, or switch to OLS on log(1+y) (with caveats); Separation: some FE level perfectly predicts zero outcomes -> Drop perfectly-predicted groups and rerun; document the restriction. Alternatives: sp.feols, sp.regress, sp.panel. Typical minimum N: 200.",
+    "description": "Estimate Poisson regression with high-dimensional fixed effects. Validation: certified parity evidence. Assumptions: Conditional mean exponential link: E[y | x, alpha] = exp(x'beta + alpha); Strict exogeneity conditional on the absorbed fixed effects (PPML consistency). Pre-conditions: Outcome is a non-negative count or non-negative continuous variable; Fixed effects columns are categorical; absorbed groups exist. Failure modes: Convergence failure or extreme exponentiated predictions -> Drop large-magnitude regressors, rescale, or switch to OLS on log(1+y) (with caveats); Separation: some FE level perfectly predicts zero outcomes -> Drop perfectly-predicted groups and rerun; document the restriction. Alternatives: sp.feols, sp.regress, sp.panel. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
+        "backend": {
+          "default": "auto",
+          "description": "``'auto'`` fits on StatsPAI's own PPML-HDFE engine (``sp.fast.fepois``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and no ``ssc=`` or extra pyfixest keyword, and through pyfixest otherwise. Both follow fixest: observations in a fixed-effect group whose outcomes are all zero are dropped, rows with missing values are dropped, singletons are kept unless ``fixef_rm='singleton'``. ``model_info['backend']`` says which ran. ``'pyfixest'`` always delegates; ``'native'`` refuses calls the native engine cannot fit.",
+          "enum": [
+            "auto",
+            "pyfixest",
+            "native"
+          ],
+          "type": "string"
+        },
         "cluster": {
           "description": "Cluster id column for the extended ``vce=`` menu; also a shorthand for one-way ``{\"CRV1\": cluster}``.",
           "type": "string",

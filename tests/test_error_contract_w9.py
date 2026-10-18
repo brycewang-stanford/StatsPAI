@@ -132,7 +132,7 @@ class TestColumnNotFound:
 class TestMissingDependency:
     def test_feols_without_pyfixest(self, panel, no_pyfixest):
         with pytest.raises(MissingDependencyError) as info:
-            sp.feols("y ~ x | id", data=panel)
+            sp.feols("y ~ x | id", data=panel, backend="pyfixest")
         err = info.value
         assert isinstance(err, ImportError) and isinstance(err, StatsPAIError)
         payload = err.to_dict()
@@ -144,7 +144,13 @@ class TestMissingDependency:
 
     def test_old_except_importerror_still_catches(self, panel, no_pyfixest):
         with pytest.raises(ImportError):
-            sp.feols("y ~ x | id", data=panel)
+            sp.feols("y ~ x | id", data=panel, backend="pyfixest")
+
+    def test_plain_feols_and_fepois_need_no_pyfixest(self, panel, no_pyfixest):
+        # The default backend fits plain formulas on StatsPAI's own engine.
+        fit = sp.feols("y ~ x | id", data=panel)
+        assert fit.model_info["backend"] == "statspai-native"
+        assert np.isfinite(fit.std_errors["x"])
 
     def test_require_optional_returns_module(self):
         from statspai._optional_deps import require_optional
@@ -373,7 +379,18 @@ class TestCLIInProcess:
     def test_missing_dependency_exit_5(self, panel_csv, no_pyfixest, capsys):
         from statspai.cli import main
 
-        rc = main(["run", "feols", "--data", panel_csv, "--arg", "fml=y ~ x | id"])
+        rc = main(
+            [
+                "run",
+                "feols",
+                "--data",
+                panel_csv,
+                "--arg",
+                "fml=y ~ x | id",
+                "--arg",
+                "backend=pyfixest",
+            ]
+        )
         _, err = capsys.readouterr()
         assert rc == 5, err[-2000:]
         payload = json.loads(err)

@@ -39,20 +39,16 @@ def data():
 @pytest.mark.parametrize("vcov", ["iid", "hetero", {"CRV1": "c"}])
 @pytest.mark.parametrize("weights", [None, "w"])
 def test_native_equals_pyfixest(data, vcov, weights):
-    if weights and vcov == "hetero":
-        # the native robust menu is unweighted: refuse, never ignore
-        with pytest.raises(ValueError, match="weights"):
-            sp.feols(
-                "y ~ x1 + x2 | f1 + f2",
-                data=data,
-                vcov=vcov,
-                weights=weights,
-                backend="native",
-            )
-        return
+    pytest.importorskip("pyfixest")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        a = sp.feols("y ~ x1 + x2 | f1 + f2", data=data, vcov=vcov, weights=weights)
+        a = sp.feols(
+            "y ~ x1 + x2 | f1 + f2",
+            data=data,
+            vcov=vcov,
+            weights=weights,
+            backend="pyfixest",
+        )
         b = sp.feols(
             "y ~ x1 + x2 | f1 + f2",
             data=data,

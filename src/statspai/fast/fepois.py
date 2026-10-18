@@ -597,6 +597,46 @@ def fepois(
     -------
     FePoisResult
     """
+    return _fepois_fit(
+        formula,
+        data,
+        vcov=vcov,
+        cluster=cluster,
+        weights=weights,
+        maxiter=maxiter,
+        tol=tol,
+        fe_tol=fe_tol,
+        fe_maxiter=fe_maxiter,
+        drop_singletons=drop_singletons,
+        drop_separation=drop_separation,
+        ssc=ssc,
+        weights_as=weights_as,
+    )[0]
+
+
+def _fepois_fit(
+    formula: str,
+    data: pd.DataFrame,
+    *,
+    vcov: str = "iid",
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    maxiter: int = 50,
+    tol: float = 1e-8,
+    fe_tol: float = 1e-10,
+    fe_maxiter: int = 1000,
+    drop_singletons: bool = True,
+    drop_separation: bool = True,
+    ssc: str = "fixest",
+    weights_as: Optional[str] = None,
+    note_weights: bool = True,
+) -> Tuple[FePoisResult, Dict[str, Any]]:
+    """Body of :func:`fepois`.
+
+    Also returns the arrays ``sp.fepois`` reports on its native path: the
+    estimation-sample mask, the outcome, the fitted means and the
+    parameter count behind each small-sample factor.
+    """
     if ssc not in ("fixest", "statspai"):
         raise MethodIncompatibility(
             f"fepois: ssc={ssc!r}; supported: 'fixest' or 'statspai'",
@@ -1043,7 +1083,7 @@ def fepois(
     log_lik = float(np.sum(obs_weights * (y * np.log(np.maximum(mu, 1e-30)) - mu)))
 
     weight_info: Optional[Dict[str, Any]] = None
-    if weights is not None:
+    if weights is not None and note_weights:
         from ..core._agent_summary import note_weight_diagnostics
 
         weight_info = {}
@@ -1062,7 +1102,7 @@ def fepois(
             weights_as=weights_as,
         )
 
-    return FePoisResult(
+    result = FePoisResult(
         formula=formula,
         coef_names=coef_names_full,
         coef_vec=beta,
@@ -1076,12 +1116,22 @@ def fepois(
         iterations=iters_used,
         converged=converged,
         fe_names=list(fe_terms),
-        fe_cardinality=[int(np.unique(c).size) for c in fe_codes],
+        fe_cardinality=fe_card,
         vcov_type=vcov,
         df_residual=int(max(df_resid, 0)),
         weight_info=weight_info,
         fe_kernel=fe_kernel,
     )
+    arrays = {
+        "keep_mask": keep,
+        "y": y,
+        "mu": mu,
+        "w": obs_weights,
+        "cluster": cluster_arr_full,
+        "df_k": int(p + fe_dof),
+        "df_k_cluster": int(p + cr1_extra_df),
+    }
+    return result, arrays
 
 
 def _poisson_deviance(

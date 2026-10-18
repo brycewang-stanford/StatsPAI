@@ -124,10 +124,11 @@ def require_identified_regressors(
     names = list(names)
 
     def wsq(A: np.ndarray) -> np.ndarray:
-        # Column-wise weighted sums of squares, without an (n, p) temporary.
+        # Column-wise weighted sums of squares, without an (n, p) temporary:
+        # one dot product per column (contiguous for column-major input).
         if weights is None:
-            return np.asarray(np.einsum("ij,ij->j", A, A))
-        return np.asarray(np.einsum("i,ij,ij->j", w, A, A))
+            return np.array([A[:, j] @ A[:, j] for j in range(A.shape[1])])
+        return np.array([(w * A[:, j]) @ A[:, j] for j in range(A.shape[1])])
 
     ss_dem = wsq(X_dem)
     # The centred raw sum of squares is at most the uncentred one, so only

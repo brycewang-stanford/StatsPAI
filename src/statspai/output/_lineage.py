@@ -387,8 +387,29 @@ def attach_provenance(
         except Exception:
             return result
 
+    return _attach(result, function=function, params=params, data=data)
+
+
+#: Sentinel: the data hash has not been computed yet.
+_UNSET: Any = object()
+
+
+def _attach(
+    result: Any,
+    *,
+    function: str,
+    params: Optional[Mapping[str, Any]],
+    data: Optional[Any],
+    data_hash: Any = _UNSET,
+) -> Any:
+    """Body of :func:`attach_provenance`, after its early exits.
+
+    ``data_hash`` takes a hash already computed from ``data`` (see
+    :func:`records_provenance`, which computes it while the fit runs).
+    """
     try:
-        data_hash = compute_data_hash(data) if data is not None else None
+        if data_hash is _UNSET:
+            data_hash = compute_data_hash(data) if data is not None else None
         data_shape = None
         if data is not None:
             try:
@@ -488,6 +509,67 @@ def _capture_if_requested(result: Any, prov: Any) -> None:
         )
 
 
+class _HashAhead:
+    """The fingerprint of a large input, computed while the fit runs.
+
+    SHA-256 of a million-row frame costs about as much as a fixed-effects
+    regression on it (45 ms of a 110 ms ``sp.feols``). ``hashlib`` releases
+    the GIL on large buffers, so a second thread hashes the caller's frame
+    while the estimator works on it; the record holds the same digest as a
+    hash taken afterwards. Small inputs are hashed inline, where a thread
+    would cost more than it saves. The thread is joined before the call
+    returns, so none outlives it (fork-safe).
+    """
+
+    #: Inputs with at least this many cells are hashed on a second thread.
+    THREAD_CELLS = 200_000
+
+    def __init__(self, data: Any) -> None:
+        self._data = data
+        self._value: Any = _UNSET
+        self._thread: Any = None
+
+    @classmethod
+    def start(cls, data: Any) -> "_HashAhead":
+        ahead = cls(data)
+        if data is None:
+            ahead._value = None
+            return ahead
+        import pandas as pd
+
+        big = (
+            isinstance(data, pd.DataFrame)
+            and 0 < len(data) <= MAX_HASH_ROWS
+            and data.shape[0] * max(data.shape[1], 1) >= cls.THREAD_CELLS
+        )
+        if big:
+            import threading
+
+            ahead._thread = threading.Thread(
+                target=ahead._run, name="statspai-data-hash", daemon=True
+            )
+            ahead._thread.start()
+        return ahead
+
+    def _run(self) -> None:
+        self._value = compute_data_hash(self._data)
+
+    def discard(self) -> None:
+        """Wait for the hashing thread, if any, without using its value."""
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
+
+    def result(self) -> Any:
+        """The digest (``None`` when there is none); hashes inline if needed."""
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
+        if self._value is _UNSET:
+            self._value = compute_data_hash(self._data)
+        return self._value
+
+
 def records_provenance(function: str, *, data_arg: str = "data") -> Callable[[_F], _F]:
     """Decorator: attach a :class:`Provenance` record to the returned result.
 
@@ -506,23 +588,35 @@ def records_provenance(function: str, *, data_arg: str = "data") -> Callable[[_F
 
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            result = fn(*args, **kwargs)
             try:
                 bound = sig.bind_partial(*args, **kwargs)
             except TypeError:
-                return result
+                return fn(*args, **kwargs)
+            data = bound.arguments.get(data_arg)
+            pending = _HashAhead.start(data)
+            try:
+                result = fn(*args, **kwargs)
+            except BaseException:
+                pending.discard()
+                raise
+            data_hash = pending.result()
+            if result is None or getattr(result, "_provenance", None) is not None:
+                return result  # keep the inner (most specific) record
             params: Dict[str, Any] = {}
-            data = None
             for name, value in bound.arguments.items():
                 kind = sig.parameters[name].kind
                 if name == data_arg:
-                    data = value
+                    continue
                 elif kind is inspect.Parameter.VAR_KEYWORD:
                     params.update(value)
                 elif kind is not inspect.Parameter.VAR_POSITIONAL:
                     params[name] = value
-            return attach_provenance(
-                result, function=function, params=params, data=data
+            return _attach(
+                result,
+                function=function,
+                params=params,
+                data=data,
+                data_hash=data_hash,
             )
 
         return cast(_F, wrapper)
@@ -624,7 +718,7 @@ def _note_listwise_deletion(
         if not isinstance(data, pd.DataFrame) or len(data) == 0:
             return
         used = _referenced_columns(params, data.columns)
-        if not used:
+        if not used or not any(data[c].hasnans for c in used):
             return
         incomplete = data[used].isna()
         n_dropped = int(incomplete.any(axis=1).sum())

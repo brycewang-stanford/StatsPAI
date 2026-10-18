@@ -4,7 +4,7 @@
   "n_functions": 70,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 513,
+    "ok": 539,
     "precondition": 57,
     "rejected": 0
   },
@@ -598,6 +598,9 @@
           }
         },
         "backend": {
+          "auto": {
+            "status": "ok"
+          },
           "pyfixest": {
             "status": "ok"
           },
@@ -830,6 +833,25 @@
             "status": "ok"
           },
           "reg": {
+            "status": "ok"
+          }
+        },
+        "base_period": {
+          "universal": {
+            "status": "ok"
+          },
+          "varying": {
+            "status": "ok"
+          }
+        },
+        "se_method": {
+          "placebo": {
+            "status": "ok"
+          },
+          "bootstrap": {
+            "status": "ok"
+          },
+          "jackknife": {
             "status": "ok"
           }
         }
@@ -1650,6 +1672,32 @@
           },
           "off": {
             "status": "ok"
+          }
+        },
+        "vce": {
+          "nn": {
+            "status": "ok"
+          },
+          "hc0": {
+            "status": "ok"
+          },
+          "hc1": {
+            "status": "ok"
+          },
+          "hc2": {
+            "status": "ok"
+          },
+          "hc3": {
+            "status": "ok"
+          }
+        },
+        "engine": {
+          "ols": {
+            "status": "ok"
+          },
+          "bayes": {
+            "status": "precondition",
+            "error": "ImportError: The statspai.bayes module requires PyMC + ArviZ. Install with:\n    pip install 'statspai[bayes]'\nor directly:\n    pip install pymc arviz"
           }
         }
       },
@@ -3215,7 +3263,19 @@
         "actual": "EconometricResults",
         "matches": true
       },
-      "enums": {},
+      "enums": {
+        "backend": {
+          "auto": {
+            "status": "ok"
+          },
+          "pyfixest": {
+            "status": "ok"
+          },
+          "native": {
+            "status": "ok"
+          }
+        }
+      },
       "alternatives": [
         {
           "name": "feols",
@@ -3264,6 +3324,17 @@
             "status": "ok"
           },
           "probit": {
+            "status": "ok"
+          }
+        },
+        "backend": {
+          "auto": {
+            "status": "ok"
+          },
+          "pyfixest": {
+            "status": "ok"
+          },
+          "native": {
             "status": "ok"
           }
         }
@@ -3408,6 +3479,14 @@
           "poisson": {
             "status": "precondition",
             "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+          }
+        },
+        "pvalue_method": {
+          "bootstrap_sign": {
+            "status": "ok"
+          },
+          "wald": {
+            "status": "ok"
           }
         }
       },
@@ -4457,6 +4536,23 @@
             "status": "ok"
           }
         },
+        "vce": {
+          "nn": {
+            "status": "ok"
+          },
+          "hc0": {
+            "status": "ok"
+          },
+          "hc1": {
+            "status": "ok"
+          },
+          "hc2": {
+            "status": "ok"
+          },
+          "hc3": {
+            "status": "ok"
+          }
+        },
         "masspoints": {
           "adjust": {
             "status": "ok"
@@ -4808,8 +4904,10 @@
             "status": "ok"
           },
           "C-F": {
-            "status": "precondition",
-            "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+            "status": "ok",
+            "with": {
+              "backend": "r"
+            }
           }
         }
       },
@@ -4835,7 +4933,7 @@
           "exists": true
         },
         {
-          "name": "sensitivity_rr",
+          "name": "breakdown_m",
           "exists": true
         },
         {

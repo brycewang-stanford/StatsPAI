@@ -47,11 +47,20 @@ def _capture(monkeypatch, name):
 @pytest.mark.parametrize(
     "name, call",
     [
-        ("feols", lambda d: sp.feols("y ~ x | firm + year", data=d)),
-        ("fepois", lambda d: sp.fepois("c ~ x | firm + year", data=d)),
+        # Plain calls run on StatsPAI's own engine; ask for the delegate.
+        (
+            "feols",
+            lambda d: sp.feols("y ~ x | firm + year", data=d, backend="pyfixest"),
+        ),
+        (
+            "fepois",
+            lambda d: sp.fepois("c ~ x | firm + year", data=d, backend="pyfixest"),
+        ),
         (
             "feglm",
-            lambda d: sp.feglm("b ~ x | firm + year", data=d, family="logit"),
+            lambda d: sp.feglm(
+                "b ~ x | firm + year", data=d, family="logit", backend="pyfixest"
+            ),
         ),
     ],
 )

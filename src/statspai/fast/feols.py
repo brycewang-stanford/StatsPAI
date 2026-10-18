@@ -35,7 +35,7 @@ Correia, S. (2017). Linear models with high-dimensional fixed effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -316,6 +316,41 @@ def feols(
     >>> type(fit.se()).__name__
     'Series'
     """
+    return _feols_fit(
+        formula,
+        data,
+        vcov=vcov,
+        cluster=cluster,
+        weights=weights,
+        ssc=ssc,
+        drop_singletons=drop_singletons,
+        fe_tol=fe_tol,
+        fe_maxiter=fe_maxiter,
+        weights_as=weights_as,
+    )[0]
+
+
+def _feols_fit(
+    formula: str,
+    data: pd.DataFrame,
+    *,
+    vcov: str = "iid",
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
+    ssc: str = "fixest",
+    drop_singletons: bool = True,
+    fe_tol: float = 1e-10,
+    fe_maxiter: int = 1_000,
+    weights_as: Optional[str] = None,
+    note_weights: bool = True,
+) -> Tuple[FeolsResult, Dict[str, Any]]:
+    """Body of :func:`feols`.
+
+    Also returns the arrays ``sp.feols`` reports on its native path: the
+    estimation-sample mask, the residualised outcome and design, the
+    residuals, the weights and the parameter count behind each small-sample
+    factor.
+    """
     if vcov not in ("iid", "hc1", "cr1"):
         raise MethodIncompatibility(
             f"feols: vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'"
@@ -347,9 +382,8 @@ def feols(
     fe_tol = _nonnegative_finite_float(fe_tol, name="fe_tol", context="feols")
 
     # Lazy imports to keep top-level `sp.fast` cheap.
-    from .demean import demean as _demean
     from .fepois import _parse_fepois_formula
-    from .inference import crve as _crve
+    from .inference import _cr1_from_codes
 
     lhs, rhs_terms, fe_terms = _parse_fepois_formula(formula)
 
@@ -368,28 +402,28 @@ def feols(
 
     n_obs = len(data)
     _nonempty_sample(n_obs, context="feols")
-    y = data[lhs].to_numpy(dtype=np.float64).copy()
+    # One column-major block [y | X]: the demean kernel works on columns,
+    # and filling it column by column copies each input once.
+    n_x = len(rhs_terms) + int(add_intercept)
+    A = np.empty((n_obs, 1 + n_x), dtype=np.float64, order="F")
+    A[:, 0] = data[lhs].to_numpy(dtype=np.float64)
+    if add_intercept:
+        A[:, 1] = 1.0
+    for j, term in enumerate(rhs_terms):
+        A[:, 1 + int(add_intercept) + j] = data[term].to_numpy(dtype=np.float64)
+    y = A[:, 0]
+    X = A[:, 1:]
     if not np.isfinite(y).all():
         raise MethodIncompatibility(
             f"feols: outcome column {lhs!r} has non-finite values"
         )
-    X_user = (
-        data[rhs_terms].to_numpy(dtype=np.float64).copy()
-        if rhs_terms
-        else np.empty((n_obs, 0), dtype=np.float64)
-    )
-    if X_user.ndim == 1:
-        X_user = X_user.reshape(-1, 1)
-    if not np.isfinite(X_user).all():
+    if not np.isfinite(X).all():
         raise MethodIncompatibility(
             "feols: regressor columns contain non-finite values"
         )
-    if add_intercept:
-        X = np.column_stack([np.ones(n_obs, dtype=np.float64), X_user])
-        coef_names_full: List[str] = ["(Intercept)"] + list(rhs_terms)
-    else:
-        X = X_user
-        coef_names_full = list(rhs_terms)
+    coef_names_full: List[str] = (["(Intercept)"] if add_intercept else []) + list(
+        rhs_terms
+    )
     if X.shape[1] == 0:
         raise ValueError(
             "No regressors after parsing — formula must include at least "
@@ -432,25 +466,51 @@ def feols(
 
     # ---------- FE residualisation path ----------
     if fe_terms:
-        fe_df = data[fe_terms]
         if w_full is None:
-            # Unweighted: use the Rust-backed demean kernel (Phase 1).
-            stacked = np.column_stack([y, X])
-            stacked_dem, info = _demean(
-                stacked,
-                fe_df,
-                drop_singletons=drop_singletons,
-                tol=1e-12,
-                max_iter=fe_maxiter,
-                tol_abs=fe_tol,
+            # Unweighted: the demean kernel (Rust when installed), run in
+            # place on an owned column-major copy of the kept rows of
+            # [y | X]; the block itself stays raw for the checks below.
+            from .demean import (
+                _demean_core,
+                _densify_kept,
+                _detect_singletons,
+                _factorize_columns,
             )
-            keep_mask = info.keep_mask
-            n_kept = info.n_kept
-            n_dropped_singletons = info.n_dropped
-            y_dem = stacked_dem[:, 0]
-            X_dem = stacked_dem[:, 1:]
-            fe_card = list(info.n_fe)
-            fe_kernel = info.backend
+
+            codes_raw, n_fe_raw = _factorize_columns(
+                [data[c].to_numpy() for c in fe_terms]
+            )
+            keep_mask = (
+                _detect_singletons(codes_raw, n_obs)
+                if drop_singletons
+                else np.ones(n_obs, dtype=bool)
+            )
+            n_kept = int(keep_mask.sum())
+            n_dropped_singletons = n_obs - n_kept
+            if n_kept < 1:
+                raise DataInsufficient(
+                    "fast.demean: no rows remain after singleton pruning"
+                )
+            fe_codes_list, counts_fe, fe_card = _densify_kept(
+                codes_raw, n_fe_raw, keep_mask, n_dropped_singletons
+            )
+            if n_dropped_singletons:
+                A = np.asfortranarray(A[keep_mask])
+                y, X = A[:, 0], A[:, 1:]
+            work, _, _, _, fe_kernel = _demean_core(
+                A.copy(order="F"),
+                fe_codes_list,
+                counts_fe,
+                max_iter=fe_maxiter,
+                tol=1e-12,
+                tol_abs=fe_tol,
+                accelerate=True,
+                accel_period=5,
+                backend="auto",
+            )
+            y_dem = work[:, 0]
+            X_dem = work[:, 1:]
+            y_raw_kept, X_raw_kept = y, X
         else:
             # Weighted: the FE projection is W-weighted, so the
             # arithmetic-mean Rust kernel is wrong here. Route through
@@ -514,7 +574,9 @@ def feols(
             )
             y_dem = stacked_dem[:, 0]
             X_dem = stacked_dem[:, 1:]
+            y_raw_kept, X_raw_kept = y_kept, X_kept
             fe_card = weighted_fe_card
+            fe_codes_list = fe_codes_kept
             fe_kernel = "rust" if _has_rust and len(fe_terms) >= 2 else "numpy"
         fe_dof_statspai = _statspai_fe_dof(fe_card)
     else:
@@ -523,7 +585,9 @@ def feols(
         n_dropped_singletons = 0
         y_dem = y.copy()
         X_dem = X.copy()
+        y_raw_kept, X_raw_kept = y, X
         fe_card = []
+        fe_codes_list = []
         fe_dof_statspai = 0
         fe_kernel = "none"
 
@@ -538,6 +602,18 @@ def feols(
         w = np.ones(n_kept, dtype=np.float64)
     if cluster_arr_full is not None:
         cluster_arr_kept = cluster_arr_full[keep_mask]
+        # Dense codes in first-appearance order on the kept rows, as
+        # factorising the kept labels would give.
+        if n_kept < n_obs:
+            cl_codes, cl_levels = pd.factorize(
+                cluster_codes_check[keep_mask], sort=False
+            )
+            n_clusters = len(cl_levels)
+        else:
+            cl_codes = cluster_codes_check
+            n_clusters = int(cl_codes.max()) + 1 if cl_codes.size else 0
+        if n_clusters < 2:
+            raise DataInsufficient(f"crve: need at least 2 clusters, got {n_clusters}")
     else:
         cluster_arr_kept = None
 
@@ -545,12 +621,8 @@ def feols(
     if ssc == "fixest":
         fe_dof = _fixest_fe_dof(fe_card)
         if vcov == "cr1":
-            cr1_extra_df = _fixest_cluster_fe_dof(
-                data,
-                fe_terms,
-                fe_card,
-                keep_mask,
-                cluster,
+            cr1_extra_df = _fixest_cluster_fe_dof_codes(
+                fe_codes_list, fe_card, cl_codes
             )
         else:
             cr1_extra_df = fe_dof
@@ -569,7 +641,7 @@ def feols(
     else:
         tol_abs_id, tol_rel_id = 0.0, fe_tol
     _require_identified_regressors(
-        X[keep_mask] if (fe_terms and n_kept < n_obs) else X,
+        X_raw_kept,
         X_dem,
         coef_names_full,
         context="feols",
@@ -579,8 +651,8 @@ def feols(
     )
 
     # ---------- WLS solve ----------
-    Xw = X_dem * w[:, None]  # diag(w) X̃
-    XtWX = X_dem.T @ Xw  # X̃' diag(w) X̃
+    # X̃' diag(w) X̃ (no weighted copy of X̃ when there are no weights)
+    XtWX = X_dem.T @ (X_dem * w[:, None] if w_full is not None else X_dem)
     try:
         XtWX_inv = np.linalg.inv(XtWX)
     except np.linalg.LinAlgError as exc:
@@ -588,7 +660,7 @@ def feols(
             f"Normal equations are singular: {exc}. Likely cause: "
             "perfect collinearity in regressors after FE residualisation."
         ) from exc
-    XtWy = X_dem.T @ (w * y_dem)
+    XtWy = X_dem.T @ (w * y_dem if w_full is not None else y_dem)
     beta = XtWX_inv @ XtWy
     resid = y_dem - X_dem @ beta
 
@@ -622,18 +694,18 @@ def feols(
         if df_resid > 0:
             vcov_mat = vcov_mat * (n / df_resid)
     else:  # cr1
-        vcov_mat = _crve(
+        vcov_mat = _cr1_from_codes(
             X_dem,
             resid,
-            cluster_arr_kept,
+            cl_codes,
+            n_clusters,
             weights=w,
             bread=XtWX_inv,
-            type="cr1",
             extra_df=cr1_extra_df,
         )
 
     weight_info: Optional[Dict[str, Any]] = None
-    if weights is not None:
+    if weights is not None and note_weights:
         from ..core._agent_summary import note_weight_diagnostics
 
         weight_info = {}
@@ -649,7 +721,7 @@ def feols(
             weights_as=weights_as,
         )
 
-    return FeolsResult(
+    result = FeolsResult(
         formula=formula,
         coef_names=coef_names_full,
         coef_vec=beta,
@@ -669,6 +741,19 @@ def feols(
         weight_info=weight_info,
         fe_kernel=fe_kernel,
     )
+    arrays = {
+        "keep_mask": keep_mask,
+        "y": y_raw_kept,
+        "y_dem": y_dem,
+        "X_dem": X_dem,
+        "resid": resid,
+        "w": w,
+        "cluster": cluster_arr_kept,
+        "n_clusters": n_clusters if cluster_arr_full is not None else 0,
+        "df_k": int(n - df_resid),
+        "df_k_cluster": int(p + cr1_extra_df),
+    }
+    return result, arrays
 
 
 def _statspai_fe_dof(fe_card: List[int]) -> int:
@@ -714,16 +799,42 @@ def _fixest_cluster_fe_dof(
     return int(sum(effective_cards) - (len(effective_cards) - 1))
 
 
+def _fixest_cluster_fe_dof_codes(
+    fe_codes: List[np.ndarray],
+    fe_card: List[int],
+    cluster_codes: np.ndarray,
+) -> int:
+    """:func:`_fixest_cluster_fe_dof` on dense codes of the kept rows."""
+    if not fe_codes:
+        return _fixest_fe_dof(fe_card)
+    free = [
+        int(card)
+        for codes, card in zip(fe_codes, fe_card)
+        if not _codes_nested(codes, int(card), cluster_codes)
+    ]
+    if not free:
+        return 1  # every effect nested in the clusters: keep the intercept
+    return int(sum(free) - (len(free) - 1))
+
+
+def _codes_nested(codes: np.ndarray, n_levels: int, cluster_codes: np.ndarray) -> bool:
+    """Every level of dense ``codes`` lies in a single cluster."""
+    owner = np.empty(n_levels, dtype=np.int64)
+    owner[codes] = cluster_codes
+    return bool((owner[codes] == cluster_codes).all())
+
+
 def _is_nested_in_cluster(
     fe_values: np.ndarray,
     cluster_values: np.ndarray,
 ) -> bool:
-    mapping: dict[object, object] = {}
-    for fe_value, cluster_value in zip(fe_values, cluster_values):
-        previous = mapping.setdefault(fe_value, cluster_value)
-        if previous != cluster_value:
-            return False
-    return True
+    # Nested when every level of the effect sits in a single cluster:
+    # record one cluster per level, then check every row agrees with it.
+    f_codes, f_levels = pd.factorize(fe_values, sort=False)
+    c_codes, _ = pd.factorize(cluster_values, sort=False)
+    owner = np.empty(len(f_levels), dtype=np.int64)
+    owner[f_codes] = c_codes
+    return bool((owner[f_codes] == c_codes).all())
 
 
 __all__ = ["feols", "FeolsResult"]

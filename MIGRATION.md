@@ -5,6 +5,33 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: `sp.feols` / `sp.fepois` / `sp.feglm` fit on StatsPAI's own engine
+
+**What changed.** `sp.feols(backend=)` defaults to `'auto'` (was
+`'pyfixest'`), and `sp.fepois` / `sp.feglm` gained the same argument. With `'auto'`, a
+call of the form `y ~ x1 + ... | fe1 + ...` with numeric regressors,
+`vcov` in `'iid'` / `'hetero'` / `{'CRV1': col}`, no `ssc=` and no extra
+pyfixest keyword runs on `sp.fast.feols` / `sp.fast.fepois` (the Rust
+kernels when `statspai-hdfe` is installed); everything else still goes to
+pyfixest. The conventions are the delegate's (singletons kept unless
+`fixef_rm='singleton'`, rows with missing values dropped, the same degrees
+of freedom and R-squared definitions), so coefficients agree to about
+1e-10 and standard errors to the demeaning tolerance. `sp.fepois` iterates
+IRLS one Newton step further than pyfixest's stop, which moves its
+standard errors by up to about 1e-5 relative, towards the exact optimum.
+`sp.feglm(family='logit' | 'probit')` follows `fixest::feglm`: standard
+errors move by up to about 1e-4 relative from pyfixest's (towards fixest's)
+and p-values come from the normal distribution instead of a t.
+`model_info['backend']` is `'statspai-native'` for these fits, and the
+result has no `_pyfixest_fit`. A plain `pip install statspai` (without the
+`fixest` extra) can now run these calls.
+
+**What to do.** Nothing for the numbers. Code that reads `_pyfixest_fit`,
+or needs pyfixest's own fit for another reason, passes
+`backend='pyfixest'`.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.panel` within / between / overall R-squared
 
 **What changed.** After `method="fe"`, `"re"` and `"be"` (unweighted),

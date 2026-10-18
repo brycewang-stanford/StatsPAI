@@ -119,13 +119,14 @@ def test_hdfe_ols_alias_of_feols(module: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-#  03_hdfe — sp.feols (pyfixest delegate)  ==  sp.fast.feols(ssc='fixest')
+#  03_hdfe — sp.feols (native engine)  ==  sp.fast.feols(ssc='fixest')
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("module", ["03_hdfe", "15_hdfe_cluster"])
 def test_feols_subnamespace_leaf_of_fast_feols(module: str) -> None:
     """The registered name ``feols`` inherits modules run by ``sp.fast.feols``.
 
-    ``sp.feols`` is a different object (it delegates to pyfixest), so the
+    ``sp.feols`` is a different object (it parses fixest formulas and
+    delegates what its own engine does not fit to pyfixest), so the
     inheritance is only legitimate if the two agree on the module's bytes.
     """
     pytest.importorskip("pyfixest")
@@ -139,7 +140,8 @@ def test_feols_subnamespace_leaf_of_fast_feols(module: str) -> None:
             formula, data=df, vcov="cr1", cluster="firm", ssc="fixest"
         )
         leaf = sp.feols(formula, data=df, vcov={"CRV1": "firm"})
-    assert leaf.model_info["backend"] == "pyfixest"
+    # sp.feols runs these plain calls on the same engine as sp.fast.feols.
+    assert leaf.model_info["backend"] == "statspai-native"
     names = ["x1", "x2"]
     table = {"sp.fast.feols": SUBNAMESPACE_LEAF_PROOFS["sp.fast.feols"]}
     _check(

@@ -1,12 +1,13 @@
 """Validation-scope maps for the high-dimensional fixed-effects estimators.
 
-``sp.feols`` (the pyfixest-backed entry point, not ``sp.fast.feols``) and
+``sp.feols`` (the top-level entry point, not ``sp.fast.feols``) and
 ``sp.ppmlhdfe``. Same contract as :mod:`statspai.validation_scope`.
 
 ``sp.feols``'s own ``model_info['vcov_type']`` is pyfixest's coarse label
 (``"CRV"`` for one-way, two-way and CRV3 alike), so the extractor reads the
-fitted pyfixest object, and whether ``ssc=`` was passed from the recorded
-call.
+detailed label from the fitted pyfixest object or, on the native engine,
+from ``model_info['vcov_type_detail']``; whether ``ssc=`` was passed comes
+from the recorded call.
 """
 
 from __future__ import annotations
@@ -54,8 +55,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
         formula = str(mi.get("formula") or "")
         iv = "true" if formula.count("~") > 1 else "false"
         vtype = _lower(mi.get("vcov_type")) or ""
-        detail = str(getattr(pf, "_vcov_type_detail", "") or "")
-        clusters = getattr(pf, "_clustervar", None) or []
+        # The native engine records what pyfixest keeps on its fit object.
+        detail = str(
+            getattr(pf, "_vcov_type_detail", "") or mi.get("vcov_type_detail") or ""
+        )
+        clusters = getattr(pf, "_clustervar", None) or mi.get("clustervar") or []
         vcov: Optional[str]
         if any(k in vtype for k in ("wild", "conley", "cr2", "jackknife")):
             vcov = "other"
@@ -69,7 +73,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
             vcov = "cr3"
         else:
             vcov = "other" if detail else None
-        weighted = getattr(pf, "_weights_name", None) or mi.get("n_effective_weights")
+        weighted = (
+            getattr(pf, "_weights_name", None)
+            or mi.get("weights_name")
+            or mi.get("n_effective_weights")
+        )
         return {
             "fe": fe,
             "iv": iv,
@@ -210,9 +218,11 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
                 ),
             ),
             invariant={"vcov": vce_invariant, "ssc": vce_invariant},
-            note="Backed by pyfixest (third-party provenance, Track A table "
-            "marks it with a dagger). Wild-bootstrap, CR2 and Conley fits read "
-            "as vcov 'other' and have no reference row here.",
+            note="Fit on StatsPAI's own engine (sp.fast.feols) for plain "
+            "formulas with iid / hetero / one-way CRV1, through pyfixest "
+            "otherwise; model_info['backend'] says which. Wild-bootstrap, CR2 "
+            "and Conley fits read as vcov 'other' and have no reference row "
+            "here.",
         )
     )
 

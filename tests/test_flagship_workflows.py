@@ -56,7 +56,7 @@ def test_panel_hdfe_workflow_to_verified_replication(tmp_path):
 
     fit = sp.feols("y ~ x | firm + year", data, cluster="state", weights="w")
     card = sp.result_card(fit)
-    assert card["provenance"]["backend"]["backend"] == "pyfixest"
+    assert card["provenance"]["backend"]["backend"] == "statspai-native"
     assert card["inference"]["full_covariance"] is True
     slopes = sp.feols("y ~ x | firm + state[year]", data.dropna(), cluster="state")
     assert slopes.model_info["backend"] == "statspai-native"

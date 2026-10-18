@@ -845,7 +845,7 @@
      "positional": false
     },
     {
-     "default": "'pyfixest'",
+     "default": "'auto'",
      "name": "backend",
      "positional": false
     },
@@ -2652,5 +2652,13 @@
    ]
   }
  },
- "history": []
+ "history": [
+  {
+   "change": "default changed from 'pyfixest' to 'auto'",
+   "date": "2026-10-18",
+   "function": "feols",
+   "migration": "`sp.feols(backend=)` defaults to `'auto'` (was",
+   "param": "backend"
+  }
+ ]
 }

@@ -1,9 +1,10 @@
 """
-Thin wrappers around pyfixest estimation functions.
+``sp.feols`` / ``sp.fepois`` / ``sp.feglm``: fixest-style estimation.
 
-Each wrapper delegates to pyfixest and converts results into
-StatsPAI's ``EconometricResults``, making them compatible with
-``outreg2`` and the rest of the StatsPAI ecosystem.
+Plain ``sp.feols`` / ``sp.fepois`` calls run on StatsPAI's own engine
+(:mod:`statspai.fixest._native`); the rest delegates to pyfixest. Either
+way the result is StatsPAI's ``EconometricResults``, compatible with
+``sp.regtable`` and the rest of the StatsPAI ecosystem.
 """
 
 import contextlib
@@ -169,6 +170,155 @@ def _native_eligible(
             len(vcov) == 1 and str(next(iter(vcov))).upper() in ("CRV1", "CLUSTER")
         )
     return str(vcov).lower() in ("iid", "hetero", "hc1", "robust")
+
+
+def _native_vcov(p: Any) -> Any:
+    """The ``vcov`` a native plan answers, in the form the notes read."""
+    if p.vcov == "cr1":
+        return {"CRV1": p.cluster}
+    return "hetero" if p.vcov == "hc1" else "iid"
+
+
+def _native_feols(
+    fml: str,
+    data: pd.DataFrame,
+    *,
+    vcov: Any,
+    cluster: Optional[str],
+    weights: Optional[str],
+    ssc: Any,
+    fixef_rm: str,
+    lean: bool,
+    extra: Dict[str, Any],
+    strict: bool,
+) -> Optional[EconometricResults]:
+    """``sp.feols`` on StatsPAI's engine, or ``None`` to delegate.
+
+    ``None`` when the call needs something only pyfixest implements, or
+    when the native fit refuses absorbed / collinear regressors that
+    fixest drops and pyfixest is installed to drop them.
+    """
+    from . import _native
+
+    p = _native.plan(
+        fml,
+        data,
+        vcov=vcov,
+        cluster=cluster,
+        weights=weights,
+        ssc=ssc,
+        fixef_rm=fixef_rm,
+        extra=extra,
+    )
+    if not isinstance(p, _native.Plan):
+        return None
+    try:
+        out = _native.fit_feols(p, fml, lean=lean)
+    except Exception as exc:
+        if strict or not _native.refused(exc) or not _pyfixest_installed():
+            raise
+        return None
+    v = _native_vcov(p)
+    _note_cluster_sizes(out, p.data, v)
+    _note_weights(out, p.data, v, weights)
+    return out
+
+
+def _native_fepois(
+    fml: str,
+    data: pd.DataFrame,
+    *,
+    vcov: Any,
+    cluster: Optional[str],
+    weights: Optional[str],
+    ssc: Any,
+    fixef_rm: str,
+    iwls_tol: float,
+    iwls_maxiter: int,
+    extra: Dict[str, Any],
+    strict: bool,
+) -> Optional[EconometricResults]:
+    """``sp.fepois`` on StatsPAI's engine, or ``None`` to delegate."""
+    from . import _native
+
+    p = _native.plan(
+        fml,
+        data,
+        vcov=vcov,
+        cluster=cluster,
+        weights=weights,
+        ssc=ssc,
+        fixef_rm=fixef_rm,
+        extra=extra,
+        poisson=True,
+    )
+    if not isinstance(p, _native.Plan):
+        if strict:
+            raise MethodIncompatibility(
+                f"fepois(backend='native') cannot fit this call: {p}.",
+                recovery_hint="Use backend='auto' to let pyfixest fit it.",
+            )
+        return None
+    try:
+        out = _native.fit_fepois(p, fml, tol=iwls_tol, maxiter=iwls_maxiter)
+    except Exception as exc:
+        if strict or not _native.refused(exc) or not _pyfixest_installed():
+            raise
+        return None
+    return out
+
+
+def _native_feglm(
+    fml: str,
+    data: pd.DataFrame,
+    *,
+    family: str,
+    vcov: Any,
+    cluster: Optional[str],
+    extra: Dict[str, Any],
+    strict: bool,
+) -> Optional[EconometricResults]:
+    """``sp.feglm`` (logit / probit) on StatsPAI's engine, or ``None``."""
+    from . import _native
+
+    fam = str(family).lower()
+    rest = dict(extra)
+    weights = rest.pop("weights", None)
+    p: Any
+    if fam not in ("logit", "probit"):
+        p = f"family={family!r} (native: 'logit', 'probit')"
+    else:
+        p = _native.plan(
+            fml,
+            data,
+            vcov=vcov,
+            cluster=cluster,
+            weights=weights,
+            ssc=rest.pop("ssc", None),
+            fixef_rm="none",
+            extra=rest,
+            binomial=True,
+        )
+    if not isinstance(p, _native.Plan):
+        if strict:
+            raise MethodIncompatibility(
+                f"feglm(backend='native') cannot fit this call: {p}.",
+                recovery_hint="Use backend='auto' to let pyfixest fit it.",
+            )
+        return None
+    try:
+        return _native.fit_feglm(p, fml, family=fam)
+    except Exception as exc:
+        if strict or not _native.refused(exc) or not _pyfixest_installed():
+            raise
+        return None
+
+
+def _pyfixest_installed() -> bool:
+    try:
+        return importlib.util.find_spec("pyfixest") is not None
+    except (ImportError, ValueError):  # a module entry of None / no spec
+        return False
 
 
 def _feols_varying_slopes(
@@ -1286,12 +1436,12 @@ def feols(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
-    backend: str = "pyfixest",
+    backend: str = "auto",
     weights_as: Optional[str] = None,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
-    Estimate OLS / IV with high-dimensional fixed effects via pyfixest.
+    Estimate OLS / IV with high-dimensional fixed effects.
 
     Uses the Frisch-Waugh-Lovell theorem for fast absorption of
     high-dimensional fixed effects.
@@ -1360,15 +1510,19 @@ def feols(
         Coordinate columns (decimal degrees) for ``vce="conley"``.
     conley_cutoff : float, optional
         Conley distance cutoff in km for ``vce="conley"``.
-    backend : {'pyfixest', 'native'}, default 'pyfixest'
-        ``'native'`` fits the regression on StatsPAI's HDFE kernel
-        (``sp.hdfe_ols``) and reports it as ``feols`` does: same
-        coefficients, SEs within the demeaning tolerance (~1e-9) for
-        ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}``, and 10-60x
-        faster on millions of rows (2M rows, two effects: 1.9 s vs 110 s).
-        No IV part, multiple-estimation syntax or ``ssc=``. With the
-        default, a regression of at least a million rows that the native
-        kernel can fit warns once with this suggestion.
+    backend : {'auto', 'pyfixest', 'native'}, default 'auto'
+        ``'auto'`` fits on StatsPAI's own engine (``sp.fast.feols``, on
+        the Rust kernels when ``statspai-hdfe`` is installed) whenever the
+        call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors,
+        ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and no
+        ``ssc=`` or extra pyfixest keyword, and through pyfixest otherwise
+        (also when regressors are absorbed or collinear, which fixest
+        drops). ``model_info['backend']`` says which ran. The native fit
+        follows fixest's conventions: same coefficients, SEs within the
+        demeaning tolerance, rows with missing values dropped first.
+        ``'pyfixest'`` always delegates. ``'native'`` uses StatsPAI's
+        engine for everything it supports, including varying slopes
+        (``sp.hdfe_ols``), and refuses the rest.
     **kwargs
         Additional arguments passed to ``pyfixest.feols()``.
 
@@ -1483,10 +1637,25 @@ def feols(
                     )
                 _rename_terms(r, renames)
             return res
-    if backend not in ("pyfixest", "native"):
+    if backend not in ("auto", "pyfixest", "native"):
         raise MethodIncompatibility(
-            f"feols: backend must be 'pyfixest' or 'native', got {backend!r}."
+            f"feols: backend must be 'auto', 'pyfixest' or 'native', got {backend!r}."
         )
+    if backend != "pyfixest" and not _has_varying_slopes(fml):
+        native = _native_feols(
+            fml,
+            data,
+            vcov=vcov,
+            cluster=cluster,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            lean=lean,
+            extra=kwargs,
+            strict=False,
+        )
+        if native is not None:
+            return native
     if backend == "native" or _has_varying_slopes(fml):
         # Varying slopes always take this path: pyfixest parses fixest's
         # varying-slope syntax but silently drops the slope (see
@@ -1501,7 +1670,11 @@ def feols(
             fixef_rm=fixef_rm,
             extra=kwargs,
         )
-    if len(data) >= 1_000_000 and _native_eligible(fml, vcov, ssc, kwargs, weights):
+    if (
+        backend == "pyfixest"
+        and len(data) >= 1_000_000
+        and _native_eligible(fml, vcov, ssc, kwargs, weights)
+    ):
         warnings.warn(
             f"feols: {len(data):,} rows through pyfixest; backend='native' fits "
             "this regression on StatsPAI's HDFE kernel with the same "
@@ -1753,10 +1926,11 @@ def fepois(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    backend: str = "auto",
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
-    Estimate Poisson regression with high-dimensional fixed effects via pyfixest.
+    Estimate Poisson regression with high-dimensional fixed effects.
 
     Parameters
     ----------
@@ -1798,6 +1972,18 @@ def fepois(
         Wild weight distribution (``"rademacher"`` or ``"webb"``).
     seed : int, optional
         RNG seed for sampled (non-enumerated) ``vce="wild"`` draws.
+    backend : {'auto', 'pyfixest', 'native'}, default 'auto'
+        ``'auto'`` fits on StatsPAI's own PPML-HDFE engine
+        (``sp.fast.fepois``, on the Rust kernels when ``statspai-hdfe`` is
+        installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with
+        numeric regressors, ``vcov`` in ``iid`` / ``hetero`` /
+        ``{'CRV1': col}`` and no ``ssc=`` or extra pyfixest keyword, and
+        through pyfixest otherwise. Both follow fixest: observations in a
+        fixed-effect group whose outcomes are all zero are dropped, rows
+        with missing values are dropped, singletons are kept unless
+        ``fixef_rm='singleton'``. ``model_info['backend']`` says which
+        ran. ``'pyfixest'`` always delegates; ``'native'`` refuses calls
+        the native engine cannot fit.
     **kwargs
         Additional arguments passed to ``pyfixest.fepois()``.
 
@@ -1833,6 +2019,26 @@ def fepois(
     fml = r_formula_idioms(fml)
     data = _widen_narrow_integers(data)
     _reject_silent_varying_slopes(fml)
+    if backend not in ("auto", "pyfixest", "native"):
+        raise MethodIncompatibility(
+            f"fepois: backend must be 'auto', 'pyfixest' or 'native', got {backend!r}."
+        )
+    if backend != "pyfixest":
+        native = _native_fepois(
+            fml,
+            data,
+            vcov=vcov,
+            cluster=cluster,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            iwls_tol=iwls_tol,
+            iwls_maxiter=iwls_maxiter,
+            extra=kwargs,
+            strict=backend == "native",
+        )
+        if native is not None:
+            return native
 
     # Conley spatial HAC (conleyreg spherical convention).
     if isinstance(vcov, str) and vcov.lower() == "conley":
@@ -1970,6 +2176,7 @@ def feglm(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    backend: str = "auto",
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -2000,6 +2207,17 @@ def feglm(
         Wild weight distribution (``"rademacher"`` or ``"webb"``).
     seed : int, optional
         RNG seed for sampled (non-enumerated) ``vce="wild"`` draws.
+    backend : {'auto', 'pyfixest', 'native'}, default 'auto'
+        ``'auto'`` fits ``family='logit'`` / ``'probit'`` on StatsPAI's own
+        IRLS engine whenever the call is ``y ~ x1 + ... | fe1 + ...`` with
+        numeric regressors, ``vcov`` in ``iid`` / ``hetero`` /
+        ``{'CRV1': col}`` and at most ``weights=`` among the extra
+        keywords, and through pyfixest otherwise (``family='gaussian'``
+        always). The native fit follows ``fixest::feglm``: observations in
+        a fixed-effect group whose outcomes are all 0 or all 1 are dropped,
+        p-values are normal, and IRLS runs to a relative deviance change of
+        1e-10. ``'pyfixest'`` always delegates; ``'native'`` refuses calls
+        the native engine cannot fit.
     **kwargs
         Additional arguments passed to ``pyfixest.feglm()``.
 
@@ -2031,6 +2249,22 @@ def feglm(
     fml = r_formula_idioms(fml)
     data = _widen_narrow_integers(data)
     _reject_silent_varying_slopes(fml)
+    if backend not in ("auto", "pyfixest", "native"):
+        raise MethodIncompatibility(
+            f"feglm: backend must be 'auto', 'pyfixest' or 'native', got {backend!r}."
+        )
+    if backend != "pyfixest":
+        native = _native_feglm(
+            fml,
+            data,
+            family=family,
+            vcov=vcov,
+            cluster=cluster,
+            extra=kwargs,
+            strict=backend == "native",
+        )
+        if native is not None:
+            return native
 
     # Conley spatial HAC (conleyreg spherical convention).
     if isinstance(vcov, str) and vcov.lower() == "conley":
