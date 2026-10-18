@@ -363,7 +363,6 @@ def _finish(
     df_k = p + fe_dof
     score_w = w * (y - mu) * dmu / var
     n_clusters = 0
-    cl_kept = None
     if vcov == "iid":
         V = bread * ((n - 1) / max(n - df_k, 1))
         df_k_c = df_k
@@ -372,23 +371,46 @@ def _finish(
         V = bread @ (S.T @ S) @ bread * (n / max(n - df_k, 1))
         df_k_c = df_k
     else:
-        cl_kept = data[cluster].to_numpy()[keep] if n_sep else data[cluster].to_numpy()
-        cl_codes, levels = pd.factorize(cl_kept, sort=False)
-        n_clusters = len(levels)
+        cl_cols = [cluster] if isinstance(cluster, str) else list(cluster)
+        dims = []
+        for col in cl_cols:
+            raw = data[col].to_numpy()
+            cl_codes, levels = pd.factorize(raw[keep] if n_sep else raw, sort=False)
+            dims.append((cl_codes, len(levels)))
+        if len(dims) == 2:
+            # Two-way: M_a + M_b - M_ab with the smallest G (fixest).
+            (ca, ga), (cb, gb) = dims
+            inter, levels_ab = pd.factorize(ca.astype(np.int64) * gb + cb, sort=False)
+            dims.append((inter, len(levels_ab)))
+        n_clusters = min(g for _, g in dims[:2])
         if n_clusters < 2:
             raise DataInsufficient(f"feglm: need at least 2 clusters, got {n_clusters}")
-        free = [G for c, G in zip(codes, fe_card) if not _codes_nested(c, G, cl_codes)]
+        free = [
+            G
+            for c, G in zip(codes, fe_card)
+            if not any(_codes_nested(c, G, cc) for cc, _ in dims)
+        ]
         extra = (sum(free) - (len(free) - 1)) if free else (1 if fe_card else 0)
         df_k_c = p + extra
-        V = _cr1_from_codes(
-            Xt,
-            score_w,
-            cl_codes,
-            n_clusters,
-            weights=np.ones(n),
-            bread=bread,
-            extra_df=extra,
-        )
+        if len(dims) == 1:
+            V = _cr1_from_codes(
+                Xt,
+                score_w,
+                dims[0][0],
+                n_clusters,
+                weights=np.ones(n),
+                bread=bread,
+                extra_df=extra,
+            )
+        else:
+            from .inference import _cr1_meat
+
+            meat = np.zeros((p, p))
+            for (cc, gc), sign in zip(dims, (1.0, 1.0, -1.0)):
+                meat += sign * _cr1_meat(Xt, score_w, cc, gc)
+            V = (bread @ meat @ bread) * (
+                (n_clusters / (n_clusters - 1.0)) * ((n - 1.0) / max(n - p - extra, 1))
+            )
     m = np.clip(mu, 1e-300, 1.0 - 1e-16)
     loglik = float(np.sum(w * (special.xlogy(y, m) + special.xlog1py(1.0 - y, -m))))
     if not converged:

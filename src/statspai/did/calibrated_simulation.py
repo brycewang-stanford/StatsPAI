@@ -119,7 +119,9 @@ _DEFAULT_ESTIMATORS = (
 def _fit_twfe(df: pd.DataFrame, opt: "_Options") -> Tuple[float, float]:
     from ..fixest import feols
 
-    fit = feols(f"{_Y} ~ {_D} | {_ID} + {_T}", data=df, vcov={"CRV1": _ID})
+    fit = feols(
+        f"{_Y} ~ {_D} | {_ID} + {_T}", data=df, vcov={"CRV1": _ID}, fixef_rm="none"
+    )
     r = fit[0] if isinstance(fit, list) else fit  # one formula, one fit
     return float(np.asarray(r.params[_D])), float(np.asarray(r.std_errors[_D]))
 

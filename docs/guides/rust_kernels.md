@@ -50,9 +50,10 @@ for every call their own engine fits (`backend="auto"`, the default:
 `y ~ x1 + ... | fe1 + ...` with numeric regressors and an iid, hetero or
 clustered variance; for `sp.feols` also `i(factor, ref=v)` terms, two-way
 clustering and IV with absorbed effects); `model_info["backend"]` is then
-`"statspai-native"`. Calls that need pyfixest (IV without fixed effects,
-`sw()` / `csw()`, CR2 / CR3, `ssc=`) and `sp.panel(method="fe")` (backed
-by linearmodels) do not use it.
+`"statspai-native"`, including multiple estimation (`sw()` / `csw()`,
+several outcomes). Calls that need pyfixest (IV without fixed effects,
+CR2 / CR3, `ssc=`) and `sp.panel(method="fe")` (backed by linearmodels)
+do not use it.
 
 ## How it works
 

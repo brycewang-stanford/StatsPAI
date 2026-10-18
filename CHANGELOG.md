@@ -4,6 +4,37 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Singletons: the default of `fixef_rm` changes in 1.40
+
+- `sp.feols` / `sp.fepois`: `fixef_rm` defaults to `None`, which keeps
+  fixed-effect singletons as before and raises a `FutureWarning` when a fit
+  kept any. From 1.40 the default is `"singleton"` (drop them), the
+  default of R `fixest`, Stata `reghdfe` and pyfixest. See MIGRATION.md.
+  `sp.crossval`'s StatsPAI engine now drops singletons, as its fixest and
+  pyfixest engines do, so all three fit the same sample.
+
+### Multiple estimation and two-way clustered GLMs run natively
+
+#### Changed
+
+- `sp.feols` multiple estimation (`y1 + y2 ~ ...`, `sw()`, `sw0()`, `csw()`,
+  `csw0()`, `mvsw()`, on the regressors or the fixed effects) returns the
+  same list in the same order as before, fitted on the native engine when
+  every model is one it fits on complete rows; otherwise the whole call
+  still goes to pyfixest, so a list never mixes engines.
+- `sp.fepois` and `sp.feglm(family="logit" | "probit")` cluster two ways
+  natively (`{'CRV1': 'a + b'}`).
+
+#### Fixed
+
+- ⚠️ `sp.fepois` / `sp.feglm` with two-way clustering: when the
+  inclusion-exclusion covariance has a negative eigenvalue, fixest sets it
+  to zero (Cameron, Gelbach and Miller 2011); pyfixest does not for GLMs,
+  so these standard errors could differ from fixest's (5% for a logit on
+  the reference panel). The native fit applies the fix and matches
+  `fixest::feglm` / `fixest::fepois` to 1e-6
+  (`tests/reference_parity/test_feglm_native_fixest_parity.py`).
+
 ### `sp.feols`: two-way clustering, `i()` terms and IV with fixed effects run natively
 
 The three most common `sp.feols` calls that still went to pyfixest now run
@@ -47,7 +78,8 @@ on the native engine. One million rows, firm and year effects, against R
 publishes a wheel for (Linux x86_64 / aarch64, macOS x86_64 / arm64,
 Windows x64), through an environment marker, so pip never compiles Rust;
 other platforms keep the NumPy / Numba paths. The crate (0.9.0, kernel API
-3, not yet on PyPI) splits every pass over the rows into fixed chunks that
+3, on PyPI since 2026-10-18; StatsPAI requires it from this release)
+splits every pass over the rows into fixed chunks that
 run in parallel and are added in a fixed order, so fits are bit-identical
 at any thread count (checked at 1, 3 and 8 threads for feols, fepois,
 logit and probit with two and three fixed effects).
@@ -83,8 +115,10 @@ million rows) bounds the call.
 
 #### Changed
 
-- `statspai-hdfe>=0.8.0,<1` is a core dependency on the platforms above;
-  the `rust` extra remains for building it elsewhere.
+- `statspai-hdfe>=0.9.0,<1` is a core dependency on the platforms above;
+  the `rust` extra remains for building it elsewhere. The wheel workflow
+  also builds musllinux aarch64 and Windows ARM64 wheels from the next
+  crate release on (the marker covers them once they are published).
 - One- and two-fixed-effect demeaning, the cross-tab reweighting, and
   every per-iteration pass of the IRLS (working response, cross products,
   deviance, step-halving) run over row chunks in parallel. Rust results

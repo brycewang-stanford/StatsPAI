@@ -193,7 +193,7 @@ def _native_feols(
     lean: bool,
     extra: Dict[str, Any],
     strict: bool,
-) -> Optional[EconometricResults]:
+) -> Optional[Union[EconometricResults, List[EconometricResults]]]:
     """``sp.feols`` on StatsPAI's engine, or ``None`` to delegate.
 
     ``None`` when the call needs something only pyfixest implements, or
@@ -202,6 +202,19 @@ def _native_feols(
     """
     from . import _native
 
+    models = _native.expand_multiple(fml)
+    if models is not None:
+        return _native_feols_multi(
+            models,
+            data,
+            vcov=vcov,
+            cluster=cluster,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            lean=lean,
+            extra=extra,
+        )
     p = _native.plan(
         fml,
         data,
@@ -228,6 +241,55 @@ def _native_feols(
     _note_multiway_adjustment(
         out, v, int(out.model_info.get("multiway_negative_eigenvalues", 0) or 0)
     )
+    return out
+
+
+def _native_feols_multi(
+    models: List[str],
+    data: pd.DataFrame,
+    *,
+    vcov: Any,
+    cluster: Optional[str],
+    weights: Optional[str],
+    ssc: Any,
+    fixef_rm: str,
+    lean: bool,
+    extra: Dict[str, Any],
+) -> Optional[List[EconometricResults]]:
+    """A multiple-estimation ``sp.feols`` call on the native engine.
+
+    All or nothing: ``None`` (delegate the whole call) unless every model
+    is one the native engine fits on complete rows, so the list never mixes
+    engines or samples. Like the delegate's list, the per-call notes
+    (cluster sizes, weights) are not attached.
+    """
+    from . import _native
+
+    plans = []
+    for f in models:
+        p = _native.plan(
+            f,
+            data,
+            vcov=vcov,
+            cluster=cluster,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            extra=extra,
+            multiway_ok=True,
+            iv_ok=True,
+        )
+        if not isinstance(p, _native.Plan) or p.n_missing:
+            return None
+        plans.append((p, f))
+    out: List[EconometricResults] = []
+    for p, f in plans:
+        try:
+            out.append(_native.fit_feols(p, f, lean=lean))
+        except Exception as exc:
+            if not _native.refused(exc) or not _pyfixest_installed():
+                raise
+            return None
     return out
 
 
@@ -258,6 +320,7 @@ def _native_fepois(
         fixef_rm=fixef_rm,
         extra=extra,
         poisson=True,
+        multiway_ok=True,
     )
     if not isinstance(p, _native.Plan):
         if strict:
@@ -272,6 +335,11 @@ def _native_fepois(
         if strict or not _native.refused(exc) or not _pyfixest_installed():
             raise
         return None
+    _note_multiway_adjustment(
+        out,
+        _native_vcov(p),
+        int(out.model_info.get("multiway_negative_eigenvalues", 0) or 0),
+    )
     return out
 
 
@@ -305,6 +373,7 @@ def _native_feglm(
             fixef_rm="none",
             extra=rest,
             binomial=True,
+            multiway_ok=True,
         )
     if not isinstance(p, _native.Plan):
         if strict:
@@ -314,11 +383,17 @@ def _native_feglm(
             )
         return None
     try:
-        return _native.fit_feglm(p, fml, family=fam)
+        out = _native.fit_feglm(p, fml, family=fam)
     except Exception as exc:
         if strict or not _native.refused(exc) or not _pyfixest_installed():
             raise
         return None
+    _note_multiway_adjustment(
+        out,
+        _native_vcov(p),
+        int(out.model_info.get("multiway_negative_eigenvalues", 0) or 0),
+    )
+    return out
 
 
 def _pyfixest_installed() -> bool:
@@ -1422,10 +1497,91 @@ def _feglm_conley(
     return base
 
 
+def _count_kept_singletons(out: Any, fml: Any, data: Any) -> int:
+    """Observations in a fixed-effect group of one that a fit kept."""
+    first = out[0] if isinstance(out, list) and out else out
+    info = getattr(first, "model_info", None) or {}
+    if "fe_singleton_obs" in info:
+        return int(info["fe_singleton_obs"] or 0)
+    if not isinstance(fml, str) or not isinstance(data, pd.DataFrame):
+        return 0
+    terms = [t.strip() for t in _fe_part(fml).split("+") if t.strip()]
+    if not terms or any(t not in data.columns for t in terms):
+        return 0  # interacted or sloped effects: not counted
+    single = np.zeros(len(data), dtype=bool)
+    for t in terms:
+        counts = data[t].value_counts()
+        single |= data[t].isin(counts.index[counts == 1]).to_numpy()
+    return int(single.sum())
+
+
+def _user_stacklevel() -> int:
+    """``stacklevel`` that attributes a warning issued by the caller to the
+    first frame outside ``statspai``. Frames named like ``importlib``'s
+    bootstrap (the frame-input shim) are skipped by ``warnings`` itself and
+    so are not counted."""
+    import os
+    import sys
+
+    package = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
+    level = 1
+    frame = sys._getframe(1)
+    while frame is not None:
+        name = frame.f_code.co_filename
+        internal = "importlib" in name and "_bootstrap" in name
+        if not internal and not os.path.abspath(name).startswith(package):
+            return level
+        if not internal:
+            level += 1
+        frame = frame.f_back
+    return 1
+
+
+def _singleton_default_notice(entry: str) -> Any:
+    """Announce the change of the ``fixef_rm`` default (StatsPAI 1.40).
+
+    Without ``fixef_rm=`` the fit keeps singletons, as before; when it kept
+    some, a ``FutureWarning`` says that R ``fixest`` and Stata ``reghdfe``
+    drop them by default and that StatsPAI will from 1.40. Passing
+    ``fixef_rm`` (either value) silences it.
+    """
+
+    def deco(fn: Any) -> Any:
+        @functools.wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if kwargs.get("fixef_rm") is not None:
+                return fn(*args, **kwargs)
+            kwargs["fixef_rm"] = "none"
+            out = fn(*args, **kwargs)
+            fml = args[0] if args else kwargs.get("fml")
+            data = args[1] if len(args) > 1 else kwargs.get("data")
+            n = _count_kept_singletons(out, fml, data)
+            if n:
+                warnings.warn(
+                    f"{entry}: {n} observation{'s' if n > 1 else ''} sit in "
+                    "fixed-effect groups of one (singletons) and were kept. "
+                    "R fixest and Stata reghdfe drop them by default, and so "
+                    "will StatsPAI from 1.40 (fixef_rm='singleton'). "
+                    "Coefficients do not change; the number of observations "
+                    "and the degrees of freedom behind the standard errors "
+                    "do. Pass fixef_rm='singleton' to adopt the new default "
+                    "now, or fixef_rm='none' to keep singletons; either "
+                    "silences this.",
+                    FutureWarning,
+                    stacklevel=_user_stacklevel(),
+                )
+            return out
+
+        return wrapper
+
+    return deco
+
+
 @records_call("feols")
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.feols")
 @markout_clusters
+@_singleton_default_notice("sp.feols")
 def feols(
     fml: str,
     data: pd.DataFrame,
@@ -1433,7 +1589,7 @@ def feols(
     *,
     weights: Optional[str] = None,
     ssc: Optional[Any] = None,
-    fixef_rm: str = "none",
+    fixef_rm: Optional[str] = None,
     collin_tol: float = 1e-6,
     lean: bool = False,
     cluster: Optional[str] = None,
@@ -1497,9 +1653,11 @@ def feols(
         ``'frequency'`` is refused.
     ssc : optional
         Small-sample correction via ``pyfixest.ssc()``.
-    fixef_rm : str, default "none"
-        How to handle singleton fixed effects:
-        ``"none"`` (keep) or ``"singleton"`` (drop).
+    fixef_rm : {'none', 'singleton'}, optional
+        Singleton fixed-effect groups: ``"none"`` keeps them,
+        ``"singleton"`` drops them (R ``fixest`` and Stata ``reghdfe`` do by
+        default). Unset, they are kept, with a ``FutureWarning`` when there
+        are any: the default becomes ``"singleton"`` in StatsPAI 1.40.
     collin_tol : float, default 1e-6
         Collinearity tolerance.
     lean : bool, default False
@@ -1524,11 +1682,13 @@ def feols(
         ``i(factor[, var], ref=value)`` terms, or the IV form
         ``y ~ x | fe | d1 + ... ~ z1 + ...`` with absorbed effects;
         ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': 'a'}`` /
-        ``{'CRV1': 'a + b'}``; no ``ssc=`` or extra pyfixest keyword. Other
-        calls go through pyfixest (also when regressors are absorbed or
-        collinear, which fixest drops). ``model_info['backend']`` says
-        which ran. The native IV first-stage F is fixest's ``ivwald1``. The native fit
-        follows fixest's conventions: same coefficients, SEs within the
+        ``{'CRV1': 'a + b'}``; no ``ssc=`` or extra pyfixest keyword.
+        Multiple estimation (``y1 + y2 ~``, ``sw()``, ``csw()``, ...) is
+        native when every model is. Other calls go through pyfixest (also
+        when regressors are absorbed or collinear, which fixest drops).
+        ``model_info['backend']`` says which ran. The native IV first-stage
+        F is fixest's ``ivwald1``. The native fit follows fixest's
+        conventions: same coefficients, SEs within the
         demeaning tolerance, rows with missing values dropped first.
         ``'pyfixest'`` always delegates. ``'native'`` uses StatsPAI's
         engine for everything it supports, including varying slopes
@@ -1948,6 +2108,7 @@ def _note_multiway_adjustment(out: Any, vcov: Any, n_negative: int) -> None:
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.fepois")
 @markout_clusters
+@_singleton_default_notice("sp.fepois")
 def fepois(
     fml: str,
     data: pd.DataFrame,
@@ -1955,7 +2116,7 @@ def fepois(
     *,
     weights: Optional[str] = None,
     ssc: Optional[Any] = None,
-    fixef_rm: str = "none",
+    fixef_rm: Optional[str] = None,
     collin_tol: float = 1e-6,
     iwls_tol: float = 1e-8,
     iwls_maxiter: int = 25,
@@ -1994,8 +2155,11 @@ def fepois(
         ``vce=`` menu).
     ssc : optional
         Small-sample correction.
-    fixef_rm : str, default "none"
-        Singleton fixed effect handling.
+    fixef_rm : {'none', 'singleton'}, optional
+        Singleton fixed-effect groups: ``"none"`` keeps them,
+        ``"singleton"`` drops them (R ``fixest`` does by default). Unset,
+        they are kept, with a ``FutureWarning`` when there are any: the
+        default becomes ``"singleton"`` in StatsPAI 1.40.
     collin_tol : float, default 1e-6
         Collinearity tolerance.
     iwls_tol : float, default 1e-8
@@ -2017,11 +2181,12 @@ def fepois(
         (``sp.fast.fepois``, on the Rust kernels when ``statspai-hdfe`` is
         installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with
         numeric regressors, ``vcov`` in ``iid`` / ``hetero`` /
-        ``{'CRV1': col}`` and no ``ssc=`` or extra pyfixest keyword, and
-        through pyfixest otherwise. Both follow fixest: observations in a
-        fixed-effect group whose outcomes are all zero are dropped, rows
-        with missing values are dropped, singletons are kept unless
-        ``fixef_rm='singleton'``. ``model_info['backend']`` says which
+        ``{'CRV1': 'a'}`` / ``{'CRV1': 'a + b'}`` and no ``ssc=`` or extra
+        pyfixest keyword, and through pyfixest otherwise. Both follow
+        fixest: observations in a fixed-effect group whose outcomes are
+        all zero are dropped, rows with missing values are dropped,
+        singletons are kept unless ``fixef_rm='singleton'``.
+        ``model_info['backend']`` says which
         ran. ``'pyfixest'`` always delegates; ``'native'`` refuses calls
         the native engine cannot fit.
     **kwargs
@@ -2251,8 +2416,8 @@ def feglm(
         ``'auto'`` fits ``family='logit'`` / ``'probit'`` on StatsPAI's own
         IRLS engine whenever the call is ``y ~ x1 + ... | fe1 + ...`` with
         numeric regressors, ``vcov`` in ``iid`` / ``hetero`` /
-        ``{'CRV1': col}`` and at most ``weights=`` among the extra
-        keywords, and through pyfixest otherwise (``family='gaussian'``
+        ``{'CRV1': 'a'}`` / ``{'CRV1': 'a + b'}`` and at most ``weights=``
+        among the extra keywords, and through pyfixest otherwise (``family='gaussian'``
         always). The native fit follows ``fixest::feglm``: observations in
         a fixed-effect group whose outcomes are all 0 or all 1 are dropped,
         p-values are normal, and IRLS runs to a relative deviance change of

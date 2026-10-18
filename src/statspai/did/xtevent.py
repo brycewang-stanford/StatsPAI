@@ -226,7 +226,7 @@ def xtevent(
         vcov: Any = (
             {"CRV1": cluster} if cluster else ("hetero" if vce is not None else "iid")
         )
-        fit = _feols(fml, use, vcov=vcov, ssc=_ssc("areg"))
+        fit = _feols(fml, use, vcov=vcov, ssc=_ssc("areg"), fixef_rm="none")
         params, ses = fit.params, fit.std_errors
         V_all = fit.vcov()
         df_inf = fit._inference_df() if hasattr(fit, "_inference_df") else np.inf

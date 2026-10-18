@@ -263,3 +263,63 @@ def test_iv_with_fixed_effects_runs_natively(panel, vcov):
     )
     for key in ("Hausman F-stat", "Hausman p-value"):
         assert a.diagnostics[key] == pytest.approx(b.diagnostics[key], rel=1e-6)
+
+
+@pytest.mark.parametrize(
+    "fml",
+    [
+        "y ~ x1 | csw0(firm, year)",
+        "y ~ csw(x1, x2) | firm",
+        "y + y2 ~ x1 + x2 | firm",
+        "y + y2 ~ csw(x1, x2) | sw0(firm, year)",
+        "y ~ x1 + x2 | mvsw(firm, year)",
+    ],
+)
+def test_multiple_estimation_runs_natively_in_the_delegates_order(panel, fml):
+    pytest.importorskip("pyfixest")
+    df = panel.dropna().assign(y2=lambda d: d.x2 + d.y)
+    a = _quiet(sp.feols, fml, data=df, vcov={"CRV1": "g"})
+    b = _quiet(sp.feols, fml, data=df, vcov={"CRV1": "g"}, backend="pyfixest")
+    assert isinstance(a, list) and len(a) == len(b)
+    for r, q in zip(a, b):
+        assert r.model_info["backend"] == "statspai-native"
+        assert list(r.params.index) == [str(i) for i in q.params.index]
+        np.testing.assert_allclose(r.params, q.params, rtol=1e-8)
+        np.testing.assert_allclose(r.std_errors, q.std_errors, rtol=1e-6)
+
+
+def test_multiple_estimation_is_all_or_nothing(panel):
+    """A zero step on the regressors (``y ~ 1 | firm``) has no native fit,
+    so the whole list comes from the delegate, never a mix."""
+    pytest.importorskip("pyfixest")
+    out = _quiet(sp.feols, "y ~ csw0(x1, x2) | firm", data=panel.dropna())
+    assert {r.model_info["backend"] for r in out} == {"pyfixest"}
+
+
+# --------------------------------------------------------------------------- #
+#  The fixef_rm default (singletons) changes in 1.40
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("backend", ["auto", "pyfixest"])
+def test_kept_singletons_announce_the_default_change(panel, backend):
+    if backend == "pyfixest":
+        pytest.importorskip("pyfixest")
+    df = panel.dropna()
+    n_single = int(
+        (df.firm.map(df.firm.value_counts()) == 1).sum()
+    )  # firm-only model: singletons of the one effect
+    assert n_single > 0
+    with pytest.warns(
+        FutureWarning, match=rf"{n_single} observations .* singletons"
+    ) as rec:
+        sp.feols("y ~ x1 | firm", data=df, backend=backend)
+    assert rec[0].filename == __file__  # points at the caller, not statspai
+
+
+@pytest.mark.parametrize("fixef_rm", ["none", "singleton"])
+def test_an_explicit_fixef_rm_is_silent(panel, fixef_rm):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        sp.feols("y ~ x1 | firm", data=panel.dropna(), fixef_rm=fixef_rm)
+        sp.fepois("c ~ x1 | firm", data=panel.dropna(), fixef_rm=fixef_rm)

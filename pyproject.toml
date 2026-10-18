@@ -65,7 +65,7 @@ dependencies = [
     # sp.ppmlhdfe. Required only where a wheel is published, so pip never
     # has to compile Rust; elsewhere (and with STATSPAI_SKIP_RUST=1) the
     # same paths run on NumPy / Numba. sp.fast.backend_info() says which.
-    "statspai-hdfe>=0.8.0,<1; (sys_platform == 'darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64')) or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'win32' and platform_machine == 'AMD64')",
+    "statspai-hdfe>=0.9.0,<1; (sys_platform == 'darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64')) or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'win32' and platform_machine == 'AMD64')",
 ]
 
 [project.optional-dependencies]
@@ -103,7 +103,7 @@ rust = [
     # The Rust kernels are a core dependency on every platform with a
     # published wheel (see ``dependencies``). This extra asks for them
     # anywhere else, compiling from the sdist (needs a Rust toolchain).
-    "statspai-hdfe>=0.8.0,<1",
+    "statspai-hdfe>=0.9.0,<1",
 ]
 deepiv = [
     "torch>=2.0.0",

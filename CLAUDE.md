@@ -177,8 +177,8 @@ PYO3_PYTHON=python cargo test --release                                         
 - **Parity 一律在无 Rust 路径上生成与复现**：`verify_reproduce_py.py` 与 `trace_parity_provenance.py` 给子进程设 `STATSPAI_SKIP_RUST=1`（`setdefault`）。装了扩展的环境里 `sp.hdfe_ols` 等的末位会变（容差内），已提交的 `*_py.json` 只对无扩展路径成立。
 - **共线检测不能靠 `np.linalg.inv` 抛错**：被 FE 吸收的列从任何迭代 demean 回来都是舍入噪声，不是精确的 0。`fast/_validation.py::require_identified_regressors` 是共用检查，新的 `sp.fast` 估计器在解正规方程前调用它。
 - **安全**：所有 PyO3 入口在进入 Rust 前校验长度 / 连续性 / 编码范围并抛 `ValueError`；`panic = "unwind"`（以前是 `abort`，任何越界都会直接杀掉解释器）。线程池是 crate 自己的（`sp.fast.set_num_threads` / `STATSPAI_NUM_THREADS`），fork 后在子进程里重建。
-- **CI**：`.github/workflows/rust-hdfe.yml` 在三个平台跑 `cargo test` 和带 `STATSPAI_REQUIRE_RUST=1` 的 Rust 路径测试；wheels（6 个平台 + sdist）在手动触发或 `hdfe-v*` tag 时构建。**工作流从不上传。**
-- **发布 `statspai-hdfe`（2026-10-18 用户定的规矩）：只用 `~/.pypirc` 里的 token + 本地 twine，不用浏览器登录 PyPI，不配 trusted publishing / CI 发布任务。** 步骤：升 `Cargo.toml` 版本（入口语义变了同步 `API_VERSION` / `MIN_API_VERSION`）并推送 → `gh workflow run rust-hdfe.yml --ref main` → `gh run download <id>` 收齐 6 个 wheel + sdist → `twine check` + 干净 venv 冒烟 → `twine upload -r testpypi` 并从 TestPyPI 装回验证 → `twine upload -r pypi`。上传属于 §9 需要当次授权的操作；同一版本号不能重传。0.8.0 即按此于 2026-10-18 发布（未打 tag）。
+- **CI**：`.github/workflows/rust-hdfe.yml` 在三个平台跑 `cargo test` 和带 `STATSPAI_REQUIRE_RUST=1` 的 Rust 路径测试；wheels（8 个平台 + sdist；musllinux aarch64 与 Windows ARM64 从 0.9.1 起）在手动触发或 `hdfe-v*` tag 时构建。**工作流从不上传。**
+- **发布 `statspai-hdfe`（2026-10-18 用户定的规矩）：只用 `~/.pypirc` 里的 token + 本地 twine，不用浏览器登录 PyPI，不配 trusted publishing / CI 发布任务。** 步骤：升 `Cargo.toml` 版本（入口语义变了同步 `API_VERSION` / `MIN_API_VERSION`）并推送 → `gh workflow run rust-hdfe.yml --ref main` → `gh run download <id>` 收齐 6 个 wheel + sdist → `twine check` + 干净 venv 冒烟 → `twine upload -r testpypi` 并从 TestPyPI 装回验证 → `twine upload -r pypi`。上传属于 §9 需要当次授权的操作；同一版本号不能重传。0.8.0、0.9.0（API 3）均按此于 2026-10-18 发布（未打 tag）；StatsPAI 的依赖下限随之升到 0.9.0。
 - **Track C**：`run_when_idle.sh` 把 `STATSPAI_NUM_THREADS` / `RAYON_NUM_THREADS` 钉为 1；`trace_perf_path.py` 只在计时时加载了 Rust 的记录里绑定 crate 源码哈希（`rust_loaded`），所以没装 Rust 时改 crate 不会让计时过期。
 
 ---

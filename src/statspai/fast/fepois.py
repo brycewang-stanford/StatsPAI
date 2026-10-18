@@ -43,7 +43,12 @@ from .._result_serialize import ResultProtocolMixin
 # IRLS); ``statspai._rust_backend`` decides whether they are usable.
 from .._rust_backend import HAS_RUST as _HAS_RUST_HDFE
 from .._rust_backend import rust as _rust_hdfe
-from ..exceptions import ConvergenceWarning, MethodIncompatibility, NumericalInstability
+from ..exceptions import (
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
 from ._validation import nonempty_sample as _nonempty_sample
@@ -681,8 +686,14 @@ def _fepois_fit(
     needed_cols = [lhs] + rhs_terms + fe_terms
     if weights is not None:
         needed_cols = needed_cols + [weights]
+    # ``cluster`` may name two columns (two-way clustering, internal).
+    cl_cols: List[str] = (
+        []
+        if cluster is None
+        else [cluster] if isinstance(cluster, str) else list(cluster)
+    )
     if cluster is not None:
-        needed_cols = needed_cols + [cluster]
+        needed_cols = needed_cols + cl_cols
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
         raise MethodIncompatibility(f"fepois: columns missing from data: {missing}")
@@ -713,21 +724,21 @@ def _fepois_fit(
     else:
         obs_weights = None
 
-    if cluster is not None:
-        cluster_arr_full = data[cluster].to_numpy()
+    cl_codes_full: List[np.ndarray] = []
+    for col in cl_cols:
         # Reject NaN: ambiguous treatment, force the user to handle upstream.
-        cluster_codes_check, _ = pd.factorize(
-            cluster_arr_full,
+        codes_c, _ = pd.factorize(
+            data[col].to_numpy(),
             sort=False,
             use_na_sentinel=True,
         )
-        if (cluster_codes_check < 0).any():
+        if (codes_c < 0).any():
             raise MethodIncompatibility(
-                f"fepois: cluster column {cluster!r} contains NaN; "
+                f"fepois: cluster column {col!r} contains NaN; "
                 "drop or impute upstream"
             )
-    else:
-        cluster_arr_full = None
+        cl_codes_full.append(codes_c)
+    cluster_arr_full = data[cl_cols[0]].to_numpy() if len(cl_cols) == 1 else None
     X_user = (
         data[rhs_terms].to_numpy(dtype=np.float64).copy()
         if rhs_terms
@@ -824,6 +835,7 @@ def _fepois_fit(
             obs_weights = obs_weights[keep]
         if cluster_arr_full is not None:
             cluster_arr_full = cluster_arr_full[keep]
+        cl_codes_full = [c[keep] for c in cl_codes_full]
     else:
         fe_codes = []
         counts_list = []
@@ -1021,7 +1033,7 @@ def _fepois_fit(
         fe_dof = _fixest_fe_dof(fe_card)
         df_resid = n - p - fe_dof
         iid_factor = (n - 1) / df_resid if df_resid > 0 else 1.0
-        if vcov == "cr1":
+        if vcov == "cr1" and len(cl_cols) == 1:
             free = [
                 card
                 for codes_k, card in zip(fe_codes, fe_card)
@@ -1041,6 +1053,33 @@ def _fepois_fit(
         iid_factor = n / df_resid if df_resid > 0 else 1.0
         cr1_extra_df = fe_dof
 
+    # Two-way clustering: both dimensions and their intersection, with an
+    # absorbed effect nested in any of them left out of K (fixest).
+    n_clusters = 0
+    cl_dims: List[Tuple[np.ndarray, int]] = []
+    if len(cl_cols) > 2:
+        raise MethodIncompatibility(
+            "fepois: clustering on more than two dimensions is not supported natively"
+        )
+    if len(cl_cols) == 2:
+        from .feols import _fixest_cluster_fe_dof_codes
+
+        for codes_c in cl_codes_full:
+            dense_c, levels_c = pd.factorize(codes_c, sort=False)
+            cl_dims.append((dense_c, len(levels_c)))
+        (ca, ga), (cb, gb) = cl_dims
+        inter, levels_ab = pd.factorize(ca.astype(np.int64) * gb + cb, sort=False)
+        cl_dims.append((inter, len(levels_ab)))
+        n_clusters = min(ga, gb)
+        if n_clusters < 2:
+            raise DataInsufficient(
+                f"fepois: need at least 2 clusters, got {n_clusters}"
+            )
+        if ssc == "fixest":
+            cr1_extra_df = _fixest_cluster_fe_dof_codes(
+                fe_codes, fe_card, [c for c, _ in cl_dims]
+            )
+
     if vcov == "iid":
         # Poisson canonical: dispersion = 1; the inverse information is
         # scaled by the small-sample factor only.
@@ -1057,6 +1096,17 @@ def _fepois_fit(
         vcov_mat = XtWX_inv @ meat @ XtWX_inv
         if df_resid > 0:
             vcov_mat = vcov_mat * (n / df_resid)
+    elif cl_dims:  # cr1, two-way: M_a + M_b - M_ab, smallest G
+        from .inference import _cr1_meat
+
+        uw = (obs_weights if obs_weights is not None else 1.0) * (y - mu)
+        meat = np.zeros((p, p))
+        for (codes_c, g_c), sign in zip(cl_dims, (1.0, 1.0, -1.0)):
+            meat += sign * _cr1_meat(X_tilde, uw, codes_c, g_c)
+        vcov_mat = (XtWX_inv @ meat @ XtWX_inv) * (
+            (n_clusters / (n_clusters - 1.0))
+            * ((n - 1.0) / max(n - p - cr1_extra_df, 1))
+        )
     else:  # cr1 cluster-robust
         # Poisson cluster meat: M = Σ_g (Σ_i w_i x̃_i (y_i - μ_i))²
         # where w_i are the **observation** weights (frequency / survey),
@@ -1128,8 +1178,19 @@ def _fepois_fit(
         "mu": mu,
         "w": obs_weights,
         "cluster": cluster_arr_full,
+        "n_clusters": (
+            n_clusters
+            if cl_dims
+            else (
+                int(pd.unique(cluster_arr_full).size)
+                if cluster_arr_full is not None
+                else 0
+            )
+        ),
         "df_k": int(p + fe_dof),
         "df_k_cluster": int(p + cr1_extra_df),
+        "fe_codes": fe_codes,
+        "fe_card": fe_card,
     }
     return result, arrays
 

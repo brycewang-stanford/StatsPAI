@@ -13829,7 +13829,7 @@
       "properties": {
         "backend": {
           "default": "auto",
-          "description": "``'auto'`` fits ``family='logit'`` / ``'probit'`` on StatsPAI's own IRLS engine whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and at most ``weights=`` among the extra keywords, and through pyfixest otherwise (``family='gaussian'`` always). The native fit follows ``fixest::feglm``: observations in a fixed-effect group whose outcomes are all 0 or all 1 are dropped, p-values are normal, and IRLS runs to a relative deviance change of 1e-10. ``'pyfixest'`` always delegates; ``'native'`` refuses calls the native engine cannot fit.",
+          "description": "``'auto'`` fits ``family='logit'`` / ``'probit'`` on StatsPAI's own IRLS engine whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': 'a'}`` / ``{'CRV1': 'a + b'}`` and at most ``weights=`` among the extra keywords, and through pyfixest otherwise (``family='gaussian'`` always). The native fit follows ``fixest::feglm``: observations in a fixed-effect group whose outcomes are all 0 or all 1 are dropped, p-values are normal, and IRLS runs to a relative deviance change of 1e-10. ``'pyfixest'`` always delegates; ``'native'`` refuses calls the native engine cannot fit.",
           "enum": [
             "auto",
             "pyfixest",
@@ -13905,7 +13905,7 @@
       "properties": {
         "backend": {
           "default": "auto",
-          "description": "``'auto'`` fits on StatsPAI's own engine (``sp.fast.feols``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors and ``i(factor[, var], ref=value)`` terms, or the IV form ``y ~ x | fe | d1 + ... ~ z1 + ...`` with absorbed effects; ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': 'a'}`` / ``{'CRV1': 'a + b'}``; no ``ssc=`` or extra pyfixest keyword. Other calls go through pyfixest (also when regressors are absorbed or collinear, which fixest drops). ``model_info['backend']`` says which ran. The native IV first-stage F is fixest's ``ivwald1``. The native fit follows fixest's conventions: same coefficients, SEs within the demeaning tolerance, rows with missing values dropped first. ``'pyfixest'`` always delegates. ``'native'`` uses StatsPAI's engine for everything it supports, including varying slopes (``sp.hdfe_ols``), and refuses the rest.",
+          "description": "``'auto'`` fits on StatsPAI's own engine (``sp.fast.feols``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors and ``i(factor[, var], ref=value)`` terms, or the IV form ``y ~ x | fe | d1 + ... ~ z1 + ...`` with absorbed effects; ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': 'a'}`` / ``{'CRV1': 'a + b'}``; no ``ssc=`` or extra pyfixest keyword. Multiple estimation (``y1 + y2 ~``, ``sw()``, ``csw()``, ...) is native when every model is. Other calls go through pyfixest (also when regressors are absorbed or collinear, which fixest drops). ``model_info['backend']`` says which ran. The native IV first-stage F is fixest's ``ivwald1``. The native fit follows fixest's",
           "enum": [
             "auto",
             "pyfixest",
@@ -13936,8 +13936,7 @@
           "type": "string"
         },
         "fixef_rm": {
-          "default": "none",
-          "description": "How to handle singleton fixed effects: ``\"none\"`` (keep) or ``\"singleton\"`` (drop).",
+          "description": "Singleton fixed-effect groups: ``\"none\"`` keeps them, ``\"singleton\"`` drops them (R ``fixest`` and Stata ``reghdfe`` do by default). Unset, they are kept, with a ``FutureWarning`` when there are any: the default becomes ``\"singleton\"`` in StatsPAI 1.40.",
           "enum": [
             "none",
             "singleton"
@@ -14007,7 +14006,7 @@
       "properties": {
         "backend": {
           "default": "auto",
-          "description": "``'auto'`` fits on StatsPAI's own PPML-HDFE engine (``sp.fast.fepois``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and no ``ssc=`` or extra pyfixest keyword, and through pyfixest otherwise. Both follow fixest: observations in a fixed-effect group whose outcomes are all zero are dropped, rows with missing values are dropped, singletons are kept unless ``fixef_rm='singleton'``. ``model_info['backend']`` says which ran. ``'pyfixest'`` always delegates; ``'native'`` refuses calls the native engine cannot fit.",
+          "description": "``'auto'`` fits on StatsPAI's own PPML-HDFE engine (``sp.fast.fepois``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors, ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': 'a'}`` / ``{'CRV1': 'a + b'}`` and no ``ssc=`` or extra pyfixest keyword, and through pyfixest otherwise. Both follow",
           "enum": [
             "auto",
             "pyfixest",
@@ -14038,8 +14037,11 @@
           "type": "string"
         },
         "fixef_rm": {
-          "default": "none",
-          "description": "Singleton fixed effect handling.",
+          "description": "Singleton fixed-effect groups: ``\"none\"`` keeps them, ``\"singleton\"`` drops them (R ``fixest`` does by default). Unset, they are kept, with a ``FutureWarning`` when there are any: the default becomes ``\"singleton\"`` in StatsPAI 1.40.",
+          "enum": [
+            "none",
+            "singleton"
+          ],
           "type": "string"
         },
         "fml": {

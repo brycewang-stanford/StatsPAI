@@ -795,7 +795,7 @@
      "positional": false
     },
     {
-     "default": "'none'",
+     "default": "None",
      "name": "fixef_rm",
      "positional": false
     },
@@ -2659,6 +2659,13 @@
    "function": "feols",
    "migration": "`sp.feols(backend=)` defaults to `'auto'` (was",
    "param": "backend"
+  },
+  {
+   "change": "default changed from 'none' to None",
+   "date": "2026-10-18",
+   "function": "feols",
+   "migration": "`fixef_rm` of `sp.feols` and `sp.fepois` defaults to",
+   "param": "fixef_rm"
   }
  ]
 }

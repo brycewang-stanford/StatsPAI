@@ -117,6 +117,91 @@ def _split_formula(
     return lhs, rhs, fe
 
 
+_MULTI = re.compile(r"\b(sw|csw|sw0|csw0|mvsw)\b\(.+\)")
+
+
+def _split_top(text: str, sep: str) -> List[str]:
+    """Split on ``sep`` outside parentheses."""
+    out: List[str] = []
+    depth = 0
+    cur: List[str] = []
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == sep and depth == 0:
+            out.append("".join(cur).strip())
+            cur = []
+            continue
+        cur.append(ch)
+    out.append("".join(cur).strip())
+    return out
+
+
+def _expand_first(formula: str) -> Optional[List[str]]:
+    m = _MULTI.search(formula)
+    if not m:
+        return None
+    kind = m.group(1)
+    start = formula.index("(", m.start()) + 1
+    depth, pos = 1, start
+    while depth:
+        if formula[pos] == "(":
+            depth += 1
+        elif formula[pos] == ")":
+            depth -= 1
+        pos += 1
+    args = _split_top(formula[start : pos - 1], ",")
+    if kind == "mvsw":
+        import itertools
+
+        args = [
+            " + ".join(c)
+            for r in range(1, len(args) + 1)
+            for c in itertools.combinations(args, r)
+        ]
+    elif kind in ("csw", "csw0"):
+        args = [" + ".join(args[: i + 1]) for i in range(len(args))]
+    if kind in ("sw0", "csw0", "mvsw"):
+        args = ["1", *args]
+    call = formula[m.start() : pos]
+    return [formula.replace(call, a) for a in args]
+
+
+def expand_multiple(fml: Any) -> Optional[List[str]]:
+    """The models of a multiple-estimation formula, in the delegate's order.
+
+    Several outcomes (``y1 + y2 ~ ...``) and ``sw`` / ``sw0`` / ``csw`` /
+    ``csw0`` / ``mvsw`` expand left to right, depth first, as pyfixest (and
+    fixest) do; the models are then grouped by their fixed-effects part in
+    order of first appearance, the order pyfixest fits and lists them in.
+    A fixed-effects part of ``0`` / ``1`` is dropped. ``None`` without
+    multiple-estimation syntax.
+    """
+    if not isinstance(fml, str) or "~" not in fml:
+        return None
+    lhs, rhs = (t.strip() for t in fml.split("~", 1))
+    deps = _split_top(lhs, "+")
+    formula = f"sw({', '.join(deps)}) ~ {rhs}" if len(deps) > 1 else fml
+    if len(deps) == 1 and not _MULTI.search(formula):
+        return None
+
+    def expand(f: str) -> List[str]:
+        first = _expand_first(f)
+        return [f] if first is None else [g for h in first for g in expand(h)]
+
+    groups: Dict[Optional[str], List[str]] = {}
+    for f in expand(formula):
+        parts = [t.strip() for t in f.split("|")]
+        fe = next((t for t in parts[1:] if "~" not in t), None)
+        if fe in ("0", "1"):
+            parts = [t for t in parts if t not in ("0", "1")]
+            fe = None
+        groups.setdefault(fe, []).append(" | ".join(parts))
+    return [f for fs in groups.values() for f in fs]
+
+
 def _split_iv(
     fml: Any,
 ) -> Optional[Tuple[str, List[str], List[str], List[str], List[str]]]:
@@ -358,6 +443,16 @@ def _refused(exc: Exception) -> bool:
     return False
 
 
+def _singleton_obs(codes: List[np.ndarray], cards: List[int]) -> int:
+    """Rows in a level of any fixed effect that has one row."""
+    if not codes:
+        return 0
+    single = np.zeros(len(codes[0]), dtype=bool)
+    for c, g in zip(codes, cards):
+        single |= np.bincount(c, minlength=g)[c] == 1
+    return int(single.sum())
+
+
 def _model_info(p: Plan, family: str, kernel: str, fml: str) -> Dict[str, Any]:
     info: Dict[str, Any] = {
         "model_type": f"{family} (StatsPAI native)",
@@ -459,6 +554,8 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     diagnostics["RMSE"] = float(np.sqrt(ssu / N))
 
     model_info = _model_info(p, "OLS", res.fe_kernel, fml)
+    if p.fe and not p.drop_singletons:
+        model_info["fe_singleton_obs"] = _singleton_obs(a["fe_codes"], a["fe_card"])
     if G:
         model_info["n_clusters"] = G
     data_info: Dict[str, Any] = {
@@ -498,6 +595,16 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     out.tvalues = t
     out.pvalues = pv
     return out
+
+
+def _psd_two_way(p: Plan, V: np.ndarray) -> Tuple[np.ndarray, int]:
+    """With two-way clustering, fixest's fix: negative eigenvalues of the
+    covariance set to zero. Returns the matrix and how many there were."""
+    if not isinstance(p.cluster, list):
+        return V, 0
+    from ..inference.jackknife import psd_adjust
+
+    return psd_adjust(V)
 
 
 def _crv(
@@ -618,6 +725,8 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
         "RMSE": nan,
     }
     model_info = _model_info(p, "IV", res.fe_kernel, fml)
+    if p.fe and not p.drop_singletons:
+        model_info["fe_singleton_obs"] = _singleton_obs(a["fe_codes"], a["fe_card"])
     model_info["endogenous"] = list(p.endog)
     model_info["instruments"] = list(p.instr)
     if G:
@@ -692,11 +801,12 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
     V = np.asarray(res.vcov_matrix, dtype=float)
     N, k = int(res.n_kept), len(names)
     if p.vcov == "cr1":
-        G = int(pd.unique(a["cluster"]).size)
+        G = int(a["n_clusters"])
         df_k = a["df_k_cluster"]
     else:
         G = 0
         df_k = a["df_k"]
+    V, n_negative = _psd_two_way(p, V)
     se, t, pv = _inference(params, V, p, N - df_k, normal=True)
     y = np.asarray(a["y"], dtype=float)
     mu = np.asarray(a["mu"], dtype=float)
@@ -711,6 +821,8 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
         "Log-likelihood": float(res.log_likelihood),
     }
     model_info = _model_info(p, "Poisson", res.fe_kernel, fml)
+    if p.fe and not p.drop_singletons:
+        model_info["fe_singleton_obs"] = _singleton_obs(a["fe_codes"], a["fe_card"])
     model_info["converged"] = bool(res.converged)
     model_info["iterations"] = int(res.iterations)
     if res.n_dropped_separation:
@@ -728,6 +840,8 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
         model_info["n_dropped_singletons"] = int(res.n_dropped_singletons)
     if G:
         model_info["n_clusters"] = G
+    if isinstance(p.cluster, list):
+        model_info["multiway_negative_eigenvalues"] = n_negative
     data_info: Dict[str, Any] = {
         "nobs": N,
         "df_resid": N - max(k, df_k),
@@ -784,6 +898,7 @@ def fit_feglm(p: Plan, fml: str, *, family: str) -> EconometricResults:
     N, k = int(res.n_kept), len(names)
     G = int(a["n_clusters"]) if p.vcov == "cr1" else 0
     df_k = a["df_k_cluster"] if G else a["df_k"]
+    V, n_negative = _psd_two_way(p, V)
     se, t, pv = _inference(params, V, p, N - df_k, normal=True)
     nan = float("nan")
     diagnostics: Dict[str, Any] = {
@@ -812,6 +927,8 @@ def fit_feglm(p: Plan, fml: str, *, family: str) -> EconometricResults:
         )
     if G:
         model_info["n_clusters"] = G
+    if isinstance(p.cluster, list):
+        model_info["multiway_negative_eigenvalues"] = n_negative
     y = np.asarray(a["y"], dtype=float)
     mu = np.asarray(a["mu"], dtype=float)
     data_info: Dict[str, Any] = {

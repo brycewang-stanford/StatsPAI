@@ -5,6 +5,22 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → 1.40: `sp.feols` / `sp.fepois` will drop fixed-effect singletons by default
+
+**What changes.** `fixef_rm` of `sp.feols` and `sp.fepois` defaults to
+`None` (was `"none"`), which still keeps observations in fixed-effect
+groups of one; when a fit kept some, a `FutureWarning` says so. From
+StatsPAI 1.40 the default becomes `"singleton"`, which drops them, as R
+`fixest`, Stata `reghdfe` and pyfixest do by default. Coefficients do not
+change; the number of observations and the degrees of freedom behind the
+standard errors do.
+
+**What to do.** Pass `fixef_rm="singleton"` to adopt the new default now
+(results then match fixest's defaults), or `fixef_rm="none"` to keep
+singletons. Either silences the warning.
+
+---
+
 ## 1.39.6 → unreleased: `sp.feols` / `sp.fepois` / `sp.feglm` fit on StatsPAI's own engine
 
 **What changed.** `sp.feols(backend=)` defaults to `'auto'` (was
@@ -17,7 +33,9 @@ form `y ~ x | fe | d ~ z`), `vcov` in `'iid'` / `'hetero'` /
 is installed); everything else still goes to pyfixest. A native IV fit
 reports fixest's first-stage Wald F (`ivwald1`); pyfixest's robust or
 clustered value differed when the panel had singletons, because its first
-stage dropped them. The conventions are the delegate's (singletons kept unless
+stage dropped them. Two-way clustered `sp.fepois` / `sp.feglm` standard
+errors now include fixest's eigenvalue fix, which pyfixest skipped for
+GLMs; where it applies they move to fixest's values. The conventions are the delegate's (singletons kept unless
 `fixef_rm='singleton'`, rows with missing values dropped, the same degrees
 of freedom and R-squared definitions), so coefficients agree to about
 1e-10 and standard errors to the demeaning tolerance. `sp.fepois` iterates

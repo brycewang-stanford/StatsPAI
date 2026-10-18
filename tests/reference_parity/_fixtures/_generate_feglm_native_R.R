@@ -6,7 +6,7 @@
 #   Rscript _generate_feglm_native_R.R
 suppressPackageStartupMessages({library(fixest); library(jsonlite)})
 d <- read.csv("feglm_native_data.csv")
-vcovs <- list(iid = "iid", hetero = "hetero", cr1 = ~g)
+vcovs <- list(iid = "iid", hetero = "hetero", cr1 = ~g, twoway = ~g + year)
 out <- list(r_version = R.version.string,
             fixest_version = as.character(packageVersion("fixest")))
 for (fam in c("logit", "probit")) for (fe in c("one", "multi"))
@@ -24,4 +24,16 @@ for (fam in c("logit", "probit")) for (fe in c("one", "multi"))
       pvalue = unname(pvalue(m)[c("x1", "x2")]),
       nobs = nobs(m))
   }
+# Poisson on the same panel, two-way clustered (sp.fepois native path).
+for (wt in c("none", "w")) {
+  m <- if (wt == "none")
+    fepois(d ~ x1 + x2 | firm + year, d, vcov = ~g + year, glm.tol = 1e-10, fixef.tol = 1e-10)
+  else
+    fepois(d ~ x1 + x2 | firm + year, d, vcov = ~g + year, weights = ~w,
+           glm.tol = 1e-10, fixef.tol = 1e-10)
+  out[[paste("poisson_multi_twoway", wt, sep = "_")]] <- list(
+    coef = unname(coef(m)[c("x1", "x2")]),
+    se = unname(se(m)[c("x1", "x2")]),
+    nobs = nobs(m))
+}
 writeLines(toJSON(out, digits = NA, auto_unbox = TRUE, pretty = TRUE), "feglm_native_R.json")

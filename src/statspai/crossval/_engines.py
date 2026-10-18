@@ -190,17 +190,21 @@ class StatspaiAdapter(EngineAdapter):
                 cluster=spec.cluster[0] if spec.cluster else None,
             )
         elif est == "feols":
+            # Singletons dropped, as the fixest and pyfixest engines do by
+            # default, so all engines fit the same sample.
             res = sp.feols(
                 spec.build_formula(),
                 data=spec.data,
                 vcov=_sp_feols_vcov(spec.vcov, spec.cluster),
                 cluster=" + ".join(spec.cluster) if spec.cluster else None,
+                fixef_rm="singleton",
             )
         elif est == "poisson":
             res = sp.fepois(
                 spec.build_formula(),
                 data=spec.data,
                 vcov=_pf_vcov(spec.vcov, spec.cluster),
+                fixef_rm="singleton",
             )
         elif est == "iv":
             # sp.iv is a function alias that shadows the `iv` submodule at
