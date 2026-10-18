@@ -31,6 +31,28 @@ Rules:
 
 ## Entries
 
+### 2026-10-18 — `sp.feols` / `sp.fepois` / `sp.feglm` on StatsPAI's own engine
+
+- **Commits.** `bc3caa3b` changed
+  `tests/r_parity/results/67_panel_glm_py.json` and re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (46 modules: 01-09,
+  11, 13-17, 24, 30, 31, 34-36, 38, 39, 42, 47, 48, 51-59, 67, 71-75, 79,
+  81, 84, 85, 89) and `tests/orig_parity/results/_implementation_trace.json`
+  (01, 02, 03, 04, 04b, 05, 06, 07, 09, 10, 11).
+- **Reason.** `sp.fepois` and `sp.feglm(family="logit")` now fit module 67
+  on StatsPAI's native engine instead of pyfixest; the provenance decorator
+  (`output/_lineage.py`) and `fast/*` changed on many estimation paths.
+- **Effect on the paper.** Module 67 no longer calls pyfixest: in the Track A
+  table (`parity_table_3way.tex`) its dagger goes and the caption's counts
+  read 87 native and 2 third-party modules (were 86 and 3). Its fepois
+  standard errors move by 5e-8 relative (x1 0.0449982127 to 0.0449982104);
+  the gaps to R stay 9.1e-6 and 1.4e-5 (R's fixest stops IRLS at its 1e-8
+  default) and to Stata 4.1e-7 to 4.07e-7. Logit rows: estimates unchanged at
+  1e-15, SE gap to R 8.3e-6 to 8.6e-6, inside the 5e-5 budget. Every other
+  re-traced module was re-run into scratch and compared with its committed
+  `*_py.json`: largest relative difference 7.3e-11 (73_did2s), so no other
+  result file or table number changes.
+
 ### 2026-10-18 — Rust kernels rebuilt; parity traces re-recorded
 
 - **Commits.** `eb2d830f` re-recorded
