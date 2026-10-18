@@ -182,3 +182,5 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+          # 0.8.0 was uploaded by hand; a tag for an existing version is a no-op.
+          skip-existing: true

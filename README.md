@@ -90,6 +90,7 @@ are optional extras:
 | `statspai[bayes]` | PyMC, ArviZ | Bayesian estimators |
 | `statspai[neural]` / `statspai[deepiv]` | PyTorch | neural causal models, DeepIV |
 | `statspai[performance]` | JAX | accelerated backends |
+| `statspai[rust]` (until the next release: `pip install statspai-hdfe`) | [statspai-hdfe](https://pypi.org/project/statspai-hdfe/) | Rust kernels for HDFE demeaning, Poisson IRLS and cluster SEs in `sp.fast.*`, `sp.hdfe_ols`, `sp.ppmlhdfe`, `sp.regress(cluster=)`; `sp.fast.backend_info()` reports whether they are used ([guide](docs/guides/rust_kernels.md)) |
 | `statspai[spatial]` | geopandas, libpysal, shapely | shapefile / geometry-based spatial weights |
 
 The interactive figure editor additionally needs `ipywidgets` inside Jupyter.

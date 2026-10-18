@@ -177,7 +177,7 @@ PYO3_PYTHON=python cargo test --release                                         
 - **Parity 一律在无 Rust 路径上生成与复现**：`verify_reproduce_py.py` 与 `trace_parity_provenance.py` 给子进程设 `STATSPAI_SKIP_RUST=1`（`setdefault`）。装了扩展的环境里 `sp.hdfe_ols` 等的末位会变（容差内），已提交的 `*_py.json` 只对无扩展路径成立。
 - **共线检测不能靠 `np.linalg.inv` 抛错**：被 FE 吸收的列从任何迭代 demean 回来都是舍入噪声，不是精确的 0。`fast/_validation.py::require_identified_regressors` 是共用检查，新的 `sp.fast` 估计器在解正规方程前调用它。
 - **安全**：所有 PyO3 入口在进入 Rust 前校验长度 / 连续性 / 编码范围并抛 `ValueError`；`panic = "unwind"`（以前是 `abort`，任何越界都会直接杀掉解释器）。线程池是 crate 自己的（`sp.fast.set_num_threads` / `STATSPAI_NUM_THREADS`），fork 后在子进程里重建。
-- **CI**：`.github/workflows/rust-hdfe.yml` 在三个平台跑 `cargo test` 和带 `STATSPAI_REQUIRE_RUST=1` 的 Rust 路径测试；wheels 在手动触发或 `hdfe-v*` tag 时构建；**推 `hdfe-v*` tag = 发布 `statspai-hdfe` 到 PyPI**（trusted publishing，环境 `pypi`，需先在 PyPI 配置），属于 §9 需要当次授权的操作。发 StatsPAI 新版前若 `[rust]` extra 要求的版本还没上 PyPI，先发 `statspai-hdfe`。
+- **CI**：`.github/workflows/rust-hdfe.yml` 在三个平台跑 `cargo test` 和带 `STATSPAI_REQUIRE_RUST=1` 的 Rust 路径测试；wheels 在手动触发或 `hdfe-v*` tag 时构建；**推 `hdfe-v*` tag = 发布 `statspai-hdfe` 到 PyPI**（trusted publishing，环境 `pypi`，需先在 PyPI 配置），属于 §9 需要当次授权的操作。**0.8.0 已于 2026-10-18 经用户授权、用本地 twine 上传**（TestPyPI 先验，再 PyPI；文件取自 `rust-hdfe.yml` 手动触发构建的 6 个 wheel + sdist；未打 tag，trusted publisher 尚未在 PyPI 配置）。以后发新版：先升 `Cargo.toml` 版本（和需要时的 `API_VERSION` / `MIN_API_VERSION`），再要么配置好 trusted publisher 后推 `hdfe-vX.Y.Z` tag，要么照 0.8.0 的办法手动上传；同一版本号不能重传。
 - **Track C**：`run_when_idle.sh` 把 `STATSPAI_NUM_THREADS` / `RAYON_NUM_THREADS` 钉为 1；`trace_perf_path.py` 只在计时时加载了 Rust 的记录里绑定 crate 源码哈希（`rust_loaded`），所以没装 Rust 时改 crate 不会让计时过期。
 
 ---

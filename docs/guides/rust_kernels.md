@@ -6,8 +6,13 @@ high-dimensional fixed-effect (HDFE) demeaning, the whole Poisson IRLS of
 separate package so that StatsPAI itself stays pure Python:
 
 ```bash
-pip install "statspai[rust]"      # pulls in statspai-hdfe
+pip install "statspai[rust]"      # pulls in statspai-hdfe (StatsPAI releases after 1.39.6)
+pip install statspai-hdfe         # the same, with any StatsPAI version
 ```
+
+`statspai-hdfe` is on [PyPI](https://pypi.org/project/statspai-hdfe/) with
+wheels for Linux (x86_64, aarch64, musl), macOS (x86_64, arm64) and
+Windows (x64); one wheel per platform serves every CPython from 3.10.
 
 Nothing requires them. Without the package every function below runs on
 NumPy / Numba and gives the same estimates to within the residualisation

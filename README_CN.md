@@ -61,6 +61,7 @@ pip install statspai
 | `statspai[bayes]` | PyMC、ArviZ | 贝叶斯估计器 |
 | `statspai[neural]` / `statspai[deepiv]` | PyTorch | 神经网络因果模型、DeepIV |
 | `statspai[performance]` | JAX | 加速后端 |
+| `statspai[rust]`（下个版本发布前用 `pip install statspai-hdfe`） | [statspai-hdfe](https://pypi.org/project/statspai-hdfe/) | `sp.fast.*`、`sp.hdfe_ols`、`sp.ppmlhdfe`、`sp.regress(cluster=)` 的 HDFE demean、Poisson IRLS 与聚类标准误的 Rust 内核；`sp.fast.backend_info()` 报告是否在用（[指南](docs/guides/rust_kernels.md)） |
 | `statspai[spatial]` | geopandas、libpysal、shapely | shapefile / 几何空间权重 |
 
 交互式图表编辑器在 Jupyter 里还需要 `ipywidgets`。

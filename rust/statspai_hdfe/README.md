@@ -5,7 +5,7 @@ high-dimensional fixed-effect (HDFE) demeaning, the native Poisson IRLS
 behind `sp.fast.fepois`, and the cluster-robust sandwich meat.
 
 ```bash
-pip install "statspai[rust]"     # or: pip install statspai-hdfe
+pip install statspai-hdfe        # or, with StatsPAI releases after 1.39.6: pip install "statspai[rust]"
 ```
 
 StatsPAI never requires this package. Without it the same functions run
