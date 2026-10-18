@@ -4,6 +4,57 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Rust kernels installed by default; statspai-hdfe 0.9 runs every pass in parallel
+
+`pip install statspai` now installs `statspai-hdfe` on every platform it
+publishes a wheel for (Linux x86_64 / aarch64, macOS x86_64 / arm64,
+Windows x64), through an environment marker, so pip never compiles Rust;
+other platforms keep the NumPy / Numba paths. The crate (0.9.0, kernel API
+3, not yet on PyPI) splits every pass over the rows into fixed chunks that
+run in parallel and are added in a fixed order, so fits are bit-identical
+at any thread count (checked at 1, 3 and 8 threads for feols, fepois,
+logit and probit with two and three fixed effects).
+
+Against R `fixest` 0.14 on the same CSV, eight threads, milliseconds
+(`benchmarks/hdfe/fixest_matrix.py`, minimum of five runs; one thread is
+in the section below):
+
+| call, one million rows | StatsPAI | fixest |
+| --- | ---: | ---: |
+| `sp.fepois`, firm + year | 100 | 278 |
+| `sp.fepois`, clustered | 125 | 291 |
+| `sp.feglm(family="logit")`, clustered | 130 | 325 |
+| `sp.feols`, ten regressors, clustered | 110 | 174 |
+| `sp.feols`, worker + firm + year | 264 | 340 |
+| `sp.fepois`, worker + firm + year | 1316 | 2327 |
+| `sp.feols`, firm + year, iid | 59 | 49 |
+
+StatsPAI is faster in 27 of the 30 cells at eight threads and in all 30 at
+one thread. The three it loses are plain `sp.feols` on exactly a million
+rows (iid, hetero, weighted): the regression takes 25 ms there, and the
+SHA-256 provenance fingerprint of the input frame (56 ms, frames up to a
+million rows) bounds the call.
+
+#### Added
+
+- `statspai_hdfe.feglm_irls(..., family)` (API 3): the IRLS loop for
+  Poisson, logit and probit with absorbed effects; `sp.feglm`'s native
+  logit / probit use it when present and fall back to the Python loop on
+  API 2. `fepois_irls` is unchanged.
+- `rust/statspai_hdfe/src/par.rs`: chunked, order-fixed parallel loops
+  (scatter-adds into group sums, elementwise updates, reductions).
+
+#### Changed
+
+- `statspai-hdfe>=0.8.0,<1` is a core dependency on the platforms above;
+  the `rust` extra remains for building it elsewhere.
+- One- and two-fixed-effect demeaning, the cross-tab reweighting, and
+  every per-iteration pass of the IRLS (working response, cross products,
+  deviance, step-halving) run over row chunks in parallel. Rust results
+  move in the last digits relative to 0.8 (association of the sums); the
+  parity harnesses run without the extension, so no committed result
+  changes.
+
 ### `sp.feols` / `sp.fepois` / `sp.feglm` run on StatsPAI's own engine
 
 `sp.feols`, `sp.fepois` and `sp.feglm` reached their numbers through

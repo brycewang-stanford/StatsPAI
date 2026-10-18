@@ -1,7 +1,9 @@
-"""Loader for the optional Rust kernels (the ``statspai_hdfe`` extension).
+"""Loader for the Rust kernels (the ``statspai_hdfe`` extension).
 
-Every module that can use the Rust kernels imports them from here, so the
-availability decision is made once per process and the same everywhere:
+``statspai-hdfe`` is a dependency of StatsPAI on every platform with a
+published wheel; elsewhere it is optional. Every module that can use the
+Rust kernels imports them from here, so the availability decision is made
+once per process and the same everywhere:
 
 * ``statspai_hdfe`` is not installed -> NumPy / Numba paths, silently.
 * ``STATSPAI_SKIP_RUST`` is set to a true value (``1``, ``true``, ``yes``)
@@ -20,6 +22,8 @@ import warnings
 from typing import Any, Dict, Optional
 
 #: Interface level of the extension this StatsPAI was written against.
+#: API 3 (crate 0.9) adds ``feglm_irls``; callers test for it with
+#: ``hasattr`` and fall back to their Python loop on API 2.
 MIN_API_VERSION = 2
 
 INSTALL_HINT = 'pip install "statspai[rust]"'

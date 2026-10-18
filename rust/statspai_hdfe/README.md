@@ -1,20 +1,22 @@
 # statspai-hdfe
 
 Rust kernels for [StatsPAI](https://github.com/brycewang-stanford/StatsPAI):
-high-dimensional fixed-effect (HDFE) demeaning, the native Poisson IRLS
-behind `sp.fast.fepois`, and the cluster-robust sandwich meat.
+high-dimensional fixed-effect (HDFE) demeaning, the native IRLS (Poisson,
+logit, probit) behind `sp.fepois` / `sp.feglm` / `sp.fast.fepois`, and the
+cluster-robust sandwich meat.
 
 ```bash
-pip install statspai-hdfe        # or, with StatsPAI releases after 1.39.6: pip install "statspai[rust]"
+pip install statspai-hdfe        # StatsPAI releases after 1.39.6 install it themselves
 ```
 
-StatsPAI never requires this package. Without it the same functions run
-on NumPy / Numba and agree with the Rust path to within the
-residualisation tolerance. Check which one is in use:
+StatsPAI releases after 1.39.6 depend on this package on every platform
+with a wheel (Linux x86_64 / aarch64, macOS, Windows x64). Without it the
+same functions run on NumPy / Numba and agree with the Rust path to within
+the residualisation tolerance. Check which one is in use:
 
 ```python
 import statspai as sp
-sp.fast.backend_info()      # {'available': True, 'version': '0.8.0', 'threads': 8, ...}
+sp.fast.backend_info()      # {'available': True, 'version': '0.9.0', 'threads': 8, ...}
 sp.fast.set_num_threads(4)  # or set STATSPAI_NUM_THREADS before starting Python
 ```
 
@@ -26,13 +28,15 @@ sp.fast.set_num_threads(4)  # or set STATSPAI_NUM_THREADS before starting Python
 | --- | --- |
 | `sp.fast.feols`, `sp.fast.demean`, `sp.fast.within`, `sp.fast.event_study` | `demean_2d` |
 | `sp.fast.feols(weights=)`, `sp.ppmlhdfe` (two or more FEs) | `demean_2d_weighted` |
-| `sp.fast.fepois` | `fepois_irls`, `separation_mask` |
+| `sp.fepois`, `sp.fast.fepois` | `fepois_irls`, `separation_mask` |
+| `sp.feglm(family="logit" / "probit")` | `feglm_irls` (API 3) |
+| `sp.feols` (plain formulas, `backend="auto"`) | `demean_2d` |
 | `sp.iv(absorb=)`, `sp.didregress`, `sp.iv.iv_diag`, weak-IV diagnostics | `demean_2d` |
 | `sp.regress(cluster=)` (one-way) | `cluster_meat` |
 | singleton pruning in `sp.fast` | `singleton_mask` |
 
-`sp.hdfe_ols` / `sp.Absorber`, `sp.panel` and the pyfixest-backed
-`sp.feols` do not use it.
+`sp.panel` and the calls `sp.feols` hands to pyfixest (IV, `i()`,
+`csw()`, other variances) do not use it.
 
 ## Algorithm
 
@@ -56,10 +60,13 @@ as `fixest` does (Bergé 2018; `paper.bib` key `berge2018efficient`):
   iteration re-weights it and restarts every column from its FE
   coefficients of the previous iteration.
 
-Columns are processed in parallel. The cluster meat sums fixed blocks of
-clusters in parallel and adds the block sums in order, so its result is
-the same at any thread count; the demeaning is per column and therefore
-also independent of the thread count.
+Columns are processed in parallel, and from crate 0.9 so is every pass
+over the rows within a column (group sums, residuals, the IRLS working
+response, cross products, deviance): the rows are split into chunks fixed
+by the problem size, each chunk is reduced in row order, and the chunk
+results are added in chunk order (`src/par.rs`). A fit is therefore
+bit-identical at any thread count. The cluster meat sums fixed blocks of
+clusters the same way.
 
 ## Safety
 
@@ -94,6 +101,7 @@ an extension older than the level it was written against
 | --- | --- | --- |
 | 1 | 0.1 – 0.7 | data-space alternating projections; inputs not validated |
 | 2 | 0.8 | coefficient-space solver; validated inputs; `fepois_irls` reports `singular` / `fe_converged`; thread-pool control; reproducible `cluster_meat` |
+| 3 | 0.9 | `feglm_irls(..., family)` for Poisson / logit / probit; row-parallel passes, bit-identical at any thread count; API 2 entry points unchanged |
 
 ## License
 

@@ -29,14 +29,15 @@ mod cluster;
 mod coef;
 mod demean;
 mod irls;
+mod par;
 mod pool;
 mod separation;
 mod singletons;
 
 use numpy::ndarray::Array2;
 use numpy::{
-    PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1,
-    PyReadwriteArray2, PyUntypedArrayMethods,
+    PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1, PyReadwriteArray2,
+    PyUntypedArrayMethods,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -49,13 +50,16 @@ use pyo3::wrap_pyfunction;
 /// 1 = 0.1-0.7 (data-space AP kernels). 2 = 0.8 (coefficient-space
 /// solver, validated inputs, ``fepois_irls`` reports ``singular`` and
 /// ``fe_converged``, thread-pool control).
-const API_VERSION: u32 = 2;
+const API_VERSION: u32 = 3;
 
 fn err<T>(msg: String) -> PyResult<T> {
     Err(PyValueError::new_err(msg))
 }
 
-fn slice1<'a, T: numpy::Element>(arr: &'a PyReadonlyArray1<'_, T>, name: &str) -> PyResult<&'a [T]> {
+fn slice1<'a, T: numpy::Element>(
+    arr: &'a PyReadonlyArray1<'_, T>,
+    name: &str,
+) -> PyResult<&'a [T]> {
     arr.as_slice()
         .map_err(|_| PyValueError::new_err(format!("{name} must be a contiguous 1-D array")))
 }
@@ -112,7 +116,10 @@ fn code_slices<'a>(
     Ok(out)
 }
 
-fn infos_to_list<'py>(py: Python<'py>, infos: &[demean::DemeanInfo]) -> PyResult<Bound<'py, PyList>> {
+fn infos_to_list<'py>(
+    py: Python<'py>,
+    infos: &[demean::DemeanInfo],
+) -> PyResult<Bound<'py, PyList>> {
     let out = PyList::empty_bound(py);
     for info in infos {
         let d = PyDict::new_bound(py);
@@ -157,7 +164,11 @@ fn group_demean(
         .as_slice_mut()
         .map_err(|_| PyValueError::new_err("sums must be a contiguous 1-D array"))?;
     if codes.len() != y.len() {
-        return err(format!("codes has length {} but y has {}", codes.len(), y.len()));
+        return err(format!(
+            "codes has length {} but y has {}",
+            codes.len(),
+            y.len()
+        ));
     }
     if counts.len() != sums.len() {
         return err(format!(
@@ -292,7 +303,16 @@ fn demean_2d<'py>(
     accel_period: u32,
 ) -> PyResult<Bound<'py, PyList>> {
     demean_coef(
-        py, x, fe_codes, counts, None, max_iter, tol_abs, tol_rel, accelerate, accel_period,
+        py,
+        x,
+        fe_codes,
+        counts,
+        None,
+        max_iter,
+        tol_abs,
+        tol_rel,
+        accelerate,
+        accel_period,
         "counts",
     )
 }
@@ -398,7 +418,10 @@ fn demean_2d_weighted_sorted<'py>(
             pw.len() + 1
         ));
     }
-    if starts[0] != 0 || starts[starts.len() - 1] != n as i64 || starts.windows(2).any(|w| w[1] < w[0]) {
+    if starts[0] != 0
+        || starts[starts.len() - 1] != n as i64
+        || starts.windows(2).any(|w| w[1] < w[0])
+    {
         return err(format!(
             "primary_starts must be non-decreasing from 0 to n={n}"
         ));
@@ -481,6 +504,57 @@ fn fepois_irls<'py>(
     obs_weights: PyReadonlyArray1<'py, f64>,
     config: &Bound<'py, PyDict>,
 ) -> PyResult<Bound<'py, PyDict>> {
+    glm_irls(
+        py,
+        irls::Family::Poisson,
+        y,
+        x,
+        fe_codes,
+        g_per_fe,
+        obs_weights,
+        config,
+    )
+}
+
+/// Native IRLS for ``sp.feglm`` with absorbed fixed effects (API 3).
+///
+/// Same arguments and returned dict as ``fepois_irls``, plus ``family``:
+/// ``"poisson"``, ``"logit"`` or ``"probit"``. For the binomial families
+/// ``y`` must lie in ``[0, 1]``; the working weights are Fisher scoring's
+/// ``obs_weights * dmu^2 / V(mu)`` and the loop stops on fixest's relative
+/// deviance change ``|dev - dev_old| / (0.1 + |dev|) < tol``.
+#[pyfunction]
+#[pyo3(signature = (y, x, fe_codes, g_per_fe, obs_weights, config, family))]
+#[allow(clippy::too_many_arguments)]
+fn feglm_irls<'py>(
+    py: Python<'py>,
+    y: PyReadonlyArray1<'py, f64>,
+    x: PyReadonlyArray2<'py, f64>,
+    fe_codes: &Bound<'py, PyList>,
+    g_per_fe: PyReadonlyArray1<'py, i64>,
+    obs_weights: PyReadonlyArray1<'py, f64>,
+    config: &Bound<'py, PyDict>,
+    family: &str,
+) -> PyResult<Bound<'py, PyDict>> {
+    let fam = irls::Family::parse(family).ok_or_else(|| {
+        PyValueError::new_err(format!(
+            "family must be 'poisson', 'logit' or 'probit', got {family:?}"
+        ))
+    })?;
+    glm_irls(py, fam, y, x, fe_codes, g_per_fe, obs_weights, config)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn glm_irls<'py>(
+    py: Python<'py>,
+    fam: irls::Family,
+    y: PyReadonlyArray1<'py, f64>,
+    x: PyReadonlyArray2<'py, f64>,
+    fe_codes: &Bound<'py, PyList>,
+    g_per_fe: PyReadonlyArray1<'py, i64>,
+    obs_weights: PyReadonlyArray1<'py, f64>,
+    config: &Bound<'py, PyDict>,
+) -> PyResult<Bound<'py, PyDict>> {
     let y_view = slice1(&y, "y")?;
     let obs_w_view = slice1(&obs_weights, "obs_weights")?;
     let g_view = slice1(&g_per_fe, "g_per_fe")?;
@@ -493,11 +567,14 @@ fn fepois_irls<'py>(
         return err(format!("y length {} but x has {n} rows", y_view.len()));
     }
     if obs_w_view.len() != n {
-        return err(format!("obs_weights length {} but x has {n} rows", obs_w_view.len()));
+        return err(format!(
+            "obs_weights length {} but x has {n} rows",
+            obs_w_view.len()
+        ));
     }
     check_weights(obs_w_view, "obs_weights")?;
     if fe_codes.is_empty() {
-        return err("fepois_irls needs at least one FE".into());
+        return err("the IRLS kernel needs at least one FE".into());
     }
     if g_view.len() != fe_codes.len() {
         return err(format!(
@@ -510,7 +587,9 @@ fn fepois_irls<'py>(
         return err("g_per_fe must be non-negative".into());
     }
     if n == 0 || p == 0 {
-        return err(format!("fepois_irls needs n > 0 and p > 0 (got n={n}, p={p})"));
+        return err(format!(
+            "the IRLS kernel needs n > 0 and p > 0 (got n={n}, p={p})"
+        ));
     }
     if n > u32::MAX as usize {
         return err(format!("n={n} exceeds the supported 2^32 - 1 rows"));
@@ -550,12 +629,23 @@ fn fepois_irls<'py>(
     if !(cfg.tol >= 0.0) || !(cfg.fe_tol >= 0.0) || !(cfg.eta_clip > 0.0) {
         return err("tol and fe_tol must be non-negative and eta_clip positive".into());
     }
-    if y_view.iter().any(|&v| !(v >= 0.0) || !v.is_finite()) {
-        return err("y must be finite and non-negative for a Poisson model".into());
+    match fam {
+        irls::Family::Poisson => {
+            if y_view.iter().any(|&v| !(v >= 0.0) || !v.is_finite()) {
+                return err("y must be finite and non-negative for a Poisson model".into());
+            }
+        }
+        irls::Family::Logit | irls::Family::Probit => {
+            if y_view.iter().any(|&v| !(0.0..=1.0).contains(&v)) {
+                return err("y must lie in [0, 1] for a binomial model".into());
+            }
+        }
     }
 
     let result = py.allow_threads(|| {
-        pool::install(|| irls::fepois_loop(y_view, x_view, obs_w_view, &codes, &g_per_fe_vec, &cfg))
+        pool::install(|| {
+            irls::glm_loop(fam, y_view, x_view, obs_w_view, &codes, &g_per_fe_vec, &cfg)
+        })
     });
 
     let out = PyDict::new_bound(py);
@@ -593,12 +683,18 @@ fn singleton_mask<'py>(
         let s = slice1(v, "fe_codes")?;
         if let Some(&first) = codes.first().map(|c: &&[i64]| c) {
             if s.len() != first.len() {
-                return err(format!("fe_codes[{k}] has length {} but fe_codes[0] has {}", s.len(), first.len()));
+                return err(format!(
+                    "fe_codes[{k}] has length {} but fe_codes[0] has {}",
+                    s.len(),
+                    first.len()
+                ));
             }
         }
         if let Some(&m) = s.iter().min() {
             if m < 0 {
-                return err(format!("fe_codes[{k}]: codes must be non-negative; found {m}"));
+                return err(format!(
+                    "fe_codes[{k}]: codes must be non-negative; found {m}"
+                ));
             }
         }
         codes.push(s);
@@ -725,6 +821,7 @@ fn statspai_hdfe(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(demean_2d_weighted, m)?)?;
     m.add_function(wrap_pyfunction!(demean_2d_weighted_sorted, m)?)?;
     m.add_function(wrap_pyfunction!(fepois_irls, m)?)?;
+    m.add_function(wrap_pyfunction!(feglm_irls, m)?)?;
     m.add_function(wrap_pyfunction!(singleton_mask, m)?)?;
     m.add_function(wrap_pyfunction!(separation_mask, m)?)?;
     m.add_function(wrap_pyfunction!(cluster_meat, m)?)?;

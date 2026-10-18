@@ -37,6 +37,7 @@
 //! the threshold in every other FE.
 
 use crate::demean::DemeanInfo;
+use crate::par;
 
 /// Sparse cross-tabulation of two FE dimensions, stored both row-wise
 /// (by ``a``) and column-wise (by ``b``). Cell weights live in
@@ -160,18 +161,20 @@ impl CrossTab {
     /// unit weights).
     pub fn values(&self, w: Option<&[f64]>) -> CrossValues {
         let nnz = self.nnz();
+        let n = self.cell_of_row.len();
+        let cells = &self.cell_of_row;
         let mut a_val = vec![0.0f64; nnz];
         match w {
-            None => {
-                for &c in &self.cell_of_row {
-                    a_val[c as usize] += 1.0;
+            None => par::scatter_add(n, &mut a_val, |r, acc| {
+                for i in r {
+                    acc[cells[i] as usize] += 1.0;
                 }
-            }
-            Some(w) => {
-                for (i, &c) in self.cell_of_row.iter().enumerate() {
-                    a_val[c as usize] += w[i];
+            }),
+            Some(w) => par::scatter_add(n, &mut a_val, |r, acc| {
+                for i in r {
+                    acc[cells[i] as usize] += w[i];
                 }
-            }
+            }),
         }
         let mut b_val = vec![0.0f64; nnz];
         for (p, &e) in self.b_pos.iter().enumerate() {
@@ -264,15 +267,7 @@ impl<'a> Problem<'a> {
             let cross = CrossTab::build(codes[a], codes[b], n_groups[a], n_groups[b]);
             let vals = cross.values(weights.as_deref());
             let rest: Vec<usize> = (0..k).filter(|&q| q != a && q != b).collect();
-            (
-                Some(Pair {
-                    a,
-                    b,
-                    cross,
-                    vals,
-                }),
-                rest,
-            )
+            (Some(Pair { a, b, cross, vals }), rest)
         } else {
             (None, vec![0usize])
         };
@@ -553,7 +548,22 @@ pub fn demean_column(
 ) -> DemeanInfo {
     // A non-finite value makes every group sum it touches non-finite and
     // the iteration could never converge: report it instead of iterating.
-    if max_iter == 0 || !x.iter().all(|v| v.is_finite()) {
+    // One pass finds both that and the scale of the stopping rule.
+    let xs: &[f64] = x;
+    let scale = par::max(xs.len(), |r| {
+        let mut m = 0.0f64;
+        for i in r {
+            let a = xs[i].abs();
+            if !(a <= f64::MAX) {
+                return f64::INFINITY;
+            }
+            if a > m {
+                m = a;
+            }
+        }
+        m
+    });
+    if max_iter == 0 || !scale.is_finite() {
         if max_iter > 0 {
             for v in x.iter_mut() {
                 *v = f64::NAN;
@@ -565,7 +575,7 @@ pub fn demean_column(
             max_dx: f64::INFINITY,
         };
     }
-    let stop = tol_abs + tol_rel * base_scale(x);
+    let stop = tol_abs + tol_rel * (scale + 1e-30);
     match &p.pair {
         None => demean_column_single(p, ws, x),
         Some(pair) if p.rest.is_empty() => demean_column_pair(p, pair, ws, x, stop, max_iter),
@@ -579,18 +589,26 @@ fn demean_column_single(p: &Problem, ws: &mut Workspace, x: &mut [f64]) -> Demea
     let g = p.n_groups[0];
     let wq = &p.rest_w[0];
     let s = &mut ws.sums[..g];
-    for v in s.iter_mut() {
-        *v = 0.0;
-    }
-    for i in 0..x.len() {
-        s[codes[i] as usize] += p.w(i) * x[i];
+    {
+        let xs: &[f64] = x;
+        match p.weights.as_deref() {
+            None => par::scatter_add(xs.len(), s, |r, acc| {
+                for i in r {
+                    acc[codes[i] as usize] += xs[i];
+                }
+            }),
+            Some(w) => par::scatter_add(xs.len(), s, |r, acc| {
+                for i in r {
+                    acc[codes[i] as usize] += w[i] * xs[i];
+                }
+            }),
+        }
     }
     for h in 0..g {
         s[h] = if wq[h] > 0.0 { s[h] / wq[h] } else { 0.0 };
     }
-    for i in 0..x.len() {
-        x[i] -= s[codes[i] as usize];
-    }
+    let s: &[f64] = s;
+    par::for_each_mut(x, |i, v| *v -= s[codes[i] as usize]);
     DemeanInfo {
         iters: 1,
         converged: true,
@@ -609,21 +627,34 @@ fn demean_column_pair(
 ) -> DemeanInfo {
     let ca = p.codes[pair.a];
     let cb = p.codes[pair.b];
-    for v in ws.ba.iter_mut() {
-        *v = 0.0;
+    let ga = ws.ba.len();
+    // Both sets of group sums in one pass over the rows.
+    let mut sums = vec![0.0f64; ga + ws.bb.len()];
+    {
+        let xs: &[f64] = x;
+        match p.weights.as_deref() {
+            None => par::scatter_add(xs.len(), &mut sums, |r, acc| {
+                let (sa, sb) = acc.split_at_mut(ga);
+                for i in r {
+                    sa[ca[i] as usize] += xs[i];
+                    sb[cb[i] as usize] += xs[i];
+                }
+            }),
+            Some(w) => par::scatter_add(xs.len(), &mut sums, |r, acc| {
+                let (sa, sb) = acc.split_at_mut(ga);
+                for i in r {
+                    let wx = w[i] * xs[i];
+                    sa[ca[i] as usize] += wx;
+                    sb[cb[i] as usize] += wx;
+                }
+            }),
+        }
     }
-    for v in ws.bb.iter_mut() {
-        *v = 0.0;
-    }
-    for i in 0..x.len() {
-        let wx = p.w(i) * x[i];
-        ws.ba[ca[i] as usize] += wx;
-        ws.bb[cb[i] as usize] += wx;
-    }
+    ws.ba.copy_from_slice(&sums[..ga]);
+    ws.bb.copy_from_slice(&sums[ga..]);
     let info = solve_pair(pair, ws, stop, max_iter, p.accelerate);
-    for i in 0..x.len() {
-        x[i] -= ws.alpha_a[ca[i] as usize] + ws.alpha_b[cb[i] as usize];
-    }
+    let (aa, ab) = (&ws.alpha_a, &ws.alpha_b);
+    par::for_each_mut(x, |i, v| *v -= aa[ca[i] as usize] + ab[cb[i] as usize]);
     info
 }
 
@@ -757,14 +788,23 @@ fn demean_column_block(
         }
         let cap = inner_left.min(max_iter as u64) as u32;
         let i2 = outer_map(
-            p, pair, ws, x, &rgx, &mut rggx, &mut resid2, &mut sums, &rest_off, tol_now, cap,
+            p,
+            pair,
+            ws,
+            x,
+            &rgx,
+            &mut rggx,
+            &mut resid2,
+            &mut sums,
+            &rest_off,
+            tol_now,
+            cap,
         );
         iters += 1;
         inner_left = inner_left.saturating_sub(i2.iters as u64);
         inner_ok = i2.converged;
         final_in_resid2 = true;
-        max_dx = max_abs_diff(&ws.alpha_a, &pa_prev)
-            + max_abs_diff(&ws.alpha_b, &pb_prev);
+        max_dx = max_abs_diff(&ws.alpha_a, &pa_prev) + max_abs_diff(&ws.alpha_b, &pb_prev);
         for r in 0..p.rest.len() {
             let (lo, hi) = (rest_off[r], rest_off[r + 1]);
             max_dx += max_abs_diff(&rggx[lo..hi], &rgx[lo..hi]);
@@ -875,7 +915,15 @@ mod tests {
         let mut scratch: Vec<Vec<f64>> = groups.iter().map(|&g| vec![0.0; g]).collect();
         let mut out = x.to_vec();
         let info = demean_column_inplace(
-            &mut out, codes, &counts_ref, &mut scratch, 100_000, 0.0, 1e-14, true, 5,
+            &mut out,
+            codes,
+            &counts_ref,
+            &mut scratch,
+            100_000,
+            0.0,
+            1e-14,
+            true,
+            5,
         );
         assert!(info.converged);
         out
@@ -901,7 +949,9 @@ mod tests {
             .iter()
             .map(|&g| (0..n).map(|_| rng.int(g)).collect())
             .collect();
-        let x: Vec<f64> = (0..n).map(|i| rng.unif() * 3.0 + (codes[0][i] as f64) * 0.1).collect();
+        let x: Vec<f64> = (0..n)
+            .map(|i| rng.unif() * 3.0 + (codes[0][i] as f64) * 0.1)
+            .collect();
         let w: Vec<f64> = (0..n).map(|_| 0.2 + rng.unif()).collect();
         let code_refs: Vec<&[i64]> = codes.iter().map(|v| v.as_slice()).collect();
         let wopt = if weighted { Some(w.as_slice()) } else { None };
@@ -918,6 +968,59 @@ mod tests {
             let r = reference(&x, &code_refs, groups);
             let d = max_abs_diff(&out, &r);
             assert!(d < 1e-9, "differs from AP reference by {d}");
+        }
+    }
+
+    /// Above ``par::PAR_MIN_ROWS`` the group sums and residuals run over
+    /// row chunks: still the exact projection, and bit-identical for any
+    /// thread count.
+    #[test]
+    fn row_parallel_paths_are_exact_and_thread_independent() {
+        for (groups, weighted) in [
+            (vec![300usize, 12], false),
+            (vec![300, 12], true),
+            (vec![500], true),
+        ] {
+            let n = 120_000;
+            let mut rng = Lcg(17);
+            let codes: Vec<Vec<i64>> = groups
+                .iter()
+                .map(|&g| (0..n).map(|_| rng.int(g)).collect())
+                .collect();
+            let x: Vec<f64> = (0..n)
+                .map(|i| rng.unif() + (codes[0][i] as f64) * 0.01)
+                .collect();
+            let w: Vec<f64> = (0..n).map(|_| 0.2 + rng.unif()).collect();
+            let refs: Vec<&[i64]> = codes.iter().map(|v| v.as_slice()).collect();
+            let wopt = if weighted { Some(w.clone()) } else { None };
+            let run = |threads: usize| {
+                let pool = rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .unwrap();
+                pool.install(|| {
+                    let p = Problem::new(refs.clone(), groups.clone(), wopt.clone());
+                    let mut ws = Workspace::new(&p, n);
+                    let mut out = x.clone();
+                    let info = demean_column(&p, &mut ws, &mut out, 10_000, 0.0, 1e-13);
+                    assert!(info.converged);
+                    out
+                })
+            };
+            let one = run(1);
+            let eight = run(8);
+            assert!(one
+                .iter()
+                .zip(&eight)
+                .all(|(a, b)| a.to_bits() == b.to_bits()));
+            for (k, c) in codes.iter().enumerate() {
+                let m = group_mean_max(&one, c, groups[k], wopt.as_deref());
+                assert!(m < 1e-9, "fe {k}: max group mean {m}");
+            }
+            if !weighted {
+                let d = max_abs_diff(&one, &reference(&x, &refs, &groups));
+                assert!(d < 1e-9, "differs from AP reference by {d}");
+            }
         }
     }
 

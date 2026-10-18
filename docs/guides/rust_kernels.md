@@ -1,28 +1,30 @@
 # Rust kernels
 
-StatsPAI's fixed-effect machinery can run on optional Rust kernels:
-high-dimensional fixed-effect (HDFE) demeaning, the whole Poisson IRLS of
-`sp.fast.fepois`, and the cluster-robust sandwich meat. They ship as a
-separate package so that StatsPAI itself stays pure Python:
+StatsPAI's fixed-effect machinery runs on Rust kernels:
+high-dimensional fixed-effect (HDFE) demeaning, the whole IRLS loop of
+Poisson, logit and probit models with absorbed effects, and the
+cluster-robust sandwich meat. They ship as a separate package,
+`statspai-hdfe`, so that StatsPAI itself stays a pure-Python wheel.
 
-```bash
-pip install "statspai[rust]"      # pulls in statspai-hdfe (StatsPAI releases after 1.39.6)
-pip install statspai-hdfe         # the same, with any StatsPAI version
-```
+From the release after 1.39.6, `pip install statspai` installs
+`statspai-hdfe` on every platform it has a wheel for: Linux (x86_64,
+aarch64), macOS (x86_64, arm64) and Windows (x64); one wheel per platform
+serves every CPython from 3.10. Elsewhere pip never has to compile Rust:
+the package is skipped and every function below runs on NumPy / Numba,
+with the same estimates to within the residualisation tolerance.
+`pip install "statspai[rust]"` asks for it anyway (building from the
+sdist, which needs a Rust toolchain), and `pip install statspai-hdfe`
+adds it to any StatsPAI version.
 
-`statspai-hdfe` is on [PyPI](https://pypi.org/project/statspai-hdfe/) with
-wheels for Linux (x86_64, aarch64, musl), macOS (x86_64, arm64) and
-Windows (x64); one wheel per platform serves every CPython from 3.10.
-
-Nothing requires them. Without the package every function below runs on
-NumPy / Numba and gives the same estimates to within the residualisation
-tolerance.
+From crate 0.9 (kernel API 3) every pass over the rows is split into
+fixed chunks that run in parallel and are added in a fixed order, so a fit
+is bit-identical whatever the number of threads.
 
 ```python
 import statspai as sp
 
 sp.fast.backend_info()
-# {'available': True, 'version': '0.8.0', 'api_version': 2, 'threads': 8, ...}
+# {'available': True, 'version': '0.9.0', 'api_version': 3, 'threads': 8, ...}
 
 sp.fast.set_num_threads(4)   # or STATSPAI_NUM_THREADS=4 before starting Python
 fit = sp.fast.feols("y ~ x1 + x2 | firm + year", data=df)

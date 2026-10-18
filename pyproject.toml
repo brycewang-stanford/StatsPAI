@@ -59,6 +59,13 @@ dependencies = [
     # core dep so published artifacts work on Linux/macOS/Windows without
     # users having to discover the optional-dep pitfall at runtime.
     "tabulate>=0.9.0",
+    # Rust kernels (rust/statspai_hdfe, published as its own package): HDFE
+    # demeaning and the coefficient-space solver, the native Poisson IRLS
+    # and the cluster meat behind sp.feols / sp.fepois / sp.fast /
+    # sp.ppmlhdfe. Required only where a wheel is published, so pip never
+    # has to compile Rust; elsewhere (and with STATSPAI_SKIP_RUST=1) the
+    # same paths run on NumPy / Numba. sp.fast.backend_info() says which.
+    "statspai-hdfe>=0.8.0,<1; (sys_platform == 'darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64')) or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'win32' and platform_machine == 'AMD64')",
 ]
 
 [project.optional-dependencies]
@@ -93,12 +100,10 @@ performance = [
     "jaxlib>=0.4.0",
 ]
 rust = [
-    # Optional Rust kernels (rust/statspai_hdfe, published as its own
-    # package): HDFE demeaning, the native Poisson IRLS and the cluster
-    # meat behind sp.fast / sp.ppmlhdfe / sp.iv(absorb=) / sp.regress
-    # (cluster=). Without it those paths run on NumPy / Numba;
-    # sp.fast.backend_info() reports which one is in use.
-    "statspai-hdfe>=0.8.0",
+    # The Rust kernels are a core dependency on every platform with a
+    # published wheel (see ``dependencies``). This extra asks for them
+    # anywhere else, compiling from the sdist (needs a Rust toolchain).
+    "statspai-hdfe>=0.8.0,<1",
 ]
 deepiv = [
     "torch>=2.0.0",
