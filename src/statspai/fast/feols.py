@@ -394,8 +394,14 @@ def _feols_fit(
     needed_cols = [lhs] + rhs_terms + fe_terms
     if weights is not None:
         needed_cols = needed_cols + [weights]
+    # ``cluster`` may name several columns (multiway clustering, internal).
+    cl_cols: List[str] = (
+        []
+        if cluster is None
+        else [cluster] if isinstance(cluster, str) else list(cluster)
+    )
     if cluster is not None:
-        needed_cols = needed_cols + [cluster]
+        needed_cols = needed_cols + cl_cols
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
         raise MethodIncompatibility(f"feols: columns missing from data: {missing}")
@@ -448,19 +454,20 @@ def _feols_fit(
     else:
         w_full = None
 
-    # Cluster column
-    if cluster is not None:
-        cluster_arr_full = data[cluster].to_numpy()
-        cluster_codes_check, _ = pd.factorize(
-            cluster_arr_full,
-            sort=False,
-            use_na_sentinel=True,
+    # Cluster column(s)
+    cl_codes_full: List[np.ndarray] = []
+    for col in cl_cols:
+        codes_c, _ = pd.factorize(
+            data[col].to_numpy(), sort=False, use_na_sentinel=True
         )
-        if (cluster_codes_check < 0).any():
+        if (codes_c < 0).any():
             raise MethodIncompatibility(
-                f"feols: cluster column {cluster!r} contains NaN; "
+                f"feols: cluster column {col!r} contains NaN; "
                 "drop or impute upstream"
             )
+        cl_codes_full.append(codes_c)
+    if cl_cols:
+        cluster_arr_full = data[cl_cols[0]].to_numpy()
     else:
         cluster_arr_full = None
 
@@ -600,18 +607,30 @@ def _feols_fit(
         )
     else:
         w = np.ones(n_kept, dtype=np.float64)
+    cl_dims: List[Tuple[np.ndarray, int]] = []
     if cluster_arr_full is not None:
-        cluster_arr_kept = cluster_arr_full[keep_mask]
+        cluster_arr_kept = cluster_arr_full[keep_mask] if len(cl_cols) == 1 else None
         # Dense codes in first-appearance order on the kept rows, as
         # factorising the kept labels would give.
-        if n_kept < n_obs:
-            cl_codes, cl_levels = pd.factorize(
-                cluster_codes_check[keep_mask], sort=False
-            )
-            n_clusters = len(cl_levels)
-        else:
-            cl_codes = cluster_codes_check
-            n_clusters = int(cl_codes.max()) + 1 if cl_codes.size else 0
+        for codes_c in cl_codes_full:
+            if n_kept < n_obs:
+                dense_c, levels_c = pd.factorize(codes_c[keep_mask], sort=False)
+                cl_dims.append((dense_c, len(levels_c)))
+            else:
+                cl_dims.append((codes_c, int(codes_c.max()) + 1 if codes_c.size else 0))
+        cl_codes, n_clusters = cl_dims[0]
+        if len(cl_dims) > 1:
+            # Cameron-Gelbach-Miller: one term per non-empty subset of the
+            # dimensions; two-way adds their intersection with sign -1.
+            if len(cl_dims) != 2:
+                raise MethodIncompatibility(
+                    "feols: clustering on more than two dimensions is not "
+                    "supported natively"
+                )
+            (ca, ga), (cb, gb) = cl_dims
+            inter, levels_ab = pd.factorize(ca.astype(np.int64) * gb + cb, sort=False)
+            cl_dims.append((inter, len(levels_ab)))
+            n_clusters = min(ga, gb)
         if n_clusters < 2:
             raise DataInsufficient(f"crve: need at least 2 clusters, got {n_clusters}")
     else:
@@ -622,7 +641,7 @@ def _feols_fit(
         fe_dof = _fixest_fe_dof(fe_card)
         if vcov == "cr1":
             cr1_extra_df = _fixest_cluster_fe_dof_codes(
-                fe_codes_list, fe_card, cl_codes
+                fe_codes_list, fe_card, [c for c, _ in cl_dims]
             )
         else:
             cr1_extra_df = fe_dof
@@ -693,7 +712,7 @@ def _feols_fit(
         vcov_mat = XtWX_inv @ meat @ XtWX_inv
         if df_resid > 0:
             vcov_mat = vcov_mat * (n / df_resid)
-    else:  # cr1
+    elif len(cl_dims) == 1:  # cr1, one-way
         vcov_mat = _cr1_from_codes(
             X_dem,
             resid,
@@ -703,6 +722,17 @@ def _feols_fit(
             bread=XtWX_inv,
             extra_df=cr1_extra_df,
         )
+    else:  # cr1, two-way: V_a + V_b - V_ab, each with the smallest G
+        from .inference import _cr1_meat
+
+        uw = resid * w
+        meat = np.zeros((p, p))
+        for (codes_c, g_c), sign in zip(cl_dims, (1.0, 1.0, -1.0)):
+            meat += sign * _cr1_meat(X_dem, uw, codes_c, g_c)
+        c = (n_clusters / (n_clusters - 1.0)) * (
+            (n - 1.0) / max(n - p - cr1_extra_df, 1)
+        )
+        vcov_mat = (XtWX_inv @ meat @ XtWX_inv) * c
 
     weight_info: Optional[Dict[str, Any]] = None
     if weights is not None and note_weights:
@@ -750,6 +780,9 @@ def _feols_fit(
         "w": w,
         "cluster": cluster_arr_kept,
         "n_clusters": n_clusters if cluster_arr_full is not None else 0,
+        "cl_dims": cl_dims,
+        "fe_codes": fe_codes_list,
+        "fe_card": fe_card,
         "df_k": int(n - df_resid),
         "df_k_cluster": int(p + cr1_extra_df),
     }
@@ -802,15 +835,21 @@ def _fixest_cluster_fe_dof(
 def _fixest_cluster_fe_dof_codes(
     fe_codes: List[np.ndarray],
     fe_card: List[int],
-    cluster_codes: np.ndarray,
+    cluster_codes: Any,
 ) -> int:
-    """:func:`_fixest_cluster_fe_dof` on dense codes of the kept rows."""
+    """:func:`_fixest_cluster_fe_dof` on dense codes of the kept rows.
+
+    ``cluster_codes`` is one code array or a list of them (multiway: every
+    clustering dimension and their intersection); an effect nested in any
+    of them is left out of ``K``, as fixest and pyfixest do.
+    """
     if not fe_codes:
         return _fixest_fe_dof(fe_card)
+    dims = cluster_codes if isinstance(cluster_codes, list) else [cluster_codes]
     free = [
         int(card)
         for codes, card in zip(fe_codes, fe_card)
-        if not _codes_nested(codes, int(card), cluster_codes)
+        if not any(_codes_nested(codes, int(card), c) for c in dims)
     ]
     if not free:
         return 1  # every effect nested in the clusters: keep the intercept

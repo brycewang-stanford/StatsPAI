@@ -60,7 +60,7 @@ CASES = [
 @pytest.mark.parametrize("fml,vcov", CASES)
 def test_first_stage_matches_the_old_numba_refit(fml, vcov, seed):
     df = _data(seed)
-    out = sp.feols(fml, data=df, vcov=vcov)
+    out = sp.feols(fml, data=df, vcov=vcov, backend="pyfixest")
 
     # The model: pyfixest's compiled demeaner, as sp.feols has asked for
     # since c824af18; the first stage plays no part in these numbers.
@@ -99,7 +99,7 @@ def test_first_stage_matches_the_old_numba_refit(fml, vcov, seed):
 def test_pyfixest_feols_is_restored_after_the_fit():
     module = importlib.import_module("pyfixest.estimation")
     before = module.feols
-    sp.feols("y ~ x1 | w | d ~ z", data=_data(0), vcov="iid")
+    sp.feols("y ~ x1 | w | d ~ z", data=_data(0), vcov="iid", backend="pyfixest")
     assert module.feols is before
     with pytest.raises(Exception):
         sp.feols("y ~ x1 | w | d ~ not_a_column", data=_data(0), vcov="iid")
@@ -117,7 +117,12 @@ def test_first_stage_is_fitted_once():
 
     Feiv.first_stage = counted
     try:
-        sp.feols("y ~ x1 | w + f | d ~ z", data=_data(1), vcov={"CRV1": "w"})
+        sp.feols(
+            "y ~ x1 | w + f | d ~ z",
+            data=_data(1),
+            vcov={"CRV1": "w"},
+            backend="pyfixest",
+        )
     finally:
         Feiv.first_stage = real
     assert calls["n"] == 1

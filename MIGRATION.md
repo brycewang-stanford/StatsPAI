@@ -9,11 +9,15 @@ Internal version-to-version migrations are at the top; the long-form
 
 **What changed.** `sp.feols(backend=)` defaults to `'auto'` (was
 `'pyfixest'`), and `sp.fepois` / `sp.feglm` gained the same argument. With `'auto'`, a
-call of the form `y ~ x1 + ... | fe1 + ...` with numeric regressors,
-`vcov` in `'iid'` / `'hetero'` / `{'CRV1': col}`, no `ssc=` and no extra
-pyfixest keyword runs on `sp.fast.feols` / `sp.fast.fepois` (the Rust
-kernels when `statspai-hdfe` is installed); everything else still goes to
-pyfixest. The conventions are the delegate's (singletons kept unless
+call of the form `y ~ x1 + ... | fe1 + ...` with numeric regressors (and,
+for `sp.feols`, `i(factor, ref=v)` terms, two-way clustering and the IV
+form `y ~ x | fe | d ~ z`), `vcov` in `'iid'` / `'hetero'` /
+`{'CRV1': col}`, no `ssc=` and no extra pyfixest keyword runs on
+`sp.fast.feols` / `sp.fast.fepois` (the Rust kernels when `statspai-hdfe`
+is installed); everything else still goes to pyfixest. A native IV fit
+reports fixest's first-stage Wald F (`ivwald1`); pyfixest's robust or
+clustered value differed when the panel had singletons, because its first
+stage dropped them. The conventions are the delegate's (singletons kept unless
 `fixef_rm='singleton'`, rows with missing values dropped, the same degrees
 of freedom and R-squared definitions), so coefficients agree to about
 1e-10 and standard errors to the demeaning tolerance. `sp.fepois` iterates

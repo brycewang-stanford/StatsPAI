@@ -20,7 +20,7 @@ the native fit refuses them), goes to pyfixest; :func:`plan` says why.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -29,6 +29,23 @@ import pandas as pd
 from ..core.results import EconometricResults
 
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+# fixest's i(factor, ref=v) / i(factor, var, ref=v), with an explicit
+# scalar reference level (event-study dummies).
+_I_TERM = re.compile(
+    r"i\(\s*([A-Za-z_]\w*)\s*(?:,\s*([A-Za-z_]\w*)\s*)?,\s*ref\s*=\s*"
+    r"(-?\d+|\"[^\"]*\"|'[^']*')\s*\)\Z"
+)
+
+
+@dataclass
+class ITerm:
+    """An ``i(factor[, var], ref=...)`` term of the formula."""
+
+    factor: str
+    var: Optional[str]
+    ref: str
+
+
 _HETERO = ("hetero", "hc1", "robust")
 
 
@@ -40,11 +57,16 @@ class Plan:
     rhs: List[str]
     fe: List[str]
     vcov: str  # 'iid' | 'hc1' | 'cr1'
-    cluster: Optional[str]
+    cluster: Optional[Union[str, List[str]]]  # a list: two-way clustering
     weights: Optional[str]
     drop_singletons: bool
     data: pd.DataFrame
     n_missing: int
+    #: internal dummy-column name -> reported name (``rel::-3``)
+    renames: Dict[str, str] = field(default_factory=dict)
+    #: IV: endogenous regressors and their excluded instruments
+    endog: List[str] = field(default_factory=list)
+    instr: List[str] = field(default_factory=list)
 
     @property
     def formula(self) -> str:
@@ -62,29 +84,127 @@ class Plan:
         return {"iid": "iid", "hc1": "hetero", "cr1": "CRV1"}[self.vcov]
 
 
-def _split_formula(fml: Any) -> Optional[Tuple[str, List[str], List[str]]]:
+def _split_formula(
+    fml: Any,
+) -> Optional[Tuple[str, List[Union[str, ITerm]], List[str]]]:
     if not isinstance(fml, str) or fml.count("~") != 1 or fml.count("|") > 1:
         return None
     lhs, rest = (s.strip() for s in fml.split("~"))
     rhs_s, _, fe_s = rest.partition("|")
-    rhs = [t.strip() for t in rhs_s.split("+")]
+    tokens = [t.strip() for t in rhs_s.split("+")]
     fe = [t.strip() for t in fe_s.split("+")] if fe_s.strip() else []
-    if not _NAME.match(lhs) or any(not t for t in rhs + fe):
+    if not _NAME.match(lhs) or any(not t for t in tokens + fe):
         return None
     if fe_s and not fe_s.strip():
         return None
-    rhs = [t for t in rhs if t != "1"]
-    if not rhs or any(not _NAME.match(t) for t in rhs + fe):
+    rhs: List[Union[str, ITerm]] = []
+    for t in tokens:
+        if t == "1":
+            continue
+        m = _I_TERM.match(t)
+        if m:
+            rhs.append(ITerm(m.group(1), m.group(2), m.group(3).strip("\"'")))
+        elif _NAME.match(t):
+            rhs.append(t)
+        else:
+            return None
+    if not rhs or any(not _NAME.match(t) for t in fe):
         return None
-    names = [lhs] + rhs + fe
+    plain = [t for t in rhs if isinstance(t, str)]
+    names = [lhs] + plain + fe
     if len(set(names)) != len(names):
         return None
     return lhs, rhs, fe
 
 
+def _split_iv(
+    fml: Any,
+) -> Optional[Tuple[str, List[str], List[str], List[str], List[str]]]:
+    """``y ~ x | fe | d ~ z`` -> (lhs, exog, fe, endog, instruments)."""
+    if not isinstance(fml, str) or fml.count("|") != 2 or fml.count("~") != 2:
+        return None
+    head, fe_s, iv_s = fml.split("|")
+    if head.count("~") != 1 or iv_s.count("~") != 1:
+        return None
+    lhs, exog_s = (t.strip() for t in head.split("~"))
+    endog_s, instr_s = iv_s.split("~")
+
+    def names(text: str, allow_one: bool = False) -> Optional[List[str]]:
+        toks = [t.strip() for t in text.split("+")]
+        if any(not t for t in toks):
+            return None
+        toks = [t for t in toks if not (allow_one and t == "1")]
+        return toks if all(_NAME.match(t) for t in toks) else None
+
+    exog = names(exog_s, allow_one=True)
+    fe = names(fe_s)
+    endog = names(endog_s)
+    instr = names(instr_s)
+    if not _NAME.match(lhs) or exog is None or not fe or not endog or not instr:
+        return None
+    if len(instr) < len(endog):
+        return None
+    every = [lhs] + exog + fe + endog + instr
+    if len(set(every)) != len(every):
+        return None
+    return lhs, exog, fe, endog, instr
+
+
+def _base_columns(rhs: List[Union[str, ITerm]]) -> List[str]:
+    out: List[str] = []
+    for t in rhs:
+        cols = [t] if isinstance(t, str) else [t.factor] + ([t.var] if t.var else [])
+        out += [c for c in cols if c not in out]
+    return out
+
+
+def _expand_i_terms(
+    rhs: List[Union[str, ITerm]], work: pd.DataFrame
+) -> Union[str, Tuple[List[str], Dict[str, np.ndarray], Dict[str, str]]]:
+    """Dummy columns for the ``i()`` terms, in formula order.
+
+    Levels are sorted and the reference level left out, as the delegate
+    reports them; a dummy is named ``factor::level`` (``factor::level:var``
+    for an interaction).
+    """
+    names: List[str] = []
+    cols: Dict[str, np.ndarray] = {}
+    renames: Dict[str, str] = {}
+    for t in rhs:
+        if isinstance(t, str):
+            names.append(t)
+            continue
+        f = work[t.factor]
+        if pd.api.types.is_bool_dtype(f) or not (
+            pd.api.types.is_integer_dtype(f)
+            or pd.api.types.is_object_dtype(f)
+            or pd.api.types.is_string_dtype(f)
+        ):
+            return f"i({t.factor}) on a column of dtype {f.dtype}"
+        values = f.to_numpy()
+        try:
+            ref: Any = int(t.ref) if pd.api.types.is_integer_dtype(f) else t.ref
+        except ValueError:
+            return f"i({t.factor}, ref={t.ref}) on an integer column"
+        codes, levels = pd.factorize(values, sort=True)
+        level_list = list(levels)
+        if ref not in level_list:
+            return f"i({t.factor}): reference level {t.ref} not in the data"
+        var = work[t.var].to_numpy(dtype=np.float64) if t.var else None
+        for j, lev in enumerate(level_list):
+            if lev == ref:
+                continue
+            internal = f"__i{len(renames)}__"
+            col = (codes == j).astype(np.float64)
+            cols[internal] = col * var if var is not None else col
+            renames[internal] = f"{t.factor}::{lev}" + (f":{t.var}" if t.var else "")
+            names.append(internal)
+    return names, cols, renames
+
+
 def _resolve_vcov(
     vcov: Any, cluster: Optional[str]
-) -> Optional[Tuple[str, Optional[str]]]:
+) -> Optional[Tuple[str, Optional[Union[str, List[str]]]]]:
     if vcov is None:
         return ("cr1", cluster) if cluster is not None else ("iid", None)
     if cluster is not None:
@@ -100,9 +220,12 @@ def _resolve_vcov(
     if isinstance(vcov, dict) and len(vcov) == 1:
         ((kind, col),) = vcov.items()
         if str(kind).upper() == "CRV1" and isinstance(col, str):
-            col = col.strip()
-            if _NAME.match(col):
-                return "cr1", col
+            cols = [c.strip() for c in col.split("+")]
+            if all(_NAME.match(c) for c in cols) and len(set(cols)) == len(cols):
+                if len(cols) == 1:
+                    return "cr1", cols[0]
+                if len(cols) == 2:
+                    return "cr1", cols
     return None
 
 
@@ -122,6 +245,8 @@ def plan(
     extra: Dict[str, Any],
     poisson: bool = False,
     binomial: bool = False,
+    multiway_ok: bool = False,
+    iv_ok: bool = False,
 ) -> Union[Plan, str]:
     """A :class:`Plan` for this call, or the reason it goes to pyfixest."""
     if not isinstance(data, pd.DataFrame):
@@ -132,22 +257,37 @@ def plan(
         return f"pyfixest keywords {sorted(extra)}"
     if fixef_rm not in ("none", "singleton"):
         return f"fixef_rm={fixef_rm!r}"
-    parts = _split_formula(fml)
-    if parts is None:
-        return "formula uses syntax beyond 'y ~ x1 + x2 | fe1 + fe2'"
-    lhs, rhs, fe = parts
+    iv = _split_iv(fml) if iv_ok else None
+    endog: List[str] = []
+    instr: List[str] = []
+    rhs: List[Union[str, ITerm]]
+    if iv is not None:
+        lhs, exog_names, fe, endog, instr = iv
+        rhs = list(exog_names)
+    else:
+        parts = _split_formula(fml)
+        if parts is None:
+            return "formula uses syntax beyond 'y ~ x1 + x2 | fe1 + fe2'"
+        lhs, rhs, fe = parts
     resolved = _resolve_vcov(vcov, cluster)
     if resolved is None:
         return f"vcov={vcov!r} (cluster={cluster!r})"
     kind, cl = resolved
-    used = [lhs] + rhs + fe + ([weights] if weights is not None else [])
-    if cl is not None and cl not in used:
-        used.append(cl)
+    if isinstance(cl, list) and not multiway_ok:
+        return "two-way clustering (native for sp.feols only)"
+    cl_cols = [] if cl is None else [cl] if isinstance(cl, str) else list(cl)
+    base = _base_columns(rhs) + endog + instr
+    used = [lhs] + [c for c in base if c != lhs] + fe
+    used += [
+        c for c in ([weights] if weights is not None else []) + cl_cols if c not in used
+    ]
     if any(c not in data.columns for c in used):
         return "a column is missing"  # pyfixest reports it by name
     if data.columns.duplicated().any():
         return "duplicated column names"
-    for c in [lhs] + rhs + ([weights] if weights is not None else []):
+    factors = {t.factor for t in rhs if isinstance(t, ITerm)}
+    numeric = [lhs] + [c for c in base if c not in factors]
+    for c in numeric + ([weights] if weights is not None else []):
         if not _numeric(data[c]):
             return f"column {c!r} is not numeric"
     # Rows fixest drops: a missing value in any used column. A missing
@@ -163,7 +303,7 @@ def plan(
             if np.isinf(arr).any():
                 return f"column {c!r} has infinite values"
         if col.hasnans:
-            if c == cl:
+            if c in cl_cols:
                 return f"cluster column {c!r} has missing values"
             missing |= col.isna().to_numpy()
     n_missing = int(missing.sum())
@@ -178,9 +318,21 @@ def plan(
         yb = work[lhs].to_numpy()
         if ((yb < 0) | (yb > 1)).any():
             return "binomial outcome outside [0, 1]"
+    renames: Dict[str, str] = {}
+    if factors:
+        expanded = _expand_i_terms(rhs, work)
+        if isinstance(expanded, str):
+            return expanded
+        rhs_names, dummies, renames = expanded
+        keep_cols = set(fe) | set(cl_cols) | {lhs, weights}
+        frame = {c: work[c] for c in used if c not in factors or c in keep_cols}
+        frame.update(dummies)
+        work = pd.DataFrame(frame, index=work.index, copy=False)
+    else:
+        rhs_names = [t for t in rhs if isinstance(t, str)]
     return Plan(
         lhs=lhs,
-        rhs=rhs,
+        rhs=rhs_names,
         fe=fe,
         vcov=kind,
         cluster=cl,
@@ -188,6 +340,9 @@ def plan(
         drop_singletons=(fixef_rm == "singleton"),
         data=work,
         n_missing=n_missing,
+        renames=renames,
+        endog=endog,
+        instr=instr,
     )
 
 
@@ -210,7 +365,11 @@ def _model_info(p: Plan, family: str, kernel: str, fml: str) -> Dict[str, Any]:
         "formula": fml,
         "vcov_type": p.vcov_label,
         "vcov_type_detail": p.vcov_detail,
-        "clustervar": [p.cluster] if p.cluster else [],
+        "clustervar": (
+            []
+            if p.cluster is None
+            else [p.cluster] if isinstance(p.cluster, str) else list(p.cluster)
+        ),
         "fixed_effects": " + ".join(p.fe) if p.fe else "None",
         "backend": "statspai-native",
         "implementation": "native",
@@ -245,6 +404,9 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     """Fit a planned ``sp.feols`` call natively, in the delegate's layout."""
     from ..fast.feols import _feols_fit
 
+    if p.endog:
+        return fit_feols_iv(p, fml, lean=lean)
+
     res, a = _feols_fit(
         p.formula,
         p.data,
@@ -254,7 +416,10 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
         drop_singletons=p.drop_singletons,
         note_weights=False,
     )
-    names = ["Intercept" if c == "(Intercept)" else c for c in res.coef_names]
+    names = [
+        "Intercept" if c == "(Intercept)" else p.renames.get(c, c)
+        for c in res.coef_names
+    ]
     params = pd.Series(np.asarray(res.coef_vec, dtype=float), index=names)
     V = np.asarray(res.vcov_matrix, dtype=float)
     N, k = int(res.n_kept), len(names)
@@ -313,6 +478,16 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
         data_info["X"] = X * sw if weighted else X
         data_info["y"] = yd * sw[:, 0] if weighted else yd
         data_info["var_names"] = names
+    if isinstance(p.cluster, list):
+        # Two-way: fixest sets the negative eigenvalues of V_a + V_b - V_ab
+        # to zero (Cameron, Gelbach and Miller 2011).
+        from ..inference.jackknife import psd_adjust
+
+        V, n_negative = psd_adjust(V)
+        model_info["multiway_negative_eigenvalues"] = n_negative
+        if n_negative:
+            se, t, pv = _inference(params, V, p, df_t, normal=False)
+            data_info["var_cov"] = V
     out = EconometricResults(
         params=params,
         std_errors=se,
@@ -322,6 +497,172 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     )
     out.tvalues = t
     out.pvalues = pv
+    return out
+
+
+def _crv(
+    X: np.ndarray, uw: np.ndarray, dims: List[Tuple[np.ndarray, int]]
+) -> np.ndarray:
+    """Cluster meat; with two dimensions ``M_a + M_b - M_ab``."""
+    from ..fast.inference import _cr1_meat
+
+    meat = np.zeros((X.shape[1], X.shape[1]))
+    for (codes, g), sign in zip(dims, (1.0, 1.0, -1.0)):
+        meat += sign * _cr1_meat(X, uw, codes, g)
+    return meat
+
+
+def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
+    """2SLS with absorbed effects, reported as ``sp.feols`` reports an IV fit.
+
+    The outcome, exogenous regressors, endogenous regressors and excluded
+    instruments are residualised on the fixed effects together (one call of
+    the feols engine, which also fixes the estimation sample, the weights,
+    the cluster codes and the absorbed degrees of freedom); 2SLS runs on the
+    residualised columns, scaled by the square root of the weights. The
+    variance is the delegate's: bread ``(X^' X^)^{-1}`` on the first-stage
+    fitted design, scores ``w u x^``, fixest's small-sample factors. The
+    first-stage F is the Wald statistic of the excluded instruments in the
+    first-stage regression under the model's variance, divided by their
+    number, with a chi-square p-value: fixest's ``ivwald1`` (pyfixest
+    clusters its first stage on the first dimension only and refits it
+    with singletons dropped, so its robust value can differ).
+    """
+    from scipy import stats
+
+    from ..fast.feols import _feols_fit
+
+    k_ex, k_en, k_in = len(p.rhs), len(p.endog), len(p.instr)
+    cols = list(p.rhs) + p.endog + p.instr
+    res, a = _feols_fit(
+        f"{p.lhs} ~ {' + '.join(cols)} | {' + '.join(p.fe)}",
+        p.data,
+        vcov=p.vcov,
+        cluster=p.cluster,
+        weights=p.weights,
+        drop_singletons=p.drop_singletons,
+        note_weights=False,
+    )
+    k_all = len(cols)
+    sw = np.sqrt(np.asarray(a["w"], dtype=float))
+    D = np.asarray(a["X_dem"], dtype=float) * sw[:, None]
+    ys = np.asarray(a["y_dem"], dtype=float) * sw
+    Xe, En, Zi = D[:, :k_ex], D[:, k_ex : k_ex + k_en], D[:, k_ex + k_en :]
+    Z = np.column_stack([Xe, Zi])
+    X = np.column_stack([Xe, En])
+    n = X.shape[0]
+    k = k_ex + k_en
+    ZtZ_inv = np.linalg.inv(Z.T @ Z)
+    Pi = ZtZ_inv @ (Z.T @ En)
+    Xhat = np.column_stack([Xe, Z @ Pi])
+    bread = np.linalg.inv(Xhat.T @ Xhat)
+    beta = bread @ (Xhat.T @ ys)
+    u_s = ys - X @ beta  # sqrt(w)-scaled residual
+    fe_dof = int(a["df_k"]) - k_all
+    df_k = k + fe_dof
+    dims: List[Tuple[np.ndarray, int]] = list(a["cl_dims"])
+    G = int(a["n_clusters"]) if p.vcov == "cr1" else 0
+    if p.vcov == "iid":
+        V = bread * float(u_s @ u_s) / max(n - df_k, 1)
+    elif p.vcov == "hc1":
+        S = u_s[:, None] * Xhat
+        V = bread @ (S.T @ S) @ bread * (n / max(n - df_k, 1))
+    else:
+        extra = int(a["df_k_cluster"]) - k_all
+        df_k = k + extra
+        V = bread @ _crv(Xhat, u_s, dims) @ bread
+        V *= (G / (G - 1.0)) * ((n - 1.0) / max(n - df_k, 1))
+    names = list(p.rhs) + p.endog
+    params = pd.Series(beta, index=names)
+    df_t = (G - 1) if G else n - df_k
+    n_negative = 0
+    if isinstance(p.cluster, list):
+        from ..inference.jackknife import psd_adjust
+
+        V, n_negative = psd_adjust(V)
+    se, t, pv = _inference(params, V, p, df_t, normal=False)
+
+    # First stage of the single endogenous regressor, under the model's
+    # variance (first clustering dimension only).
+    first: Optional[Tuple[float, Optional[float]]] = None
+    if k_en == 1:
+        v_s = En[:, 0] - Z @ Pi[:, 0]
+        kz = Z.shape[1]
+        if p.vcov == "iid":
+            V1 = ZtZ_inv * float(v_s @ v_s) / max(n - (kz + fe_dof), 1)
+        elif p.vcov == "hc1":
+            S1 = v_s[:, None] * Z
+            V1 = ZtZ_inv @ (S1.T @ S1) @ ZtZ_inv * (n / max(n - (kz + fe_dof), 1))
+        else:
+            # fixest's ivwald1: the first stage under the model's own
+            # clustering (both dimensions when two-way, with the same
+            # eigenvalue fix).
+            extra1 = int(a["df_k_cluster"]) - k_all
+            V1 = ZtZ_inv @ _crv(Z, v_s, dims) @ ZtZ_inv
+            V1 *= (G / (G - 1.0)) * ((n - 1.0) / max(n - (kz + extra1), 1))
+            if isinstance(p.cluster, list):
+                from ..inference.jackknife import psd_adjust
+
+                V1, _ = psd_adjust(V1)
+        b_z = Pi[k_ex:, 0]
+        V_zz = V1[k_ex:, k_ex:]
+        wald = float(b_z @ np.linalg.pinv(V_zz) @ b_z)
+        first = (wald / k_in, float(stats.chi2.sf(wald, k_in)))
+
+    nan = float("nan")
+    diagnostics: Dict[str, Any] = {
+        "R-squared": nan,
+        "Adj. R-squared": nan,
+        "R-squared (within)": nan,
+        "Adj. R-squared (within)": nan,
+        "RMSE": nan,
+    }
+    model_info = _model_info(p, "IV", res.fe_kernel, fml)
+    model_info["endogenous"] = list(p.endog)
+    model_info["instruments"] = list(p.instr)
+    if G:
+        model_info["n_clusters"] = G
+    if isinstance(p.cluster, list):
+        model_info["multiway_negative_eigenvalues"] = n_negative
+    N = int(res.n_kept)
+    u = u_s / np.where(sw > 0, sw, 1.0)
+    data_info: Dict[str, Any] = {
+        "nobs": N,
+        "df_resid": N - max(k, df_k),
+        "n_params": k,
+        "var_cov": V,
+        "residuals": u,
+    }
+    if G:
+        data_info["df_inference"] = G - 1
+    if not lean:
+        data_info["X"] = X
+        data_info["y"] = ys
+        data_info["var_names"] = names
+    out = EconometricResults(
+        params=params,
+        std_errors=se,
+        model_info=model_info,
+        data_info=data_info,
+        diagnostics=diagnostics,
+    )
+    out.tvalues = t
+    out.pvalues = pv
+    if p.weights is not None:
+        return out  # the delegate reports IV diagnostics for unweighted fits
+    from .wrapper import _iv_diagnostics_core
+
+    _iv_diagnostics_core(
+        out,
+        Y=ys,
+        X=X,
+        Z=Z,
+        u=u_s,
+        names=names,
+        endo=list(range(k_ex, k)),
+        k_total=df_k,
+        first=first,
+    )
     return out
 
 
@@ -343,7 +684,10 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
         maxiter=maxiter,
         note_weights=False,
     )
-    names = ["Intercept" if c == "(Intercept)" else c for c in res.coef_names]
+    names = [
+        "Intercept" if c == "(Intercept)" else p.renames.get(c, c)
+        for c in res.coef_names
+    ]
     params = pd.Series(np.asarray(res.coef_vec, dtype=float), index=names)
     V = np.asarray(res.vcov_matrix, dtype=float)
     N, k = int(res.n_kept), len(names)
@@ -431,7 +775,10 @@ def fit_feglm(p: Plan, fml: str, *, family: str) -> EconometricResults:
         cluster=p.cluster,
         weights=p.weights,
     )
-    names = ["Intercept" if c == "(Intercept)" else c for c in res.coef_names]
+    names = [
+        "Intercept" if c == "(Intercept)" else p.renames.get(c, c)
+        for c in res.coef_names
+    ]
     params = pd.Series(np.asarray(res.coef_vec, dtype=float), index=names)
     V = np.asarray(res.vcov_matrix, dtype=float)
     N, k = int(res.n_kept), len(names)

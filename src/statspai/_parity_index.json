@@ -7635,6 +7635,7 @@
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_fast_feols_weights_fixest_parity.py",
         "tests/reference_parity/test_feols_grid_fixest_parity.py",
+        "tests/reference_parity/test_feols_iv_native_fixest_parity.py",
         "tests/reference_parity/test_feols_multiref_R_parity.py",
         "tests/reference_parity/test_feols_varying_slopes_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py",

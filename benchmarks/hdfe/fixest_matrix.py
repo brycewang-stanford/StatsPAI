@@ -15,6 +15,9 @@ low-mobility worker x firm x year panel, the slow case for demeaning)::
     feols_hc      y ~ x1 + x2 | firm + year                 hetero
     feols_w       y ~ x1 + x2 | firm + year, weights w      iid
     feols_k10     y ~ x1 + ... + x10 | firm + year          cluster firm
+    feols_cl2     y ~ x1 + x2 | firm + year                 cluster firm + year
+    feols_iv      y ~ x2 | firm + year | x1 ~ z             cluster firm
+    feols_es      y ~ i(rel, ref = -1) | firm + year        cluster firm
     fepois_iid    count ~ x1 + x2 | firm + year             iid
     fepois_cl     count ~ x1 + x2 | firm + year             cluster firm
     logit_cl      d ~ x1 + x2 | firm + year (binomial)      cluster firm
@@ -66,6 +69,9 @@ CELLS = {
     "fepois_iid": ("easy", "count", "x1 + x2", "firm + year", "iid", None, "pois"),
     "fepois_cl": ("easy", "count", "x1 + x2", "firm + year", "firm", None, "pois"),
     "logit_cl": ("easy", "d", "x1 + x2", "firm + year", "firm", None, "logit"),
+    "feols_cl2": ("easy", "y", "x1 + x2", "firm + year", "firm + year", None, "ols"),
+    "feols_iv": ("easy", "y", "x2", "firm + year | x1 ~ z", "firm", None, "ols"),
+    "feols_es": ("easy", "y", "i(rel, ref=-1)", "firm + year", "firm", None, "ols"),
     "hard_feols": ("hard", "y", "x1 + x2", "worker + firm + year", "iid", None, "ols"),
     "hard_fepois": (
         "hard",
@@ -98,6 +104,8 @@ def easy(n, seed=42):
     df["count"] = rng.poisson(np.exp(eta))
     df["d"] = d
     df["w"] = rng.uniform(0.5, 2.0, n)
+    df["z"] = X[:, 0] + rng.normal(size=n)
+    df["rel"] = rng.integers(-5, 6, n)
     df["firm"] = firm
     df["year"] = year
     return df
@@ -184,8 +192,8 @@ for job in spec["jobs"]:
         se = getattr(fit, "se", None)
         se = se() if callable(se) else se
     out[job["key"]] = {"min_s": min(ts), "median_s": float(np.median(ts)),
-                       "coef": [float(v) for v in np.asarray(params, dtype=float)],
-                       "se": [float(v) for v in np.asarray(se, dtype=float)]}
+                       "coef": {str(k): float(v) for k, v in pd.Series(params).items()},
+                       "se": {str(k): float(v) for k, v in pd.Series(se).items()}}
 print("@@" + json.dumps(out))
 """
 
@@ -207,7 +215,9 @@ for (job in spec$jobs) {
   fit <- run()
   ts <- numeric(job$reps)
   for (i in seq_len(job$reps)) { t0 <- Sys.time(); run(); ts[i] <- as.numeric(Sys.time() - t0, units = "secs") }
-  res[[job$key]] <- list(min_s = min(ts), median_s = median(ts), coef = unname(coef(fit)), se = unname(se(fit)))
+  cf <- coef(fit); names(cf) <- sub("^fit_", "", names(cf))
+  s <- se(fit); names(s) <- sub("^fit_", "", names(s))
+  res[[job$key]] <- list(min_s = min(ts), median_s = median(ts), coef = as.list(cf), se = as.list(s))
 }
 cat("@@", toJSON(res, auto_unbox = TRUE, digits = NA), "\n", sep = "")
 """
@@ -334,10 +344,15 @@ def main() -> int:
             worst_b = worst_se = 0.0
             for k in keys:
                 a, b = c.get(k, {}), ref.get(k, {})
-                if "coef" in a and "coef" in b and len(a["coef"]) == len(b["coef"]):
-                    for u, v in zip(a["coef"], b["coef"]):
+                if "coef" not in a or "coef" not in b:
+                    continue
+                for term, v in b["coef"].items():
+                    if term in a["coef"]:
+                        u = a["coef"][term]
                         worst_b = max(worst_b, abs(u - v) / max(abs(v), 1e-12))
-                    for u, v in zip(a["se"], b["se"]):
+                for term, v in b["se"].items():
+                    if term in a["se"]:
+                        u = a["se"][term]
                         worst_se = max(worst_se, abs(u - v) / max(abs(v), 1e-12))
             lines.append(
                 f"{name}: max rel. diff to fixest coef {worst_b:.1e}, se {worst_se:.1e}"

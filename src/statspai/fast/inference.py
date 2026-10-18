@@ -251,6 +251,19 @@ def crve(
     )
 
 
+def _cr1_meat(
+    X: np.ndarray, uw: np.ndarray, cluster_codes: np.ndarray, G: int
+) -> np.ndarray:
+    """``sum_g s_g s_g'`` for cluster scores ``s_g = sum_{i in g} uw_i x_i``."""
+    k = X.shape[1]
+    cluster_score = np.empty((G, k))
+    for j in range(k):
+        cluster_score[:, j] = np.bincount(
+            cluster_codes, weights=uw * X[:, j], minlength=G
+        )
+    return np.asarray(cluster_score.T @ cluster_score)
+
+
 def _cr1_from_codes(
     X: np.ndarray,
     residuals: np.ndarray,
@@ -268,13 +281,7 @@ def _cr1_from_codes(
     fraction of its cost (17 ms -> 2 ms on a million rows, two columns).
     """
     n, k = X.shape
-    uw = residuals * weights
-    cluster_score = np.empty((G, k))
-    for j in range(k):
-        cluster_score[:, j] = np.bincount(
-            cluster_codes, weights=uw * X[:, j], minlength=G
-        )
-    meat = cluster_score.T @ cluster_score  # (k, k)
+    meat = _cr1_meat(X, residuals * weights, cluster_codes, G)
     V = bread @ meat @ bread
 
     c = (G / (G - 1.0)) * ((n - 1.0) / max(n - k - extra_df, 1))

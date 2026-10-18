@@ -175,6 +175,8 @@ def _native_eligible(
 def _native_vcov(p: Any) -> Any:
     """The ``vcov`` a native plan answers, in the form the notes read."""
     if p.vcov == "cr1":
+        if isinstance(p.cluster, list):
+            return {"CRV1": "+".join(p.cluster)}
         return {"CRV1": p.cluster}
     return "hetero" if p.vcov == "hc1" else "iid"
 
@@ -209,6 +211,8 @@ def _native_feols(
         ssc=ssc,
         fixef_rm=fixef_rm,
         extra=extra,
+        multiway_ok=True,
+        iv_ok=True,
     )
     if not isinstance(p, _native.Plan):
         return None
@@ -221,6 +225,9 @@ def _native_feols(
     v = _native_vcov(p)
     _note_cluster_sizes(out, p.data, v)
     _note_weights(out, p.data, v, weights)
+    _note_multiway_adjustment(
+        out, v, int(out.model_info.get("multiway_negative_eigenvalues", 0) or 0)
+    )
     return out
 
 
@@ -1513,11 +1520,14 @@ def feols(
     backend : {'auto', 'pyfixest', 'native'}, default 'auto'
         ``'auto'`` fits on StatsPAI's own engine (``sp.fast.feols``, on
         the Rust kernels when ``statspai-hdfe`` is installed) whenever the
-        call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors,
-        ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}`` and no
-        ``ssc=`` or extra pyfixest keyword, and through pyfixest otherwise
-        (also when regressors are absorbed or collinear, which fixest
-        drops). ``model_info['backend']`` says which ran. The native fit
+        call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors and
+        ``i(factor[, var], ref=value)`` terms, or the IV form
+        ``y ~ x | fe | d1 + ... ~ z1 + ...`` with absorbed effects;
+        ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': 'a'}`` /
+        ``{'CRV1': 'a + b'}``; no ``ssc=`` or extra pyfixest keyword. Other
+        calls go through pyfixest (also when regressors are absorbed or
+        collinear, which fixest drops). ``model_info['backend']`` says
+        which ran. The native IV first-stage F is fixest's ``ivwald1``. The native fit
         follows fixest's conventions: same coefficients, SEs within the
         demeaning tolerance, rows with missing values dropped first.
         ``'pyfixest'`` always delegates. ``'native'`` uses StatsPAI's
@@ -1790,53 +1800,29 @@ def _note_iv_diagnostics(fit: Any, out: Any) -> None:
     if not getattr(fit, "_is_iv", False):
         return
     try:
-        from scipy import stats
-
-        Y = np.asarray(fit._Y, dtype=float).ravel()
-        X = np.asarray(fit._X, dtype=float)
-        Z = np.asarray(fit._Z, dtype=float)
-        u = np.asarray(fit._u_hat, dtype=float).ravel()
         names = [str(c) for c in fit._coefnames]
         exog = {str(c) for c in fit._coefnames_z}
         endo = [j for j, c in enumerate(names) if c not in exog]
-        n = len(Y)
-        if not endo or X.shape[0] != n or Z.shape[0] != n:
-            return
-        diag = out.diagnostics
-        info = dict(out.model_info)
+        first = None
         if len(endo) == 1:
             # pyfixest fits the first stage while it estimates an IV model;
             # refitting it here recomputed the same numbers (bit for bit)
             # at the cost of a second fixed-effects regression.
             if getattr(fit, "_f_stat_1st_stage", None) is None:
                 fit.first_stage()
-            f1 = float(fit._f_stat_1st_stage)
-            diag[f"First-stage F ({names[endo[0]]})"] = f1
-            info["first_stage_f"] = f1
             p1 = getattr(fit, "_p_value_1st_stage", None)
-            if p1 is not None:
-                diag[f"First-stage F p-value ({names[endo[0]]})"] = float(p1)
-                info["first_stage_f_pvalue"] = float(p1)
-        df_over = Z.shape[1] - X.shape[1]
-        if df_over > 0:
-            fitted = Z @ np.linalg.lstsq(Z, u, rcond=None)[0]
-            sargan = n * float(u @ fitted) / float(u @ u)
-            diag["Sargan statistic"] = sargan
-            diag["Sargan p-value"] = float(stats.chi2.sf(sargan, df_over))
-            diag["Sargan df"] = int(df_over)
-        E = X[:, endo]
-        V = E - Z @ np.linalg.lstsq(Z, E, rcond=None)[0]
-        XA = np.column_stack([X, V])
-        rss1 = float(np.sum((Y - XA @ np.linalg.lstsq(XA, Y, rcond=None)[0]) ** 2))
-        rss0 = float(np.sum((Y - X @ np.linalg.lstsq(X, Y, rcond=None)[0]) ** 2))
-        q = len(endo)
-        k_total = int(getattr(fit, "_df_k", X.shape[1]) or X.shape[1])
-        df2 = n - max(k_total, X.shape[1]) - q
-        if df2 > 0 and rss1 > 0:
-            wh = ((rss0 - rss1) / q) / (rss1 / df2)
-            diag["Hausman F-stat"] = float(wh)
-            diag["Hausman p-value"] = float(stats.f.sf(wh, q, df2))
-        out.model_info = info
+            first = (float(fit._f_stat_1st_stage), None if p1 is None else float(p1))
+        _iv_diagnostics_core(
+            out,
+            Y=np.asarray(fit._Y, dtype=float).ravel(),
+            X=np.asarray(fit._X, dtype=float),
+            Z=np.asarray(fit._Z, dtype=float),
+            u=np.asarray(fit._u_hat, dtype=float).ravel(),
+            names=names,
+            endo=endo,
+            k_total=int(getattr(fit, "_df_k", len(names)) or len(names)),
+            first=first,
+        )
     except (
         np.linalg.LinAlgError,
         ValueError,
@@ -1849,6 +1835,60 @@ def _note_iv_diagnostics(fit: Any, out: Any) -> None:
         record_degradation(
             out, section="feols_iv_diagnostics", exc=exc, detail="IV diagnostics"
         )
+
+
+def _iv_diagnostics_core(
+    out: Any,
+    *,
+    Y: np.ndarray,
+    X: np.ndarray,
+    Z: np.ndarray,
+    u: np.ndarray,
+    names: List[str],
+    endo: List[int],
+    k_total: int,
+    first: Optional[Tuple[float, Optional[float]]],
+) -> None:
+    """First-stage F, Sargan and Wu-Hausman on the residualised design.
+
+    ``Y`` / ``X`` / ``Z`` / ``u`` are the outcome, second-stage regressors,
+    instruments (exogenous regressors included) and residuals after the
+    fixed effects are projected out (and scaled by the square root of the
+    weights); ``first`` is the first-stage F and its p-value.
+    """
+    from scipy import stats
+
+    n = len(Y)
+    if not endo or X.shape[0] != n or Z.shape[0] != n:
+        return
+    diag = out.diagnostics
+    info = dict(out.model_info)
+    if first is not None:
+        f1, p1 = first
+        diag[f"First-stage F ({names[endo[0]]})"] = f1
+        info["first_stage_f"] = f1
+        if p1 is not None:
+            diag[f"First-stage F p-value ({names[endo[0]]})"] = float(p1)
+            info["first_stage_f_pvalue"] = float(p1)
+    df_over = Z.shape[1] - X.shape[1]
+    if df_over > 0:
+        fitted = Z @ np.linalg.lstsq(Z, u, rcond=None)[0]
+        sargan = n * float(u @ fitted) / float(u @ u)
+        diag["Sargan statistic"] = sargan
+        diag["Sargan p-value"] = float(stats.chi2.sf(sargan, df_over))
+        diag["Sargan df"] = int(df_over)
+    E = X[:, endo]
+    V = E - Z @ np.linalg.lstsq(Z, E, rcond=None)[0]
+    XA = np.column_stack([X, V])
+    rss1 = float(np.sum((Y - XA @ np.linalg.lstsq(XA, Y, rcond=None)[0]) ** 2))
+    rss0 = float(np.sum((Y - X @ np.linalg.lstsq(X, Y, rcond=None)[0]) ** 2))
+    q = len(endo)
+    df2 = n - max(k_total, X.shape[1]) - q
+    if df2 > 0 and rss1 > 0:
+        wh = ((rss0 - rss1) / q) / (rss1 / df2)
+        diag["Hausman F-stat"] = float(wh)
+        diag["Hausman p-value"] = float(stats.f.sf(wh, q, df2))
+    out.model_info = info
 
 
 def _adjust_multiway_vcov(fit: Any, vcov: Any) -> int:

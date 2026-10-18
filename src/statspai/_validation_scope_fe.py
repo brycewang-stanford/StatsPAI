@@ -219,10 +219,10 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
             ),
             invariant={"vcov": vce_invariant, "ssc": vce_invariant},
             note="Fit on StatsPAI's own engine (sp.fast.feols) for plain "
-            "formulas with iid / hetero / one-way CRV1, through pyfixest "
-            "otherwise; model_info['backend'] says which. Wild-bootstrap, CR2 "
-            "and Conley fits read as vcov 'other' and have no reference row "
-            "here.",
+            "formulas, i() terms and IV with absorbed effects under iid / "
+            "hetero / one- or two-way CRV1, through pyfixest otherwise; "
+            "model_info['backend'] says which. Wild-bootstrap, CR2 and Conley "
+            "fits read as vcov 'other' and have no reference row here.",
         )
     )
 

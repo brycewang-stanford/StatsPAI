@@ -4,6 +4,43 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.feols`: two-way clustering, `i()` terms and IV with fixed effects run natively
+
+The three most common `sp.feols` calls that still went to pyfixest now run
+on the native engine. One million rows, firm and year effects, against R
+`fixest` 0.14 (milliseconds, one thread / eight threads):
+
+| call | before (pyfixest) | now | fixest |
+| --- | ---: | ---: | ---: |
+| `vcov={'CRV1': 'firm + year'}` | 584 | 66 / 66 | 121 / 92 |
+| `y ~ x2 \| firm + year \| x1 ~ z` | 500 | 119 / 110 | 214 / 180 |
+| `y ~ i(rel, ref=-1) \| firm + year` | 313 | 121 / 96 | 307 / 144 |
+
+#### Changed
+
+- Two-way clustering (`{'CRV1': 'a + b'}`, Stata `cluster a b`): Cameron,
+  Gelbach and Miller's `V_a + V_b - V_ab` with fixest's factors (smallest
+  `G`, effects nested in any dimension left out of `K`) and its
+  eigenvalue fix; 48 configurations equal pyfixest's to 1e-6, the 24-cell
+  fixest grid passes, and the two-way cell agrees with fixest to 3e-13.
+- `i(factor, ref=v)` and `i(factor, var, ref=v)` (integer or string
+  factor, explicit reference) expand to dummies named as before
+  (`rel::-3`, `rel::-3:var`), in `sp.feols`, `sp.fepois` and `sp.feglm`.
+- IV with absorbed effects (`y ~ x | fe | d1 + ... ~ z1 + ...`): 2SLS on
+  the jointly residualised columns, with weights and every native
+  variance; several endogenous regressors work (pyfixest refused them).
+  The first-stage F is fixest's `ivwald1`. 24 cells (just / over
+  identified, two endogenous, iid / hetero / one- and two-way clusters,
+  weights) match R fixest to 1e-6
+  (`tests/reference_parity/test_feols_iv_native_fixest_parity.py`).
+
+#### Fixed
+
+- ⚠️ `sp.feols` IV: the robust and clustered first-stage F differed from
+  fixest's `ivwald1` when the panel had singletons (by 1% on the reference
+  panel), because pyfixest's first-stage refit dropped them while the IV
+  model kept them. The native fit uses the IV model's own sample.
+
 ### Rust kernels installed by default; statspai-hdfe 0.9 runs every pass in parallel
 
 `pip install statspai` now installs `statspai-hdfe` on every platform it

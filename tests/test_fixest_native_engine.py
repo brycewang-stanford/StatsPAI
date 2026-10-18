@@ -134,7 +134,7 @@ def test_missing_rows_are_dropped_as_fixest_does(panel):
         ("y ~ x1 | firm | x2 ~ g", {}, "formula"),
         ("y ~ i(year) | firm", {}, "formula"),
         ("y ~ x1 + x2 | firm", {"vcov": "HC3"}, "vcov"),
-        ("y ~ x1 + x2 | firm", {"vcov": {"CRV1": "g + year"}}, "vcov"),
+        ("y ~ x1 + x2 | firm", {"vcov": {"CRV1": "g + year + firm"}}, "vcov"),
         ("y ~ x1 + x2 | firm", {"ssc": object()}, "ssc"),
     ],
 )
@@ -195,3 +195,71 @@ def test_provenance_hash_taken_alongside_the_fit_is_the_same():
     assert sp.feols("y ~ x | f", data=small)._provenance.data_hash == (
         sp.compute_data_hash(small)
     )
+
+
+# --------------------------------------------------------------------------- #
+#  Two-way clustering, i() terms and IV on the native engine
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("weights", [None, "w"])
+@pytest.mark.parametrize("cl", ["g + year", "firm + year", "g + firm"])
+def test_twoway_clustering_reproduces_the_delegate(panel, cl, weights):
+    pytest.importorskip("pyfixest")
+    kw = dict(vcov={"CRV1": cl}, weights=weights)
+    a = _quiet(sp.feols, "y ~ x1 + x2 | firm + year", data=panel, **kw)
+    b = _quiet(
+        sp.feols, "y ~ x1 + x2 | firm + year", data=panel, backend="pyfixest", **kw
+    )
+    assert a.model_info["backend"] == "statspai-native"
+    np.testing.assert_allclose(a.params, b.params, rtol=1e-8)
+    np.testing.assert_allclose(a.std_errors, b.std_errors, rtol=1e-6)
+    assert a.data_info["df_inference"] == b.data_info["df_inference"]
+    assert a.data_info["df_resid"] == b.data_info["df_resid"]
+
+
+@pytest.mark.parametrize(
+    "fml",
+    [
+        "y ~ i(ev, ref=-1) | firm + year",
+        "y ~ x1 + i(ev, ref=-1) | firm",
+        "y ~ i(ev, x2, ref=-1) | firm + year",
+        "y ~ i(lab, ref='c') + x1 | firm",
+    ],
+)
+def test_i_terms_run_natively_with_the_delegates_names(panel, fml):
+    pytest.importorskip("pyfixest")
+    rng = np.random.default_rng(3)
+    df = panel.dropna().assign(
+        ev=rng.integers(-3, 4, len(panel) - 1),
+        lab=np.array(list("abcde"))[rng.integers(0, 5, len(panel) - 1)],
+    )
+    a = _quiet(sp.feols, fml, data=df, vcov={"CRV1": "firm"})
+    b = _quiet(sp.feols, fml, data=df, vcov={"CRV1": "firm"}, backend="pyfixest")
+    assert a.model_info["backend"] == "statspai-native"
+    assert list(a.params.index) == [str(i) for i in b.params.index]
+    np.testing.assert_allclose(a.params, b.params, rtol=1e-8)
+    np.testing.assert_allclose(a.std_errors, b.std_errors, rtol=1e-6)
+
+
+@pytest.mark.parametrize("vcov", ["iid", "hetero", {"CRV1": "g"}], ids=str)
+def test_iv_with_fixed_effects_runs_natively(panel, vcov):
+    pytest.importorskip("pyfixest")
+    rng = np.random.default_rng(5)
+    df = panel.dropna()
+    df = df.assign(z=df.x1 + rng.normal(size=len(df)))
+    fml = "y ~ x2 | firm + year | x1 ~ z"
+    a = _quiet(sp.feols, fml, data=df, vcov=vcov, fixef_rm="singleton")
+    b = _quiet(
+        sp.feols, fml, data=df, vcov=vcov, fixef_rm="singleton", backend="pyfixest"
+    )
+    assert a.model_info["backend"] == "statspai-native"
+    assert list(a.params.index) == ["x2", "x1"]
+    np.testing.assert_allclose(a.params, b.params, rtol=1e-8)
+    np.testing.assert_allclose(a.std_errors, b.std_errors, rtol=1e-6)
+    # with singletons dropped both first stages use the same sample
+    assert a.diagnostics["First-stage F (x1)"] == pytest.approx(
+        b.diagnostics["First-stage F (x1)"], rel=1e-6
+    )
+    for key in ("Hausman F-stat", "Hausman p-value"):
+        assert a.diagnostics[key] == pytest.approx(b.diagnostics[key], rel=1e-6)
