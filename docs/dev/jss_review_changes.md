@@ -31,6 +31,18 @@ Rules:
 
 ## Entries
 
+### 2026-10-18 — native multiple estimation and two-way clustered GLMs
+
+- **Commits.** `bf5c9d03` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 03, 15, 47,
+  53, 67).
+- **Reason.** `fast/fepois.py`, `fast/_feglm.py`, `fixest/_native.py` and
+  `fixest/wrapper.py` changed on those modules' estimation paths (two-way
+  clustering for the GLMs, the `fixef_rm` default notice).
+- **Effect on the paper.** None. Each module was re-run into scratch and
+  compared with its committed `*_py.json`: largest relative difference
+  3.6e-13 (47_ppmlhdfe_3fe), so no result file or table number changes.
+
 ### 2026-10-18 — native two-way clustering, `i()` terms and IV in `sp.feols`
 
 - **Commits.** `0f055347` re-recorded
