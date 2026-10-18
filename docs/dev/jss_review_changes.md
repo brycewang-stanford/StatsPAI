@@ -31,6 +31,18 @@ Rules:
 
 ## Entries
 
+### 2026-10-18 — native two-way clustering, `i()` terms and IV in `sp.feols`
+
+- **Commits.** `0f055347` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 03, 15, 47,
+  53, 67).
+- **Reason.** `fast/feols.py`, `fast/inference.py` and `fixest/_native.py`
+  changed on those modules' estimation paths (multiway cluster codes, a
+  shared cluster-meat helper).
+- **Effect on the paper.** None. Each module was re-run into scratch and
+  compared with its committed `*_py.json`: largest relative difference
+  3.6e-13 (47_ppmlhdfe_3fe), so no result file or table number changes.
+
 ### 2026-10-18 — `sp.feols` / `sp.fepois` / `sp.feglm` on StatsPAI's own engine
 
 - **Commits.** `bc3caa3b` changed
