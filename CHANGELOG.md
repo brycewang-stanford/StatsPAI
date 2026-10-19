@@ -33,6 +33,17 @@ All notable changes to StatsPAI will be documented in this file.
   `tests/reference_parity/test_weightit_cobalt_parity.py`.
 - WeightIt and cobalt (GPL) were used as black boxes: their
   documentation and outputs only.
+- `sp.ebalance(weights=)`: sampling (survey) weights, WeightIt's
+  `s.weights`. They are kept separate from `base_weights=` (the entropy
+  reference): the balancing targets become the sampling-weighted moments
+  of the target group, the reweighted arm is balanced in the
+  sampling-weighted sense and both outcome means carry the weights. The
+  M-estimation variance weights every estimating function by them.
+  Estimate and standard error equal `WeightIt::lm_weightit(vcov =
+  "asympt")` for ATT / ATE / ATC with and without base weights (12
+  settings; estimate 2e-9, SE 1e-7).
+  `tests/reference_parity/test_ebalance_sweights_parity.py`.
+
 ### `sp.mediate_paths`: path-specific effects with ordered mediators
 
 #### Added

@@ -46,6 +46,7 @@ def ebalance(
     dof_adjust: bool = False,
     estimand: str = "ATT",
     base_weights: Optional[str] = None,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Entropy Balancing treatment effect estimator.
@@ -123,6 +124,22 @@ def ebalance(
         basewt()``, WeightIt ``base.weights``). The balancing targets are
         the unweighted moments of the target group, as in WeightIt, and the
         base weights are treated as fixed in the standard error.
+    weights : str, optional
+        Column of sampling (survey) weights ``s``, WeightIt's
+        ``s.weights``. They are not base weights: the balancing targets
+        become the ``s``-weighted moments of the target group, the
+        reweighted arm is balanced in the ``s``-weighted sense
+        (``sum s w c(X)`` hits the target, with ``w ∝ q exp(lambda'c(X))``
+        and ``q`` the base weights, 1 by default), and both outcome means
+        carry ``s``. The weights used for the effect are ``s * w``.
+        ``base_weights`` keeps its meaning (the entropy reference). The
+        M-estimation variance weights every estimating function by ``s``
+        (treated as fixed), as ``WeightIt::lm_weightit(vcov = "asympt")``
+        does; estimate and standard error equal it to 1e-9
+        (``tests/reference_parity/test_ebalance_sweights_parity.py``).
+        ``model_info['weights_full']`` holds ``w`` without ``s``, like
+        WeightIt's ``weights``. Not combined with ``dof_adjust`` or
+        ``vce='naive'``.
 
     Returns
     -------
@@ -186,9 +203,17 @@ def ebalance(
             f"defined for the ATT only; got estimand={estimand_u!r}.",
             recovery_hint="Drop dof_adjust, or use estimand='ATT'.",
         )
+    if weights is not None and (dof_adjust or str(vce).lower() == "naive"):
+        raise MethodIncompatibility(
+            "ebalance: sampling weights= are not combined with "
+            "dof_adjust=True or vce='naive' (neither has a sampling-weight "
+            "version).",
+            recovery_hint="Drop dof_adjust / use vce='mestimation'.",
+        )
     cols = [y, treat] + covariates
-    if base_weights is not None and base_weights not in cols:
-        cols = cols + [base_weights]
+    for extra in (base_weights, weights):
+        if extra is not None and extra not in cols:
+            cols = cols + [extra]
     df = data[cols].dropna()
     D = _treatment_as_float(df[treat], function="ebalance")
     require_binary_treatment(D, function="ebalance", argument=treat)
@@ -203,6 +228,16 @@ def ebalance(
                 "strictly positive.",
                 recovery_hint="Pass a column of positive base weights.",
                 diagnostics={"base_weights": base_weights},
+            )
+    s_all: Optional[np.ndarray] = None
+    if weights is not None:
+        s_all = df[weights].to_numpy(dtype=float)
+        if not np.all(np.isfinite(s_all)) or np.any(s_all <= 0):
+            raise MethodIncompatibility(
+                f"ebalance: weights={weights!r} must be finite and strictly "
+                "positive sampling weights.",
+                recovery_hint="Drop rows with zero weight before the call.",
+                diagnostics={"weights": weights},
             )
 
     t_mask = D == 1
@@ -237,7 +272,11 @@ def ebalance(
         "ATC": c_mask,
         "ATE": np.ones(len(D), dtype=bool),
     }[estimand_u]
-    targets = C_all[target_rows].mean(axis=0)
+    if s_all is None:
+        targets = C_all[target_rows].mean(axis=0)
+    else:
+        s_tgt = s_all[target_rows]
+        targets = (s_tgt[:, None] * C_all[target_rows]).sum(axis=0) / s_tgt.sum()
     reweighted = {"ATT": (0,), "ATC": (1,), "ATE": (1, 0)}[estimand_u]
 
     # Solve for entropy-balanced weights, arm by arm
@@ -247,11 +286,16 @@ def ebalance(
     for arm in reweighted:
         rows = D == arm
         C_arm = C_all[rows]
+        # With sampling weights the problem is entropy balancing with base
+        # weights q * s; the solution is then s * w with w ∝ q exp(.).
+        base_arm = None if q_all is None else q_all[rows]
+        if s_all is not None:
+            base_arm = s_all[rows] if base_arm is None else base_arm * s_all[rows]
         w_arm, fb = _solve_ebalance(
             C_arm,
             targets,
             int(rows.sum()),
-            base_weights=None if q_all is None else q_all[rows],
+            base_weights=base_arm,
         )
         weights_fallback = weights_fallback or fb
         arm_w[arm] = w_arm
@@ -275,8 +319,10 @@ def ebalance(
             UserWarning,
         )
 
-    mu1 = float(np.average(Y_t, weights=arm_w[1]) if 1 in arm_w else np.mean(Y_t))
-    mu0 = float(np.average(Y_c, weights=arm_w[0]) if 0 in arm_w else np.mean(Y_c))
+    s_t = None if s_all is None else s_all[t_mask]
+    s_c = None if s_all is None else s_all[c_mask]
+    mu1 = float(np.average(Y_t, weights=arm_w[1] if 1 in arm_w else s_t))
+    mu0 = float(np.average(Y_c, weights=arm_w[0] if 0 in arm_w else s_c))
     att = mu1 - mu0
 
     vce_l = str(vce).lower()
@@ -296,7 +342,9 @@ def ebalance(
         )
         vce_l = "naive"
     if vce_l == "mestimation":
-        se = ebalance_mestimation_se(Y, D, C_all, target_rows, arm_w, base=q_all)
+        se = ebalance_mestimation_se(
+            Y, D, C_all, target_rows, arm_w, base=q_all, sampling=s_all
+        )
     else:
         # Weighted two-sample variance with the weights held fixed.
         def _arm_var(y_arm: np.ndarray, w_arm: Optional[np.ndarray]) -> float:
@@ -313,7 +361,9 @@ def ebalance(
     ci = (att - z_crit * se, att + z_crit * se)
 
     # Balance check
-    balance = _balance_check(X_t, X_c, arm_w.get(0), covariates, w_t=arm_w.get(1))
+    balance = _balance_check(
+        X_t, X_c, arm_w.get(0, s_c), covariates, w_t=arm_w.get(1, s_t)
+    )
 
     # ``weights`` holds the weights of the reweighted arm (the CONTROL
     # weights for the ATT and the ATE, the treated ones for the ATC),
@@ -323,15 +373,17 @@ def ebalance(
     # 1 and the controls sum to the number of treated (Stata ``ebalance,
     # generate()``); for the ATC the reverse; for the ATE each arm sums to
     # its own size.
-    weights = arm_w[1] if estimand_u == "ATC" else arm_w[0]
+    w_arm_out = arm_w[1] if estimand_u == "ATC" else arm_w[0]
+    # balancing weights without the sampling weights (WeightIt's layout)
+    bal = {a: (wa if s_all is None else wa / s_all[D == a]) for a, wa in arm_w.items()}
     weights_full = np.ones(len(df), dtype=float)
     if estimand_u == "ATT":
-        weights_full[c_mask] = arm_w[0] * n_t / arm_w[0].sum()
+        weights_full[c_mask] = bal[0] * n_t / bal[0].sum()
     elif estimand_u == "ATC":
-        weights_full[t_mask] = arm_w[1] * n_c / arm_w[1].sum()
+        weights_full[t_mask] = bal[1] * n_c / bal[1].sum()
     else:
-        weights_full[t_mask] = arm_w[1] * n_t / arm_w[1].sum()
-        weights_full[c_mask] = arm_w[0] * n_c / arm_w[0].sum()
+        weights_full[t_mask] = bal[1] * n_t / bal[1].sum()
+        weights_full[c_mask] = bal[0] * n_c / bal[0].sum()
 
     model_info = {
         "method": "Entropy Balancing",
@@ -340,10 +392,10 @@ def ebalance(
         "redundant_moments": [f"{covariates[j]}^{power}" for j, power in redundant],
         "n_treated": int(n_t),
         "n_control": int(n_c),
-        "max_weight": float(np.max(weights)),
-        "eff_sample_size": float(1 / np.sum(weights**2)),
+        "max_weight": float(np.max(w_arm_out)),
+        "eff_sample_size": float(1 / np.sum(w_arm_out**2)),
         "balance": balance,
-        "weights": weights,
+        "weights": w_arm_out,
         "weights_full": weights_full,
         "max_standardized_moment_gap": max_imbalance,
         "weights_fallback": weights_fallback,
@@ -351,6 +403,7 @@ def ebalance(
         "estimand": estimand_u,
         "reweighted_arms": ["treated" if a == 1 else "control" for a in reweighted],
         "base_weights": base_weights,
+        "sampling_weights": weights,
     }
     if estimand_u == "ATE":
         model_info["weights_treated"] = arm_w[1]

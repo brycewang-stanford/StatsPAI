@@ -38,6 +38,7 @@ def ebalance_mestimation_se(
     target: np.ndarray,
     arm_weights: Dict[int, np.ndarray],
     base: Optional[np.ndarray] = None,
+    sampling: Optional[np.ndarray] = None,
 ) -> float:
     """Sandwich SE of ``mu1 - mu0``.
 
@@ -54,12 +55,19 @@ def ebalance_mestimation_se(
         weights over that arm's rows, in row order.
     base : (n,) array, optional
         Base weights ``q`` (default 1).
+    sampling : (n,) array, optional
+        Sampling weights ``s`` (default 1). Every estimating function is
+        multiplied by ``s``; ``arm_weights`` then include ``s``.
     """
     n, k = C.shape
     d = np.asarray(D, dtype=float)
     tgt = np.asarray(target, dtype=float)
+    sw = np.ones(n) if sampling is None else np.asarray(sampling, dtype=float)
     q = np.ones(n) if base is None else np.asarray(base, dtype=float)
-    m = C[tgt.astype(bool)].mean(axis=0)
+    q = q * sw  # the reweighted arms' weights are s * q * exp(lambda'R)
+    sel = tgt.astype(bool)
+    m = (sw[sel, None] * C[sel]).sum(axis=0) / sw[sel].sum()
+    tgt = tgt * sw
     R = C - m
 
     arms = sorted(arm_weights)
@@ -75,7 +83,7 @@ def ebalance_mestimation_se(
         w[a] = wa
 
     # outcome means: reweighted arms use w_a, the target arm is unweighted
-    s = {1: d, 0: 1.0 - d}
+    s = {1: d * sw, 0: (1.0 - d) * sw}
     eff = {a: (w[a] if a in w else s[a]) for a in (1, 0)}
     mu = {a: float(np.sum(eff[a] * Y) / np.sum(eff[a])) for a in (1, 0)}
 
