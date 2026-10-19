@@ -1006,9 +1006,16 @@
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "heckman",
+      "probit"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "The outcome and selection errors are bivariate normal with correlation rho; with rho = 0 the selected-sample probit is consistent, otherwise it is not",
+      "Identification relies on the normality of the errors unless z contains a variable excluded from x (an exclusion restriction)",
+      "The selection equation is a probit on z for every row"
+    ],
     "category": "regression",
     "cost_profile": "",
     "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho.",
@@ -1027,28 +1034,35 @@
     "example": "sp.heckprobit(df, y=\"insured\", x=[\"age\", \"income\"], select=\"asked\", z=[\"phone\", \"age\"])",
     "failure_modes": [
       {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Pass z=[...]; include at least one variable that is not in x (an exclusion restriction).",
-        "symptom": "heckprobit: z= lists the variables of the selection equation."
+        "alternative": "probit",
+        "exception": "(none -- informational)",
+        "remedy": "The model is identified only by the bivariate normal functional form; add an exclusion restriction and read the Wald test of rho = 0 with care",
+        "symptom": "No variable in z that is not in x"
       },
       {
-        "alternative": "",
+        "alternative": "heckman",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "For a continuous outcome use sp.heckman.",
-        "symptom": "heckprobit: the outcome <y> must be 0/1 on the selected rows."
+        "remedy": "heckprobit needs a 0/1 outcome; use the Heckman selection model",
+        "symptom": "Continuous outcome"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "heckprobit",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "A 0/1 outcome on the selected rows and a 0/1 selection indicator that varies (or select omitted: selected = y observed)",
+      "z= is given (the selection equation's variables)"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
-      "failure_modes": "source",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
       "reference": "curated",
-      "returns": "curated"
+      "returns": "curated",
+      "typical_n_min": "curated"
     },
     "reference": "Van de Ven and Van Praag (1981)",
     "returns": {
@@ -1134,15 +1148,25 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
-    "validation_notes": [],
+    "typical_n_min": 200,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_ldv_margins_stata.py"
+    ],
     "validation_status": "api_stable"
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "ologit",
+      "oprobit",
+      "mlogit"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "Pr(Y > c_j) = F(a_j + x'b_j): a logit (or probit) link for each cut of an ordinal outcome",
+      "Variables constrained by pl= meet the parallel-lines assumption (a common coefficient across cuts); the others have a coefficient per cut",
+      "Independent observations unless vce='cluster'"
+    ],
     "category": "regression",
     "cost_profile": "",
     "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables.",
@@ -1161,28 +1185,35 @@
     "example": "sp.gologit(df, y=\"health\", x=[\"age\", \"income\"], npl=[\"age\"])",
     "failure_modes": [
       {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Pass formula='y ~ x1 + x2', or y= and x=.",
-        "symptom": "gologit: the outcome and the regressors are needed."
+        "alternative": "ologit",
+        "exception": "statspai.StatsPAIWarning",
+        "remedy": "The unconstrained cuts cross; constrain variables to parallel lines with pl= / npl=, or merge sparse outcome categories",
+        "symptom": "Some rows get a negative predicted probability"
       },
       {
-        "alternative": "",
+        "alternative": "logit",
         "exception": "statspai.DataInsufficient",
-        "remedy": "With two categories use sp.logit / sp.probit.",
-        "symptom": "gologit: the outcome needs at least three categories; got <M>."
+        "remedy": "Two categories have one cut, so the model is a binary logit / probit",
+        "symptom": "Outcome with two categories"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "gologit",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "An ordinal outcome with at least three categories, ordered by value",
+      "pl= or npl=, not both"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
-      "failure_modes": "source",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
       "reference": "curated",
-      "returns": "curated"
+      "returns": "curated",
+      "typical_n_min": "curated"
     },
     "reference": "Stata gologit2 (Williams)",
     "returns": {
@@ -1276,15 +1307,25 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
-    "validation_notes": [],
+    "typical_n_min": 200,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_gologit_stata.py"
+    ],
     "validation_status": "api_stable"
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "tobit",
+      "xtintreg",
+      "regress"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "A linear model for a latent outcome with normal, homoskedastic errors",
+      "The bounds code the observation: equal bounds an exact value, a missing lower bound left-censoring, a missing upper bound right-censoring, otherwise an interval",
+      "Censoring is uninformative given the regressors"
+    ],
     "category": "regression",
     "cost_profile": "",
     "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows).",
@@ -1303,28 +1344,34 @@
     "example": "sp.intreg(df, y_lower=\"wage_lo\", y_upper=\"wage_hi\", x=[\"educ\", \"exper\"])",
     "failure_modes": [
       {
-        "alternative": "",
+        "alternative": "intreg",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Pass y_lower=, y_upper= and x=, or formula='lo + hi ~ x1 + x2'.",
-        "symptom": "intreg: the two bounds and the regressors are needed."
+        "remedy": "Swap or fix the bounds (they are refused rather than dropped)",
+        "symptom": "Rows with the lower bound above the upper bound"
       },
       {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Swap or fix the bounds; Stata drops these rows with a note, which hides a data error.",
-        "symptom": "intreg: <int(bad.sum())> row(s) have <y_lower> > <y_upper>."
+        "alternative": "tobit",
+        "exception": "(none -- informational)",
+        "remedy": "That is the tobit model",
+        "symptom": "One censoring point for every row"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "intreg",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "Two bound columns with lower <= upper on every row"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
-      "failure_modes": "source",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
       "reference": "curated",
-      "returns": "curated"
+      "returns": "curated",
+      "typical_n_min": "curated"
     },
     "reference": "Stata intreg",
     "returns": {
@@ -1404,8 +1451,10 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
-    "validation_notes": [],
+    "typical_n_min": 100,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_intreg_stata.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -14068,9 +14117,17 @@
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "ivreg",
+      "panel",
+      "xtabond"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "The excluded instruments are relevant for the endogenous regressors and uncorrelated with both error components (with method='re', also with the panel effect)",
+      "method='re': the panel effect is uncorrelated with the regressors and instruments; method='fe' drops that requirement for time-invariant heterogeneity",
+      "Order condition: at least as many excluded instruments as endogenous regressors"
+    ],
     "category": "panel",
     "cost_profile": "",
     "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels.",
@@ -14089,22 +14146,41 @@
     "example": "sp.xtivreg(df, y=\"lwage\", x=[\"exper\"], endog=\"educ\", instruments=[\"meduc\"], id=\"id\")",
     "failure_modes": [
       {
-        "alternative": "",
+        "alternative": "xtivreg",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Pass id='<panel column>'.",
-        "symptom": "xtivreg: id= names the panel identifier."
+        "remedy": "Add excluded instruments, at least one per endogenous regressor",
+        "symptom": "Fewer independent instruments than regressors"
+      },
+      {
+        "alternative": "xtivreg",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "The within transformation removes it; drop it or use method='re'",
+        "symptom": "Regressor constant within panels with method='fe'"
+      },
+      {
+        "alternative": "ivreg",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "The between estimator has the conventional variance only",
+        "symptom": "Cluster-robust inference with method='be'"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "xtivreg",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "id= names the panel identifier; at least two panels",
+      "ec2sls= / nosa= only with method='re'"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
-      "failure_modes": "source",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
       "reference": "curated",
-      "returns": "curated"
+      "returns": "curated",
+      "typical_n_min": "curated"
     },
     "reference": "Balestra and Varadharajan-Krishnakumar (1987); Baltagi (1981)",
     "returns": {
@@ -14218,15 +14294,25 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
-    "validation_notes": [],
+    "typical_n_min": 100,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_xtivreg_stata.py"
+    ],
     "validation_status": "api_stable"
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "panel",
+      "feols",
+      "prais"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "Disturbances may be heteroskedastic across panels and contemporaneously correlated between them (Beck-Katz panel-corrected standard errors)",
+      "Within-panel autocorrelation is none, a common AR(1) or a panel-specific AR(1) (correlation=)",
+      "Long panels: the panel covariance is estimated from the periods the panels share"
+    ],
     "category": "panel",
     "cost_profile": "",
     "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels.",
@@ -14245,34 +14331,35 @@
     "example": "sp.xtpcse(df, y=\"gdp\", x=[\"trade\"], id=\"country\", time=\"year\", correlation=\"ar1\")",
     "failure_modes": [
       {
-        "alternative": "",
+        "alternative": "xtpcse",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Each (id, time) pair must appear once.",
-        "symptom": "xtpcse: repeated time values within a panel."
+        "remedy": "De-duplicate the panel-time pairs",
+        "symptom": "Repeated time values within a panel"
       },
       {
-        "alternative": "",
+        "alternative": "xtpcse",
         "exception": "statspai.DataInsufficient",
-        "remedy": "Use hetonly=True or drop the panels that do not overlap.",
-        "symptom": "xtpcse: two panels share no period, so their covariance cannot be estimated (pairwise)."
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.DataInsufficient",
-        "remedy": "Pass pairwise=True or hetonly=True.",
-        "symptom": "xtpcse: no period is observed for every panel, so the casewise covariance has no data."
+        "remedy": "Pass pairwise=True, or hetonly=True to skip the cross-panel covariance",
+        "symptom": "No period is observed for every panel"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "xtpcse",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "Integer-spaced time with no repeated period within a panel; at least two panels",
+      "Every pair of panels shares a period (pairwise=True), or some period is observed for every panel (casewise default)"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
-      "failure_modes": "source",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
       "reference": "curated",
-      "returns": "curated"
+      "returns": "curated",
+      "typical_n_min": "curated"
     },
     "reference": "Beck and Katz (1995)",
     "returns": {
@@ -14394,15 +14481,162 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
-    "validation_notes": [],
+    "typical_n_min": 100,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_xtpcse_stata.py"
+    ],
     "validation_status": "api_stable"
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "intreg",
+      "xttobit",
+      "panel"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "A linear model for a latent outcome with a normal panel effect and normal idiosyncratic errors, independent of each other and of the regressors (random effects)",
+      "The bounds code the observation as in intreg",
+      "The panel-effect integral is approximated by adaptive Gauss-Hermite quadrature with intpoints nodes"
+    ],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.xtintreg(df, y_lower=\"wage_lo\", y_upper=\"wage_hi\", x=[\"educ\"], id=\"id\")",
+    "failure_modes": [
+      {
+        "alternative": "xtintreg",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Swap or fix the bounds",
+        "symptom": "Rows with the lower bound above the upper bound"
+      },
+      {
+        "alternative": "intreg",
+        "exception": "(none -- informational)",
+        "remedy": "Random effects are then inconsistent; the likelihood-ratio test of sigma_u = 0 does not test this",
+        "symptom": "Panel effect correlated with the regressors"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xtintreg",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "id= with at least two panels; lower <= upper on every row"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Stata xtintreg",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+      "name": "xtintreg",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "id": {
+            "description": "Panel identifier",
+            "type": "string",
+            "x-aliases": [
+              "entity"
+            ],
+            "x-statspai-role": "column"
+          },
+          "intpoints": {
+            "default": 30,
+            "description": "Adaptive Gauss-Hermite nodes per panel (Stata default 12)",
+            "type": "integer"
+          },
+          "x": {
+            "description": "Regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y_lower": {
+            "description": "Lower bound (NaN = open)",
+            "type": "string"
+          },
+          "y_upper": {
+            "description": "Upper bound (NaN = open)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y_lower",
+          "y_upper",
+          "x",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 100,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_xttobit_stata.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "tobit",
+      "xtintreg",
+      "panel"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "A linear model for a latent outcome censored at ll and / or ul, with a normal random panel effect independent of the regressors",
+      "Normal idiosyncratic errors"
+    ],
     "category": "panel",
     "cost_profile": "",
     "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
@@ -14421,22 +14655,28 @@
     "example": "sp.xttobit(df, y=\"hours\", x=[\"wage\"], id=\"id\", ll=0)",
     "failure_modes": [
       {
-        "alternative": "",
+        "alternative": "xttobit",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Without limits the model is a random-effects linear regression: use sp.panel(method='re') or sp.mixed.",
-        "symptom": "xttobit: give a censoring limit, ll= and/or ul=."
+        "remedy": "Pass ll= and / or ul=",
+        "symptom": "No censoring limit given"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "xttobit",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "id= with at least two panels; ll= and / or ul="
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
-      "failure_modes": "source",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
       "reference": "curated",
-      "returns": "curated"
+      "returns": "curated",
+      "typical_n_min": "curated"
     },
     "reference": "Stata xttobit",
     "returns": {
@@ -14514,8 +14754,10 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
-    "validation_notes": [],
+    "typical_n_min": 100,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_xttobit_stata.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -49475,7 +49717,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_data_layer.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -49589,7 +49833,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_data_layer.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -49703,7 +49949,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_data_layer.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -49799,7 +50047,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_data_layer.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -49907,7 +50157,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_data_layer.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -50010,7 +50262,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_data_layer.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -64515,7 +64769,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_msprt.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -64592,7 +64848,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_msprt.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -64759,7 +65017,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_cuped.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -74034,9 +74294,8 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The nuisance models and the AIPW mean are fitted with the design weights, and every standard error is the Taylor-linearisation variance of the influence rows the chosen ``se_method`` uses (the efficient influence function, or the stacked sandwich rows with ``se_method='sandwich'``) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` on those rows. The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``weights=`` and ``cluster=`` must not be given; ``design=None`` changes nothing.",
-            "type": "string",
-            "x-statspai-source": "signature"
+            "description": "A survey design from sp.svydesign on the same rows: the nuisance models and the AIPW mean use the design weights, and the SE is the Taylor-linearisation variance of the influence rows over strata / PSUs / fpc (R survey::svyrecvar), t with #PSU - #strata df as Stata svy. Not with weights= or cluster=.",
+            "type": "string"
           },
           "estimand": {
             "default": "ATE",
@@ -93939,6 +94198,116 @@
       "tests/reference_parity/test_recovery_batch_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "balance_diagnostics",
+      "bal_tab",
+      "match"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Imbalance is measured on a coarsening: numeric covariates with more than n_bins values are cut into equal-width bins",
+      "The value depends on the coarsening, so two L1 numbers are comparable only under the same n_bins"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_cem_k2k_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "bool(0 <= sp.l1_imbalance(df, 'd', ['x']) < 0.3)",
+    "failure_modes": [
+      {
+        "alternative": "balance_diagnostics",
+        "exception": "(none -- informational)",
+        "remedy": "R uses a different histogram-based coarsening; compare only under the same bins",
+        "symptom": "Comparing L1 with R cem's imbalance()"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "l1_imbalance",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "A 0/1 treatment column and the covariates to compare"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "docstring",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "reference": "docstring",
+      "returns": "docstring",
+      "typical_n_min": "curated"
+    },
+    "reference": "@iacus2011multivariate",
+    "returns": {
+      "class": "float",
+      "description": "float: In [0, 1].",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "l1_imbalance",
+      "parameters": {
+        "properties": {
+          "covariates": {
+            "description": "Covariate matrix, DataFrame, or column names.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "n_bins": {
+            "description": "Bins per covariate; default Sturges' rule ``ceil(log2(n) + 1)`` (the default of R ``cem``'s ``imbalance`` is a different, histogram-based coarsening, so the numbers are comparable only under the same coarsening).",
+            "type": "integer"
+          },
+          "treat": {
+            "description": "0/1 treatment.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "weights": {
+            "description": "Matching or balancing weights (``NaN`` = not in the sample); the default is the unweighted sample.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_cem_k2k_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -114458,8 +114827,8 @@
       "Cross-language parity (bit-exact) vs MASS::polr(method=\"logistic\") [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-05; parity module 45_ologit -- tests/r_parity/45_ologit.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/external_parity/test_gelman_ros_examples.py",
-      "tests/reference_parity/test_postestimation_stata_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_vce_grammar_stata_parity.py",
+      "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -115539,7 +115908,7 @@
       "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_postestimation_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -137198,6 +137567,253 @@
   {
     "alias_of": null,
     "alternatives": [
+      "sem",
+      "sdm",
+      "gns",
+      "lm_tests"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "y = Xb + WX theta + u with u = lambda W u + e: spillovers run through the neighbours' regressors and the error, not through the neighbours' outcome",
+      "Normal errors (maximum likelihood with observed-information standard errors)",
+      "W is known and exogenous; every unit of data is a row of W"
+    ],
+    "category": "spatial",
+    "cost_profile": "",
+    "description": "Spatial Durbin error model: ``y = Xb + WXt + u, u = lambda W u + e``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_spatial_durbin_error_Stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "list(sp.sdem(W, df, \"y ~ x\").params.index)",
+    "failure_modes": [
+      {
+        "alternative": "sem",
+        "exception": "statspai.NumericalInstability",
+        "remedy": "Drop that regressor",
+        "symptom": "A regressor whose spatial lag is (nearly) constant, so X and WX are collinear"
+      },
+      {
+        "alternative": "sdem",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Impute or drop the units and their rows and columns of W",
+        "symptom": "Missing values in y or X"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "sdem",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "No missing or infinite values (every unit enters W)",
+      "X and WX are not collinear"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "docstring",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "docstring",
+      "typical_n_min": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults: params [const, x..., W_x..., lambda] with OIM standard errors (Stata spregress, ml errorlag(W) ivarlag(W: x...)); diagnostics['sigma2'] and its SE se_sigma2.",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Spatial Durbin error model: ``y = Xb + WXt + u, u = lambda W u + e``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "sdem",
+      "parameters": {
+        "properties": {
+          "W": {
+            "description": "n x n spatial weights, rows in the order of ``data``.",
+            "type": "string"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "``\"y ~ x1 + x2\"``; a constant is added, and the spatial lag of each regressor (not of the constant) enters as ``W_<name>``.",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "row_normalize": {
+            "default": true,
+            "description": "row_normalize parameter (bool).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "W",
+          "data",
+          "formula"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 100,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_spatial_durbin_error_Stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sdm",
+      "sdem",
+      "sac",
+      "lm_tests"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "y = rho W y + Xb + WX theta + u with u = lambda W u + e: the model nesting SAR, SEM, SDM, SDEM and SAC",
+      "Normal errors; W known and exogenous",
+      "rho and lambda are weakly identified in small samples and trade off against each other"
+    ],
+    "category": "spatial",
+    "cost_profile": "",
+    "description": "General nesting spatial model (Manski-type): spatial lag of ``y``, Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_spatial_durbin_error_Stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "list(sp.gns(W, df, \"y ~ x\").params.index)",
+    "failure_modes": [
+      {
+        "alternative": "sdm",
+        "exception": "(none -- informational)",
+        "remedy": "The two spatial parameters are not separately identified on these data; fit the nested models and compare them",
+        "symptom": "Large standard errors on both rho and lambda"
+      },
+      {
+        "alternative": "sdem",
+        "exception": "statspai.ConvergenceFailure",
+        "remedy": "Check W (row-normalised, no isolated units)",
+        "symptom": "The concentrated likelihood has no interior maximum"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "gns",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "No missing or infinite values; X and WX not collinear"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "docstring",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "docstring",
+      "typical_n_min": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults: params [const, x..., W_x..., rho, lambda].",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "General nesting spatial model (Manski-type): spatial lag of ``y``, Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "gns",
+      "parameters": {
+        "properties": {
+          "W": {
+            "description": "Covariates, proxy variables, or weights used by this estimator.",
+            "type": "string"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "Model formula using patsy/R-style syntax.",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "row_normalize": {
+            "default": true,
+            "description": "row_normalize parameter (bool).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "W",
+          "data",
+          "formula"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_spatial_durbin_error_Stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "sp.sar",
       "sp.sem",
       "sp.impacts",
@@ -147292,9 +147908,17 @@
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "pc_algorithm",
+      "ges",
+      "identify"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "Linear-Gaussian structural model: an effect is the coefficient of x in the regression of y on x and a parent set of x",
+      "The CPDAG is the true Markov equivalence class (causal sufficiency and faithfulness, as in the discovery step that produced it)",
+      "The output is a set of possible effects, one per admissible parent set (local) or per DAG (global), not one estimate"
+    ],
     "category": "causal",
     "cost_profile": "",
     "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -147317,39 +147941,34 @@
     "example": "r = sp.ida(df, cp, x=\"b\", y=\"c\")",
     "failure_modes": [
       {
-        "alternative": "",
+        "alternative": "ida",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use method='local' (fast) or 'global'.",
-        "symptom": "ida: method must be 'local' or 'global', got <method>."
+        "remedy": "Use method='local', which gives the same distinct values",
+        "symptom": "More than 18 undirected edges with method='global'"
       },
       {
-        "alternative": "",
+        "alternative": "pc_algorithm",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Name two nodes.",
-        "symptom": "ida: x and y are the same variable."
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.DataInsufficient",
-        "remedy": "Use more observations or fewer variables.",
-        "symptom": "ida: <len(frame)> complete rows for <len(nodes)> variables."
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use method='local'.",
-        "symptom": "ida: <len(und)> undirected edges; method='global' enumerates 2^<len(und)> orientations and stops at <MAX_UNDIRECTED_GLOBAL> edges."
+        "remedy": "Pass a CPDAG from causal discovery",
+        "symptom": "The graph has no consistent DAG extension"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "ida",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "A CPDAG adjacency (A[i, j] = 1 for i -> j, both entries for an undirected edge) over the data's columns",
+      "x and y are different variables"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "docstring",
-      "failure_modes": "source",
-      "returns": "docstring"
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "docstring",
+      "typical_n_min": "curated"
     },
     "reference": "",
     "returns": {
@@ -147415,7 +148034,7 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
+    "typical_n_min": 100,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ida_pcalg_parity.py"
     ],
@@ -158887,9 +159506,15 @@
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "mediate"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "No unmeasured confounding of the treatment-outcome, treatment-mediator and mediator-outcome relations given the covariates and earlier mediators",
+      "The mediators are listed in causal order; no post-treatment confounder of the mediators other than earlier mediators",
+      "The outcome models (linear or logistic) are correctly specified"
+    ],
     "category": "mediation",
     "cost_profile": "",
     "description": "Path-specific effects of a binary treatment through ordered mediators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -158912,40 +159537,35 @@
     "example": "r = sp.mediate_paths(df, y=\"y\", treat=\"a\", mediators=[\"m1\", \"m2\"],\n interaction=False, n_boot=50)",
     "failure_modes": [
       {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use 'logistic' for a 0/1 outcome.",
-        "symptom": "outcome_model must be 'linear' or 'logistic', got <outcome_model>"
+        "alternative": "mediate_paths",
+        "exception": "(none -- informational)",
+        "remedy": "Enter it as an earlier mediator",
+        "symptom": "An exposure-induced confounder of a later mediator is left out"
       },
       {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Both are reported in result.detail.",
-        "symptom": "decomposition must be 'type1' or 'type2', got <decomposition>"
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Pass mediators=['m1', 'm2', ...] in causal order.",
-        "symptom": "mediate_paths needs at least one mediator."
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Each mediator column belongs to one block.",
-        "symptom": "mediate_paths: a column appears in two mediator blocks."
+        "alternative": "mediate",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use fewer covariates or mediators, or interaction=False",
+        "symptom": "Too few rows for the outcome model's terms"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "mediate_paths",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "A 0/1 treatment with both values; a 0/1 outcome for outcome_model='logistic'",
+      "Each mediator column in one block"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "docstring",
-      "failure_modes": "source",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
       "reference": "docstring",
-      "returns": "docstring"
+      "returns": "docstring",
+      "typical_n_min": "curated"
     },
     "reference": "@zhou2023tracing",
     "returns": {
@@ -159055,7 +159675,7 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
+    "typical_n_min": 200,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mediate_paths_parity.py"
     ],
@@ -159612,9 +160232,16 @@
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "ltmle",
+      "tmle"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "Sequential exchangeability: no unmeasured confounding of each treatment given the measured history",
+      "Positivity for the policy: the shifted treatment value has support under the natural treatment distribution given the history",
+      "Correctly specified or consistently estimated outcome regressions or density ratios (sequential doubly robust TMLE)"
+    ],
     "category": "causal",
     "cost_profile": "",
     "description": "Mean outcome under a modified treatment policy (sequential TMLE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -159637,21 +160264,35 @@
     "example": "r = sp.lmtp(df, 'Y', ['A'], shift=1.0, baseline=['W'])",
     "failure_modes": [
       {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Pass [] for a time point without new covariates.",
-        "symptom": "lmtp: covariates_time needs one list per time point."
+        "alternative": "lmtp",
+        "exception": "(none -- informational)",
+        "remedy": "Density ratios explode and are trimmed at the trim quantile; choose a smaller shift or inspect the density ratios in model_info",
+        "symptom": "A shift that moves treatments outside their observed support"
+      },
+      {
+        "alternative": "ltmle",
+        "exception": "(none -- informational)",
+        "remedy": "That is a longitudinal TMLE target",
+        "symptom": "A static policy on a binary treatment (set A = 1)"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "lmtp",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "Wide data, one row per unit, treatments in time order",
+      "covariates_time has one list per time point",
+      "At least 20 complete rows"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "docstring",
-      "failure_modes": "source",
-      "returns": "docstring"
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "docstring",
+      "typical_n_min": "curated"
     },
     "reference": "",
     "returns": {
@@ -159733,8 +160374,11 @@
           },
           "random_state": {
             "default": 42,
-            "description": "Seed of the cross-fitting split.",
+            "description": "Seed of the cross-fitting split (``seed=`` is accepted as the same argument).",
             "type": "integer",
+            "x-aliases": [
+              "seed"
+            ],
             "x-canonical": "seed"
           },
           "ratio_learner": {
@@ -159773,7 +160417,7 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
+    "typical_n_min": 200,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lmtp_parity.py"
     ],

@@ -15688,7 +15688,6 @@
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_gelman_ros_examples.py",
-        "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
@@ -25346,6 +25345,7 @@
         "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],

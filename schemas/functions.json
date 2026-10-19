@@ -33515,9 +33515,8 @@
           "x-statspai-role": "dataframe"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The nuisance models and the AIPW mean are fitted with the design weights, and every standard error is the Taylor-linearisation variance of the influence rows the chosen ``se_method`` uses (the efficient influence function, or the stacked sandwich rows with ``se_method='sandwich'``) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` on those rows. The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``weights=`` and ``cluster=`` must not be given; ``design=None`` changes nothing.",
-          "type": "string",
-          "x-statspai-source": "signature"
+          "description": "A survey design from sp.svydesign on the same rows: the nuisance models and the AIPW mean use the design weights, and the SE is the Taylor-linearisation variance of the influence rows over strata / PSUs / fpc (R survey::svyrecvar), t with #PSU - #strata df as Stata svy. Not with weights= or cluster=.",
+          "type": "string"
         },
         "estimand": {
           "default": "ATE",
@@ -75517,8 +75516,11 @@
         },
         "random_state": {
           "default": 42,
-          "description": "Seed of the cross-fitting split.",
+          "description": "Seed of the cross-fitting split (``seed=`` is accepted as the same argument).",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
           "x-canonical": "seed"
         },
         "ratio_learner": {

@@ -464,9 +464,8 @@
           "type": "boolean"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The nuisance models and the AIPW mean are fitted with the design weights, and every standard error is the Taylor-linearisation variance of the influence rows the chosen ``se_method`` uses (the efficient influence function, or the stacked sandwich rows with ``se_method='sandwich'``) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` on those rows. The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``weights=`` and ``cluster=`` must not be given; ``design=None`` changes nothing.",
-          "type": "string",
-          "x-statspai-source": "signature"
+          "description": "A survey design from sp.svydesign on the same rows: the nuisance models and the AIPW mean use the design weights, and the SE is the Taylor-linearisation variance of the influence rows over strata / PSUs / fpc (R survey::svyrecvar), t with #PSU - #strata df as Stata svy. Not with weights= or cluster=.",
+          "type": "string"
         },
         "estimand": {
           "default": "ATE",
@@ -16860,7 +16859,7 @@
     "name": "gmm"
   },
   {
-    "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables. Failure modes: gologit: the outcome and the regressors are needed -> Pass formula='y ~ x1 + x2', or y= and x=; gologit: the outcome needs at least three categories; got <M> -> With two categories use sp.logit / sp.probit.",
+    "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables. Assumptions: Pr(Y > c_j) = F(a_j + x'b_j): a logit (or probit) link for each cut of an ordinal outcome; Variables constrained by pl= meet the parallel-lines assumption (a common coefficient across cuts); the others have a coefficient per cut; Independent observations unless vce='cluster'. Pre-conditions: An ordinal outcome with at least three categories, ordered by value; pl= or npl=, not both. Failure modes: Some rows get a negative predicted probability -> The unconstrained cuts cross; constrain variables to parallel lines with pl= / npl=, or merge sparse outcome categories; Outcome with two categories -> Two categories have one cut, so the model is a binary logit / probit. Alternatives: sp.ologit, sp.oprobit, sp.mlogit. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -17716,7 +17715,7 @@
     "name": "heckman"
   },
   {
-    "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho. Failure modes: heckprobit: z= lists the variables of the selection equation -> Pass z=[...]; include at least one variable that is not in x (an exclusion restriction); heckprobit: the outcome <y> must be 0/1 on the selected rows -> For a continuous outcome use sp.heckman.",
+    "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho. Assumptions: The outcome and selection errors are bivariate normal with correlation rho; with rho = 0 the selected-sample probit is consistent, otherwise it is not; Identification relies on the normality of the errors unless z contains a variable excluded from x (an exclusion restriction); The selection equation is a probit on z for every row. Pre-conditions: A 0/1 outcome on the selected rows and a 0/1 selection indicator that varies (or select omitted: selected = y observed); z= is given (the selection equation's variables). Failure modes: No variable in z that is not in x -> The model is identified only by the bivariate normal functional form; add an exclusion restriction and read the Wald test of rho = 0 with care; Continuous outcome -> heckprobit needs a 0/1 outcome; use the Heckman selection model. Alternatives: sp.heckman, sp.probit. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -18266,7 +18265,7 @@
     "name": "icc"
   },
   {
-    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ida: method must be 'local' or 'global', got <method> -> Use method='local' (fast) or 'global'; ida: x and y are the same variable -> Name two nodes; ida: <len(frame)> complete rows for <len(nodes)> variables -> Use more observations or fewer variables.",
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear-Gaussian structural model: an effect is the coefficient of x in the regression of y on x and a parent set of x; The CPDAG is the true Markov equivalence class (causal sufficiency and faithfulness, as in the discovery step that produced it); The output is a set of possible effects, one per admissible parent set (local) or per DAG (global), not one estimate. Pre-conditions: A CPDAG adjacency (A[i, j] = 1 for i -> j, both entries for an undirected edge) over the data's columns; x and y are different variables. Failure modes: More than 18 undirected edges with method='global' -> Use method='local', which gives the same distinct values; The graph has no consistent DAG extension -> Pass a CPDAG from causal discovery. Alternatives: sp.pc_algorithm, sp.ges, sp.identify. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "cpdag": {
@@ -19014,7 +19013,7 @@
     "name": "interpret_result"
   },
   {
-    "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows). Failure modes: intreg: the two bounds and the regressors are needed -> Pass y_lower=, y_upper= and x=, or formula='lo + hi ~ x1 + x2'; intreg: <int(bad.sum())> row(s) have <y_lower> > <y_upper> -> Swap or fix the bounds; Stata drops these rows with a note, which hides a data error.",
+    "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows). Assumptions: A linear model for a latent outcome with normal, homoskedastic errors; The bounds code the observation: equal bounds an exact value, a missing lower bound left-censoring, a missing upper bound right-censoring, otherwise an interval; Censoring is uninformative given the regressors. Pre-conditions: Two bound columns with lower <= upper on every row. Failure modes: Rows with the lower bound above the upper bound -> Swap or fix the bounds (they are refused rather than dropped); One censoring point for every row -> That is the tobit model. Alternatives: sp.tobit, sp.xtintreg, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20999,7 +20998,7 @@
     "name": "kwallis"
   },
   {
-    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Imbalance is measured on a coarsening: numeric covariates with more than n_bins values are cut into equal-width bins; The value depends on the coarsening, so two L1 numbers are comparable only under the same n_bins. Pre-conditions: A 0/1 treatment column and the covariates to compare. Failure modes: Comparing L1 with R cem's imbalance() -> R uses a different histogram-based coarsening; compare only under the same bins. Alternatives: sp.balance_diagnostics, sp.bal_tab, sp.match. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -21725,7 +21724,7 @@
     "name": "lm_lin"
   },
   {
-    "description": "Mean outcome under a modified treatment policy (sequential TMLE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: lmtp: covariates_time needs one list per time point -> Pass [] for a time point without new covariates.",
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability: no unmeasured confounding of each treatment given the measured history; Positivity for the policy: the shifted treatment value has support under the natural treatment distribution given the history; Correctly specified or consistently estimated outcome regressions or density ratios (sequential doubly robust TMLE). Pre-conditions: Wide data, one row per unit, treatments in time order; covariates_time has one list per time point; At least 20 complete rows. Failure modes: A shift that moves treatments outside their observed support -> Density ratios explode and are trimmed at the trim quantile; choose a smaller shift or inspect the density ratios in model_info; A static policy on a binary treatment (set A = 1) -> That is a longitudinal TMLE target. Alternatives: sp.ltmle, sp.tmle. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21780,8 +21779,11 @@
         },
         "random_state": {
           "default": 42,
-          "description": "Seed of the cross-fitting split.",
+          "description": "Seed of the cross-fitting split (``seed=`` is accepted as the same argument).",
           "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
           "x-canonical": "seed"
         },
         "ratio_learner": {
@@ -45082,7 +45084,7 @@
     "name": "xthtaylor"
   },
   {
-    "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+    "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature. Assumptions: A linear model for a latent outcome with a normal panel effect and normal idiosyncratic errors, independent of each other and of the regressors (random effects); The bounds code the observation as in intreg; The panel-effect integral is approximated by adaptive Gauss-Hermite quadrature with intpoints nodes. Pre-conditions: id= with at least two panels; lower <= upper on every row. Failure modes: Rows with the lower bound above the upper bound -> Swap or fix the bounds; Panel effect correlated with the regressors -> Random effects are then inconsistent; the likelihood-ratio test of sigma_u = 0 does not test this. Alternatives: sp.intreg, sp.xttobit, sp.panel. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -45133,7 +45135,7 @@
     "name": "xtintreg"
   },
   {
-    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Failure modes: xtivreg: id= names the panel identifier -> Pass id='<panel column>'.",
+    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Assumptions: The excluded instruments are relevant for the endogenous regressors and uncorrelated with both error components (with method='re', also with the panel effect); method='re': the panel effect is uncorrelated with the regressors and instruments; method='fe' drops that requirement for time-invariant heterogeneity; Order condition: at least as many excluded instruments as endogenous regressors. Pre-conditions: id= names the panel identifier; at least two panels; ec2sls= / nosa= only with method='re'. Failure modes: Fewer independent instruments than regressors -> Add excluded instruments, at least one per endogenous regressor; Regressor constant within panels with method='fe' -> The within transformation removes it; drop it or use method='re'; Cluster-robust inference with method='be' -> The between estimator has the conventional variance only. Alternatives: sp.ivreg, sp.panel, sp.xtabond. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -45396,7 +45398,7 @@
     "name": "xtoverid"
   },
   {
-    "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels. Failure modes: xtpcse: repeated time values within a panel -> Each (id, time) pair must appear once; xtpcse: two panels share no period, so their covariance cannot be estimated (pairwise) -> Use hetonly=True or drop the panels that do not overlap; xtpcse: no period is observed for every panel, so the casewise covariance has no data -> Pass pairwise=True or hetonly=True.",
+    "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels. Assumptions: Disturbances may be heteroskedastic across panels and contemporaneously correlated between them (Beck-Katz panel-corrected standard errors); Within-panel autocorrelation is none, a common AR(1) or a panel-specific AR(1) (correlation=); Long panels: the panel covariance is estimated from the periods the panels share. Pre-conditions: Integer-spaced time with no repeated period within a panel; at least two panels; Every pair of panels shares a period (pairwise=True), or some period is observed for every panel (casewise default). Failure modes: Repeated time values within a panel -> De-duplicate the panel-time pairs; No period is observed for every panel -> Pass pairwise=True, or hetonly=True to skip the cross-panel covariance. Alternatives: sp.panel, sp.feols, sp.prais. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -45561,7 +45563,7 @@
     "name": "xtsum"
   },
   {
-    "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature. Failure modes: xttobit: give a censoring limit, ll= and/or ul= -> Without limits the model is a random-effects linear regression: use sp.panel(method='re') or sp.mixed.",
+    "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature. Assumptions: A linear model for a latent outcome censored at ll and / or ul, with a normal random panel effect independent of the regressors; Normal idiosyncratic errors. Pre-conditions: id= with at least two panels; ll= and / or ul=. Failure modes: No censoring limit given -> Pass ll= and / or ul=. Alternatives: sp.tobit, sp.xtintreg, sp.panel. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
