@@ -156201,7 +156201,7 @@
     "reference": "",
     "returns": {
       "class": "FourWayResult",
-      "description": "FourWayResult: se holds delta-method standard errors for total_effect, cde, int_ref, int_med and pie.",
+      "description": "FourWayResult: se holds delta-method standard errors for total_effect, cde, int_ref, int_med, pie and the proportions (prop_cde ... prop_pie, prop_mediated, prop_interaction, prop_eliminated -- med4way's p_*, op_m, op_ati, op_e).",
       "fields": {
         "cde": "float",
         "detail": "Dict[str, Any]",
@@ -156229,8 +156229,12 @@
             "description": "Reference and comparison levels of the treatment (default 0, 1).",
             "type": "number"
           },
+          "covariate_values": {
+            "description": "Values of the covariates at which the decomposition is evaluated (``med4way``'s ``c()``); covariates not named are held at their sample means, the default for all of them.",
+            "type": "object"
+          },
           "covariates": {
-            "description": "Covariate matrix, DataFrame, or column names.",
+            "description": "Entered linearly in both the outcome and the mediator model.",
             "items": {
               "type": "string"
             },
@@ -156252,6 +156256,15 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "mreg": {
+            "default": "linear",
+            "description": "Mediator model: normal linear regression, or logistic regression for a 0/1 mediator.",
+            "enum": [
+              "linear",
+              "logistic"
+            ],
+            "type": "string"
+          },
           "treat": {
             "description": "Treatment indicator or first-treatment-period column.",
             "type": "string",
@@ -156259,7 +156272,7 @@
           },
           "vce": {
             "default": "ols",
-            "description": "Covariance of the two regressions fed to the delta-method standard errors in ``result.se`` (covariates are held fixed at their sample means, as in the point estimates). ``'ols'`` uses ``s^2 (X'X)^{-1}`` with ``s^2 = RSS / (n - p)`` -- R ``CMAverse::cmest(estimation = \"paramfunc\", inference = \"delta\")``; ``'ml'`` uses ``RSS / n`` -- Stata ``med4way``, which fits both linear models by maximum likelihood.",
+            "description": "Variance used for linear models (a linear outcome, a normal mediator). ``'ols'`` uses ``s^2 = RSS / (n - p)`` -- R ``CMAverse::cmest(estimation = \"paramfunc\")``; ``'ml'`` uses ``RSS / n`` -- Stata ``med4way``, which fits linear models by maximum likelihood. With a normal mediator and a log-linear outcome the mediator variance enters the components, so the two choices also differ in the point estimates; its sampling variance ``2 sigma^4 / dof`` enters the standard errors.",
             "enum": [
               "ols",
               "ml"
@@ -156270,6 +156283,16 @@
             "description": "Outcome variable column name or outcome array.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "yreg": {
+            "default": "linear",
+            "description": "Outcome model, with the exposure-mediator interaction. For ``'logistic'`` and ``'poisson'`` the components are on the excess-relative-risk scale (Stata ``med4way``'s ``ereri_*``): they sum to ``RR - 1``. A logistic outcome is read as a risk, which needs a rare outcome (odds ratio close to the risk ratio), as in ``med4way`` and ``CMAverse``.",
+            "enum": [
+              "linear",
+              "logistic",
+              "poisson"
+            ],
+            "type": "string"
           }
         },
         "required": [

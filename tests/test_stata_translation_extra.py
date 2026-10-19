@@ -319,3 +319,52 @@ def test_leebounds_runs_like_stata(line, key):
         tol = 1.001e-3 * max(mi["se_lower"], mi["se_upper"])
         assert abs(res.ci[0] - ref["cilower"]) <= tol
         assert abs(res.ci[1] - ref["ciupper"]) <= tol
+
+
+# ---------------------------------------------------------------------------
+# med4way (GitHub anddis/med4way) -> sp.four_way_decomposition(vce='ml')
+# Reference numbers: Stata 18 med4way 2.3.2 in
+# tests/reference_parity/_fixtures/four_way_nonlinear_Stata.json.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "line, key",
+    [
+        (
+            "med4way ybb a mb c1 c2, yreg(logistic) mreg(logistic) a0(0) a1(1) "
+            "m(0) c(0.5 1) fulloutput",
+            "6",
+        ),
+        (
+            "med4way ypc a mc c1 c2, yreg(poi) mreg(lin) a0(-0.5) a1(1.5) m(2) "
+            "c(. 0)",
+            "8",
+        ),
+    ],
+)
+def test_med4way_runs_like_stata(line, key):
+    import json
+
+    ref = json.loads(
+        (_LEE_FIX / "four_way_nonlinear_Stata.json").read_text(encoding="utf-8")
+    )[key]
+    df = pd.read_csv(_LEE_FIX / "four_way_nonlinear.csv", float_precision="round_trip")
+    res = sp.stata(line, data=df)
+    assert res.total_effect == pytest.approx(ref["b"]["tereri"], rel=1e-7)
+    assert res.pie == pytest.approx(ref["b"]["ereri_pie"], rel=1e-7)
+    assert res.se["cde"] == pytest.approx(ref["se"]["ereri_cde"], rel=1e-6)
+    assert res.proportions["mediated"] == pytest.approx(ref["b"]["op_m"], rel=1e-7)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "med4way y a m, yreg(negbinomial) mreg(linear) a0(0) a1(1) m(0)",
+        "med4way y a m, yreg(linear) mreg(linear) a0(0) a1(1) m(0) bootstrap",
+        "med4way y a m x, yreg(linear) mreg(linear) a0(0) a1(1) m(0) c(1 2)",
+        "med4way a m, yreg(cox) mreg(linear) a0(0) a1(1) m(0)",
+    ],
+)
+def test_med4way_untranslatable_lines_are_refused(line):
+    assert sp.from_stata(line)["ok"] is False

@@ -1000,6 +1000,11 @@ TIER3_ROUND_TRIPS = [
         },
     ),
     (
+        "med4way y a m c1, yreg(logistic) mreg(logistic) a0(0) a1(1) m(0)",
+        "four_way_decomposition",
+        {"yreg": "logistic", "mreg": "logistic", "vce": "ml", "m0": 0.0},
+    ),
+    (
         "power twomeans 0 0.5, sd(2) n(100)",
         "power_ttest",
         {"delta": 0.5, "sd": 2.0, "n": 100.0, "type": "two-sample"},

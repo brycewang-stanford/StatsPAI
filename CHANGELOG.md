@@ -4,6 +4,31 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.four_way_decomposition`: logistic / Poisson outcomes, logistic mediators
+
+#### Added
+
+- `sp.four_way_decomposition(..., yreg='linear' | 'logistic' | 'poisson',
+  mreg='linear' | 'logistic', covariate_values={...})`: the four-way
+  decomposition for binary and count outcomes and binary mediators, on the
+  excess-relative-risk scale for log-linear outcomes (`detail['total_rr']`
+  is the ratio). Standard errors now cover the proportions too
+  (`se['prop_cde']` ... `se['prop_eliminated']`, `med4way`'s `p_*`,
+  `op_m`, `op_ati`, `op_e`), and `proportions` gains `mediated`,
+  `interaction` and `eliminated`. Estimates and SEs equal Stata `med4way`
+  2.3.2 to 1e-7 on eight settings (`vce='ml'`), and the `vce='ols'`
+  estimates equal R CMAverse 0.1.0 to 1e-8
+  (`tests/reference_parity/test_four_way_nonlinear_parity.py`; both
+  references GPL, used as black boxes). A Poisson-outcome case is checked
+  against simulated potential outcomes.
+- `sp.from_stata` / `sp.stata` translate `med4way y a m [c...], yreg()
+  mreg() a0() a1() m() [c()]` for those models.
+
+#### Changed
+
+- When the total effect is zero up to rounding, the proportions are NaN
+  with a warning (they were reported as 0).
+
 ### `sp.xtivreg`: panel IV (random-effects G2SLS / EC2SLS, within, between)
 
 #### Added

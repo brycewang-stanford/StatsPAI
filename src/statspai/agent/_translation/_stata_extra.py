@@ -23,6 +23,12 @@ analytic SEs and the ``cieffect`` interval agree to 1e-8 on Stata 18
 (``tests/reference_parity/test_lee_bounds_*_Stata_parity.py``), except that
 ``cieffect`` searches the Imbens-Manski critical value on a 0.001 grid and
 ``sp.lee_bounds`` solves for it.
+
+``med4way y a m [c...], a0() a1() m() yreg() mreg() [c()]`` (GitHub
+anddis/med4way) is ``sp.four_way_decomposition(vce='ml')`` for linear,
+logistic and Poisson outcomes and linear or logistic mediators: estimates
+and delta-method SEs agree to 1e-7
+(``tests/reference_parity/test_four_way_nonlinear_parity.py``).
 """
 
 from __future__ import annotations
@@ -347,10 +353,113 @@ def _h_leebounds(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
+_M4W_YREG = ("linear", "logistic", "poisson")
+_M4W_MREG = ("linear", "logistic")
+
+
+def _model_word(raw: str, allowed) -> Optional[str]:
+    word = raw.strip().lower()
+    hits = [w for w in allowed if len(word) >= 3 and w.startswith(word)]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _h_med4way(cmd: StataCommand) -> Dict[str, Any]:
+    """``med4way y a m [c...], a0() a1() m() yreg() mreg() [c()]``."""
+    opts = cmd.options
+    yreg_raw = (opts.get("yreg") or "").strip()
+    mreg_raw = (opts.get("mreg") or "").strip()
+    yreg = _model_word(yreg_raw, _M4W_YREG)
+    mreg = _model_word(mreg_raw, _M4W_MREG)
+    if yreg is None or mreg is None:
+        return _emit_error(
+            f"med4way yreg({yreg_raw}) mreg({mreg_raw}): sp.four_way_"
+            "decomposition covers yreg(linear | logistic | poisson) with "
+            "mreg(linear | logistic); log-binomial, negative binomial and "
+            "survival outcomes are not translated.",
+            command="med4way",
+            suggestions=["four_way_decomposition"],
+        )
+    if len(cmd.varlist) < 3:
+        return _emit_error(
+            "med4way needs an outcome, an exposure and a mediator "
+            "(survival outcomes after stset are not translated).",
+            command="med4way",
+            suggestions=["four_way_decomposition"],
+        )
+    for blocked in ("bootstrap", "casecontrol", "yregoptions", "mregoptions"):
+        if blocked in opts:
+            return _emit_error(
+                f"med4way, {blocked}: not translated (sp.four_way_"
+                "decomposition fits the models as med4way does by default "
+                "and reports delta-method standard errors).",
+                command="med4way",
+                suggestions=["four_way_decomposition"],
+            )
+    nums = {}
+    for name in ("a0", "a1", "m"):
+        val = _number(opts.get(name))
+        if val is None:
+            return _emit_error(
+                f"med4way needs {name}(#) as a number.",
+                command="med4way",
+                suggestions=[],
+            )
+        nums[name] = val
+    y, a, m, *cvars = cmd.varlist
+    args: Dict[str, Any] = {"y": y, "treat": a, "mediator": m}
+    if cvars:
+        args["covariates"] = cvars
+    args.update({"a0": nums["a0"], "a1": nums["a1"], "m0": nums["m"]})
+    args.update({"yreg": yreg, "mreg": mreg, "vce": "ml"})
+    cvals = (opts.get("c") or "").split()
+    if cvals:
+        if len(cvals) != len(cvars):
+            return _emit_error(
+                f"med4way c() has {len(cvals)} values for {len(cvars)} " "covariates.",
+                command="med4way",
+                suggestions=[],
+            )
+        fixed = {}
+        for name, raw in zip(cvars, cvals):
+            if raw == ".":
+                continue  # the covariate's mean, as without c()
+            val = _number(raw)
+            if val is None:
+                return _emit_error(
+                    f"med4way c(): {raw!r} is not a number or '.'.",
+                    command="med4way",
+                    suggestions=[],
+                )
+            fixed[name] = val
+        if fixed:
+            args["covariate_values"] = fixed
+    opts.get("fulloutput")
+    opts.get("nodelta")
+    semantics = [
+        "vce='ml': med4way fits linear models by maximum likelihood "
+        "(variance RSS/n)."
+    ]
+    if yreg != "linear":
+        semantics.append(
+            "The components are excess relative risks (med4way's ereri_*); "
+            "result.detail['total_rr'] is terira. The proportions "
+            "(p_*, op_m, op_ati, op_e) are result.proportions."
+        )
+    pairs = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit(
+        "four_way_decomposition",
+        args,
+        f"sp.four_way_decomposition(data=df, {pairs})",
+        [],
+        semantics=semantics,
+    )
+
+
 HANDLERS = {
     "eventstudyinteract": _h_eventstudyinteract,
     "power": _h_power,
     "leebounds": _h_leebounds,
+    "med4way": _h_med4way,
 }
 
 #: Handlers whose arguments are numbers or keywords, not variables: the

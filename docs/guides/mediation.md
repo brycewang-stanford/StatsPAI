@@ -298,6 +298,38 @@ If `sp.mediate`'s ACME + ADE visibly fail to reproduce the total effect
 you get from a direct regression, an interaction is the usual culprit —
 switch to one of these two.
 
+### Binary or count outcomes, binary mediators
+
+`yreg='logistic' | 'poisson'` and `mreg='logistic'` fit the outcome and
+mediator models that Stata `med4way` offers. With a logistic or Poisson
+outcome the four components are excess relative risks: they sum to
+`RR - 1`, and `fw.detail['total_rr']` is the ratio itself. A logistic
+outcome is read as a risk, so it needs a rare outcome (as in `med4way`
+and CMAverse). `vce='ml'` reproduces `med4way`; the default `'ols'`
+divides the normal mediator's residual variance by `n - p`, as CMAverse
+does. `covariate_values={'x': 0}` evaluates the decomposition at chosen
+covariate values instead of the means (`med4way`'s `c()`).
+
+```python
+rng = np.random.default_rng(7)
+n = 20000
+x = rng.normal(size=n)
+d = rng.binomial(1, 0.5, size=n).astype(float)
+m = rng.binomial(1, 1 / (1 + np.exp(-(-0.5 + 1.0 * d + 0.3 * x)))).astype(float)
+risk = np.exp(-3.0 + 0.4 * d + 0.6 * m + 0.4 * d * m + 0.2 * x)  # rare outcome
+y = rng.binomial(1, risk).astype(float)
+df4 = pd.DataFrame({"y": y, "d": d, "m": m, "x": x})
+
+fw = sp.four_way_decomposition(df4, y="y", treat="d", mediator="m",
+                               covariates=["x"], yreg="logistic", mreg="logistic")
+print(round(fw.detail["total_rr"], 3))
+# 2.785
+print({k: round(getattr(fw, k), 3) for k in ("cde", "int_ref", "int_med", "pie")})
+# {'cde': 0.554, 'int_ref': 0.625, 'int_med': 0.413, 'pie': 0.193}
+print(round(fw.proportions["mediated"], 3), round(fw.se["pie"], 3))
+# 0.339 0.022
+```
+
 ## 6. Front-door adjustment: identification despite unobserved confounding
 
 Everything above assumed the D–Y relationship is unconfounded given
