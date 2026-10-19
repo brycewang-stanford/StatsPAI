@@ -4588,3 +4588,15 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record after the sp.ida / sp.sdem / sp.gns exports
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `468ffc0d`.
+- **Reason.** the sp.ida / sp.sdem / sp.gns exports touches the traced path of Track A module(s) 03 13 15 24 25 26 27 53 65 66;
+  the traces were re-recorded.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
