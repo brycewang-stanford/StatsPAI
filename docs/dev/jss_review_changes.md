@@ -4368,8 +4368,9 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `4a28a7f7` (artifacts), following `e50128e9` (code);
-  `6ab508a6` re-records the same traces after rebasing onto `63726d7d`.
+- **Commits.** `3475b888` (artifacts), following `79b0e100` (code);
+  `1f8896f9` and `4dd0d132` re-record the same traces after rebasing
+  onto newer main (`5c015c19`).
 - **Reason.** `core/_numba_kernels.cluster_meat` now sums the cluster
   scores in one `bincount` pass instead of sorting the rows by cluster,
   and `inference/jackknife.two_way_vcov_ols` uses the same one-pass meat;
