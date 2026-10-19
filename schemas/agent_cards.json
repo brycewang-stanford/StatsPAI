@@ -44348,6 +44348,220 @@
   {
     "alias_of": null,
     "alternatives": [
+      "bcf",
+      "causal_forest",
+      "metalearner",
+      "dml"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "No unmeasured confounding given the covariates",
+      "Overlap: both treatment values are possible at every covariate value",
+      "Normal errors with constant variance"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.bart_causal(df, \"y\", \"d\", [\"x1\", \"x2\"], method=\"bcf\", seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use method='bcf' or 'bart'.",
+        "symptom": "bart_causal: method must be 'bcf' or 'bart'; got <method>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use estimand='ATE'.",
+        "symptom": "bart_causal: estimand must be 'ATE', 'ATT' or 'ATC'; got <estimand>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use the defaults (draws=1000, burnin=1000, chains=4).",
+        "symptom": "bart_causal: draws >= 10, burnin >= 0, thin >= 1, chains >= 1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Recode the treatment to 0/1.",
+        "symptom": "bart_causal: the treatment must be 0/1 with both values present."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bart_causal",
+    "not_recommended_when": [
+      "Frequentist coverage of the ATE is required: use sp.aipw / sp.dml",
+      "The outcome is binary: only continuous outcomes are modelled"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hahn2020bayesian",
+    "returns": {
+      "class": "BayesCausalResult",
+      "description": "BayesCausalResult",
+      "fields": {
+        "cate": "pd.DataFrame",
+        "diagnostics": "Dict[str, Any]",
+        "draws": "pd.Series",
+        "estimand": "str",
+        "level": "float",
+        "method": "str",
+        "n_obs": "int",
+        "tau_draws": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
+      "name": "bart_causal",
+      "parameters": {
+        "properties": {
+          "burnin": {
+            "default": 1000,
+            "description": "Burn-in sweeps per chain",
+            "type": "integer"
+          },
+          "chains": {
+            "default": 4,
+            "description": "Independent chains (split R-hat)",
+            "type": "integer"
+          },
+          "covariates": {
+            "description": "Numeric covariates",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "Analysis data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 1000,
+            "description": "Posterior draws kept per chain",
+            "type": "integer"
+          },
+          "estimand": {
+            "default": "ATE",
+            "description": "Sample average of the individual effects over all units, the treated or the controls",
+            "enum": [
+              "ATE",
+              "ATT",
+              "ATC"
+            ],
+            "type": "string"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Credible level",
+            "type": "number"
+          },
+          "method": {
+            "default": "bcf",
+            "description": "bcf = Bayesian causal forest; bart = one BART response surface, effects as prediction differences",
+            "enum": [
+              "bcf",
+              "bart"
+            ],
+            "type": "string"
+          },
+          "min_leaf": {
+            "default": 5,
+            "description": "Smallest leaf, in observations",
+            "type": "integer"
+          },
+          "n_trees_control": {
+            "default": 200,
+            "description": "Trees in the prognostic forest (bart: the only forest)",
+            "type": "integer"
+          },
+          "n_trees_moderate": {
+            "default": 50,
+            "description": "Trees in the effect forest (bcf)",
+            "type": "integer"
+          },
+          "numcut": {
+            "default": 100,
+            "description": "Maximum cut points per covariate",
+            "type": "integer"
+          },
+          "propensity": {
+            "default": "logit",
+            "description": "Propensity score used as a covariate: 'logit' (fitted on the covariates), 'none', a column name or one score per row",
+            "type": "string"
+          },
+          "sd_control": {
+            "default": 2.0,
+            "description": "Prior median scale of the prognostic function, in SDs of y",
+            "type": "number"
+          },
+          "sd_moderate": {
+            "default": 1.0,
+            "description": "Prior median scale of the effect function, in SDs of y",
+            "type": "number"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "thin": {
+            "default": 1,
+            "description": "Keep every thin-th sweep",
+            "type": "integer"
+          },
+          "treat": {
+            "description": "0/1 treatment",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Continuous outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "sureg",
       "bayes_regress",
       "three_sls"

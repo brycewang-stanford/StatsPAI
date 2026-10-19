@@ -80,6 +80,20 @@ each sampler is tested against a posterior obtained without it.
 Comparisons with long runs of MCMCpack, bayesm, stochvol and dbarts are
 screens. Both sides are simulation output.
 
+`sp.bart_causal` (the Bayesian causal forest, `method='bcf'`, and a BART
+response surface, `method='bart'`) reuses the `sp.bart` engine, whose
+backfitting kernel now takes precision weights; with unit weights every
+`sp.bart` draw is bit for bit what it was. Its evidence is known truth
+(credible intervals cover the true ATE / ATT, the effect forest recovers
+the heterogeneity) and an identity (constant weights `c` equal noise
+`sigma^2 / c`). Against R `bcf` and `bartCause` it is a seed screen,
+eight seeds a side: BCF's posterior mean of the ATE is 0.06 posterior SDs
+from bcf's and the posterior SDs agree to 1.2%; the BART version is 0.21
+posterior SDs from bartCause's (more than seed noise; the two BART
+specifications differ in a detail that has not been located) with SDs
+within 3.3%. `sp.bcf` is unchanged: it remains the ensemble approximation
+and warns so.
+
 ## A regression
 
 ```python

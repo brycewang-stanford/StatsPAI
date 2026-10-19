@@ -870,6 +870,7 @@ from .matrix_completion import MCPanel, mc_panel
 # Bayesian econometrics by MCMC (NumPy samplers; no PyMC)
 from .mcmc import (
     BARTResult,
+    BayesCausalResult,
     BayesFactorResult,
     BayesMixedResult,
     BayesR2Result,
@@ -882,6 +883,7 @@ from .mcmc import (
     PSISResult,
     abc,
     bart,
+    bart_causal,
     bayes_arima,
     bayes_bootstrap,
     bayes_factor,
@@ -2124,6 +2126,8 @@ __all__ = [
     "bayes_shrink",
     "bayes_sur",
     "BARTResult",
+    "BayesCausalResult",
+    "bart_causal",
     "GPResult",
     "bart",
     "abc",

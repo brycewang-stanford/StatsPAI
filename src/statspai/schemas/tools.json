@@ -2162,6 +2162,121 @@
     "name": "balke_pearl"
   },
   {
+    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled. Assumptions: No unmeasured confounding given the covariates; Overlap: both treatment values are possible at every covariate value; Normal errors with constant variance. Failure modes: bart_causal: method must be 'bcf' or 'bart'; got <method> -> Use method='bcf' or 'bart'; bart_causal: estimand must be 'ATE', 'ATT' or 'ATC'; got <estimand> -> Use estimand='ATE'; bart_causal: draws >= 10, burnin >= 0, thin >= 1, chains >= 1 -> Use the defaults (draws=1000, burnin=1000, chains=4). Alternatives: sp.bcf, sp...",
+    "input_schema": {
+      "properties": {
+        "burnin": {
+          "default": 1000,
+          "description": "Burn-in sweeps per chain",
+          "type": "integer"
+        },
+        "chains": {
+          "default": 4,
+          "description": "Independent chains (split R-hat)",
+          "type": "integer"
+        },
+        "covariates": {
+          "description": "Numeric covariates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "draws": {
+          "default": 1000,
+          "description": "Posterior draws kept per chain",
+          "type": "integer"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "Sample average of the individual effects over all units, the treated or the controls",
+          "enum": [
+            "ATE",
+            "ATT",
+            "ATC"
+          ],
+          "type": "string"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Credible level",
+          "type": "number"
+        },
+        "method": {
+          "default": "bcf",
+          "description": "bcf = Bayesian causal forest; bart = one BART response surface, effects as prediction differences",
+          "enum": [
+            "bcf",
+            "bart"
+          ],
+          "type": "string"
+        },
+        "min_leaf": {
+          "default": 5,
+          "description": "Smallest leaf, in observations",
+          "type": "integer"
+        },
+        "n_trees_control": {
+          "default": 200,
+          "description": "Trees in the prognostic forest (bart: the only forest)",
+          "type": "integer"
+        },
+        "n_trees_moderate": {
+          "default": 50,
+          "description": "Trees in the effect forest (bcf)",
+          "type": "integer"
+        },
+        "numcut": {
+          "default": 100,
+          "description": "Maximum cut points per covariate",
+          "type": "integer"
+        },
+        "propensity": {
+          "default": "logit",
+          "description": "Propensity score used as a covariate: 'logit' (fitted on the covariates), 'none', a column name or one score per row",
+          "type": "string"
+        },
+        "sd_control": {
+          "default": 2.0,
+          "description": "Prior median scale of the prognostic function, in SDs of y",
+          "type": "number"
+        },
+        "sd_moderate": {
+          "default": 1.0,
+          "description": "Prior median scale of the effect function, in SDs of y",
+          "type": "number"
+        },
+        "seed": {
+          "description": "Random seed",
+          "type": "integer"
+        },
+        "thin": {
+          "default": 1,
+          "description": "Keep every thin-th sweep",
+          "type": "integer"
+        },
+        "treat": {
+          "description": "0/1 treatment",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Continuous outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "covariates",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "bart_causal"
+  },
+  {
     "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure. Validation: certified parity evidence. Do NOT use when: there are few shocks (industries / sectors) -- shock-level asymptotics need many; report the Herfindahl of the shares and the effective number of shocks. Cost: Share matrix is n_units x n_industries; leave_one_out doubles the work. Assumptions: Exogeneity of shocks conditional on pre-period exposure structure (Borusyak-Hull-Jaravel); Shock-level IV: shocks are independent of region-level unobserved trends; Asymptotic framework: many shocks (L -> inf) -- check via sp.ssaggregate Herfindahl. Pre-conditions: pre-period shares are pre-determined (measured strictly before the outcome window); shocks are as-good-as-random conditional on unit-level controls; >= 50 regions for AKM shift-share SE to be well-sized. Failure modes: Herfindahl of shares too concentrated (one industry dominates) -> Shift-share SE unreliable -- use Adao-Kolesar-Morales shock-level SE via sp.shift_share_se; First-stage F < 10 -> Shares don't predict exposure enough -...",
     "input_schema": {
       "properties": {

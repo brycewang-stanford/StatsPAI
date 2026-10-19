@@ -84,6 +84,7 @@ def _logm(n: float, s: float, sigma2: float, tau2: float) -> float:
 
 def _sweep(
     y: np.ndarray,
+    w: np.ndarray,
     xcut: np.ndarray,
     ncut: np.ndarray,
     var: np.ndarray,
@@ -105,7 +106,14 @@ def _sweep(
     n_avail: Any,
     logm: Any,
 ) -> None:
-    """One backfitting pass over all trees, in place."""
+    """One backfitting pass over all trees, in place.
+
+    ``w`` are per-observation precision weights (noise variance
+    ``sigma2 / w_i``): a leaf's sufficient statistics are ``sum w`` and
+    ``sum w r``. ``sp.bart`` passes ones, which leaves every operation
+    unchanged; Bayesian causal forests pass the squared treatment
+    coefficients. ``min_leaf`` counts observations, not weight.
+    """
     m = var.shape[0]
     n = y.shape[0]
     p = ncut.shape[0]
@@ -161,15 +169,19 @@ def _sweep(
             s_l = 0.0
             n_r = 0.0
             s_r = 0.0
+            c_l = 0.0
+            c_r = 0.0
             for i in range(n):
                 if leaf_of[j, i] == eta:
                     r = y[i] - total[i] + tree_fit[j, i]
                     if xcut[i, v] <= c:
-                        n_l += 1.0
-                        s_l += r
+                        n_l += w[i]
+                        s_l += w[i] * r
+                        c_l += 1.0
                     else:
-                        n_r += 1.0
-                        s_r += r
+                        n_r += w[i]
+                        s_r += w[i] * r
+                        c_r += 1.0
             d = depth(eta)
             # the tree as it would be after the split
             vj[eta] = v
@@ -205,7 +217,7 @@ def _sweep(
             )
             # a split that leaves a child with too few observations has
             # zero prior mass
-            if n_l < min_leaf or n_r < min_leaf:
+            if c_l < min_leaf or c_r < min_leaf:
                 log_a = -np.inf
             if math.log(np.random.random()) < log_a:
                 for q in range(nl):
@@ -231,11 +243,11 @@ def _sweep(
             s_r = 0.0
             for i in range(n):
                 if leaf_of[j, i] == left:
-                    n_l += 1.0
-                    s_l += y[i] - total[i] + tree_fit[j, i]
+                    n_l += w[i]
+                    s_l += w[i] * (y[i] - total[i] + tree_fit[j, i])
                 elif leaf_of[j, i] == right:
-                    n_r += 1.0
-                    s_r += y[i] - total[i] + tree_fit[j, i]
+                    n_r += w[i]
+                    s_r += w[i] * (y[i] - total[i] + tree_fit[j, i])
             d = depth(eta)
             g_l = d + 1 < maxdepth and n_avail(vj, cj, left, ncut, bounds) > 0
             g_r = d + 1 < maxdepth and n_avail(vj, cj, right, ncut, bounds) > 0
@@ -280,8 +292,8 @@ def _sweep(
             sm[leaves[j, q]] = 0.0
         for i in range(n):
             node = leaf_of[j, i]
-            cnt[node] += 1.0
-            sm[node] += y[i] - total[i] + tree_fit[j, i]
+            cnt[node] += w[i]
+            sm[node] += w[i] * (y[i] - total[i] + tree_fit[j, i])
         for q in range(nl):
             node = leaves[j, q]
             denom = sigma2 + cnt[node] * tau2
@@ -364,13 +376,19 @@ class _Forest:
         self.leaf_of = np.zeros((n_trees, n), dtype=np.int64)
         self.tree_fit = np.zeros((n_trees, n))
         self.total = np.zeros(n)
+        self._ones = np.ones(n)
         self.tau2, self.base, self.power, self.maxdepth = tau2, base, power, maxdepth
         self.min_leaf = float(min_leaf)
 
-    def sweep(self, y: np.ndarray, sigma2: float) -> None:
+    def sweep(
+        self, y: np.ndarray, sigma2: float, w: Optional[np.ndarray] = None
+    ) -> None:
         k = self.k
+        if w is None:
+            w = self._ones
         k["sweep"](
             y,
+            w,
             self.xcut,
             self.ncut,
             self.var,

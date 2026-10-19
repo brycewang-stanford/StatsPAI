@@ -11,6 +11,7 @@ from __future__ import annotations
 from .arima import bayes_arima
 from .bma import BMAResult, bma
 from .bootstrap import bayes_bootstrap
+from .causal_bart import BayesCausalResult, bart_causal
 from .checks import BayesR2Result, PPCResult, bayes_r2, loo_r2, mad_sd, ppc
 from .compare import BayesFactorResult, bayes_factor, savage_dickey
 from .crossval import (
@@ -75,6 +76,8 @@ __all__ = [
     "bayes_shrink",
     "bayes_sur",
     "BARTResult",
+    "BayesCausalResult",
+    "bart_causal",
     "GPResult",
     "bart",
     "abc",

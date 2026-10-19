@@ -20312,6 +20312,115 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="bart_causal",
+            category="causal",
+            description=(
+                "Bayesian tree models for a binary treatment, sampled by MCMC "
+                "on the sp.bart engine: the Bayesian causal forest (method="
+                "'bcf': a prognostic forest with the propensity score and a "
+                "separate, strongly regularised effect forest, half-Cauchy / "
+                "half-normal scale priors) or one BART response surface "
+                "(method='bart', the bartCause default). Posterior of the "
+                "ATE / ATT / ATC and of every individual effect, several "
+                "chains with split R-hat. Checked against known truth and, "
+                "by seed replication, against R bcf / bartCause (a "
+                "stochastic screen, not parity)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Analysis data"),
+                ParamSpec("y", "str", True, None, "Continuous outcome"),
+                ParamSpec("treat", "str", True, None, "0/1 treatment"),
+                ParamSpec("covariates", "list[str]", True, None, "Numeric covariates"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "bcf",
+                    "bcf = Bayesian causal forest; bart = one BART response "
+                    "surface, effects as prediction differences",
+                    enum=["bcf", "bart"],
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "Sample average of the individual effects over all units, "
+                    "the treated or the controls",
+                    enum=["ATE", "ATT", "ATC"],
+                ),
+                ParamSpec(
+                    "propensity",
+                    "str | array",
+                    False,
+                    "logit",
+                    "Propensity score used as a covariate: 'logit' (fitted on "
+                    "the covariates), 'none', a column name or one score per row",
+                ),
+                ParamSpec(
+                    "draws", "int", False, 1000, "Posterior draws kept per chain"
+                ),
+                ParamSpec("burnin", "int", False, 1000, "Burn-in sweeps per chain"),
+                ParamSpec("thin", "int", False, 1, "Keep every thin-th sweep"),
+                ParamSpec(
+                    "chains", "int", False, 4, "Independent chains (split R-hat)"
+                ),
+                ParamSpec(
+                    "n_trees_control",
+                    "int",
+                    False,
+                    200,
+                    "Trees in the prognostic forest (bart: the only forest)",
+                ),
+                ParamSpec(
+                    "n_trees_moderate",
+                    "int",
+                    False,
+                    50,
+                    "Trees in the effect forest (bcf)",
+                ),
+                ParamSpec(
+                    "sd_control",
+                    "float",
+                    False,
+                    2.0,
+                    "Prior median scale of the prognostic function, in SDs of y",
+                ),
+                ParamSpec(
+                    "sd_moderate",
+                    "float",
+                    False,
+                    1.0,
+                    "Prior median scale of the effect function, in SDs of y",
+                ),
+                ParamSpec(
+                    "numcut", "int", False, 100, "Maximum cut points per covariate"
+                ),
+                ParamSpec(
+                    "min_leaf", "int", False, 5, "Smallest leaf, in observations"
+                ),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+                ParamSpec("level", "float", False, 0.95, "Credible level"),
+            ],
+            returns="BayesCausalResult",
+            example='sp.bart_causal(df, "y", "d", ["x1", "x2"], method="bcf", seed=1)',
+            tags=["bayes", "mcmc", "trees", "cate", "heterogeneous_effects", "bcf"],
+            reference="hahn2020bayesian",
+            assumptions=[
+                "No unmeasured confounding given the covariates",
+                "Overlap: both treatment values are possible at every covariate value",
+                "Normal errors with constant variance",
+            ],
+            alternatives=["bcf", "causal_forest", "metalearner", "dml"],
+            not_recommended_when=[
+                "Frequentist coverage of the ATE is required: use sp.aipw / sp.dml",
+                "The outcome is binary: only continuous outcomes are modelled",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bayes_sur",
             category="bayes",
             description=(

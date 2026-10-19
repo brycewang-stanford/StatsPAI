@@ -75,9 +75,10 @@ def bcf(
        to treated residuals, and the uncertainty is a bootstrap of that
        procedure. There is no BART prior and no posterior; the estimates are
        not expected to agree with R ``bcf``. Each call issues a
-       ``BCFApproximationWarning``. For forest-based CATE with valid
-       inference use ``sp.causal_forest``; for doubly robust ATE use
-       ``sp.dml`` / ``sp.aipw`` / ``sp.tmle``.
+       ``BCFApproximationWarning``. The posterior-sampling Bayesian causal
+       forest is ``sp.bart_causal(method='bcf')``. For forest-based CATE
+       with valid inference use ``sp.causal_forest``; for doubly robust
+       ATE use ``sp.dml`` / ``sp.aipw`` / ``sp.tmle``.
 
     Parameters
     ----------
@@ -135,10 +136,17 @@ def bcf(
             "not Bayesian Causal Forest: there is no BART prior or MCMC "
             "posterior and the numbers do not reproduce R bcf.",
             recovery_hint=(
-                "Use sp.causal_forest for forest CATE with valid inference, "
-                "or sp.dml / sp.aipw / sp.tmle for a doubly robust ATE."
+                "For the Bayesian causal forest itself (BART priors, MCMC "
+                "posterior) use sp.bart_causal(method='bcf'); for forest "
+                "CATE with valid inference sp.causal_forest; for a doubly "
+                "robust ATE sp.dml / sp.aipw / sp.tmle."
             ),
-            alternative_functions=["sp.causal_forest", "sp.dml", "sp.tmle"],
+            alternative_functions=[
+                "sp.bart_causal",
+                "sp.causal_forest",
+                "sp.dml",
+                "sp.tmle",
+            ],
         ),
         stacklevel=2,
     )

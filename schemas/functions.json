@@ -20068,6 +20068,127 @@
     }
   },
   {
+    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
+    "name": "bart_causal",
+    "parameters": {
+      "properties": {
+        "burnin": {
+          "default": 1000,
+          "description": "Burn-in sweeps per chain",
+          "type": "integer"
+        },
+        "chains": {
+          "default": 4,
+          "description": "Independent chains (split R-hat)",
+          "type": "integer"
+        },
+        "covariates": {
+          "description": "Numeric covariates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "Analysis data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 1000,
+          "description": "Posterior draws kept per chain",
+          "type": "integer"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "Sample average of the individual effects over all units, the treated or the controls",
+          "enum": [
+            "ATE",
+            "ATT",
+            "ATC"
+          ],
+          "type": "string"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Credible level",
+          "type": "number"
+        },
+        "method": {
+          "default": "bcf",
+          "description": "bcf = Bayesian causal forest; bart = one BART response surface, effects as prediction differences",
+          "enum": [
+            "bcf",
+            "bart"
+          ],
+          "type": "string"
+        },
+        "min_leaf": {
+          "default": 5,
+          "description": "Smallest leaf, in observations",
+          "type": "integer"
+        },
+        "n_trees_control": {
+          "default": 200,
+          "description": "Trees in the prognostic forest (bart: the only forest)",
+          "type": "integer"
+        },
+        "n_trees_moderate": {
+          "default": 50,
+          "description": "Trees in the effect forest (bcf)",
+          "type": "integer"
+        },
+        "numcut": {
+          "default": 100,
+          "description": "Maximum cut points per covariate",
+          "type": "integer"
+        },
+        "propensity": {
+          "default": "logit",
+          "description": "Propensity score used as a covariate: 'logit' (fitted on the covariates), 'none', a column name or one score per row",
+          "type": "string"
+        },
+        "sd_control": {
+          "default": 2.0,
+          "description": "Prior median scale of the prognostic function, in SDs of y",
+          "type": "number"
+        },
+        "sd_moderate": {
+          "default": 1.0,
+          "description": "Prior median scale of the effect function, in SDs of y",
+          "type": "number"
+        },
+        "seed": {
+          "description": "Random seed",
+          "type": "integer"
+        },
+        "thin": {
+          "default": 1,
+          "description": "Keep every thin-th sweep",
+          "type": "integer"
+        },
+        "treat": {
+          "description": "0/1 treatment",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Continuous outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Bayesian seemingly unrelated regressions by Gibbs sampling: several linear equations with errors correlated across equations, normal prior on the coefficients, inverse-Wishart prior on the error covariance. The same regressors in every equation give the multivariate regression model. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Regressors are endogenous across equations: SUR assumes exogeneity; use sp.three_sls or sp.bayes_ivreg.",
     "name": "bayes_sur",
     "parameters": {

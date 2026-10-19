@@ -160,6 +160,30 @@ All notable changes to StatsPAI will be documented in this file.
   `tests/reference_parity/test_dml_twoway_cluster_doubleml_parity.py`.
   One-way `cluster=` is unchanged.
 
+### Bayesian causal forest: `sp.bart_causal`
+
+#### Added
+
+- `sp.bart_causal(data, y, treat, covariates, method='bcf' | 'bart')`:
+  posterior-sampling Bayesian tree models for a binary treatment on the
+  `sp.bart` engine. `'bcf'` is the Bayesian causal forest of Hahn, Murray
+  and Carvalho (2020): a prognostic forest with the propensity score, a
+  separate effect forest with a stronger tree prior, half-Cauchy and
+  half-normal scale priors. `'bart'` is one BART response surface with
+  effects as prediction differences (bartCause's default response model).
+  Posterior of the ATE / ATT / ATC and of every individual effect,
+  several chains with split R-hat. Evidence: known truth
+  (`tests/test_bart_causal.py`) and a seed screen against R bcf 2.0.2 and
+  bartCause 1.0.10, eight seeds a side (tier S, not parity): BCF ATE
+  posterior means 0.06 posterior SDs apart, SDs within 1.2%; BART 0.21
+  posterior SDs apart, SDs within 3.3%.
+  `tests/reference_parity/test_bart_causal_seed_screen.py`. bcf,
+  bartCause and dbarts (GPL) were used as black boxes.
+- The `sp.bart` backfitting kernel takes per-observation precision
+  weights; `sp.bart` passes ones and its draws are unchanged bit for bit.
+- `sp.bcf` is unchanged (the ensemble approximation); its warning now
+  points to `sp.bart_causal(method='bcf')`.
+
 ### Multi-action policy trees: `sp.policy_tree` on three or more arms
 
 #### Added
