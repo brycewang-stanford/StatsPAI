@@ -26784,6 +26784,32 @@ def _build_registry() -> None:
                     description="(lo, hi) over which to evaluate dose-response",
                 ),
                 ParamSpec("n_bootstrap", "int", False, 200),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "gps",
+                    "gps = Hirano-Imbens GPS regression with bootstrap bands; "
+                    "dr = doubly robust local-linear curve on pseudo-outcomes "
+                    "(Kennedy et al. 2017), consistent if the outcome model or "
+                    "the normal treatment density is right",
+                    enum=["gps", "dr"],
+                ),
+                ParamSpec(
+                    "bandwidth",
+                    "float",
+                    False,
+                    None,
+                    "method='dr': kernel bandwidth in treatment units; default "
+                    "minimises the leave-one-out risk",
+                ),
+                ParamSpec(
+                    "n_folds",
+                    "int",
+                    False,
+                    5,
+                    "method='dr': cross-fitting folds for the nuisances (1 = none)",
+                ),
             ],
             returns="DoseResponseResult",
             example='sp.dose_response(df, y="y", treat="dose", covariates=["x1","x2"])',

@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 from .._input_validation import missing_named_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
-from ..exceptions import ColumnNotFound
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 # ======================================================================
 # Public API
@@ -64,6 +64,9 @@ def dose_response(
     n_bootstrap: int = 200,
     alpha: float = 0.05,
     random_state: int = 42,
+    method: str = "gps",
+    bandwidth: Optional[float] = None,
+    n_folds: int = 5,
 ) -> CausalResult:
     """
     Estimate the dose-response function for a continuous treatment.
@@ -106,6 +109,27 @@ def dose_response(
     alpha : float, default 0.05
         Significance level.
     random_state : int, default 42
+    method : {'gps', 'dr'}, default 'gps'
+        ``'gps'``: the generalized-propensity-score regression of Hirano
+        and Imbens (2004) with bootstrap bands (the default, unchanged).
+        ``'dr'``: the doubly robust curve of Kennedy, Ma, McHugh and Small
+        (2017): a local linear regression of the pseudo-outcome
+        ``(Y - mu(X, T)) / pi(T | X) * mean_j pi(T | X_j) + mean_j
+        mu(X_j, T)`` on ``T``, consistent if either the outcome regression
+        ``mu`` (``outcome_model``, on ``[X, T]``; default gradient
+        boosting) or the normal treatment density ``pi``
+        (``treatment_model`` for its mean, default linear, and a linear
+        regression of squared residuals for its variance) is right.
+        Nuisances are cross-fitted (``n_folds``); the bandwidth minimises
+        the smoother's leave-one-out risk unless ``bandwidth`` is given;
+        bands are the robust local-linear sandwich on the pseudo-outcomes
+        (no bootstrap), for the smoothed curve. R ``npcausal::ctseff``
+        computes the same estimator with other nuisance and smoothing
+        choices; the curves agree in shape, not to parity.
+    bandwidth : float, optional
+        ``method='dr'``: kernel bandwidth in units of the treatment.
+    n_folds : int, default 5
+        ``method='dr'``: cross-fitting folds (1 = no cross-fitting).
 
     Returns
     -------
@@ -134,7 +158,12 @@ def dose_response(
     >>> list(curve.columns)
     ['dose', 'response', 'se', 'ci_lower', 'ci_upper', 'marginal_effect']
     """
-    if treatment_model is None and outcome_model is None:
+    if method not in ("gps", "dr"):
+        raise MethodIncompatibility(
+            f"dose_response: method must be 'gps' or 'dr'; got {method!r}.",
+            recovery_hint="Use method='dr' for the doubly robust curve.",
+        )
+    if method == "gps" and treatment_model is None and outcome_model is None:
         import warnings
 
         from ..exceptions import StatsPAIWarning
@@ -168,6 +197,9 @@ def dose_response(
         alpha=alpha,
         random_state=random_state,
     )
+    est.method = method
+    est.bandwidth = bandwidth
+    est.n_folds = int(n_folds)
     return est.fit()
 
 
@@ -288,6 +320,9 @@ class DoseResponse:
             t_lo, t_hi = self.dose_range
         dose_grid = np.linspace(t_lo, t_hi, self.n_dose_points)
 
+        if getattr(self, "method", "gps") == "dr":
+            return self._fit_dr(Y, T, X, dose_grid, t_lo, t_hi)
+
         # Estimate dose-response curve
         dr_curve = self._estimate_curve(Y, T, X, dose_grid, n)
 
@@ -363,6 +398,83 @@ class DoseResponse:
             n_obs=n,
             detail=detail,
             model_info=model_info,
+            _citation_key="dose_response",
+        )
+
+    def _fit_dr(
+        self,
+        Y: np.ndarray,
+        T: np.ndarray,
+        X: np.ndarray,
+        dose_grid: np.ndarray,
+        t_lo: float,
+        t_hi: float,
+    ) -> CausalResult:
+        from .dr import dr_curve
+
+        out = dr_curve(
+            Y,
+            T,
+            X,
+            dose_grid,
+            treatment_model=self.treatment_model,
+            outcome_model=self.outcome_model,
+            bandwidth=self.bandwidth,
+            n_folds=self.n_folds,
+            random_state=self.random_state,
+            alpha=self.alpha,
+        )
+        est = out["est"]
+        k = len(dose_grid)
+        i25 = max(0, int(0.25 * k))
+        i75 = min(k - 1, int(0.75 * k))
+        effect = float(est[i75] - est[i25])
+        se_eff = float(
+            np.sqrt(np.sum((out["influence"][i75] - out["influence"][i25]) ** 2))
+        )
+        z = sp_stats.norm.ppf(1 - self.alpha / 2)
+        marg = np.gradient(est, dose_grid) if k >= 2 else np.zeros_like(est)
+        detail = pd.DataFrame(
+            {
+                "dose": dose_grid,
+                "response": est,
+                "se": out["se"],
+                "ci_lower": out["ci_lower"],
+                "ci_upper": out["ci_upper"],
+                "marginal_effect": marg,
+            }
+        )
+        info = {
+            "method": "dr",
+            "dose_range": (float(t_lo), float(t_hi)),
+            "n_dose_points": k,
+            "bandwidth": out["bandwidth"],
+            "bandwidth_risk": out["bw_risk"],
+            "avg_marginal_effect": float(np.mean(marg)),
+            "effect_25_to_75": effect,
+            "dose_25": float(dose_grid[i25]),
+            "dose_75": float(dose_grid[i75]),
+            "curve_monotone": bool(
+                np.all(np.diff(est) > 0) or np.all(np.diff(est) < 0)
+            ),
+            "pseudo_outcomes": out["pseudo_outcomes"],
+        }
+        info.update(out["info"])
+        return CausalResult(
+            method="Dose-Response (doubly robust, Kennedy et al. 2017)",
+            estimand="E[Y(t75)] - E[Y(t25)]",
+            estimate=effect,
+            se=se_eff,
+            pvalue=(
+                float(2 * sp_stats.norm.sf(abs(effect / se_eff)))
+                if se_eff > 0
+                else float("nan")
+            ),
+            ci=(effect - z * se_eff, effect + z * se_eff),
+            alpha=self.alpha,
+            n_obs=len(Y),
+            detail=detail,
+            model_info=info,
             _citation_key="dose_response",
         )
 

@@ -235,6 +235,24 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.bcf` is unchanged (the ensemble approximation); its warning now
   points to `sp.bart_causal(method='bcf')`.
 
+### Doubly robust dose-response curve: `sp.dose_response(method='dr')`
+
+#### Added
+
+- `sp.dose_response(method='dr')`: the doubly robust curve of Kennedy, Ma,
+  McHugh and Small (2017), a local linear regression of the pseudo-outcome
+  `(Y - mu(X, T)) / pi(T | X) * mean_j pi(T | X_j) + mean_j mu(X_j, T)` on
+  the treatment, with cross-fitted nuisances (`n_folds`), a normal
+  treatment density (mean and variance regressions), the bandwidth that
+  minimises the smoother's leave-one-out risk (or `bandwidth=`) and robust
+  local-linear bands on the pseudo-outcomes. Evidence: the curve covers
+  the smoothed truth within its bands when either the outcome model or
+  the treatment density is right (`tests/test_dose_response_dr.py`), an
+  infinite-bandwidth identity, and a shape screen against R
+  `npcausal::ctseff` (GPL, black box; interior correlation 0.999, not
+  parity: its nuisances, density and smoother differ). The default
+  `method='gps'` is unchanged.
+
 ### Multi-action policy trees: `sp.policy_tree` on three or more arms
 
 #### Added

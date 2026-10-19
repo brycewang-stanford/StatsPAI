@@ -27754,6 +27754,10 @@
           "type": "number",
           "x-statspai-source": "signature"
         },
+        "bandwidth": {
+          "description": "method='dr': kernel bandwidth in treatment units; default minimises the leave-one-out risk",
+          "type": "number"
+        },
         "covariates": {
           "description": "Covariate names.",
           "items": {
@@ -27774,6 +27778,15 @@
           },
           "type": "array"
         },
+        "method": {
+          "default": "gps",
+          "description": "gps = Hirano-Imbens GPS regression with bootstrap bands; dr = doubly robust local-linear curve on pseudo-outcomes (Kennedy et al. 2017), consistent if the outcome model or the normal treatment density is right",
+          "enum": [
+            "gps",
+            "dr"
+          ],
+          "type": "string"
+        },
         "n_bootstrap": {
           "default": 200,
           "description": "Bootstrap iterations for confidence bands.",
@@ -27782,6 +27795,11 @@
         "n_dose_points": {
           "default": 20,
           "description": "Number of dose levels to evaluate.",
+          "type": "integer"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "method='dr': cross-fitting folds for the nuisances (1 = none)",
           "type": "integer"
         },
         "outcome_model": {
