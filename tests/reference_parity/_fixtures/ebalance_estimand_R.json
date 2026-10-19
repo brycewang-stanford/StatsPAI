@@ -1,0 +1,127 @@
+{
+  "sim_cia_ATT_bw": {
+    "data": "ebalance_sim_cia.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATT",
+    "base_weights": true,
+    "est": 2.06850125087759,
+    "se": 0.0802186484820641
+  },
+  "sim_cia_ATE_nobw": {
+    "data": "ebalance_sim_cia.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATE",
+    "base_weights": false,
+    "est": 2.0794758763036,
+    "se": 0.0792381015087092
+  },
+  "sim_cia_ATE_bw": {
+    "data": "ebalance_sim_cia.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATE",
+    "base_weights": true,
+    "est": 2.06887086076959,
+    "se": 0.0828694357139337
+  },
+  "sim_cia_ATC_nobw": {
+    "data": "ebalance_sim_cia.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATC",
+    "base_weights": false,
+    "est": 2.08673756670337,
+    "se": 0.0851870729604498
+  },
+  "sim_cia_ATC_bw": {
+    "data": "ebalance_sim_cia.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATC",
+    "base_weights": true,
+    "est": 2.069618504433,
+    "se": 0.0878394440803727
+  },
+  "sim_het_ATT_bw": {
+    "data": "ebalance_sim_het.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATT",
+    "base_weights": true,
+    "est": 1.30806062491883,
+    "se": 0.13150024101752
+  },
+  "sim_het_ATE_nobw": {
+    "data": "ebalance_sim_het.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATE",
+    "base_weights": false,
+    "est": 1.11156062747768,
+    "se": 0.0980050750891262
+  },
+  "sim_het_ATE_bw": {
+    "data": "ebalance_sim_het.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATE",
+    "base_weights": true,
+    "est": 1.05901168859884,
+    "se": 0.104632878959739
+  },
+  "sim_het_ATC_nobw": {
+    "data": "ebalance_sim_het.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATC",
+    "base_weights": false,
+    "est": 0.950931510305915,
+    "se": 0.110973070555626
+  },
+  "sim_het_ATC_bw": {
+    "data": "ebalance_sim_het.csv",
+    "covariates": ["X1", "X2"],
+    "estimand": "ATC",
+    "base_weights": true,
+    "est": 0.946120359739718,
+    "se": 0.114649527737725
+  },
+  "lalonde_ATT_bw": {
+    "data": "ebalance_lalonde.csv",
+    "covariates": ["age", "educ", "black", "hispan", "married", "nodegree", "re74", "re75"],
+    "estimand": "ATT",
+    "base_weights": true,
+    "est": 1469.70805844657,
+    "se": 777.300531138426
+  },
+  "lalonde_ATE_nobw": {
+    "data": "ebalance_lalonde.csv",
+    "covariates": ["age", "educ", "black", "hispan", "married", "nodegree", "re74", "re75"],
+    "estimand": "ATE",
+    "base_weights": false,
+    "est": 951.671332700154,
+    "se": 1233.93872412506
+  },
+  "lalonde_ATE_bw": {
+    "data": "ebalance_lalonde.csv",
+    "covariates": ["age", "educ", "black", "hispan", "married", "nodegree", "re74", "re75"],
+    "estimand": "ATE",
+    "base_weights": true,
+    "est": 1156.64989502457,
+    "se": 1148.1027386506
+  },
+  "lalonde_ATC_nobw": {
+    "data": "ebalance_lalonde.csv",
+    "covariates": ["age", "educ", "black", "hispan", "married", "nodegree", "re74", "re75"],
+    "estimand": "ATC",
+    "base_weights": false,
+    "est": 212.499772001241,
+    "se": 1674.075628601
+  },
+  "lalonde_ATC_bw": {
+    "data": "ebalance_lalonde.csv",
+    "covariates": ["age", "educ", "black", "hispan", "married", "nodegree", "re74", "re75"],
+    "estimand": "ATC",
+    "base_weights": true,
+    "est": 773.968383921993,
+    "se": 1554.59657968388
+  },
+  "_provenance": {
+    "WeightIt": "1.7.0",
+    "R": "R version 4.5.2 (2025-10-31)",
+    "vcov": "asympt"
+  }
+}
