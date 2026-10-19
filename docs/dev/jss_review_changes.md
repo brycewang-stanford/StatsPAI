@@ -31,6 +31,18 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — `sp.rdrobust` no longer demeans covariates
+
+- **Commits.** `5ab25202` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 06, 89) and
+  `tests/orig_parity/results/_implementation_trace.json` (module 05).
+- **Reason.** `rd/rdrobust.py` is on those modules' estimation paths; the
+  parser stopped demeaning `covs`, which moved the fuzzy + covariates
+  bandwidth off rdrobust's.
+- **Effect on the paper.** None. No module uses covariates with a fuzzy
+  design; each was re-run into scratch and its `*_py.json` is
+  byte-identical to the committed one.
+
 ### 2026-10-18 — native multiple estimation and two-way clustered GLMs
 
 - **Commits.** `bf5c9d03` re-recorded
