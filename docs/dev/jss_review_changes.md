@@ -4167,3 +4167,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   Conditional set do not touch the changed branches).
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record after the in-place provenance hash
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `7a9f6769`.
+- **Reason.** `output/_lineage.py` (hash the input frame's buffer instead
+  of a `tobytes()` copy, same digest; `STATSPAI_PROVENANCE_HASH=0`
+  opt-out) is executed by 43 Track A modules and 11 original-data
+  modules; their traces were re-recorded. Only that file's hash changed
+  in either ledger.
+- **Effect on the paper.** None. The fingerprint is not an estimate and
+  its value is unchanged (tested against the `tobytes()` digest), so no
+  result file or table number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
