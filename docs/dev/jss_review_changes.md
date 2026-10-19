@@ -4625,3 +4625,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — original-data trace re-record after sp.aipw learners
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `2d6e2805`.
+- **Reason.** `inference/aipw.py` (new `ps_learner=` /
+  `outcome_learner=` arguments; the default path is unchanged) is on the
+  traced path of original-data module 07. The module was re-run first:
+  its committed results reproduce to the last digits (1e-13 relative,
+  inside the 1e-9 reproducibility tolerance; the file was restored); only
+  the trace was re-recorded.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/orig_parity/results/_implementation_trace.json`
