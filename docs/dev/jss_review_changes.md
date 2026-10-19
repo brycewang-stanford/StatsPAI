@@ -4236,3 +4236,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   byte for byte.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record for module 12 (sdid block interface)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `89d36791`.
+- **Reason.** `synth/sdid.py` (the `treated_unit=` interface hands
+  covariates and `se_method='noinference'` to the `treat=` path) is on
+  the estimation path of module 12; its trace was re-recorded.
+- **Effect on the paper.** None. Module 12 (no covariates, placebo SE)
+  does not reach the new branch and reproduces its committed result byte
+  for byte.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
