@@ -68,7 +68,11 @@ All notable changes to StatsPAI will be documented in this file.
   rows and five columns, independent of row order and thread count; the
   Rust sorted-block kernel is no longer on this path because the sort it
   needs cost more than the sum. Results agree with the previous ones to
-  rounding (1e-15).
+  rounding: 1e-15 on well-conditioned designs; on Track A's
+  `14_ols_cluster` (a `year` regressor in the thousands) the standard
+  errors moved by up to 1.1e-9 relative, two of three closer to R's, and
+  the committed `14_ols_cluster_py.json` was regenerated (logged in
+  `docs/dev/jss_review_changes.md`).
 - `sp.read_data` reads a CSV / TSV file over 4 MB with pyarrow when it is
   installed and the call passes no reader keywords beyond `sep` / `usecols`:
   about 4x faster (0.5 s against 2.1 s on two million rows), same columns
