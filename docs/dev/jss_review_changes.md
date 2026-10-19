@@ -4600,3 +4600,15 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record after sp.mediate(design=)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `9179c25d`.
+- **Reason.** sp.mediate(design=) touches the traced path of Track A module(s) 36;
+  the traces were re-recorded.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
