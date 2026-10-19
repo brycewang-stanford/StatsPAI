@@ -7541,7 +7541,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_fect_interflex_cv_parity.py"
+        "tests/reference_parity/test_fect_interflex_cv_parity.py",
+        "tests/reference_parity/test_synth_family_R_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"

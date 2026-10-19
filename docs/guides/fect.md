@@ -36,6 +36,38 @@ convention shared with `sp.callaway_santanna` and `sp.sun_abraham`.
 Cross-validation of `r` and `lam` is not ported; compare
 `pre_treatment_rmse` across candidates and read the pre-period ATT path.
 
+## Diagnostic tests
+
+fect's three out-of-sample checks are options of `sp.fect`; each needs
+resampling standard errors (`vce='jackknife'` is deterministic) and runs
+one at a time:
+
+```python
+import statspai as sp
+
+kw = dict(y="y", treat="d", unit="id", time="t", vce="jackknife")
+pl = sp.fect(df, placebo_period=(-2, 0), **kw)   # last three pre-periods
+pl.model_info["placebo_test"]     # estimate, se, pvalue, equiv_pvalue
+co = sp.fect(df, carryover_period=(1, 2), **kw)  # treatments that switch off
+lo = sp.fect(df, loo=True, **kw)
+lo.model_info["loo"]["table"]     # out-of-sample pre-period effects
+lo.model_info["pretrend_test"]    # F test, equivalence F, TOST
+```
+
+Periods use fect's coding: `0` is the last untreated period, `1` the
+first treated period (or, for the carryover test, the first period after
+the treatment switches off). A small placebo or carryover p-value, or a
+large TOST equivalence p-value, is evidence against the identifying
+assumptions. The equivalence bound defaults to fect's
+`0.36 * sqrt(sigma2)`; set `tost_threshold=` to a bound that is
+substantively negligible in your units.
+
+With the jackknife, fect's own F statistic is built from the plain
+covariance of the leave-one-unit-out replicates, which understates the
+covariance of the estimates by `(n - 1)^2 / n`; StatsPAI uses the
+jackknife covariance, so its F is that factor smaller than fect's. Every
+other number matches fect 2.4.1.
+
 ## Conventions and parity
 
 The port runs fect's EM map step for step (fixest two-way initial fit,

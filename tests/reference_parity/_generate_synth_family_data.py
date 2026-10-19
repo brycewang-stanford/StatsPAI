@@ -12,6 +12,15 @@ synth_family_asc.csv
     loadings, ``x2`` a time-invariant one. Used by ``sp.augsynth`` with
     several treated units, ``progfunc``, ``scm``, ``fixedeff`` and
     ``covariates`` (vs ``augsynth::augsynth``).
+
+synth_family_fect.csv
+    24 units, 14 periods. Units 1-8 never treated; units 9-16 adopt for
+    good at periods 6-9 (two units each); units 17-24 are treated for three
+    or four periods starting at 5-8 and then switch off (reversals), with
+    an effect that lingers one period after switch-off (0.8). Two-way fixed
+    effects plus noise, effect 2 while treated. Used by ``sp.fect``'s
+    placebo, carryover and leave-one-period-out tests (vs ``fect::fect``
+    with ``vartype = "jackknife"``, which is deterministic).
 """
 
 from pathlib import Path
@@ -46,5 +55,26 @@ def asc_panel() -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["unit", "time", "y", "treated", "x1", "x2"])
 
 
+def fect_panel() -> pd.DataFrame:
+    rng = np.random.default_rng(1019)
+    n, T = 24, 14
+    alpha = rng.normal(0, 1, n)
+    xi = np.cumsum(rng.normal(0.2, 0.5, T))
+    D = np.zeros((n, T), dtype=int)
+    for k, i in enumerate(range(8, 16)):
+        D[i, 5 + k // 2 :] = 1  # adopt at periods 6, 7, 8, 9 (1-based)
+    for k, i in enumerate(range(16, 24)):
+        start = 4 + k // 2
+        D[i, start : start + 3 + (k % 2)] = 1
+    rows = []
+    for i in range(n):
+        for t in range(T):
+            carry = 0.8 if (t > 0 and D[i, t - 1] == 1 and D[i, t] == 0) else 0.0
+            y = alpha[i] + xi[t] + 2.0 * D[i, t] + carry + rng.normal(0, 0.5)
+            rows.append((i + 1, t + 1, round(float(y), 10), int(D[i, t])))
+    return pd.DataFrame(rows, columns=["id", "time", "Y", "D"])
+
+
 if __name__ == "__main__":
     asc_panel().to_csv(OUT / "synth_family_asc.csv", index=False)
+    fect_panel().to_csv(OUT / "synth_family_fect.csv", index=False)

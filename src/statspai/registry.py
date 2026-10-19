@@ -27873,6 +27873,61 @@ def _build_registry() -> None:
                     "Seed for the CV fold draws (R's fold stream is not reproducible "
                     "from numpy; the selection is compared to R statistically).",
                 ),
+                ParamSpec(
+                    "placebo_period",
+                    "list",
+                    False,
+                    None,
+                    "fect placebo test: pre-periods (fect coding, <= 0; one period "
+                    "or (first, last)) left out of the fit and tested for a zero "
+                    "effect, with TOST equivalence p-value; needs vce.",
+                ),
+                ParamSpec(
+                    "carryover_period",
+                    "list",
+                    False,
+                    None,
+                    "fect carryover test: periods after a switch-off (>= 1) left out "
+                    "of the fit and tested; needs treatment reversals and vce.",
+                ),
+                ParamSpec(
+                    "loo",
+                    "bool",
+                    False,
+                    False,
+                    "fect leave-one-period-out test: each pre-period leaves the fit "
+                    "in turn; table and pre-trend tests in model_info['loo'].",
+                ),
+                ParamSpec(
+                    "tost_threshold",
+                    "float",
+                    False,
+                    None,
+                    "Equivalence bound of the TOST tests (default 0.36 * sqrt(sigma2) "
+                    "of the two-way FE fit, as fect).",
+                ),
+                ParamSpec(
+                    "f_threshold",
+                    "float",
+                    False,
+                    0.5,
+                    "fect f.threshold: non-centrality share of the equivalence F test.",
+                ),
+                ParamSpec(
+                    "proportion",
+                    "float",
+                    False,
+                    0.3,
+                    "Pre-periods enter the pre-trend tests when their treated count "
+                    "is at least this share of the largest (fect proportion).",
+                ),
+                ParamSpec(
+                    "pre_periods",
+                    "list",
+                    False,
+                    None,
+                    "Restrict the pre-trend tests to this (first, last) window.",
+                ),
             ],
             returns="CausalResult",
             example=(

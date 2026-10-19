@@ -11,11 +11,21 @@
 #       generator swaps in a copy with eps 1e-12 (assignInNamespace), so the
 #       simplex weights are exact to ~1e-11 and the comparison can be tight.
 #
+#   sp.fect's diagnostic tests vs fect::fect (2.4.1, Liu / Wang / Xu):
+#       placeboTest (placebo.period = c(-2, 0)), carryoverTest
+#       (carryover.period = c(1, 2)) and loo = TRUE, method = "fe",
+#       vartype = "jackknife" (leave one unit out: deterministic, so the
+#       comparison is exact), tol 1e-12. loo with the jackknife needs
+#       nboots = N (fect sizes pre.att.boot by nboots). test.out /
+#       loo.test.out are fect:::diagtest, including its F statistic built
+#       from cov() of the raw jackknife replicates.
+#
 # Regenerate (after _generate_synth_family_data.py), from the repo root:
 #   Rscript tests/reference_parity/_generate_synth_family_R.R
 
 suppressPackageStartupMessages({
   library(augsynth)
+  library(fect)
   library(jsonlite)
 })
 
@@ -65,11 +75,44 @@ augsynth_cases <- list(
   run_asc("two_cov_none_fe", asc, cov = TRUE, progfunc = "None", scm = TRUE, fixedeff = TRUE)
 )
 
+# ---------------------------------------------------------------------------
+# 2. fect diagnostic tests
+# ---------------------------------------------------------------------------
+fd <- read.csv(file.path(fixtures, "synth_family_fect.csv"))
+run_fect <- function(...) {
+  suppressMessages(suppressWarnings(fect(
+    Y ~ D, data = fd, index = c("id", "time"), method = "fe", force = "two-way",
+    se = TRUE, vartype = "jackknife", tol = 1e-12, max.iteration = 20000,
+    parallel = FALSE, ...)))
+}
+row5 <- function(m) list(estimate = num(m[1]), se = num(m[2]), ci_lower = num(m[3]),
+                         ci_upper = num(m[4]), pvalue = num(m[5]))
+tests <- function(x) lapply(x, function(v) if (is.null(v)) NA_real_ else num(v))
+
+fp <- run_fect(placeboTest = TRUE, placebo.period = c(-2, 0))
+fc <- run_fect(carryoverTest = TRUE, carryover.period = c(1, 2))
+fl <- run_fect(loo = TRUE, nboots = length(unique(fd$id)))
+fect_out <- list(
+  placebo = list(att_avg = num(fp$att.avg), test = row5(fp$est.placebo),
+                 test_out = tests(fp$test.out), sigma2_fect = num(fp$sigma2.fect)),
+  carryover = list(att_avg = num(fc$att.avg), test = row5(fc$est.carryover),
+                   test_out = tests(fc$test.out), sigma2_fect = num(fc$sigma2.fect)),
+  loo = list(att_avg = num(fl$att.avg),
+             time = num(fl$time), att = num(fl$est.att[, 1]), se = num(fl$est.att[, 2]),
+             pre_period = num(rownames(fl$pre.est.att)),
+             pre_att = num(fl$pre.est.att[, 1]), pre_se = num(fl$pre.est.att[, 2]),
+             pre_p = num(fl$pre.est.att[, 5]), pre_count = num(fl$pre.est.att[, 6]),
+             test_out = tests(fl$test.out), loo_test_out = tests(fl$loo.test.out),
+             n_units = length(unique(fd$id)))
+)
+
 out <- list(
   meta = list(R = R.version.string,
               augsynth = as.character(packageVersion("augsynth")),
+              fect = as.character(packageVersion("fect")),
               osqp = as.character(packageVersion("osqp"))),
-  augsynth = augsynth_cases
+  augsynth = augsynth_cases,
+  fect = fect_out
 )
 write_json(out, file.path(fixtures, "synth_family_R.json"), auto_unbox = TRUE,
            digits = NA, null = "null", na = "null")

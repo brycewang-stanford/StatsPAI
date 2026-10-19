@@ -63987,6 +63987,13 @@
             "description": "Significance level.",
             "type": "number"
           },
+          "carryover_period": {
+            "description": "fect carryover test: periods after a switch-off (>= 1) left out of the fit and tested; needs treatment reversals and vce.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "covariates": {
             "description": "Time-varying covariates entering the Y(0) model linearly",
             "items": {
@@ -64059,6 +64066,11 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "f_threshold": {
+            "default": 0.5,
+            "description": "fect f.threshold: non-centrality share of the equivalence F test.",
+            "type": "number"
+          },
           "force": {
             "default": "two-way",
             "description": "Additive fixed effects in the Y(0) model.",
@@ -64085,6 +64097,11 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "loo": {
+            "default": false,
+            "description": "fect leave-one-period-out test: each pre-period leaves the fit in turn; table and pre-trend tests in model_info['loo'].",
+            "type": "boolean"
           },
           "max_iter": {
             "default": 1000,
@@ -64114,6 +64131,25 @@
             "description": "Length of fect's default penalty grid for method='mc' with cv=True: nlambda - 1 values log-spaced over three decades below the largest singular value, plus 0.",
             "type": "integer"
           },
+          "placebo_period": {
+            "description": "fect placebo test: pre-periods (fect coding, <= 0; one period or (first, last)) left out of the fit and tested for a zero effect, with TOST equivalence p-value; needs vce.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pre_periods": {
+            "description": "Restrict the pre-trend tests to this (first, last) window.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "proportion": {
+            "default": 0.3,
+            "description": "Pre-periods enter the pre-trend tests when their treated count is at least this share of the largest (fect proportion).",
+            "type": "number"
+          },
           "r": {
             "default": 0,
             "description": "Number of latent factors (method='ife')",
@@ -64142,6 +64178,10 @@
           "tol": {
             "default": 0.001,
             "description": "EM relative convergence tolerance (fect default)",
+            "type": "number"
+          },
+          "tost_threshold": {
+            "description": "Equivalence bound of the TOST tests (default 0.36 * sqrt(sigma2) of the two-way FE fit, as fect).",
             "type": "number"
           },
           "treat": {
@@ -64188,7 +64228,8 @@
       "R parity module 86_fect",
       "Stata parity module 86_fect",
       "Cross-language parity (bit-exact) vs fect::fect(Y ~ D + X1 + X2, method=, force=\"two-way\", se=FALSE, CV=FALSE, tol=1e-12, max.iteration=20000); Stata side uses the authors' fect_stata (GitHub, installed into a local ado path) [R version 4.5.2 (2025-10-31), fect 2.4.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 86_fect -- tests/r_parity/86_fect.py",
-      "tests/reference_parity/test_fect_interflex_cv_parity.py"
+      "tests/reference_parity/test_fect_interflex_cv_parity.py",
+      "tests/reference_parity/test_synth_family_R_parity.py"
     ],
     "validation_status": "certified"
   },

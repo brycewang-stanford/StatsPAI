@@ -97,6 +97,30 @@ All notable changes to StatsPAI will be documented in this file.
   another StatsPAI function are not checked or counted.
   `core/_design_guardrails.py`, `core/_spec_counter.py`;
   `tests/test_design_guardrails.py`.
+
+### `sp.fect`: placebo, carryover and leave-one-period-out tests
+
+#### Added
+
+- `placebo_period=`, `carryover_period=` and `loo=True` run fect's
+  diagnostic tests (`placeboTest`, `carryoverTest`, `loo`): the chosen
+  untreated cells leave the fit and their out-of-sample effect is tested
+  for zero and for equivalence (TOST, bound `tost_threshold`, default
+  `0.36 * sqrt(sigma2)`). With `vce=` set, `model_info['pretrend_test']`
+  carries fect's pre-trend F test, its equivalence version and the TOST
+  p-value (`f_threshold=`, `proportion=`, `pre_periods=` as in fect).
+  With `vce='jackknife'` (deterministic) every number matches fect 2.4.1
+  to 1e-8 or better (`tests/reference_parity/test_synth_family_R_parity.py`)
+  except one documented departure: fect builds the F statistic from
+  `cov()` of the raw leave-one-unit-out replicates, which understates the
+  jackknife covariance by `(n - 1)^2 / n`, so fect's F is that factor
+  larger (16.0 against 0.73 on the test panel, a spurious rejection of
+  parallel trends). StatsPAI uses the jackknife covariance; the test pins
+  the exact ratio.
+- The resampling loop moved to `synth/_fect_tests.py` unchanged (same
+  draws for a given `seed`); point estimates without the new options are
+  unchanged (Track A module 86 reproduces its committed result).
+
 ### `sp.sdid(treated_unit=...)` takes covariates and `se_method='noinference'`
 
 #### Added
