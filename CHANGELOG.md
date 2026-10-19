@@ -31,7 +31,7 @@ All notable changes to StatsPAI will be documented in this file.
   `sigma_e`, log-likelihood and LR statistic to 1e-7; `xtintreg` estimates
   and log-likelihood to 1e-7, standard errors within 0.5% (ours equal an
   independent finite-difference Hessian of the likelihood to 1e-7; the
-  gap is on Stata's side of an unexplained difference, recorded in
+  remaining gap is unexplained and recorded as an open item in
   `docs/dev/modules/panel_multilevel.md`) (`tests/test_xttobit_stata.py`).
 
 ### `sp.margins` after `fepois` / `feglm` refuses standard errors that ignore the fixed effects
