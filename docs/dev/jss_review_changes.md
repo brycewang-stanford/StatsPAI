@@ -31,6 +31,16 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — `sp.mediate` bootstraps the potential-outcome estimator
+
+- **Commits.** `6bf4d662` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (module 36).
+- **Reason.** `mediation/mediate.py` is on module 36's estimation path; the
+  default `inference='bootstrap'` now also runs for `interaction=True` and
+  non-linear models (module 36 uses neither).
+- **Effect on the paper.** None. The module was re-run into scratch and its
+  `36_mediation_py.json` is byte-identical to the committed one.
+
 ### 2026-10-19 — treatment-effect audit fixes (binary-treatment check, matching, DML, TMLE, sensemakr)
 
 - **Commits.** `0de72982` re-recorded
@@ -48,6 +58,7 @@ Rules:
   1.9e-13 (07_nhefs_ch13_gformula). `72_tmle_py.json` holds a key
   `epsilon` where the current script writes `epsilon_vec`; that mismatch
   predates these commits (it is on origin/main) and is not touched here.
+
 
 ### 2026-10-19 — shared staggered-DiD input checks
 
