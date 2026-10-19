@@ -31,6 +31,26 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — shared staggered-DiD input checks
+
+- **Commits.** `d11b4b66` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 04, 05, 16,
+  17, 38, 73, 75, 79, 84, 86) and
+  `tests/orig_parity/results/_implementation_trace.json` (module 02).
+- **Reason.** New `did/_validate.py` and `did/_sa_sample.py`, and edits to
+  `callaway_santanna.py`, `aggte.py`, `sun_abraham.py`,
+  `did_imputation.py`, `gardner_2s.py`, `stacked_did.py`,
+  `wooldridge_did.py` and `synth/fect.py`, on those modules' estimation
+  paths (cohort constancy, repeated rows, always-treated cohorts,
+  anticipation options, result notes).
+- **Effect on the paper.** None. Each module was re-run into scratch and
+  compared with its committed `*_py.json`: 04, 05, 16, 17, 75, 84, 86 and
+  original-data 02 byte-identical in every number; 38, 73 and 79 differ
+  by at most 7.3e-11 relative (pre-existing last-digit jitter, inside the
+  1e-9 reproducibility tolerance), so no result file or table number
+  changes. None of the parity panels has an always-treated cohort or a
+  varying cohort.
+
 ### 2026-10-19 — command-name hint in `sp.__getattr__`
 
 - **Commits.** `9107c15c` re-recorded
