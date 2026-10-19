@@ -193,6 +193,13 @@ All notable changes to StatsPAI will be documented in this file.
   the design fits) or a `sp.dgp_*` simulator and uses the parameter names
   the schema lists. Before, most assumed a `df` with columns no dataset
   has. `tests/test_card_examples.py` executes all 70.
+- `next_steps()` on `sp.feols` / `sp.regress` / IV fits follows the variance
+  estimator already used: no "re-estimate with robust SEs" on a clustered
+  or robust fit, `vcov='hetero'` through `sp.feols` for an iid `feols` fit,
+  and a wild cluster bootstrap when there are fewer than 30 clusters. Every
+  `sp.feols` result was also handed the IV checklist (first-stage F,
+  over-identification, Kitagawa) because `"iv"` is a substring of
+  `"ols (statspai native)"`; IV is now matched on whole words.
 
 
 ### ⚠️ Correctness: `sp.rdrobust` fuzzy bandwidth with covariates

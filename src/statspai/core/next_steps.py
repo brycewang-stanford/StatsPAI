@@ -81,7 +81,7 @@ _CTX_ALIASES = {
     "running": ("x", "running", "running_var"),
     "cutoff": ("c", "cutoff"),
     "covs": ("covs",),
-    "formula": ("formula",),
+    "formula": ("formula", "fml"),
     "treated_unit": ("treated_unit",),
     "treatment_time": ("treatment_time",),
 }
@@ -280,15 +280,91 @@ def _has_log_likelihood(result: Any) -> bool:
         return False
 
 
+_IV_MODEL = re.compile(r"\b(?:iv|2sls|tsls|liml|fuller|gmm)\b")
+_CLASSICAL_SE = {"", "none", "nonrobust", "iid", "classical", "ols", "unadjusted"}
+_CLUSTER_SE = {"crv", "crv1", "crv2", "crv3", "cluster", "twoway", "cr1", "cr2", "cr3"}
+
+
+def _is_iv_fit(model_type: str) -> bool:
+    """IV fit, judged on whole words (``"OLS (StatsPAI native)"`` holds "iv")."""
+    return bool(_IV_MODEL.search(model_type))
+
+
+def _se_kind(mi: Dict[str, Any]) -> str:
+    """``'cluster'``, ``'robust'`` or ``'classical'`` from what the fit recorded.
+
+    Estimators record the variance choice under different keys:
+    ``sp.regress`` keeps ``robust`` and puts a cluster in ``cluster``,
+    ``sp.feols`` uses ``vcov_type`` / ``clustervar``.
+    """
+    clusters = mi.get("clustervar") or mi.get("cluster") or mi.get("cluster_var")
+    vcov_type = str(mi.get("vcov_type") or "").strip().lower()
+    if clusters or vcov_type in _CLUSTER_SE or vcov_type.startswith("cr"):
+        return "cluster"
+    robust = str(mi.get("robust") or "").strip().lower()
+    if robust not in _CLASSICAL_SE or vcov_type not in _CLASSICAL_SE:
+        return "robust"
+    return "classical"
+
+
+def _variance_step(result: Any, ctx: Dict[str, Any], model_type: str) -> Optional[Step]:
+    """The standard-error follow-up that fits how the model was estimated.
+
+    Suggesting heteroskedasticity-robust SEs on a fit that already clusters
+    (the 2026-10-19 audit found it on every ``sp.feols`` result) points the
+    user backwards; a clustered fit with few clusters needs a wild cluster
+    bootstrap instead.
+    """
+    from ._agent_summary import _FEW_CLUSTERS_MIN
+
+    mi = result.model_info or {}
+    kind = _se_kind(mi)
+    prov = getattr(result, "_provenance", None)
+    fn = str(getattr(prov, "function", "") or "")
+    if kind == "classical":
+        formula = (
+            ctx.get("formula") or f"{result.data_info.get('dependent_var', 'y')} ~ ..."
+        )
+        if fn == "sp.feols":
+            action = f"sp.feols({formula!r}, data=df, vcov='hetero')"
+        else:
+            refit = "sp.iv" if _is_iv_fit(model_type) else "sp.regress"
+            action = f"{refit}({formula!r}, data=df, robust='hc1')"
+        return Step(
+            action,
+            "Re-estimate with heteroskedasticity-robust standard errors",
+            priority="recommended",
+            category="robustness",
+        )
+    if kind == "cluster":
+        n_clusters = mi.get("n_clusters")
+        try:
+            few = n_clusters is not None and int(n_clusters) < _FEW_CLUSTERS_MIN
+        except (TypeError, ValueError):
+            few = False
+        if few:
+            cluster = mi.get("clustervar") or mi.get("cluster")
+            if isinstance(cluster, (list, tuple)):
+                cluster = cluster[0] if len(cluster) == 1 else None
+            cl = repr(cluster) if isinstance(cluster, str) else "'...'"
+            return Step(
+                f"sp.wild_cluster_boot(result, data=df, cluster={cl}, "
+                "variable='...')",
+                f"Only {int(n_clusters)} clusters: cluster-robust SEs over-reject; "
+                "check with a wild cluster bootstrap",
+                priority="recommended",
+                category="robustness",
+            )
+    return None
+
+
 def econometric_next_steps(result: Any) -> List[Step]:
     """Generate next steps for an EconometricResults object."""
     steps: List[Step] = []
     ctx = _fit_context(result)
     model_type = (result.model_info.get("model_type", "") or "").lower()
-    robust = result.model_info.get("robust", "nonrobust")
     has_residuals = result.data_info.get("residuals") is not None
     has_X = result.data_info.get("X") is not None
-    dep_var = result.data_info.get("dependent_var", "y")
 
     # ── Diagnostics ────────────────────────────────────────────────── #
     if has_residuals and has_X:
@@ -311,22 +387,13 @@ def econometric_next_steps(result: Any) -> List[Step]:
             )
         )
 
-    # Robust SEs suggestion
-    if robust == "nonrobust":
-        # Re-estimate with the estimator that produced the fit: an IV fit
-        # re-run through sp.regress would silently drop the instruments.
-        refit = (
-            "sp.iv" if ("iv" in model_type or "2sls" in model_type) else "sp.regress"
-        )
-        formula = ctx.get("formula") or f"{dep_var} ~ ..."
-        steps.append(
-            Step(
-                f"{refit}({formula!r}, data=df, robust='hc1')",
-                "Re-estimate with heteroskedasticity-robust standard errors",
-                priority="recommended",
-                category="robustness",
-            )
-        )
+    # Standard errors: robust when classical, a wild cluster bootstrap when
+    # clustered on few clusters, nothing when already appropriate. An IV
+    # fit is re-run through its own estimator (sp.regress would drop the
+    # instruments).
+    variance_step = _variance_step(result, ctx, model_type)
+    if variance_step is not None:
+        steps.append(variance_step)
 
     # ── Post-estimation ────────────────────────────────────────────── #
     steps.append(
@@ -381,7 +448,7 @@ def econometric_next_steps(result: Any) -> List[Step]:
     )
 
     # ── IV-specific ────────────────────────────────────────────────── #
-    if "iv" in model_type or "2sls" in model_type:
+    if _is_iv_fit(model_type):
         steps.insert(
             0,
             Step(
