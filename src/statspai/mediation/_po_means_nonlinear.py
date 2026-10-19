@@ -125,12 +125,17 @@ def potential_outcome_mediation_nonlinear(
     treat_values: Optional[Tuple[float, float]] = None,
     alpha: float = 0.05,
     weights: Optional[str] = None,
+    design: Any = None,
 ) -> Dict[str, Any]:
     """Potential-outcome means and natural effects, any supported model pair.
 
     ``weights`` names a column of sampling weights (Stata ``mediate
     [pw=]``): every estimating equation -- both models and the four means
-    -- is weighted, and the sandwich uses squared weights.
+    -- is weighted, and the sandwich uses squared weights. ``design`` (a
+    validated ``SurveyDesign`` on the rows of ``data``) supplies the weights
+    and replaces the sandwich by the design-based (linearisation) variance
+    of the same estimating equations; intervals then use the design
+    degrees of freedom.
 
     Same return structure as
     :func:`statspai.mediation._po_means.potential_outcome_mediation`, plus
@@ -154,7 +159,13 @@ def potential_outcome_mediation_nonlinear(
     cols = [y, treat, mediator, *covs] + ([weights] if weights else [])
     clean = data[cols].dropna()
     n = len(clean)
-    if weights:
+    rows = None
+    if design is not None:
+        from ..survey.linearization import design_rows
+
+        rows = design_rows(design, data, cols)
+        wt = rows.weights / rows.weights.mean()
+    elif weights:
         wt = clean[weights].to_numpy(dtype=float)
         if (wt < 0).any() or not np.isfinite(wt).all() or not (wt > 0).any():
             raise MethodIncompatibility(
@@ -293,9 +304,19 @@ def potential_outcome_mediation_nonlinear(
             "mediate: the estimating equations are singular at the solution."
         ) from exc
     V = A_inv @ B @ A_inv.T / n
+    df_design = None
+    if rows is not None:
+        from ..survey.linearization import design_df, design_vcov
+
+        # theta_hat - theta ~= A^-1 mean(psi_i): contributions A^-1 psi_i / n
+        V = design_vcov(psi @ A_inv.T / n, design, rows.rows)
+        df_design = design_df(design, rows.rows)
     V_mu = V[-4:, -4:]
 
-    crit = stats.norm.ppf(1 - alpha / 2)
+    if df_design is not None:
+        crit = stats.t.ppf(1 - alpha / 2, df=df_design)
+    else:
+        crit = stats.norm.ppf(1 - alpha / 2)
 
     def _table(names: List[str], est: np.ndarray, cov: np.ndarray) -> pd.DataFrame:
         se = np.sqrt(np.clip(np.diag(cov), 0.0, None))
@@ -307,7 +328,11 @@ def potential_outcome_mediation_nonlinear(
                 "estimate": est,
                 "se": se,
                 "z": z,
-                "pvalue": 2 * stats.norm.sf(np.abs(z)),
+                "pvalue": (
+                    2 * stats.t.sf(np.abs(z), df=df_design)
+                    if df_design is not None
+                    else 2 * stats.norm.sf(np.abs(z))
+                ),
                 "ci_lower": est - crit * se,
                 "ci_upper": est + crit * se,
             }
@@ -362,4 +387,5 @@ def potential_outcome_mediation_nonlinear(
         "outcome_model": family,
         "treat_values": (d0, d1),
         "mediator_variance": s2 if link == "linear" else None,
+        "design_df": df_design,
     }

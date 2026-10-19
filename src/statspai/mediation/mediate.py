@@ -23,7 +23,7 @@ confounders affected by treatment.
 """
 
 import warnings
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -60,6 +60,7 @@ def _mediate_robust(
     outcome_model: str = "linear",
     treat_values: Optional[Tuple[float, float]] = None,
     weights: Optional[str] = None,
+    design: Any = None,
 ) -> CausalResult:
     """Potential-outcome mediation packaged as a ``CausalResult``."""
     fit = _po_fit(
@@ -74,8 +75,15 @@ def _mediate_robust(
         outcome_model=outcome_model,
         treat_values=treat_values,
         weights=weights,
+        design=design,
     )
-    return _po_result(fit, interaction=interaction, alpha=alpha)
+    res = _po_result(fit, interaction=interaction, alpha=alpha)
+    if design is not None:
+        from ..survey.linearization import design_info
+
+        res.model_info["inference"] = "design"
+        res.model_info["survey_design"] = design_info(design, fit["design_df"])
+    return res
 
 
 def _po_fit(
@@ -91,6 +99,7 @@ def _po_fit(
     outcome_model: str = "linear",
     treat_values: Optional[Tuple[float, float]] = None,
     weights: Optional[str] = None,
+    design: Any = None,
 ) -> dict:
     """Potential-outcome means, effects and their sandwich variance."""
     from ._po_means import potential_outcome_mediation
@@ -100,6 +109,7 @@ def _po_fit(
         str(outcome_model).lower() == "linear"
         and treat_values is None
         and weights is None
+        and design is None
     ):
         return potential_outcome_mediation(
             data,
@@ -123,6 +133,7 @@ def _po_fit(
         treat_values=treat_values,
         alpha=alpha,
         weights=weights,
+        design=design,
     )
 
 
@@ -312,6 +323,7 @@ def mediate(
     outcome_model: str = "linear",
     treat_values: Optional[Tuple[float, float]] = None,
     weights: Optional[str] = None,
+    design: Any = None,
 ) -> CausalResult:
     """
     Causal mediation analysis.
@@ -386,6 +398,16 @@ def mediate(
         treatment that is not coded 0/1 (``inference='robust'`` or
         ``'bootstrap'``; Stata's ``continuous(numlist)``). The treatment
         enters the two models linearly.
+    design : SurveyDesign, optional
+        A survey design from ``sp.svydesign`` on the rows of ``data``
+        (``inference='robust'`` only): the weights are the design's and the
+        standard errors are the design-based linearisation of the stacked
+        estimating equations (strata, PSUs, FPC), with ``t`` intervals on
+        the design degrees of freedom. With PSUs and no strata the standard
+        errors are Stata 18 ``mediate [pw=w], vce(cluster psu)``'s times
+        ``sqrt(G / (G - 1))`` (the survey small-sample factor, which Stata's
+        ``mediate`` omits;
+        ``tests/reference_parity/test_mediate_design_Stata_parity.py``).
     weights : str, optional
         Column of sampling (probability) weights, Stata ``mediate [pw=]``.
         Both models are fitted by weighted (quasi-)likelihood and the
@@ -475,6 +497,17 @@ def mediate(
         or treat_values is not None
         or weights is not None
     )
+    if design is not None:
+        from ..survey.linearization import check_design
+
+        design = check_design(design, data, function="sp.mediate", weights=weights)
+        if inference != "robust":
+            raise MethodIncompatibility(
+                "mediate(design=...) gives the design-based variance of the "
+                "potential-outcome estimator, which needs inference='robust'.",
+                recovery_hint="Pass inference='robust' with design=.",
+            )
+        po_only = True
     if weights is not None:
         check_columns(data, {"weights": weights}, function="sp.mediate")
     if inference == "bootstrap" and po_only:
@@ -550,6 +583,7 @@ def mediate(
             treat_values=treat_values,
             alpha=alpha,
             weights=weights,
+            design=design,
         )
         _attach_mediate_provenance(
             _result,

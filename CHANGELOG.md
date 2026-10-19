@@ -4,6 +4,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.mediate(design=)`
+
+#### Added
+
+- `sp.mediate(..., design=sp.svydesign(...), inference='robust')`: the
+  design's weights and the design-based (linearisation) variance of the
+  stacked estimating equations, through the shared
+  `survey.linearization.design_vcov`, with `t` intervals on the design
+  degrees of freedom. Stata `svy` does not support `mediate`; with PSUs and
+  no strata the SEs equal Stata 18 `mediate [pw=w], vce(cluster psu)`
+  times `sqrt(G / (G - 1))`, the survey factor Stata's `mediate` omits
+  (`tests/reference_parity/test_mediate_design_Stata_parity.py`).
+  `sp.lee_bounds` has no `design=` (its bounds have no influence function
+  here); use `weights=` with the bootstrap.
+
 ### Spatial: random-effects panel, SDEM and GNS
 
 #### Added

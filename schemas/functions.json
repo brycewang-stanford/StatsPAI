@@ -14035,6 +14035,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A survey design from ``sp.svydesign`` on the rows of ``data`` (``inference='robust'`` only): the weights are the design's and the standard errors are the design-based linearisation of the stacked estimating equations (strata, PSUs, FPC), with ``t`` intervals on the design degrees of freedom. With PSUs and no strata the standard errors are Stata 18 ``mediate [pw=w], vce(cluster psu)``'s times ``sqrt(G / (G - 1))`` (the survey small-sample factor, which Stata's ``mediate`` omits; ``tests/reference_parity/test_mediate_design_Stata_parity.py``).",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "inference": {
           "default": "bootstrap",
           "description": "Standard errors. 'robust' estimates potential-outcome means and takes the sandwich of the stacked estimating equations (Stata 18 mediate). interaction=True, a non-linear model and treat_values run that estimator under 'robust' (sandwich) or 'bootstrap' (case resampling, percentile intervals, as R mediation boot=TRUE); 'delta' refuses them.",
