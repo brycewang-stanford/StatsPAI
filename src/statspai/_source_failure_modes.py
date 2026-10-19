@@ -1733,6 +1733,25 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "statistic would divide by zero.",
         },
     ],
+    "xtpcse": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Each (id, time) pair must appear once.",
+            "symptom": "xtpcse: repeated time values within a panel.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Use hetonly=True or drop the panels that do not " "overlap.",
+            "symptom": "xtpcse: two panels share no period, so their "
+            "covariance cannot be estimated (pairwise).",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Pass pairwise=True or hetonly=True.",
+            "symptom": "xtpcse: no period is observed for every panel, so the "
+            "casewise covariance has no data.",
+        },
+    ],
     "xtserial": [
         {
             "exception": "statspai.MethodIncompatibility",

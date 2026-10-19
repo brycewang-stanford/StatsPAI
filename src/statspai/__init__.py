@@ -2377,6 +2377,7 @@ __all__ = [
     "series",
     "xthtaylor",
     "xtivreg",
+    "xtpcse",
     "model_average",
     "ModelAverageResult",
     "jackknife",
@@ -3362,6 +3363,7 @@ _register_lazy("regression.mprobit", "mprobit")
 _register_lazy("nonparametric.series", "series")
 _register_lazy("panel.hausman_taylor", "xthtaylor")
 _register_lazy("panel.xtivreg", "xtivreg")
+_register_lazy("panel.xtpcse", "xtpcse")
 _register_lazy("regression.model_average", "model_average", "ModelAverageResult")
 _register_lazy("inference._jackknife_general", "jackknife", "JackknifeResult")
 _register_lazy("multivariate.pca", "pca", "PCAResult")

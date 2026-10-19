@@ -8886,6 +8886,90 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="xtpcse",
+            category="panel",
+            description=(
+                "Linear regression with panel-corrected standard errors "
+                "(Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), "
+                "disturbances heteroskedastic and contemporaneously "
+                "correlated across panels."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Dependent variable"),
+                ParamSpec("x", "list", True, description="Regressors"),
+                ParamSpec("id", "str", True, description="Panel identifier"),
+                ParamSpec("time", "str", True, description="Time variable"),
+                ParamSpec(
+                    "correlation",
+                    "str",
+                    False,
+                    "independent",
+                    "Within-panel autocorrelation: none (OLS), common AR(1) or "
+                    "panel-specific AR(1) (Prais-Winsten)",
+                    ["independent", "ar1", "psar1"],
+                ),
+                ParamSpec(
+                    "rhotype",
+                    "str",
+                    False,
+                    "regress",
+                    "How each panel's AR(1) coefficient is computed",
+                    ["regress", "freg", "tscorr", "dw"],
+                ),
+                ParamSpec(
+                    "np1",
+                    "bool",
+                    False,
+                    False,
+                    "Weight panel AR(1) coefficients by T_i (common rho)",
+                ),
+                ParamSpec(
+                    "hetonly",
+                    "bool",
+                    False,
+                    False,
+                    "Panel heteroskedasticity only, no cross-panel correlation",
+                ),
+                ParamSpec(
+                    "independent",
+                    "bool",
+                    False,
+                    False,
+                    "One disturbance variance for all observations",
+                ),
+                ParamSpec(
+                    "pairwise",
+                    "bool",
+                    False,
+                    False,
+                    "Covariances from the periods each pair of panels shares "
+                    "(default casewise: periods all panels share)",
+                ),
+                ParamSpec(
+                    "nmk", "bool", False, False, "Normalise by N - k instead of N"
+                ),
+                ParamSpec("noconstant", "bool", False, False, "Suppress the constant"),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.xtpcse(df, y="gdp", x=["trade"], id="country", time="year", '
+                'correlation="ar1")'
+            ),
+            tags=["panel", "tscs", "pcse", "beck-katz", "prais-winsten"],
+            reference="Beck and Katz (1995)",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="xthtaylor",
             category="panel",
             description=(

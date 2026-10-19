@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.xtpcse`: panel-corrected standard errors (Beck-Katz)
+
+#### Added
+
+- `sp.xtpcse(data, y, x, id, time, correlation='independent' | 'ar1' |
+  'psar1', rhotype=, np1=, hetonly=, independent=, pairwise=, nmk=)`,
+  Stata's `xtpcse`: OLS or Prais-Winsten coefficients with standard errors
+  for disturbances heteroskedastic and contemporaneously correlated across
+  panels, casewise or pairwise covariance on unbalanced panels. All 23
+  option combinations tested match Stata 18 to 1e-12 on a balanced and an
+  unbalanced panel with gaps (`tests/test_xtpcse_stata.py`). On unbalanced
+  panels the common AR(1) coefficient weights each panel by its number of
+  consecutive pairs (one more with `np1`), which is what Stata computes.
 ### `sp.four_way_decomposition`: logistic / Poisson outcomes, logistic mediators
 
 #### Added

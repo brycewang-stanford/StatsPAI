@@ -44695,6 +44695,105 @@
     "name": "xtoverid"
   },
   {
+    "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels. Failure modes: xtpcse: repeated time values within a panel -> Each (id, time) pair must appear once; xtpcse: two panels share no period, so their covariance cannot be estimated (pairwise) -> Use hetonly=True or drop the panels that do not overlap; xtpcse: no period is observed for every panel, so the casewise covariance has no data -> Pass pairwise=True or hetonly=True.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "correlation": {
+          "default": "independent",
+          "description": "Within-panel autocorrelation: none (OLS), common AR(1) or panel-specific AR(1) (Prais-Winsten)",
+          "enum": [
+            "independent",
+            "ar1",
+            "psar1"
+          ],
+          "type": "string"
+        },
+        "hetonly": {
+          "default": false,
+          "description": "Panel heteroskedasticity only, no cross-panel correlation",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "independent": {
+          "default": false,
+          "description": "One disturbance variance for all observations",
+          "type": "boolean"
+        },
+        "nmk": {
+          "default": false,
+          "description": "Normalise by N - k instead of N",
+          "type": "boolean"
+        },
+        "noconstant": {
+          "default": false,
+          "description": "Suppress the constant",
+          "type": "boolean"
+        },
+        "np1": {
+          "default": false,
+          "description": "Weight panel AR(1) coefficients by T_i (common rho)",
+          "type": "boolean"
+        },
+        "pairwise": {
+          "default": false,
+          "description": "Covariances from the periods each pair of panels shares (default casewise: periods all panels share)",
+          "type": "boolean"
+        },
+        "rhotype": {
+          "default": "regress",
+          "description": "How each panel's AR(1) coefficient is computed",
+          "enum": [
+            "regress",
+            "freg",
+            "tscorr",
+            "dw"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Time variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "id",
+        "time",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtpcse"
+  },
+  {
     "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear panel model with time-varying regressors; Under the null the idiosyncratic errors are serially uncorrelated, which makes the first-differenced errors correlated at -0.5; Many panels: the variance is clustered on the panel. Failure modes: sp.xtserial: time=<time> must count periods (integers) -> Convert dates to a period index first; sp.xtserial: too few consecutive observations to difference -> The test needs at least three consecutive periods per panel; sp.xtserial: no regressor changes within panels -> The first-difference regression needs at least one time-varying regressor.",
     "input_schema": {
       "properties": {

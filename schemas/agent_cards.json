@@ -14045,6 +14045,182 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.xtpcse(df, y=\"gdp\", x=[\"trade\"], id=\"country\", time=\"year\", correlation=\"ar1\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Each (id, time) pair must appear once.",
+        "symptom": "xtpcse: repeated time values within a panel."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use hetonly=True or drop the panels that do not overlap.",
+        "symptom": "xtpcse: two panels share no period, so their covariance cannot be estimated (pairwise)."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Pass pairwise=True or hetonly=True.",
+        "symptom": "xtpcse: no period is observed for every panel, so the casewise covariance has no data."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xtpcse",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "Beck and Katz (1995)",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels.",
+      "name": "xtpcse",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "correlation": {
+            "default": "independent",
+            "description": "Within-panel autocorrelation: none (OLS), common AR(1) or panel-specific AR(1) (Prais-Winsten)",
+            "enum": [
+              "independent",
+              "ar1",
+              "psar1"
+            ],
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "hetonly": {
+            "default": false,
+            "description": "Panel heteroskedasticity only, no cross-panel correlation",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Panel identifier",
+            "type": "string",
+            "x-aliases": [
+              "entity"
+            ],
+            "x-statspai-role": "column"
+          },
+          "independent": {
+            "default": false,
+            "description": "One disturbance variance for all observations",
+            "type": "boolean"
+          },
+          "nmk": {
+            "default": false,
+            "description": "Normalise by N - k instead of N",
+            "type": "boolean"
+          },
+          "noconstant": {
+            "default": false,
+            "description": "Suppress the constant",
+            "type": "boolean"
+          },
+          "np1": {
+            "default": false,
+            "description": "Weight panel AR(1) coefficients by T_i (common rho)",
+            "type": "boolean"
+          },
+          "pairwise": {
+            "default": false,
+            "description": "Covariances from the periods each pair of panels shares (default casewise: periods all panels share)",
+            "type": "boolean"
+          },
+          "rhotype": {
+            "default": "regress",
+            "description": "How each panel's AR(1) coefficient is computed",
+            "enum": [
+              "regress",
+              "freg",
+              "tscorr",
+              "dw"
+            ],
+            "type": "string"
+          },
+          "time": {
+            "description": "Time variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "x": {
+            "description": "Regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y": {
+            "description": "Dependent variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x",
+          "id",
+          "time"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "panel",
       "hausman"
