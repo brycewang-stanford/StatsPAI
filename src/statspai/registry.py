@@ -25701,9 +25701,12 @@ def _build_registry() -> None:
             name="spillover",
             category="causal",
             description=(
-                "Direct + spillover treatment effect estimation under partial "
-                "interference (within-cluster). Uses the Hudgens-Halloran "
-                "decomposition with chosen exposure function."
+                "Direct, spillover and total contrasts by peer exposure under "
+                "partial interference: differences in means between own-"
+                "treatment x exposure cells, units split at the median of "
+                "the positive peer exposures, cluster-bootstrap SEs. Not the "
+                "Hudgens-Halloran two-stage estimands (those need the "
+                "randomised cluster saturations)."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -25715,7 +25718,13 @@ def _build_registry() -> None:
                     True,
                     description="Cluster column (interference boundary)",
                 ),
-                ParamSpec("covariates", "list", False),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    description="Not supported (contrasts are unadjusted); "
+                    "passing covariates raises MethodIncompatibility.",
+                ),
                 ParamSpec(
                     "exposure_fn",
                     "str",
@@ -25730,7 +25739,7 @@ def _build_registry() -> None:
             returns="CausalResult (direct + spillover effects)",
             example='sp.spillover(df, y="y", treat="d", cluster="village")',
             tags=["spillover", "interference", "partial", "cluster"],
-            reference="Hudgens & Halloran (2008); Basse & Feller (2018)",
+            reference="hudgens2008toward (two-stage estimands, not computed here)",
             pre_conditions=[
                 "data has a cluster column defining the interference boundary",
                 "treatment varies within clusters",
@@ -25740,7 +25749,10 @@ def _build_registry() -> None:
                 "Partial interference: spillover only within cluster, not across",
                 "Correct exposure function (fraction / any / count — sensitivity "
                 "tested)",
-                "Overlap: every (treatment × exposure) cell has positive probability",
+                "Own treatment independent of cluster-mates' (Bernoulli "
+                "assignment) for a causal reading of the contrasts",
+                "Overlap: every (treatment × exposure) cell is non-empty "
+                "(an empty cell raises DataInsufficient)",
             ],
             failure_modes=[
                 FailureMode(

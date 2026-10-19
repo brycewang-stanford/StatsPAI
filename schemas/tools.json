@@ -37045,7 +37045,7 @@
     "name": "spec_curve"
   },
   {
-    "description": "Direct + spillover treatment effect estimation under partial interference (within-cluster). Uses the Hudgens-Halloran decomposition with chosen exposure function. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Partial interference: spillover only within cluster, not across; Correct exposure function (fraction / any / count -- sensitivity tested); Overlap: every (treatment x exposure) cell has positive probability. Pre-conditions: data has a cluster column defining the interference boundary; treatment varies within clusters; >= 30 clusters for cluster-robust inference. Failure modes: No within-cluster variation in treatment -> Assignments are cluster-level -- use sp.cluster_matched_pair or cluster-level ATE; Exposure function misspecified -> Compare estimates under exposure_fn in {fraction, any, count}. Alternatives: sp.network_exposure, sp.cluster_matched_pair, sp.peer_effects. Typical minimum N: 500.",
+    "description": "Direct, spillover and total contrasts by peer exposure under partial interference: differences in means between own-treatment x exposure cells, units split at the median of the positive peer exposures, cluster-bootstrap SEs. Not the Hudgens-Halloran two-stage estimands (those need the randomised cluster saturations). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Partial interference: spillover only within cluster, not across; Correct exposure function (fraction / any / count -- sensitivity tested); Own treatment independent of cluster-mates' (Bernoulli assignment) for a causal reading of the contrasts. Pre-conditions: data has a cluster column defining the interference boundary; treatment varies within clusters; >= 30 clusters for cluster-robust inference. Failure modes: No within-cluster variation in treatment -> Assignments are cluster-level -- use sp.cluster_matched_pair or cluster-level ATE; Exposure function misspecified -> Compare estimates under exposure_fn in {fraction, any, count}. Alternatives: sp.network_exposure, sp.cluster_matched_pair, sp.peer_effects. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -37059,7 +37059,7 @@
           "x-statspai-role": "column"
         },
         "covariates": {
-          "description": "Control covariates.",
+          "description": "Not supported (contrasts are unadjusted); passing covariates raises MethodIncompatibility.",
           "items": {
             "type": "string"
           },

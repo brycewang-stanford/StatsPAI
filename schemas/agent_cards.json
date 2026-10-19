@@ -59767,11 +59767,12 @@
     "assumptions": [
       "Partial interference: spillover only within cluster, not across",
       "Correct exposure function (fraction / any / count -- sensitivity tested)",
-      "Overlap: every (treatment x exposure) cell has positive probability"
+      "Own treatment independent of cluster-mates' (Bernoulli assignment) for a causal reading of the contrasts",
+      "Overlap: every (treatment x exposure) cell is non-empty (an empty cell raises DataInsufficient)"
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Direct + spillover treatment effect estimation under partial interference (within-cluster). Uses the Hudgens-Halloran decomposition with chosen exposure function. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Direct, spillover and total contrasts by peer exposure under partial interference: differences in means between own-treatment x exposure cells, units split at the median of the positive peer exposures, cluster-bootstrap SEs. Not the Hudgens-Halloran two-stage estimands (those need the randomised cluster saturations). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -59822,7 +59823,7 @@
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "Hudgens & Halloran (2008); Basse & Feller (2018)",
+    "reference": "hudgens2008toward (two-stage estimands, not computed here)",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult (direct + spillover effects)",
@@ -59841,7 +59842,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Direct + spillover treatment effect estimation under partial interference (within-cluster). Uses the Hudgens-Halloran decomposition with chosen exposure function. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Direct, spillover and total contrasts by peer exposure under partial interference: differences in means between own-treatment x exposure cells, units split at the median of the positive peer exposures, cluster-bootstrap SEs. Not the Hudgens-Halloran two-stage estimands (those need the randomised cluster saturations). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "spillover",
       "parameters": {
         "properties": {
@@ -59856,7 +59857,7 @@
             "x-statspai-role": "column"
           },
           "covariates": {
-            "description": "Control covariates.",
+            "description": "Not supported (contrasts are unadjusted); passing covariates raises MethodIncompatibility.",
             "items": {
               "type": "string"
             },

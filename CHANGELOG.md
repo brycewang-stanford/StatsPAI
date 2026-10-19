@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.spillover` says which contrasts it computes
+
+#### Fixed
+
+- `sp.spillover` was labelled "Hudgens & Halloran (2008)" and described as
+  IPW. It computes differences in means between own-treatment x
+  peer-exposure cells split at the median positive exposure; the method
+  label, estimand, docstring and registry card now say so, and
+  `model_info` adds the threshold, `cell_sizes` and the estimand
+  formulas. Point estimates are unchanged; standard errors change only
+  where a bootstrap replicate had an empty cell (see below).
+  Three silent behaviours now fail loudly: `covariates=` (ignored before)
+  and an unknown `exposure_fn` (fell back to `'fraction'`) raise
+  `MethodIncompatibility`; an empty cell (reported as an effect of 0)
+  raises `DataInsufficient`, and bootstrap replicates with an empty cell
+  are dropped and counted (`n_boot_dropped`) instead of entering as 0.
+
 ### `sp.ml_bounds` documents what it computes
 
 #### Fixed

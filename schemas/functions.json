@@ -26509,7 +26509,7 @@
     }
   },
   {
-    "description": "Direct + spillover treatment effect estimation under partial interference (within-cluster). Uses the Hudgens-Halloran decomposition with chosen exposure function. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Direct, spillover and total contrasts by peer exposure under partial interference: differences in means between own-treatment x exposure cells, units split at the median of the positive peer exposures, cluster-bootstrap SEs. Not the Hudgens-Halloran two-stage estimands (those need the randomised cluster saturations). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "spillover",
     "parameters": {
       "properties": {
@@ -26524,7 +26524,7 @@
           "x-statspai-role": "column"
         },
         "covariates": {
-          "description": "Control covariates.",
+          "description": "Not supported (contrasts are unadjusted); passing covariates raises MethodIncompatibility.",
           "items": {
             "type": "string"
           },
