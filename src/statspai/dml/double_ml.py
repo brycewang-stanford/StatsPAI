@@ -61,7 +61,7 @@ def dml(
     normalize_ipw: bool = False,
     trimming_threshold: float = 1e-2,
     *,
-    cluster: Optional[str] = None,
+    cluster: Optional[Union[str, Sequence[str]]] = None,
     external_predictions: Optional["OOFPredictions"] = None,
     store_oof: bool = False,
     observation_ids: Optional[Sequence[str]] = None,
@@ -162,13 +162,25 @@ def dml(
         estimated propensity is clipped to ``[t, 1 - t]``. The default
         ``0.01`` reproduces the historical clip and matches DoubleML's
         ``trimming_threshold`` with ``trimming_rule='truncate'``.
-    cluster : str, optional
-        Column identifying clusters (one-way). Cross-fitting folds are
-        formed over whole clusters and the standard error is the
-        cluster-robust DML variance of Chiang, Kato, Ma and Sasaki (2022),
-        as DoubleML computes it for ``DoubleMLClusterData``; the estimate
-        solves the fold-weighted score. Not available with
-        ``external_predictions``.
+    cluster : str or list of two str, optional
+        Column identifying clusters, or two columns for two-way
+        clustering. Cross-fitting folds are formed over whole clusters and
+        the standard error is the cluster-robust DML variance of Chiang,
+        Kato, Ma and Sasaki (2022) [@chiang2022multiway], as DoubleML
+        computes it for ``DoubleMLClusterData``; the estimate solves the
+        fold-weighted score. Two-way: each dimension is split into
+        ``n_folds`` folds of clusters, the ``n_folds**2`` cells test the
+        units in fold ``k`` of the first and fold ``l`` of the second
+        dimension and train on units sharing no cluster with them, and the
+        variance sums the two dimensions' within-cell cluster scores
+        (equal to DoubleML 0.11.3 to 1e-15 given the same folds,
+        ``tests/reference_parity/test_dml_twoway_cluster_doubleml_parity.py``).
+        Pass ``fold_indices`` as an ``n x 2`` array (fold of each unit's
+        cluster in each dimension) to fix the cells. With two-way clusters
+        ``sp.dml_sensitivity`` reports the bound without its sampling
+        error (no two-way variance for the bound's score elements). Not
+        available with ``external_predictions`` or two-way with
+        ``design=``.
     external_predictions : OOFPredictions, optional
         Python-only in-memory predictions for unweighted, unnormalised
         binary-treatment IRM ATE scoring. ``caller_declared`` training records
@@ -450,7 +462,7 @@ class DoubleML:
         score: Optional[str] = None,
         normalize_ipw: bool = False,
         trimming_threshold: float = 1e-2,
-        cluster: Optional[str] = None,
+        cluster: Optional[Union[str, Sequence[str]]] = None,
     ):
         key = str(model).lower()
         if key not in _MODEL_REGISTRY:

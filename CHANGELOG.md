@@ -144,6 +144,39 @@ All notable changes to StatsPAI will be documented in this file.
   `tests/reference_parity/test_ltmle_weights_parity.py`.
 - MatchIt, sandwich and ltmle (GPL) were used as black boxes.
 
+### Two-way cluster DML: `sp.dml(cluster=[c1, c2])`
+
+#### Added
+
+- `sp.dml(cluster=[c1, c2])`: two-way cluster-robust DML (Chiang, Kato,
+  Ma and Sasaki 2022, as DoubleML implements it) for PLR, IRM, PLIV and
+  IIVM. Each cluster dimension is split into `n_folds` folds; the
+  `n_folds**2` cells test units in fold `k` of one dimension and `l` of
+  the other and train on units sharing no cluster with them; the estimate
+  solves the cell-weighted score and the variance sums the two
+  dimensions' within-cell cluster scores. `fold_indices` takes an `n x 2`
+  array of per-dimension folds. Estimate and SE equal Python DoubleML
+  0.11.3 to 1e-15 given the same folds for all four models.
+  `tests/reference_parity/test_dml_twoway_cluster_doubleml_parity.py`.
+  One-way `cluster=` is unchanged.
+
+### Multi-action policy trees: `sp.policy_tree` on three or more arms
+
+#### Added
+
+- `sp.policy_tree` grows a multi-action tree when the treatment has more
+  than two levels (or two levels not coded 0/1), or when `scores=` is an
+  `n x A` reward matrix: each leaf assigns one level, the depth <= 2
+  search is exact on the reward matrix (`policytree::policy_tree(X,
+  Gamma)`), and the internal rewards are cross-fitted AIPW scores of
+  every arm. Given the reward matrix, every row's assigned action equals
+  R policytree 1.2.4 in five settings (three and four actions, depth 1
+  and 2, minimum leaf sizes 1 / 10 / 20, tied covariates).
+  `tests/reference_parity/test_policytree_multi_action_parity.py`. Before
+  this a three-arm treatment raised a plain `ValueError`. `split_step >
+  1` thins the grid by distinct value, not by sample as policytree's
+  `split.step` does; the docstring no longer calls them the same.
+
 ### `sp.mediate_paths`: path-specific effects with ordered mediators
 
 #### Added

@@ -3729,7 +3729,9 @@ def _build_registry() -> None:
                     "(train, test) positional index pairs whose test sets "
                     "partition the rows and whose training sets are their "
                     "complements. Requires n_rep=1. With a shared partition "
-                    "the estimate is reproducible across implementations.",
+                    "the estimate is reproducible across implementations. "
+                    "Two-way cluster=: an n x 2 array, the fold of each unit's "
+                    "cluster in each dimension.",
                 ),
                 ParamSpec(
                     "n_rep",
@@ -3775,12 +3777,15 @@ def _build_registry() -> None:
                 ),
                 ParamSpec(
                     "cluster",
-                    "str",
+                    "str | list[str]",
                     False,
                     None,
-                    "One-way cluster column: folds over whole clusters and the "
-                    "Chiang-Kato-Ma-Sasaki cluster variance (DoubleML "
-                    "DoubleMLClusterData, all four models).",
+                    "Cluster column, or a list of two for two-way clustering: "
+                    "folds over whole clusters (two-way: the K x K product of "
+                    "the two cluster partitions, training on units sharing no "
+                    "cluster with the test cell) and the Chiang-Kato-Ma-Sasaki "
+                    "cluster variance (DoubleML DoubleMLClusterData, all four "
+                    "models).",
                 ),
                 ParamSpec(
                     "sample_weight",

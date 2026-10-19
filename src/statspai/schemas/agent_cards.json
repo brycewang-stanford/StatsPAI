@@ -5062,9 +5062,11 @@
       "parameters": {
         "properties": {
           "cluster": {
-            "description": "One-way cluster column: folds over whole clusters and the Chiang-Kato-Ma-Sasaki cluster variance (DoubleML DoubleMLClusterData, all four models).",
-            "type": "string",
-            "x-statspai-role": "column"
+            "description": "Cluster column, or a list of two for two-way clustering: folds over whole clusters (two-way: the K x K product of the two cluster partitions, training on units sharing no cluster with the test cell) and the Chiang-Kato-Ma-Sasaki cluster variance (DoubleML DoubleMLClusterData, all four models).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "covariates": {
             "description": "List of control variable names",
@@ -5088,7 +5090,7 @@
             "x-statspai-source": "signature"
           },
           "fold_indices": {
-            "description": "Explicit cross-fitting folds: one label per row (array or column name), or scikit-learn style splits, a list of (train, test) positional index pairs whose test sets partition the rows and whose training sets are their complements. Requires n_rep=1. With a shared partition the estimate is reproducible across implementations.",
+            "description": "Explicit cross-fitting folds: one label per row (array or column name), or scikit-learn style splits, a list of (train, test) positional index pairs whose test sets partition the rows and whose training sets are their complements. Requires n_rep=1. With a shared partition the estimate is reproducible across implementations. Two-way cluster=: an n x 2 array, the fold of each unit's cluster in each dimension.",
             "type": "string"
           },
           "instrument": {
@@ -89770,7 +89772,7 @@
       "description": "",
       "fields": {
         "alpha": "float",
-        "cluster": "Optional[str]",
+        "cluster": "Union[str, Sequence[str], NoneType]",
         "covariates": "List[str]",
         "data": "DataFrame",
         "fold_indices": "Optional[Any]",
@@ -89802,8 +89804,10 @@
           },
           "cluster": {
             "description": "Cluster identifier column for clustered standard errors.",
-            "type": "string",
-            "x-statspai-role": "column"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -89965,7 +89969,7 @@
       "description": "",
       "fields": {
         "alpha": "float",
-        "cluster": "Optional[str]",
+        "cluster": "Union[str, Sequence[str], NoneType]",
         "covariates": "List[str]",
         "data": "DataFrame",
         "design": "Optional[Any]",
@@ -89997,8 +90001,10 @@
           },
           "cluster": {
             "description": "Cluster identifier column for clustered standard errors.",
-            "type": "string",
-            "x-statspai-role": "column"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -90157,7 +90163,7 @@
       "description": "",
       "fields": {
         "alpha": "float",
-        "cluster": "Optional[str]",
+        "cluster": "Union[str, Sequence[str], NoneType]",
         "covariates": "List[str]",
         "data": "DataFrame",
         "design": "Optional[Any]",
@@ -90189,8 +90195,10 @@
           },
           "cluster": {
             "description": "Cluster identifier column for clustered standard errors.",
-            "type": "string",
-            "x-statspai-role": "column"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -90349,7 +90357,7 @@
       "description": "",
       "fields": {
         "alpha": "float",
-        "cluster": "Optional[str]",
+        "cluster": "Union[str, Sequence[str], NoneType]",
         "covariates": "List[str]",
         "data": "DataFrame",
         "design": "Optional[Any]",
@@ -90381,8 +90389,10 @@
           },
           "cluster": {
             "description": "Cluster identifier column for clustered standard errors.",
-            "type": "string",
-            "x-statspai-role": "column"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -90541,7 +90551,7 @@
       "description": "",
       "fields": {
         "alpha": "float",
-        "cluster": "Optional[str]",
+        "cluster": "Union[str, Sequence[str], NoneType]",
         "covariates": "List[str]",
         "data": "DataFrame",
         "design": "Optional[Any]",
@@ -90573,8 +90583,10 @@
           },
           "cluster": {
             "description": "Cluster identifier column for clustered standard errors.",
-            "type": "string",
-            "x-statspai-role": "column"
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",

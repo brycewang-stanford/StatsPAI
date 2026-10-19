@@ -153,7 +153,7 @@ def test_cluster_misuse_fails_loudly() -> None:
         _fit("plr", cluster="g", fold_indices=np.arange(len(df)) % K)
     with pytest.raises(MethodIncompatibility, match="not in data"):
         _fit("plr", cluster="nope")
-    with pytest.raises(MethodIncompatibility, match="two-way"):
-        _fit("plr", cluster=["g", "fold"])
+    with pytest.raises(MethodIncompatibility, match="more than two"):
+        _fit("plr", cluster=["g", "fold", "z"])
     with pytest.raises(DataInsufficient, match="clusters"):
         _fit("plr", cluster="z")  # two clusters for four folds

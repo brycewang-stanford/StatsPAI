@@ -190,7 +190,7 @@ class _DoubleMLBase:
         score: Optional[str] = None,
         normalize_ipw: bool = False,
         trimming_threshold: float = 1e-2,
-        cluster: Optional[str] = None,
+        cluster: Optional[Union[str, Sequence[str]]] = None,
         design: Optional[Any] = None,
     ):
         context = f"dml.{self._MODEL_TAG.lower() or 'base'}"
@@ -297,6 +297,19 @@ class _DoubleMLBase:
                     diagnostics={"missing_columns": [fold_indices]},
                 )
             self._fold_indices_input = fold_indices
+        elif (
+            isinstance(fold_indices, (np.ndarray, pd.DataFrame))
+            and np.ndim(fold_indices) == 2
+            and np.shape(fold_indices)[1] == 2
+        ):
+            # two-way cluster=: the fold of each unit in each dimension
+            arr2 = np.asarray(fold_indices)
+            if len(arr2) != len(data):
+                raise MethodIncompatibility(
+                    f"{context}: two-way fold_indices must have {len(data)} "
+                    f"rows; got shape {arr2.shape}"
+                )
+            self._fold_indices_input = arr2
         else:
             labels = _splits_to_fold_labels(fold_indices, len(data), context)
             arr = np.asarray(fold_indices) if labels is None else labels
@@ -329,24 +342,40 @@ class _DoubleMLBase:
                     f"(matching data); got shape {arr.shape}"
                 )
             self._sample_weight_input = arr
-        # One-way clustering (Chiang, Kato, Ma and Sasaki 2022, as DoubleML
-        # implements it): folds are formed over clusters and the variance is
-        # built from within-cluster score sums; see _cluster_theta_se.
+        # One- and two-way clustering (Chiang, Kato, Ma and Sasaki 2022, as
+        # DoubleML implements it): folds are formed over clusters (two-way:
+        # the K x K product of the two cluster partitions) and the variance
+        # is built from within-cluster score sums; see _cluster_theta_se.
+        self._cluster_cols: List[str] = []
         if cluster is None:
-            self.cluster: Optional[str] = None
-        elif isinstance(cluster, str):
-            if cluster not in data.columns:
-                raise MethodIncompatibility(
-                    f"{context}: cluster column '{cluster}' not in data",
-                    diagnostics={"missing_columns": [cluster]},
-                )
-            self.cluster = cluster
+            self.cluster: Optional[Any] = None
         else:
-            raise MethodIncompatibility(
-                f"{context}: cluster must name one column; two-way clustering "
-                "is not implemented.",
-                diagnostics={"cluster": repr(cluster)},
-            )
+            cols = [cluster] if isinstance(cluster, str) else list(cluster)
+            if not 1 <= len(cols) <= 2 or not all(isinstance(c, str) for c in cols):
+                raise MethodIncompatibility(
+                    f"{context}: cluster must name one column or a list of two "
+                    "(two-way clustering); more than two ways is not "
+                    "implemented.",
+                    diagnostics={"cluster": repr(cluster)},
+                )
+            missing = [c for c in cols if c not in data.columns]
+            if missing:
+                raise MethodIncompatibility(
+                    f"{context}: cluster column(s) {missing} not in data",
+                    diagnostics={"missing_columns": missing},
+                )
+            if len(cols) == 2 and cols[0] == cols[1]:
+                raise MethodIncompatibility(
+                    f"{context}: the two cluster columns are the same.",
+                    recovery_hint="Pass cluster='col' for one-way clustering.",
+                )
+            self._cluster_cols = cols
+            self.cluster = cols[0] if len(cols) == 1 else cols
+            if len(cols) == 2 and design is not None:
+                raise MethodIncompatibility(
+                    f"{context}: two-way cluster= is not combined with design=.",
+                    recovery_hint="Put the clustering in the survey design.",
+                )
         self._cluster_codes: Optional[np.ndarray] = None
         self._design: Any = None
         self._design_rows: Optional[np.ndarray] = None
@@ -538,6 +567,8 @@ class _DoubleMLBase:
             w = np.asarray(w, dtype=float)
             w = w * (len(w) / w.sum())
             psi_a, psi_b = w * psi_a, w * psi_b
+        if self._is_twoway():
+            return self._twoway_theta_se(psi_a, psi_b)
         splits = score["splits"]
         sizes = [len(np.unique(codes[test])) for _, test in splits]
         num = sum(np.sum(psi_b[test]) / m for (_, test), m in zip(splits, sizes))
@@ -584,6 +615,100 @@ class _DoubleMLBase:
         u = -w * (psi_a * theta + psi_b) / den
         V = design_vcov(u, self._design, self._design_rows)
         return theta, float(np.sqrt(V[0, 0]))
+
+    def _is_twoway(self) -> bool:
+        codes = getattr(self, "_cluster_codes", None)
+        return codes is not None and np.ndim(codes) == 2
+
+    def _twoway_splits(
+        self, rng_seed: int, fold_indices: Optional[np.ndarray]
+    ) -> List[Tuple[np.ndarray, np.ndarray]]:
+        """The ``K x K`` cross-fitting cells of two-way clustering.
+
+        Each cluster dimension is split into ``K`` folds of whole clusters;
+        cell ``(k, l)`` tests the units whose first cluster is in fold
+        ``k`` *and* whose second is in fold ``l``, and trains on the units
+        in neither (units sharing a cluster with the test cell in either
+        dimension are left out of its training set). This is DoubleML's
+        multiway cluster resampling. ``fold_indices`` (``n x 2``) fixes the
+        per-dimension folds.
+        """
+        from sklearn.model_selection import KFold
+
+        codes = self._cluster_codes
+        assert codes is not None
+        K = self.n_folds
+        if fold_indices is None:
+            folds = np.empty_like(codes)
+            for j in range(2):
+                n_cl = int(codes[:, j].max()) + 1
+                f_cl = np.empty(n_cl, dtype=int)
+                kf = KFold(n_splits=K, shuffle=True, random_state=rng_seed + 7919 * j)
+                for f, (_, test_cl) in enumerate(kf.split(np.zeros(n_cl))):
+                    f_cl[test_cl] = f
+                folds[:, j] = f_cl[codes[:, j]]
+        else:
+            folds = np.asarray(fold_indices, dtype=int)
+        splits: List[Tuple[np.ndarray, np.ndarray]] = []
+        cells: List[Tuple[np.ndarray, np.ndarray]] = []
+        for k in range(K):
+            for m in range(K):
+                test = (folds[:, 0] == k) & (folds[:, 1] == m)
+                train = (folds[:, 0] != k) & (folds[:, 1] != m)
+                if not test.any() or not train.any():
+                    raise DataInsufficient(
+                        f"DML two-way cluster=: cross-fitting cell ({k}, {m}) "
+                        "has no test or no training units.",
+                        recovery_hint="Reduce n_folds or use one-way clustering.",
+                        diagnostics={"cell": [k, m]},
+                    )
+                splits.append((np.flatnonzero(train), np.flatnonzero(test)))
+                cells.append(
+                    (
+                        np.unique(codes[folds[:, 0] == k, 0]),
+                        np.unique(codes[folds[:, 1] == m, 1]),
+                    )
+                )
+        self._twoway_cells = cells
+        return splits
+
+    def _twoway_theta_se(
+        self, psi_a: np.ndarray, psi_b: np.ndarray
+    ) -> Tuple[float, float]:
+        """Two-way cluster-robust DML estimate and SE (Chiang, Kato, Ma
+        and Sasaki 2022, as DoubleML implements it).
+
+        With cells ``(I_k, J_l)`` (sets of first- and second-dimension
+        clusters, ``K`` folds per dimension) and ``c_kl = |I_k| |J_l|``:
+
+        * ``theta = -sum_kl c_kl^-1 sum_{test} psi_b / sum_kl c_kl^-1
+          sum_{test} psi_a``, ``J = K^-2 sum_kl c_kl^-1 sum_{test} psi_a``;
+        * ``Gamma = K^-2 sum_kl min(|I_k|, |J_l|) / c_kl^2 [sum_{i in I_k}
+          (sum_{test, c1 = i} psi)^2 + sum_{j in J_l} (sum_{test, c2 = j}
+          psi)^2]``;
+        * ``Var(theta) = Gamma / (J^2 min(G_1, G_2))``.
+        """
+        codes = self._cluster_codes
+        cells = self._twoway_cells
+        splits = self._last_rep_score["splits"]
+        K = self.n_folds
+        sizes = [len(c1) * len(c2) for c1, c2 in cells]
+        num = sum(np.sum(psi_b[t]) / c for (_, t), c in zip(splits, sizes))
+        den = sum(np.sum(psi_a[t]) / c for (_, t), c in zip(splits, sizes))
+        if abs(den) < 1e-12:  # pragma: no cover
+            raise RuntimeError("DML cluster: score denominator is ~0.")
+        theta = float(-num / den)
+        psi = psi_a * theta + psi_b
+        gamma = 0.0
+        for (_, t), (c1, c2) in zip(splits, cells):
+            const = min(len(c1), len(c2)) / float(len(c1) * len(c2)) ** 2
+            s1 = np.bincount(codes[t, 0], weights=psi[t])
+            s2 = np.bincount(codes[t, 1], weights=psi[t])
+            gamma += const * (float(np.sum(s1**2)) + float(np.sum(s2**2)))
+        J_hat = den / K**2
+        gamma /= K**2
+        G = min(int(codes[:, 0].max()) + 1, int(codes[:, 1].max()) + 1)
+        return theta, float(np.sqrt(gamma / (J_hat**2 * G)))
 
     def _sensitivity_rep(self, theta: float, se: float) -> Dict[str, Any]:
         """Elements of the omitted-variable-bias bound for one repetition.
@@ -662,6 +787,8 @@ class _DoubleMLBase:
         still contains both classes rather than letting the classifier
         fail somewhere deeper with a less legible message.
         """
+        if self._is_twoway():
+            return self._twoway_splits(rng_seed, fold_indices)
         if fold_indices is not None:
             splits = [
                 (
@@ -1017,6 +1144,21 @@ class _DoubleMLBase:
             fi = self._fold_indices_input
             if isinstance(fi, str):
                 work["__fold__"] = self.data[fi].values
+            elif fi is not None and np.ndim(fi) == 2:
+                if len(self._cluster_cols) != 2:
+                    raise MethodIncompatibility(
+                        "fold_indices with two columns is the per-dimension "
+                        "fold assignment of two-way cluster=; pass a 1-D array "
+                        "otherwise."
+                    )
+                fi2 = np.asarray(fi)
+                if fi2.shape != (len(self.data), 2):
+                    raise MethodIncompatibility(
+                        f"two-way fold_indices must have shape ({len(self.data)}, "
+                        f"2); got {fi2.shape}."
+                    )
+                work["__fold__"] = fi2[:, 0]
+                work["__fold1__"] = fi2[:, 1]
             elif fi is not None:
                 work["__fold__"] = np.asarray(fi)
             if fi is not None:
@@ -1029,8 +1171,10 @@ class _DoubleMLBase:
                         f"fold_indices contain missing values on {n_unlabelled} "
                         "row(s) that are otherwise complete."
                     )
-            if self.cluster is not None:
-                work["__cl__"] = self.data[self.cluster].values
+            if self._cluster_cols:
+                work["__cl__"] = self.data[self._cluster_cols[0]].values
+                if len(self._cluster_cols) == 2:
+                    work["__cl1__"] = self.data[self._cluster_cols[1]].values
             if self._design is not None:
                 work["__sw__"] = self._design.weights
                 work["__svy_row__"] = np.arange(len(work))
@@ -1067,7 +1211,17 @@ class _DoubleMLBase:
                     raise DataInsufficient("sample_weight has zero total mass.")
             else:
                 sample_weight = None
-            if "__fold__" in clean.columns:
+            if "__fold1__" in clean.columns:
+                fold_indices = np.column_stack(
+                    [
+                        self._validate_fold_indices(
+                            clean[c].values, len(Y), self.n_folds
+                        )
+                        for c in ("__fold__", "__fold1__")
+                    ]
+                )
+                fold_source = "user"
+            elif "__fold__" in clean.columns:
                 fold_indices = self._validate_fold_indices(
                     clean["__fold__"].values,
                     len(Y),
@@ -1077,7 +1231,49 @@ class _DoubleMLBase:
             else:
                 fold_indices = None
                 fold_source = "kfold"
-            if "__cl__" in clean.columns:
+            if "__cl1__" in clean.columns:
+                if fold_indices is not None and np.ndim(fold_indices) != 2:
+                    raise MethodIncompatibility(
+                        "DML two-way cluster=: fold_indices must give the fold "
+                        "of each unit in both cluster dimensions (an n x 2 "
+                        "array).",
+                        recovery_hint="Pass np.column_stack([fold_dim1, "
+                        "fold_dim2]) or drop fold_indices.",
+                    )
+                codes2 = np.column_stack(
+                    [pd.factorize(clean[c])[0] for c in ("__cl__", "__cl1__")]
+                )
+                self._cluster_codes = codes2
+                for j in range(2):
+                    n_cl = int(codes2[:, j].max()) + 1
+                    if n_cl < self.n_folds:
+                        raise DataInsufficient(
+                            f"DML cluster=: {n_cl} clusters in "
+                            f"'{self._cluster_cols[j]}' cannot fill "
+                            f"n_folds={self.n_folds} cluster-level folds."
+                        )
+                    if fold_indices is not None:
+                        per_cluster = (
+                            pd.Series(fold_indices[:, j])
+                            .groupby(codes2[:, j])
+                            .nunique()
+                        )
+                        if (per_cluster > 1).any():
+                            raise MethodIncompatibility(
+                                "DML two-way cluster=: fold_indices column "
+                                f"{j} splits a '{self._cluster_cols[j]}' cluster "
+                                "across folds.",
+                                diagnostics={
+                                    "n_split_clusters": int((per_cluster > 1).sum())
+                                },
+                            )
+                if fold_indices is None:
+                    fold_source = "cluster_kfold_twoway"
+            elif "__cl__" in clean.columns:
+                if fold_indices is not None and np.ndim(fold_indices) == 2:
+                    raise MethodIncompatibility(  # pragma: no cover - guarded above
+                        "two-column fold_indices need two-way cluster=."
+                    )
                 self._cluster_codes = pd.factorize(clean["__cl__"])[0]
                 n_cl = int(self._cluster_codes.max()) + 1
                 if n_cl < self.n_folds:
@@ -1162,7 +1358,8 @@ class _DoubleMLBase:
                 collector.finish_rep(capture, theta_r, se_r)
             thetas.append(theta_r)
             ses.append(se_r)
-            if self._last_rep_sens:
+            if self._last_rep_sens and not self._is_twoway():
+                # the omitted-variable bound has no two-way cluster variance
                 sens_reps.append(self._sensitivity_rep(theta_r, se_r))
             if self._last_rep_diagnostics:
                 per_rep_diags.append(self._last_rep_diagnostics)
@@ -1212,11 +1409,15 @@ class _DoubleMLBase:
             model_info["survey_design"] = design_info(self._design, svy_df)
         if self.cluster is not None:
             model_info["cluster"] = self.cluster
-            model_info["n_clusters"] = (
-                int(self._cluster_codes.max()) + 1
-                if self._cluster_codes is not None
-                else None
-            )
+            if self._cluster_codes is None:
+                model_info["n_clusters"] = None
+            elif self._is_twoway():
+                model_info["n_clusters"] = [
+                    int(self._cluster_codes[:, j].max()) + 1 for j in range(2)
+                ]
+                model_info["n_cells"] = self.n_folds**2
+            else:
+                model_info["n_clusters"] = int(self._cluster_codes.max()) + 1
         if self.score is not None:
             model_info["score"] = self.score
         if self._USES_IPW:
