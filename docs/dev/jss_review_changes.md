@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — command-name hint in `sp.__getattr__`
+
+- **Commits.** `9107c15c` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
+  24, 25, 26, 27, 53, 65, 66) and
+  `tests/orig_parity/results/_implementation_trace.json` (module 08).
+- **Reason.** `src/statspai/__init__.py` (on those modules' estimation
+  paths) gained the Stata / R command-name hint in the AttributeError
+  message (`sp.csdid` names `sp.callaway_santanna`); no estimator code
+  changed.
+- **Effect on the paper.** None. Each module was re-run into scratch and
+  compared with its committed `*_py.json`: largest relative difference
+  3.3e-10 (25_lmm), within the 1e-9 reproducibility tolerance, so no
+  result file or table number changes.
+
 ### 2026-10-19 — `sp.rdrobust` no longer demeans covariates
 
 - **Commits.** `5ab25202` re-recorded
