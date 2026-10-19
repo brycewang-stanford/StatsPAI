@@ -257,19 +257,15 @@ def _scope_attrs(
     source: str,
     honestdid_method: Optional[str],
     custom_grid: bool,
+    shape: str = "none",
 ) -> Dict[str, Any]:
     """The configuration of a sensitivity table, for ``sp.validation_scope``."""
-    restriction = (
-        "relative_magnitude"
-        if method.lower().replace("-", "_").rstrip("s") == "relative_magnitude"
-        else "smoothness"
-    )
+    restriction = method
     interval = out.attrs.get("interval")
     if interval is None:  # backend='r': the method HonestDiD ran
-        default = "C-LF" if restriction == "relative_magnitude" else "FLCI"
-        key = str(honestdid_method or default).upper().replace("_", "-")
+        key = str(honestdid_method).upper().replace("_", "-")
         interval = _INTERVAL_OF_METHOD.get(key, key.lower())
-    if restriction == "smoothness":
+    if interval in ("flci", "worst_case_bias"):
         rm_grid = "n/a"
     elif custom_grid:
         rm_grid = "user"
@@ -280,6 +276,7 @@ def _scope_attrs(
     return {
         "function": "honest_did",
         "restriction": restriction,
+        "shape": shape,
         "interval": interval,
         "code_path": code_path,
         "target": _target_kind(l_vec),
@@ -296,6 +293,115 @@ def _scope_attrs(
     }
 
 
+_FAMILY_OF_METHOD = {
+    "smoothness": "smoothness",
+    "sd": "smoothness",
+    "relative_magnitude": "rm",
+    "relative_magnitudes": "rm",
+    "rm": "rm",
+    "smoothness_relative_magnitude": "sdrm",
+    "smoothness_relative_magnitudes": "sdrm",
+    "sdrm": "sdrm",
+}
+_RESTRICTION_LABEL = {
+    "smoothness": "smoothness",
+    "rm": "relative_magnitude",
+    "sdrm": "smoothness_relative_magnitude",
+}
+_HM_CANONICAL = {
+    "c-lf": "C-LF",
+    "clf": "C-LF",
+    "lf": "C-LF",
+    "conditional": "Conditional",
+    "arp": "Conditional",
+    "flci": "FLCI",
+    "c-f": "C-F",
+    "cf": "C-F",
+}
+_HYBRID_OF_HM = {"Conditional": "ARP", "C-LF": "LF", "C-F": "FLCI"}
+
+
+def _resolve_restriction(
+    method: str,
+    honestdid_method: Optional[str],
+    bias_direction: Optional[str],
+    monotonicity_direction: Optional[str],
+) -> Tuple[str, str, Optional[str], Optional[str]]:
+    """``(family, honestdid_method, bias, mono)`` with HonestDiD's defaults.
+
+    ``family`` is ``'smoothness'`` / ``'rm'`` / ``'sdrm'``; the method is the
+    canonical HonestDiD spelling.
+    """
+    key = method.strip().lower().replace("-", "_").replace(" ", "_")
+    family = _FAMILY_OF_METHOD.get(key)
+    if family is None:
+        raise MethodIncompatibility(
+            "method must be 'smoothness', 'relative_magnitude' or "
+            f"'smoothness_relative_magnitude', got '{method}'",
+            recovery_hint="Use method='smoothness', 'relative_magnitude' or "
+            "'smoothness_relative_magnitude' (HonestDiD's deviation from a "
+            "linear trend).",
+            diagnostics={"method": method},
+        )
+    bias = mono = None
+    if bias_direction is not None:
+        bias = _require_string(bias_direction, argument="bias_direction").lower()
+        if bias not in {"positive", "negative"}:
+            raise MethodIncompatibility(
+                f"bias_direction must be 'positive' or 'negative', got "
+                f"{bias_direction!r}.",
+                recovery_hint="'positive' restricts delta_post >= 0, "
+                "'negative' delta_post <= 0.",
+                diagnostics={"bias_direction": bias_direction},
+            )
+    if monotonicity_direction is not None:
+        mono = _require_string(
+            monotonicity_direction, argument="monotonicity_direction"
+        ).lower()
+        if mono not in {"increasing", "decreasing"}:
+            raise MethodIncompatibility(
+                "monotonicity_direction must be 'increasing' or 'decreasing', "
+                f"got {monotonicity_direction!r}.",
+                recovery_hint="Pass monotonicity_direction='increasing' or "
+                "'decreasing'.",
+                diagnostics={"monotonicity_direction": monotonicity_direction},
+            )
+    if bias is not None and mono is not None:
+        raise MethodIncompatibility(
+            "Pass either a sign restriction (bias_direction) or a shape "
+            "restriction (monotonicity_direction), not both.",
+            recovery_hint="HonestDiD offers one of the two per sensitivity "
+            "analysis; drop one of them.",
+            diagnostics={"bias_direction": bias, "monotonicity_direction": mono},
+        )
+    if honestdid_method is None:
+        if family == "smoothness":
+            hm = "FLCI" if bias is None and mono is None else "C-F"
+        else:
+            hm = "C-LF"
+    else:
+        hm_key = _require_string(honestdid_method, argument="honestdid_method")
+        hm = _HM_CANONICAL.get(hm_key.strip().lower().replace("_", "-"))
+        if hm is None:
+            raise MethodIncompatibility(
+                "honestdid_method must be one of 'C-LF', 'Conditional', "
+                "'FLCI', or 'C-F'.",
+                recovery_hint="Use an HonestDiD inference method supported by "
+                "the selected restriction.",
+                diagnostics={"honestdid_method": honestdid_method},
+            )
+    if family != "smoothness" and hm not in {"C-LF", "Conditional"}:
+        raise MethodIncompatibility(
+            f"honestdid_method={hm!r} is not available for "
+            f"method={method!r}; the relative-magnitude restrictions are a "
+            "union of polyhedra, which the FLCI and its hybrid do not cover.",
+            recovery_hint="Use honestdid_method='C-LF' (the default) or "
+            "'Conditional'.",
+            diagnostics={"method": method, "honestdid_method": hm},
+        )
+    return family, hm, bias, mono
+
+
 def honest_did(
     result: CausalResult,
     e: int = 0,
@@ -310,6 +416,8 @@ def honest_did(
     grid_ub: Optional[float] = None,
     grid_points: int = 1000,
     grid_expand: bool = True,
+    bias_direction: Optional[str] = None,
+    monotonicity_direction: Optional[str] = None,
 ) -> pd.DataFrame:
     """
     Rambachan & Roth (2023) sensitivity analysis for parallel trends.
@@ -335,8 +443,17 @@ def honest_did(
         unitless ratio to the largest pre-period violation.
     method : str, default 'smoothness'
         Type of restriction on violations:
-        - ``'smoothness'``: |Δδ_t| ≤ M (bounded change in violation)
-        - ``'relative_magnitude'``: |δ_post| ≤ M̄ × max|δ_pre|
+        - ``'smoothness'``: |Δ²δ_t| ≤ M (``Delta^SD``: the slope of the
+          violation changes by at most M per period)
+        - ``'relative_magnitude'``: |Δδ_post| ≤ M̄ × max|Δδ_pre|
+          (``Delta^RM``)
+        - ``'smoothness_relative_magnitude'`` (alias ``'sdrm'``):
+          |Δ²δ_post| ≤ M̄ × max|Δ²δ_pre| (``Delta^SDRM``, HonestDiD's
+          ``bound = "deviation from linear trend"``); needs two or more
+          pre-periods.
+        Each can be intersected with a sign restriction
+        (``bias_direction``) or a shape restriction
+        (``monotonicity_direction``).
     alpha : float, default 0.05
         Significance level.
     backend : {'native', 'honestdid', 'r'}, default 'native'
@@ -379,10 +496,18 @@ def honest_did(
         covariance and materially changes the confidence set.
     honestdid_method : {'C-LF', 'Conditional', 'FLCI', 'C-F'}, optional
         Inference method. The default preserves HonestDiD defaults:
-        ``'C-LF'`` for ``method='relative_magnitude'`` and ``'FLCI'`` for
-        ``method='smoothness'``. The native backend implements ``'FLCI'``
-        (smoothness) and ``'C-LF'`` / ``'Conditional'`` (relative
-        magnitudes); the R backend accepts all four.
+        ``'C-LF'`` for the relative-magnitude restrictions, ``'FLCI'`` for
+        ``method='smoothness'``, and ``'C-F'`` for ``method='smoothness'``
+        with a sign or shape restriction (the FLCI ignores those, so asking
+        for it then warns, as HonestDiD does). Both backends implement all
+        four for smoothness (``'Conditional'``: the Andrews-Roth-Pakes
+        conditional test; ``'C-F'``: the conditional-FLCI hybrid;
+        ``'C-LF'``: the conditional least-favourable hybrid) and
+        ``'C-LF'`` / ``'Conditional'`` for the relative-magnitude families.
+        ``'Conditional'`` involves no simulation and accepts the same grid
+        points as HonestDiD; ``'C-LF'`` simulates its first-stage critical
+        value (NumPy draws, not R's) and so agrees up to that Monte Carlo
+        error.
     l_vec : sequence of float or ``'average'``, optional
         Target ``l' tau_post`` instead of the single period ``e`` (HonestDiD's
         ``l_vec``): one weight per post-treatment event time of the
@@ -395,32 +520,48 @@ def honest_did(
         ``estat event, window(-5 5)``.  The leads outside the window no
         longer calibrate the restriction.  Both backends.
     grid_lb, grid_ub : float, optional
-        ``method='relative_magnitude'`` only: the ends of the test-inversion
-        grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``).
-        Default ``-/+ 20 sd(l' tau_post)``. A bound given here is honoured
-        as is and never extended. Both backends.
+        Test-inverted sets only (every interval except the FLCI): the ends of
+        the grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``).
+        Default ``-/+ 20 sd(l' tau_post)`` for the relative-magnitude
+        families; for smoothness the identified set at ``beta = 0`` widened
+        by ``20 sd`` (``'Conditional'`` / ``'C-LF'``) or the level
+        ``alpha/10`` FLCI (``'C-F'``), as HonestDiD lays them out. A bound
+        given here is honoured as is and never extended. Native backend;
+        ``backend='r'`` passes them for the relative-magnitude families.
     grid_points : int, default 1000
-        ``method='relative_magnitude'`` only: points on that grid
-        (HonestDiD's ``gridPoints``). Both backends.
+        Points on that grid (HonestDiD's ``gridPoints``).
     grid_expand : bool, default True
-        ``method='relative_magnitude'``, native backend: when the accepted set
-        reaches an end of the default grid, extend that side by another
-        ``grid_points`` points at the same step (up to 10 times) instead of
-        reporting the grid end as the bound. HonestDiD (R) and versions of
-        StatsPAI before 1.33 report the grid end, which understates the
-        interval whenever the set is wider than ``+/-20 sd``; ``False``
-        reproduces that. A set still open after the extensions is reported
-        with a warning and ``attrs['open_at']``. ``backend='r'`` runs
+        Native backend, test-inverted sets: when the accepted set reaches an
+        end of the default grid, extend that side by another ``grid_points``
+        points at the same step (up to 10 times) instead of reporting the
+        grid end as the bound. HonestDiD (R) and versions of StatsPAI before
+        1.33 report the grid end, which understates the interval whenever
+        the set is wider than the grid; ``False`` reproduces that. A set
+        still open after the extensions is reported with a warning and
+        ``attrs['open_at']``. The ``'C-F'`` set lies inside its first-stage
+        FLCI, its grid, and is never extended. ``backend='r'`` runs
         HonestDiD's own grid: widen it there with ``grid_lb`` / ``grid_ub``.
+    bias_direction : {'positive', 'negative'}, optional
+        Sign restriction on the post-treatment violation: ``delta_post >= 0``
+        or ``<= 0`` (HonestDiD's ``biasDirection``; ``Delta^SDPB``,
+        ``Delta^RMNB`` ...). Use it when the confound can only push the
+        estimate one way. Not together with ``monotonicity_direction``.
+        Needs the joint event-study covariance.
+    monotonicity_direction : {'increasing', 'decreasing'}, optional
+        Shape restriction: the violation ``delta`` is monotone in event time
+        through the reference period (HonestDiD's ``monotonicityDirection``;
+        ``Delta^SDI``, ``Delta^RMD`` ...). Not together with
+        ``bias_direction``. Needs the joint event-study covariance.
 
     Returns
     -------
     pd.DataFrame
         Columns: M, ci_lower, ci_upper, rejects_zero.
-        Each row is a different M value.  For relative magnitudes,
-        ``attrs['grid_extended_at']`` lists the ``Mbar`` whose grid was
+        Each row is a different M value.  For test-inverted sets,
+        ``attrs['grid_extended_at']`` lists the ``M`` whose grid was
         extended and ``attrs['open_at']`` those whose set still reaches the
-        grid edge (bound unknown).
+        grid edge (bound unknown). ``attrs['delta']`` names the restriction
+        set as HonestDiD does (``'DeltaSD'``, ``'DeltaSDRMPB'`` ...).
 
     Examples
     --------
@@ -478,7 +619,20 @@ def honest_did(
     backend_norm = backend.lower().replace("-", "_")
     win = _coerce_window(window)
     source = _vcov_source(result)
-    method_given = method
+    family, hm, bias, mono = _resolve_restriction(
+        method, honestdid_method, bias_direction, monotonicity_direction
+    )
+    if hm == "FLCI" and (bias is not None or mono is not None):
+        warnings.warn(
+            "honest_did: honestdid_method='FLCI' does not use the sign or shape "
+            "restriction (HonestDiD warns the same); the interval below is "
+            "the FLCI under smoothness alone. Use honestdid_method='C-F' (the "
+            "default with a restriction), 'Conditional' or 'C-LF' to impose it.",
+            UserWarning,
+            stacklevel=2,
+        )
+        bias = mono = None
+    shape = "sign" if bias is not None else ("monotone" if mono is not None else "none")
     varying_base = (getattr(result, "model_info", None) or {}).get(
         "base_period"
     ) == "varying"
@@ -501,18 +655,28 @@ def honest_did(
         out.attrs.update(
             _scope_attrs(
                 out,
-                method=method_given,
+                method=_RESTRICTION_LABEL[family],
                 alpha=alpha,
                 l_vec=l_vec,
                 window=win,
                 code_path=code_path,
                 source=source,
-                honestdid_method=honestdid_method,
+                honestdid_method=hm,
                 custom_grid=(
                     grid_lb is not None or grid_ub is not None or grid_points != 1000
                 ),
+                shape=shape,
             )
         )
+        if "delta" not in out.attrs:
+            from ._honest_sets import delta_name
+
+            out.attrs["delta"] = (
+                "DeltaSD"
+                if out.attrs.get("interval") in ("flci", "worst_case_bias")
+                and family == "smoothness"
+                else delta_name(family, bias, mono)
+            )
         return out
 
     if backend_norm in {"r", "honestdid", "honest_did", "honestdid_r"}:
@@ -521,14 +685,16 @@ def honest_did(
                 result=result,
                 e=e,
                 m_grid=m_grid,
-                method=method,
+                method=_RESTRICTION_LABEL[family],
                 alpha=alpha,
-                honestdid_method=honestdid_method,
+                honestdid_method=hm,
                 l_vec=l_vec,
                 window=win,
                 grid_lb=grid_lb,
                 grid_ub=grid_ub,
                 grid_points=grid_points,
+                bias_direction=bias,
+                monotonicity_direction=mono,
             ),
             "r",
         )
@@ -540,26 +706,6 @@ def honest_did(
             ),
             diagnostics={"backend": backend},
         )
-
-    method_l = str(method).lower()
-    if method_l == "relative_magnitudes":
-        method = method_l = "relative_magnitude"
-    if honestdid_method is not None:
-        _hm = str(honestdid_method).upper().replace("_", "-")
-        _allowed = {
-            "relative_magnitude": {"C-LF", "CONDITIONAL"},
-            "smoothness": {"FLCI"},
-        }
-        if method_l in _allowed and _hm not in _allowed[method_l]:
-            raise MethodIncompatibility(
-                f"honestdid_method={honestdid_method!r} is not implemented by "
-                f"backend='native' for method={method!r}.",
-                recovery_hint=(
-                    "Use 'C-LF' or 'Conditional' for relative magnitudes and "
-                    "'FLCI' for smoothness, or pass backend='r'."
-                ),
-                diagnostics={"method": method, "honestdid_method": honestdid_method},
-            )
 
     _mi = getattr(result, "model_info", None) or {}
     if _mi.get("event_vcov") is not None and "cohorts" in _mi:
@@ -634,12 +780,35 @@ def honest_did(
     # Default M grid: multiples of SE (smoothness) or HonestDiD's M-bar
     # grid (relative magnitudes).
     m_grid = _coerce_m_grid(
-        m_grid, se_hat=se_hat, relative_magnitude=(method == "relative_magnitude")
+        m_grid, se_hat=se_hat, relative_magnitude=(family != "smoothness")
     )
 
     rows = []
 
-    if method == "smoothness":
+    if hm != "FLCI" and (family != "rm" or bias is not None or mono is not None):
+        # Test-inverted sets beyond plain relative magnitudes: smoothness
+        # with the conditional test or a hybrid, a sign or shape
+        # restriction, or relative magnitudes of second differences.
+        return _stamp(
+            _native_restricted_table(
+                moments,
+                e,
+                lv,
+                m_grid,
+                alpha,
+                family,
+                hm,
+                bias,
+                mono,
+                grid_lb=grid_lb,
+                grid_ub=grid_ub,
+                grid_points=grid_points,
+                grid_expand=grid_expand,
+            ),
+            "native",
+        )
+
+    if family == "smoothness":
         # Preferred path: the actual Rambachan-Roth fixed-length confidence
         # interval, which needs the joint event-study covariance.  It is
         # recoverable from a Callaway-Sant'Anna fit's influence functions;
@@ -688,9 +857,8 @@ def honest_did(
             "FLCI. That approximation ignores the pre-period covariance and "
             "can be narrower than the true confidence set, overstating "
             "robustness. The estimator did not expose a joint event-study "
-            "covariance (see sp.event_study_vcov: did_imputation's BJS leads "
-            "come from a separate regression); refit with an estimator that "
-            "does, or pass backend='r'.",
+            "covariance (see sp.event_study_vcov); refit with an estimator "
+            "that does, or pass backend='r'.",
             UserWarning,
             stacklevel=2,
         )
@@ -713,7 +881,7 @@ def honest_did(
                 }
             )
 
-    elif method == "relative_magnitude":
+    else:
         # Preferred path: the Rambachan-Roth / ARP confidence set, which needs
         # the joint event-study covariance (as the FLCI does).
         _rm = _native_rm_table(
@@ -721,7 +889,7 @@ def honest_did(
             e,
             m_grid,
             alpha,
-            honestdid_method,
+            hm,
             l_vec=lv,
             grid_lb=grid_lb,
             grid_ub=grid_ub,
@@ -763,13 +931,6 @@ def honest_did(
                 }
             )
 
-    else:
-        raise MethodIncompatibility(
-            f"method must be 'smoothness' or 'relative_magnitude', got '{method}'",
-            recovery_hint="Use method='smoothness' or method='relative_magnitude'.",
-            diagnostics={"method": method},
-        )
-
     _out = pd.DataFrame(rows)
     _out.attrs["interval"] = "worst_case_bias"
     return _stamp(_out, "native")
@@ -797,6 +958,77 @@ def _rm_inputs(
         int(post_mask.sum()),
         (post_times == e).astype(float) if l_vec is None else np.asarray(l_vec),
     )
+
+
+def _native_restricted_table(
+    moments: Optional[tuple],
+    e: int,
+    l_vec: Optional[np.ndarray],
+    m_grid: Sequence[float],
+    alpha: float,
+    family: str,
+    hm: str,
+    bias: Optional[str],
+    mono: Optional[str],
+    grid_lb: Optional[float] = None,
+    grid_ub: Optional[float] = None,
+    grid_points: int = 1000,
+    grid_expand: bool = True,
+) -> pd.DataFrame:
+    """Native table for the restriction sets of :mod:`._honest_sets`.
+
+    These sets have no worst-case-bias stand-in, so a missing joint
+    covariance is an error rather than a warned fallback.
+    """
+    from ._honest_sets import delta_name, restricted_table
+
+    inputs = _rm_inputs(moments, e, l_vec)
+    if inputs is None:
+        raise MethodIncompatibility(
+            f"honest_did: {delta_name(family, bias, mono)} with "
+            f"honestdid_method={hm!r} needs the joint covariance of the "
+            "event-study coefficients, which this result does not expose.",
+            recovery_hint="Refit with an estimator that stores it (see "
+            "sp.event_study_vcov), pass the coefficients and covariance to "
+            "sp.honest_did_from_moments, or use backend='r'.",
+            diagnostics={"restriction": delta_name(family, bias, mono)},
+        )
+    grid_points = _require_int(grid_points, argument="grid_points")
+    if grid_points < 2:
+        raise MethodIncompatibility(
+            "grid_points must be at least 2.",
+            recovery_hint="HonestDiD's default is 1000.",
+            diagnostics={"grid_points": grid_points},
+        )
+    out = restricted_table(
+        inputs,
+        m_grid,
+        alpha,
+        _HYBRID_OF_HM[hm],
+        family,
+        bias,
+        mono,
+        grid_lb,
+        grid_ub,
+        grid_points,
+        grid_expand,
+    )
+    if out.attrs["open_at"]:
+        warnings.warn(
+            f"honest_did ({out.attrs['delta']}, {hm}): the confidence set "
+            "reaches the edge of the test-inversion grid at M = "
+            f"{out.attrs['open_at']}; the reported bound is the grid edge, not "
+            "the true bound. "
+            + (
+                "Pass grid_expand=True (the default) or a wider grid_lb / grid_ub."
+                if not grid_expand or grid_lb is not None or grid_ub is not None
+                else "The set did not close within 10 extensions and may be "
+                "unbounded at this M."
+            ),
+            UserWarning,
+            stacklevel=3,
+        )
+    return out
 
 
 def _native_rm_table(
@@ -889,6 +1121,8 @@ def _honest_did_r_backend(
     grid_lb: Optional[float] = None,
     grid_ub: Optional[float] = None,
     grid_points: int = 1000,
+    bias_direction: Optional[str] = None,
+    monotonicity_direction: Optional[str] = None,
 ) -> pd.DataFrame:
     """Run the R HonestDiD reference implementation for CI parity.
 
@@ -898,58 +1132,10 @@ def _honest_did_r_backend(
     e = _require_int(e, argument="e")
     method = _require_string(method, argument="method")
     alpha = _require_alpha(alpha)
-    method_norm = method.lower().replace("-", "_")
-    if method_norm not in {"smoothness", "relative_magnitude", "relative_magnitudes"}:
-        raise MethodIncompatibility(
-            f"method must be 'smoothness' or 'relative_magnitude', got '{method}'",
-            recovery_hint="Use method='smoothness' or method='relative_magnitude'.",
-            diagnostics={"method": method},
-        )
-    if honestdid_method is None:
-        honestdid_method_arg = (
-            "C-LF"
-            if method_norm in {"relative_magnitude", "relative_magnitudes"}
-            else "FLCI"
-        )
-    else:
-        honestdid_method = _require_string(
-            honestdid_method,
-            argument="honestdid_method",
-        )
-        method_aliases = {
-            "c_lf": "C-LF",
-            "c-lf": "C-LF",
-            "clf": "C-LF",
-            "conditional": "Conditional",
-            "flci": "FLCI",
-            "c_f": "C-F",
-            "c-f": "C-F",
-            "cf": "C-F",
-        }
-        key = honestdid_method.lower().replace(" ", "_")
-        if key not in method_aliases:
-            raise MethodIncompatibility(
-                "honestdid_method must be one of 'C-LF', 'Conditional', "
-                "'FLCI', or 'C-F'.",
-                recovery_hint=(
-                    "Use an HonestDiD solver method supported by the selected "
-                    "restriction."
-                ),
-                diagnostics={"honestdid_method": honestdid_method},
-            )
-        honestdid_method_arg = method_aliases[key]
-    if method_norm in {"relative_magnitude", "relative_magnitudes"} and (
-        honestdid_method_arg not in {"C-LF", "Conditional"}
-    ):
-        raise MethodIncompatibility(
-            "honestdid_method must be 'C-LF' or 'Conditional' for "
-            "method='relative_magnitude'.",
-            recovery_hint="Use honestdid_method='C-LF' or 'Conditional'.",
-            diagnostics={
-                "method": method_norm,
-                "honestdid_method": honestdid_method_arg,
-            },
-        )
+    family, honestdid_method_arg, bias, mono = _resolve_restriction(
+        method, honestdid_method, bias_direction, monotonicity_direction
+    )
+    method_norm = _RESTRICTION_LABEL[family]
 
     rscript = _find_rscript()
     if rscript is None:
@@ -986,7 +1172,7 @@ def _honest_did_r_backend(
     m_grid = _coerce_m_grid(
         m_grid,
         se_hat=se_hat,
-        relative_magnitude=method_norm in {"relative_magnitude", "relative_magnitudes"},
+        relative_magnitude=family != "smoothness",
     )
     if len(pre) == 0:
         raise DataInsufficient(
@@ -1066,16 +1252,28 @@ grid_lb <- num_or_na(9)
 grid_ub <- num_or_na(10)
 grid_points <- num_or_na(11)
 if (is.na(grid_points)) grid_points <- 1000
-if (method == "relative_magnitude") {
+str_or_null <- function(i) {
+  if (length(args) >= i && nzchar(args[[i]])) args[[i]] else NULL
+}
+bias_dir <- str_or_null(12)
+mono_dir <- str_or_null(13)
+if (method %in% c("relative_magnitude", "smoothness_relative_magnitude")) {
   sens <- suppressWarnings(
     HonestDiD::createSensitivityResults_relativeMagnitudes(
       betahat = betahat,
       sigma = sigma,
       numPrePeriods = nrow(pre),
       numPostPeriods = nrow(post),
+      bound = if (method == "relative_magnitude") {
+        "deviation from parallel trends"
+      } else {
+        "deviation from linear trend"
+      },
       l_vec = l_vec,
       Mbarvec = grid,
       method = honestdid_method,
+      monotonicityDirection = mono_dir,
+      biasDirection = bias_dir,
       alpha = alpha,
       grid.lb = grid_lb,
       grid.ub = grid_ub,
@@ -1093,6 +1291,8 @@ if (method == "relative_magnitude") {
       l_vec = l_vec,
       Mvec = grid,
       method = honestdid_method,
+      monotonicityDirection = mono_dir,
+      biasDirection = bias_dir,
       alpha = alpha
     )
   )
@@ -1135,11 +1335,7 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
                 )
                 sigma_path = str(_sig_path)
         grid_arg = ",".join(f"{float(m):.17g}" for m in m_grid)
-        method_arg = (
-            "relative_magnitude"
-            if method_norm in {"relative_magnitude", "relative_magnitudes"}
-            else "smoothness"
-        )
+        method_arg = method_norm
         proc = subprocess.run(
             [
                 rscript,
@@ -1155,6 +1351,8 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
                 "" if grid_lb is None else f"{float(grid_lb):.17g}",
                 "" if grid_ub is None else f"{float(grid_ub):.17g}",
                 str(_require_int(grid_points, argument="grid_points")),
+                bias or "",
+                mono or "",
             ],
             check=False,
             capture_output=True,
@@ -1607,6 +1805,8 @@ def honest_did_from_moments(
     grid_ub: Optional[float] = None,
     grid_points: int = 1000,
     grid_expand: bool = True,
+    bias_direction: Optional[str] = None,
+    monotonicity_direction: Optional[str] = None,
 ) -> pd.DataFrame:
     """Rambachan-Roth sensitivity from a coefficient vector and its covariance.
 
@@ -1644,8 +1844,10 @@ def honest_did_from_moments(
     e, m_grid, method, alpha, backend, honestdid_method, l_vec, window
         As in :func:`honest_did`.
     grid_lb, grid_ub, grid_points, grid_expand
-        Test-inversion grid for ``method='relative_magnitude'``, as in
-        :func:`honest_did`.
+        Test-inversion grid, as in :func:`honest_did`.
+    bias_direction, monotonicity_direction
+        Sign or shape restriction on the violation, as in :func:`honest_did`
+        (HonestDiD's ``biasDirection`` / ``monotonicityDirection``).
 
     Returns
     -------
@@ -1685,6 +1887,8 @@ def honest_did_from_moments(
         grid_ub=grid_ub,
         grid_points=grid_points,
         grid_expand=grid_expand,
+        bias_direction=bias_direction,
+        monotonicity_direction=monotonicity_direction,
     )
 
 

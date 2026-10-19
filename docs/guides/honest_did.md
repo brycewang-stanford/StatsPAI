@@ -64,12 +64,42 @@ mst = sp.breakdown_m(es, e=1)         # scalar breakdown value
 
 ## Restriction types
 
-- `method='smoothness'` — bounds $|\Delta \delta_t| \le M$ for every
-  consecutive pair of periods (Δ^SD(M)).  The `M` parameter has units
-  of the outcome per period.
-- `method='relative_magnitude'` — post-period violation bounded as
-  `M̄ × max|δ_pre|`.  Useful when you want to express the sensitivity
-  relative to the magnitude of the observed pre-trend violations.
+- `method='smoothness'` — bounds the change in the slope of the
+  violation, $|\Delta^2 \delta_t| \le M$ (Δ^SD(M)).  The `M` parameter
+  has units of the outcome per period.
+- `method='relative_magnitude'` — post-period changes in the violation
+  bounded as `M̄ × max|Δδ_pre|` (Δ^RM).  Useful when you want to express
+  the sensitivity relative to the observed pre-trend violations.
+- `method='smoothness_relative_magnitude'` — the same, on second
+  differences (Δ^SDRM, HonestDiD's "deviation from linear trend"):
+  post-period curvature at most `M̄` times the largest pre-period
+  curvature. Needs two or more pre-periods.
+
+Each can be combined with one extra restriction, as in HonestDiD:
+
+- `bias_direction='positive'` / `'negative'` — the violation pushes the
+  post-period estimate one way only (Δ^SDPB, Δ^RMNB, ...);
+- `monotonicity_direction='increasing'` / `'decreasing'` — the violation
+  is monotone in event time (Δ^SDI, Δ^SDRMD, ...).
+
+`honestdid_method` picks the confidence set: `'FLCI'` (smoothness default),
+`'C-F'` (the conditional-FLCI hybrid, smoothness default once a sign or
+shape restriction is given, since the FLCI ignores it), `'Conditional'`
+(the Andrews-Roth-Pakes conditional test) or `'C-LF'` (the conditional
+least-favourable hybrid, default for the relative-magnitude families). All
+run natively; `'Conditional'` accepts the same grid points as R HonestDiD
+(`tests/reference_parity/test_honest_restrictions_R_parity.py`).
+
+```python
+sp.honest_did(es, e=0, method="smoothness", bias_direction="negative")
+sp.honest_did(es, e=0, method="relative_magnitude",
+              monotonicity_direction="increasing")
+sp.honest_did(es, e=0, method="smoothness_relative_magnitude")
+```
+
+`sp.did_imputation` fits with BJS pre-trend leads now carry the joint
+lead-horizon covariance (as Stata `did_imputation`'s `e(V)`), so they work
+here too.
 
 ## One-shot via `cs_report()`
 

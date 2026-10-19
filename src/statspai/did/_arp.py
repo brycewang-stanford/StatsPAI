@@ -55,6 +55,13 @@ __all__ = [
 _TOL_LAMBDA = 1e-6
 _TOL_EQUALITY = 1e-6
 _TOL_C = 1e-6
+#: The conditional-FLCI hybrid's grid is the first-stage FLCI itself, so its
+#: two end points sit on the first-stage boundary, where the conditional
+#: stage's truncation interval collapses and its verdict is decided by
+#: rounding (HonestDiD rejected one end and StatsPAI accepted it on the same
+#: inputs). Points within this fraction of the FLCI length of that boundary
+#: are rejected by the first stage: a measure-zero set, never interior.
+_FLCI_EDGE = 1e-10
 
 
 # ---------------------------------------------------------------------------
@@ -396,7 +403,7 @@ def conditional_test(
         mod_size = (alpha - kappa) / (1.0 - kappa)
         vbar, dbar, y_full, sigma_full, rows = flci
         vy = float(vbar @ y_full)
-        if max(vy - dbar[0], -vy - dbar[1]) > 0:
+        if max(vy - dbar[0], -vy - dbar[1]) > -_FLCI_EDGE * abs(dbar[0] + dbar[1]):
             return True
     else:
         mod_size = alpha
@@ -534,7 +541,7 @@ def _test_no_nuisance(y, sigma, a, d, alpha, hybrid, lf_cv, kappa, flci=None) ->
     if hybrid == "FLCI":
         a_fs = np.vstack([flci[0], -np.asarray(flci[0])])
         d_fs = np.array([flci[1], flci[1]], dtype=float)
-        if float(np.max(a_fs @ y - d_fs)) > 0:
+        if float(np.max(a_fs @ y - d_fs)) > -_FLCI_EDGE * 2.0 * abs(flci[1]):
             return True
         a_bar = np.vstack([a_bar, a_fs])
         d_bar = np.concatenate([d_bar, d_fs])

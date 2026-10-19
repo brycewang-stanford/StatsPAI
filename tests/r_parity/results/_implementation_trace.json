@@ -452,7 +452,7 @@
    "result_sha256": "66342b1fbe4ca16a5f13015ad7773933b556b324fcfafa10d2cd36ddbaa6a7cb"
   },
   "10_honest_did": {
-   "seconds": 8.31,
+   "seconds": 4.7,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -461,8 +461,9 @@
    "exercised_sources": {
     "src/statspai/core/results.py": "b2eda02204ca94dad57c4618556d3acc64ee51a3ff1196c81ce7079260ad7312",
     "src/statspai/did/_flci.py": "42c48ce668e0b71fa425dc9363f45114523f3d8817e8a53847f8229b54eba6b0",
+    "src/statspai/did/_honest_sets.py": "d7c09ca0d86d177376fd78452834a6694af6266666f140fb238f179a66ae8235",
     "src/statspai/did/es_inference.py": "d080b9592d348fef29c465751334a0d0cb8b2ea3b0407688eedb50c26f69377b",
-    "src/statspai/did/honest_did.py": "1714b38f85715cd4e7ef16e2f9bfa9f128002a3a49024a306e95ab84c70c5ddd",
+    "src/statspai/did/honest_did.py": "28fe7502f6543c579b9e88d6c38bd229cbadcf838a7d28d09358564e38cd6174",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
    "dependency_versions": {
@@ -855,7 +856,7 @@
    "result_sha256": "112a297f5e857128a472144d27c1464b7caaeca94300b734d3d3bc3da6c41309"
   },
   "21_honest_relmags": {
-   "seconds": 13.36,
+   "seconds": 10.78,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -863,10 +864,11 @@
    "subprocesses": [],
    "exercised_sources": {
     "src/statspai/core/results.py": "b2eda02204ca94dad57c4618556d3acc64ee51a3ff1196c81ce7079260ad7312",
-    "src/statspai/did/_arp.py": "1b60a0f53b03a43328d0c495c314d853eb62b41419e11b4d1a284345c983b559",
+    "src/statspai/did/_arp.py": "84943f087adf15644d219a710ccd79c8b8221f099ce56a9a2f99ef43bb97310d",
     "src/statspai/did/_flci.py": "42c48ce668e0b71fa425dc9363f45114523f3d8817e8a53847f8229b54eba6b0",
+    "src/statspai/did/_honest_sets.py": "d7c09ca0d86d177376fd78452834a6694af6266666f140fb238f179a66ae8235",
     "src/statspai/did/es_inference.py": "d080b9592d348fef29c465751334a0d0cb8b2ea3b0407688eedb50c26f69377b",
-    "src/statspai/did/honest_did.py": "1714b38f85715cd4e7ef16e2f9bfa9f128002a3a49024a306e95ab84c70c5ddd",
+    "src/statspai/did/honest_did.py": "28fe7502f6543c579b9e88d6c38bd229cbadcf838a7d28d09358564e38cd6174",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
    "dependency_versions": {

@@ -3027,6 +3027,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_causal_impact_uncertainty.py",
         "tests/reference_parity/test_did_synth_misc_parity.py"
       ],
       "tolerance": ""
@@ -9714,7 +9715,8 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_honest_did_moments_R_parity.py",
-        "tests/reference_parity/test_honest_did_options_R_parity.py"
+        "tests/reference_parity/test_honest_did_options_R_parity.py",
+        "tests/reference_parity/test_honest_restrictions_R_parity.py"
       ],
       "tolerance": ""
     },

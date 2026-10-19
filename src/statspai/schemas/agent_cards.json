@@ -10150,6 +10150,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_causal_impact_uncertainty.py",
         "tests/reference_parity/test_did_synth_misc_parity.py"
       ],
       "tolerance": ""
@@ -10256,7 +10257,7 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_did_synth_misc_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_causal_impact_uncertainty.py",
       "API/unit contract evidence: tests/test_causal_impact.py"
     ],
     "validation_status": "validated"
@@ -76656,7 +76657,7 @@
     "reference": "@rambachan2023more",
     "returns": {
       "class": "DataFrame",
-      "description": "pd.DataFrame: Columns: M, ci_lower, ci_upper, rejects_zero. Each row is a different M value. For relative magnitudes, attrs['grid_extended_at'] lists the Mbar whose grid was extended and attrs['open_at'] those whose set still reaches the gr...",
+      "description": "pd.DataFrame: Columns: M, ci_lower, ci_upper, rejects_zero. Each row is a different M value. For test-inverted sets, attrs['grid_extended_at'] lists the M whose grid was extended and attrs['open_at'] those whose set still reaches the grid e...",
       "fields": {}
     },
     "signature": {
@@ -76679,6 +76680,14 @@
             ],
             "type": "string"
           },
+          "bias_direction": {
+            "description": "Sign restriction on the post-treatment violation: ``delta_post >= 0`` or ``<= 0`` (HonestDiD's ``biasDirection``; ``Delta^SDPB``, ``Delta^RMNB`` ...). Use it when the confound can only push the estimate one way. Not together with ``monotonicity_direction``. Needs the joint event-study covariance.",
+            "enum": [
+              "positive",
+              "negative"
+            ],
+            "type": "string"
+          },
           "e": {
             "default": 0,
             "description": "Relative time period for which to compute robust CIs. 0 = on-impact effect, 1 = one period after, etc.",
@@ -76686,24 +76695,24 @@
           },
           "grid_expand": {
             "default": true,
-            "description": "``method='relative_magnitude'``, native backend: when the accepted set reaches an end of the default grid, extend that side by another ``grid_points`` points at the same step (up to 10 times) instead of reporting the grid end as the bound. HonestDiD (R) and versions of StatsPAI before 1.33 report the grid end, which understates the interval whenever the set is wider than ``+/-20 sd``; ``False`` reproduces that. A set still open after the extensions is reported with a warning and ``attrs['open_at']``. ``backend='r'`` runs HonestDiD's own grid: widen it there with ``grid_lb`` / ``grid_ub``.",
+            "description": "Native backend, test-inverted sets: when the accepted set reaches an end of the default grid, extend that side by another ``grid_points`` points at the same step (up to 10 times) instead of reporting the grid end as the bound. HonestDiD (R) and versions of StatsPAI before 1.33 report the grid end, which understates the interval whenever the set is wider than the grid; ``False`` reproduces that. A set still open after the extensions is reported with a warning and ``attrs['open_at']``. The ``'C-F'`` set lies inside its first-stage FLCI, its grid, and is never extended. ``backend='r'`` runs HonestDiD's own grid: widen it there with ``grid_lb`` / ``grid_ub``.",
             "type": "boolean"
           },
           "grid_lb": {
-            "description": "``method='relative_magnitude'`` only: the ends of the test-inversion grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``). Default ``-/+ 20 sd(l' tau_post)``. A bound given here is honoured as is and never extended. Both backends.",
+            "description": "Test-inverted sets only (every interval except the FLCI): the ends of the grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``). Default ``-/+ 20 sd(l' tau_post)`` for the relative-magnitude families; for smoothness the identified set at ``beta = 0`` widened by ``20 sd`` (``'Conditional'`` / ``'C-LF'``) or the level ``alpha/10`` FLCI (``'C-F'``), as HonestDiD lays them out. A bound given here is honoured as is and never extended. Native backend; ``backend='r'`` passes them for the relative-magnitude families.",
             "type": "number"
           },
           "grid_points": {
             "default": 1000,
-            "description": "``method='relative_magnitude'`` only: points on that grid (HonestDiD's ``gridPoints``). Both backends.",
+            "description": "Points on that grid (HonestDiD's ``gridPoints``).",
             "type": "integer"
           },
           "grid_ub": {
-            "description": "``method='relative_magnitude'`` only: the ends of the test-inversion grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``). Default ``-/+ 20 sd(l' tau_post)``. A bound given here is honoured as is and never extended. Both backends.",
+            "description": "Test-inverted sets only (every interval except the FLCI): the ends of the grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``). Default ``-/+ 20 sd(l' tau_post)`` for the relative-magnitude families; for smoothness the identified set at ``beta = 0`` widened by ``20 sd`` (``'Conditional'`` / ``'C-LF'``) or the level ``alpha/10`` FLCI (``'C-F'``), as HonestDiD lays them out. A bound given here is honoured as is and never extended. Native backend; ``backend='r'`` passes them for the relative-magnitude families.",
             "type": "number"
           },
           "honestdid_method": {
-            "description": "Inference method. The default preserves HonestDiD defaults: ``'C-LF'`` for ``method='relative_magnitude'`` and ``'FLCI'`` for ``method='smoothness'``. The native backend implements ``'FLCI'`` (smoothness) and ``'C-LF'`` / ``'Conditional'`` (relative magnitudes); the R backend accepts all four.",
+            "description": "Inference method. The default preserves HonestDiD defaults: ``'C-LF'`` for the relative-magnitude restrictions, ``'FLCI'`` for ``method='smoothness'``, and ``'C-F'`` for ``method='smoothness'`` with a sign or shape restriction (the FLCI ignores those, so asking for it then warns, as HonestDiD does). Both backends implement all four for smoothness (``'Conditional'``: the Andrews-Roth-Pakes conditional test; ``'C-F'``: the conditional-FLCI hybrid; ``'C-LF'``: the conditional least-favourable hybrid) and ``'C-LF'`` / ``'Conditional'`` for the relative-magnitude families. ``'Conditional'`` involves no simulation and accepts the same grid points as HonestDiD; ``'C-LF'`` simulates its first-stage critical value (NumPy draws, not R's) and so agrees up to that Monte Carlo error.",
             "enum": [
               "C-LF",
               "Conditional",
@@ -76725,10 +76734,14 @@
           },
           "method": {
             "default": "smoothness",
-            "description": "Type of restriction on violations: - ``'smoothness'``: |Deltadelta_t| <= M (bounded change in violation) - ``'relative_magnitude'``: |delta_post| <= M x max|delta_pre|",
+            "description": "Type of restriction on violations: - ``'smoothness'``: |Delta2delta_t| <= M (``Delta^SD``: the slope of the violation changes by at most M per period) - ``'relative_magnitude'``: |Deltadelta_post| <= M x max|Deltadelta_pre| (``Delta^RM``) - ``'smoothness_relative_magnitude'`` (alias ``'sdrm'``): |Delta2delta_post| <= M x max|Delta2delta_pre| (``Delta^SDRM``, HonestDiD's ``bound = \"deviation from linear trend\"``); needs two or more pre-periods. Each can be intersected with a sign restriction (``bias_direction``) or a shape restriction (``monotonicity_direction``).",
+            "type": "string"
+          },
+          "monotonicity_direction": {
+            "description": "Shape restriction: the violation ``delta`` is monotone in event time through the reference period (HonestDiD's ``monotonicityDirection``; ``Delta^SDI``, ``Delta^RMD`` ...). Not together with ``bias_direction``. Needs the joint event-study covariance.",
             "enum": [
-              "smoothness",
-              "relative_magnitude"
+              "increasing",
+              "decreasing"
             ],
             "type": "string"
           },

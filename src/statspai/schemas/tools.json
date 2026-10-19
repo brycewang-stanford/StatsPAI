@@ -17364,6 +17364,10 @@
           },
           "type": "array"
         },
+        "bias_direction": {
+          "description": "Sign or shape restriction on the violation, as in :func:`honest_did` (HonestDiD's ``biasDirection`` / ``monotonicityDirection``).",
+          "type": "string"
+        },
         "e": {
           "default": 0,
           "description": "As in :func:`honest_did`.",
@@ -17378,20 +17382,20 @@
         },
         "grid_expand": {
           "default": true,
-          "description": "Test-inversion grid for ``method='relative_magnitude'``, as in :func:`honest_did`.",
+          "description": "Test-inversion grid, as in :func:`honest_did`.",
           "type": "boolean"
         },
         "grid_lb": {
-          "description": "Test-inversion grid for ``method='relative_magnitude'``, as in :func:`honest_did`.",
+          "description": "Test-inversion grid, as in :func:`honest_did`.",
           "type": "number"
         },
         "grid_points": {
           "default": 1000,
-          "description": "Test-inversion grid for ``method='relative_magnitude'``, as in :func:`honest_did`.",
+          "description": "Test-inversion grid, as in :func:`honest_did`.",
           "type": "integer"
         },
         "grid_ub": {
-          "description": "Test-inversion grid for ``method='relative_magnitude'``, as in :func:`honest_did`.",
+          "description": "Test-inversion grid, as in :func:`honest_did`.",
           "type": "number"
         },
         "honestdid_method": {
@@ -17412,10 +17416,10 @@
         "method": {
           "default": "smoothness",
           "description": "As in :func:`honest_did`.",
-          "enum": [
-            "smoothness",
-            "relative_magnitude"
-          ],
+          "type": "string"
+        },
+        "monotonicity_direction": {
+          "description": "Sign or shape restriction on the violation, as in :func:`honest_did` (HonestDiD's ``biasDirection`` / ``monotonicityDirection``).",
           "type": "string"
         },
         "num_pre_periods": {

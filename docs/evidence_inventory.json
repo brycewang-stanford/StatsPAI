@@ -8568,7 +8568,13 @@
       "dimensions": {
         "restriction": [
           "smoothness",
-          "relative_magnitude"
+          "relative_magnitude",
+          "smoothness_relative_magnitude"
+        ],
+        "shape": [
+          "none",
+          "sign",
+          "monotone"
         ],
         "interval": [
           "flci",
@@ -8621,19 +8627,19 @@
         "diagnostic"
       ],
       "invariant": {},
-      "cells": 25920,
+      "cells": 116640,
       "overall": {
-        "covered": 111,
-        "stochastic_only": 12,
-        "disclosure_only": 96,
-        "not_covered": 25701
+        "covered": 159,
+        "stochastic_only": 30,
+        "disclosure_only": 105,
+        "not_covered": 116346
       },
       "by_output": {
         "diagnostic": {
-          "reference": 111,
-          "stochastic_screen": 12,
-          "disclosure": 96,
-          "not_covered": 25701
+          "reference": 159,
+          "stochastic_screen": 30,
+          "disclosure": 105,
+          "not_covered": 116346
         }
       },
       "rows": [
@@ -8647,6 +8653,9 @@
           "configuration": {
             "restriction": [
               "smoothness"
+            ],
+            "shape": [
+              "none"
             ],
             "interval": [
               "flci"
@@ -8688,6 +8697,9 @@
             "restriction": [
               "relative_magnitude"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "arp_conditional"
             ],
@@ -8728,6 +8740,9 @@
             "restriction": [
               "relative_magnitude"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "arp_conditional"
             ],
@@ -8767,6 +8782,9 @@
           "configuration": {
             "restriction": [
               "relative_magnitude"
+            ],
+            "shape": [
+              "none"
             ],
             "interval": [
               "arp_c_lf"
@@ -8809,6 +8827,9 @@
             "restriction": [
               "relative_magnitude"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "arp_conditional"
             ],
@@ -8850,6 +8871,9 @@
             "restriction": [
               "relative_magnitude"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "arp_conditional"
             ],
@@ -8890,6 +8914,9 @@
           "configuration": {
             "restriction": [
               "relative_magnitude"
+            ],
+            "shape": [
+              "none"
             ],
             "interval": [
               "arp_conditional"
@@ -8935,6 +8962,9 @@
             "restriction": [
               "relative_magnitude"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "arp_conditional"
             ],
@@ -8979,6 +9009,9 @@
             "restriction": [
               "relative_magnitude"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "arp_c_lf"
             ],
@@ -9019,6 +9052,9 @@
           "configuration": {
             "restriction": [
               "smoothness"
+            ],
+            "shape": [
+              "none"
             ],
             "interval": [
               "flci"
@@ -9062,6 +9098,9 @@
           "configuration": {
             "restriction": [
               "smoothness"
+            ],
+            "shape": [
+              "none"
             ],
             "interval": [
               "flci"
@@ -9108,6 +9147,9 @@
             "restriction": [
               "smoothness"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "flci"
             ],
@@ -9146,6 +9188,9 @@
           "configuration": {
             "restriction": [
               "relative_magnitude"
+            ],
+            "shape": [
+              "none"
             ],
             "interval": [
               "arp_conditional"
@@ -9190,6 +9235,9 @@
               "relative_magnitude",
               "smoothness"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "arp_conditional",
               "flci"
@@ -9233,6 +9281,9 @@
             "restriction": [
               "relative_magnitude"
             ],
+            "shape": [
+              "none"
+            ],
             "interval": [
               "arp_conditional"
             ],
@@ -9261,6 +9312,190 @@
             ]
           },
           "compares": "did::mpdta Callaway-Sant'Anna fit: the native Conditional set equals R HonestDiD run through backend='r' on the same covariance to 1e-10 (needs R)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_honest_restrictions_R_parity.py",
+          "entry_point": "sp.honest_did_from_moments(",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "restriction": [
+              "smoothness"
+            ],
+            "shape": [
+              "monotone",
+              "none",
+              "sign"
+            ],
+            "interval": [
+              "arp_conditional"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "target": [
+              "average",
+              "single"
+            ],
+            "window": [
+              "full"
+            ],
+            "alpha": [
+              "0.05"
+            ],
+            "m_grid": [
+              "positive",
+              "zero",
+              "zero_only"
+            ],
+            "rm_grid": [
+              "honestdid"
+            ],
+            "source": [
+              "moments"
+            ]
+          },
+          "compares": "smoothness with the conditional test, alone and with each sign and shape restriction (DeltaSD / SDPB / SDNB / SDI / SDD), on a correlated 3 pre / 3 post and a one-post-period event study: the same grid (identified set at beta = 0 +/- 20 sd) and the same accepted points as HonestDiD::computeConditionalCS_* to 1e-12"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_honest_restrictions_R_parity.py",
+          "entry_point": "sp.honest_did_from_moments(",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "restriction": [
+              "relative_magnitude",
+              "smoothness_relative_magnitude"
+            ],
+            "shape": [
+              "monotone",
+              "none",
+              "sign"
+            ],
+            "interval": [
+              "arp_conditional"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "target": [
+              "average",
+              "single"
+            ],
+            "window": [
+              "full"
+            ],
+            "alpha": [
+              "0.05"
+            ],
+            "m_grid": [
+              "positive",
+              "zero",
+              "zero_only"
+            ],
+            "rm_grid": [
+              "honestdid"
+            ],
+            "source": [
+              "moments"
+            ]
+          },
+          "compares": "relative magnitudes with sign / shape restrictions (DeltaRMPB ... RMD) and of second differences (DeltaSDRM and its sign / shape variants): the Conditional set equals HonestDiD::createSensitivityResults_relativeMagnitudes to 1e-12"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_honest_restrictions_R_parity.py",
+          "entry_point": "sp.honest_did_from_moments(",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "restriction": [
+              "smoothness"
+            ],
+            "shape": [
+              "monotone",
+              "none",
+              "sign"
+            ],
+            "interval": [
+              "arp_c_f"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "target": [
+              "single"
+            ],
+            "window": [
+              "full"
+            ],
+            "alpha": [
+              "0.05"
+            ],
+            "m_grid": [
+              "positive",
+              "zero",
+              "zero_only"
+            ],
+            "rm_grid": [
+              "honestdid"
+            ],
+            "source": [
+              "moments"
+            ]
+          },
+          "compares": "the conditional-FLCI hybrid within one grid step of HonestDiD with the exact folded-normal quantile (two of the shipped package): its grid and first stage are the level alpha/10 FLCI, whose centre the two solvers pin only to ~1e-5"
+        },
+        {
+          "kind": "S",
+          "artifact": "tests/reference_parity/test_honest_restrictions_R_parity.py",
+          "entry_point": "sp.honest_did_from_moments(",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "restriction": [
+              "relative_magnitude",
+              "smoothness",
+              "smoothness_relative_magnitude"
+            ],
+            "shape": [
+              "none",
+              "sign"
+            ],
+            "interval": [
+              "arp_c_lf"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "target": [
+              "single"
+            ],
+            "window": [
+              "full"
+            ],
+            "alpha": [
+              "0.05"
+            ],
+            "m_grid": [
+              "positive",
+              "zero",
+              "zero_only"
+            ],
+            "rm_grid": [
+              "honestdid"
+            ],
+            "source": [
+              "moments"
+            ]
+          },
+          "compares": "the C-LF hybrid under DeltaSD / SDNB / RMPB / SDRM: HonestDiD's bound inside the spread of the native bound over ten seeds plus one grid step (each side simulates the first-stage critical value with its own RNG)"
         }
       ]
     },
@@ -19568,10 +19803,10 @@
       "not_covered": 44065
     },
     "diagnostic": {
-      "reference": 147,
-      "stochastic_screen": 12,
-      "disclosure": 96,
-      "not_covered": 187871
+      "reference": 195,
+      "stochastic_screen": 30,
+      "disclosure": 105,
+      "not_covered": 278516
     },
     "vcov": {
       "reference": 37,

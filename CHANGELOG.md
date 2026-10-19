@@ -54,6 +54,32 @@ All notable changes to StatsPAI will be documented in this file.
   now say so, the unverified references are gone, and a test pins the
   identity. Numbers are unchanged.
 
+### Honest DiD: sign, shape and second-difference restrictions, natively
+
+- `sp.honest_did(bias_direction=, monotonicity_direction=)` and
+  `method='smoothness_relative_magnitude'`: R HonestDiD's sign
+  restrictions (Δ^SDPB / SDNB, Δ^RMPB / RMNB, Δ^SDRMPB / SDRMNB), shape
+  restrictions (Δ^SDI / SDD, Δ^RMI / RMD, Δ^SDRMI / SDRMD) and relative
+  magnitudes of second differences (Δ^SDRM, "deviation from linear
+  trend"), without R. Smoothness now also runs `honestdid_method=
+  'Conditional'`, `'C-F'` (conditional-FLCI hybrid, the default once a
+  sign or shape restriction is given) and `'C-LF'` natively; before they
+  needed `backend='r'`. `backend='r'` passes the new restrictions to
+  HonestDiD. `sp.honest_did_from_moments` takes the same arguments; the
+  table's `attrs['delta']` names the set as HonestDiD does.
+- Evidence (`tests/reference_parity/test_honest_restrictions_R_parity.py`,
+  HonestDiD 0.2.8): `'Conditional'` accepts the same grid points as
+  HonestDiD (1e-12) for every restriction on correlated and
+  one-post-period event studies, with the same default grids; `'C-F'`
+  within one grid step (its grid is the alpha/10 FLCI, whose centre the
+  two FLCI solvers pin to ~1e-5); `'C-LF'` inside the native bound's spread
+  over ten seeds of its simulated first stage. The C-F grid ends sit on the
+  first-stage boundary, where the verdict was decided by rounding; they are
+  now rejected by the first stage (HonestDiD rejected one, StatsPAI accepted
+  it, on the same inputs). With one pre-period HonestDiD's monotonicity matrix imposes
+  delta_{-2} <= delta_0 instead of delta_{-2} <= 0 (an R `1:0` loop); the
+  native matrix follows the definition.
+
 ### `sp.mediate(interaction=True)` works under the default inference
 
 #### Fixed

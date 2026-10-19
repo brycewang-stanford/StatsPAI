@@ -1082,6 +1082,7 @@ def test_honest_did_relative_magnitudes_conditional_is_covered(mpdta_cs):
     assert scope["function"] == "honest_did"
     assert scope["configuration"] == {
         "restriction": "relative_magnitude",
+        "shape": "none",
         "interval": "arp_conditional",
         "code_path": "native",
         "target": "single",

@@ -618,6 +618,7 @@ def _x_honest(r: Any) -> Dict[str, Optional[str]]:
     source = at.get("source")
     return {
         "restriction": at.get("restriction"),
+        "shape": at.get("shape", "none"),
         "interval": at.get("interval"),
         "code_path": at.get("code_path"),
         "target": at.get("target"),
@@ -5581,6 +5582,7 @@ _add(
 
 _HD_BASE = {
     "restriction": ("smoothness",),
+    "shape": ("none",),
     "interval": ("flci",),
     "code_path": ("native",),
     "target": ("single",),
@@ -5604,11 +5606,17 @@ _HD_OPT = _RP + "test_honest_did_options_R_parity.py"
 _HD_MOM = _RP + "test_honest_did_moments_R_parity.py"
 _HD_STATA = _RP + "test_honest_did_lvec_window_Stata_parity.py"
 _HD_BACKEND = _RP + "test_honest_did_backend_parity.py"
+_HD_RESTR = _RP + "test_honest_restrictions_R_parity.py"
 _add(
     _Scope(
         "honest_did",
         {
-            "restriction": ("smoothness", "relative_magnitude"),
+            "restriction": (
+                "smoothness",
+                "relative_magnitude",
+                "smoothness_relative_magnitude",
+            ),
+            "shape": ("none", "sign", "monotone"),
             "interval": (
                 "flci",
                 "arp_conditional",
@@ -5835,8 +5843,86 @@ _add(
                 "covariance to 1e-10 (needs R)",
                 "sp.honest_did(cs_result, method='relative_magnitude')",
             ),
+            _Row(
+                "T2",
+                _HD_RESTR,
+                _hd(
+                    restriction=("smoothness",),
+                    shape=("none", "sign", "monotone"),
+                    interval=("arp_conditional",),
+                    target=("single", "average"),
+                    rm_grid=("honestdid",),
+                    source=("moments",),
+                ),
+                ("diagnostic",),
+                "smoothness with the conditional test, alone and with each sign "
+                "and shape restriction (DeltaSD / SDPB / SDNB / SDI / SDD), on a "
+                "correlated 3 pre / 3 post and a one-post-period event study: "
+                "the same grid (identified set at beta = 0 +/- 20 sd) and the "
+                "same accepted points as HonestDiD::computeConditionalCS_* to "
+                "1e-12",
+                "sp.honest_did_from_moments(",
+            ),
+            _Row(
+                "T2",
+                _HD_RESTR,
+                _hd(
+                    restriction=("relative_magnitude", "smoothness_relative_magnitude"),
+                    shape=("none", "sign", "monotone"),
+                    interval=("arp_conditional",),
+                    target=("single", "average"),
+                    source=("moments",),
+                ),
+                ("diagnostic",),
+                "relative magnitudes with sign / shape restrictions (DeltaRMPB "
+                "... RMD) and of second differences (DeltaSDRM and its sign / "
+                "shape variants): the Conditional set equals "
+                "HonestDiD::createSensitivityResults_relativeMagnitudes to 1e-12",
+                "sp.honest_did_from_moments(",
+            ),
+            _Row(
+                "T4",
+                _HD_RESTR,
+                _hd(
+                    restriction=("smoothness",),
+                    shape=("none", "sign", "monotone"),
+                    interval=("arp_c_f",),
+                    target=("single",),
+                    rm_grid=("honestdid",),
+                    source=("moments",),
+                ),
+                ("diagnostic",),
+                "the conditional-FLCI hybrid within one grid step of HonestDiD "
+                "with the exact folded-normal quantile (two of the shipped "
+                "package): its grid and first stage are the level alpha/10 "
+                "FLCI, whose centre the two solvers pin only to ~1e-5",
+                "sp.honest_did_from_moments(",
+            ),
+            _Row(
+                "S",
+                _HD_RESTR,
+                _hd(
+                    restriction=(
+                        "smoothness",
+                        "relative_magnitude",
+                        "smoothness_relative_magnitude",
+                    ),
+                    shape=("none", "sign"),
+                    interval=("arp_c_lf",),
+                    target=("single",),
+                    rm_grid=("honestdid",),
+                    source=("moments",),
+                ),
+                ("diagnostic",),
+                "the C-LF hybrid under DeltaSD / SDNB / RMPB / SDRM: HonestDiD's "
+                "bound inside the spread of the native bound over ten seeds "
+                "plus one grid step (each side simulates the first-stage "
+                "critical value with its own RNG)",
+                "sp.honest_did_from_moments(",
+            ),
         ),
         primary=("diagnostic",),
+        defaults={"shape": "none"},
         note="The diagnostic is the confidence set [ci_lower, ci_upper] at each M. "
         "backend='r' (code_path 'r') runs HonestDiD itself, so a comparison with "
         "R would compare the reference with itself; it has no row. "
