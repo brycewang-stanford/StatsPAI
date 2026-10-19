@@ -2171,7 +2171,42 @@ def _panel_bias_reduced(
         se_vals: Dict[str, float] = {}
         wild_pvals = {}
         wild_ci = {}
-        for v in indep_vars:
+        # Bootstrapping the already-demeaned design is valid only when every
+        # entity lies in one cluster. Otherwise the flipped residuals are no
+        # longer orthogonal to the entity dummies and the bootstrap must
+        # re-absorb them in each draw (boottest after areg / reghdfe; the
+        # same fix as hdfe_ols(wild=True) and sp.wild_cluster_boot).
+        nested = bool((work.groupby(entity)[ccol].nunique(dropna=False) <= 1).all())
+        reabsorb = None
+        if not nested:
+            from ._wild_fe import wild_cluster_fe
+
+            ent_codes = pd.factorize(work[entity])[0]
+            n_ent = int(ent_codes.max()) + 1
+            cnt = np.bincount(ent_codes, minlength=n_ent).astype(float)
+
+            def _demean(v: np.ndarray) -> np.ndarray:
+                tot = np.zeros((n_ent,) + v.shape[1:])
+                np.add.at(tot, ent_codes, v)
+                means = tot / cnt.reshape((-1,) + (1,) * (v.ndim - 1))
+                return np.asarray(v - means[ent_codes])
+
+            cl_values = work[ccol].to_numpy()
+
+            def reabsorb(j: int) -> Dict[str, Any]:
+                return wild_cluster_fe(
+                    _demean,
+                    y,
+                    X,
+                    cl_values,
+                    j,
+                    n_boot=wild_reps,
+                    weight_type=wild_weight_type,
+                    seed=seed,
+                    alpha=alpha,
+                )
+
+        for j, v in enumerate(indep_vars):
             out = wild_cluster_boot(
                 shim,
                 work,
@@ -2183,6 +2218,8 @@ def _panel_bias_reduced(
                 alpha=alpha,
             )
             se_vals[v] = float(out["se_cluster"])
+            if reabsorb is not None:
+                out = reabsorb(j)
             wild_pvals[v] = float(out["p_boot"])
             wild_ci[v] = (float(out["ci_boot"][0]), float(out["ci_boot"][1]))
         std_errors = pd.Series(se_vals)

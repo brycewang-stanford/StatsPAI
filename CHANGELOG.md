@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: `sp.panel(vce='wild')` with clusters that cut across entities
+
+#### ⚠️ Correctness
+
+- `sp.panel(method='fe', vce='wild', cluster=c)` bootstrapped the
+  entity-demeaned design, which is valid only when every entity lies in one
+  cluster. With clusters that cut across entities it now re-absorbs the
+  entity effects in each draw (the engine `sp.hdfe_ols(wild=True)` uses,
+  fixed in bc97a0fd for `sp.wild_cluster_boot`). p-values equal Stata
+  `boottest` after `areg ..., absorb(id) vce(cluster c)` exactly (all 4096
+  Rademacher draws enumerated), the confidence-set bounds to 0.3% of the
+  width (`tests/test_panel_wild_boottest.py`). Before, an 8-cluster version
+  of the same design gave p = 0.0625 / 0.117 against boottest's 0.078 /
+  0.180. Point estimates and CR1 standard errors are unchanged; so is the
+  default (clustering on the entity).
+
 ### ⚠️ Correctness: `sp.mi_estimate` complete-data df; `binscatter(method='binsreg')`; labels in `sp.sumstats`
 
 #### Fixed

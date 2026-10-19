@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.panel(vce='wild')` re-absorbs entity effects not nested in the clusters
+
+With `method='fe', vce='wild'` and a `cluster=` column that does not nest
+the entities (each entity in one cluster), the bootstrap now re-absorbs the
+entity effects in every draw, as Stata `boottest` after `areg` does. The
+wild p-values and confidence sets change for such calls (on the test panel
+an 8-cluster design went from p = 0.0625 to boottest's 0.078); point
+estimates and the CR1 standard errors do not. Clustering on the entity (the
+default) is unchanged. There is no switch back: the old numbers came from a
+bootstrap that is not valid for non-nested effects.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.feols` / `sp.hdfe_ols` finish unconverged projections exactly
 
 When the alternating projections stopped at their sweep limit, the native
