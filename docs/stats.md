@@ -47,7 +47,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `rd` | 23,783 | 35 | 57 |
 | `smart` | 17,011 | 21 | 31 |
 | `forest` | 16,856 | 18 | 33 |
-| `matching` | 18,726 | 29 | 39 |
+| `matching` | 18,726 | 29 | 43 |
 | `inference` | 17,632 | 34 | 59 |
 | `output` | 14,926 | 22 | 42 |
 | `mcmc` | 14,643 | 25 | 46 |

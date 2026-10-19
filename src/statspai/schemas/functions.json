@@ -40995,6 +40995,11 @@
           ],
           "type": "string"
         },
+        "weights": {
+          "description": "Column of sampling (survey) weights ``s``, WeightIt's ``s.weights``. They are not base weights: the balancing targets become the ``s``-weighted moments of the target group, the reweighted arm is balanced in the ``s``-weighted sense (``sum s w c(X)`` hits the target, with ``w q exp(lambda'c(X))`` and ``q`` the base weights, 1 by default), and both outcome means carry ``s``. The weights used for the effect are ``s * w``. ``base_weights`` keeps its meaning (the entropy reference). The M-estimation variance weights every estimating function by ``s`` (treated as fixed), as ``WeightIt::lm_weightit(vcov = \"asympt\")`` does; estimate and standard error equal it to 1e-9 (``tests/reference_parity/test_ebalance_sweights_parity.py``). ``model_info['weights_full']`` holds ``w`` without ``s``, like WeightIt's ``weights``. Not combined with ``dof_adjust`` or ``vce='naive'``.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "y": {
           "description": "Outcome variable.",
           "type": "string",
