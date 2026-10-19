@@ -4295,3 +4295,16 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record for module 86 (fect diagnostic tests)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `c8395801`.
+- **Reason.** `synth/fect.py` (placebo / carryover / leave-one-period-out
+  tests, the resampling loop moved to `synth/_fect_tests.py`) is on the
+  estimation path of module 86; its trace was re-recorded.
+- **Effect on the paper.** None. Module 86 is point-only and reproduces
+  its committed result byte for byte; the new options are off by default.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
