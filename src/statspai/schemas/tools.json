@@ -1556,6 +1556,11 @@
           },
           "type": "array"
         },
+        "vcov": {
+          "default": true,
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
+        },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
           "type": "boolean"
@@ -1604,6 +1609,11 @@
             "link"
           ],
           "type": "string"
+        },
+        "vcov": {
+          "default": true,
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -1676,6 +1686,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "vcov": {
+          "default": true,
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -6418,6 +6433,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "vcov": {
+          "default": true,
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -17074,6 +17094,15 @@
           },
           "type": "array"
         },
+        "cluster_df": {
+          "default": "per_term",
+          "description": "Small-sample factor of a multi-way cluster variance (the inclusion-exclusion sum ``V_a + V_b - V_ab``). ``'per_term'`` scales each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does; ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to reproduce their numbers. The two differ by a few percent with few clusters in one dimension (0.00935 against 0.00856 on one 40 x 15 panel); one-way clustering is the same either way. The choice is recorded in ``cluster_info['cluster_df']``. OLS with fixed effects only.",
+          "enum": [
+            "per_term",
+            "min"
+          ],
+          "type": "string"
+        },
         "conley_cutoff": {
           "description": "Conley distance cutoff in km for ``vce=\"conley\"``.",
           "type": "number"
@@ -17679,7 +17708,7 @@
     "name": "hurdle"
   },
   {
-    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'. Parsed, never evaluated as code. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Alternatives: sp.nlcom, sp.lincom, sp.test.",
+    "description": "Delta-method test of a function of estimates (marginaleffects::hypotheses): on a fit, of its coefficients; on a table from sp.predictions / comparisons / slopes, of its rows with their joint covariance. b1, b2 ... by position, coefficient names, 'lhs = rhs'; a list gives one row each. joint=True / joint=[names] runs one Wald test of several, possibly non-linear, restrictions (Stata testnl). Parsed, never evaluated as code. Validation: certified parity evidence. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix (delta-method inference). Failure modes: hypotheses: pass a hypothesis (or joint=True / joint=[names]) -> E.g. sp.hypotheses(fit, \"x1 = 0\") or sp.hypotheses(fit, joint=['x1', 'x2']). Alternatives: sp.nlcom, sp.lincom, sp.test.",
     "input_schema": {
       "properties": {
         "conf_level": {
@@ -17692,7 +17721,24 @@
           "type": "number"
         },
         "hypothesis": {
-          "description": "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2'",
+          "description": "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2', or a list of such strings (one row each, or one joint test with joint=True); may be omitted when joint names the estimates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "joint": {
+          "default": false,
+          "description": "Joint Wald test: True tests all the hypotheses (or, with none given, every estimate = 0) at once; a list of coefficient names tests that those are 0",
+          "type": "boolean"
+        },
+        "joint_test": {
+          "default": "f",
+          "description": "'f': F = W / q on (q, residual df), marginaleffects' convention; 'chisq': W on q",
+          "enum": [
+            "f",
+            "chisq"
+          ],
           "type": "string"
         },
         "result": {
@@ -17701,7 +17747,6 @@
         }
       },
       "required": [
-        "hypothesis",
         "result"
       ],
       "type": "object"
@@ -19188,6 +19233,62 @@
       "type": "object"
     },
     "name": "iv_forest"
+  },
+  {
+    "description": "WRE wild cluster bootstrap for a single (endogenous) 2SLS coefficient. Assumptions: Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb); Exclusion: instruments affect outcome only through the endogenous regressor; Monotonicity (for LATE interpretation under heterogeneous effects). Pre-conditions: formula includes the (endog ~ instruments) parenthesised block; at least as many instruments as endogenous regressors (order condition); instruments are not themselves endogenous in the outcome equation. Failure modes: First-stage F < 10 (Stock-Yogo 5% bias) -> Use weak-IV-robust inference (Anderson-Rubin) or LIML; Over-identification test rejects (sp.estat 'overid') -> At least one instrument is invalid; drop instruments or switch to just-identified LIML; Hausman endogeneity test fails to reject -> OLS may be consistent and more efficient; report both. Alternatives: sp.deepiv, sp.bartik, sp.proximal, sp.regress. Typical minimum N: 100.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Bootstrap controls (see ``wild_cluster_boot``).",
+          "type": "number"
+        },
+        "beta0": {
+          "default": 0.0,
+          "description": "Bootstrap controls (see ``wild_cluster_boot``).",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster variable name in ``data``.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "efficient": {
+          "default": true,
+          "description": "If True, use the DM2010 *restricted efficient* reduced form (regress the endogenous regressor on the instruments **and** the restricted structural residual, exploiting the u-v correlation). If False, use the plain restricted reduced form (projection on instruments only).",
+          "type": "boolean"
+        },
+        "n_boot": {
+          "default": 999,
+          "description": "Bootstrap controls (see ``wild_cluster_boot``).",
+          "type": "integer"
+        },
+        "result": {
+          "description": "A fitted ``sp.ivreg`` result (2SLS); must carry ``data_info['iv']``.",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Bootstrap controls (see ``wild_cluster_boot``).",
+          "type": "integer"
+        },
+        "variable": {
+          "description": "Coefficient to test (``H0: beta = beta0``).",
+          "type": "string"
+        },
+        "weight_type": {
+          "default": "rademacher",
+          "description": "Bootstrap controls (see ``wild_cluster_boot``).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cluster",
+        "result",
+        "variable"
+      ],
+      "type": "object"
+    },
+    "name": "iv_wild_bootstrap"
   },
   {
     "description": "Exponential-mean (Poisson) regression with endogenous regressors by GMM, additive or multiplicative errors, as Stata's ivpoisson gmm. Validation: certified parity evidence. Do NOT use when: Endogeneity comes from an omitted variable inside the exponential and errors='additive' is kept: that moment condition is not valid there; use errors='multiplicative'. Assumptions: Conditional mean is exp(x'b); Instruments are uncorrelated with the additive (or multiplicative) error and relevant. Pre-conditions: Outcome is non-negative; At least as many excluded instruments as endogenous regressors. Failure modes: GMM criterion did not converge -> Rescale regressors on a very large scale; try errors='additive'. Alternatives: sp.poisson, sp.ppmlhdfe, sp.ivreg. Typical minimum N: 200.",
@@ -27766,6 +27867,11 @@
             "link"
           ],
           "type": "string"
+        },
+        "vcov": {
+          "default": true,
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -36996,6 +37102,11 @@
           },
           "type": "array"
         },
+        "vcov": {
+          "default": true,
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
+        },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
           "type": "boolean"
@@ -43102,7 +43213,7 @@
     "name": "westfall_young"
   },
   {
-    "description": "Wild cluster bootstrap t-test for a single coefficient. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff. Assumptions: Errors are independent across clusters; any within-cluster dependence is unrestricted; Clusters are defined at (or above) the level at which treatment was assigned; Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs. Pre-conditions: A fitted regression result (or its design matrix and residuals) and a cluster column with no missing values; Two-way clustering needs both dimensions to have many clusters. Failure modes: Few clusters (G < 30) or one dominant cluster -> Report wild cluster bootstrap p-values / inverted CIs (sp.wild_cluster_boot, sp.wild_cluster_ci_inv) or CR3 jackknife; Very few treated clusters -> Cluster-robust SEs are unreliable; use sp.did_few_treated or randomization inference. Alternatives: sp.sp.cr2_se, sp.sp.conley.",
+    "description": "Wild cluster bootstrap test of one coefficient, or of several jointly. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff. Assumptions: Errors are independent across clusters; any within-cluster dependence is unrestricted; Clusters are defined at (or above) the level at which treatment was assigned; Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs. Pre-conditions: A fitted regression result (or its design matrix and residuals) and a cluster column with no missing values; Two-way clustering needs both dimensions to have many clusters. Failure modes: Few clusters (G < 30) or one dominant cluster -> Report wild cluster bootstrap p-values / inverted CIs (sp.wild_cluster_boot, sp.wild_cluster_ci_inv) or CR3 jackknife; Very few treated clusters -> Cluster-robust SEs are unreliable; use sp.did_few_treated or randomization inference. Alternatives: sp.sp.cr2_se, sp.sp.conley.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -43110,20 +43221,35 @@
           "description": "Significance level for confidence interval.",
           "type": "number"
         },
+        "bootcluster": {
+          "description": "With multi-way ``cluster=[a, b]`` (least squares): the variable(s) whose clusters the bootstrap weights are drawn for (Stata ``boottest, bootcluster()``). Default: the intersection of the cluster variables, boottest's default.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "cluster": {
           "description": "Name of the cluster variable.",
-          "type": "string",
-          "x-statspai-role": "column"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "confidence_set": {
           "default": false,
-          "description": "Also return ``ci_inverted``, the set of null values the test does not reject at level ``alpha``: the confidence set Stata ``boottest`` prints. The test is repeated over null values with the same bootstrap weights (a few hundred times), so it is off by default.",
+          "description": "Also return ``ci_inverted``, the set of null values the test does not reject at level ``alpha``: the confidence set Stata ``boottest`` prints. The test is repeated over null values with the same bootstrap weights (a few hundred times), so it is off by default. One coefficient, one-way clustering.",
           "type": "boolean"
         },
         "h0": {
           "default": 0.0,
           "description": "The value of the coefficient under the null, imposed when the bootstrap samples are generated (Stata ``boottest x = h0``).",
-          "type": "number"
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
         },
         "n_boot": {
           "default": 999,
@@ -43131,7 +43257,7 @@
           "type": "integer"
         },
         "result": {
-          "description": "A fitted regression result from ``sp.regress()``.",
+          "description": "A fitted result (see above).",
           "type": "string"
         },
         "seed": {
@@ -43139,8 +43265,11 @@
           "type": "integer"
         },
         "variable": {
-          "description": "Name of the coefficient to test (H0: beta = ``h0``).",
-          "type": "string"
+          "description": "Name of the coefficient to test (H0: beta = ``h0``). Required except after ``sp.did``, where the ATT is tested.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "weight_type": {
           "default": "rademacher",
@@ -43155,8 +43284,7 @@
       },
       "required": [
         "cluster",
-        "result",
-        "variable"
+        "result"
       ],
       "type": "object"
     },
