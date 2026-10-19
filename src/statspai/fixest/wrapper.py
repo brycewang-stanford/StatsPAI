@@ -742,6 +742,39 @@ def _note_weights(result: Any, data: pd.DataFrame, vcov: Any, weights: Any) -> N
     result.model_info = info
 
 
+def _require_hac_ids(vcov: Any, kwargs: Dict[str, Any], data: Any, entry: str) -> None:
+    """Driscoll-Kraay / Newey-West need the panel's time (and unit) ids.
+
+    pyfixest reads them from ``vcov_kwargs``; without them it failed with
+    ``KeyError: None`` (``sp.vcov(fit, 'DK')`` reached that).
+    """
+    if not isinstance(vcov, str) or vcov.upper() not in ("DK", "NW"):
+        return
+    kind = vcov.upper()
+    vk = kwargs.get("vcov_kwargs") or {}
+    need = ["time_id", "lag"] + (["panel_id"] if kind == "DK" else [])
+    missing = [k for k in need if vk.get(k) is None]
+    example = "vcov_kwargs={'time_id': 'year', 'panel_id': 'firm', 'lag': 2}"
+    label = "Driscoll-Kraay" if kind == "DK" else "Newey-West"
+    if missing:
+        raise MethodIncompatibility(
+            f"{entry}: vcov={vcov!r} ({label}) needs {missing} in vcov_kwargs: "
+            "the time variable, the unit variable (panel HAC) and the number "
+            "of lags.",
+            recovery_hint=f"sp.{entry}(..., vcov={kind!r}, {example}); after a "
+            "fit, refit with these arguments (sp.vcov cannot add them).",
+            diagnostics={"vcov": vcov, "missing": missing},
+        )
+    if isinstance(data, pd.DataFrame):
+        absent = {
+            k: vk[k]
+            for k in ("time_id", "panel_id")
+            if vk.get(k) is not None and vk[k] not in data.columns
+        }
+        if absent:
+            raise ColumnNotFound.from_missing(absent, list(data.columns))
+
+
 def _check_pyfixest() -> Any:
     """Import pyfixest or raise a structured ``MissingDependencyError``.
 
@@ -931,7 +964,24 @@ def _feols_wild(
     pvals = pd.Series(np.nan, index=base.params.index, dtype=float)
     ci_lo = pd.Series(np.nan, index=base.params.index, dtype=float)
     ci_hi = pd.Series(np.nan, index=base.params.index, dtype=float)
-    for var in base.params.index:
+    iv = (base.data_info or {}).get("iv")
+    targets = list(base.params.index)
+    if iv is not None:
+        # 2SLS: the WRE bootstrap of the endogenous coefficients (as
+        # sp.ivreg(vce='wild')); the exogenous ones keep their CRV1
+        # inference. (Before, least squares on the structural design was
+        # bootstrapped and reported as the IV fit's.)
+        targets = list(iv["endog_names"])
+        pvals = pd.Series(
+            np.asarray(base.pvalues, dtype=float), index=base.params.index
+        )
+        from scipy import stats as _st
+
+        dfi = base.data_info.get("df_inference") or base.data_info.get("df_resid")
+        crit = float(_st.t.ppf(0.975, dfi) if dfi else _st.norm.ppf(0.975))
+        ci_lo = base.params - crit * base.std_errors
+        ci_hi = base.params + crit * base.std_errors
+    for var in targets:
         out = wild_cluster_boot(
             base,
             data,
@@ -943,7 +993,10 @@ def _feols_wild(
         )
         pvals[var] = out["p_boot"]
         ci_lo[var], ci_hi[var] = out["ci_boot"]
-        se[var] = out["se_cluster"]
+        if iv is None:
+            se[var] = out["se_cluster"]
+        # IV: the fit's CRV1 standard error stands (the bootstrap's own
+        # studentisation does not charge the absorbed effects)
 
     base.std_errors = se
     base.pvalues = pvals
@@ -953,7 +1006,12 @@ def _feols_wild(
     base.model_info["vcov_type"] = (
         f"wild cluster bootstrap (Cameron-Gelbach-Miller 2008, {reps} reps, "
         f"{weight_type})"
+        if iv is None
+        else "WRE wild cluster bootstrap (Davidson-MacKinnon 2010, "
+        f"{reps} reps, {weight_type}; endogenous coefficients)"
     )
+    if iv is not None:
+        base.model_info["wild_endogenous"] = targets
     base.model_info["n_boot"] = reps
     base.model_info["cluster"] = cluster
     return base
@@ -1641,6 +1699,10 @@ def feols(
           (Cameron-Gelbach-Miller 2008); validated against Stata ``boottest``.
         - ``vce="conley"`` (with ``conley_lat=/conley_lon=/conley_cutoff=``)
           — Conley spatial HAC (Stata ``acreg`` planar-distance convention).
+        - ``"DK"`` / ``"NW"`` with ``vcov_kwargs={'time_id': 't',
+          'panel_id': 'id', 'lag': L}`` — Driscoll-Kraay / Newey-West panel
+          HAC through pyfixest (R ``fixest`` ``DK(L)`` / ``NW(L)`` with
+          ``panel.id = ~id + t``); without the ids they raise.
     weights : str, optional
         Column name for regression weights. Alone they are analytic
         weights (Stata ``[aw=]``, R ``fixest`` ``weights=``).
@@ -1732,6 +1794,7 @@ def feols(
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
     vcov = stata_vce_to_fixest(vcov, function="feols")
+    _require_hac_ids(vcov, kwargs, data, "feols")
     if weights_as is not None:
         # Resolve the declaration once, then run the ordinary call inside
         # it: the fit has several return paths and the weight diagnostic
@@ -2219,6 +2282,7 @@ def fepois(
     ...                 cluster="firm")
     """
     vcov = stata_vce_to_fixest(vcov, function="fepois")
+    _require_hac_ids(vcov, kwargs, data, "fepois")
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
     fml = r_formula_idioms(fml)
@@ -2449,6 +2513,7 @@ def feglm(
     True
     """
     vcov = stata_vce_to_fixest(vcov, function="feglm")
+    _require_hac_ids(vcov, kwargs, data, "feglm")
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
     fml = r_formula_idioms(fml)

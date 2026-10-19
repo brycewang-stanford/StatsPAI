@@ -24,7 +24,7 @@ Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2008).
 """
 
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -343,33 +343,48 @@ def cr2_se(
 def wild_cluster_boot(
     result: EconometricResults,
     data: pd.DataFrame,
-    cluster: str,
-    variable: str,
+    cluster: Union[str, List[str]],
+    variable: Optional[Union[str, List[str]]] = None,
     n_boot: int = 999,
     weight_type: str = "rademacher",
     seed: Optional[int] = None,
     alpha: float = 0.05,
-    h0: float = 0.0,
+    h0: Union[float, List[float]] = 0.0,
     confidence_set: bool = False,
+    bootcluster: Optional[Union[str, List[str]]] = None,
 ) -> Dict[str, Any]:
     """
-    Wild cluster bootstrap t-test for a single coefficient.
+    Wild cluster bootstrap test of one coefficient, or of several jointly.
 
-    Implements the WCR (Wild Cluster Restricted) bootstrap from
-    Cameron, Gelbach & Miller (2008), designed for inference with
-    few clusters. Imposes the null hypothesis when generating
-    bootstrap samples for better finite-sample performance.
+    The bootstrap is the one the fitted estimator defines -- the one Stata
+    ``boottest`` runs after the same command:
+
+    * least squares (``sp.regress``, ``sp.feols``, ``sp.hdfe_ols``, a
+      fixed-effects ``sp.panel``): the WCR (wild cluster restricted)
+      bootstrap of Cameron, Gelbach & Miller (2008) on the stored design,
+      after checking that least squares on it reproduces the coefficients;
+    * ``sp.ivreg`` (2SLS): the WRE bootstrap of
+      :func:`statspai.iv_wild_bootstrap` (endogenous coefficients);
+    * ``sp.logit`` / ``sp.probit`` / ``sp.poisson`` / ``sp.glm`` (those
+      links): the score wild cluster bootstrap (Kline-Santos), bit-exact
+      with ``boottest`` when the Rademacher grid is enumerated;
+    * ``sp.did`` (2 x 2): its own ``vce='wild'``, replayed from the call
+      record (``variable`` may be omitted).
+
+    Any other model raises: refitting it by least squares (as this function
+    did before) bootstraps a different estimator.
 
     Parameters
     ----------
     result : EconometricResults
-        A fitted regression result from ``sp.regress()``.
+        A fitted result (see above).
     data : pd.DataFrame
         The original data used for estimation.
     cluster : str
         Name of the cluster variable.
-    variable : str
-        Name of the coefficient to test (H0: beta = ``h0``).
+    variable : str, optional
+        Name of the coefficient to test (H0: beta = ``h0``). Required except
+        after ``sp.did``, where the ATT is tested.
     n_boot : int, default 999
         Number of bootstrap replications (use odd number).
     weight_type : str, default 'rademacher'
@@ -389,12 +404,31 @@ def wild_cluster_boot(
         not reject at level ``alpha``: the confidence set Stata
         ``boottest`` prints. The test is repeated over null values with the
         same bootstrap weights (a few hundred times), so it is off by
-        default.
+        default. One coefficient, one-way clustering.
+    bootcluster : str or list of str, optional
+        With multi-way ``cluster=[a, b]`` (least squares): the variable(s)
+        whose clusters the bootstrap weights are drawn for (Stata
+        ``boottest, bootcluster()``). Default: the intersection of the
+        cluster variables, boottest's default.
+
+    Notes on multi-way and joint tests
+    ----------------------------------
+    ``cluster=[a, b]`` uses the multi-way variance
+    ``sum_s (-1)^(|s|+1) c_s V_s`` with each term's own
+    ``G_s/(G_s - 1) (n - 1)/(n - k)``, as boottest does; draws whose
+    variance is not positive have no statistic and are left out of the
+    p-value (``n_boot_valid``). ``variable=[x1, x2]`` with ``h0=[r1, r2]``
+    tests the restrictions jointly by the Wald statistic ``F = W / q``
+    (``statistic``) with all of them imposed on the bootstrap data,
+    ``p = #{F* > F} / B`` (boottest ``(x1 = r1) (x2 = r2)``). Both are
+    least-squares only and return no interval.
 
     Returns
     -------
     dict
-        Keys:
+        Keys (least squares; the other bootstraps return the subset they
+        define and a ``method`` key naming the bootstrap):
+        - ``method``: which bootstrap ran
         - ``beta_hat``: point estimate
         - ``se_cluster``: conventional cluster-robust SE
         - ``t_stat``: observed t-statistic
@@ -442,9 +476,46 @@ def wild_cluster_boot(
     """
     import warnings
 
+    from ._wild_dispatch import absorbed_fe_codes, dispatch, require_least_squares
+
+    multi_cluster = not isinstance(cluster, str) and len(list(cluster)) > 1
+    joint = not isinstance(variable, str) and variable is not None
+    if multi_cluster or joint or bootcluster is not None:
+        return _wild_multi_or_joint(
+            result,
+            data,
+            [cluster] if isinstance(cluster, str) else list(cluster),
+            [variable] if isinstance(variable, str) else list(variable or []),
+            h0,
+            bootcluster,
+            n_boot=n_boot,
+            weight_type=weight_type,
+            seed=seed,
+            confidence_set=confidence_set,
+        )
+    if not isinstance(cluster, str):
+        cluster = list(cluster)[0]
+
+    routed = dispatch(
+        result,
+        data,
+        cluster,
+        variable,
+        n_boot=n_boot,
+        weight_type=weight_type,
+        seed=seed,
+        alpha=alpha,
+        h0=h0,
+        confidence_set=confidence_set,
+    )
+    if routed is not None:
+        return routed
+
     rng = np.random.default_rng(seed)
 
     X, Y, var_names, cl, _src = _design_from_result(result, data, cluster)
+    require_least_squares(result, X, Y, var_names)
+    fe_codes = absorbed_fe_codes(result, X.shape[0])
 
     if variable not in var_names:
         raise ValueError(f"Variable '{variable}' not found. Available: {var_names}")
@@ -517,6 +588,7 @@ def wild_cluster_boot(
             null,
             correction,
             W,
+            fe_codes=fe_codes,
         )
         # two-sided, symmetric; strict inequality as in boottest -- ties at
         # |t| are the identity draw and its negation
@@ -533,6 +605,7 @@ def wild_cluster_boot(
     )
 
     return {
+        "method": "WCR wild cluster restricted bootstrap (least squares)",
         "beta_hat": float(beta_test),
         "se_cluster": se_cl,
         "t_stat": float(t_stat),
@@ -556,6 +629,80 @@ def wild_cluster_boot(
             else {}
         ),
     }
+
+
+def _wild_multi_or_joint(
+    result: Any,
+    data: pd.DataFrame,
+    clusters: List[str],
+    variables: List[str],
+    h0: Any,
+    bootcluster: Any,
+    *,
+    n_boot: int,
+    weight_type: str,
+    seed: Optional[int],
+    confidence_set: bool,
+) -> Dict[str, Any]:
+    """Multi-way clustering / joint restrictions (least squares only)."""
+    from ._wild_dispatch import dispatch_kind, require_least_squares
+    from ._wild_multi import wild_wald
+
+    who = "wild_cluster_boot"
+    kind = dispatch_kind(result)
+    if kind != "least_squares":
+        raise MethodIncompatibility(
+            f"{who}: multi-way clustering and joint restrictions are "
+            f"implemented for least-squares fits; this is a {kind} fit.",
+            recovery_hint="Test one coefficient with one cluster variable, "
+            "or use a least-squares fit.",
+        )
+    if not variables:
+        raise MethodIncompatibility(
+            f"{who}: pass variable= (a name, or a list for a joint test).",
+            recovery_hint="E.g. variable=['x1', 'x2'], h0=[0, 0].",
+        )
+    if confidence_set:
+        raise MethodIncompatibility(
+            f"{who}: confidence_set= is implemented for one coefficient with "
+            "one-way clustering.",
+            recovery_hint="Drop confidence_set=.",
+        )
+    if isinstance(bootcluster, str):
+        bootcluster = [bootcluster]
+    names = list(dict.fromkeys(clusters + list(bootcluster or [])))
+    X = Y = None
+    cols: Dict[str, np.ndarray] = {}
+    for c in names:
+        Xc, Yc, var_names, cl, _src = _design_from_result(result, data, c)
+        if X is None:
+            X, Y = Xc, Yc
+        elif Xc.shape != X.shape or not np.array_equal(Xc, X):
+            raise MethodIncompatibility(
+                f"{who}: the cluster columns {names} could not all be aligned "
+                "with the fitted sample.",
+                recovery_hint="Pass the DataFrame the model was fitted on.",
+            )
+        cols[c] = cl
+    assert X is not None and Y is not None
+    require_least_squares(result, X, Y, var_names)
+    from ._wild_dispatch import absorbed_fe_codes
+    from ._wild_multi import _codes
+
+    boot = _codes([cols[c] for c in (bootcluster or clusters)])
+    return wild_wald(
+        X,
+        Y,
+        var_names,
+        [cols[c] for c in clusters],
+        boot,
+        variables,
+        [h0] if np.isscalar(h0) else list(h0),
+        n_boot=n_boot,
+        weight_type=weight_type,
+        rng=np.random.default_rng(seed),
+        fe_codes=absorbed_fe_codes(result, X.shape[0]),
+    )
 
 
 # ======================================================================

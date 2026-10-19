@@ -625,6 +625,76 @@ period gave `sun_abraham` zero standard errors. The checks now live in
   `sp.modelsummary(model_labels=)`, `sp.outreg2(model_labels=,
   coef_labels=, digits=)`. Passing both spellings raises `TypeError`.
 
+### Post-estimation after fixed-effects fits; wild bootstrap by estimator
+
+#### Added
+
+- `result.fixef()` after `sp.feols` / `sp.fepois` / `sp.feglm` with
+  absorbed effects: one Series per effect, normalised as R `fixest`'s
+  `fixef()` reports them (matches it to 1e-6 for one to three effects, IV,
+  Poisson and logit; `tests/reference_parity/test_fixest_postestimation_parity.py`).
+- `predict(newdata=...)` (alias of `data=`) on regression results.
+- `sp.hypotheses`: a list of hypotheses (one row each), and
+  `joint=True` / `joint=[names]` with `joint_test="f" | "chisq"` for one
+  Wald test of several restrictions, linear or not (Stata `testnl`;
+  marginaleffects' `joint=` to 1e-6).
+- `vce=False` (alias `vcov=`, marginaleffects' spelling) on
+  `sp.predictions` / `comparisons` / `slopes` and their `avg_` versions
+  (estimates without standard errors).
+- `sp.wild_cluster_boot` tests several coefficients jointly
+  (`variable=[...]`, `h0=[...]`) and clusters several ways
+  (`cluster=[a, b]`, `bootcluster=`), matching Stata `boottest`
+  p-values exactly in the enumerated regime
+  (`tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py`).
+- `sp.iv_wild_bootstrap` is public (the WRE bootstrap behind
+  `sp.ivreg(vce='wild')`).
+- `sp.hdfe_ols(cluster_df='min')`: the multi-way small-sample factor of
+  Stata `reghdfe` and R `fixest` (reghdfe's SEs to 1e-10). The default
+  stays `'per_term'` (R `sandwich::vcovCL`) and is now recorded in
+  `cluster_info['cluster_df']`.
+
+#### Fixed
+
+- ⚠️ `predict(newdata)` after `sp.feols` / `sp.fepois` / `sp.feglm` with
+  absorbed effects left the effects out, and after `sp.fepois` /
+  `sp.feglm` returned the linear index instead of the mean. It now adds the
+  effects and applies the inverse link, as fixest's `predict`; an unseen
+  level gives NaN with a warning.
+- ⚠️ `sp.avg_slopes` / `avg_predictions` / `avg_comparisons` /
+  `sp.margins` after `sp.fepois` / `sp.feglm` read the model as linear
+  (the link was not recorded) and returned the coefficients as marginal
+  effects (0.286 against marginaleffects' 0.275 on the audit data). The
+  link is recorded and the effects enter the index, held at their
+  estimates, as marginaleffects does on a fixest model. Standard errors
+  that would ignore the effects' uncertainty (predictions; any quantity
+  of a non-linear model) are refused unless `vce=False`, as
+  marginaleffects refuses them.
+- ⚠️ `sp.wild_cluster_boot` refit least squares whatever the model: after
+  `sp.ivreg` it bootstrapped the OLS coefficient, after `sp.logit` a linear
+  probability model. It now runs the bootstrap the estimator defines
+  (WRE after 2SLS, the score bootstrap after logit / probit / Poisson,
+  `sp.did`'s own wild bootstrap after a 2x2 DiD) and refuses other models.
+- ⚠️ `sp.feols(..., vce='wild')` with an IV part reported the OLS cluster
+  standard errors of the structural design (0.024 against the 2SLS 0.059
+  on the reference panel) with bootstrap p-values of the OLS coefficient.
+  The endogenous coefficients now get the WRE bootstrap and the others
+  keep their CRV1 inference.
+- ⚠️ The wild bootstrap after a fit with absorbed effects that are not
+  nested in the clusters (year effects with firm clusters) did not
+  residualise the bootstrap draws on the effects again, so its p-values
+  were those of another bootstrap (0.130 against Stata `boottest` after
+  `reghdfe`'s 0.146 on the reference panel). `sp.feols(vce='wild')` and
+  `sp.wild_cluster_boot` now match boottest exactly.
+- Tables from `sp.avg_slopes` and friends kept arrays in
+  `DataFrame.attrs`, so printing a wide table and `pd.concat` raised
+  "truth value of an array is ambiguous". The Jacobian is kept in a
+  wrapper that compares by value (`np.asarray(tab.attrs["jacobian"])`),
+  and a subset of rows is tested with its own rows.
+- `sp.vcov(fit, 'DK')` / `vcov='NW'` without the panel ids failed with
+  `KeyError: None`; they now raise a typed error naming
+  `vcov_kwargs={'time_id': ..., 'panel_id': ..., 'lag': ...}` (with them,
+  pyfixest's numbers equal fixest's `DK(L)` / `NW(L)`).
+
 ### Singletons: the default of `fixef_rm` changes in 1.40
 
 - `sp.feols` / `sp.fepois`: `fixef_rm` defaults to `None`, which keeps

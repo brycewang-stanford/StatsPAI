@@ -16,6 +16,7 @@ from .effect_size import cor_test, esize
 from .front_door import front_door
 from .g_computation import g_computation
 from .ipw import ipw
+from .iv_wild import iv_wild_bootstrap
 from .jackknife import cr2_se, jackknife_se, wild_cluster_boot
 from .lm_lin import lm_lin
 from .loneway import loneway
@@ -50,6 +51,7 @@ from .wild_subcluster import subcluster_wild_bootstrap, wild_cluster_ci_inv
 
 __all__ = [
     "wild_cluster_bootstrap",
+    "iv_wild_bootstrap",
     "aipw",
     "ri_test",
     "suest",

@@ -294,6 +294,17 @@ def iv_conley_vcov(
     return {"vcov": vcov, "std_errors": se, "var_names": names}
 
 
+def _absorber(fe_codes: Any) -> Any:
+    """Residualise columns on the fixed effects with these codes (identity
+    when there are none)."""
+    if not fe_codes:
+        return lambda M: M
+    from .wild_bootstrap import absorb_columns
+
+    codes = [np.asarray(c, dtype=np.int64) for c in fe_codes]
+    return lambda M: absorb_columns(M, codes)
+
+
 def iv_wild_bootstrap(
     result: Any,
     data: pd.DataFrame,
@@ -325,6 +336,43 @@ def iv_wild_bootstrap(
         endogenous regressor on the instruments **and** the restricted
         structural residual, exploiting the u-v correlation). If False, use the
         plain restricted reduced form (projection on instruments only).
+
+    Returns
+    -------
+    dict
+        ``beta_hat``, ``se_cluster``, ``t_stat``, ``p_boot`` (symmetric,
+        strict inequality as in ``boottest``), ``ci_boot`` (the test-inversion
+        confidence set), ``t_distribution``, ``n_clusters``, ``n_obs``,
+        ``n_boot`` (``2**G`` when the Rademacher grid is enumerated),
+        ``enumerated``, ``weight_type`` and ``method`` (``'WRE'`` /
+        ``'WUR'``).
+
+    Notes
+    -----
+    After ``sp.feols`` with absorbed fixed effects and an IV part, the
+    stored columns are residualised on the effects and each bootstrap draw
+    is residualised again, so the bootstrap is that of the model with the
+    effects as dummies. ``sp.wild_cluster_boot`` routes 2SLS results here.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n, g = 400, 12
+    >>> firm = rng.integers(0, g, n)
+    >>> z = rng.normal(size=n)
+    >>> u = rng.normal(size=g)[firm] + rng.normal(size=n)
+    >>> d = 0.6 * z + 0.5 * u + rng.normal(size=n)
+    >>> df = pd.DataFrame({"y": 1 + 0.3 * d + u, "d": d, "z": z, "firm": firm})
+    >>> fit = sp.ivreg("y ~ (d ~ z)", data=df, cluster="firm")
+    >>> out = sp.iv_wild_bootstrap(fit, df, "firm", "d", n_boot=199, seed=1)
+    >>> bool(0.0 <= out["p_boot"] <= 1.0)
+    True
+
+    References
+    ----------
+    roodman2019fast
     """
     iv = getattr(result, "data_info", {}).get("iv")
     _reject_weighted(iv)
@@ -362,6 +410,11 @@ def iv_wild_bootstrap(
     n_clusters = int(cl_codes.max()) + 1
 
     rng = np.random.default_rng(seed)
+    # Absorbed fixed effects (sp.feols IV): the stored columns are already
+    # residualised on them, but a bootstrap draw is not -- the wild weights
+    # vary by cluster, not by fixed-effect level -- so each draw is
+    # residualised again, as the model with the effects as dummies would.
+    absorb = _absorber(iv.get("fe_codes"))
 
     # --- projection / 2SLS bread (instruments are fixed across bootstrap) ---
     P_W = W @ np.linalg.solve(W.T @ W, W.T)  # A = P_W for kappa = 1 (2SLS)
@@ -430,6 +483,7 @@ def iv_wild_bootstrap(
                 eps = weights[lo : lo + 512][:, cl_codes].T  # (n, C)
                 xs = base[e][:, None] + eps * rres[e][:, None]
                 ys = b0 * xs + fixed[:, None] + eps * u_tilde[:, None]
+                xs, ys = absorb(xs), absorb(ys)
                 px = Q_w @ (Q_w.T @ xs)
                 a = px - Xo @ (ZtZi_Zt @ px)
                 den = np.sum(a * xs, axis=0)
@@ -448,6 +502,8 @@ def iv_wild_bootstrap(
             for e in endog_cols:
                 x_star[:, e] = base[e] + eps * rres[e]
             y_star = b0 * x_star[:, test_idx] + x_star[:, other] @ g + eps * u_tilde
+            x_star = absorb(x_star)
+            y_star = absorb(y_star[:, None])[:, 0]
             beta_s, V_s = _fit(x_star, y_star)
             se_s = float(np.sqrt(max(V_s[test_idx, test_idx], 1e-20)))
             out[b] = (beta_s[test_idx] - b0) / se_s if se_s > 0 else 0.0

@@ -144,6 +144,35 @@ re-run the line to get Stata's. Payloads also carry `dropped` and
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ predictions, marginal effects and wild bootstraps after fixed-effects, IV and GLM fits
+
+**What changed.**
+
+- `predict(newdata)` after `sp.feols` / `sp.fepois` / `sp.feglm` with
+  `| fe` adds the estimated fixed effects (and, for `fepois` / `feglm`,
+  applies the inverse link). Before it returned `x'b` alone.
+- `sp.avg_slopes` / `sp.avg_predictions` / `sp.avg_comparisons` /
+  `sp.margins` after `sp.fepois` / `sp.feglm` return marginal effects
+  on the response scale with the effects in the index; before they
+  returned the coefficients. The marginaleffects-style functions now
+  raise for standard errors that depend on the effects (predictions, and
+  any quantity of a Poisson / logit / probit fit); pass `vce=False`.
+- `sp.wild_cluster_boot` runs the bootstrap of the fitted estimator (WRE
+  after `sp.ivreg`, score bootstrap after `sp.logit` / `sp.probit` /
+  `sp.poisson`), refuses models without one, and residualises draws on
+  absorbed effects that are not nested in the clusters. Its p-values
+  after such fits change; after plain least squares they do not.
+- `sp.feols(..., vce='wild')` with an IV part: WRE p-values on the
+  endogenous coefficients, CRV1 standard errors kept.
+- `tab.attrs["jacobian"]` / `["vcov_coefficients"]` are read-only
+  array wrappers; use `np.asarray(...)` where an ndarray is needed (`@`,
+  indexing and `.T` work as before).
+
+**What to do.** Nothing, unless you relied on the old numbers. To keep
+coefficient-scale numbers after `sp.fepois`, read `result.params`.
+
+---
+
 ## 1.39.6 → 1.40: `sp.feols` / `sp.fepois` will drop fixed-effect singletons by default
 
 **What changes.** `fixef_rm` of `sp.feols` and `sp.fepois` defaults to

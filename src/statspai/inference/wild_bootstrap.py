@@ -327,6 +327,7 @@ def _wcr_t_stats(
     correction: float,
     W: np.ndarray,
     chunk: int = 2048,
+    fe_codes: Optional[List[np.ndarray]] = None,
 ) -> np.ndarray:
     """Bootstrap t statistics of the restricted wild (cluster) bootstrap.
 
@@ -346,6 +347,14 @@ def _wcr_t_stats(
       ``beta*_b`` that moves with ``w_b``; the ``f`` part leaves no residual
       because ``f`` lies in the column space of ``X``).
 
+    ``fe_codes``: the design was residualised on these absorbed fixed
+    effects. A draw ``w * e`` is not (the weights vary by cluster, not by
+    level), and the model with the effects as dummies -- what Stata
+    ``boottest`` reproduces after ``areg`` / ``reghdfe`` -- residualises it
+    again. Only the error-cluster sums move: ``M[c, g]`` becomes
+    ``sum_{i in g} (M_D (xa 1_c))_i e_i``. Effects nested in the error
+    clusters leave it unchanged and cost nothing.
+
     So the loop over draws touches only ``B x (G_boot + G_err)`` numbers:
     memory no longer scales with ``n x B`` (it used to materialise ``Y*``
     and the residuals for 2,048 draws at a time -- 2.7 GB at n = 100k),
@@ -359,7 +368,13 @@ def _wcr_t_stats(
     c0 = float(xa @ fitted_r)
     # M: error cluster x bootstrap cluster sums of xa * e
     M = np.zeros((n_err, G_boot))
-    np.add.at(M, (err_idx, boot_idx), xe)
+    fe_open = [c for c in (fe_codes or []) if not _nested(c, err_idx)]
+    if fe_open:
+        M = _absorbed_cluster_sums(
+            xa, resid_r, err_idx, n_err, boot_idx, G_boot, list(fe_codes or [])
+        )
+    else:
+        np.add.at(M, (err_idx, boot_idx), xe)
     # Q: error-cluster sums of xa * x
     Q = np.zeros((n_err, X.shape[1]))
     np.add.at(Q, err_idx, xa[:, None] * X)
@@ -377,6 +392,62 @@ def _wcr_t_stats(
         se_b = np.sqrt(np.maximum(var_b, 1e-20))
         out[start : start + chunk] = num / se_b
     return out
+
+
+def _nested(fe: np.ndarray, clusters: np.ndarray) -> bool:
+    """Whether every level of ``fe`` lies inside one cluster."""
+    pairs = pd.DataFrame({"f": np.asarray(fe), "c": np.asarray(clusters)})
+    return bool(pairs.groupby("f")["c"].nunique().max() <= 1)
+
+
+def absorb_columns(M: np.ndarray, fe_codes: List[np.ndarray]) -> np.ndarray:
+    """Residualise the columns of ``M`` on the fixed effects (one effect:
+    exact within-group demeaning; several: alternating projections to a
+    relative 1e-13)."""
+    M = np.array(M, dtype=float, copy=True)
+    codes = [np.asarray(c, dtype=np.int64) for c in fe_codes]
+    counts = [np.bincount(c).astype(float) for c in codes]
+
+    def sweep(A: np.ndarray, c: np.ndarray, cnt: np.ndarray) -> np.ndarray:
+        sums = np.zeros((cnt.size, A.shape[1]))
+        np.add.at(sums, c, A)
+        return A - (sums / cnt[:, None])[c]
+
+    if len(codes) == 1:
+        return sweep(M, codes[0], counts[0])
+    scale = max(float(np.max(np.abs(M))) if M.size else 0.0, 1e-300)
+    for _ in range(10_000):
+        before = M
+        for c, cnt in zip(codes, counts):
+            M = sweep(M, c, cnt)
+        if float(np.max(np.abs(M - before))) <= 1e-13 * scale:
+            break
+    return M
+
+
+def _absorbed_cluster_sums(
+    xa: np.ndarray,
+    e: np.ndarray,
+    err_idx: np.ndarray,
+    n_err: int,
+    boot_idx: np.ndarray,
+    G_boot: int,
+    fe_codes: List[np.ndarray],
+    block: int = 64,
+) -> np.ndarray:
+    """``M[c, g] = sum_{i in g} (M_D (xa 1_c))_i e_i``, in blocks of clusters."""
+    n = xa.shape[0]
+    M = np.zeros((n_err, G_boot))
+    for lo in range(0, n_err, block):
+        cs = np.arange(lo, min(lo + block, n_err))
+        cols = np.zeros((n, cs.size))
+        rows = np.isin(err_idx, cs)
+        cols[rows, err_idx[rows] - lo] = xa[rows]
+        A = absorb_columns(cols, fe_codes) * e[:, None]  # (n, block)
+        part = np.zeros((G_boot, cs.size))
+        np.add.at(part, boot_idx, A)
+        M[cs] = part.T
+    return M
 
 
 def _invert_bootstrap_test(
