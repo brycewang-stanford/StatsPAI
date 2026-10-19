@@ -11,16 +11,17 @@ location ``s`` and sign of the largest pre-period first difference of
 polyhedral pieces -- so that ``sp.honest_did(method="relative_magnitude")``
 no longer needs R.
 
-The construction follows the reference implementation, R ``HonestDiD``
-0.2.8 (Rambachan and Roth; MIT licence, copyright 2023 HonestDiD authors;
-the notice is reproduced in THIRD_PARTY_NOTICES.md), step for step: the
-same moment matrices, the same default ``theta`` grid (``+/- 20`` standard deviations of the target, 1,000
-points), the same primal linear program for the test statistic, the same
-degeneracy rule for switching between the primal and the dual computation
-of the truncation points, and the same bisection tolerances. Matching those
-choices is what makes a finite-grid confidence set comparable point by
-point: both implementations report the smallest and largest accepted grid
-value, so agreement is exact when every grid decision agrees.
+The construction follows the reference implementation, R ``HonestDiD`` 0.2.8
+(Rambachan and Roth; MIT licence, copyright 2023 HonestDiD authors; the
+notice is reproduced in THIRD_PARTY_NOTICES.md), step for step: the same
+moment matrices, the same default ``theta`` grid (``+/- 20`` standard
+deviations of the target, 1,000 points), the same primal linear program for
+the test statistic, the same degeneracy rule for switching between the
+primal and the dual computation of the truncation points, and the same
+bisection tolerances. Matching those choices is what makes a finite-grid
+confidence set comparable point by point: both implementations report the
+smallest and largest accepted grid value, so agreement is exact when every
+grid decision agrees.
 
 Two things cannot be made identical and are documented rather than hidden:
 
@@ -38,6 +39,7 @@ Two things cannot be made identical and are documented rather than hidden:
 
 from __future__ import annotations
 
+import functools
 import math
 from typing import Callable, List, Optional, Tuple
 
@@ -178,6 +180,8 @@ def _polytope_vertices(w_t: np.ndarray) -> Optional[np.ndarray]:
         return None
     e1 = np.zeros(w_t.shape[1])
     e1[0] = 1.0
+    if q == w_t.shape[1]:
+        return _square_basis_vertices(w_t, q, e1)
     out = []
     for basis in combinations(range(m), q):
         wb = w_t[list(basis)].T  # (k+1) x q
@@ -192,6 +196,63 @@ def _polytope_vertices(w_t: np.ndarray) -> Optional[np.ndarray]:
     if not out:
         return None
     return np.unique(np.round(np.asarray(out), 14), axis=0)
+
+
+@functools.lru_cache(maxsize=64)
+def _combinations(m: int, q: int) -> np.ndarray:
+    """All ``q``-subsets of ``range(m)`` as rows, in ``itertools`` order."""
+    from itertools import combinations
+
+    out = np.array(list(combinations(range(m), q)), dtype=np.intp)
+    out.setflags(write=False)
+    return out
+
+
+def _square_basis_vertices(
+    w_t: np.ndarray, q: int, e1: np.ndarray
+) -> Optional[np.ndarray]:
+    """:func:`_polytope_vertices` when ``W`` has full column rank, batched.
+
+    Every candidate basis is then a square ``q x q`` system, so all of them
+    are solved in one batched call instead of a Python loop with a rank test
+    and a least-squares solve per basis (on 7 pre and 7 post periods that
+    loop was 95% of a 100-second relative-magnitudes table). The decisions
+    are the loop's: a basis is skipped when its matrix is rank deficient by
+    ``numpy.linalg.matrix_rank``'s default tolerance (computed here from the
+    same singular values), and a solution is a vertex when it solves the
+    system to 1e-10 and is non-negative to -1e-12.
+    """
+    m = w_t.shape[0]
+    idx = _combinations(m, q)
+    mats = np.transpose(w_t[idx], (0, 2, 1))  # (n_bases, k+1, q), as wb above
+    # Full rank by matrix_rank's rule <=> sigma_min > sigma_max * q * eps.
+    # sigma_min >= |det| / F^(q-1) and sigma_max <= F (F the Frobenius
+    # norm), so |det| / F^(q-1) > F * q * eps settles it without an SVD;
+    # only the bases that fail that bound (singular or nearly so) get one.
+    eps = np.finfo(float).eps
+    fro = np.sqrt(np.einsum("nij,nij->n", mats, mats))
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        surely = np.abs(np.linalg.det(mats)) > fro**q * q * eps
+    ok = surely.copy()
+    unsure = np.flatnonzero(~surely)
+    if unsure.size:
+        sv = np.linalg.svd(mats[unsure], compute_uv=False)
+        tol = sv[:, :1] * q * eps
+        ok[unsure] = np.sum(sv > tol, axis=1) == q
+    if not ok.any():
+        return None
+    idx, mats = idx[ok], mats[ok]
+    xb = np.linalg.solve(mats, np.broadcast_to(e1, (mats.shape[0], q))[..., None])[
+        ..., 0
+    ]
+    resid = np.max(np.abs(np.einsum("nij,nj->ni", mats, xb) - e1), axis=1)
+    keep = (resid <= 1e-10) & (np.min(xb, axis=1) >= -1e-12)
+    if not keep.any():
+        return None
+    out = np.zeros((int(keep.sum()), m))
+    rows = np.arange(out.shape[0])[:, None]
+    out[rows, idx[keep]] = np.maximum(xb[keep], 0.0)
+    return np.unique(np.round(out, 14), axis=0)
 
 
 def _roundeps(x: float, eps: float = np.finfo(float).eps ** 0.75) -> float:
@@ -302,12 +363,17 @@ def conditional_test(
     lf_cv: Optional[float] = None,
     kappa: Optional[float] = None,
     vertices: Optional[np.ndarray] = None,
+    flci: Optional[tuple] = None,
 ) -> bool:
     """Reject ``H0: exists delta, E[y] - X delta <= 0`` at level ``alpha``?
 
     ``hybrid="ARP"`` is the conditional test; ``"LF"`` the conditional
     least-favourable hybrid with first-stage critical value ``lf_cv`` and
-    first-stage size ``kappa``. ``vertices`` (from
+    first-stage size ``kappa``; ``"FLCI"`` the conditional-FLCI hybrid
+    (HonestDiD's ``"C-F"``), whose first stage is a fixed-length confidence
+    interval at level ``kappa``: ``flci = (vbar, dbar, y_full, sigma_full,
+    rows)`` with ``y`` and ``sigma`` the ``rows`` of ``y_full`` and
+    ``sigma_full`` (HonestDiD's ``rowsForARP``). ``vertices`` (from
     :func:`_polytope_vertices` of ``[sd, X]``) may be passed when the same
     ``X`` and ``sigma`` are tested at many ``y``: the test statistic is then
     the maximum of ``gamma' y`` over those vertices -- the dual of the primal
@@ -326,6 +392,12 @@ def conditional_test(
         mod_size = (alpha - kappa) / (1.0 - kappa)
         if eta > lf_cv:
             return True
+    elif hybrid == "FLCI":
+        mod_size = (alpha - kappa) / (1.0 - kappa)
+        vbar, dbar, y_full, sigma_full, rows = flci
+        vy = float(vbar @ y_full)
+        if max(vy - dbar[0], -vy - dbar[1]) > 0:
+            return True
     else:
         mod_size = alpha
 
@@ -343,6 +415,8 @@ def conditional_test(
             return eta > 0
         s_t = y - (sigma @ gamma) * float(gamma @ y) / s2
         vlo, vup = _vlo_vup_dual(eta, s_t, gamma, sigma, w_t, vertices)
+        if hybrid == "FLCI":
+            vlo, vup = _flci_truncation(gamma, flci, vlo, vup)
         sigma_b = np.sqrt(s2)
         maxstat = eta / sigma_b
         zlo = vlo / sigma_b
@@ -364,6 +438,8 @@ def conditional_test(
             bound = (-gamma_b @ y) / rho + float(v_b @ y)
         vlo = float(np.max(bound[rho > 0])) if np.any(rho > 0) else float("-inf")
         vup = float(np.min(bound[rho < 0])) if np.any(rho < 0) else float("inf")
+        if hybrid == "FLCI":
+            vlo, vup = _flci_truncation(v_b, flci, vlo, vup)
         maxstat = eta / sigma_b
         zlo = vlo / sigma_b
         zup = (min(vup, lf_cv) if hybrid == "LF" else vup) / sigma_b
@@ -374,14 +450,42 @@ def conditional_test(
     return bool(maxstat > cval)
 
 
+def _flci_truncation(gamma, flci, vlo: float, vup: float) -> Tuple[float, float]:
+    """Intersect ``[vlo, vup]`` with the conditional-FLCI hybrid's truncation.
+
+    HonestDiD's ``.FLCI_computeVloVup``: the first-stage event
+    ``|vbar' y - ...| <= dbar`` restricts the conditioning set; ``gamma`` is
+    the dual direction on the ``rows`` used by the test, embedded in the full
+    moment vector.
+    """
+    vbar, dbar, y_full, sigma_full, rows = flci
+    g = np.zeros(y_full.size)
+    g[rows] = gamma
+    c = (sigma_full @ g) / float(g @ sigma_full @ g)
+    s_vec = y_full - c * float(g @ y_full)
+    vc = float(vbar @ c)
+    vs = float(vbar @ s_vec)
+    den = np.array([vc, -vc])
+    with np.errstate(divide="ignore", invalid="ignore"):
+        val = (np.asarray(dbar, dtype=float) - np.array([vs, -vs])) / den
+    lo = float(np.max(val[den < 0])) if np.any(den < 0) else float("-inf")
+    hi = float(np.min(val[den > 0])) if np.any(den > 0) else float("inf")
+    return max(vlo, lo), min(vup, hi)
+
+
 def _least_favorable_cv(
     x: Optional[np.ndarray],
     sigma: np.ndarray,
     kappa: float,
     sims: int = 1000,
     seed: int = 0,
+    vertices: Optional[np.ndarray] = None,
 ) -> float:
-    """First-stage critical value of the conditional-LF hybrid (simulated)."""
+    """First-stage critical value of the conditional-LF hybrid (simulated).
+
+    ``vertices`` are those of ``[sd, x]`` (:func:`_polytope_vertices`) when
+    the caller has them already.
+    """
     rng = np.random.default_rng(seed)
     draws = rng.multivariate_normal(np.zeros(sigma.shape[0]), sigma, size=sims)
     if x is None:
@@ -389,7 +493,11 @@ def _least_favorable_cv(
         return float(np.quantile(eta, 1.0 - kappa))
     # HonestDiD solves the eta program at y = xi for each draw. Its value is
     # the maximum of gamma' xi over the dual polytope's vertices.
-    verts = _polytope_vertices(np.column_stack([np.sqrt(np.diag(sigma)), x]))
+    verts = (
+        vertices
+        if vertices is not None
+        else _polytope_vertices(np.column_stack([np.sqrt(np.diag(sigma)), x]))
+    )
     if verts is not None:
         etas = np.max(draws @ verts.T, axis=1)
     else:
@@ -407,7 +515,12 @@ def _least_favorable_cv(
 # ---------------------------------------------------------------------------
 
 
-def _test_no_nuisance(y, sigma, a, d, alpha, hybrid, lf_cv, kappa) -> bool:
+def _test_no_nuisance(y, sigma, a, d, alpha, hybrid, lf_cv, kappa, flci=None) -> bool:
+    """HonestDiD's ``.testInIdentifiedSet`` and its LF / FLCI hybrids.
+
+    ``flci = (flci_l, half_length)`` for ``hybrid="FLCI"``: the level-``kappa``
+    FLCI's affine estimator (all periods) and half-length.
+    """
     sig_tilde = np.sqrt(np.diag(a @ sigma @ a.T))
     a_t = a / sig_tilde[:, None]
     d_t = d / sig_tilde
@@ -416,9 +529,16 @@ def _test_no_nuisance(y, sigma, a, d, alpha, hybrid, lf_cv, kappa) -> bool:
     max_moment = float(moments[j])
     if hybrid == "LF" and max_moment > lf_cv:
         return True
-    gamma = a_t[j]
     a_bar = a_t - a_t[j][None, :]
     d_bar = d_t - d_t[j]
+    if hybrid == "FLCI":
+        a_fs = np.vstack([flci[0], -np.asarray(flci[0])])
+        d_fs = np.array([flci[1], flci[1]], dtype=float)
+        if float(np.max(a_fs @ y - d_fs)) > 0:
+            return True
+        a_bar = np.vstack([a_bar, a_fs])
+        d_bar = np.concatenate([d_bar, d_fs])
+    gamma = a_t[j]
     s2 = float(gamma @ sigma @ gamma)
     sigmabar = np.sqrt(s2)
     c = (sigma @ gamma) / s2
@@ -428,7 +548,7 @@ def _test_no_nuisance(y, sigma, a, d, alpha, hybrid, lf_cv, kappa) -> bool:
         obj = (d_bar - a_bar @ z) / ac
     vlo = float(np.max(obj[ac < 0])) if np.any(ac < 0) else float("-inf")
     vup = float(np.min(obj[ac > 0])) if np.any(ac > 0) else float("inf")
-    size = (alpha - kappa) / (1.0 - kappa) if hybrid == "LF" else alpha
+    size = (alpha - kappa) / (1.0 - kappa) if hybrid in ("LF", "FLCI") else alpha
     mu = float(d_t[j])
     q = _truncnorm_quantile(1.0 - size, (vlo - mu) / sigmabar, (vup - mu) / sigmabar)
     crit = max(0.0, mu + q * sigmabar)
@@ -438,6 +558,221 @@ def _test_no_nuisance(y, sigma, a, d, alpha, hybrid, lf_cv, kappa) -> bool:
 # ---------------------------------------------------------------------------
 #  Delta^RM confidence set
 # ---------------------------------------------------------------------------
+
+
+def accept_polyhedron(
+    betahat: np.ndarray,
+    sigma: np.ndarray,
+    n_pre: int,
+    n_post: int,
+    l_vec: np.ndarray,
+    a: np.ndarray,
+    d: np.ndarray,
+    alpha: float,
+    hybrid: str,
+    kappa: float,
+    grid: np.ndarray,
+    seed: int = 0,
+    skip: Optional[np.ndarray] = None,
+    flci: Optional[Tuple[np.ndarray, float]] = None,
+    nonuis_post_rows_only: bool = False,
+) -> np.ndarray:
+    """Acceptance vector over ``grid`` of ``theta = l' tau_post`` under one
+    polyhedral restriction ``{delta : A delta <= d}``.
+
+    One post-treatment period: HonestDiD's ``.APR_computeCI_NoNuis`` (with
+    ``nonuis_post_rows_only`` the rows of ``A`` that do not involve the post
+    period are dropped first, as the relative-magnitude families do).
+    Several: ``.ARP_computeCI`` on the rows that involve a post period
+    (``postPeriodMomentsOnly``). ``hybrid`` is ``"ARP"`` (conditional),
+    ``"LF"`` or ``"FLCI"``; for ``"FLCI"``, ``flci = (flci_l, half_length)``
+    is the level-``kappa`` FLCI's affine estimator over all periods and its
+    half-length.
+
+    Points flagged in ``skip`` are already accepted by another piece of a
+    union and are not re-tested (their entry here is left at 0): the union's
+    acceptance vector is unchanged, and the test count falls sharply.
+    """
+    if skip is None:
+        skip = np.zeros(grid.size, dtype=bool)
+    a = np.asarray(a, dtype=float)
+    d = np.asarray(d, dtype=float)
+    post_cols = slice(n_pre, n_pre + n_post)
+    accept = np.zeros(grid.size)
+    if n_post == 1:
+        if nonuis_post_rows_only:
+            keep = a[:, -1] != 0
+            a, d = a[keep], d[keep]
+        lf_cv = None
+        if hybrid == "LF":
+            lf_cv = _least_favorable_cv(None, a @ sigma @ a.T, kappa, seed=seed)
+        e_post = np.zeros(betahat.size)
+        e_post[n_pre] = 1.0
+        for i, theta in enumerate(grid):
+            if skip[i]:
+                continue
+            reject = _test_no_nuisance(
+                betahat - e_post * theta,
+                sigma,
+                a,
+                d,
+                alpha,
+                hybrid,
+                lf_cv,
+                kappa,
+                flci=flci,
+            )
+            accept[i] = 0.0 if reject else 1.0
+        return accept
+
+    rows = np.flatnonzero(np.any(a[:, post_cols] != 0, axis=1))
+    gamma_mat = _construct_gamma(l_vec)
+    a_gi = a[:, post_cols] @ np.linalg.inv(gamma_mat)
+    a_one, a_rest = a_gi[:, 0], a_gi[:, 1:]
+    y_all = a @ betahat - d
+    sigma_y = a @ sigma @ a.T
+    x_arp = a_rest[rows]
+    sigma_arp = sigma_y[np.ix_(rows, rows)]
+    # X and sigma do not move with theta, so neither does the dual polytope.
+    verts = _polytope_vertices(np.column_stack([np.sqrt(np.diag(sigma_arp)), x_arp]))
+    lf_cv = None
+    if hybrid == "LF":
+        lf_cv = _least_favorable_cv(x_arp, sigma_arp, kappa, seed=seed, vertices=verts)
+    if hybrid == "FLCI":
+        # HonestDiD's vbar minimises ||flci_l - A' vbar||^2 (a CVXR solve).
+        # The test depends on vbar only through A' vbar, the projection of
+        # flci_l on the row space of A, which every minimiser shares.
+        vbar = np.linalg.lstsq(a.T, np.asarray(flci[0], dtype=float), rcond=None)[0]
+        half = float(flci[1])
+        v_d = float(vbar @ d)
+        v_one = float(vbar @ a_one)
+    for i, theta in enumerate(grid):
+        if skip[i]:
+            continue
+        y_full = y_all - a_one * theta
+        fl = None
+        if hybrid == "FLCI":
+            shift = (1.0 - v_one) * theta
+            dbar = np.array([half - v_d + shift, half + v_d - shift])
+            fl = (vbar, dbar, y_full, sigma_y, rows)
+        reject = conditional_test(
+            y_full[rows],
+            x_arp,
+            sigma_arp,
+            alpha,
+            hybrid,
+            lf_cv,
+            kappa,
+            vertices=verts,
+            flci=fl,
+        )
+        accept[i] = 0.0 if reject else 1.0
+    return accept
+
+
+def union_confidence_set(
+    pieces: List[Tuple[np.ndarray, np.ndarray]],
+    betahat: np.ndarray,
+    sigma: np.ndarray,
+    n_pre: int,
+    n_post: int,
+    l_vec: np.ndarray,
+    alpha: float,
+    hybrid: str,
+    lb: float,
+    ub: float,
+    grid_points: int,
+    *,
+    kappa: Optional[float] = None,
+    seed: int = 0,
+    flci: Optional[Tuple[np.ndarray, float]] = None,
+    nonuis_post_rows_only: bool = False,
+    expand_lo: bool = False,
+    expand_hi: bool = False,
+    max_expand: int = 0,
+    recentre_sd: Optional[float] = None,
+    progress: Optional[Callable[[int], None]] = None,
+) -> Tuple[float, float, np.ndarray, np.ndarray]:
+    """Confidence set for ``l' tau_post`` under the union of ``pieces``.
+
+    ``pieces`` are ``(A, d)`` polyhedra; a grid point is accepted when any
+    piece accepts it (HonestDiD takes the row-wise maximum of the pieces'
+    acceptance vectors). The grid is ``grid_points`` values on ``[lb, ub]``.
+    A side flagged in ``expand_lo`` / ``expand_hi`` whose end point is
+    accepted is extended by another ``grid_points`` points at the same step,
+    up to ``max_expand`` times, so the reported bound is the set's end point
+    rather than the grid's; only the new points are tested. With
+    ``recentre_sd``, a grid that accepts nothing because the estimate lies
+    outside it is moved to ``+/- recentre_sd`` around the estimate.
+
+    Returns ``(lower, upper, grid, accept)``: the smallest and largest
+    accepted grid values (``nan`` if none) and the acceptance vector.
+    """
+    betahat = np.asarray(betahat, dtype=float).ravel()
+    sigma = np.asarray(sigma, dtype=float)
+    l_vec = np.asarray(l_vec, dtype=float).ravel()
+    if kappa is None:
+        kappa = alpha / 10.0
+    grid = np.linspace(lb, ub, int(grid_points))
+
+    def union_accept(pts: np.ndarray) -> np.ndarray:
+        accept = np.zeros(pts.size)
+        for a, d in pieces:
+            acc = accept_polyhedron(
+                betahat,
+                sigma,
+                n_pre,
+                n_post,
+                l_vec,
+                a,
+                d,
+                alpha,
+                hybrid,
+                kappa,
+                pts,
+                seed=seed,
+                skip=accept == 1,
+                flci=flci,
+                nonuis_post_rows_only=nonuis_post_rows_only,
+            )
+            accept = np.maximum(accept, acc)
+            if progress is not None:
+                progress(1)
+        return accept
+
+    accept = union_accept(grid)
+    if grid.size > 1:
+        step = float(grid[1] - grid[0])
+        for _ in range(int(max_expand)):
+            grow_lo = expand_lo and accept[0] == 1
+            grow_hi = expand_hi and accept[-1] == 1
+            if not (grow_lo or grow_hi):
+                break
+            n_new = int(grid_points)
+            if grow_lo:
+                new = grid[0] - step * np.arange(n_new, 0, -1)
+                grid = np.concatenate([new, grid])
+                accept = np.concatenate([union_accept(new), accept])
+            if grow_hi:
+                new = grid[-1] + step * np.arange(1, n_new + 1)
+                grid = np.concatenate([grid, new])
+                accept = np.concatenate([accept, union_accept(new)])
+    hit = grid[accept == 1]
+    if hit.size == 0 and recentre_sd is not None:
+        # HonestDiD centres its default grid at zero. An estimate more than
+        # 20 standard deviations from zero lies outside it, so nothing is
+        # accepted and the set would be reported as empty. Test the same
+        # number of points around the estimate instead.
+        centre = float(l_vec @ betahat[n_pre:])
+        if not lb <= centre <= ub:
+            grid = np.linspace(
+                centre - recentre_sd, centre + recentre_sd, int(grid_points)
+            )
+            accept = union_accept(grid)
+            hit = grid[accept == 1]
+    if hit.size == 0:
+        return float("nan"), float("nan"), grid, accept
+    return float(hit.min()), float(hit.max()), grid, accept
 
 
 def _ci_fixed_s(
@@ -456,61 +791,24 @@ def _ci_fixed_s(
     seed,
     skip=None,
 ) -> np.ndarray:
-    """Acceptance vector of one polyhedral piece over ``grid``.
-
-    Points flagged in ``skip`` are already accepted by another piece of the
-    union and are not re-tested (their entry here is left at 0): the union's
-    acceptance vector is unchanged, and the test count falls sharply.
-    """
-    if skip is None:
-        skip = np.zeros(grid.size, dtype=bool)
+    """Acceptance vector of one ``Delta^RM`` piece over ``grid``."""
     a = create_a_rm(n_pre, n_post, m_bar, s, max_positive)
-    d = np.zeros(a.shape[0])
-    post_cols = slice(n_pre, n_pre + n_post)
-    if n_post > 1:
-        rows = np.flatnonzero(np.any(a[:, post_cols] != 0, axis=1))
-    else:
-        keep = a[:, -1] != 0
-        a, d = a[keep], d[keep]
-        rows = np.arange(a.shape[0])
-
-    accept = np.zeros(grid.size)
-    if n_post == 1:
-        lf_cv = None
-        if hybrid == "LF":
-            lf_cv = _least_favorable_cv(None, a @ sigma @ a.T, kappa, seed=seed)
-        e_post = np.zeros(betahat.size)
-        e_post[n_pre] = 1.0
-        for i, theta in enumerate(grid):
-            if skip[i]:
-                continue
-            reject = _test_no_nuisance(
-                betahat - e_post * theta, sigma, a, d, alpha, hybrid, lf_cv, kappa
-            )
-            accept[i] = 0.0 if reject else 1.0
-        return accept
-
-    gamma_mat = _construct_gamma(l_vec)
-    a_gi = a[:, post_cols] @ np.linalg.inv(gamma_mat)
-    a_one, a_rest = a_gi[:, 0], a_gi[:, 1:]
-    y_all = a @ betahat - d
-    sigma_y = a @ sigma @ a.T
-    x_arp = a_rest[rows]
-    sigma_arp = sigma_y[np.ix_(rows, rows)]
-    lf_cv = None
-    if hybrid == "LF":
-        lf_cv = _least_favorable_cv(x_arp, sigma_arp, kappa, seed=seed)
-    # X and sigma do not move with theta, so neither does the dual polytope.
-    verts = _polytope_vertices(np.column_stack([np.sqrt(np.diag(sigma_arp)), x_arp]))
-    for i, theta in enumerate(grid):
-        if skip[i]:
-            continue
-        y_t = (y_all - a_one * theta)[rows]
-        reject = conditional_test(
-            y_t, x_arp, sigma_arp, alpha, hybrid, lf_cv, kappa, vertices=verts
-        )
-        accept[i] = 0.0 if reject else 1.0
-    return accept
+    return accept_polyhedron(
+        betahat,
+        sigma,
+        n_pre,
+        n_post,
+        l_vec,
+        a,
+        np.zeros(a.shape[0]),
+        alpha,
+        hybrid,
+        kappa,
+        grid,
+        seed=seed,
+        skip=skip,
+        nonuis_post_rows_only=True,
+    )
 
 
 def rm_confidence_set(
@@ -559,68 +857,32 @@ def rm_confidence_set(
         hybrid = "ARP"
     else:
         raise ValueError("method must be 'C-LF' or 'Conditional'")
-    kappa = alpha / 10.0
     post = sigma[n_pre:, n_pre:]
     sd_theta = float(np.sqrt(l_vec @ post @ l_vec))
     lb = -20.0 * sd_theta if grid_lb is None else float(grid_lb)
     ub = 20.0 * sd_theta if grid_ub is None else float(grid_ub)
-    grid = np.linspace(lb, ub, int(grid_points))
-
-    def union_accept(pts: np.ndarray) -> np.ndarray:
-        accept = np.zeros(pts.size)
-        for s in range(-(n_pre - 1), 1):
-            for positive in (True, False):
-                acc = _ci_fixed_s(
-                    betahat,
-                    sigma,
-                    n_pre,
-                    n_post,
-                    l_vec,
-                    m_bar,
-                    s,
-                    positive,
-                    alpha,
-                    hybrid,
-                    kappa,
-                    pts,
-                    seed,
-                    skip=accept == 1,
-                )
-                accept = np.maximum(accept, acc)
-                if progress is not None:
-                    progress(1)
-        return accept
-
-    accept = union_accept(grid)
-    if grid.size > 1:
-        step = float(grid[1] - grid[0])
-        for _ in range(int(max_expand)):
-            grow_lo = grid_lb is None and accept[0] == 1
-            grow_hi = grid_ub is None and accept[-1] == 1
-            if not (grow_lo or grow_hi):
-                break
-            n_new = int(grid_points)
-            if grow_lo:
-                new = grid[0] - step * np.arange(n_new, 0, -1)
-                grid = np.concatenate([new, grid])
-                accept = np.concatenate([union_accept(new), accept])
-            if grow_hi:
-                new = grid[-1] + step * np.arange(1, n_new + 1)
-                grid = np.concatenate([grid, new])
-                accept = np.concatenate([accept, union_accept(new)])
-    hit = grid[accept == 1]
-    if hit.size == 0 and grid_lb is None and grid_ub is None:
-        # HonestDiD centres its default grid at zero. An estimate more than
-        # 20 standard deviations from zero lies outside it, so nothing is
-        # accepted and the set would be reported as empty. Test the same
-        # number of points around the estimate instead.
-        centre = float(l_vec @ betahat[n_pre:])
-        if not lb <= centre <= ub:
-            grid = np.linspace(
-                centre - 20.0 * sd_theta, centre + 20.0 * sd_theta, int(grid_points)
-            )
-            accept = union_accept(grid)
-            hit = grid[accept == 1]
-    if hit.size == 0:
-        return float("nan"), float("nan"), grid, accept
-    return float(hit.min()), float(hit.max()), grid, accept
+    pieces = []
+    for s in range(-(n_pre - 1), 1):
+        for positive in (True, False):
+            a = create_a_rm(n_pre, n_post, m_bar, s, positive)
+            pieces.append((a, np.zeros(a.shape[0])))
+    return union_confidence_set(
+        pieces,
+        betahat,
+        sigma,
+        n_pre,
+        n_post,
+        l_vec,
+        alpha,
+        hybrid,
+        lb,
+        ub,
+        grid_points,
+        seed=seed,
+        nonuis_post_rows_only=True,
+        expand_lo=grid_lb is None,
+        expand_hi=grid_ub is None,
+        max_expand=max_expand,
+        recentre_sd=(20.0 * sd_theta if grid_lb is None and grid_ub is None else None),
+        progress=progress,
+    )

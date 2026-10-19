@@ -1006,6 +1006,8 @@ def did_imputation(
                 rel_time_untreated=rel_untreated,
                 cluster_untreated=untreated[cluster].to_numpy(),
                 n_unit_columns=int(len(np.unique(uid_u)) - 1),
+                unit_untreated=uid_u,
+                time_untreated=untreated[time].to_numpy(),
                 leads=requested_leads,
                 alpha=alpha,
                 weights_untreated=(
@@ -1014,25 +1016,26 @@ def did_imputation(
                     else None
                 ),
             )
-            _lead_vcov = pre_frame.attrs.get("vcov")
-            if _lead_vcov is not None:
+            _lead_scores = pre_frame.attrs.get("scores")
+            if _lead_scores is not None:
                 # The leads come from a separate auxiliary regression on the
-                # untreated sample; their covariance with the imputation
-                # horizons is not produced by that construction (nor by Stata
-                # did_imputation), so the joint matrix is block diagonal and
-                # flagged as such.
+                # untreated sample and the horizons from the imputation, but
+                # both are linear in the outcome: their cross-covariance is
+                # the sum over clusters of the products of their cluster
+                # scores, which is how Stata did_imputation builds e(V)
+                # (matrix accum of the horizon and pre-trend scores). Through
+                # 1.39 this block was left at zero and flagged
+                # block-diagonal, so sp.honest_did fell back to its
+                # worst-case-bias interval on these fits.
                 _leads = [int(k) for k in pre_frame["relative_time"]]
-                _post = (
-                    event_study_vcov if event_study_vcov is not None else pd.DataFrame()
+                _cols = [_lead_scores[k].rename(k) for k in _leads] + [
+                    es_scores[k].rename(k) for k in _kept
+                ]
+                _S = pd.concat(_cols, axis=1).fillna(0.0).to_numpy()
+                _labels = _leads + _kept
+                event_study_vcov = pd.DataFrame(
+                    _S.T @ _S, index=_labels, columns=_labels
                 )
-                _labels = _leads + list(_post.index)
-                _full = np.zeros((len(_labels), len(_labels)))
-                _nl = len(_leads)
-                _full[:_nl, :_nl] = np.asarray(_lead_vcov, dtype=float)
-                if len(_post):
-                    _full[_nl:, _nl:] = _post.to_numpy()
-                event_study_vcov = pd.DataFrame(_full, index=_labels, columns=_labels)
-                event_study_vcov.attrs["block_diagonal"] = True
             event_study_df = (
                 pd.concat([pre_frame, event_study_df], ignore_index=True)
                 .sort_values("relative_time")

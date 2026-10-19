@@ -110,6 +110,38 @@ All notable changes to StatsPAI will be documented in this file.
   differ by more than 0.25 SE. `ipwtm(trunc = 0.01)` parity is unchanged
   with `trim=0.01` passed explicitly.
 
+### ⚠️ Correctness: `sp.did_imputation` joint lead-and-horizon covariance
+
+- ⚠️ With BJS pre-trend leads (`pretrend_method='bjs'`, the default when
+  `horizon=` has negative values or `pretrends=` is set), the event-study
+  covariance now carries the lead-horizon cross block. Both blocks are
+  linear in the outcome; the cross block is the sum over clusters of the
+  products of their scores, which is how Stata `did_imputation` builds
+  `e(V)`. StatsPAI set it to zero and flagged the matrix block-diagonal, so
+  `sp.honest_did` fell back to its worst-case-bias interval and
+  `sp.uniform_bands` to Sidak on every BJS fit; both now use the joint
+  matrix (`sp.event_study_vcov(fit).joint` is `True`).
+- ⚠️ The lead standard errors use `reghdfe`'s observation and cluster
+  counts: singleton units of the auxiliary regression (one untreated
+  period) are dropped before the dof adjustment, as `reghdfe` (and so Stata
+  `did_imputation`) does. Coefficients do not change. On mpdta with
+  `pretrends(3)` the 125 counties first treated in 2004 are singletons and
+  the lead variances were 0.1% too small. Panels without such units (Track
+  A module 84) are unchanged.
+- Evidence: `tests/reference_parity/test_did_imputation_pretrend_vcov_Stata_parity.py`,
+  Stata 18 `did_imputation, horizons(0/3) pretrends(3)` on mpdta: lead
+  block 1e-13, horizon block 7e-10, cross block 2e-8 (reghdfe's solver
+  tolerance).
+
+### Faster relative-magnitudes Honest DiD
+
+- `sp.honest_did(method='relative_magnitude')` enumerates the vertices of
+  each piece's dual polytope in one batched solve (a determinant bound
+  settles most bases without an SVD) and shares them with the
+  least-favourable critical value. 7 pre / 7 post periods: 34 s to 6 s;
+  with the post-period average as target, 104 s to 15 s. Identical sets
+  (the HonestDiD parity tests are unchanged at 1e-12).
+
 ### Discovery: Stata / R command names, paraphrases, `limit=`
 
 - `sp.search_functions` ranks the function a Stata command or R function

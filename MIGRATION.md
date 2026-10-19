@@ -48,6 +48,23 @@ how far truncation moved the estimate.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.did_imputation` lead-horizon covariance and lead SEs
+
+**What changed.** With BJS pre-trend leads, `model_info['event_study_vcov']`
+now has the lead-horizon cross-covariance (it was zero and flagged
+`block_diagonal`), as Stata `did_imputation`'s `e(V)` does. `sp.honest_did`
+and `sp.uniform_bands` on these fits therefore change: the first from the
+warned worst-case-bias interval to the FLCI / ARP set, the second from a
+Sidak band to the sup-t band of the joint matrix. Lead standard errors
+change only where the auxiliary regression has singleton units (a unit
+with one untreated period): their dof count now drops them, as `reghdfe`
+does (0.1% on mpdta with `pretrends(3)`).
+
+**What to do.** Nothing. There is no switch back to the block-diagonal
+matrix; its zero cross block was not an estimate of anything.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` fuzzy + covariates bandwidth
 
 **What changed.** With `fuzzy=` and `covs=` and no `h=`, the selected

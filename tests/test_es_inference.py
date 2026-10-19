@@ -118,7 +118,9 @@ _JOINT = {
     "twfe": True,
     "sa": True,
     "gardner": True,
-    "bjs": False,  # leads from a separate regression: block diagonal
+    # leads from a separate regression, but the cross block is built from
+    # both blocks' cluster scores (Stata did_imputation's e(V))
+    "bjs": True,
     "bjs_insample": True,
     "stacked": True,
     "lp": True,
@@ -342,11 +344,13 @@ def test_honest_did_uses_flci_beyond_callaway_santanna(fits):
             warnings.simplefilter("ignore")
             out = sp.honest_did(fits[name], e=0, method="smoothness")
         assert out.attrs["interval"] == "flci", name
-    # BJS with auxiliary-regression leads has no pre/post cross covariance,
-    # so it still falls back -- loudly.
-    with pytest.warns(UserWarning, match="worst-case-bias"):
+    # BJS with auxiliary-regression leads: the lead-horizon cross block is
+    # the sum of the two blocks' cluster-score products, so the FLCI runs
+    # there too (it fell back to the worst-case-bias interval through 1.39).
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
         out = sp.honest_did(fits["bjs"], e=0, method="smoothness")
-    assert out.attrs["interval"] == "worst_case_bias"
+    assert out.attrs["interval"] == "flci"
 
 
 def test_etwfe_and_sun_abraham_flci_agree(fits):

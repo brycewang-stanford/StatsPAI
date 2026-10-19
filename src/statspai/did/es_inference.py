@@ -170,9 +170,12 @@ def event_study_vcov(result: Any, *, allow_diagonal: bool = True) -> EventStudyV
     -----
     ``did_imputation`` with ``pretrend_method='bjs'`` estimates its leads
     in an auxiliary regression on the untreated sample and its horizons by
-    imputation; neither the construction nor Stata ``did_imputation``
-    provides their cross-covariance, so the matrix is block diagonal and
-    ``joint`` is ``False`` (the post-period block is exact).
+    imputation. Both are linear in the outcome, so their cross-covariance is
+    the sum over clusters of the products of their scores -- Stata
+    ``did_imputation``'s ``e(V)`` -- and the matrix is joint (through 1.39
+    it was block diagonal with ``joint=False``). An estimator that still
+    stores a block-diagonal matrix flags it with
+    ``attrs['block_diagonal'] = True`` and is reported with ``joint=False``.
 
     Examples
     --------
