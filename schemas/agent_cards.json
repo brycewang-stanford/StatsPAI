@@ -65539,7 +65539,7 @@
     },
     "reference": "Goodman-Bacon (2021) J. Econometrics [@goodmanbacon2021difference]",
     "returns": {
-      "class": "dict",
+      "class": "BaconDecompositionResult",
       "description": "dict with 'weights', 'estimates', 'summary'",
       "fields": {}
     },
@@ -74769,7 +74769,7 @@
     },
     "reference": "Oster (2019) JBES [@oster2019unobservable]",
     "returns": {
-      "class": "dict",
+      "class": "OsterBoundsResult",
       "description": "dict with beta_oster, breakdown_delta, identified_set",
       "fields": {}
     },
@@ -91893,6 +91893,10 @@
             "description": "digits parameter (Optional[int]).",
             "type": "integer"
           },
+          "filename": {
+            "description": "Also write the table to this file; the extension picks the format (.xlsx / .docx / .tex / .html / .md / .txt / .csv). The return value is still what ``output`` asks for.",
+            "type": "string"
+          },
           "fmt": {
             "description": "Number format. The default rounds each cell to a few significant digits; pass ``digits=3`` for a fixed three decimals throughout.",
             "type": "integer"
@@ -91903,7 +91907,7 @@
           },
           "output": {
             "default": "text",
-            "description": "'text', 'latex', 'html', 'dataframe', 'numeric', or filepath (.xlsx/.docx). ``'dataframe'`` holds the formatted display strings; ``'numeric'`` the unrounded values (``N`` as int, the rest float) for further computation, with ``fmt`` / ``digits`` ignored.",
+            "description": "'text', 'latex', 'html', 'markdown', 'dataframe', 'numeric', or a file path (.xlsx / .docx / .tex / .html / .md / .txt / .csv). ``'dataframe'`` holds the formatted display strings; ``'numeric'`` the unrounded values (``N`` as int, the rest float) for further computation, with ``fmt`` / ``digits`` ignored. Anything else raises ``MethodIncompatibility``.",
             "type": "string"
           },
           "percentile_method": {
@@ -91933,7 +91937,7 @@
             "type": "boolean"
           },
           "vars": {
-            "description": "Variables to summarize. Defaults to all numeric columns.",
+            "description": "Variables to summarize. Defaults to all numeric columns. A string, categorical or boolean column named here is summarised by one row per level (``\"region: north\"``), the statistics of its 0/1",
             "items": {
               "type": "string"
             },
@@ -96960,8 +96964,8 @@
     },
     "reference": "",
     "returns": {
-      "class": "dict",
-      "description": "dict: evalue_estimate (point E-value), evalue_ci (E-value for the confidence limit closest to true; None if no CI/SE), rr_estimate and rr_ci (the risk ratios used), measure, true, original_estimate,",
+      "class": "EValueResult",
+      "description": "EValueResult: A dict (the keys below, unchanged) that also has summary() / glance() / to_latex() / to_word(). evalue_estimate (point E-value), evalue_ci (E-value for the confidence limit closest to true;",
       "fields": {}
     },
     "signature": {
@@ -118189,8 +118193,8 @@
     },
     "reference": "",
     "returns": {
-      "class": "dict",
-      "description": "dict: Combined estimates (Rubin's rules), keyed as in :meth:`MICEResult.combine`, plus var_names. The within-imputation covariance is the estimator's full var_cov when it exposes one (data_info['var_cov']),",
+      "class": "MIEstimateResult",
+      "description": "MIEstimateResult: A dict of the combined estimates (Rubin's rules), keyed as in :meth:`MICEResult.combine`, plus var_names and n_obs; it also has summary() / tidy() and labelled params / std_errors ... so sp.regtable(result) takes it.",
       "fields": {}
     },
     "signature": {

@@ -34,6 +34,7 @@ def sumstats(
     percentile_method: str = "linear",
     weights: Optional[str] = None,
     total: bool = False,
+    filename: Optional[str] = None,
 ) -> Union[str, pd.DataFrame]:
     """
     Generate descriptive statistics table.
@@ -43,7 +44,11 @@ def sumstats(
     data : pd.DataFrame
         Input data.
     vars : list of str, optional
-        Variables to summarize. Defaults to all numeric columns.
+        Variables to summarize. Defaults to all numeric columns. A string,
+        categorical or boolean column named here is summarised by one row
+        per level (``"region: north"``), the statistics of its 0/1
+        indicator: ``Mean`` is the share of that level among the rows
+        where the variable is not missing (Stata ``summarize i.region``).
     by : str, optional
         Group-by variable for stratified summaries.
     stats : list of str, optional
@@ -57,10 +62,12 @@ def sumstats(
         normal distribution has kurtosis 3), as Stata's ``summarize,
         detail``. An unknown name raises.
     output : str, default 'text'
-        'text', 'latex', 'html', 'dataframe', 'numeric', or filepath
-        (.xlsx/.docx). ``'dataframe'`` holds the formatted display strings;
-        ``'numeric'`` the unrounded values (``N`` as int, the rest float) for
-        further computation, with ``fmt`` / ``digits`` ignored.
+        'text', 'latex', 'html', 'markdown', 'dataframe', 'numeric', or a
+        file path (.xlsx / .docx / .tex / .html / .md / .txt / .csv).
+        ``'dataframe'`` holds the formatted display strings; ``'numeric'``
+        the unrounded values (``N`` as int, the rest float) for further
+        computation, with ``fmt`` / ``digits`` ignored. Anything else
+        raises ``MethodIncompatibility``.
     title : str
         Table title.
     fmt : str
@@ -96,6 +103,10 @@ def sumstats(
     total : bool, default False
         With ``by=``, add a panel ``'Total'`` for all the rows that belong
         to a group (Stata ``tabstat, by()`` prints it as its last row).
+    filename : str, optional
+        Also write the table to this file; the extension picks the format
+        (.xlsx / .docx / .tex / .html / .md / .txt / .csv). The return value
+        is still what ``output`` asks for.
 
     Returns
     -------
@@ -116,9 +127,12 @@ def sumstats(
     """
     # Select variables
     vars_given = vars if vars is None or isinstance(vars, str) else list(vars)
+    if isinstance(vars, str):
+        vars = [vars]
     if vars is None:
         vars = list(data.select_dtypes(include=[np.number]).columns)
     fmt = resolve_digits(fmt, digits, default=AUTO)
+    _check_output(output, filename, extra=("numeric",), function="sumstats")
 
     if stats is None:
         stats = ["n", "mean", "sd", "min", "p25", "median", "p75", "max"]
@@ -181,6 +195,7 @@ def sumstats(
         {"vars": vars_given, "by": by, "weights": weights},
         function="sumstats",
     )
+    data, vars, labels = _expand_categoricals(data, list(vars), labels, exclude=by)
     if weights is not None:
         if (pd.to_numeric(data[weights], errors="coerce") < 0).any():
             raise MethodIncompatibility(
@@ -224,12 +239,113 @@ def sumstats(
         # Stack panels
         df_result = pd.concat(panels, axis=1)
 
+    if filename is not None:
+        _write_file(df_result, filename, title)
     if numeric:
         return df_result
     return _format_output(df_result, output, title, stats)
 
 
 _StatFunc = tuple[str, Callable[[pd.Series], Any]]
+
+#: Output keywords both tables accept, and the file extensions they write.
+_OUTPUT_KEYWORDS = ("text", "latex", "html", "markdown", "dataframe")
+_FILE_EXTENSIONS = (".xlsx", ".docx", ".tex", ".html", ".md", ".txt", ".csv")
+
+
+def _check_output(
+    output: str, filename: Optional[str], *, extra: tuple = (), function: str
+) -> None:
+    """Refuse an ``output=`` / ``filename=`` the table cannot produce.
+
+    An unknown ``output`` used to fall back to text silently, and a file
+    extension other than .xlsx / .docx printed text and wrote nothing.
+    """
+    valid = _OUTPUT_KEYWORDS + tuple(extra)
+    out = str(output)
+    if out not in valid and not out.lower().endswith(_FILE_EXTENSIONS):
+        raise MethodIncompatibility(
+            f"{function}(output={output!r}) is neither a format nor a file "
+            "path with a known extension.",
+            recovery_hint=(
+                f"Use one of {list(valid)} or a path ending in "
+                + ", ".join(_FILE_EXTENSIONS)
+                + "."
+            ),
+            diagnostics={"output": output},
+        )
+    if filename is not None and not str(filename).lower().endswith(_FILE_EXTENSIONS):
+        raise MethodIncompatibility(
+            f"{function}(filename={filename!r}) has no known extension.",
+            recovery_hint="End it in " + ", ".join(_FILE_EXTENSIONS) + ".",
+            diagnostics={"filename": filename},
+        )
+
+
+def _is_categorical(s: pd.Series) -> bool:
+    return not pd.api.types.is_numeric_dtype(s) or pd.api.types.is_bool_dtype(s)
+
+
+def _expand_categoricals(
+    data: pd.DataFrame,
+    vars: List[str],
+    labels: Optional[Dict[str, str]],
+    exclude: Optional[str] = None,
+) -> tuple:
+    """Replace each non-numeric variable by one 0/1 indicator per level.
+
+    The indicator is missing where the variable is, so its mean is the
+    share of the level among the non-missing rows. Rows are named
+    ``"<label>: <level>"``. String and categorical columns used to raise a
+    raw ``TypeError`` from ``Series.mean``.
+    """
+    cat_vars = [
+        v
+        for v in vars
+        if v in data.columns and v != exclude and _is_categorical(data[v])
+    ]
+    if not cat_vars:
+        return data, vars, labels
+    data = data.copy()
+    new_vars: List[str] = []
+    new_labels: Dict[str, str] = dict(labels or {})
+    for v in vars:
+        if v not in cat_vars:
+            new_vars.append(v)
+            continue
+        col = data[v]
+        if isinstance(col.dtype, pd.CategoricalDtype):
+            levels = [lv for lv in col.cat.categories if (col == lv).any()]
+        else:
+            levels = sorted(col.dropna().unique(), key=lambda x: (str(type(x)), x))
+        base = (labels or {}).get(v, v)
+        for lv in levels:
+            key = f"{v}={lv}"
+            data[key] = (col == lv).astype(float).where(col.notna())
+            new_labels[key] = f"{base}: {lv}"
+            new_vars.append(key)
+    return data, new_vars, new_labels
+
+
+def _write_file(df: pd.DataFrame, filename: str, title: str) -> None:
+    """Write a formatted table to ``filename`` (extension picks the format)."""
+    from pathlib import Path
+
+    low = str(filename).lower()
+    if low.endswith(".xlsx"):
+        _sumstats_to_excel(df, filename, title)
+    elif low.endswith(".docx"):
+        _sumstats_to_word(df, filename, title)
+    elif low.endswith(".csv"):
+        Path(filename).write_text(df.to_csv(), encoding="utf-8")
+    else:
+        render = {
+            ".tex": _sumstats_to_latex,
+            ".html": _sumstats_to_html,
+            ".md": _sumstats_to_markdown,
+            ".txt": _sumstats_to_text,
+        }[Path(low).suffix]
+        Path(filename).write_text(render(df, title), encoding="utf-8")
 
 
 def _percentile(s: pd.Series, p: float, method: str) -> float:
@@ -388,6 +504,7 @@ def balance_table(
     digits: Optional[int] = None,
     labels: Optional[Dict[str, str]] = None,
     test: str = "ttest",
+    filename: Optional[str] = None,
 ) -> Union[str, pd.DataFrame]:
     """
     Generate a balance table comparing treated and control groups.
@@ -401,9 +518,13 @@ def balance_table(
     treat : str
         Binary treatment variable (0/1).
     covariates : list of str
-        Variables to check balance on.
+        Variables to check balance on. A string, categorical or boolean
+        covariate gets one row per level, the balance of its 0/1 indicator
+        (the means are the shares of the level in each arm).
     output : str, default 'text'
-        'text', 'latex', 'html', 'dataframe', or filepath.
+        'text', 'latex', 'html', 'markdown', 'dataframe', or a file path
+        (.xlsx / .docx / .tex / .html / .md / .txt / .csv). Anything else
+        raises ``MethodIncompatibility``.
     title : str
         Table title.
     fmt : str
@@ -412,6 +533,8 @@ def balance_table(
         Variable labels.
     test : str, default 'ttest'
         Test for difference: 'ttest' or 'ranksum'.
+    filename : str, optional
+        Also write the table to this file; the extension picks the format.
 
     Returns
     -------
@@ -449,6 +572,15 @@ def balance_table(
             extra_diagnostics={"missing": list(named.values())},
         )
     require_binary_treatment(data[treat], function="balance_table")
+    _check_output(output, filename, function="balance_table")
+    if test not in ("ttest", "ranksum"):
+        raise MethodIncompatibility(
+            f"balance_table: unknown test {test!r}.",
+            recovery_hint="Use test='ttest' or 'ranksum'.",
+        )
+    data, covariates, labels = _expand_categoricals(
+        data, list(covariates), labels, exclude=treat
+    )
     T = data[treat].values
     treated = data[T == 1]
     control = data[T == 0]
@@ -509,6 +641,8 @@ def balance_table(
     ).set_index("Variable")
     df_result = pd.concat([df_result, n_row])
 
+    if filename is not None:
+        _write_file(df_result, filename, title)
     return _format_output(df_result, output, title, None)
 
 
@@ -526,18 +660,16 @@ def _format_output(
     """Route to the appropriate output format."""
     if output == "dataframe":
         return df
-    elif output.endswith(".xlsx"):
-        _sumstats_to_excel(df, output, title)
+    if output.lower().endswith(_FILE_EXTENSIONS):
+        _write_file(df, output, title)
         return f"Exported to: {output}"
-    elif output.endswith(".docx"):
-        _sumstats_to_word(df, output, title)
-        return f"Exported to: {output}"
-    elif output == "latex":
+    if output == "latex":
         return _sumstats_to_latex(df, title)
-    elif output == "html":
+    if output == "html":
         return _sumstats_to_html(df, title)
-    else:
-        return _sumstats_to_text(df, title)
+    if output == "markdown":
+        return _sumstats_to_markdown(df, title)
+    return _sumstats_to_text(df, title)
 
 
 def _sumstats_to_text(df: pd.DataFrame, title: str) -> str:
@@ -549,6 +681,12 @@ def _sumstats_to_text(df: pd.DataFrame, title: str) -> str:
     lines.append(df.to_string())
     lines.append("=" * 80)
     return "\n".join(lines)
+
+
+def _sumstats_to_markdown(df: pd.DataFrame, title: str) -> str:
+    """GitHub-flavoured Markdown table."""
+    head = f"**{title}**\n\n" if title else ""
+    return head + str(df.to_markdown(disable_numparse=True)) + "\n"
 
 
 def _sumstats_to_latex(df: pd.DataFrame, title: str) -> str:

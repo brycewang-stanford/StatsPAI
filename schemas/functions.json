@@ -41919,6 +41919,13 @@
           },
           "type": "array"
         },
+        "drop": {
+          "description": "Coefficients to leave out, as Stata ``coefplot, drop(_cons)``: ``drop=[\"Intercept\"]``. Like Stata's ``coefplot``, the intercept is plotted unless dropped.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "figsize": {
           "default": [
             8,
@@ -42022,6 +42029,10 @@
           "description": "digits parameter (Optional[int]).",
           "type": "integer"
         },
+        "filename": {
+          "description": "Also write the table to this file; the extension picks the format (.xlsx / .docx / .tex / .html / .md / .txt / .csv). The return value is still what ``output`` asks for.",
+          "type": "string"
+        },
         "fmt": {
           "description": "Number format. The default rounds each cell to a few significant digits; pass ``digits=3`` for a fixed three decimals throughout.",
           "type": "integer"
@@ -42032,7 +42043,7 @@
         },
         "output": {
           "default": "text",
-          "description": "'text', 'latex', 'html', 'dataframe', 'numeric', or filepath (.xlsx/.docx). ``'dataframe'`` holds the formatted display strings; ``'numeric'`` the unrounded values (``N`` as int, the rest float) for further computation, with ``fmt`` / ``digits`` ignored.",
+          "description": "'text', 'latex', 'html', 'markdown', 'dataframe', 'numeric', or a file path (.xlsx / .docx / .tex / .html / .md / .txt / .csv). ``'dataframe'`` holds the formatted display strings; ``'numeric'`` the unrounded values (``N`` as int, the rest float) for further computation, with ``fmt`` / ``digits`` ignored. Anything else raises ``MethodIncompatibility``.",
           "type": "string"
         },
         "percentile_method": {
@@ -42062,7 +42073,7 @@
           "type": "boolean"
         },
         "vars": {
-          "description": "Variables to summarize. Defaults to all numeric columns.",
+          "description": "Variables to summarize. Defaults to all numeric columns. A string, categorical or boolean column named here is summarised by one row per level (``\"region: north\"``), the statistics of its 0/1",
           "items": {
             "type": "string"
           },
@@ -42086,7 +42097,7 @@
     "parameters": {
       "properties": {
         "covariates": {
-          "description": "Variables to check balance on.",
+          "description": "Variables to check balance on. A string, categorical or boolean covariate gets one row per level, the balance of its 0/1 indicator (the means are the shares of the level in each arm).",
           "items": {
             "type": "string"
           },
@@ -42102,6 +42113,10 @@
           "description": "digits parameter (Optional[int]).",
           "type": "integer"
         },
+        "filename": {
+          "description": "Also write the table to this file; the extension picks the format.",
+          "type": "string"
+        },
         "fmt": {
           "description": "Number format.",
           "type": "integer"
@@ -42112,7 +42127,7 @@
         },
         "output": {
           "default": "text",
-          "description": "'text', 'latex', 'html', 'dataframe', or filepath.",
+          "description": "'text', 'latex', 'html', 'markdown', 'dataframe', or a file path (.xlsx / .docx / .tex / .html / .md / .txt / .csv). Anything else raises ``MethodIncompatibility``.",
           "type": "string"
         },
         "test": {

@@ -392,6 +392,40 @@ period gave `sun_abraham` zero standard errors. The checks now live in
   Excel workbook under that name; `.html` / `.md` / `.txt` now write the
   rendering, an unknown extension or `format=` raises, and a bare name
   still writes Excel.
+- `CausalResult.summary()` crashed when `model_info['pretrend_test']` was
+  `None` (`sp.sun_abraham(..., pretest='none')`, an event window without
+  leads); it now leaves the pre-trend line out.
+- `result.plot(type=...)` with an unknown type drew a coefplot (CausalResult),
+  or ignored `type` (`sp.rkd`, `sp.cox`); it raises
+  `MethodIncompatibility` listing the valid types. `type='synth'` is an alias
+  of `'both'`. `sp.rddensity(...).plot()` raised "'yerr' must not contain
+  negative values" (its headline is a T statistic, its `ci` a density
+  difference); it now draws the two boundary densities with their intervals.
+- `sp.sumstats` / `sp.balance_table` raised a raw `TypeError` on a string
+  or categorical column; each level now gets a row (the statistics of its
+  0/1 indicator, so `Mean` is the level's share, Stata `summarize i.var`).
+  Both take `filename=` (.xlsx / .docx / .tex / .html / .md / .txt / .csv)
+  and `output='markdown'`; an unknown `output=` (or `balance_table(test=)`)
+  raises instead of falling back to text.
+
+#### Added
+
+- `tidy()` / `glance()` on every result class built on the shared result
+  protocol (~360 classes): `tidy` reads the coefficient vector, the headline
+  estimate or the test statistic, and refuses with `MethodIncompatibility`
+  when there is none; `glance` is one row of the scalar fields.
+- `sp.bacon_decomposition`, `sp.evalue`, `sp.oster_bounds` and
+  `sp.mi_estimate` return result objects that are still `dict`s (same keys,
+  `isinstance(r, dict)`, JSON-serialisable) with `summary()` / `tidy()` /
+  `glance()` / `to_latex()` / `to_word()` / `cite()`; `sp.regtable` takes the
+  `mi_estimate` result (Rubin-pooled coefficients and SEs, `N`).
+- `booktabs=True` on `RegtableResult.to_latex`, `EconometricResults.to_latex`
+  and `CausalResult.to_latex` (`\toprule` / `\midrule` / `\bottomrule`; the
+  default keeps `\hline`).
+- `EconometricResults.plot()` (a coefplot); `sp.coefplot(drop=[...])`
+  (Stata `coefplot, drop(_cons)`; like Stata, the intercept is plotted unless
+  dropped) and a warning when the models' coefficients are on different
+  scales (OLS slopes beside logit log-odds or Poisson log-rates).
 
 #### Changed
 
