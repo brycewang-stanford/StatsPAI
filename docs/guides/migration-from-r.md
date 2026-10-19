@@ -19,6 +19,8 @@ import statspai as sp
 | `feols(y ~ x \| firm + year, data = df)`  | `sp.feols("y ~ x \| firm + year", data=df)`                       | Two-way fixed effects                                        |
 | `fepois(y ~ x \| firm, data = df)`        | `sp.fepois("y ~ x \| firm", data=df)`                             | HDFE Poisson / PPML for gravity models                       |
 | `feglm(..., family = "binomial")`         | `sp.feglm(..., family="binomial")`                                | HDFE GLM                                                     |
+| `fenegbin(y ~ x \| firm, data = df)`      | `sp.feglm("y ~ x \| firm", data=df, family="negbin")`             | HDFE negative binomial; `theta` in `model_info["theta"]`     |
+| `alpaca::biasCorr(feglm(y ~ x \| i + t))` | `sp.feglm("y ~ x \| i + t", data=df, family="logit", bias_correction=True)` | Analytical incidental-parameter correction (`L = 0`) |
 | `etable(m1, m2, m3)`                      | `sp.regtable(m1, m2, m3)`                                         | Publication-quality regression tables (LaTeX / MD / HTML / Word / Excel) |
 | `vcov(m, cluster = ~firm)`                | `vcov={"CRV1": "firm"}` in `sp.feols`                             | Cluster-robust SE                                            |
 | `fixef(m)`                                | `m.fixef()` (on pyfixest result)                                  | Extract fixed-effect estimates                               |

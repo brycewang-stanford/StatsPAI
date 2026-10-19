@@ -638,9 +638,11 @@ from here.
 | BP LM test                    | `xttest0`                            | `plmtest(pooled, type="bp")`                | `re.bp_lm_test()`                                                         |
 | Multi-way FE absorption       | `reghdfe y x, absorb(i j t)`         | `feols(y ~ x \| i + j + t)`                 | `sp.hdfe_ols("y ~ x \| i + j + t", data=df)` or `sp.feols(...)`           |
 | Clustered SE                  | `, vce(cluster id)`                  | `cluster = ~id`                             | `cluster="id", ssc="stata"` (or `ssc="fixest"`; `vcov={"CRV1": "id"}` for `sp.feols`) |
-| Two-way clustered SE          | `reghdfe ..., vce(cluster id year)`  | `cluster = ~id + year`                      | `cluster=["id", "year"]`                                                  |
+| Two-way clustered SE          | `reghdfe ..., vce(cluster id year)`  | `cluster = ~id + year`                      | `cluster=["id", "year"], cluster_df="min"` (reghdfe's factor; the default scales each term by its own G/(G-1)) |
 | Wild cluster bootstrap        | `boottest`                           | `fwildclusterboot`                          | `sp.hdfe_ols(..., wild=True)` / `sp.wild_cluster_bootstrap(...)`          |
 | FE Poisson (PPML)             | `ppmlhdfe y x, absorb(i t)`          | `fepois(y ~ x \| i + t)`                    | `sp.ppmlhdfe("y ~ x \| i + t", data=df)` or `sp.fepois(...)`              |
+| FE negative binomial          | (no HDFE command; `nbreg y x i.i i.t`) | `fenegbin(y ~ x \| i + t)`                  | `sp.feglm("y ~ x \| i + t", data=df, family="negbin")`                    |
+| Bias-corrected FE logit       | —                                    | `alpaca::biasCorr(feglm(...))`              | `sp.feglm(..., family="logit", bias_correction=True)`                     |
 | Dynamic panel GMM             | `xtabond y x`                        | `pgmm(...)`                                 | `sp.xtabond(df, y="y", x=["x"], id="id", time="t")`                       |
 | Panel unit root               | `xtunitroot ips y`                   | `purtest(y, test="ips")`                    | `sp.panel_unitroot(df, variable="y", id="id", time="t", test="ips")`      |
 
