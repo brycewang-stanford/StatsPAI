@@ -31,6 +31,16 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — did: bacon_decomposition(covariates=)
+
+- **Commits.** `bcc645a0` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (module 20).
+- **Reason.** `did/bacon.py` gained the `covariates=` branch (the
+  controlled decomposition lives in `did/_bacon_controls.py`, which module
+  20 does not execute).
+- **Effect on the paper.** None. Module 20 was re-run and reproduces
+  `tests/r_parity/results/20_bacon_py.json` byte for byte.
+
 ### 2026-10-19 — did: sp.panel_match (new export)
 
 - **Commits.** `e3e26858` re-recorded
