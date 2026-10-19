@@ -930,7 +930,9 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
     return out
 
 
-def fit_feglm(p: Plan, fml: str, *, family: str) -> EconometricResults:
+def fit_feglm(
+    p: Plan, fml: str, *, family: str, bias_correction: bool = False
+) -> EconometricResults:
     """Fit a planned ``sp.feglm`` logit / probit call natively."""
     from ..fast._feglm import feglm_fit
 
@@ -1009,6 +1011,10 @@ def fit_feglm(p: Plan, fml: str, *, family: str) -> EconometricResults:
     _attach_fe(
         out, p, a["keep_mask"], a["eta"], list(res.coef_names), params.to_numpy()
     )
+    if bias_correction:
+        from ._feglm_bc import apply
+
+        return apply(out, p, a["keep_mask"], a["eta"], family)
     return out
 
 

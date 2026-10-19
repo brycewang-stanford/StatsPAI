@@ -4,6 +4,38 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.feglm`: fixed-effects negative binomial and bias-corrected logit / probit
+
+#### Added
+
+- `sp.feglm(family='negbin')`: NB2 regression with high-dimensional fixed
+  effects estimated as parameters, the model R `fixest::fenegbin` fits.
+  The dispersion `theta` is estimated jointly (IRLS for the slopes and
+  effects alternating with Newton steps on `log theta`); it and its
+  standard error are in `model_info['theta']` / `['theta_se']`. Variance:
+  inverse observed information of the slopes and `theta` with the effects
+  profiled out (`'iid'`), sandwich (`'hetero'`), one- and two-way clusters,
+  with fixest's small-sample factors. Groups with only zero outcomes and
+  singletons are dropped, as fixest's `perfect_fit`. Coefficients, `theta`
+  and log likelihood equal fixest 0.14 to 1e-8 and `MASS::glm.nb` with the
+  effects as dummies to 1e-9; standard errors equal fixest to 1e-6 in nine
+  settings, including clusters nested in the effects (where fixest counts
+  `theta` in `K`); weighted fits equal `glm.nb(weights=)` (fenegbin takes
+  no weights). `tests/reference_parity/test_fenegbin_parity.py`.
+- `sp.feglm(family='logit' | 'probit', bias_correction=True)`: the
+  analytical incidental-parameter bias correction for unit (and period)
+  effects with strictly exogenous regressors (Fernandez-Val and Weidner
+  2016; R `alpaca::biasCorr(L = 0)`), written from the published formulas.
+  The variance is evaluated at the corrected slopes with the effects
+  re-estimated there, without small-sample factors, as alpaca reports it
+  (`'iid'`, `'hetero'`, one-way clusters). Slopes, uncorrected slopes and
+  standard errors equal alpaca 0.3.5 to 1e-7 for logit and probit with one
+  and two effects. `model_info['coef_uncorrected']` / `['bias_shift']`
+  keep the uncorrected fit. `tests/reference_parity/test_feglm_biascorr_parity.py`.
+- R fixest, MASS and alpaca (GPL) were used as black boxes: their outputs
+  and documentation only.
+
+
 ### ⚠️ Correctness: unconverged fixed-effect projections are finished exactly; faster clustering and CSV reading
 
 #### Fixed

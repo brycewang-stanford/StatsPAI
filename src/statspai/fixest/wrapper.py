@@ -81,7 +81,11 @@ def _raise_if_names_missing(
     Also turns pyfixest's bare "Demeaning failed after N iterations" into a
     typed error that says how to get an answer.
     """
-    if isinstance(exc, ValueError) and "Demeaning failed" in str(exc):
+    if (
+        isinstance(exc, ValueError)
+        and "Demeaning failed" in str(exc)
+        and context != "sp.fepois"  # sp.fepois points to sp.ppmlhdfe itself
+    ):
         raise NumericalInstability(
             f"{context}: pyfixest's fixed-effect demeaning stopped before "
             f"converging ({exc}). This happens on poorly connected "
@@ -391,16 +395,18 @@ def _native_feglm(
     cluster: Optional[str],
     extra: Dict[str, Any],
     strict: bool,
+    bias_correction: bool = False,
 ) -> Optional[EconometricResults]:
     """``sp.feglm`` (logit / probit) on StatsPAI's engine, or ``None``."""
     from . import _native
 
     fam = str(family).lower()
+    negbin = fam == "negbin"
     rest = dict(extra)
     weights = rest.pop("weights", None)
     p: Any
-    if fam not in ("logit", "probit"):
-        p = f"family={family!r} (native: 'logit', 'probit')"
+    if fam not in ("logit", "probit", "negbin"):
+        p = f"family={family!r} (native: 'logit', 'probit', 'negbin')"
     else:
         p = _native.plan(
             fml,
@@ -411,20 +417,44 @@ def _native_feglm(
             ssc=rest.pop("ssc", None),
             fixef_rm="none",
             extra=rest,
-            binomial=True,
+            binomial=not negbin,
+            poisson=negbin,
             multiway_ok=True,
         )
+    if bias_correction and fam not in ("logit", "probit"):
+        raise MethodIncompatibility(
+            f"feglm: bias_correction=True is defined for family='logit' / "
+            f"'probit', not {family!r}.",
+            recovery_hint="Use family='logit' or 'probit', or drop bias_correction=.",
+        )
     if not isinstance(p, _native.Plan):
-        if strict:
+        if strict or negbin or bias_correction:
+            # pyfixest has no negative binomial: nothing to delegate to
             raise MethodIncompatibility(
-                f"feglm(backend='native') cannot fit this call: {p}.",
-                recovery_hint="Use backend='auto' to let pyfixest fit it.",
+                f"feglm(family={family!r}) cannot fit this call natively: {p}.",
+                recovery_hint=(
+                    "Write the call as 'y ~ x1 + x2 | fe1 + fe2' with numeric "
+                    "regressors and vcov in 'iid' / 'hetero' / {'CRV1': 'a'} "
+                    "/ {'CRV1': 'a + b'}"
+                    + ("." if negbin else ", or use backend='auto'.")
+                ),
             )
         return None
     try:
-        out = _native.fit_feglm(p, fml, family=fam)
+        if negbin:
+            from ._native_negbin import fit_fenegbin
+
+            out = fit_fenegbin(p, fml)
+        else:
+            out = _native.fit_feglm(p, fml, family=fam, bias_correction=bias_correction)
     except Exception as exc:
-        if strict or not _native.refused(exc) or not _pyfixest_installed():
+        if (
+            strict
+            or negbin
+            or bias_correction
+            or not _native.refused(exc)
+            or not _pyfixest_installed()
+        ):
             raise
         return None
     _note_multiway_adjustment(
@@ -2494,10 +2524,12 @@ def feglm(
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
     backend: str = "auto",
+    bias_correction: bool = False,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
-    Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects.
+    Estimate GLM (logit, probit, negative binomial, Gaussian) with
+    high-dimensional fixed effects.
 
     Parameters
     ----------
@@ -2506,7 +2538,17 @@ def feglm(
     data : pd.DataFrame
         Input dataset.
     family : str, default "gaussian"
-        GLM family: ``"gaussian"``, ``"logit"``, ``"probit"``.
+        GLM family: ``"gaussian"``, ``"logit"``, ``"probit"``, or
+        ``"negbin"``: the negative binomial (NB2, variance
+        ``mu + mu^2 / theta``) with the fixed effects estimated as
+        parameters, as ``fixest::fenegbin`` fits it (not Stata's conditional
+        ``xtnbreg, fe``). ``theta`` is estimated jointly; it and its
+        standard error are in ``model_info['theta']`` /
+        ``model_info['theta_se']`` (fixest lists it as the coefficient
+        ``.theta``). Rows its effects fit perfectly (groups with only zero
+        outcomes, singletons) are dropped, as fixest does; ``weights=`` are
+        likelihood weights. Native engine only: the ``vce=`` options that
+        go through pyfixest are refused for it.
     vcov : str or dict, optional
         Variance-covariance estimator (``vce=`` is the canonical alias). Also
         accepts ``vce="CR2"``/``"CR3"``/``"jackknife"`` (with ``cluster=``)
@@ -2535,6 +2577,20 @@ def feglm(
         p-values are normal, and IRLS runs to a relative deviance change of
         1e-10. ``'pyfixest'`` always delegates; ``'native'`` refuses calls
         the native engine cannot fit.
+    bias_correction : bool, default False
+        With ``family='logit'`` / ``'probit'`` and unit (and period)
+        effects, correct the slopes for the incidental-parameter bias
+        (order ``1/T`` from unit effects, ``1/N`` from period effects) by
+        the analytical correction for strictly exogenous regressors, as
+        R ``alpaca::biasCorr(L = 0)`` does, and report the variance at
+        the corrected slopes without small-sample factors (alpaca's
+        convention): ``vcov`` ``'iid'``, ``'hetero'`` or one-way
+        ``{'CRV1': c}``. The uncorrected slopes and the shift are in
+        ``model_info['coef_uncorrected']`` / ``['bias_shift']``.
+        Unweighted fits with one or two absorbed effects; native engine.
+        The correction assumes regressors uncorrelated with past and
+        future errors (no lagged outcomes). Bib key:
+        ``fernandezval2016individual``.
     **kwargs
         Additional arguments passed to ``pyfixest.feglm()``.
 
@@ -2571,6 +2627,17 @@ def feglm(
         raise MethodIncompatibility(
             f"feglm: backend must be 'auto', 'pyfixest' or 'native', got {backend!r}."
         )
+    if bias_correction and backend == "pyfixest":
+        raise MethodIncompatibility(
+            "feglm(bias_correction=True) runs on StatsPAI's engine.",
+            recovery_hint="Drop backend='pyfixest'.",
+        )
+    if backend == "pyfixest" and str(family).lower() == "negbin":
+        raise MethodIncompatibility(
+            "feglm(family='negbin') runs on StatsPAI's engine; pyfixest has "
+            "no negative binomial.",
+            recovery_hint="Drop backend='pyfixest'.",
+        )
     if backend != "pyfixest":
         native = _native_feglm(
             fml,
@@ -2580,6 +2647,7 @@ def feglm(
             cluster=cluster,
             extra=kwargs,
             strict=backend == "native",
+            bias_correction=bool(bias_correction),
         )
         if native is not None:
             return native

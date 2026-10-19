@@ -13982,7 +13982,7 @@
     "name": "fect"
   },
   {
-    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem. Assumptions: The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples); Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs. Pre-conditions: Outcome support matches the family (no exact 0/1 for betareg; values inside the truncation region for truncreg). Failure modes: Outcome values outside the family's support -> Rescale or switch family: exact 0/1 shares -> sp.fracreg; censoring rather than truncation -> a tobit / censored model. Alternatives: sp.sp.fracreg, sp.sp.glm, sp.sp.regress.",
+    "description": "Estimate GLM (logit, probit, negative binomial, Gaussian) with Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem. Assumptions: The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples); Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs. Pre-conditions: Outcome support matches the family (no exact 0/1 for betareg; values inside the truncation region for truncreg). Failure modes: Outcome values outside the family's support -> Rescale or switch family: exact 0/1 shares -> sp.fracreg; censoring rather than truncation -> a tobit / censored model. Alternatives: sp.sp.fracreg, sp.sp.glm, sp.sp.regress.",
     "input_schema": {
       "properties": {
         "backend": {
@@ -13994,6 +13994,11 @@
             "native"
           ],
           "type": "string"
+        },
+        "bias_correction": {
+          "default": false,
+          "description": "With ``family='logit'`` / ``'probit'`` and unit (and period) effects, correct the slopes for the incidental-parameter bias (order ``1/T`` from unit effects, ``1/N`` from period effects) by the analytical correction for strictly exogenous regressors, as R ``alpaca::biasCorr(L = 0)`` does, and report the variance at the corrected slopes without small-sample factors (alpaca's convention): ``vcov`` ``'iid'``, ``'hetero'`` or one-way ``{'CRV1': c}``. The uncorrected slopes and the shift are in ``model_info['coef_uncorrected']`` / ``['bias_shift']``. Unweighted fits with one or two absorbed effects; native engine. The correction assumes regressors uncorrelated with past and future errors (no lagged outcomes). Bib key: ``fernandezval2016individual``.",
+          "type": "boolean"
         },
         "cluster": {
           "description": "Cluster id column for the extended ``vce=`` menu (also a shorthand for one-way ``{\"CRV1\": cluster}``).",
@@ -14014,12 +14019,7 @@
         },
         "family": {
           "default": "gaussian",
-          "description": "GLM family: ``\"gaussian\"``, ``\"logit\"``, ``\"probit\"``.",
-          "enum": [
-            "gaussian",
-            "logit",
-            "probit"
-          ],
+          "description": "GLM family: ``\"gaussian\"``, ``\"logit\"``, ``\"probit\"``, or ``\"negbin\"``: the negative binomial (NB2, variance ``mu + mu^2 / theta``) with the fixed effects estimated as parameters, as ``fixest::fenegbin`` fits it (not Stata's conditional ``xtnbreg, fe``). ``theta`` is estimated jointly; it and its standard error are in ``model_info['theta']`` / ``model_info['theta_se']`` (fixest lists it as the coefficient ``.theta``). Rows its effects fit perfectly (groups with only zero outcomes, singletons) are dropped, as fixest does; ``weights=`` are likelihood weights. Native engine only: the ``vce=`` options that go through pyfixest are refused for it.",
           "type": "string"
         },
         "fml": {
