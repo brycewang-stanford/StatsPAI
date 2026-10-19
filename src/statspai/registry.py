@@ -32818,6 +32818,23 @@ def _build_registry() -> None:
                     "se_method='sandwich' stacks the score of the chosen model.",
                     ["linear", "logit", "probit", "poisson"],
                 ),
+                ParamSpec(
+                    "ps_learner",
+                    "estimator",
+                    False,
+                    None,
+                    "Classifier with fit / predict_proba (e.g. "
+                    "GradientBoostingClassifier, sp.SuperLearner(task="
+                    "'classification')) for the propensity score, cross-fitted",
+                ),
+                ParamSpec(
+                    "outcome_learner",
+                    "estimator",
+                    False,
+                    None,
+                    "Regressor for the per-arm outcome regressions in place of "
+                    "outcome_model; influence-function SE (sandwich refused)",
+                ),
             ],
             returns="CausalResult",
             example='sp.aipw(df, y="wage", treat="trained", covariates=["age", "edu"])',

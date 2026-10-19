@@ -71,6 +71,8 @@ def aipw(
     trim: float = 0.01,
     outcome_model: str = "linear",
     design: Optional[Any] = None,
+    ps_learner: Optional[Any] = None,
+    outcome_learner: Optional[Any] = None,
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -194,6 +196,21 @@ def aipw(
         (#PSU - #strata), as Stata ``svy``. ``weights=`` and ``cluster=``
         must not be given; ``design=None`` changes nothing.
 
+    ps_learner : classifier, optional
+        Any estimator with ``fit`` / ``predict_proba`` (scikit-learn style,
+        e.g. ``GradientBoostingClassifier()`` or
+        ``sp.SuperLearner(task='classification')``) for the propensity
+        score in place of the logit, fitted on the covariates in each
+        cross-fitting fold (with ``sample_weight`` when ``weights`` is
+        given).
+    outcome_learner : regressor, optional
+        Any regressor for the two per-arm outcome regressions in place of
+        ``outcome_model``. With either learner the standard error is the
+        influence-function one, valid under cross-fitting
+        (``cross_fit=False`` warns: flexible learners fitted and evaluated
+        on the same rows bias the estimate); ``se_method='sandwich'`` is
+        refused.
+
     Returns
     -------
     CausalResult
@@ -250,6 +267,22 @@ def aipw(
     See Glynn & Quinn (2010) for an introduction, and
     Chernozhukov et al. (2018) for the cross-fitting procedure.
     """
+    if (
+        ps_learner is not None or outcome_learner is not None
+    ) and se_method != "influence":
+        raise MethodIncompatibility(
+            "aipw: se_method='sandwich' stacks parametric nuisance scores; "
+            "with ps_learner / outcome_learner use se_method='influence'.",
+            recovery_hint="Use se_method='influence' (with cross_fit=True).",
+        )
+    if (ps_learner is not None or outcome_learner is not None) and not cross_fit:
+        warnings.warn(
+            "aipw: learners fitted and evaluated on the same rows "
+            "(cross_fit=False) overfit the nuisances and bias the estimate; "
+            "the influence-function standard error assumes cross-fitting.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     if se_method not in ("influence", "sandwich"):
         raise MethodIncompatibility(
             f"se_method must be 'influence' or 'sandwich', got {se_method!r}"
@@ -402,16 +435,25 @@ def aipw(
 
         # Propensity score (logistic regression), unless it is known
         if e_known is None:
-            e_hat[test_mask] = _fit_propensity(X_tr, D_tr, X_te, w_tr)
+            if ps_learner is None:
+                e_hat[test_mask] = _fit_propensity(X_tr, D_tr, X_te, w_tr)
+            else:
+                e_hat[test_mask] = _learner_predict(
+                    ps_learner, X_tr, D_tr, X_te, w_tr, proba=True
+                )
 
         # Outcome regressions (OLS on treated and control separately)
         t1, t0 = D_tr == 1, D_tr == 0
-        mu1_hat[test_mask] = _fit_outcome(
-            X_tr[t1], Y_tr[t1], X_te, None if w_tr is None else w_tr[t1], outcome_model
-        )
-        mu0_hat[test_mask] = _fit_outcome(
-            X_tr[t0], Y_tr[t0], X_te, None if w_tr is None else w_tr[t0], outcome_model
-        )
+        for arm, out in ((t1, mu1_hat), (t0, mu0_hat)):
+            w_arm = None if w_tr is None else w_tr[arm]
+            if outcome_learner is None:
+                out[test_mask] = _fit_outcome(
+                    X_tr[arm], Y_tr[arm], X_te, w_arm, outcome_model
+                )
+            else:
+                out[test_mask] = _learner_predict(
+                    outcome_learner, X_tr[arm], Y_tr[arm], X_te, w_arm, proba=False
+                )
 
     # Clip propensity scores (a design probability is used as given)
     if e_known is not None:
@@ -561,8 +603,14 @@ def aipw(
         "potential_outcome_means_se": po_means_se,
         "weights": weights,
         "cluster": cluster,
-        "propensity": "known" if e_known is not None else "logit",
-        "outcome_model": outcome_model,
+        "propensity": (
+            "known"
+            if e_known is not None
+            else ("logit" if ps_learner is None else type(ps_learner).__name__)
+        ),
+        "outcome_model": (
+            outcome_model if outcome_learner is None else type(outcome_learner).__name__
+        ),
         "n_clusters": None if groups is None else int(groups.max() + 1),
         # Provenance for the cross-fitting split: None means the caller
         # explicitly opted into a fresh entropy-seeded split, so this
@@ -742,6 +790,34 @@ def _nuisance_designs(
         sm.add_constant(X_train[:, ~fixed], has_constant="add"),
         sm.add_constant(X_test[:, ~fixed], has_constant="add"),
     )
+
+
+def _learner_predict(
+    learner: Any,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_test: np.ndarray,
+    w_train: Optional[np.ndarray],
+    *,
+    proba: bool,
+) -> np.ndarray:
+    """Fit a clone of a user learner and predict (probability of 1 for a
+    classifier)."""
+    try:
+        from sklearn.base import clone
+
+        m = clone(learner)
+    except (TypeError, ValueError, RuntimeError):
+        import copy
+
+        m = copy.deepcopy(learner)
+    if w_train is None:
+        m.fit(X_train, y_train)
+    else:
+        m.fit(X_train, y_train, sample_weight=w_train)
+    if proba:
+        return np.asarray(m.predict_proba(X_test)[:, 1], dtype=float)
+    return np.asarray(m.predict(X_test), dtype=float)
 
 
 def _fit_propensity(

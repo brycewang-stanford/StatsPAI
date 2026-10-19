@@ -235,6 +235,18 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.bcf` is unchanged (the ensemble approximation); its warning now
   points to `sp.bart_causal(method='bcf')`.
 
+### Machine-learning nuisances in `sp.aipw`
+
+#### Added
+
+- `sp.aipw(ps_learner=, outcome_learner=)`: any scikit-learn style
+  classifier / regressor (including `sp.SuperLearner`) for the propensity
+  score and the per-arm outcome regressions, cross-fitted, with the
+  influence-function standard error (`se_method='sandwich'` is refused;
+  `cross_fit=False` warns). Logistic / linear learners reproduce the
+  default fit to 1e-6; gradient boosting recovers an effect the linear
+  models miss on a nonlinear design (`tests/test_aipw_learners.py`).
+
 ### Modified treatment policies and learners in longitudinal TMLE
 
 #### Added

@@ -33528,6 +33528,10 @@
           "description": "Cross-fitting folds (>= 2)",
           "type": "integer"
         },
+        "outcome_learner": {
+          "description": "Regressor for the per-arm outcome regressions in place of outcome_model; influence-function SE (sandwich refused)",
+          "type": "string"
+        },
         "outcome_model": {
           "default": "linear",
           "description": "Per-arm outcome regression: least squares, a logit or probit (outcome in [0, 1]) or a Poisson regression (non-negative outcome), by maximum likelihood. Stata teffects aipw (y x, logit | probit | poisson); se_method='sandwich' stacks the score of the chosen model.",
@@ -33542,6 +33546,10 @@
         "propensity": {
           "description": "Known treatment probability: one number, or a column of per-unit design probabilities (randomised trials). No propensity model is fitted and nothing is clipped. Not with se_method='sandwich'.",
           "type": "number"
+        },
+        "ps_learner": {
+          "description": "Classifier with fit / predict_proba (e.g. GradientBoostingClassifier, sp.SuperLearner(task='classification')) for the propensity score, cross-fitted",
+          "type": "string"
         },
         "se_method": {
           "default": "influence",
