@@ -63,16 +63,23 @@ msm = sp.msm(
     id="id", time="time",
     time_varying=["L"],
     exposure="cumulative",   # effect of cumulative treatment
-    trim=0.01,               # truncate extreme stabilized weights
 )
 print(msm.summary())
+
+# Sensitivity check, not the headline: truncation changes the
+# pseudo-population. model_info['truncation'] carries the untruncated
+# estimate and the shift, and sp.msm warns when it exceeds 0.25 SE.
+msm_t = sp.msm(data=long, y="Y", treat="A", id="id", time="time",
+               time_varying=["L"], exposure="cumulative", trim=0.01)
+print(msm_t.model_info["truncation"])
 ```
 
 `sp.msm` fits stabilized inverse-probability-of-treatment weights at
 each visit, then a weighted outcome model — the canonical MSM of
 Robins, Hernán & Brumback [@robins2000marginal; @cole2008constructing].
-Inspect the weight trimming it reports: stabilized weights far from 1.0
-are a positivity warning.
+Inspect the weight diagnostics it reports (`sw_mean`, `sw_max`):
+stabilized weights far from 1.0 are a positivity warning. The weights are
+not truncated unless you pass `trim=`, as in R `ipw::ipwtm`.
 
 ### 2b. Parametric g-formula (`sp.gformula.ice` / `gformula_mc`)
 

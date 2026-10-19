@@ -12829,8 +12829,8 @@
           "x-statspai-source": "signature"
         },
         "trim": {
-          "default": 0.01,
-          "description": "Weight truncation quantile",
+          "default": 0.0,
+          "description": "Weight truncation quantile (0 = none, as R ipwtm). Truncation changes the pseudo-population and biases the MSM slope; when > 0 the untruncated estimate is reported in model_info['truncation'] and a warning fires if the two differ by more than 0.25 SE.",
           "type": "number"
         },
         "trim_per_period": {

@@ -257,7 +257,8 @@ def test_stabilized_weights_match_ipwtm_gaussian_with_ml_sd():
 )
 def test_msm_matches_ipwtm_plus_vcovcl(exposure, family, key):
     y = "y" if family == "gaussian" else "yb"
-    r = sp.msm(LONG, y=y, exposure=exposure, family=family, **MSM_KW)
+    # ipwtm(trunc = 0.01) on the R side; sp.msm truncates only on request.
+    r = sp.msm(LONG, y=y, exposure=exposure, family=family, trim=0.01, **MSM_KW)
     ref = R["msm"][key]
     _close(r.detail["estimate"], ref["coef"], rtol=1e-9)
     _close(r.detail["se"], ref["se"], rtol=1e-9)

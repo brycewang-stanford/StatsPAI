@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.msm` weights are not truncated by default
+
+**What changed.** `sp.msm(trim=)` defaults to `0.0` (no truncation) instead
+of `0.01`, matching R `ipw::ipwtm`. Estimates and standard errors of calls
+that relied on the default change; calls that passed `trim=` explicitly do
+not.
+
+**What to do.** Pass `trim=0.01` to reproduce an old number. Treat a
+truncated fit as a sensitivity check: `model_info['truncation']` reports
+how far truncation moved the estimate.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` fuzzy + covariates bandwidth
 
 **What changed.** With `fuzzy=` and `covs=` and no `h=`, the selected

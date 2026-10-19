@@ -67,7 +67,7 @@ Epidemiology*, 168(6), 656-664. [@cole2008constructing]
 """
 
 import warnings
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -88,7 +88,7 @@ def msm(
     baseline: Optional[List[str]] = None,
     exposure: str = "cumulative",
     treat_type: str = "auto",
-    trim: float = 0.01,
+    trim: float = 0.0,
     trim_per_period: bool = False,
     alpha: float = 0.05,
     family: str = "gaussian",
@@ -126,9 +126,21 @@ def msm(
         - ``'ever'``: 1 if any A_s=1 for s ≤ t (binary, A binary only)
     treat_type : {'auto', 'binary', 'continuous'}, default 'auto'
         Treatment type for weight construction. 'auto' detects from data.
-    trim : float, default 0.01
-        Truncation quantile applied to weights (symmetric: trims extreme
-        weights at ``trim`` and ``1 - trim``). Set to 0 to disable.
+    trim : float, default 0.0
+        Truncation quantile applied to weights (symmetric: clips the
+        weights at their ``trim`` and ``1 - trim`` quantiles). The default
+        is no truncation, as in R ``ipw::ipwtm`` (``trunc = NULL``).
+        Truncation trades bias for variance: it changes the estimand's
+        pseudo-population, so a truncated estimate is not consistent for
+        the MSM parameter. With strong time-varying confounding
+        ``trim=0.01`` moved a true slope of 1.0 to 1.15 on average (20
+        replications, the untruncated mean was 0.99). When ``trim > 0`` the
+        untruncated fit is computed as well, reported in
+        ``model_info['truncation']``, and a warning is raised when the two
+        differ by more than a quarter of the standard error.
+
+        .. versionchanged:: 1.40
+           The default was 0.01 (silent 1%/99% truncation).
     trim_per_period : bool, default False
         When True, apply ``trim`` at each period's per-period ratio
         *before* taking the cumulative product. This is a more
@@ -308,16 +320,56 @@ def msm(
     X_mat = np.column_stack([np.ones(len(df)), df[feat].values.astype(float)])[rows]
     y_vec = df[y].values.astype(float)[rows]
     cluster_ids = df[id].values[rows]
-    w = w[rows]
 
-    if family == "gaussian":
-        beta, se = _wls_cluster(X_mat, y_vec, w, cluster_ids)
-    else:
-        beta, se = _weighted_logit_cluster(X_mat, y_vec, w, cluster_ids)
+    def _outcome_fit(weights_rows: np.ndarray):
+        if family == "gaussian":
+            return _wls_cluster(X_mat, y_vec, weights_rows, cluster_ids)
+        return _weighted_logit_cluster(X_mat, y_vec, weights_rows, cluster_ids)
+
+    beta, se = _outcome_fit(w[rows])
 
     # Coefficient of interest is position 1 (after constant)
     coef = float(beta[1])
     se_coef = float(se[1])
+
+    # Truncation changes the pseudo-population, so the truncated slope is
+    # not the MSM parameter. Report how far it moved the answer.
+    truncation: Dict[str, Any] = {"trim": float(trim or 0.0), "applied": False}
+    if trim and trim > 0:
+        sw_rows = sw[rows]
+        beta_u, se_u = _outcome_fit(sw_rows)
+        shift = coef - float(beta_u[1])
+        truncation = {
+            "trim": float(trim),
+            "applied": True,
+            "per_period": bool(trim_per_period),
+            "n_weights_changed": int(np.sum(~np.isclose(w, sw, rtol=0, atol=0))),
+            "estimate_untruncated": float(beta_u[1]),
+            "se_untruncated": float(se_u[1]),
+            "shift": float(shift),
+            "shift_in_se": float(abs(shift) / se_coef) if se_coef > 0 else float("inf"),
+        }
+        if se_coef > 0 and abs(shift) > 0.25 * se_coef:
+            from ..exceptions import AssumptionWarning
+
+            warnings.warn(
+                AssumptionWarning(
+                    f"sp.msm: truncating the weights at the {trim:g} / "
+                    f"{1 - trim:g} quantiles moved the estimate from "
+                    f"{beta_u[1]:.4g} (untruncated) to {coef:.4g}, "
+                    f"{abs(shift) / se_coef:.2f} standard errors. Truncation "
+                    "changes the pseudo-population, so the truncated slope "
+                    "is not the marginal structural parameter.",
+                    recovery_hint=(
+                        "Report the untruncated estimate (trim=0, the "
+                        "default) as the primary result and the truncated "
+                        "one as a bias-variance sensitivity check; see "
+                        "model_info['truncation']."
+                    ),
+                    diagnostics=truncation,
+                ),
+                stacklevel=2,
+            )
     z = coef / se_coef if se_coef > 0 else 0.0
     pvalue = float(2 * stats.norm.sf(abs(z)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -347,6 +399,7 @@ def msm(
         "sw_min": float(np.min(sw)),
         "sw_trimmed": bool(trim and trim > 0),
         "trim_per_period": bool(trim_per_period),
+        "truncation": truncation,
         "coef_table": detail.copy(),
         "cluster_var": id,
         "outcome_rows": outcome_rows,

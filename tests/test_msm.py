@@ -143,3 +143,55 @@ def test_msm_reports_weight_diagnostics():
     assert "sw_max" in result.model_info
     assert "sw_min" in result.model_info
     assert result.model_info["sw_max"] >= result.model_info["sw_min"]
+
+
+# ---------------------------------------------------------------------------
+# Truncation is opt-in (2026-10-19): the old trim=0.01 default biased the
+# slope with nothing in the result saying so.
+# ---------------------------------------------------------------------------
+
+
+def _strong_confounding_panel(seed=0, n=2000, T=3, tau=1.0):
+    """L_t responds to past A and drives A_t; Y depends on L_0 and cum(A).
+
+    The MSM E[Y_t | cum A_t] = b0 + tau * cum A_t holds with tau = 1.
+    """
+    rng = np.random.default_rng(seed)
+    L0 = rng.normal(size=n)
+    rows = []
+    for i in range(n):
+        L, a_prev, cum = L0[i], 0.0, 0.0
+        for t in range(T):
+            L = L + 0.4 * a_prev + rng.normal(0, 0.3)
+            a = float(rng.binomial(1, 1 / (1 + np.exp(-1.5 * L))))
+            cum += a
+            rows.append((i, t, a, L, tau * cum + L0[i] + rng.normal(0, 0.5)))
+            a_prev = a
+    return pd.DataFrame(rows, columns=["id", "t", "a", "l", "y"])
+
+
+_TRUNC_KW = dict(y="y", treat="a", id="id", time="t", time_varying=["l"])
+
+
+def test_msm_default_does_not_truncate_and_recovers_truth():
+    panel = _strong_confounding_panel()
+    res = sp.msm(panel, **_TRUNC_KW)
+    assert res.model_info["truncation"] == {"trim": 0.0, "applied": False}
+    assert res.model_info["sw_trimmed"] is False
+    # correctly specified nuisance models: truth inside 3 SE
+    assert abs(res.estimate - 1.0) < 3 * res.se
+
+
+def test_msm_truncation_reports_untruncated_fit_and_warns():
+    panel = _strong_confounding_panel()
+    untrunc = sp.msm(panel, **_TRUNC_KW)
+    with pytest.warns(sp.AssumptionWarning, match="pseudo-population"):
+        trunc = sp.msm(panel, trim=0.01, **_TRUNC_KW)
+    info = trunc.model_info["truncation"]
+    # identity: the reported untruncated fit IS the trim=0 fit
+    assert info["estimate_untruncated"] == pytest.approx(untrunc.estimate, rel=1e-12)
+    assert info["se_untruncated"] == pytest.approx(untrunc.se, rel=1e-12)
+    assert info["shift"] == pytest.approx(trunc.estimate - untrunc.estimate, rel=1e-12)
+    # on this design truncation pulls the slope away from the truth (1.0)
+    assert abs(trunc.estimate - 1.0) > abs(untrunc.estimate - 1.0)
+    assert info["shift_in_se"] > 0.25

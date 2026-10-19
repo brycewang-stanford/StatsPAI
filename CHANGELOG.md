@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: `sp.msm` no longer truncates the weights by default
+
+- ⚠️ `sp.msm(trim=)` defaults to `0.0` (was `0.01`), as R `ipw::ipwtm`
+  (`trunc = NULL`). Truncating at the 1st / 99th percentiles changes the
+  pseudo-population, so the slope is no longer the MSM parameter, and
+  nothing in the result said so: on a design with strong time-varying
+  confounding (true slope 1.0) the old default averaged 1.15 over 20
+  replications against 0.99 untruncated. With `trim > 0` the untruncated
+  fit is now computed too and stored in `model_info['truncation']`
+  (`estimate_untruncated`, `se_untruncated`, `shift`, `shift_in_se`,
+  `n_weights_changed`), and an `AssumptionWarning` fires when the two
+  differ by more than 0.25 SE. `ipwtm(trunc = 0.01)` parity is unchanged
+  with `trim=0.01` passed explicitly.
 ### Discovery: Stata / R command names, paraphrases, `limit=`
 
 - `sp.search_functions` ranks the function a Stata command or R function
@@ -24,6 +37,7 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.search_functions(query, limit=10, category=None)`: like the MCP tool,
   the Python function returns the top 10 by default; `limit=None` returns
   every match as before.
+
 
 ### ⚠️ Correctness: `sp.rdrobust` fuzzy bandwidth with covariates
 

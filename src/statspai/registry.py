@@ -14850,7 +14850,17 @@ def _build_registry() -> None:
                     "Outcome family",
                     ["gaussian", "binomial"],
                 ),
-                ParamSpec("trim", "float", False, 0.01, "Weight truncation quantile"),
+                ParamSpec(
+                    "trim",
+                    "float",
+                    False,
+                    0.0,
+                    "Weight truncation quantile (0 = none, as R ipwtm). "
+                    "Truncation changes the pseudo-population and biases the "
+                    "MSM slope; when > 0 the untruncated estimate is reported "
+                    "in model_info['truncation'] and a warning fires if "
+                    "the two differ by more than 0.25 SE.",
+                ),
                 ParamSpec(
                     "density_sd",
                     "str",
