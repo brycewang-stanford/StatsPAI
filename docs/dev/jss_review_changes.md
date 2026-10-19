@@ -4413,3 +4413,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-records for `design=` on the estimators
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `44aaf1d4` (on top of `11566d92`).
+- **Reason.** `11566d92` added the `design=SurveyDesign` branch to
+  `inference/ipw.py`, `inference/aipw.py`, `regression/ols.py`,
+  `regression/logit_probit.py`, `tmle/`, `dml/`, `did/` (incl.
+  `did/_core.py::influence_se_did`, `aggte.py`, `_flci.py`),
+  `survival/models.py` and `msm/msm.py`. These files are on the estimation
+  paths of Track A modules 01, 04, 05, 08, 10, 11, 14, 16, 17, 20, 21, 24,
+  36, 48, 51, 53-57, 70-73, 75, 78, 79, 83-85 and original-data modules
+  01, 02, 04, 04b, 06, 07, 09, 10, 11; their traces were re-recorded.
+- **Effect on the paper.** None. Every one of those modules was re-run
+  first and reproduces its committed `*_py.json` (relative 1e-9; the
+  `design=None` paths are unchanged).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
