@@ -69931,6 +69931,56 @@
     }
   },
   {
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA).",
+    "name": "ida",
+    "parameters": {
+      "properties": {
+        "cpdag": {
+          "description": "CPDAG adjacency with ``A[i, j] = 1`` for ``i -> j`` and both entries for an undirected edge -- the ``'cpdag'`` of ``sp.pc_algorithm`` (the dict itself is accepted) or ``sp.ges``.",
+          "type": "string"
+        },
+        "data": {
+          "description": "The observations (their sample covariance, divisor ``n - 1``, is used), or a covariance matrix when ``data`` is square and ``names`` / the CPDAG's labels say so: pass a DataFrame whose index equals its columns to give a covariance matrix directly.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "method": {
+          "default": "local",
+          "description": "``'local'``: one effect per admissible parent set of ``x``. ``'global'``: one effect per DAG in the equivalence class.",
+          "enum": [
+            "local",
+            "global"
+          ],
+          "type": "string"
+        },
+        "names": {
+          "description": "Node names when ``cpdag`` is an array.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "x": {
+          "description": "Cause and effect variables.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Cause and effect variables.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "cpdag",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Check Rule 1: can we *insert or delete observation* of Z? Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "do_rule1",
     "parameters": {

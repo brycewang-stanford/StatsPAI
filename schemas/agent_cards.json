@@ -147235,6 +147235,131 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA).",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "r = sp.ida(df, cp, x=\"b\", y=\"c\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use method='local' (fast) or 'global'.",
+        "symptom": "ida: method must be 'local' or 'global', got <method>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Name two nodes.",
+        "symptom": "ida: x and y are the same variable."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use more observations or fewer variables.",
+        "symptom": "ida: <len(frame)> complete rows for <len(nodes)> variables."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use method='local'.",
+        "symptom": "ida: <len(und)> undirected edges; method='global' enumerates 2^<len(und)> orientations and stops at <MAX_UNDIRECTED_GLOBAL> edges."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ida",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "IDAResult",
+      "description": "IDAResult: effects (one per parent set or DAG), parent_sets and min_abs_effect.",
+      "fields": {
+        "detail": "Dict[str, Any]",
+        "effects": "List[float]",
+        "method": "str",
+        "parent_sets": "List[List[str]]",
+        "x": "str",
+        "y": "str"
+      }
+    },
+    "signature": {
+      "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA).",
+      "name": "ida",
+      "parameters": {
+        "properties": {
+          "cpdag": {
+            "description": "CPDAG adjacency with ``A[i, j] = 1`` for ``i -> j`` and both entries for an undirected edge -- the ``'cpdag'`` of ``sp.pc_algorithm`` (the dict itself is accepted) or ``sp.ges``.",
+            "type": "string"
+          },
+          "data": {
+            "description": "The observations (their sample covariance, divisor ``n - 1``, is used), or a covariance matrix when ``data`` is square and ``names`` / the CPDAG's labels say so: pass a DataFrame whose index equals its columns to give a covariance matrix directly.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "method": {
+            "default": "local",
+            "description": "``'local'``: one effect per admissible parent set of ``x``. ``'global'``: one effect per DAG in the equivalence class.",
+            "enum": [
+              "local",
+              "global"
+            ],
+            "type": "string"
+          },
+          "names": {
+            "description": "Node names when ``cpdag`` is an array.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "x": {
+            "description": "Cause and effect variables.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Cause and effect variables.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "cpdag",
+          "x",
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "sp.gformula_mc",
       "sp.msm"

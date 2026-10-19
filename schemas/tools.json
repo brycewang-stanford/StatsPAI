@@ -18233,6 +18233,50 @@
     "name": "icc"
   },
   {
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Failure modes: ida: method must be 'local' or 'global', got <method> -> Use method='local' (fast) or 'global'; ida: x and y are the same variable -> Name two nodes; ida: <len(frame)> complete rows for <len(nodes)> variables -> Use more observations or fewer variables.",
+    "input_schema": {
+      "properties": {
+        "cpdag": {
+          "description": "CPDAG adjacency with ``A[i, j] = 1`` for ``i -> j`` and both entries for an undirected edge -- the ``'cpdag'`` of ``sp.pc_algorithm`` (the dict itself is accepted) or ``sp.ges``.",
+          "type": "string"
+        },
+        "method": {
+          "default": "local",
+          "description": "``'local'``: one effect per admissible parent set of ``x``. ``'global'``: one effect per DAG in the equivalence class.",
+          "enum": [
+            "local",
+            "global"
+          ],
+          "type": "string"
+        },
+        "names": {
+          "description": "Node names when ``cpdag`` is an array.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "x": {
+          "description": "Cause and effect variables.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Cause and effect variables.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "cpdag",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ida"
+  },
+  {
     "description": "Causal Impact visualization (Google-style 3-panel plot).",
     "input_schema": {
       "properties": {

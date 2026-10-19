@@ -4,6 +4,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Instruments from a DAG; `sp.ida`
+
+#### Added
+
+- `sp.dag(...).instrumental_variables(exposure, outcome, ancestral=True)`
+  lists the instruments a causal DAG implies, each with the smallest
+  conditioning set: the ancestral instruments R
+  `dagitty::instrumentalVariables` lists (equal instrument sets on 200
+  random DAGs with latent confounders; both packages' conditioning sets
+  checked against the definition by d-separation), or with
+  `ancestral=False` also those that need a collider in the conditioning
+  set (`tests/reference_parity/test_dag_instruments_dagitty_parity.py`).
+- `sp.ida(data, cpdag, x, y, method='local' | 'global')`: IDA, the
+  possible causal effects of `x` on `y` across the DAGs of a CPDAG
+  (`sp.pc_algorithm` / `sp.ges` output), linear-Gaussian. The multisets
+  of effects equal R `pcalg::ida` to 1e-10 on 40 random graphs, both
+  methods (`tests/reference_parity/test_ida_pcalg_parity.py`). dagitty
+  and pcalg are GPL and were used as black boxes.
+
 ### `sp.mediate(weights=)`
 
 #### Added

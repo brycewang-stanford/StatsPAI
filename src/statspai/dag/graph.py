@@ -610,6 +610,32 @@ class DAG:
     #  Frontdoor criterion
     # ------------------------------------------------------------------ #
 
+    def instrumental_variables(
+        self, exposure: str, outcome: str, ancestral: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Instruments for the total effect of ``exposure`` on ``outcome``.
+
+        Each entry is ``{'instrument': z, 'conditioning': [w, ...]}``: ``z``
+        is d-connected to the exposure given ``W`` and d-separated from the
+        outcome given ``W`` once the first edges of the causal paths are
+        removed, with ``W`` free of descendants of the causal paths. By
+        default only *ancestral* instruments (``W`` within the ancestors of
+        the outcome or the instrument), as R
+        ``dagitty::instrumentalVariables`` lists them;
+        ``ancestral=False`` adds conditional instruments that need a
+        collider in ``W``. See :mod:`statspai.dag.instruments`.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> g = sp.dag("i -> x; x -> y; x <-> y; z -> y; z -> i")
+        >>> g.instrumental_variables("x", "y")
+        [{'instrument': 'i', 'conditioning': ['z']}]
+        """
+        from .instruments import instrumental_variables
+
+        return instrumental_variables(self, exposure, outcome, ancestral=ancestral)
+
     def frontdoor_sets(
         self,
         exposure: str,

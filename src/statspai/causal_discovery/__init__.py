@@ -31,6 +31,7 @@ from .fci import FCIResult, fci
 from .ges import GESResult, ges
 from .hill_climb import bootstrap_edges, hill_climb
 from .icp import ICPResult, icp, nonlinear_icp
+from .ida import IDAResult, ida
 from .lingam import LiNGAMResult, lingam
 from .lpcmci import LPCMCIResult, lpcmci
 from .mmhc import mmhc, mmpc
@@ -153,6 +154,8 @@ __all__ = [
     "fci",
     "FCIResult",
     "icp",
+    "ida",
+    "IDAResult",
     "nonlinear_icp",
     "ICPResult",
     "pcmci",

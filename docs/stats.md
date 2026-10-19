@@ -61,7 +61,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `spatial` | 7,932 | 30 | 38 |
 | `dag` | 7,048 | 12 | 27 |
 | `plots` | 8,692 | 21 | 9 |
-| `causal_discovery` | 5,952 | 14 | 24 |
+| `causal_discovery` | 6,220 | 15 | 26 |
 | `doe` | 5,879 | 14 | 24 |
 | `multilevel` | 5,638 | 9 | 11 |
 | `bayes` | 5,408 | 12 | 20 |

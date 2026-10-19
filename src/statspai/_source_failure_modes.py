@@ -763,6 +763,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "menbreg / meglm gamma).",
         },
     ],
+    "ida": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='local' (fast) or 'global'.",
+            "symptom": "ida: method must be 'local' or 'global', got <method>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Name two nodes.",
+            "symptom": "ida: x and y are the same variable.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Use more observations or fewer variables.",
+            "symptom": "ida: <len(frame)> complete rows for <len(nodes)> " "variables.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='local'.",
+            "symptom": "ida: <len(und)> undirected edges; method='global' "
+            "enumerates 2^<len(und)> orientations and stops at "
+            "<MAX_UNDIRECTED_GLOBAL> edges.",
+        },
+    ],
     "influence_measures": [
         {
             "exception": "statspai.DataInsufficient",
