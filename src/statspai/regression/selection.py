@@ -624,7 +624,6 @@ def etregress(
     ate = float(params.iloc[k_out - 1])
     ate_se = float(std_errors.iloc[k_out - 1])
     beta = params.values
-    se = std_errors.values
 
     diagnostics = {
         "ate": ate,
