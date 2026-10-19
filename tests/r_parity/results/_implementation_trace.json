@@ -776,7 +776,7 @@
    "result_sha256": "4917af1feb1792f391f58ea29afa5f1bd039a5b66c2815ab2b52192c74f385ca"
   },
   "18_augsynth": {
-   "seconds": 1.88,
+   "seconds": 1.27,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -791,7 +791,7 @@
     "src/statspai/exceptions.py": "3c61427fbf9b9a6d85a2916ef09a5e0ad437d6f67ed9099ddae79643888e326d",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/synth/_core.py": "7d76be39d4ad0dcd8fe2bf4c65a686b13ffad5b3e756294cc6f2caf5675146cd",
-    "src/statspai/synth/augsynth.py": "b11069103ed4d28f5cae4d4e458979f922d9c7206840fa1e3fa8e7a595169de4",
+    "src/statspai/synth/augsynth.py": "896f79cb71f09d0b0eaa114bf74eeaccdf188fd1f504afc4a7bffbffa59af3fa",
     "src/statspai/synth/datasets.py": "d4ba853a30ae823dc072ac2302ed006fd7db613b9c8fe708317bf740352f23b2"
    },
    "dependency_versions": {

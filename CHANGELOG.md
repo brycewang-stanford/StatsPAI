@@ -4,6 +4,33 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.augsynth`: several treated units, `progfunc`, `scm`, `fixedeff`, covariates
+
+#### Added
+
+- `treated_unit=` accepts a list of units that share `treatment_time`; they
+  are fitted as one treated unit whose path is their average, as
+  `augsynth::augsynth` (`single_augsynth`) does. A list used to fail with
+  a raw NumPy broadcast error. Different dates raise
+  `MethodIncompatibility` pointing to `sp.staggered_synth` (multisynth).
+- `progfunc='ridge' | 'none'`, `scm=` and `fixedeff=`, following augsynth.
+  augsynth's other outcome models (`EN`, `RF`, `GSYN`, `MCP`, `CITS`,
+  `CausalImpact`, `seq2seq`) raise `MethodIncompatibility` listing the
+  supported values. The R bridge (`backend='r'`) still runs only the
+  single-unit Ridge specification and refuses the new options.
+- All of it matches augsynth 0.2.0 to 1e-13 (one CV case at lambda = 1e-5:
+  1e-10) on eight cases with fixed and CV-chosen lambda
+  (`tests/reference_parity/test_synth_family_R_parity.py`).
+
+#### ⚠️ Correctness
+
+- `covariates=` was accepted and silently ignored by the native path. It now
+  balances the covariates as augsynth's default (`residualize = FALSE`):
+  per-unit pre-period means, centred at the donor mean, rescaled to
+  `sd(X_c)` and appended to the outcome columns. Calls that passed
+  `covariates=` get different weights and estimates; calls without it are
+  unchanged (Track A module 18 reproduces its committed result exactly).
+
 ### `sp.hdfe_ols` IV: rank statistics with several endogenous regressors
 
 #### Fixed

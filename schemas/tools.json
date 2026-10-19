@@ -993,13 +993,18 @@
           "type": "string"
         },
         "covariates": {
-          "description": "Additional predictors (currently informational; main adjustment comes from pre-treatment outcomes).",
+          "description": "Auxiliary covariates, balanced alongside the pre-period outcomes as in ``augsynth::augsynth``'s default (``residualize = FALSE``): each covariate is averaged over the pre-treatment periods per unit, centred at the donor mean, rescaled to the standard deviation of the centred pre-period outcome matrix and appended to it.",
           "items": {
             "type": "string"
           },
           "type": "array",
           "x-statspai-role": "columns",
           "x-statspai-source": "signature"
+        },
+        "fixedeff": {
+          "default": false,
+          "description": "De-mean units by their pre-period average (augsynth fixedeff)",
+          "type": "boolean"
         },
         "outcome": {
           "description": "Column names.",
@@ -1016,10 +1021,24 @@
           "type": "boolean",
           "x-statspai-source": "signature"
         },
+        "progfunc": {
+          "default": "ridge",
+          "description": "Outcome model: 'ridge' (ridge-augmented SCM) or 'none' (SCM weights only); augsynth's EN/RF/GSYN/MCP are refused",
+          "enum": [
+            "ridge",
+            "none"
+          ],
+          "type": "string"
+        },
         "ridge_lambda": {
-          "description": "Ridge penalty. When ``None``, selected by time-holdout CV matching ``augsynth``'s one-standard-error rule.",
+          "description": "Ridge penalty. When ``None``, selected by time-holdout CV matching ``augsynth``'s one-standard-error rule. Ignored when ``progfunc='none'``.",
           "type": "number",
           "x-statspai-source": "signature"
+        },
+        "scm": {
+          "default": true,
+          "description": "Start from SCM weights (True) or uniform weights (False)",
+          "type": "boolean"
         },
         "time": {
           "description": "Column names.",
@@ -1027,11 +1046,11 @@
           "x-statspai-role": "column"
         },
         "treated_unit": {
-          "description": "Treated-unit identifier and first treatment period.",
+          "description": "Treated unit, or a list of units sharing treatment_time (fitted as their average, as augsynth does); staggered dates belong in sp.staggered_synth",
           "type": "string"
         },
         "treatment_time": {
-          "description": "Treated-unit identifier and first treatment period.",
+          "description": "First treatment period (shared by every treated unit).",
           "type": "integer"
         },
         "unit": {

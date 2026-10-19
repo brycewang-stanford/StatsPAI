@@ -720,6 +720,12 @@
       "tolerance": "1e-10 rel (observed 2e-16)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_synth_family_R_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "evidence_grade": "T2",
       "function": "augsynth",
       "headline": {

@@ -1,0 +1,76 @@
+#!/usr/bin/env Rscript
+# Frozen R references for tests/reference_parity/test_synth_family_R_parity.py
+# (wave-2 synth-family work, 2026-10-19).
+#
+#   sp.augsynth vs augsynth::augsynth (0.2.0, the Ben-Michael / Feller /
+#       Rothstein package): several treated units sharing one date
+#       (single_augsynth averages them), progfunc = "Ridge" / "None",
+#       scm = TRUE / FALSE, fixedeff = TRUE, auxiliary covariates with the
+#       default residualize = FALSE, ridge lambda fixed and by augsynth's own
+#       time-holdout CV. augsynth's synth_qp hard-codes OSQP eps 1e-8; the
+#       generator swaps in a copy with eps 1e-12 (assignInNamespace), so the
+#       simplex weights are exact to ~1e-11 and the comparison can be tight.
+#
+# Regenerate (after _generate_synth_family_data.py), from the repo root:
+#   Rscript tests/reference_parity/_generate_synth_family_R.R
+
+suppressPackageStartupMessages({
+  library(augsynth)
+  library(jsonlite)
+})
+
+fixtures <- file.path("tests", "reference_parity", "_fixtures")
+num <- function(x) as.numeric(x)
+
+tight_qp <- function(X1, X0, V) {
+  Pmat <- X0 %*% V %*% t(X0)
+  qvec <- -t(X1) %*% V %*% t(X0)
+  n0 <- nrow(X0)
+  A <- rbind(rep(1, n0), diag(n0))
+  l <- c(1, numeric(n0))
+  u <- c(1, rep(1, n0))
+  settings <- osqp::osqpSettings(verbose = FALSE, eps_rel = 1e-12, eps_abs = 1e-12,
+                                 max_iter = 200000L, polishing = TRUE)
+  osqp::solve_osqp(P = Pmat, q = qvec, A = A, l = l, u = u, pars = settings)$x
+}
+assignInNamespace("synth_qp", tight_qp, ns = "augsynth")
+
+# ---------------------------------------------------------------------------
+# 1. augsynth
+# ---------------------------------------------------------------------------
+asc <- read.csv(file.path(fixtures, "synth_family_asc.csv"))
+asc_one <- asc[!(asc$unit == 2), ]  # single treated unit (unit 1)
+
+run_asc <- function(name, data, cov = FALSE, ...) {
+  form <- if (cov) y ~ treated | x1 + x2 else y ~ treated
+  fit <- suppressMessages(augsynth(form, unit, time, data = data, ...))
+  att <- predict(fit, att = TRUE)
+  tt <- as.numeric(names(att))
+  list(name = name,
+       att = mean(att[tt >= 14]),
+       att_path = num(att),
+       weights = num(fit$weights),
+       donors = as.integer(rownames(fit$weights)),
+       lambda = if (is.null(fit$lambda)) NA_real_ else num(fit$lambda))
+}
+
+augsynth_cases <- list(
+  run_asc("two_ridge_fixed", asc, progfunc = "Ridge", scm = TRUE, lambda = 0.5),
+  run_asc("two_ridge_cv", asc, progfunc = "Ridge", scm = TRUE),
+  run_asc("two_none", asc, progfunc = "None", scm = TRUE),
+  run_asc("one_fixedeff_cv", asc_one, progfunc = "Ridge", scm = TRUE, fixedeff = TRUE),
+  run_asc("one_noscm_cv", asc_one, progfunc = "Ridge", scm = FALSE),
+  run_asc("one_cov_fixed", asc_one, cov = TRUE, progfunc = "Ridge", scm = TRUE, lambda = 2),
+  run_asc("two_cov_cv", asc, cov = TRUE, progfunc = "Ridge", scm = TRUE),
+  run_asc("two_cov_none_fe", asc, cov = TRUE, progfunc = "None", scm = TRUE, fixedeff = TRUE)
+)
+
+out <- list(
+  meta = list(R = R.version.string,
+              augsynth = as.character(packageVersion("augsynth")),
+              osqp = as.character(packageVersion("osqp"))),
+  augsynth = augsynth_cases
+)
+write_json(out, file.path(fixtures, "synth_family_R.json"), auto_unbox = TRUE,
+           digits = NA, null = "null", na = "null")
+cat("wrote", file.path(fixtures, "synth_family_R.json"), "\n")

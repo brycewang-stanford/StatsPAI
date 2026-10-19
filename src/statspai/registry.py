@@ -14547,7 +14547,16 @@ def _build_registry() -> None:
                 ParamSpec("outcome", "str", True),
                 ParamSpec("unit", "str", True),
                 ParamSpec("time", "str", True),
-                ParamSpec("treated_unit", "str", True),
+                ParamSpec(
+                    "treated_unit",
+                    "str",
+                    True,
+                    description=(
+                        "Treated unit, or a list of units sharing treatment_time "
+                        "(fitted as their average, as augsynth does); staggered "
+                        "dates belong in sp.staggered_synth"
+                    ),
+                ),
                 ParamSpec("treatment_time", "int", True),
                 ParamSpec(
                     "backend",
@@ -14555,6 +14564,29 @@ def _build_registry() -> None:
                     False,
                     "native",
                     "Computation backend: native or augsynth/R bridge backend",
+                ),
+                ParamSpec(
+                    "progfunc",
+                    "str",
+                    False,
+                    "ridge",
+                    "Outcome model: 'ridge' (ridge-augmented SCM) or 'none' "
+                    "(SCM weights only); augsynth's EN/RF/GSYN/MCP are refused",
+                    enum=["ridge", "none"],
+                ),
+                ParamSpec(
+                    "scm",
+                    "bool",
+                    False,
+                    True,
+                    "Start from SCM weights (True) or uniform weights (False)",
+                ),
+                ParamSpec(
+                    "fixedeff",
+                    "bool",
+                    False,
+                    False,
+                    "De-mean units by their pre-period average (augsynth fixedeff)",
                 ),
             ],
             returns="CausalResult with period-level effects and placebo inference",

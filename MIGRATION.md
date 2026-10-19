@@ -5,6 +5,16 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.augsynth(covariates=...)` now uses the covariates
+
+`sp.augsynth` ignored `covariates=` on the native path. It now balances
+them as `augsynth::augsynth` does by default (pre-period means appended to
+the outcome columns after rescaling), so estimates and weights change for
+every call that passed `covariates=`. To reproduce the old number, drop the
+argument. Calls without covariates are unchanged.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ treatment-effect estimators refuse non-binary treatments; `sp.sensemakr` / `sp.bcf` / `sp.optimal_match`
 
 - `sp.cbps`, `sp.ipw`, `sp.aipw`, `sp.tmle`, `sp.ebalance`, `sp.optimal_match`,
