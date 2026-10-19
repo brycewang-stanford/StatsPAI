@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — post-estimation after fixed-effects fits; wild bootstrap by estimator
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `0b4e384b` and `485d9e15` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (every Track A module)
+  and `tests/orig_parity/results/_implementation_trace.json` (every
+  original-data module).
+- **Reason.** `core/results.py` (`fixef()`, FE-aware `predict`),
+  `postestimation/_covariance.py`, `fast/fepois.py`, `fast/_feglm.py`,
+  `fixest/_native.py` / `wrapper.py`, `inference/jackknife.py` and
+  `__init__.py` (`sp.iv_wild_bootstrap`) are on the estimation paths.
+  The changes add stored state and new code paths; no estimator's
+  reported numbers move.
+- **Effect on the paper.** None. Every Track A module re-run into scratch
+  reproduces its committed `*_py.json` (89 of 89, worst 1.3e-10 relative)
+  and every original-data module too (worst 1.6e-11), so no result file or
+  table number changes.
+
 ### 2026-10-19 — survival: sp.stteffects, sp.rmst (new exports)
 
 - **Commits.** `5e4e91a5` re-recorded
