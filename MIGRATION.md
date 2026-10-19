@@ -5,6 +5,20 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.feols` / `sp.hdfe_ols` finish unconverged projections exactly
+
+When the alternating projections stopped at their sweep limit, the native
+`sp.feols` and `sp.hdfe_ols` used to report the unconverged slope silently.
+Those columns are now residualised by a sparse direct solve, so such fits
+change (to the dummy-variable regression's numbers); converged fits do not.
+`model_info['fe_solver']` (`sp.feols`) and `result.absorber.fe_solver`
+(`sp.hdfe_ols`) say when it happened. There is no switch back: the old
+numbers were wrong. `sp.read_data` on a large CSV now parses decimals to
+the nearest double (pyarrow), which can move the last bit of a value that
+pandas' default parser rounded the other way.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.lee_bounds` drops rows with missing indicators
 
 `sp.lee_bounds` now drops rows whose treatment or selection indicator is

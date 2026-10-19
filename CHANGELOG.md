@@ -4,6 +4,48 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: unconverged fixed-effect projections are finished exactly; faster clustering and CSV reading
+
+#### Fixed
+
+- `sp.feols` (native engine) and `sp.hdfe_ols` ignored the convergence flag
+  of the alternating projections. On poorly connected fixed-effect graphs
+  (a chain of firms linked by a few movers, with groups of one) they stopped
+  at the sweep limit and reported the slope that far: 0.51932 against the
+  dummy-variable regression's 0.51983 on an 800-firm chain, with no warning
+  (`hdfe_ols` set `converged=False` and said nothing). The columns the
+  projections leave unconverged are now residualised by a sparse direct
+  solve of the normal equations (one effect eliminated, the Schur complement
+  factorised; `fast/_fe_direct.py`), so the fit equals R
+  `lm(y ~ x + factor(id) + factor(firm))` to 1e-12; `model_info['fe_solver']`
+  / `absorber.fe_solver` say which solver finished. If the direct solve
+  fails too, `NumericalInstability` is raised with a remedy. pyfixest's
+  "Demeaning failed after N iterations" on the delegated path is now a
+  `NumericalInstability` with a remedy. Fits whose projections converge are
+  unchanged. `tests/test_fe_direct_fallback.py`.
+
+#### Changed
+
+- `sp.regress(cluster=[a, b])` (and every caller of
+  `inference.jackknife.two_way_vcov_ols`) built each cluster's score with a
+  row mask per cluster, O(n G): 10 s for 100k rows and 5,000 clusters, and
+  minutes at a million rows. The meat is now one `bincount` pass per column
+  (1.2 s at a million rows). `core._numba_kernels.cluster_meat` (one-way
+  `sp.regress`) no longer sorts the rows by cluster before summing: labels
+  are factorised and summed in one pass, 0.03 s against 0.29 s on two million
+  rows and five columns, independent of row order and thread count; the
+  Rust sorted-block kernel is no longer on this path because the sort it
+  needs cost more than the sum. Results agree with the previous ones to
+  rounding (1e-15).
+- `sp.read_data` reads a CSV / TSV file over 4 MB with pyarrow when it is
+  installed and the call passes no reader keywords beyond `sep` / `usecols`:
+  about 4x faster (0.5 s against 2.1 s on two million rows), same columns
+  and types (checked against pandas on the first 2,000 rows, pandas taking
+  over on any difference or parse error), dates left as text, missing text
+  cells `NaN`. Decimals are now rounded to the nearest double; pandas'
+  default converter was one unit in the last place off for about a third
+  of the values of a `repr`-written file. `tests/test_read_data_csv_fast.py`.
+
 ### Stata data layer: `sp.xtset`, `sp.lag` / `lead` / `diff`, `sp.reshape`, `sp.collapse`
 
 #### Added

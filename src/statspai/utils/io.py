@@ -114,7 +114,13 @@ def read_data(
         Either way the labels attached to these codes are in
         ``df.attrs['_missing_labels']``.
     **kwargs
-        Passed to the underlying pandas reader.
+        Passed to the underlying pandas reader. A CSV / TSV file over 4 MB
+        read without further keywords (other than ``sep`` / ``usecols``) is
+        parsed by pyarrow when it is installed: several times faster, the
+        same column types (checked against pandas on the first rows, with
+        pandas taking over on any difference), dates left as text, and
+        decimals rounded to the nearest double where pandas' default
+        parser can be one unit in the last place off.
 
     Returns
     -------
@@ -168,7 +174,12 @@ def read_data(
     elif ext in (".csv", ".tsv"):
         if ext == ".tsv" and not {"sep", "delimiter"} & set(kwargs):
             kwargs["sep"] = "\t"
-        df = pd.read_csv(path, encoding=encoding, **kwargs)
+        from ._csv_fast import read_csv_fast
+
+        fast = read_csv_fast(path, encoding, kwargs)
+        df = (
+            fast if fast is not None else pd.read_csv(path, encoding=encoding, **kwargs)
+        )
     elif ext in (".xlsx", ".xls"):
         df = pd.read_excel(_excel_source(path, ext), **kwargs)
     elif ext == ".parquet":

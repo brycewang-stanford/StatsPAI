@@ -172,7 +172,7 @@ PYO3_PYTHON=python cargo test --release                                         
 ```
 
 - **唯一入口是 `statspai/_rust_backend.py`**：每个想用 Rust 的模块都从这里拿 `rust`（模块或 `None`），不要再写 `import statspai_hdfe`。它认 `STATSPAI_SKIP_RUST=1`（2026-10-18 之前这个变量在 CI 里到处设，却从没有代码读它），并检查 `statspai_hdfe.API_VERSION >= MIN_API_VERSION`；入口语义一变就升 `lib.rs::API_VERSION`，并同步 `MIN_API_VERSION`。
-- **谁用它**：`sp.fast.*`、`sp.hdfe_ols` / `sp.Absorber` / `sp.demean`（纯 FE、`solver="map"`、无 slope 时）、`sp.ppmlhdfe`（K≥2）、`sp.iv(absorb=)`、`didregress`、一维聚类的 `sp.regress`（`cluster_meat`）。`sp.feols`（pyfixest）、`sp.panel(method="fe")`（linearmodels）不用。
+- **谁用它**：`sp.fast.*`、`sp.hdfe_ols` / `sp.Absorber` / `sp.demean`（纯 FE、`solver="map"`、无 slope 时）、`sp.ppmlhdfe`（K≥2）、`sp.iv(absorb=)`、`didregress`。一维聚类的 `sp.regress`（`core/_numba_kernels.cluster_meat`）2026-10-19 起不再用 Rust：它要求按聚类排好序的行，排序比求和贵，现在是一次 `bincount`。`sp.feols`（pyfixest）、`sp.panel(method="fe")`（linearmodels）不用。
 - **数值约定**：Rust 与 NumPy 解的是同一个投影，只在停止容差内一致，**不是逐位一致**；测试对照稠密最小二乘的精确投影（`tests/test_rust_backend.py`），不要写"两条路径 atol=1e-14"那种断言。结果与线程数无关（demean 按列独立；`cluster_meat` 固定分块后按序相加）。
 - **Parity 一律在无 Rust 路径上生成与复现**：`verify_reproduce_py.py` 与 `trace_parity_provenance.py` 给子进程设 `STATSPAI_SKIP_RUST=1`（`setdefault`）。装了扩展的环境里 `sp.hdfe_ols` 等的末位会变（容差内），已提交的 `*_py.json` 只对无扩展路径成立。
 - **共线检测不能靠 `np.linalg.inv` 抛错**：被 FE 吸收的列从任何迭代 demean 回来都是舍入噪声，不是精确的 0。`fast/_validation.py::require_identified_regressors` 是共用检查，新的 `sp.fast` 估计器在解正规方程前调用它。

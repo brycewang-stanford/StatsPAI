@@ -576,6 +576,8 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     diagnostics["RMSE"] = float(np.sqrt(ssu / N))
 
     model_info = _model_info(p, "OLS", res.fe_kernel, fml)
+    if p.fe:
+        model_info["fe_solver"] = a.get("fe_solver")
     if p.fe and not p.drop_singletons:
         model_info["fe_singleton_obs"] = _singleton_obs(a["fe_codes"], a["fe_card"])
     if G:
@@ -748,6 +750,8 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
         "RMSE": nan,
     }
     model_info = _model_info(p, "IV", res.fe_kernel, fml)
+    if p.fe:
+        model_info["fe_solver"] = a.get("fe_solver")
     if p.fe and not p.drop_singletons:
         model_info["fe_singleton_obs"] = _singleton_obs(a["fe_codes"], a["fe_card"])
     model_info["endogenous"] = list(p.endog)

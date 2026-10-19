@@ -1160,13 +1160,13 @@ def two_way_vcov_ols(
     beta = bread @ (X.T @ y)
     resid = y - X @ beta
 
+    from ..fast.inference import _cr1_meat
+
     def _meat(codes: np.ndarray) -> np.ndarray:
-        m = np.zeros((k, k))
-        for cid in range(int(codes.max()) + 1):
-            idx = codes == cid
-            s = X[idx].T @ resid[idx]
-            m += np.outer(s, s)
-        return m
+        # one bincount pass per column; a loop over clusters with a row
+        # mask each was O(n G): 10 s for 100k rows and 5k clusters.
+        c = np.asarray(codes, dtype=np.int64)
+        return _cr1_meat(X, resid, c, int(c.max()) + 1)
 
     meat = _meat(c1_codes) + _meat(c2_codes) - _meat(c12_codes)
     if small_sample:

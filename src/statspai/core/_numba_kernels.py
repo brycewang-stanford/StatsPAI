@@ -55,9 +55,10 @@ _NUMBA_CACHE = HAS_NUMBA and Path(__file__).exists()
 
 
 # --------------------------------------------------------------------------- #
-#  Optional Rust backend — cluster_meat in parallel over fixed blocks of
-#  clusters (the same result at any thread count). Without it the numba
-#  kernel below runs. ``statspai._rust_backend`` decides availability.
+#  Optional Rust backend: ``statspai_hdfe.cluster_meat`` sums the meat over
+#  fixed blocks of sorted clusters (the same result at any thread count).
+#  ``cluster_meat`` below no longer sorts and so no longer calls it; the
+#  sorted-block kernels stay for callers that already hold sorted data.
 # --------------------------------------------------------------------------- #
 from .._rust_backend import rust as _rust_hdfe  # noqa: E402
 
@@ -218,11 +219,15 @@ def cluster_meat(
     cluster_ids: np.ndarray,
 ) -> np.ndarray:
     """
-    Cluster-robust meat matrix.
+    Cluster-robust meat matrix ``sum_g s_g s_g'``, ``s_g = sum_{i in g} u_i x_i``.
 
-    Sorts data by *cluster_ids* once, then delegates to either the
-    Rust+Rayon kernel (preferred when ``statspai_hdfe`` is built) or
-    the numba JIT kernel (always-on fallback).
+    One pass over the rows: the labels are factorised (hashing, O(n)) and
+    the cluster scores summed with one ``bincount`` per column, which adds
+    the rows of each cluster in row order, so the result does not depend
+    on the thread count or on how the rows are sorted. This replaced a
+    stable sort of the rows by cluster followed by the sorted-block kernel
+    (Rust or numba): on two million rows and five columns 0.03 s against
+    0.29 s, the sort and the row gather dominating.
 
     Parameters
     ----------
@@ -234,32 +239,19 @@ def cluster_meat(
     -------
     meat : (k, k) array
     """
-    order = np.argsort(cluster_ids, kind="mergesort")
-    X_s = np.ascontiguousarray(X[order], dtype=np.float64)
-    r_s = np.ascontiguousarray(residuals[order], dtype=np.float64)
-    c_s = cluster_ids[order]
+    import pandas as pd
 
-    # Identify cluster boundaries
-    change = np.empty(len(c_s), dtype=np.bool_)
-    change[0] = True
-    change[1:] = c_s[1:] != c_s[:-1]
-    starts = np.where(change)[0].astype(np.intp)
-    ends = np.empty_like(starts)
-    ends[:-1] = starts[1:]
-    ends[-1] = len(c_s)
-
-    if _HAS_RUST_CLUSTER:
-        # Rust kernel takes int64 cluster boundaries.
-        return cast(
-            np.ndarray,
-            _rust_hdfe.cluster_meat(
-                X_s,
-                r_s,
-                starts.astype(np.int64),
-                ends.astype(np.int64),
-            ),
-        )
-    return cast(np.ndarray, _cluster_meat_sorted(X_s, r_s, starts, ends))
+    X = np.asarray(X, dtype=np.float64)
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+    r = np.asarray(residuals, dtype=np.float64).ravel()
+    codes, levels = pd.factorize(np.asarray(cluster_ids), sort=False)
+    G = len(levels)
+    k = X.shape[1]
+    scores = np.empty((G, k))
+    for j in range(k):
+        scores[:, j] = np.bincount(codes, weights=r * X[:, j], minlength=G)
+    return np.asarray(scores.T @ scores)
 
 
 # --------------------------------------------------------------------------- #

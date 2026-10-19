@@ -500,6 +500,7 @@ class Absorber:
         "_iters",
         "_seen",
         "fe_kernel",
+        "fe_solver",
     )
 
     def __init__(
@@ -661,6 +662,9 @@ class Absorber:
         #: Kernel of the last multi-FE sweep: ``"rust"`` (the optional
         #: ``statspai_hdfe`` extension) or ``"native"`` (Numba / NumPy).
         self.fe_kernel = "native"
+        #: ``"sparse direct"`` once a column was finished by the direct
+        #: solve because the iterations stopped short of the tolerance.
+        self.fe_solver = "iterative"
 
     def _note_converged(self, converged: bool) -> None:
         """``_converged`` is True only if every column so far converged."""
@@ -746,6 +750,7 @@ class Absorber:
         # Krylov solvers (LSMR / LSQR) bypass the AP loop entirely: build the
         # sparse FE design matrix once and delegate the within-projection to
         # scipy. See ``_solve_krylov`` for the √w weight handling.
+        flags: List[bool] = []
         if self.solver != "map":
             for j in range(x.shape[1]):
                 col = x[:, j]
@@ -760,7 +765,8 @@ class Absorber:
                 )
                 x[:, j] = r
                 self._iters = max(self._iters, iters)
-                self._note_converged(converged)
+                flags.append(bool(converged))
+            self._finish_unconverged(x, flags)
             return x.ravel() if squeeze else x
 
         # Plain FEs with the optional Rust kernels: the same weighted
@@ -796,9 +802,10 @@ class Absorber:
                 )
             for info in infos:
                 self._iters = max(self._iters, int(info["iters"]))
-                self._note_converged(bool(info["converged"]))
+                flags.append(bool(info["converged"]))
             self.fe_kernel = "rust"
             x[:, :] = xf
+            self._finish_unconverged(x, flags)
             return x.ravel() if squeeze else x
 
         # Per-column AP loop
@@ -832,13 +839,45 @@ class Absorber:
                         if np.max(np.abs(col_acc)) < 10 * base_scale:
                             col = col_acc
                         col_hist = []
-            self._note_converged(converged)
+            flags.append(converged)
             self.fe_kernel = "native"
             if not converged:
                 self._iters = maxiter
             x[:, j] = col
 
+        self._finish_unconverged(x, flags)
         return x.ravel() if squeeze else x
+
+    def _finish_unconverged(self, x: np.ndarray, flags: List[bool]) -> None:
+        """Residualise exactly the columns the iterations left unconverged.
+
+        Projections (and LSMR / LSQR) crawl on poorly connected fixed-effect
+        graphs; the columns they stop short on are finished by a sparse
+        direct solve of the normal equations (``fast/_fe_direct.py``). A
+        column counts as converged only if one of the two got there.
+        """
+        bad = [j for j, ok in enumerate(flags) if not ok]
+        if bad:
+            from ..fast._fe_direct import residualise
+
+            n = x.shape[0]
+            first = int(self.fe_codes[0].max()) + 1 if self.fe_codes else 0
+            try:
+                _, ok = residualise(
+                    x,
+                    _build_fe_design(self.fe_codes, n, self.slope_ops),
+                    self.weights,
+                    columns=bad,
+                    n_diag=first if self.fe_codes else 0,
+                )
+            except MemoryError:  # pragma: no cover - machine dependent
+                ok = False
+            if ok:
+                for j in bad:
+                    flags[j] = True
+                self.fe_solver = "sparse direct"
+        for ok in flags:
+            self._note_converged(ok)
 
     # ------------------------------------------------------------------
     # Residualize (alias + sanity)

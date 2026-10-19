@@ -77,7 +77,24 @@ def _raise_if_names_missing(
     Covers a misspelled formula variable and a misspelled cluster column
     (``vcov={"CRV1": "firm"}`` / ``cluster="firm"``), which pyfixest reports
     as a bare ``KeyError``.  Returns when neither explains ``exc``.
+
+    Also turns pyfixest's bare "Demeaning failed after N iterations" into a
+    typed error that says how to get an answer.
     """
+    if isinstance(exc, ValueError) and "Demeaning failed" in str(exc):
+        raise NumericalInstability(
+            f"{context}: pyfixest's fixed-effect demeaning stopped before "
+            f"converging ({exc}). This happens on poorly connected "
+            "fixed-effect graphs (chains of groups linked by few "
+            "observations, many singleton groups).",
+            recovery_hint=(
+                "Fit a formula the native engine takes (y ~ x1 + x2 | fe1 + "
+                "fe2 with backend='auto'; it finishes unconverged projections "
+                "with a sparse direct solve), or use sp.hdfe_ols, or pass "
+                "fixef_maxiter= larger than the default."
+            ),
+            diagnostics={"pyfixest_error": str(exc)},
+        ) from exc
     data = pf_kwargs.get("data")
     fml = pf_kwargs.get("fml")
     if not isinstance(data, pd.DataFrame):

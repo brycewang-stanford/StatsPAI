@@ -504,7 +504,7 @@ def _feols_fit(
             if n_dropped_singletons:
                 A = np.asfortranarray(A[keep_mask])
                 y, X = A[:, 0], A[:, 1:]
-            work, _, _, _, fe_kernel = _demean_core(
+            work, _, fe_conv, _, fe_kernel = _demean_core(
                 A.copy(order="F"),
                 fe_codes_list,
                 counts_fe,
@@ -514,6 +514,9 @@ def _feols_fit(
                 accelerate=True,
                 accel_period=5,
                 backend="auto",
+            )
+            fe_solver = _finish_unconverged(
+                work, fe_codes_list, None, fe_conv, fe_maxiter
             )
             y_dem = work[:, 0]
             X_dem = work[:, 1:]
@@ -571,13 +574,20 @@ def _feols_fit(
             X_kept = X[keep_mask]
             w_kept = w_full[keep_mask]
             stacked = np.column_stack([y_kept, X_kept])
-            stacked_dem, _, _ = _weighted_ap_demean(
+            stacked_dem, _, w_conv = _weighted_ap_demean(
                 stacked,
                 fe_codes_kept,
                 counts_list,
                 w_kept,
                 max_iter=fe_maxiter,
                 tol=fe_tol,
+            )
+            fe_solver = _finish_unconverged(
+                stacked_dem,
+                fe_codes_kept,
+                w_kept,
+                [bool(w_conv)] * stacked_dem.shape[1],
+                fe_maxiter,
             )
             y_dem = stacked_dem[:, 0]
             X_dem = stacked_dem[:, 1:]
@@ -597,6 +607,7 @@ def _feols_fit(
         fe_codes_list = []
         fe_dof_statspai = 0
         fe_kernel = "none"
+        fe_solver = "none"
 
     # Apply mask to weights / cluster (demean already returned masked X̃, ỹ)
     if w_full is not None:
@@ -785,8 +796,50 @@ def _feols_fit(
         "fe_card": fe_card,
         "df_k": int(n - df_resid),
         "df_k_cluster": int(p + cr1_extra_df),
+        "fe_solver": fe_solver,
     }
     return result, arrays
+
+
+def _finish_unconverged(
+    block: np.ndarray,
+    codes: List[np.ndarray],
+    weights: Optional[np.ndarray],
+    converged: List[bool],
+    maxiter: int,
+) -> str:
+    """Residualise exactly the columns the projections left unconverged.
+
+    Alternating projections crawl on poorly connected fixed-effect graphs
+    (chains of firms linked by few movers, panels dominated by singleton
+    groups); stopping at ``maxiter`` there leaves the slopes visibly off.
+    Those columns are finished by a sparse direct solve of the normal
+    equations (``_fe_direct``), which is cheap on exactly such graphs.
+    Returns the solver label recorded on the fit; raises when the direct
+    solve does not reach the tolerance either.
+    """
+    bad = [j for j, ok in enumerate(converged) if not ok]
+    if not bad:
+        return "alternating projections"
+    from ._fe_direct import residualise_codes
+
+    try:
+        _, ok = residualise_codes(block, codes, weights, columns=bad)
+    except MemoryError:  # pragma: no cover - depends on the machine
+        ok = False
+    if not ok:
+        raise NumericalInstability(
+            f"feols: the fixed-effect residualisation did not converge in "
+            f"{maxiter} sweeps, and the sparse direct solve that finishes it "
+            "did not reach the tolerance either; the estimates would be "
+            "inaccurate.",
+            recovery_hint=(
+                "Drop singleton groups (fixef_rm='singleton'), use coarser "
+                "fixed effects, or raise fe_maxiter."
+            ),
+            diagnostics={"fe_maxiter": maxiter, "unconverged_columns": bad},
+        )
+    return f"sparse direct (projections stopped at {maxiter} sweeps)"
 
 
 def _statspai_fe_dof(fe_card: List[int]) -> int:
