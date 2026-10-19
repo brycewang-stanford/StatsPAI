@@ -4673,3 +4673,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/72_tmle_py.json`
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+
+### 2026-10-20 — traces re-recorded after the full-suite fixes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `2dab3646a`.
+- **Reason.** The fixest fixed-effects part is no longer run through the
+  Stata factor-variable translation (`core/utils.py`,
+  `core/_stata_formula.py`, `fixest/wrapper.py`), and
+  `sp.local_projections` records its call for `sp.vcov`
+  (`timeseries/local_projections.py`). These files are on the traced
+  paths of Track A modules 01, 02, 14, 34, 37, 42, 44-49, 51, 53-58, 63,
+  64, 67 and original-data modules 01, 04, 04b, 09. Every one was re-run
+  on the no-Rust path first and reproduces its committed result (Track A
+  through `verify_reproduce_py.py`, worst relative difference 0;
+  original data, worst 2.1e-12); only the traces were re-recorded.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
