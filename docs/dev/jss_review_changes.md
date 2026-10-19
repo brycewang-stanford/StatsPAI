@@ -33,10 +33,13 @@ Rules:
 
 ### 2026-10-19 — survival: sp.stteffects, sp.rmst (new exports)
 
-- **Commits.** `e09587ce` re-recorded
+- **Commits.** `5e4e91a5` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
   24, 25, 26, 27, 53, 65, 66) and
-  `tests/orig_parity/results/_implementation_trace.json` (module 08).
+  `tests/orig_parity/results/_implementation_trace.json` (module 08);
+  `07ca91ba` re-recorded `tests/r_parity/results/_implementation_trace.json`
+  (module 24) after `survival/__init__.py` began loading `sp.rmst` /
+  `sp.stteffects` on first use.
 - **Reason.** New exports in `src/statspai/__init__.py` (`sp.rmst`,
   `sp.stteffects`), which those modules execute, and a docstring /
   import-order change in `survival/models.py` / `survival/__init__.py`
