@@ -641,6 +641,15 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "zip(cols, flags) if f]>).",
         },
     ],
+    "hypotheses": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": 'E.g. sp.hypotheses(fit, "x1 = 0") or '
+            "sp.hypotheses(fit, joint=['x1', 'x2']).",
+            "symptom": "hypotheses: pass a hypothesis (or joint=True / "
+            "joint=[names]).",
+        }
+    ],
     "icc": [
         {
             "exception": "statspai.MethodIncompatibility",
