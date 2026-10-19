@@ -28,7 +28,7 @@ _FORMULA_FUNCTIONS: Dict[str, Any] = {
 _R_FACTOR_CALL = re.compile(r"(?<![\w.])(?:as\.)?factor\(")
 
 
-def r_formula_idioms(formula: str) -> str:
+def r_formula_idioms(formula: str, fixest_fe: bool = False) -> str:
     """Read a formula written the way R writes it.
 
     Three spellings are translated before the formula reaches the parser:
@@ -47,6 +47,10 @@ def r_formula_idioms(formula: str) -> str:
     :mod:`statspai.core._stata_formula`. A time-series term (``L.x``) needs
     the data and is resolved by :func:`create_design_matrices`; here it is
     refused with the spelling that works.
+
+    ``fixest_fe=True`` (the fixest layer) leaves the fixed-effects part of
+    ``y ~ x | fe`` untranslated: there ``i.f#c.x`` is an absorbed varying
+    slope (``reghdfe absorb(i.f#c.x)``), not a regressor.
     """
     from ._stata_formula import has_stata_ts_terms, stata_factor_syntax
 
@@ -61,7 +65,7 @@ def r_formula_idioms(formula: str) -> str:
             "formula; or use an estimator that resolves L.x after "
             "sp.xtset (sp.regress, sp.logit, sp.glm ...).",
         )
-    formula = stata_factor_syntax(formula)
+    formula = stata_factor_syntax(formula, fixest_fe=fixest_fe)
     if "`" in formula:
         formula = backticks_to_q(formula)
     if "factor(" in formula:

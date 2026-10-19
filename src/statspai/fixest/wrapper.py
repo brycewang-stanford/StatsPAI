@@ -1903,9 +1903,13 @@ def feols(
                 backend=backend,
                 **kwargs,
             )
+    # The native varying-slope parser (sp.hdfe_ols) reads Stata's i.f /
+    # c.x / ib2.f / i.f#c.x itself on both sides of '|', so that route gets
+    # the formula as written rather than the patsy translation.
+    fml_as_written = fml
+    fml = r_formula_idioms(fml, fixest_fe=True)
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
-    fml = r_formula_idioms(fml)
     data = _widen_narrow_integers(data)
     # ``i(rel, ref=[-1, -5])``: several reference levels (fixest's
     # ``ref = c(-1, -5)``); pyfixest takes one, so rewrite and map back.
@@ -1963,7 +1967,7 @@ def feols(
         # varying-slope syntax but silently drops the slope (see
         # _reject_silent_varying_slopes).
         return _feols_varying_slopes(
-            fml,
+            fml_as_written,
             data,
             vcov=vcov,
             cluster=cluster,
@@ -2363,7 +2367,7 @@ def fepois(
     _require_hac_ids(vcov, kwargs, data, "fepois")
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
-    fml = r_formula_idioms(fml)
+    fml = r_formula_idioms(fml, fixest_fe=True)
     data = _widen_narrow_integers(data)
     _reject_silent_varying_slopes(fml)
     if backend not in ("auto", "pyfixest", "native"):
@@ -2620,7 +2624,7 @@ def feglm(
     _require_hac_ids(vcov, kwargs, data, "feglm")
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
-    fml = r_formula_idioms(fml)
+    fml = r_formula_idioms(fml, fixest_fe=True)
     data = _widen_narrow_integers(data)
     _reject_silent_varying_slopes(fml)
     if backend not in ("auto", "pyfixest", "native"):

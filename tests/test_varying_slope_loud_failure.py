@@ -123,3 +123,58 @@ def test_rhs_slope_matches_stata_reghdfe(slope_panel):
     """
     res = sp.feols("y ~ d + i(pref, year) | county", data=slope_panel)
     assert float(res.params["d"]) == pytest.approx(0.066701865575718, abs=1e-7)
+
+
+# --------------------------------------------------------------------------- #
+#  Stata factor-variable syntax on both sides of '|'
+# --------------------------------------------------------------------------- #
+#  The formula layer translates i.g#c.x into patsy terms, but after
+#  '|' the same spelling is reghdfe's absorbed varying slope. A translation
+#  of the FE part turned `| county + i.pref#c.year` into a SyntaxError.
+
+
+def _prov_slopes(df: pd.DataFrame) -> pd.DataFrame:
+    return df.assign(**{f"x_p{k}": (df["prov"] == k) * df["x"] for k in range(3)})
+
+
+def test_stata_terms_on_both_sides_of_bar(slope_panel):
+    """Regressor-side i.prov#c.x is three province slopes of x; FE-side
+    i.pref#c.year is an absorbed slope. Identity: the same fit with the
+    slopes written as columns and the FE slope written fixest's way."""
+    df = _prov_slopes(slope_panel)
+    stata = sp.feols("y ~ d + i.prov#c.x | county + i.pref#c.year", data=df)
+    cols = sp.feols("y ~ d + x_p0 + x_p1 + x_p2 | county + pref[[year]]", data=df)
+    np.testing.assert_allclose(
+        stata.params.to_numpy(), cols.params.to_numpy(), rtol=1e-10, atol=0
+    )
+    np.testing.assert_allclose(
+        stata.std_errors.to_numpy(), cols.std_errors.to_numpy(), rtol=1e-10, atol=0
+    )
+
+
+def test_stata_regressor_term_without_slope_fe(slope_panel):
+    df = _prov_slopes(slope_panel)
+    stata = sp.feols("y ~ d + i.prov#c.x | county", data=df)
+    cols = sp.feols("y ~ d + x_p0 + x_p1 + x_p2 | county", data=df)
+    np.testing.assert_allclose(
+        stata.params.to_numpy(), cols.params.to_numpy(), rtol=1e-10, atol=0
+    )
+
+
+def test_fe_part_is_left_to_the_fixest_layer():
+    from statspai.core._stata_formula import stata_factor_syntax
+
+    fml = "y ~ i.g#c.x | county + i.pref#c.year | d ~ i.z"
+    out = stata_factor_syntax(fml, fixest_fe=True)
+    assert out == "y ~ C(g):x | county + i.pref#c.year | d ~ C(z)"
+    # no FE part: the part after '|' is the IV equation and is translated
+    assert stata_factor_syntax("y ~ x | d ~ i.z", fixest_fe=True) == "y ~ x | d ~ C(z)"
+
+
+@pytest.mark.parametrize("fn_name", ["fepois", "feglm"])
+def test_glm_paths_refuse_stata_slope_by_name(slope_panel, fn_name):
+    df = slope_panel.assign(
+        y=(slope_panel["y"] > slope_panel["y"].median()).astype(int)
+    )
+    with pytest.raises(MethodIncompatibility, match="varying slope"):
+        getattr(sp, fn_name)("y ~ d | county + i.pref#c.year", data=df)

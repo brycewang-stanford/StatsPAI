@@ -368,6 +368,16 @@ All notable changes to StatsPAI will be documented in this file.
   notation into formula operators (`i.g*x`) are refused with the right
   syntax.
 
+#### Fixed
+
+- The translation reached the fixed-effects part of `sp.feols` /
+  `sp.fepois` / `sp.feglm` formulas and turned reghdfe's absorbed slope
+  `y ~ d | county + i.pref#c.year` into a `SyntaxError`. The part after
+  `|` is now left to the fixest layer (varying slope, as before), and the
+  varying-slope route reads regressor-side `i.g#c.x` with its own Stata
+  parser, so `y ~ d + i.prov#c.x | county + i.pref#c.year` equals the fit
+  with the slopes written as columns.
+
 ### ⚠️ Correctness: `sp.panel(vce='wild')` with clusters that cut across entities
 
 #### ⚠️ Correctness

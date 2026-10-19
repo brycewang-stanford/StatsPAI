@@ -92,24 +92,52 @@ _HINT = (
 )
 
 
-def stata_factor_syntax(formula: str, columns: Optional[Sequence[str]] = None) -> str:
+def _fixest_fe_part(parts: List[Tuple[str, str]]) -> Optional[int]:
+    """Index of the fixed-effects part of a fixest formula, if any.
+
+    ``y ~ x | fe | d ~ z`` splits into ``y``, ``x``, ``fe``, ``d``, ``z``;
+    the part after the first ``|`` is the fixed effects unless it is the
+    endogenous side of the IV part (``y ~ x | d ~ z``)."""
+    if len(parts) < 3 or parts[1][0] != "~" or parts[2][0] != "|":
+        return None
+    if len(parts) > 3 and parts[3][0] == "~":
+        return None
+    return 2
+
+
+def stata_factor_syntax(
+    formula: str,
+    columns: Optional[Sequence[str]] = None,
+    fixest_fe: bool = False,
+) -> str:
     """Translate Stata factor-variable terms of ``formula`` (no-op without).
 
     ``columns`` expands ranges / wildcards inside grouped terms
     (``c.(x1-x3)``); without it they are refused.
+
+    ``fixest_fe=True`` leaves the fixed-effects part of a fixest formula
+    (``y ~ x | fe``) as written: there ``i.f#c.x`` is a varying slope to
+    absorb (``reghdfe absorb(i.f#c.x)``), which the fixest layer reads
+    itself, not a regressor.
     """
     masked = _masked(formula)
     if "#" not in masked and not _HAS_PREFIX.search(masked):
         return formula
     parts = _split_top(formula, "~|")
+    fe_index = _fixest_fe_part(parts) if fixest_fe else None
     plan = []
     any_stata = False
-    for sep, part in parts:
+    for k, (sep, part) in enumerate(parts):
+        if k == fe_index:
+            plan.append((sep, [("", part)], [False]))
+            continue
         terms = _split_top(part, "+-")
         flags = [_looks_stata(t) for _, t in terms]
         any_stata = any_stata or any(flags)
         plan.append((sep, terms, flags))
-    for _, terms, flags in plan:
+    for k, (_, terms, flags) in enumerate(plan):
+        if k == fe_index:
+            continue
         for (_, t), f in zip(terms, flags):
             if not f and _HAS_PREFIX.match(t.strip()):
                 raise _refuse(
@@ -119,6 +147,10 @@ def stata_factor_syntax(formula: str, columns: Optional[Sequence[str]] = None) -
                     _HINT,
                 )
     if not any_stata:
+        if fe_index is not None:
+            masked = "".join(
+                _masked(part) for k, (_, part) in enumerate(parts) if k != fe_index
+            )
         if "#" in masked:
             raise _refuse(
                 f"cannot read the formula {formula!r}: '#' is Stata's "
@@ -130,7 +162,10 @@ def stata_factor_syntax(formula: str, columns: Optional[Sequence[str]] = None) -
     from ..agent._translation._stata import translate_fv_terms
 
     pieces: List[Tuple[str, List[Tuple[str, str]]]] = []
-    for sep, terms, flags in plan:
+    for k, (sep, terms, flags) in enumerate(plan):
+        if k == fe_index:
+            pieces.append((sep, terms))
+            continue
         stata = [t.strip() for (_, t), f in zip(terms, flags) if f]
         others = [t.strip() for (_, t), f in zip(terms, flags) if not f and t.strip()]
         if not stata:
