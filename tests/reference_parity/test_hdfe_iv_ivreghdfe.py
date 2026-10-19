@@ -121,3 +121,65 @@ def test_sp_iv_absorb_drops_rows_with_a_missing_interaction_component():
     assert a.data_info["nobs"] == b.n_obs == 732
     assert float(a.params["d"]) == pytest.approx(float(b.coef["d"]), rel=1e-9)
     assert float(a.std_errors["d"]) == pytest.approx(float(b.se["d"]), rel=1e-9)
+
+
+TWO_ENDOG = {
+    # vce: (rkf, cdf, idstat, arf, j, sdofminus) from ivreghdfe ... ffirst
+    "cluster": (
+        15.531167524070613,
+        61.069448708669078,
+        16.562527214564334,
+        25.076587065570429,
+        1.444165500009567,
+        41,
+    ),
+    "robust": (
+        8.1988223268071092,
+        46.029340907616614,
+        44.997449715058444,
+        24.744826160053659,
+        3.8716850311586861,
+        223,
+    ),
+    "iid": (
+        np.nan,
+        46.0293409076166,
+        195.01922035924969,
+        27.931086707720489,
+        3.6015197072581779,
+        223,
+    ),
+}
+
+
+@pytest.mark.parametrize("vce", ["cluster", "robust", "iid"])
+def test_two_endogenous_rank_statistics(vce):
+    """Two endogenous regressors (``d`` and ``d*w``, four instruments):
+    Kleibergen-Paap rk Wald F, Cragg-Donald F and the under-identification
+    LM were NaN before 2026-10; they now equal ivreghdfe's ``e(rkf)``,
+    ``e(cdf)`` and ``e(idstat)``."""
+    d = DATA.assign(dw=DATA.d * DATA.w, z1w=DATA.z1 * DATA.w, z2w=DATA.z2 * DATA.w)
+    kw = {"cluster": {"cluster": "ind"}, "robust": {"vce": "robust"}, "iid": {}}[vce]
+    r = sp.hdfe_ols(f"y ~ w | {FE} | d + dw ~ z1 + z2 + z1w + z2w", d, tol=1e-12, **kw)
+    rkf, cdf, idstat, arf, j, sdof = TWO_ENDOG[vce]
+    iv = r.iv_diagnostics
+    assert iv["sdofminus"] == sdof
+    if np.isnan(rkf):
+        assert np.isnan(iv["kp_rk_wald_F"])
+    else:
+        assert iv["kp_rk_wald_F"] == pytest.approx(rkf, rel=REL)
+    assert iv["cragg_donald_F"] == pytest.approx(cdf, rel=REL)
+    assert iv["kp_rk_lm"] == pytest.approx(idstat, rel=REL)
+    assert iv["kp_rk_lm_df"] == 3
+    assert iv["anderson_rubin_F"] == pytest.approx(arf, rel=REL)
+    assert iv["hansen_j"] == pytest.approx(j, rel=REL)
+
+
+def test_two_endogenous_just_identified_rank_statistics():
+    r = _fit(iv="d + w ~ z1 + z2", exog="1", cluster="ind")
+    iv = r.iv_diagnostics
+    assert iv["kp_rk_wald_F"] == pytest.approx(0.37153721424430736, rel=REL)
+    assert iv["cragg_donald_F"] == pytest.approx(0.35448602098777049, rel=REL)
+    assert iv["kp_rk_lm"] == pytest.approx(0.73700559501530327, rel=REL)
+    assert iv["kp_rk_lm_df"] == 1
+    assert iv["anderson_rubin_F"] == pytest.approx(51.335523365026091, rel=REL)

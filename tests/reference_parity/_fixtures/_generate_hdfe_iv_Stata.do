@@ -15,3 +15,18 @@ ivreghdfe y w (d = z1 z2), absorb(firm city#q) robust
 di %24.17g _se[d] %24.17g _se[w] %24.17g e(rkf) %24.17g e(cdf) %24.17g e(idstat) %24.17g e(j) " " e(df_r)
 ivreghdfe y w (d = z1 z2), absorb(firm city#q)
 di %24.17g _se[d] %24.17g _se[w] %24.17g e(cdf) %24.17g e(idstat) %24.17g e(sargan)
+* Two endogenous regressors (test_two_endogenous_rank_statistics): before
+* 2026-10 the KP / Cragg-Donald statistics were NaN here.
+gen double dw = d*w
+gen double z1w = z1*w
+gen double z2w = z2*w
+foreach v in "cluster(ind)" "robust" "" {
+  ivreghdfe y w (d dw = z1 z2 z1w z2w), absorb(firm city#q) `v' ffirst
+  foreach s in rkf cdf idstat iddf arf j sdofminus {
+    di "`s' " %24.17g e(`s')
+  }
+}
+ivreghdfe y (d w = z1 z2), absorb(firm city#q) cluster(ind) ffirst
+foreach s in rkf cdf idstat arf {
+  di "`s' " %24.17g e(`s')
+}

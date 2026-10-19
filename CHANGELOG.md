@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.hdfe_ols` IV: rank statistics with several endogenous regressors
+
+#### Fixed
+
+- With two or more endogenous regressors `sp.hdfe_ols("y ~ x | fe | d1 + d2
+  ~ z...")` reported the Kleibergen-Paap rk Wald F, the
+  under-identification LM and the Cragg-Donald F as NaN. They are now the
+  `ranktest` statistics on the FE-swept first stage, equal to Stata
+  `ivreghdfe`'s `e(rkf)`, `e(idstat)` and `e(cdf)` to 1e-9 under cluster,
+  robust and iid variances, over- and just-identified
+  (`tests/reference_parity/test_hdfe_iv_ivreghdfe.py`). Single-endogenous
+  output is unchanged.
+
 ### ⚠️ Correctness: `sp.causal_impact` intervals include parameter uncertainty
 
 - ⚠️ `sp.causal_impact`'s standard error, interval and p-value treated the

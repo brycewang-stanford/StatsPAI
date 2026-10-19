@@ -28,9 +28,11 @@ nested in the cluster excluded, as ``e(sdofminus)``), ``K`` the regressors,
 * Hansen J at the two-step efficient GMM residuals (Sargan's ``N·R²`` under
   iid) for overidentified models.
 
-The rank statistics (KP, Cragg-Donald) are computed for one endogenous
-regressor; with more they are reported as NaN (the per-regressor first-stage
-F tests, AR and J are still computed).
+With two or more endogenous regressors the rank statistics are the
+Kleibergen-Paap rk form of ``ranktest`` (``sp.kleibergen_paap_rk``) on the
+FE-swept, exog-partialled first stage, with ``ivreg2``'s regressor count
+``L + sdof`` in the finite-sample factor. (Through 2026-10 they were reported
+as NaN.)
 
 Verified against ``ivreghdfe`` 1.1.4 / ``ivreg2`` 4.1.11 in
 ``tests/reference_parity/test_hdfe_iv_ivreghdfe.py``.
@@ -67,6 +69,38 @@ def _partial(A: np.ndarray, B: np.ndarray) -> np.ndarray:
 
 def _wald(b: np.ndarray, V: np.ndarray) -> float:
     return float(b @ np.linalg.solve(V, b))
+
+
+def _rank_statistics(
+    Dt: np.ndarray,
+    Zt: np.ndarray,
+    groups: Optional[np.ndarray],
+    *,
+    robust: bool,
+    n_partialled: int,
+) -> tuple:
+    """``(rkf, idstat, cdf)`` for two or more endogenous regressors.
+
+    ``ivreg2`` reports the Kleibergen-Paap rk Wald F (robust / cluster only),
+    the under-identification LM (Kleibergen-Paap rk LM, or Anderson's
+    canonical-correlation LM under iid) and the Cragg-Donald Wald F, all
+    computed by ``ranktest`` on the partialled first stage. ``n_partialled``
+    is the number of partialled-out columns plus the absorbed degrees of
+    freedom, ``ivreg2``'s ``K`` minus the excluded instruments.
+    """
+    from ..iv.weak_identification import kleibergen_paap_rk
+
+    nan = float("nan")
+    common = dict(add_const=False, n_absorbed=int(n_partialled), small=True)
+    cd = kleibergen_paap_rk(Dt, Zt, cov_type="nonrobust", **common)
+    cd_f = float(cd.rk_f)
+    if groups is None and not robust:
+        return nan, float(cd.rk_lm), cd_f
+    if groups is not None:
+        kp = kleibergen_paap_rk(Dt, Zt, cov_type="cluster", cluster=groups, **common)
+    else:
+        kp = kleibergen_paap_rk(Dt, Zt, cov_type="robust", **common)
+    return float(kp.rk_f), float(kp.rk_lm), cd_f
 
 
 def hdfe_iv(
@@ -231,7 +265,11 @@ def hdfe_iv(
 
     nan = float("nan")
     kp_f = kp_lm = cd_f = nan
-    if K1 == 1:
+    if K1 > 1:
+        kp_f, kp_lm, cd_f = _rank_statistics(
+            Dt, Zt, groups, robust=vce is not None, n_partialled=k_ex + sdof
+        )
+    else:
         d1 = Dt[:, 0]
         pi, u, chi2, F = robust_wald(d1)
         cd_f = float(pi @ (Zt.T @ Zt) @ pi) / L1 / (float(u @ u) / dfr_fs)
