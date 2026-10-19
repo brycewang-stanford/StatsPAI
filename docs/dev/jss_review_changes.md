@@ -4574,3 +4574,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no estimate changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-records for the export of sp.bart_causal
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `2618f5cf`.
+- **Reason.** Exporting `sp.bart_causal` / `BayesCausalResult` from
+  `statspai/__init__.py` touches the traced paths of modules 03, 13, 15,
+  24-27, 53, 65, 66 and original-data module 08; their traces were
+  re-recorded.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
