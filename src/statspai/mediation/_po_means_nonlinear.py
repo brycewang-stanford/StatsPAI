@@ -66,17 +66,20 @@ def _outcome_score_weight(Y: np.ndarray, eta: np.ndarray, family: str) -> np.nda
     return np.asarray(q * stats.norm.pdf(q * eta) / stats.norm.cdf(q * eta))
 
 
-def _fit_outcome(W: np.ndarray, Y: np.ndarray, family: str) -> np.ndarray:
+def _fit_outcome(
+    W: np.ndarray, Y: np.ndarray, family: str, w: Optional[np.ndarray] = None
+) -> np.ndarray:
+    w = np.ones(len(Y)) if w is None else w
     if family == "linear":
-        return np.asarray(np.linalg.solve(W.T @ W, W.T @ Y))
+        return np.asarray(np.linalg.solve((W * w[:, None]).T @ W, W.T @ (w * Y)))
     if family in ("logit", "probit"):
-        return _fit_binary(W, Y, family)
+        return _fit_binary(W, Y, family, weights=w)
     beta = np.zeros(W.shape[1])
-    beta[0] = np.log(max(Y.mean(), 1e-8))
+    beta[0] = np.log(max(np.average(Y, weights=w), 1e-8))
     for _ in range(100):
         mu = np.exp(W @ beta)
         try:
-            step = np.linalg.solve((W * mu[:, None]).T @ W, W.T @ (Y - mu))
+            step = np.linalg.solve((W * (w * mu)[:, None]).T @ W, W.T @ (w * (Y - mu)))
         except np.linalg.LinAlgError as exc:
             raise ConvergenceFailure(
                 "mediate: the Poisson outcome model is not identified "
@@ -121,8 +124,13 @@ def potential_outcome_mediation_nonlinear(
     outcome_model: str = "logit",
     treat_values: Optional[Tuple[float, float]] = None,
     alpha: float = 0.05,
+    weights: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Potential-outcome means and natural effects, any supported model pair.
+
+    ``weights`` names a column of sampling weights (Stata ``mediate
+    [pw=]``): every estimating equation -- both models and the four means
+    -- is weighted, and the sandwich uses squared weights.
 
     Same return structure as
     :func:`statspai.mediation._po_means.potential_outcome_mediation`, plus
@@ -143,9 +151,19 @@ def potential_outcome_mediation_nonlinear(
         )
     _check_mediation_columns(data, y, treat, mediator, list(covariates or []))
     data, covs = _expand_categorical_covariates(data, list(covariates or []))
-    cols = [y, treat, mediator, *covs]
+    cols = [y, treat, mediator, *covs] + ([weights] if weights else [])
     clean = data[cols].dropna()
     n = len(clean)
+    if weights:
+        wt = clean[weights].to_numpy(dtype=float)
+        if (wt < 0).any() or not np.isfinite(wt).all() or not (wt > 0).any():
+            raise MethodIncompatibility(
+                "mediate: weights must be finite and non-negative, not all zero.",
+                recovery_hint="Drop or fix rows with negative weights.",
+            )
+        wt = wt / wt.mean()
+    else:
+        wt = np.ones(n)
     Y = clean[y].to_numpy(dtype=float)
     D = clean[treat].to_numpy(dtype=float)
     M = clean[mediator].to_numpy(dtype=float)
@@ -200,12 +218,12 @@ def potential_outcome_mediation_nonlinear(
             recovery_hint="Drop collinear covariates.",
         )
 
-    beta = _fit_outcome(W, Y, family)
+    beta = _fit_outcome(W, Y, family, wt)
     if link == "linear":
-        a = np.asarray(np.linalg.solve(Z.T @ Z, Z.T @ M))
-        s2 = float(np.mean((M - Z @ a) ** 2))
+        a = np.asarray(np.linalg.solve((Z * wt[:, None]).T @ Z, Z.T @ (wt * M)))
+        s2 = float(np.average((M - Z @ a) ** 2, weights=wt))
     else:
-        a = _fit_binary(Z, M, link)
+        a = _fit_binary(Z, M, link, weights=wt)
         s2 = 0.0
     # The residual variance of a linear mediator enters the means as a
     # known constant, as in Stata's mediate: it has no estimating equation
@@ -233,7 +251,7 @@ def potential_outcome_mediation_nonlinear(
                 ) * _outcome_mean(eta, family)
         return out
 
-    mu = po_matrix(beta, a, s2).mean(axis=0)
+    mu = np.average(po_matrix(beta, a, s2), axis=0, weights=wt)
     k = kb + ka + int(has_s2) + 4
     theta = np.concatenate([beta, a, [s2] if has_s2 else [], mu])
 
@@ -253,7 +271,8 @@ def potential_outcome_mediation_nonlinear(
             psi_a = Z * _outcome_score_weight(M, idx, link)[:, None]
             psi_s = np.empty((n, 0))
         psi_mu = po_matrix(b, al, var) - m_[None, :]
-        return np.column_stack([psi_b, psi_a, psi_s, psi_mu])
+        # each unit's estimating functions carry its (mean-one) weight
+        return np.column_stack([psi_b, psi_a, psi_s, psi_mu]) * wt[:, None]
 
     psi = moments(theta)
     # A = - d mean(psi) / d theta, by central differences. The moment

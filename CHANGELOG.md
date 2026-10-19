@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.mediate(weights=)`
+
+#### Added
+
+- `sp.mediate(..., weights='w')`: sampling weights in both models
+  (weighted least squares / weighted likelihood) and in the
+  potential-outcome means, with the weighted sandwich for
+  `inference='robust'` and a weight-carrying case bootstrap for
+  `'bootstrap'`; `'delta'` refuses. Every outcome / mediator pair the
+  potential-outcome estimator supports takes weights. Effects and SEs
+  equal Stata 18 `mediate [pw=w]` to 1e-9 on linear / logit / probit model
+  pairs (`tests/reference_parity/test_mediate_weights_Stata_parity.py`).
+
 ### `sp.lee_bounds(weights=)`
 
 #### Added

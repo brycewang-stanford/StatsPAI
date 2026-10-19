@@ -88,7 +88,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `rlasso` | 2,859 | 7 | 10 |
 | `crossval` | 2,812 | 7 | 2 |
 | `epi` | 2,666 | 6 | 21 |
-| `mediation` | 3,583 | 9 | 7 |
+| `mediation` | 3,640 | 9 | 7 |
 | `datasets` | 2,632 | 4 | 5 |
 | `selection` | 2,557 | 5 | 8 |
 | `nonparametric` | 3,117 | 6 | 14 |

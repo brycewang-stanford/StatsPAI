@@ -59,6 +59,7 @@ def _mediate_robust(
     alpha: float,
     outcome_model: str = "linear",
     treat_values: Optional[Tuple[float, float]] = None,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """Potential-outcome mediation packaged as a ``CausalResult``."""
     fit = _po_fit(
@@ -72,6 +73,7 @@ def _mediate_robust(
         alpha=alpha,
         outcome_model=outcome_model,
         treat_values=treat_values,
+        weights=weights,
     )
     return _po_result(fit, interaction=interaction, alpha=alpha)
 
@@ -88,12 +90,17 @@ def _po_fit(
     alpha: float,
     outcome_model: str = "linear",
     treat_values: Optional[Tuple[float, float]] = None,
+    weights: Optional[str] = None,
 ) -> dict:
     """Potential-outcome means, effects and their sandwich variance."""
     from ._po_means import potential_outcome_mediation
     from ._po_means_nonlinear import potential_outcome_mediation_nonlinear
 
-    if str(outcome_model).lower() == "linear" and treat_values is None:
+    if (
+        str(outcome_model).lower() == "linear"
+        and treat_values is None
+        and weights is None
+    ):
         return potential_outcome_mediation(
             data,
             y,
@@ -115,6 +122,7 @@ def _po_fit(
         outcome_model=outcome_model,
         treat_values=treat_values,
         alpha=alpha,
+        weights=weights,
     )
 
 
@@ -177,6 +185,7 @@ def _mediate_po_bootstrap(
     n_boot: int,
     seed: int,
     pvalue_method: str,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """``inference='bootstrap'`` for the potential-outcome estimator.
 
@@ -197,8 +206,11 @@ def _mediate_po_bootstrap(
         alpha=alpha,
         outcome_model=outcome_model,
         treat_values=treat_values,
+        weights=weights,
     )
-    cols = [y, treat, mediator] + list(covariates or [])
+    cols = (
+        [y, treat, mediator] + list(covariates or []) + ([weights] if weights else [])
+    )
     boot = bootstrap_po_effects(
         data, cols, lambda d: _po_fit(d, **kw), n_boot=n_boot, seed=seed
     )
@@ -299,6 +311,7 @@ def mediate(
     mediator_model: str = "linear",
     outcome_model: str = "linear",
     treat_values: Optional[Tuple[float, float]] = None,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Causal mediation analysis.
@@ -373,6 +386,16 @@ def mediate(
         treatment that is not coded 0/1 (``inference='robust'`` or
         ``'bootstrap'``; Stata's ``continuous(numlist)``). The treatment
         enters the two models linearly.
+    weights : str, optional
+        Column of sampling (probability) weights, Stata ``mediate [pw=]``.
+        Both models are fitted by weighted (quasi-)likelihood and the
+        potential-outcome means are weighted averages, so the
+        potential-outcome estimator is used (as for ``interaction=True``);
+        ``inference='robust'`` gives the weighted sandwich (squared
+        weights in the meat), ``'bootstrap'`` resamples units with their
+        weights, ``'delta'`` refuses. Estimates equal Stata 18
+        ``mediate [pw=w]`` to 1e-9 on four model pairs
+        (``tests/reference_parity/test_mediate_weights_Stata_parity.py``).
     pvalue_method : {'bootstrap_sign', 'wald'}, default 'bootstrap_sign'
         How each effect's p-value is computed:
 
@@ -450,7 +473,10 @@ def mediate(
         or mediator_model != "linear"
         or outcome_model != "linear"
         or treat_values is not None
+        or weights is not None
     )
+    if weights is not None:
+        check_columns(data, {"weights": weights}, function="sp.mediate")
     if inference == "bootstrap" and po_only:
         if pvalue_method not in ("bootstrap_sign", "wald"):
             raise ValueError(
@@ -471,6 +497,7 @@ def mediate(
             n_boot=n_boot,
             seed=seed,
             pvalue_method=pvalue_method,
+            weights=weights,
         )
         _attach_mediate_provenance(
             _result,
@@ -489,13 +516,14 @@ def mediate(
                 "mediator_model": mediator_model,
                 "outcome_model": outcome_model,
                 "treat_values": treat_values,
+                "weights": weights,
             },
         )
         return _result
     if inference == "delta" and po_only:
         raise MethodIncompatibility(
             "mediate: interaction=True, a non-linear mediator_model or "
-            "outcome_model, and treat_values= are estimated from "
+            "outcome_model, treat_values= and weights= are estimated from "
             "potential-outcome means, which have no closed-form delta "
             "(Sobel) variance here.",
             recovery_hint="Pass inference='robust' (sandwich) or "
@@ -506,6 +534,7 @@ def mediate(
                 "mediator_model": mediator_model,
                 "outcome_model": outcome_model,
                 "treat_values": treat_values,
+                "weights": weights,
             },
         )
     if inference == "robust":
@@ -520,6 +549,7 @@ def mediate(
             outcome_model=outcome_model,
             treat_values=treat_values,
             alpha=alpha,
+            weights=weights,
         )
         _attach_mediate_provenance(
             _result,
@@ -535,6 +565,7 @@ def mediate(
                 "mediator_model": mediator_model,
                 "outcome_model": outcome_model,
                 "treat_values": treat_values,
+                "weights": weights,
             },
         )
         return _result

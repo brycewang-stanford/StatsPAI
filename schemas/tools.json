@@ -23252,6 +23252,12 @@
           },
           "type": "array"
         },
+        "weights": {
+          "description": "Column of sampling (probability) weights, Stata ``mediate [pw=]``. Both models are fitted by weighted (quasi-)likelihood and the potential-outcome means are weighted averages, so the potential-outcome estimator is used (as for ``interaction=True``); ``inference='robust'`` gives the weighted sandwich (squared weights in the meat), ``'bootstrap'`` resamples units with their weights, ``'delta'`` refuses. Estimates equal Stata 18 ``mediate [pw=w]`` to 1e-9 on four model pairs (``tests/reference_parity/test_mediate_weights_Stata_parity.py``).",
+          "type": "string",
+          "x-statspai-role": "column",
+          "x-statspai-source": "signature"
+        },
         "y": {
           "description": "Outcome",
           "type": "string",

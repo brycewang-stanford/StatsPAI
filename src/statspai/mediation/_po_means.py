@@ -62,21 +62,28 @@ _PO_ARMS = ((0, 0), (1, 0), (0, 1), (1, 1))
 
 
 def _fit_binary(
-    Z: np.ndarray, m: np.ndarray, link: str, max_iter: int = 100, tol: float = 1e-12
+    Z: np.ndarray,
+    m: np.ndarray,
+    link: str,
+    max_iter: int = 100,
+    tol: float = 1e-12,
+    weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Maximum likelihood for a logit or probit mediator, by Newton steps."""
+    """(Weighted) maximum likelihood for a logit or probit model, by Newton
+    steps."""
     a = np.zeros(Z.shape[1])
     q = 2.0 * m - 1.0
+    w = np.ones(len(m)) if weights is None else np.asarray(weights, dtype=float)
     for _ in range(max_iter):
         eta = Z @ a
         if link == "logit":
             p = 1.0 / (1.0 + np.exp(-eta))
-            score = Z.T @ (m - p)
-            hess = (Z * (p * (1.0 - p))[:, None]).T @ Z
+            score = Z.T @ (w * (m - p))
+            hess = (Z * (w * p * (1.0 - p))[:, None]).T @ Z
         else:
             lam = q * stats.norm.pdf(q * eta) / stats.norm.cdf(q * eta)
-            score = Z.T @ lam
-            hess = (Z * (lam * (lam + eta))[:, None]).T @ Z
+            score = Z.T @ (w * lam)
+            hess = (Z * (w * lam * (lam + eta))[:, None]).T @ Z
         try:
             step = np.linalg.solve(hess, score)
         except np.linalg.LinAlgError as exc:
