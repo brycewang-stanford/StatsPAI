@@ -62,9 +62,7 @@ def _imbens_manski_cn(delta: float, sigma_max: float, alpha: float = 0.05) -> fl
 
     References
     ----------
-    Imbens, G. W. & Manski, C. F. (2004). "Confidence Intervals for Partially
-    Identified Parameters." Econometrica, 72(6), 1845-1857.
-    doi:10.1111/j.1468-0262.2004.00555.x.
+    [@imbens2004confidence]
     """
     z_one = float(sp_stats.norm.ppf(1 - alpha))
     z_two = float(sp_stats.norm.ppf(1 - alpha / 2))

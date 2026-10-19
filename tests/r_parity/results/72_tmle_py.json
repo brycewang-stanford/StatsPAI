@@ -24,7 +24,7 @@
     "outcome_type": "binary",
     "fluctuation": "per_arm",
     "gbound": 1e-08,
-    "epsilon": [
+    "epsilon_vec": [
       -0.008233128951368853,
       0.014353748930566993
     ],

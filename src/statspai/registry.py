@@ -22450,7 +22450,9 @@ def _build_registry() -> None:
                     "are integers)",
                 ],
                 failure_modes=list(_ts_failures),
-                alternatives=["xtset", "lag", "lead", "diff"],
+                alternatives=[
+                    a for a in ("xtset", "lag", "lead", "diff") if a != _ts_name
+                ],
             )
         )
 
