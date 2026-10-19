@@ -81,8 +81,8 @@ Options and evidence for the flagship estimators, read from their signatures and
 
 | function | weights | clustering | variance options | backend | support tier | evidence tier | config map | limitations |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `sp.margins` | — | — | — | native | core | certified | — | — |
-| `sp.margins_at` | — | — | — | native | core | certified | — | — |
+| `sp.margins` | — | — | `vcov=True` | native | core | certified | — | — |
+| `sp.margins_at` | — | — | `vcov=True` | native | core | certified | — | — |
 | `sp.contrast` | — | — | — | native | core | certified | — | — |
 
 Limitations are listed in full by `sp.describe_function(name)['limitations']` and in every MCP tool description.
