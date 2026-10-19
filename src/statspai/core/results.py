@@ -3342,17 +3342,6 @@ class CausalResult:
             "  doi={10.1080/01621459.2015.1023805}\n"
             "}"
         ),
-        "heckprobit": (
-            "@article{vandeven1981demand,\n"
-            "  title={The Demand for Deductibles in Private Health "
-            "Insurance: A Probit Model with Sample Selection},\n"
-            "  author={Van de Ven, Wynand P. M. M. and Van Praag, "
-            "Bernard M. S.},\n"
-            "  journal={Journal of Econometrics},\n"
-            "  year={1981},\n"
-            "  doi={10.1016/0304-4076(81)90028-2}\n"
-            "}"
-        ),
         "heckman": (
             "@article{heckman1979sample,\n"
             "  title={Sample Selection Bias as a Specification "
