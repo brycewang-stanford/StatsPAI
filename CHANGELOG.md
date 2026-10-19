@@ -651,7 +651,12 @@ StatsPAI is faster in 27 of the 30 cells at eight threads and in all 30 at
 one thread. The three it loses are plain `sp.feols` on exactly a million
 rows (iid, hetero, weighted): the regression takes 25 ms there, and the
 SHA-256 provenance fingerprint of the input frame (56 ms, frames up to a
-million rows) bounds the call.
+million rows) bounds the call. The fingerprint is kept as it is, because
+replication packs compare it across versions: it now hashes the frame's
+own buffer instead of a copy (the same digest), and
+`STATSPAI_PROVENANCE_HASH=0` skips it for loops of many fits on one frame
+(`data_hash` is then `None`; explicit `compute_data_hash` calls are not
+affected).
 
 #### Added
 

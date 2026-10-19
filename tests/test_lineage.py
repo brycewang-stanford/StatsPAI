@@ -84,6 +84,28 @@ class TestComputeDataHash:
         assert len(compute_data_hash(df, length=8)) == 8
         assert len(compute_data_hash(df, length=20)) == 20
 
+    def test_ndarray_digest_is_sha256_of_the_buffer(self):
+        # Replication packs compare digests across versions: hashing the
+        # buffer in place must give what hashing ``tobytes()`` gave.
+        import hashlib
+
+        arr = np.arange(24, dtype=float).reshape(6, 4)[:, ::-1]
+        c = np.ascontiguousarray(arr)
+        h = hashlib.sha256()
+        h.update(str(c.shape).encode())
+        h.update(str(c.dtype).encode())
+        h.update(c.tobytes())
+        assert compute_data_hash(arr) == h.hexdigest()[:12]
+
+    def test_env_opt_out_skips_the_fit_record_hash_only(self, monkeypatch):
+        from statspai.output._lineage import _HashAhead
+
+        df = pd.DataFrame({"a": np.arange(10.0)})
+        assert _HashAhead.start(df).result() == compute_data_hash(df)
+        monkeypatch.setenv("STATSPAI_PROVENANCE_HASH", "0")
+        assert _HashAhead.start(df).result() is None
+        assert compute_data_hash(df) is not None
+
 
 # ---------------------------------------------------------------------------
 # Provenance dataclass

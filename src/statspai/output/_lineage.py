@@ -157,7 +157,9 @@ def compute_data_hash(data: Any, length: int = 12) -> Optional[str]:
                     arr = np.ascontiguousarray(arr)
                     digest.update(str(arr.shape).encode())
                     digest.update(str(arr.dtype).encode())
-                    digest.update(arr.tobytes())
+                    # The array's own buffer: the same bytes as ``tobytes()``
+                    # (so the same digest) without a copy of the frame.
+                    digest.update(memoryview(arr).cast("B"))
                     return digest.hexdigest()[:length]
 
             row_h = pd.util.hash_pandas_object(data, index=True).values.tobytes()
@@ -182,7 +184,7 @@ def compute_data_hash(data: Any, length: int = 12) -> Optional[str]:
             h = hashlib.sha256()
             h.update(str(data.shape).encode())
             h.update(str(data.dtype).encode())
-            h.update(np.ascontiguousarray(data).tobytes())
+            h.update(memoryview(np.ascontiguousarray(data)).cast("B"))
             return h.hexdigest()[:length]
         if isinstance(data, (bytes, bytearray)):
             return hashlib.sha256(bytes(data)).hexdigest()[:length]
@@ -524,6 +526,13 @@ class _HashAhead:
     #: Inputs with at least this many cells are hashed on a second thread.
     THREAD_CELLS = 200_000
 
+    #: ``STATSPAI_PROVENANCE_HASH=0`` skips the fingerprint of the input in
+    #: the record every fit attaches (``data_hash`` is then ``None``, as for
+    #: frames over :data:`MAX_HASH_ROWS`): for loops of many fits on one
+    #: frame where its ~50 ms per million rows matters. Explicit calls of
+    #: :func:`compute_data_hash` (replication packs) are not affected.
+    ENV = "STATSPAI_PROVENANCE_HASH"
+
     def __init__(self, data: Any) -> None:
         self._data = data
         self._value: Any = _UNSET
@@ -532,7 +541,12 @@ class _HashAhead:
     @classmethod
     def start(cls, data: Any) -> "_HashAhead":
         ahead = cls(data)
-        if data is None:
+        if data is None or os.environ.get(cls.ENV, "").strip().lower() in (
+            "0",
+            "false",
+            "no",
+            "off",
+        ):
             ahead._value = None
             return ahead
         import pandas as pd
