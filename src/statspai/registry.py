@@ -14961,6 +14961,27 @@ def _build_registry() -> None:
                     "earlier rows and biases the slope.",
                     enum=["all", "last"],
                 ),
+                ParamSpec(
+                    "censor",
+                    "str",
+                    False,
+                    None,
+                    "0/1 column, 1 on the period in which the unit is "
+                    "censored (its last row; outcome unobserved). Adds "
+                    "stabilized inverse-probability-of-censoring weights "
+                    "(pooled logistic, cumulative product over periods, as "
+                    "ipw::ipwtm type='first') to the treatment weights and "
+                    "fits the uncensored rows.",
+                ),
+                ParamSpec(
+                    "censor_covariates",
+                    "list",
+                    False,
+                    None,
+                    "Time-varying covariates of the censoring model's "
+                    "denominator (default: time_varying); they must be "
+                    "present on the censored rows.",
+                ),
             ],
             returns="CausalResult",
             example=(

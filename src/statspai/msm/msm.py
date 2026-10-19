@@ -94,6 +94,8 @@ def msm(
     family: str = "gaussian",
     density_sd: str = "unbiased",
     outcome_rows: str = "all",
+    censor: Optional[str] = None,
+    censor_covariates: Optional[List[str]] = None,
 ) -> CausalResult:
     """
     Estimate a Marginal Structural Model via stabilized IPTW.
@@ -170,6 +172,22 @@ def msm(
         exposure (2.6 to 2.75 against a true 3.0 per visit in a two-visit
         design, 2.97 to 3.04 with ``'last'``). The default warns when the
         outcome is constant within every unit.
+    censor : str, optional
+        0/1 column, 1 on the period in which the unit is censored (its
+        outcome, and possibly its treatment, unobserved there; it must be
+        the unit's last row) and 0 elsewhere. The MSM is then fitted on the
+        uncensored rows with the product of the treatment weights and
+        stabilized inverse-probability-of-censoring weights,
+        ``prod_{s<=t} P(C_s = 0 | A_{s-1}, V) / P(C_s = 0 | A_{s-1}, V,
+        L_s)`` from pooled logistic models over every row at risk, which
+        is R ``ipw::ipwtm(exposure = censor, family = "binomial", type =
+        "first")``. This removes the selection of informative dropout that
+        depends on the measured history. ``trim`` applies to the combined
+        weight.
+    censor_covariates : list of str, optional
+        The time-varying ``L`` of the censoring model's denominator
+        (default: ``time_varying``). They must be present on the censored
+        rows.
 
     Returns
     -------
@@ -223,6 +241,29 @@ def msm(
 
     baseline = list(baseline or [])
     required = [y, treat, id, time] + time_varying + baseline
+    cens_diag: Optional[Dict[str, Any]] = None
+    cw_all = None
+    data_fit = data
+    if censor is not None:
+        from ._censoring import censoring_weights
+
+        c_cov = list(time_varying if censor_covariates is None else censor_covariates)
+        check_columns(
+            data,
+            {"censor": censor, "censor_covariates": c_cov},
+            function="sp.msm",
+        )
+        # unique row labels: the weights are matched back by label
+        data_c = data.reset_index(drop=True)
+        cw_all, cens_diag = censoring_weights(
+            data_c, censor, treat, id, time, baseline, c_cov
+        )
+        data_fit = data_c.loc[data_c[censor].to_numpy(dtype=float) == 0]
+    elif censor_covariates is not None:
+        raise MethodIncompatibility(
+            "sp.msm: censor_covariates= needs censor= (the censoring column).",
+            recovery_hint="Pass censor='<0/1 column>' or drop censor_covariates=.",
+        )
     check_columns(
         data,
         {
@@ -236,7 +277,9 @@ def msm(
         function="sp.msm",
     )
 
-    df = data[required].dropna().sort_values([id, time]).reset_index(drop=True)
+    df = data_fit[required].dropna().sort_values([id, time])
+    cw_rows = cw_all.loc[df.index].to_numpy(dtype=float) if cw_all is not None else None
+    df = df.reset_index(drop=True)
     if df.empty:
         raise ValueError("No rows remain after dropping missing values.")
 
@@ -262,6 +305,8 @@ def msm(
         trim_per_period=(trim if (trim_per_period and trim and trim > 0) else 0.0),
         density_sd=density_sd,
     )
+    if cw_rows is not None:
+        sw = sw * cw_rows
 
     # Post-cumulative trimming (the conventional default — once on the
     # final cumulative weight). Only applied when trim_per_period=False,
@@ -405,6 +450,7 @@ def msm(
         "outcome_rows": outcome_rows,
         "outcome_constant_within_unit": end_of_follow_up,
         "n_outcome_rows": int(rows.sum()),
+        "censoring": cens_diag,
     }
 
     _result = CausalResult(
@@ -441,6 +487,8 @@ def msm(
                 "family": family,
                 "density_sd": density_sd,
                 "outcome_rows": outcome_rows,
+                "censor": censor,
+                "censor_covariates": censor_covariates,
             },
             data=data,
             overwrite=False,

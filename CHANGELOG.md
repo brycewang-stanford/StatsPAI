@@ -195,6 +195,14 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.kaplan_meier(se_method='xie_liu')`: the variance `adjustedCurves`
   reports for IPTW Kaplan-Meier curves (Greenwood with the effective number
   at risk), matching `adjustedsurv(method = "iptw_km")` to 1e-12.
+- `sp.msm(censor=, censor_covariates=)`: stabilized inverse-probability-of-
+  censoring weights for person-period data with dropout (pooled logistic
+  models, cumulative product over periods), multiplied into the treatment
+  weights. Weights, coefficients and SEs match R `ipw::ipwtm(type =
+  "first")` + `ipwtm(type = "all")` + `vcovCL` to 1e-6
+  (`tests/reference_parity/test_msm_censoring_parity.py`); on a DGP with
+  informative dropout the weighted slope is within 3 SE of the truth where
+  the complete-case slope is 2.8 SE off.
 - `sp.stata` reads `stset t [pw=w], failure(d) time0(t0) id(i)` /
   `enter(time t0)` for `stcox`; `stcox, vce(robust)` and `vce(cluster)` now
   translate (`ssc='stata'`; the robust one used to be refused). `sp.from_r`

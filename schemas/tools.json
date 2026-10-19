@@ -23936,6 +23936,18 @@
           },
           "type": "array"
         },
+        "censor": {
+          "description": "0/1 column, 1 on the period in which the unit is censored (its last row; outcome unobserved). Adds stabilized inverse-probability-of-censoring weights (pooled logistic, cumulative product over periods, as ipw::ipwtm type='first') to the treatment weights and fits the uncensored rows.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "censor_covariates": {
+          "description": "Time-varying covariates of the censoring model's denominator (default: time_varying); they must be present on the censored rows.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "density_sd": {
           "default": "unbiased",
           "description": "Residual-SD convention for continuous-treatment density weights; see :func:`stabilized_weights`.",

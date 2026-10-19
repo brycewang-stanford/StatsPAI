@@ -28530,6 +28530,18 @@
             },
             "type": "array"
           },
+          "censor": {
+            "description": "0/1 column, 1 on the period in which the unit is censored (its last row; outcome unobserved). Adds stabilized inverse-probability-of-censoring weights (pooled logistic, cumulative product over periods, as ipw::ipwtm type='first') to the treatment weights and fits the uncensored rows.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "censor_covariates": {
+            "description": "Time-varying covariates of the censoring model's denominator (default: time_varying); they must be present on the censored rows.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "data": {
             "description": "Long-format panel (unit x time)",
             "type": "object",
@@ -28638,6 +28650,7 @@
     "typical_n_min": 300,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs ipw::ipwtm + lm / glm(quasibinomial) + sandwich::vcovCL(type = 'HC1') [R version 4.5.2 (2025-10-31), ipw 1.3.0, sandwich 3.1.1]; tolerance coefficients and cluster SEs 1e-9 rel (observed 1.5e-13); Stata regress / logit [pw] 1e-7 -- tests/reference_parity/test_teffects_R_parity.py",
+      "tests/reference_parity/test_msm_censoring_parity.py",
       "tests/reference_parity/test_msm_family_parity.py",
       "API/unit contract evidence: tests/test_msm.py",
       "API/unit contract evidence: tests/test_escape_hatches.py"

@@ -14557,6 +14557,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_msm_censoring_parity.py",
         "tests/reference_parity/test_msm_family_parity.py"
       ],
       "also_verified_by": [
