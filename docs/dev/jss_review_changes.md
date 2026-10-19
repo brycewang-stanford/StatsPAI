@@ -4376,7 +4376,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `1804c446`.
+- **Commits.** `faa7dd85`.
 - **Reason.** Exporting `sp.xtset` / `sp.lag` / `sp.lead` / `sp.diff` /
   `sp.reshape` / `sp.collapse` from `statspai/__init__.py` touches the
   traced paths of modules 03, 13, 15, 24-27, 53, 65, 66 and original-data
