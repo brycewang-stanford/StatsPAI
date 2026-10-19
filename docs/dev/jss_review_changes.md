@@ -4085,3 +4085,21 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   file order (hence the aggregate hash) is unchanged on Linux and macOS.
 - **Paths.**
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+
+### 2026-10-19 — trace re-record after the BJS covariance and ARP speed-up
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `2c111cc2`.
+- **Reason.** `did/did_imputation.py` and `did/_bjs_pretrends.py` now build
+  the lead-horizon cross-covariance and drop reghdfe singletons from the
+  lead dof count; `did/_arp.py` enumerates dual vertices in one batch. All
+  sit on the estimation paths of modules 10, 16, 21 and 84, so their traces
+  were re-recorded.
+- **Effect on the paper.** None. Modules 10, 16 and 21 reproduce their
+  committed results exactly; module 84 differs in the last digit of the
+  lead SEs (summation order of the meat, ~3e-16 relative) and the
+  committed file was kept. Module 84's fixture has no singleton units, so
+  the dof change does not apply to it.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
