@@ -28791,6 +28791,26 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("cluster", "str", False, None, "Cluster (default: group)"),
                 ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+                ParamSpec(
+                    "aggregate",
+                    "str",
+                    False,
+                    None,
+                    "Fit on group-period cells (Stata aggregate()): dlang = "
+                    "Donald-Lang OLS variance with a t reference, dlang_varying = "
+                    "per-cell covariate slopes, standard = cluster-robust; for few "
+                    "groups",
+                    ["standard", "dlang", "dlang_varying"],
+                ),
+                ParamSpec(
+                    "dlang_df",
+                    "str",
+                    False,
+                    "residual",
+                    "dlang t degrees of freedom: residual df of the cell regression, "
+                    "or Stata's count (leaves out the group effects)",
+                    ["residual", "stata"],
+                ),
             ],
             returns="CausalResult",
             example=('sp.didregress(df, "lemp", "d", group="countyreal", time="year")'),

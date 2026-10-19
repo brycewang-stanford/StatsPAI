@@ -132,6 +132,8 @@ def didregress(
     id: Optional[str] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    aggregate: Optional[str] = None,
+    dlang_df: str = "residual",
 ) -> CausalResult:
     """Difference-in-differences by two-way fixed effects, as Stata
     ``didregress`` and ``xtdidregress``.
@@ -159,6 +161,19 @@ def didregress(
     cluster : str, optional
         Cluster variable, ``group`` by default.
     alpha : float, default 0.05
+    aggregate : {'standard', 'dlang', 'dlang_varying'}, optional
+        Fit on group-period cells, as Stata ``aggregate()``: covariates that
+        vary within cells are removed first (one slope with cell effects;
+        ``'dlang_varying'`` a regression per cell, whose intercept is the
+        cell's outcome), then the cell outcomes are regressed on the
+        treatment, the cell-level covariates and group and period effects.
+        ``'dlang'`` (Donald and Lang 2007) reports the OLS standard error of
+        that regression with a t reference; ``'standard'`` clusters on the
+        group. For few groups.
+    dlang_df : {'residual', 'stata'}, default 'residual'
+        Degrees of freedom of the dlang t reference: the residual degrees of
+        freedom of the cell regression (cells minus all its parameters), or
+        Stata's count, which leaves out the group effects.
 
     Returns
     -------
@@ -250,6 +265,21 @@ def didregress(
             recovery_hint="Pass the assignment level as group=.",
         )
 
+    if aggregate is not None:
+        return _fit_aggregated(
+            clean,
+            y=y,
+            treat=treat,
+            group=group,
+            time=time,
+            covariates=covariates,
+            cluster=cluster,
+            method=aggregate,
+            dlang_df=dlang_df,
+            alpha=float(alpha),
+            context=context,
+            n_dropped=n_dropped,
+        )
     unit = id if id is not None else group
     if id is not None:
         if clean.duplicated([id, time]).any():
@@ -365,6 +395,158 @@ def didregress(
             "treatment_times": sorted(first_treated.unique().tolist()),
             "ptrends": tests["ptrends"],
             "granger": tests["granger"],
+        },
+        _citation_key="twfe_didregress",
+    )
+
+
+def _fit_aggregated(
+    clean: pd.DataFrame,
+    *,
+    y: str,
+    treat: str,
+    group: str,
+    time: str,
+    covariates: List[str],
+    cluster: Optional[str],
+    method: str,
+    dlang_df: str,
+    alpha: float,
+    context: str,
+    n_dropped: int,
+) -> CausalResult:
+    """``aggregate=`` path: the DiD on group-period cells."""
+    from ._did_aggregate import (
+        AGGREGATE_METHODS,
+        aggregate_cells,
+        check_cluster_constant,
+    )
+
+    if method not in AGGREGATE_METHODS:
+        raise MethodIncompatibility(
+            f"{context}: aggregate must be one of {AGGREGATE_METHODS}, got {method!r}.",
+            recovery_hint="aggregate='dlang': Donald-Lang inference for few groups.",
+        )
+    if dlang_df not in ("residual", "stata"):
+        raise MethodIncompatibility(
+            f"{context}: dlang_df must be 'residual' or 'stata', got {dlang_df!r}."
+        )
+    dlang = method.startswith("dlang")
+    if dlang and cluster is not None:
+        raise MethodIncompatibility(
+            f"{context}: aggregate={method!r} uses the OLS variance of the cell "
+            "regression; it does not cluster.",
+            recovery_hint="Drop cluster= or use aggregate='standard'.",
+        )
+    cluster_col = cluster or group
+    if not dlang:
+        check_cluster_constant(clean, cluster_col, group, time, context)
+    agg = aggregate_cells(
+        clean,
+        y=y,
+        treat=treat,
+        group=group,
+        time=time,
+        covariates=covariates,
+        method=method,
+        context=context,
+    )
+    cells = agg["cells"]
+    between = agg["between"]
+    effects = pd.DataFrame(
+        {
+            "unit": pd.factorize(cells[group])[0],
+            "time": pd.factorize(cells[time])[0],
+        }
+    )
+    n_groups = int(effects["unit"].max()) + 1
+    n_periods = int(effects["time"].max()) + 1
+    n_absorbed = n_periods + n_groups - 1
+    cols = [cells[treat].to_numpy(dtype=float)[:, None]]
+    if between:
+        cols.append(cells[between].to_numpy(dtype=float))
+    swept = _within(np.column_stack([cells["__c"].to_numpy()[:, None], *cols]), effects)
+    yv, X = swept[:, 0], swept[:, 1:]
+    n, k = X.shape
+    if dlang:
+        if np.linalg.matrix_rank(X) < k:
+            raise DataInsufficient(
+                f"{context}: the treatment or a cell-level covariate is "
+                "collinear with the group and period effects.",
+                recovery_hint="Drop covariates constant within group or period.",
+            )
+        dof = n - k - n_absorbed
+        if dof <= 0:
+            raise DataInsufficient(
+                f"{context}: {n} group-period cells cannot identify "
+                f"{k + n_absorbed} parameters.",
+                recovery_hint="Aggregation needs more cells than fixed effects.",
+                diagnostics={"cells": n, "parameters": k + n_absorbed},
+            )
+        beta, *_ = np.linalg.lstsq(X, yv, rcond=None)
+        resid = yv - X @ beta
+        vcov = (resid @ resid / dof) * np.linalg.inv(X.T @ X)
+        df_stata = float(n - k - n_periods)
+        df_t = float(dof) if dlang_df == "residual" else df_stata
+        n_clusters = None
+    else:
+        fit = _cluster_fit(yv, X, cells[cluster_col].to_numpy(), n_absorbed, context)
+        beta, vcov = fit["beta"], fit["vcov"]
+        n_clusters = int(fit["n_clusters"])
+        df_t = float(n_clusters - 1)
+        df_stata = df_t
+    est = float(beta[0])
+    ses = np.sqrt(np.diag(vcov))
+    se = float(ses[0])
+    crit = float(stats.t.ppf(1 - alpha / 2, df_t))
+    tstats = beta / ses
+    detail = pd.DataFrame(
+        {
+            "term": ["ATET"] + between,
+            "estimate": beta,
+            "se": ses,
+            "t": tstats,
+            "pvalue": 2 * stats.t.sf(np.abs(tstats), df_t),
+            "ci_lower": beta - crit * ses,
+            "ci_upper": beta + crit * ses,
+        }
+    )
+    label = {
+        "standard": "standard",
+        "dlang": "Donald-Lang",
+        "dlang_varying": "Donald-Lang, varying coefficients",
+    }[method]
+    unavailable = {"unavailable": "not computed with aggregate="}
+    return CausalResult(
+        method=f"Difference in differences (TWFE, {context}, {label} aggregation)",
+        estimand="ATET",
+        estimate=est,
+        se=se,
+        pvalue=float(2 * stats.t.sf(abs(est / se), df_t)),
+        ci=(est - crit * se, est + crit * se),
+        alpha=alpha,
+        n_obs=int(n),
+        detail=detail,
+        model_info={
+            "command": context,
+            "aggregate": method,
+            "n_cells": int(n),
+            "n_individual_obs": int(len(clean)),
+            "n_groups": n_groups,
+            "n_periods": n_periods,
+            "n_clusters": n_clusters,
+            "cluster": None if dlang else cluster_col,
+            "df": df_t,
+            "df_inference": df_t,
+            "df_residual": float(n - k - n_absorbed),
+            "df_stata": df_stata,
+            "dlang_df": dlang_df if dlang else None,
+            "within_cell_covariates": agg["within"],
+            "cell_covariates": between,
+            "first_stage": agg["first_stage"],
+            "n_dropped": int(n_dropped),
+            "ptrends": unavailable,
+            "granger": unavailable,
         },
         _citation_key="twfe_didregress",
     )

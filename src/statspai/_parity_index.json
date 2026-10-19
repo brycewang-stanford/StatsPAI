@@ -5799,6 +5799,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_didregress_dlang_stata.py",
         "tests/reference_parity/test_didregress_stata.py"
       ],
       "tolerance": ""

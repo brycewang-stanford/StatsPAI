@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.didregress(aggregate=)`: Donald-Lang and standard aggregation
+
+#### Added
+
+- `sp.didregress(..., aggregate='dlang' | 'dlang_varying' | 'standard')`
+  fits the DiD on group-period cells as Stata 18 `didregress` /
+  `xtdidregress` `aggregate()` does (Donald and Lang 2007): covariates
+  that vary within cells are removed first (one slope, or a regression per
+  cell with `'dlang_varying'`), then the cell outcomes are regressed on
+  the treatment, cell-level covariates and group and period effects, with
+  the OLS variance (`dlang`) or group-clustered variance (`standard`). The
+  ATET and standard error equal Stata to 1e-10 on ten settings
+  (`tests/reference_parity/test_didregress_dlang_stata.py`). The dlang t
+  reference uses the residual degrees of freedom of the cell regression;
+  Stata leaves the group effects out of that count, and `dlang_df='stata'`
+  reproduces its intervals.
+
 ### `sp.panel_match`: matching on treatment history (R PanelMatch)
 
 #### Added

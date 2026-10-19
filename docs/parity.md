@@ -804,7 +804,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `did_misclassified` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `did_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `did_summary` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
-| `didregress` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) |
+| `didregress` | [`test_didregress_dlang_stata.py`](../tests/reference_parity/test_didregress_dlang_stata.py) (+1) |
 | `discos_test` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `disparity_decompose` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `dist_iv` | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) (+1) |

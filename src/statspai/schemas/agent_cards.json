@@ -65476,6 +65476,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_didregress_dlang_stata.py",
         "tests/reference_parity/test_didregress_stata.py"
       ],
       "tolerance": ""
@@ -65541,6 +65542,15 @@
       "name": "didregress",
       "parameters": {
         "properties": {
+          "aggregate": {
+            "description": "Fit on group-period cells (Stata aggregate()): dlang = Donald-Lang OLS variance with a t reference, dlang_varying = per-cell covariate slopes, standard = cluster-robust; for few groups",
+            "enum": [
+              "standard",
+              "dlang",
+              "dlang_varying"
+            ],
+            "type": "string"
+          },
           "alpha": {
             "default": 0.05,
             "description": "1 - confidence level",
@@ -65563,6 +65573,15 @@
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "dlang_df": {
+            "default": "residual",
+            "description": "dlang t degrees of freedom: residual df of the cell regression, or Stata's count (leaves out the group effects)",
+            "enum": [
+              "residual",
+              "stata"
+            ],
+            "type": "string"
           },
           "group": {
             "description": "Level at which treatment is assigned; default cluster",
@@ -65611,7 +65630,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_didregress_stata.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_didregress_dlang_stata.py"
     ],
     "validation_status": "validated"
   },
