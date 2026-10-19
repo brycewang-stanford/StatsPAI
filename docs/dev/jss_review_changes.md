@@ -4518,3 +4518,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-records after sp.match(sampling_weights=)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `3ce03fe5`.
+- **Reason.** Adding the `sampling_weights=` branch to
+  `matching/match.py` touches the traced path of Track A module 11 and
+  original-data modules 04 / 04b. The default path is unchanged: the three
+  modules were re-run first and their committed results reproduce byte for
+  byte; only the traces were re-recorded.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
