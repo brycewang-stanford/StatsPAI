@@ -972,6 +972,27 @@ TIER2_ROUND_TRIPS = [
 
 
 TIER3_ROUND_TRIPS = [
+    # 2026-10-19 (numbers against Stata 18: test_stata_translation_extra.py)
+    (
+        "stcox age female, efron",
+        "cox",
+        {"duration": "<stset time>", "x": ["age", "female"], "ties": "efron"},
+    ),
+    (
+        "stcrreg age, compete(cause == 2)",
+        "finegray",
+        {"event": "cause", "cause": 1, "small_sample": True},
+    ),
+    (
+        "eventstudyinteract y r0 r1, cohort(g) control_cohort(nt) absorb(i.id i.t)",
+        "sun_abraham",
+        {"g": "g", "t": "t", "i": "id", "control_cohort": "nt"},
+    ),
+    (
+        "power twomeans 0 0.5, sd(2) n(100)",
+        "power_ttest",
+        {"delta": 0.5, "sd": 2.0, "n": 100.0, "type": "two-sample"},
+    ),
     # An introductory course's tests and models (numbers against Stata:
     # tests/reference_parity/test_textbook_syllabus_stata_parity.py)
     ("testparm i.race x1", "test", {"hypothesis": "i.race x1"}),
@@ -2074,12 +2095,20 @@ def _channel_dispatchable(out, df):
             f"channel=dispatchable: sp.{tool} is not callable — "
             f"the translated tool name is a dead on-ramp."
         )
+    import inspect
     import warnings
 
+    try:
+        takes_data = "data" in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        takes_data = True
+    # a computation from its arguments alone (`power twomeans` ->
+    # sp.power_ttest) is dispatched without a data frame
+    data_kw = {"data": df} if takes_data else {}
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         try:
-            res = fn(data=df, **out["arguments"])
+            res = fn(**data_kw, **out["arguments"])
         except TypeError as e:
             raise AssertionError(
                 f"channel=dispatchable: sp.{tool}(**{out['arguments']}) raised "

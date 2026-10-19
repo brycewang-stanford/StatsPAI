@@ -1046,6 +1046,49 @@ def _h_correlate(cmd: StataCommand) -> Dict[str, Any]:
 #: Stata commands StatsPAI covers but ``from_stata`` cannot translate line by
 #: line (they wrap another command or read stored estimates).
 _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
+    # 2026-10-19: commands with an sp counterpart whose options do not map
+    # one to one; the guidance names the function and the arguments.
+    "xtabond2": (
+        "`xtabond2` maps to sp.xtabond(data, y=, x=, id=, time=, "
+        "method='system' (default of xtabond2; `noleveleq` is "
+        "'difference'), gmm_lags=, predetermined=, endogenous=, collapse=, "
+        "orthogonal=, twostep=, robust=, iv_equation='both', h=3); its "
+        "gmm() / iv() instrument lists have to be rewritten as those "
+        "arguments, which a line-by-line translation cannot check.",
+        ["xtabond"],
+    ),
+    "leebounds": (
+        "`leebounds` has a counterpart in sp.lee_bounds(data, y=, treat=, "
+        "selection=, covariates=<tight()>, trimming='leebounds', "
+        "se_method='analytic'), but on a Stata 18 check (2026-10-19) its "
+        "upper bound matched and its lower bound did not (0.1358 against "
+        "0.1304), so the line is not translated.",
+        ["lee_bounds"],
+    ),
+    "lpirf": (
+        "`lpirf` maps to sp.local_projections(data, outcome=, shock=, "
+        "horizons=<step()>, controls=); lpirf's lag structure (lags(), "
+        "exog()) and its standard errors differ enough that the call is "
+        "best written directly.",
+        ["local_projections"],
+    ),
+    "rwolf": (
+        "`rwolf` (Romano-Wolf) maps to sp.romano_wolf(data, y=[...], "
+        "x=<indepvar()>, controls=, cluster=, n_boot=<reps()>, seed=); it "
+        "resamples, so the p-values match only in distribution.",
+        ["romano_wolf"],
+    ),
+    "wyoung": (
+        "`wyoung` wraps estimation commands; sp.westfall_young(data, "
+        "y=[...], treat=, covariates=, strata=, cluster=, n_perms=, seed=) "
+        "covers the familyp() of one treatment across outcomes.",
+        ["westfall_young"],
+    ),
+    "spregress": (
+        "`spregress` reads an spmatrix; build the weights matrix W and call "
+        "sp.sar(W, data, 'y ~ x') for dvarlag(W) (spatial lag) models.",
+        ["sar"],
+    ),
     "permute": (
         "`permute` wraps another estimation command; use sp.ri_test(data, y=, "
         "treat=, cluster=, n_perms=, stat=callable) with a statistic that "
@@ -5203,12 +5246,14 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
 from . import _stata_basics as _basics  # noqa: E402
 from . import _stata_design as _design  # noqa: E402
 from . import _stata_did as _did  # noqa: E402
+from . import _stata_extra as _extra  # noqa: E402
 from . import _stata_matching as _matching  # noqa: E402
 from . import _stata_models as _models  # noqa: E402
 from . import _stata_panel as _panel  # noqa: E402
 from . import _stata_postest as _postest  # noqa: E402
 from . import _stata_rd as _rd  # noqa: E402
 from . import _stata_sensitivity as _sensitivity  # noqa: E402
+from . import _stata_survival as _survival  # noqa: E402
 from . import _stata_ts as _ts  # noqa: E402
 
 STATA_COMMAND_MAP.update(_postest.HANDLERS)
@@ -5221,6 +5266,8 @@ STATA_COMMAND_MAP.update(_basics.HANDLERS)
 STATA_COMMAND_MAP.update(_sensitivity.HANDLERS)
 STATA_COMMAND_MAP.update(_models.HANDLERS)
 STATA_COMMAND_MAP.update(_matching.HANDLERS)
+STATA_COMMAND_MAP.update(_survival.HANDLERS)
+STATA_COMMAND_MAP.update(_extra.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
     {
@@ -5368,7 +5415,11 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
     parsed.options = tracked
 
     info: Dict[str, Any]
-    if handler in _POSTEST_HANDLERS or handler in _models.EXPRESSION:
+    if (
+        handler in _POSTEST_HANDLERS
+        or handler in _models.EXPRESSION
+        or handler in _extra.LITERAL
+    ):
         # postestimation commands take variable names / expressions, which
         # their handlers interpret themselves (``contrast i.g`` -> ``g``);
         # so does ``nl (y = {a} + {b}*x)``

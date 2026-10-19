@@ -173,6 +173,26 @@ period gave `sun_abraham` zero standard errors. The checks now live in
   options or arguments, and an unapplied `if` / `in`) and `complete`
   (`True` only when nothing was dropped). `untranslated_options`,
   `unapplied_sample` (Stata) and `untranslated_arguments` (R) stay.
+- `sp.from_stata` / `sp.stata` translate `stcox` (Breslow ties unless
+  `efron`, as Stata), `stcrreg` (`sp.finegray(small_sample=True)`),
+  `eventstudyinteract` (`sp.sun_abraham`; `sp.stata` runs it only when
+  the varlist is every relative-period indicator but -1) and `power
+  twomeans | onemean | pairedmeans` (`sp.power_ttest`), each checked
+  against Stata 18. `xtabond2`, `leebounds`, `lpirf`, `rwolf`, `wyoung`
+  and `spregress` are refused with the sp function to call instead.
+  `sp.stata` refuses a survival fit whose event variable has codes the sp
+  call would read differently from `stset` / `compete()`.
+- `sp.from_r` translates `AER::ivreg` / `ivreg::ivreg` (`sp.iv`),
+  `survival::coxph` (`sp.cox`), `pwr::pwr.t.test` (`sp.power_ttest`; pwr's
+  per-group n is the total here), `survey::svydesign` / `svyglm`
+  (`dof='residual'`, R's reference distribution), `lmtest::coeftest` with
+  `sandwich::vcovHC` / `vcovCL` (`sp.vcov`; `vcovHC`'s default is HC3),
+  `etwfe::etwfe` / `emfx`, `did::aggte`, `did_multiplegt_dyn`
+  (`se_method='analytic'`, `effects` written out) and `modelsummary`,
+  each run against the R package on the same data. `weightit`,
+  `synthdid_estimate`, `mediation::mediate`, `CausalImpact`, `lagsarlm`,
+  `pcalg::pc` and `mr_ivw` are refused with the sp call to make
+  (`R_GUIDANCE`). `pkg::fn(...)` is accepted.
 
 ### Singletons: the default of `fixef_rm` changes in 1.40
 

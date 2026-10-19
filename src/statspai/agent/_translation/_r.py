@@ -80,7 +80,10 @@ def _parse_call(line: str) -> Optional[Tuple[str, List[str], Dict[str, str]]]:
     Returns ``None`` if ``line`` doesn't match a function-call shape.
     """
     line = line.strip().rstrip(";").strip()
-    m = re.match(r"^([A-Za-z_][\w.]*)\s*\((.*)\)\s*$", line, flags=re.S)
+    # ``pkg::fn(...)`` / ``pkg:::fn(...)``: the namespace only picks the package
+    m = re.match(
+        r"^(?:[A-Za-z][\w.]*:::?)?([A-Za-z_][\w.]*)\s*\((.*)\)\s*$", line, flags=re.S
+    )
     if not m:
         return None
     fn = m.group(1)
@@ -1428,6 +1431,14 @@ def from_r(line: str) -> Dict[str, Any]:
         )
     fn, pos, kw = parsed
     handler = R_FUNCTION_MAP.get(fn)
+    if handler is None and fn in R_GUIDANCE:
+        msg, funcs = R_GUIDANCE[fn]
+        return _emit_error(
+            f"{fn!r} is not translated line by line: {msg}",
+            command=fn,
+            suggestions=[],
+            statspai_functions=funcs,
+        )
     if handler is None:
         from difflib import get_close_matches
 
@@ -1455,4 +1466,11 @@ def from_r(line: str) -> Dict[str, Any]:
     return mark_completeness(out)
 
 
-__all__ = ["from_r", "R_FUNCTION_MAP"]
+# Handlers kept in their own module import the helpers above, so the import
+# has to come after them.
+from ._r_more import HANDLERS as _MORE_HANDLERS  # noqa: E402
+from ._r_more import R_GUIDANCE  # noqa: E402
+
+R_FUNCTION_MAP.update(_MORE_HANDLERS)
+
+__all__ = ["from_r", "R_FUNCTION_MAP", "R_GUIDANCE"]

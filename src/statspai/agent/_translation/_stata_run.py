@@ -446,6 +446,47 @@ def _with_survival(
     )
 
 
+def _check_event_codes(
+    line: str,
+    out: Dict[str, Any],
+    survival: Optional[Tuple[str, str]],
+    data: Optional[pd.DataFrame],
+) -> None:
+    """Refuse a survival fit whose event variable has codes the call misreads.
+
+    ``stset t, failure(e)`` makes every nonzero ``e`` a failure and
+    ``failure(e == 1)`` only the code 1; ``sp.cox`` / ``sp.survreg`` read a
+    0/1 indicator, and ``sp.finegray`` reads every nonzero code other than
+    ``cause`` as competing, where ``stcrreg`` censors the codes not named in
+    ``compete()``. A variable with other codes is refused rather than read
+    one way when Stata reads it another.
+    """
+    if data is None or not out.get("ok"):
+        return
+    required = dict(out.get("requires_codes") or {})
+    tool = str(out.get("tool") or "")
+    if survival is not None and tool in ("cox", "survreg") and not required:
+        required = {survival[1]: [0, 1]}
+    for var, allowed in required.items():
+        if var not in data.columns:
+            continue
+        codes = pd.unique(data[var].dropna())
+        extra = sorted(
+            float(c) if float(c) != int(c) else int(c)
+            for c in codes
+            if c not in set(allowed)
+        )
+        if extra:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: the event variable {var!r} "
+                f"takes the codes {extra[:6]} besides {allowed}; the sp call "
+                "would read them differently from Stata's stset / compete().",
+                recovery_hint=f"Generate an indicator with the codes {allowed} "
+                "(e.g. `generate fail = cause == 1`) and stset on it.",
+                diagnostics={"command": line, "codes": [float(c) for c in extra]},
+            )
+
+
 def stata(
     commands: str,
     data: Optional[pd.DataFrame] = None,
@@ -881,6 +922,15 @@ class StataSession:
         ses = getattr(result, "std_errors", None)
         if params is None:
             return
+        if isinstance(params, np.ndarray):
+            # results that keep bare arrays (sp.finegray) name them in
+            # `covariates` and their standard errors in `bse`
+            names = list(getattr(result, "covariates", None) or [])
+            if len(names) != params.size:
+                return
+            params = pd.Series(params, index=names)
+            if ses is None and getattr(result, "bse", None) is not None:
+                ses = pd.Series(np.asarray(result.bse), index=names)
         b = {str(k): float(v) for k, v in dict(params).items()}
         se = {} if ses is None else {str(k): float(v) for k, v in dict(ses).items()}
         for alias in ("Intercept", "const"):
@@ -1466,6 +1516,18 @@ class StataSession:
                 diagnostics={"command": line, "translation": out},
             )
         lost = list(out.get("untranslated_options") or [])
+        if out.get("verify_relative_time") and "varlist" in lost and data is not None:
+            from ._stata_extra import verify_relative_time
+
+            why = verify_relative_time(out["verify_relative_time"], data)
+            if why is not None:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: {why}.",
+                    recovery_hint="Pass every relative-period indicator but "
+                    "-1, or call sp.sun_abraham(event_window=...) directly.",
+                    diagnostics={"command": line, "translation": out},
+                )
+            lost.remove("varlist")
         sample = out.get("unapplied_sample")
         code = str(out.get("python_code") or "")
         chained = out["tool"] == "marginsplot" or code.startswith(
@@ -1518,6 +1580,7 @@ class StataSession:
                 ),
                 diagnostics={"command": line, "translation": out},
             )
+        _check_event_codes(line, out, self.survival, run_data)
         for note in notes:
             # "pipe the previous result" is advice for callers of
             # sp.from_stata; this runner does the piping itself.
@@ -1585,6 +1648,9 @@ class StataSession:
             # the immediate form: counts on the command line, no data
             self.output = fn(**arguments)
             self._store_r(str(out["tool"]), arguments, None)
+        elif out["tool"] == "power_ttest":
+            # `power twomeans ...` computes from its arguments, no data
+            self.output = fn(**arguments)
         else:
             if run_data is None:
                 raise TypeError(f"sp.stata: {line!r} needs data=<DataFrame>.")

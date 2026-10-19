@@ -462,6 +462,10 @@ _DISPLAY_BY_COMMAND = {
     "did_multiplegt_dyn": {"graph_off", "graphoptions", "_no_updates"},
     "did_had": {"graph_off", "graph_opts", "_no_updates"},
     "did_multiplegt_old": {"graphoptions"},
+    # hazard ratios vs coefficients, and the st header
+    "stcox": {"nohr", "noshow"},
+    "stcrreg": {"noshr", "noshow"},
+    "power": {"table", "graph", "notitle", "saving", "parallel"},
 }
 
 
