@@ -5046,6 +5046,24 @@ def _normalise_command(
     # coefficients, so `_b[1.a#1.b]` would not be Stata's number.
     # The excluded instruments of `(d = i.a#i.b)` are exempt: only their
     # span enters the estimate, and no coefficient is reported for them.
+    err = _fv_cell_error(out)
+    if err is not None:
+        return err, info
+    cmd.varlist = out
+    if factor_used:
+        info["semantics"].append(
+            "i.var -> C(var): the base (omitted) level is the lowest one, as "
+            "Stata's default; ib#. is mapped to Treatment(#)."
+        )
+    return None, info
+
+
+def _fv_cell_error(out: List[str]) -> Optional[str]:
+    """Refuse a product of factors whose main effects are not in the model.
+
+    ``out`` is the translated varlist (formula terms, with ``(`` / ``=`` /
+    ``)`` marking an instrument equation).
+    """
     in_instruments, instruments = False, set()
     for term in out:
         if term == ")":
@@ -5087,16 +5105,48 @@ def _normalise_command(
                 "main effects are not in the model; Stata then fits one "
                 "indicator per cell, which the formula does not reproduce "
                 "coefficient by coefficient. Write a##b, or build the cell "
-                "variable with `egen cell = group(a b)` and use i.cell",
-                info,
+                "variable with `egen cell = group(a b)` and use i.cell"
             )
-    cmd.varlist = out
-    if factor_used:
-        info["semantics"].append(
-            "i.var -> C(var): the base (omitted) level is the lowest one, as "
-            "Stata's default; ib#. is mapped to Treatment(#)."
-        )
-    return None, info
+    return None
+
+
+def translate_fv_terms(
+    terms: Sequence[str],
+    others: Sequence[str] = (),
+    columns: Optional[Sequence[str]] = None,
+) -> Tuple[Optional[str], List[str]]:
+    """Factor-variable terms -> formula terms, one output per input term.
+
+    The formula layer's entry to the translation ``sp.from_stata`` uses
+    (``y ~ i.g##c.x``). ``others`` are the formula's other terms, which
+    count as main effects in the check that a product of factors has its
+    lower-order terms. Returns ``(error, translated)``.
+    """
+    out: List[str] = []
+    for term in terms:
+        err, toks = _factor_prefixes([term])
+        if err is not None:
+            return err, []
+        err, toks = _expand_abbreviations(toks, columns)
+        if err is not None:
+            return err, []
+        pieces: List[str] = []
+        for tok in toks:
+            err, grouped = (
+                _expand_fv_groups(tok, columns) if _FV_RE.search(tok) else (None, [tok])
+            )
+            if err is not None:
+                return err, []
+            for g in grouped:
+                new = _fv_token(g) if _FV_RE.search(g) else g
+                if new is None:
+                    return f"factor-variable term {g!r} is not translated", []
+                pieces.append(new)
+        out.append(" + ".join(pieces))
+    err = _fv_cell_error(out + [o for o in others if ":" not in o])
+    if err is not None:
+        return err, []
+    return None, out
 
 
 #: Tools that take ``weights=`` through ``**kwargs``, so the signature check

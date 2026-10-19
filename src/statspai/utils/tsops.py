@@ -193,6 +193,7 @@ def rewrite_ts_terms(
     panel: Tuple[Optional[str], Optional[str]],
     made: Optional[Dict[str, tuple]] = None,
     delta: float = 1.0,
+    sep: str = " ",
 ) -> Tuple[str, Dict[str, np.ndarray]]:
     """Replace operator terms in ``line`` by column names.
 
@@ -204,7 +205,9 @@ def rewrite_ts_terms(
     (variable, operators)). A column listed there is computed again each
     time it is named: the variable, the sample or the time declaration
     may have changed since. A column of ``data`` that already has the
-    name and is not listed in ``made`` is used as it is.
+    name and is not listed in ``made`` is used as it is. ``sep`` joins the
+    columns of a lag list (``L(1/2).x``): a blank in a Stata varlist,
+    ``" + "`` in a formula.
     """
     unit, time = panel
     if time is None:
@@ -261,7 +264,7 @@ def rewrite_ts_terms(
             if term is None:
                 return m.group(0)
             terms.append(term)
-        return " ".join(terms)
+        return sep.join(terms)
 
     return TS_TERM.sub(replace, line), new_columns
 

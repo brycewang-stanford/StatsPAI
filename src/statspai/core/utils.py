@@ -41,7 +41,27 @@ def r_formula_idioms(formula: str) -> str:
       :func:`_caret_as_power_in_identity`.
     * a name in backticks becomes ``Q("name")``, see
       :func:`backticks_to_q`.
+
+    Stata's factor-variable terms (``i.g##c.x``, ``ib2.g``, ``c.x#c.x``)
+    are translated as ``sp.from_stata`` translates them, see
+    :mod:`statspai.core._stata_formula`. A time-series term (``L.x``) needs
+    the data and is resolved by :func:`create_design_matrices`; here it is
+    refused with the spelling that works.
     """
+    from ._stata_formula import has_stata_ts_terms, stata_factor_syntax
+
+    if has_stata_ts_terms(formula):
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            f"{formula!r} uses a Stata time-series operator (L. / F. / D.), "
+            "which this estimator's formula parser does not resolve",
+            recovery_hint="Make the column first, e.g. df['x_L1'] = "
+            "sp.lag(df, 'x', id='unit', time='period'), and name it in the "
+            "formula; or use an estimator that resolves L.x after "
+            "sp.xtset (sp.regress, sp.logit, sp.glm ...).",
+        )
+    formula = stata_factor_syntax(formula)
     if "`" in formula:
         formula = backticks_to_q(formula)
     if "factor(" in formula:
@@ -762,6 +782,12 @@ def create_design_matrices(
     Tuple[pd.DataFrame, pd.DataFrame]
         (y, X) matrices
     """
+    from ._stata_formula import resolve_formula_ts_terms, stata_factor_syntax
+
+    # Stata syntax first: L.x reads the declared panel, and grouped factor
+    # terms (c.(x1-x3)) expand against the data's columns
+    formula, data = resolve_formula_ts_terms(formula, data)
+    formula = stata_factor_syntax(formula, columns=list(data.columns))
     formula = expand_dot(formula, data)
     formula = r_formula_idioms(formula)
     fast = _try_simple_numeric_design_matrices(formula, data, return_type)

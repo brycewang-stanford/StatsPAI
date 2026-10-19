@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Stata factor-variable and time-series terms in formulas
+
+#### Added
+
+- Formulas read Stata's factor-variable terms: `sp.regress("y ~ i.g##c.x",
+  df)` is `regress y i.g##c.x` (also `i.g#c.x`, `ib2.g`, `c.x##c.x`,
+  `1.post`, `i.a##i.b`, `c.(x z)#i.g`), through the same translation as
+  `sp.from_stata`; coefficients equal Stata 18. Before, `#` failed with
+  patsy's "comments are not allowed".
+- After `sp.xtset(df, id=, time=)`, `L.x`, `L2.x`, `F.x`, `D.x` and
+  `L(1/3).x` in a formula are Stata's gap-aware operators (columns `x_L1`,
+  `x_D1` ...) for every estimator that builds its design from the data
+  (`sp.regress`, `sp.logit`, `sp.glm` ...); the other parsers (`sp.feols`,
+  IV, panel) refuse them with the `sp.lag` spelling. Terms that mix Stata
+  notation into formula operators (`i.g*x`) are refused with the right
+  syntax.
+
 ### ⚠️ Correctness: `sp.panel(vce='wild')` with clusters that cut across entities
 
 #### ⚠️ Correctness
