@@ -4462,3 +4462,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-records for `finegray(weights=)` and `sar(weights=)`
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `1aaf5833` (on top of `ce35ca48`).
+- **Reason.** `ce35ca48` added `weights=` to `survival/competing_risks.py`
+  (Fine-Gray) and a typed refusal of `weights=` to
+  `spatial/models/ml.py::sar`. These files are on the estimation paths of
+  Track A modules 24, 65 and 66; their traces were re-recorded.
+- **Effect on the paper.** None. The three modules were re-run first and
+  reproduce their committed `*_py.json`; `weights=None` paths are
+  unchanged.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
