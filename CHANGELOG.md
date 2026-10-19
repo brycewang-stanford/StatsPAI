@@ -235,6 +235,29 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.bcf` is unchanged (the ensemble approximation); its warning now
   points to `sp.bart_causal(method='bcf')`.
 
+### Modified treatment policies and learners in longitudinal TMLE
+
+#### Added
+
+- `sp.lmtp(data, y, treatments, shift=, covariates_time=, baseline=)`: the
+  mean outcome under a modified treatment policy (`A + delta`, or any
+  function of the natural treatment value) by sequential TMLE, with
+  density ratios from the stacked-data classifier and the effect against
+  the natural course (`model_info['effect']`, R `lmtp_contrast`). Equals
+  R `lmtp::lmtp_tmle` 1.5.4 (SL.glm learners, `folds = 1`) to 3e-7 for
+  point and two-period designs with continuous and binary outcomes;
+  density ratios to 1e-9. Conventions found on outputs: ratios trimmed at
+  the 0.999 quantile of the whole ratio matrix, a linear regression for
+  every pseudo-outcome except a binary final outcome.
+  `tests/reference_parity/test_lmtp_parity.py`. lmtp (AGPL) was used as
+  a black box. Censoring and the SDR estimator are not implemented.
+- `sp.ltmle(q_learner=, g_learner=)`: any regressor / classifier (e.g.
+  `sp.SuperLearner`) for the outcome and treatment / censoring models in
+  place of the main-terms logistic fits. A logistic `g_learner` reproduces
+  the default to 1e-8; with gradient boosting the estimate recovers a
+  nonlinear truth that the default misses
+  (`tests/test_ltmle_learners.py`). `ltmleMSM` is not implemented.
+
 ### Doubly robust dose-response curve: `sp.dose_response(method='dr')`
 
 #### Added

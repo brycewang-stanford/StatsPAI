@@ -912,6 +912,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "ljungbox: the series is constant.",
         },
     ],
+    "lmtp": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass [] for a time point without new covariates.",
+            "symptom": "lmtp: covariates_time needs one list per time point.",
+        }
+    ],
     "logit_gof": [
         {
             "exception": "statspai.MethodIncompatibility",

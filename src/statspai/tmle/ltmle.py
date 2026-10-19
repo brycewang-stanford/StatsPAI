@@ -254,12 +254,36 @@ def _logit_fit(
 
 
 def _logit_fit_predict(
-    X: np.ndarray, y: np.ndarray, rows: np.ndarray, sw: Optional[np.ndarray] = None
+    X: np.ndarray,
+    y: np.ndarray,
+    rows: np.ndarray,
+    sw: Optional[np.ndarray] = None,
+    learner: Any = None,
+    weighted: bool = False,
 ) -> np.ndarray:
-    """Fit on ``rows`` and return fitted probabilities for every unit."""
+    """Fit on ``rows`` and return fitted probabilities for every unit.
+
+    ``X`` carries a leading constant column, dropped for a ``learner``.
+    """
     if np.all(y[rows] == y[rows][0]):
         return np.full(len(y), float(y[rows][0]))
+    if learner is not None:
+        m = _clone_learner(learner)
+        kw = {"sample_weight": sw[rows]} if (weighted and sw is not None) else {}
+        m.fit(X[rows][:, 1:], y[rows], **kw)
+        return np.asarray(m.predict_proba(X[:, 1:])[:, 1], dtype=float)
     return expit(X @ _logit_fit(X[rows], y[rows], None if sw is None else sw[rows]))
+
+
+def _clone_learner(learner: Any) -> Any:
+    try:
+        from sklearn.base import clone
+
+        return clone(learner)
+    except (TypeError, ValueError, RuntimeError):
+        import copy
+
+        return copy.deepcopy(learner)
 
 
 def _fluctuate(q_next: np.ndarray, off: np.ndarray, w: np.ndarray) -> float:
@@ -303,6 +327,8 @@ def ltmle(
     outcome_type: str = "auto",
     alpha: float = 0.05,
     weights: Optional[str] = None,
+    q_learner: Any = None,
+    g_learner: Any = None,
 ) -> LTMLEResult:
     """
     Longitudinal TMLE for static regime contrasts.
@@ -353,6 +379,17 @@ def ltmle(
         ``weight / prod g``), the plug-in mean and the influence curve.
         Estimates and the influence-curve standard error equal R
         ``ltmle`` 1.3-0 (``tests/reference_parity/test_ltmle_weights_parity.py``).
+    q_learner : regressor, optional
+        Learner for the sequential outcome regressions in place of the
+        main-terms logistic (quasi-binomial) model, e.g.
+        ``sp.SuperLearner()`` (R ltmle's ``SL.library`` for Q). It sees the
+        history and current treatment (no constant column) and the
+        pseudo-outcome on ``[0, 1]``; predictions are bounded to
+        ``[1e-4, 0.9999]`` as before. Must accept ``sample_weight`` when
+        ``weights`` is given.
+    g_learner : classifier, optional
+        Learner with ``predict_proba`` for the treatment and censoring
+        models, e.g. ``sp.SuperLearner(task='classification')``.
 
     Returns
     -------
@@ -594,11 +631,19 @@ def ltmle(
         H = df[_hist_cols(k)].to_numpy(dtype=float)
         X_k = np.column_stack([np.ones(n), H])
         fit_rows = uncens_before[:, k]
-        prob_a1.append(_logit_fit_predict(X_k, A_obs[:, k], fit_rows, obs_w))
+        prob_a1.append(
+            _logit_fit_predict(
+                X_k, A_obs[:, k], fit_rows, obs_w, g_learner, weights is not None
+            )
+        )
         if censoring:
             X_c = np.column_stack([X_k, A_obs[:, k]])
             c_k = (df[censoring[k]].to_numpy(dtype=float) == 1).astype(float)
-            prob_c1.append(_logit_fit_predict(X_c, c_k, fit_rows, obs_w))
+            prob_c1.append(
+                _logit_fit_predict(
+                    X_c, c_k, fit_rows, obs_w, g_learner, weights is not None
+                )
+            )
         else:
             prob_c1.append(np.ones(n))
     propensities = prob_a1
@@ -667,8 +712,16 @@ def ltmle(
                 pos = 1 + (cols + [treatments[k]]).index(treatments[j])
                 X_reg[:, pos] = regime_mat[:, j]
             fit_rows = uncens[:, k] & np.isfinite(Q_next)
-            beta = _logit_fit(X_obs[fit_rows], Q_next[fit_rows], obs_w[fit_rows])
-            q_pred = np.clip(expit(X_reg @ beta), 1e-4, 0.9999)
+            if q_learner is None:
+                beta = _logit_fit(X_obs[fit_rows], Q_next[fit_rows], obs_w[fit_rows])
+                q_pred = np.clip(expit(X_reg @ beta), 1e-4, 0.9999)
+            else:
+                qm = _clone_learner(q_learner)
+                kw = {"sample_weight": obs_w[fit_rows]} if weights is not None else {}
+                qm.fit(X_obs[fit_rows][:, 1:], Q_next[fit_rows], **kw)
+                q_pred = np.clip(
+                    np.asarray(qm.predict(X_reg[:, 1:]), dtype=float), 1e-4, 0.9999
+                )
             off = logit(q_pred)
 
             subs = uncens[:, k] & follow[:, k]

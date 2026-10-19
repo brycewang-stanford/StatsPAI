@@ -21676,6 +21676,101 @@
     "name": "lm_lin"
   },
   {
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE). Failure modes: lmtp: covariates_time needs one list per time point -> Pass [] for a time point without new covariates.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "baseline": {
+          "description": "Baseline covariates (in every history).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "bound": {
+          "default": 1e-05,
+          "description": "Outcome predictions are bounded to ``[bound, 1 - bound]``.",
+          "type": "number"
+        },
+        "bounds": {
+          "description": "Range used to scale a continuous outcome to ``[0, 1]``; default the observed range.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "covariates_time": {
+          "description": "Time-varying covariates measured before each treatment.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "folds": {
+          "default": 1,
+          "description": "Cross-fitting folds for the nuisance models (``1`` = fit and predict on the full sample, the setting the R comparison uses).",
+          "type": "integer"
+        },
+        "outcome_learner": {
+          "description": "Learner for every outcome regression (default: linear regression, and logistic regression for a binary final outcome).",
+          "type": "string"
+        },
+        "outcome_type": {
+          "default": "auto",
+          "description": "outcome_type parameter (str).",
+          "enum": [
+            "auto",
+            "continuous",
+            "binary"
+          ],
+          "type": "string"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Seed of the cross-fitting split.",
+          "type": "integer",
+          "x-canonical": "seed"
+        },
+        "ratio_learner": {
+          "description": "Classifier for the density ratios (default: logistic regression).",
+          "type": "string"
+        },
+        "shift": {
+          "description": "The policy: a number is added to each treatment (``A + delta``); a callable maps the array of natural values of one treatment to the values under the policy (e.g. ``lambda a: np.where(a > 80, a - 15, a)``), applied at every time point.",
+          "type": "string"
+        },
+        "treatments": {
+          "description": "Treatment column at each time point, in time order.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "trim": {
+          "default": 0.999,
+          "description": "Density ratios above this quantile of all ratios are set to it.",
+          "type": "number"
+        },
+        "y": {
+          "description": "Final outcome (continuous, or 0/1).",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "shift",
+        "treatments",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "lmtp"
+  },
+  {
     "description": "Load a dataset into the server and get a data_id handle. Source: data_path (file or URL), data_records (JSON rows) or data_csv (CSV text). Returns the handle plus shape, dtypes, missing counts, the first rows and a numeric summary. Pass data_id to any later tool instead of re-sending the file; chain transform_data to filter / reshape / winsorise / impute and get a new handle whose lineage is recorded in every result's data_provenance.",
     "input_schema": {
       "properties": {
@@ -22335,6 +22430,10 @@
           },
           "type": "array"
         },
+        "g_learner": {
+          "description": "Learner with ``predict_proba`` for the treatment and censoring models, e.g. ``sp.SuperLearner(task='classification')``.",
+          "type": "string"
+        },
         "outcome_type": {
           "default": "auto",
           "description": "``auto`` detects from unique values of ``y``.",
@@ -22355,6 +22454,10 @@
             "type": "number"
           },
           "type": "array"
+        },
+        "q_learner": {
+          "description": "Learner for the sequential outcome regressions in place of the main-terms logistic (quasi-binomial) model, e.g. ``sp.SuperLearner()`` (R ltmle's ``SL.library`` for Q). It sees the history and current treatment (no constant column) and the pseudo-outcome on ``[0, 1]``; predictions are bounded to ``[1e-4, 0.9999]`` as before. Must accept ``sample_weight`` when ``weights`` is given.",
+          "type": "string"
         },
         "regime_control": {
           "description": "Regimes to contrast. Default: all-1 vs all-0. A regime may also be a **callable** ``regime(k, history)`` for *dynamic regimes* that depend on the simulated / observed history of baseline and time-varying covariates. The callable receives ``k`` (int 0..K-1) and ``history`` -- a dict mapping column name to the length-``n`` numpy array observed up to that timepoint -- and must return a length-``n`` numpy array of 0/1 treatment assignments.",

@@ -1305,6 +1305,7 @@ from .tmle import (
     SuperLearner,
     ctmle,
     hal_tmle,
+    lmtp,
     ltmle,
     ltmle_survival,
     super_learner,
@@ -3188,6 +3189,7 @@ __all__ = [
     "ITSResult",
     # Longitudinal TMLE
     "ltmle",
+    "lmtp",
     "LTMLEResult",
     # DiD-family extras
     "harvest_did",
