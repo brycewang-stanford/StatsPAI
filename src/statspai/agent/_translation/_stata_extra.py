@@ -16,6 +16,13 @@ runs the command only when it is.
 ``power twomeans | onemean | pairedmeans`` is ``sp.power_ttest``, which
 solves the same t-test power equation (``n`` is the total sample size,
 Stata's ``N``).
+
+``leebounds y d [, select(s) tight(x) cieffect vce() level()]`` (Tauchmann,
+SSC) is ``sp.lee_bounds(trimming='leebounds', se_method='analytic')``: bounds,
+analytic SEs and the ``cieffect`` interval agree to 1e-8 on Stata 18
+(``tests/reference_parity/test_lee_bounds_*_Stata_parity.py``), except that
+``cieffect`` searches the Imbens-Manski critical value on a 0.001 grid and
+``sp.lee_bounds`` solves for it.
 """
 
 from __future__ import annotations
@@ -271,7 +278,80 @@ def _h_power(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-HANDLERS = {"eventstudyinteract": _h_eventstudyinteract, "power": _h_power}
+def _h_leebounds(cmd: StataCommand) -> Dict[str, Any]:
+    """``leebounds y d [, select(s) tight(x...) cieffect vce() level()]``."""
+    if len(cmd.varlist) != 2:
+        return _emit_error(
+            "leebounds needs exactly an outcome and a treatment variable.",
+            command="leebounds",
+            suggestions=["lee_bounds"],
+        )
+    y, treat = cmd.varlist
+    opts = cmd.options
+    args: Dict[str, Any] = {"y": y, "treat": treat}
+    notes: List[str] = []
+    select = (opts.get("select") or "").strip()
+    if select:
+        args["selection"] = select
+    else:
+        notes.append(
+            f"Without select(), a unit counts as selected when {y} is "
+            "observed (selection=None)."
+        )
+    tight = (opts.get("tight") or "").split()
+    if tight:
+        args["covariates"] = tight
+        notes.append(
+            "tight(): rows with a missing covariate are dropped; leebounds "
+            "keeps them in the untrimmed arm's mean, so drop them first to "
+            "compare."
+        )
+    vce = (opts.get("vce") or "").replace(",", " ").split()
+    se_method = "analytic"
+    if vce and "bootstrap".startswith(vce[0].lower()) and len(vce[0]) >= 4:
+        se_method = "bootstrap"
+        reps = 50  # leebounds' default
+        m = re.search(r"\br(?:e(?:p(?:s)?)?)?\(\s*(\d+)\s*\)", " ".join(vce[1:]))
+        if m:
+            reps = int(m.group(1))
+        args["n_bootstrap"] = reps
+        notes.append(
+            "vce(bootstrap): the standard errors resample, so they match "
+            "leebounds only in distribution."
+        )
+    elif vce and not ("analytic".startswith(vce[0].lower()) and len(vce[0]) >= 3):
+        return _emit_error(
+            f"leebounds: vce({' '.join(vce)}) is not analytic or bootstrap.",
+            command="leebounds",
+            suggestions=["lee_bounds"],
+        )
+    args["se_method"] = se_method
+    args["trimming"] = "leebounds"
+    semantics = [
+        "Rows with a missing treatment or selection indicator, or selected "
+        "with a missing outcome, are dropped, as leebounds drops them."
+    ]
+    if "cieffect" in opts:
+        semantics.append(
+            "cieffect's interval is result.ci (Imbens-Manski); leebounds "
+            "searches its critical value on a 0.001 grid, so the interval "
+            "can differ by up to 0.001 standard errors."
+        )
+    pairs = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit(
+        "lee_bounds",
+        args,
+        f"sp.lee_bounds(data=df, {pairs})",
+        notes,
+        semantics=semantics,
+    )
+
+
+HANDLERS = {
+    "eventstudyinteract": _h_eventstudyinteract,
+    "power": _h_power,
+    "leebounds": _h_leebounds,
+}
 
 #: Handlers whose arguments are numbers or keywords, not variables: the
 #: varlist normalisation (factor notation, abbreviations) is skipped.

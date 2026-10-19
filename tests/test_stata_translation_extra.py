@@ -230,7 +230,6 @@ def test_power_designs_outside_the_mapping_are_refused(line):
     "command, function",
     [
         ("xtabond2 y L.y x, gmm(L.y)", "xtabond"),
-        ("leebounds y d", "lee_bounds"),
         ("lpirf y x", "local_projections"),
         ("rwolf y1 y2, indepvar(d)", "romano_wolf"),
         ("wyoung y1 y2, cmd(regress OUTCOMEVAR d) familyp(d)", "westfall_young"),
@@ -242,3 +241,81 @@ def test_guidance_names_an_existing_function(command, function):
     assert out["ok"] is False
     assert function in out["statspai_functions"]
     assert callable(getattr(sp, function))
+
+
+# ---------------------------------------------------------------------------
+# leebounds (Tauchmann, SSC) -> sp.lee_bounds(trimming='leebounds')
+# Reference numbers: Stata 18 leebounds v1.5 in
+# tests/reference_parity/_fixtures/leebounds_missing_stata.json.
+# ---------------------------------------------------------------------------
+
+_LEE_FIX = (
+    __import__("pathlib").Path(__file__).parent / "reference_parity" / "_fixtures"
+)
+
+
+def test_leebounds_translation_arguments():
+    out = sp.from_stata("leebounds y d, sel(s) tig(x1 x2) cie level(90)")
+    assert out["ok"] is True and out["tool"] == "lee_bounds"
+    assert out["arguments"] == {
+        "y": "y",
+        "treat": "d",
+        "selection": "s",
+        "covariates": ["x1", "x2"],
+        "se_method": "analytic",
+        "trimming": "leebounds",
+        "alpha": 0.1,
+    }
+    boot = sp.from_stata("leebounds y d, select(s) vce(boot, reps(200) nodots)")
+    assert boot["arguments"]["se_method"] == "bootstrap"
+    assert boot["arguments"]["n_bootstrap"] == 200
+    assert (
+        sp.from_stata("leebounds y d, vce(bootstrap)")["arguments"]["n_bootstrap"] == 50
+    )
+    assert "selection" not in sp.from_stata("leebounds y d")["arguments"]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "leebounds y d [pw=w], select(s)",
+        "leebounds y, select(s)",
+        "leebounds y d, vce(jackknife)",
+    ],
+)
+def test_leebounds_untranslatable_lines_are_refused(line):
+    assert sp.from_stata(line)["ok"] is False
+
+
+@pytest.mark.parametrize(
+    "line, key",
+    [
+        ("leebounds y d if sample == 2, cieffect", "2_nosel"),
+        (
+            "leebounds y d if sample == 3, select(s) tight(x) cieffect level(90)",
+            "3_tight90",
+        ),
+        ("leebounds y2 d if sample == 1, select(s)", "1_ymiss"),
+    ],
+)
+def test_leebounds_runs_like_stata(line, key):
+    import json
+    import warnings
+
+    ref = json.loads(
+        (_LEE_FIX / "leebounds_missing_stata.json").read_text(encoding="utf-8")
+    )[key]
+    df = pd.read_csv(_LEE_FIX / "leebounds_missing.csv", float_precision="round_trip")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.stata(line, data=df)
+    mi = res.model_info
+    assert mi["lower_bound"] == pytest.approx(ref["lower"], rel=1e-12, abs=1e-12)
+    assert mi["upper_bound"] == pytest.approx(ref["upper"], rel=1e-12, abs=1e-12)
+    assert mi["se_lower"] == pytest.approx(ref["se_lower"], rel=1e-8)
+    assert mi["se_upper"] == pytest.approx(ref["se_upper"], rel=1e-8)
+    if "cilower" in ref:
+        # leebounds' 0.001 grid for the Imbens-Manski critical value
+        tol = 1.001e-3 * max(mi["se_lower"], mi["se_upper"])
+        assert abs(res.ci[0] - ref["cilower"]) <= tol
+        assert abs(res.ci[1] - ref["ciupper"]) <= tol

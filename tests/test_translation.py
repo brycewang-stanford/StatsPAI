@@ -989,6 +989,17 @@ TIER3_ROUND_TRIPS = [
         {"g": "g", "t": "t", "i": "id", "control_cohort": "nt"},
     ),
     (
+        "leebounds wage training, select(employed) tight(x)",
+        "lee_bounds",
+        {
+            "y": "wage",
+            "treat": "training",
+            "selection": "employed",
+            "covariates": ["x"],
+            "trimming": "leebounds",
+        },
+    ),
+    (
         "power twomeans 0 0.5, sd(2) n(100)",
         "power_ttest",
         {"delta": 0.5, "sd": 2.0, "n": 100.0, "type": "two-sample"},

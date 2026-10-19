@@ -49868,7 +49868,7 @@
           "type": "string"
         },
         "selection": {
-          "description": "Binary selection/retention indicator (1 = observed, 0 = missing).",
+          "description": "Binary selection/retention indicator (1 = observed, 0 = missing). ``None`` (Stata ``leebounds`` without ``select()``) counts a unit as selected when its outcome is observed. Rows with a missing treatment or selection indicator, or selected with a missing outcome, are dropped with a warning, as ``leebounds`` drops them.",
           "type": "string"
         },
         "treat": {
@@ -49895,8 +49895,7 @@
       "required": [
         "data",
         "y",
-        "treat",
-        "selection"
+        "treat"
       ],
       "type": "object"
     }

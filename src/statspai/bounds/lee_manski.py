@@ -92,7 +92,7 @@ def lee_bounds(
     data: pd.DataFrame,
     y: str,
     treat: str,
-    selection: str,
+    selection: Optional[str] = None,
     covariates: Optional[List[str]] = None,
     n_bootstrap: int = 500,
     alpha: float = 0.05,
@@ -111,8 +111,12 @@ def lee_bounds(
         Outcome variable (may have NaN for selected-out units).
     treat : str
         Binary treatment variable (0/1).
-    selection : str
+    selection : str, optional
         Binary selection/retention indicator (1 = observed, 0 = missing).
+        ``None`` (Stata ``leebounds`` without ``select()``) counts a unit as
+        selected when its outcome is observed. Rows with a missing
+        treatment or selection indicator, or selected with a missing
+        outcome, are dropped with a warning, as ``leebounds`` drops them.
     covariates : list of str, optional
         Discrete covariates for Lee's (2009) tightened bounds (Stata
         ``leebounds, tight()``): each covariate cell is trimmed by its own
@@ -211,7 +215,10 @@ def lee_bounds(
             "trimming must be 'quantile', 'exact' or 'leebounds', got " f"{trimming!r}"
         )
 
-    df = data.copy()
+    from ._lee_sample import lee_estimation_sample
+
+    selection_arg = selection
+    df, selection = lee_estimation_sample(data, y, treat, selection)
     covariates = list(covariates) if covariates else []
     if covariates:
         n_before = len(df)
@@ -219,7 +226,10 @@ def lee_bounds(
         if len(df) < n_before:
             warnings.warn(
                 f"lee_bounds: dropped {n_before - len(df)} row(s) with missing "
-                "covariates.",
+                "covariates. Stata leebounds, tight() keeps such rows in the "
+                "untrimmed arm's mean while leaving them out of every cell, so "
+                "its bounds differ here; drop the rows before calling it to "
+                "compare.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -408,7 +418,7 @@ def lee_bounds(
             params={
                 "y": y,
                 "treat": treat,
-                "selection": selection,
+                "selection": selection_arg,
                 "covariates": list(covariates) if covariates else None,
                 "n_bootstrap": n_bootstrap,
                 "alpha": alpha,

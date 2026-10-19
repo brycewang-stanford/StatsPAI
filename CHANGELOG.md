@@ -4,6 +4,41 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: `sp.lee_bounds` estimation sample; `leebounds` translated
+
+#### Fixed
+
+- `sp.lee_bounds` now drops the rows Stata `leebounds` drops: a missing
+  treatment or selection indicator, or a selected unit with a missing
+  outcome (with a warning naming the counts). Before, a selected row with a
+  missing outcome made both bounds NaN, a missing selection indicator
+  raised an unrelated error, and a missing treatment entered the analytic
+  standard errors (about 1% too small on the test data). Indicators coded
+  other than 0/1 now raise `MethodIncompatibility` instead of `IndexError`.
+  Bounds, analytic SEs and the `cieffect` interval equal Stata 18
+  `leebounds` v1.5 to 1e-8 on 21 settings
+  (`tests/reference_parity/test_lee_bounds_missing_Stata_parity.py`).
+- The audit's lower-bound mismatch (0.1358 against 0.1304, upper matching)
+  did not reproduce as an `sp` bug: Stata's `import delimited` stores the
+  outcome as float32 by default, and with `leebounds`' 16-digit threshold
+  macro that rounding moves the lower bound by up to 0.01. On the same
+  bytes (`asdouble`, or float32 on both sides) `trimming='leebounds'`
+  matches to 1e-15; the float32 case is the committed fixture of
+  `tests/reference_parity/test_lee_bounds_leebounds_Stata_parity.py`.
+
+#### Added
+
+- `sp.lee_bounds(selection=None)`: without a selection column a unit is
+  selected when its outcome is observed (`leebounds` without `select()`).
+- `sp.from_stata` / `sp.stata` translate `leebounds y d [, select() tight()
+  cieffect vce(analytic | bootstrap, reps()) level()]` to
+  `sp.lee_bounds(trimming='leebounds', ...)` (it was refused). `cieffect`
+  searches the Imbens-Manski critical value on a 0.001 grid and
+  `sp.lee_bounds` solves for it, so that interval can differ by up to 0.001
+  standard errors. With `tight()`, `leebounds` keeps rows whose covariate
+  is missing in the untrimmed arm's mean; `sp.lee_bounds` drops them and
+  says so.
+
 ### Local projections with instruments, regimes and panels; proxy SVAR
 
 #### Added

@@ -5,6 +5,18 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.lee_bounds` drops rows with missing indicators
+
+`sp.lee_bounds` now drops rows whose treatment or selection indicator is
+missing, and selected rows whose outcome is missing, as Stata `leebounds`
+does. Calls on data without such rows are unchanged. With a missing
+treatment the analytic standard errors change (they used to count those
+rows); with a selected row lacking its outcome the bounds were NaN and are
+now numbers. To keep the old behaviour there is nothing to pass; drop or
+impute the rows yourself to control the sample.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ translated two-way clustered `reghdfe` uses reghdfe's factor
 
 `sp.from_stata('reghdfe y x, absorb(id) cluster(a b)')` now emits

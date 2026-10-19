@@ -1067,14 +1067,6 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
         "arguments, which a line-by-line translation cannot check.",
         ["xtabond"],
     ),
-    "leebounds": (
-        "`leebounds` has a counterpart in sp.lee_bounds(data, y=, treat=, "
-        "selection=, covariates=<tight()>, trimming='leebounds', "
-        "se_method='analytic'), but on a Stata 18 check (2026-10-19) its "
-        "upper bound matched and its lower bound did not (0.1358 against "
-        "0.1304), so the line is not translated.",
-        ["lee_bounds"],
-    ),
     "ivlpirf": (
         "`ivlpirf` (StataNow) maps to sp.local_projections(data, "
         "outcome=, shock=<endogenous>, instruments=[...], lags=, "
