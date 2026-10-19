@@ -39,22 +39,22 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 59,432 | 81 | 98 |
-| `agent` | 51,095 | 83 | 4 |
-| `regression` | 34,963 | 46 | 64 |
+| `did` | 59,569 | 81 | 98 |
+| `agent` | 51,145 | 83 | 4 |
+| `regression` | 35,065 | 46 | 64 |
 | `timeseries` | 34,668 | 63 | 88 |
 | `synth` | 32,524 | 47 | 56 |
 | `rd` | 23,783 | 35 | 57 |
 | `smart` | 17,011 | 21 | 31 |
 | `forest` | 16,856 | 18 | 33 |
 | `matching` | 18,726 | 29 | 39 |
-| `inference` | 17,519 | 34 | 59 |
+| `inference` | 17,632 | 34 | 59 |
 | `output` | 14,926 | 22 | 42 |
 | `mcmc` | 14,643 | 25 | 46 |
 | `diagnostics` | 15,478 | 28 | 47 |
-| `core` | 14,985 | 26 | 6 |
+| `core` | 15,017 | 26 | 6 |
 | `panel` | 13,664 | 22 | 25 |
-| `dml` | 10,242 | 25 | 17 |
+| `dml` | 10,333 | 25 | 17 |
 | `decomposition` | 9,940 | 19 | 32 |
 | `iv` | 9,274 | 17 | 10 |
 | `fast` | 9,455 | 20 | 0 |
@@ -69,11 +69,11 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mendelian` | 5,201 | 13 | 41 |
 | `frontier` | 4,995 | 8 | 12 |
 | `structural` | 6,108 | 15 | 15 |
-| `utils` | 6,404 | 15 | 41 |
-| `survival` | 6,546 | 12 | 18 |
+| `utils` | 6,407 | 15 | 41 |
+| `survival` | 6,714 | 12 | 18 |
 | `workflow` | 4,549 | 5 | 3 |
 | `gmm` | 4,305 | 12 | 4 |
-| `tmle` | 5,161 | 9 | 12 |
+| `tmle` | 5,218 | 9 | 12 |
 | `qte` | 4,154 | 9 | 13 |
 | `robustness` | 4,099 | 8 | 14 |
 | `network` | 3,514 | 9 | 33 |
@@ -98,7 +98,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `power` | 2,061 | 5 | 15 |
 | `proximal` | 2,061 | 8 | 13 |
 | `causal_text` | 1,774 | 4 | 4 |
-| `survey` | 1,787 | 5 | 9 |
+| `survey` | 2,295 | 7 | 9 |
 | `bcf` | 1,792 | 5 | 8 |
 | `ope` | 1,869 | 4 | 9 |
 | `fairness` | 1,500 | 3 | 9 |
@@ -117,7 +117,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `deepiv` | 891 | 2 | 2 |
 | `transport` | 834 | 5 | 10 |
 | `multivariate` | 849 | 3 | 4 |
-| `msm` | 1,014 | 3 | 3 |
+| `msm` | 1,091 | 3 | 3 |
 | `causal_impact` | 954 | 3 | 3 |
 | `assimilation` | 708 | 3 | 4 |
 | `matrix_completion` | 685 | 3 | 2 |
