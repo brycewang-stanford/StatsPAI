@@ -459,7 +459,8 @@ access to the whole family, see `sp.interference(design=...)`.*
 **Identifying assumptions**
 - Partial interference: spillover only within cluster, not across
 - Correct exposure function (fraction / any / count — sensitivity tested)
-- Overlap: every (treatment × exposure) cell has positive probability
+- Own treatment independent of cluster-mates' (Bernoulli assignment) for a causal reading of the contrasts
+- Overlap: every (treatment × exposure) cell is non-empty (an empty cell raises DataInsufficient)
 
 **Failure modes → recovery**
 
