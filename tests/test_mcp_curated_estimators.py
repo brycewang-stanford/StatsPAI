@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import statspai as sp
@@ -40,6 +41,10 @@ def test_demoted_tools_stay_in_the_full_profile_and_callable():
     df["count"] = rng.negative_binomial(2.0, 2.0 / (2.0 + mu))
     out = execute_tool("nbreg", {"formula": "count ~ treatment"}, data=df)
     assert "error" not in out, out.get("error")
+    direct = sp.nbreg("count ~ treatment", data=df)
+    assert out["coefficients"]["treatment"]["estimate"] == pytest.approx(
+        direct.params["treatment"], rel=1e-10
+    )
 
 
 @pytest.mark.parametrize(
@@ -169,4 +174,8 @@ def test_detail_full_is_the_agent_payload():
     ]
     assert not calls[0].get("error"), calls[0]
     assert set(calls[0]) == set(calls[1])
-    assert calls[0]["estimate"] == calls[1]["estimate"]
+    direct = sp.regress("y ~ treatment", data=pd.DataFrame(records))
+    for payload in calls:
+        assert payload["coefficients"]["treatment"]["estimate"] == pytest.approx(
+            direct.params["treatment"], rel=1e-10
+        )
