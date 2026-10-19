@@ -33,7 +33,7 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **No external software reference** | analytical-only (T1) | 411 |
 | | external-replication (published numbers) | 62 |
 | | **subtotal** | **473** |
-| No numerical evidence yet | unverified | 615 |
+| No numerical evidence yet | unverified | 619 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 495 | 951 | 954 | 51.9% |
+| estimator callables | 495 | 951 | 958 | 51.7% |
 | infrastructure (parity N/A) | 0 | 13 | 225 | 0.0% |
 | result / exception classes | 0 | 4 | 404 | 0.0% |
-| **all registered** | 495 | 968 | 1583 | 31.3% |
+| **all registered** | 495 | 968 | 1587 | 31.2% |
 
 ### Coverage by estimator family
 
@@ -53,12 +53,12 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
 | causal | 155 | 348 | 348 |
-| regression | 45 | 59 | 59 |
+| regression | 45 | 59 | 61 |
 | timeseries | 24 | 52 | 53 |
 | inference | 28 | 51 | 52 |
 | bayes | 12 | 49 | 49 |
 | diagnostics | 24 | 39 | 39 |
-| panel | 28 | 34 | 34 |
+| panel | 28 | 34 | 36 |
 | spatial | 28 | 33 | 33 |
 | experimental | 3 | 25 | 25 |
 | decomposition | 20 | 24 | 24 |
@@ -841,7 +841,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `fourier_terms` | [`test_forecasting_r_parity.py`](../tests/reference_parity/test_forecasting_r_parity.py) |
 | `from_r` | [`test_accounting_research_parity.py`](../tests/reference_parity/test_accounting_research_parity.py) |
-| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+12) |
+| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+13) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
 | `geolift` | [`test_geolift_parity.py`](../tests/reference_parity/test_geolift_parity.py) |
@@ -1093,6 +1093,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 615 functions
+## unverified — 619 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

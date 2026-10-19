@@ -8038,7 +8038,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_decomp_qte_parity.py",
-        "tests/reference_parity/test_four_way_decomposition_parity.py"
+        "tests/reference_parity/test_four_way_decomposition_parity.py",
+        "tests/reference_parity/test_four_way_nonlinear_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -8153,7 +8154,8 @@
         "tests/reference_parity/test_sdid_optimized_covariates.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_survreg_streg_stata_parity.py",
-        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
+        "tests/reference_parity/test_ts_causal_parity.py"
       ],
       "tolerance": ""
     },
@@ -9095,7 +9097,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_dynamic_modelling_parity.py",
-        "tests/reference_parity/test_timeseries_parity.py"
+        "tests/reference_parity/test_timeseries_parity.py",
+        "tests/reference_parity/test_ts_causal_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -11540,6 +11543,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_lee_bounds_leebounds_Stata_parity.py",
+        "tests/reference_parity/test_lee_bounds_missing_Stata_parity.py",
         "tests/reference_parity/test_lee_bounds_parity.py",
         "tests/reference_parity/test_lee_bounds_tight_Stata_parity.py",
         "tests/reference_parity/test_misc_sens_stata_parity.py"
@@ -11905,7 +11909,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_local_projections_parity.py"
+        "tests/reference_parity/test_local_projections_parity.py",
+        "tests/reference_parity/test_ts_causal_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -22551,7 +22556,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
+        "tests/reference_parity/test_ts_causal_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -24152,6 +24158,7 @@
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_R_parity.py",
         "tests/reference_parity/test_timeseries_parity.py",
+        "tests/reference_parity/test_ts_causal_parity.py",
         "tests/reference_parity/test_tvp_var_parity.py"
       ],
       "also_verified_by": [

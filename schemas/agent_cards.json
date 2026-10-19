@@ -23108,7 +23108,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_neusser_time_series.py",
-      "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
+      "tests/reference_parity/test_ts_causal_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -107787,9 +107788,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata leebounds 1.5 (Tauchmann), vce(analytic) [Stata 18, leebounds 1.5 (2013-07-17, Tauchmann)]; tolerance 1e-10 rel on bounds and analytic variances -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/reference_parity/test_lee_bounds_leebounds_Stata_parity.py",
+      "tests/reference_parity/test_lee_bounds_missing_Stata_parity.py",
       "tests/reference_parity/test_lee_bounds_parity.py",
-      "tests/reference_parity/test_lee_bounds_tight_Stata_parity.py",
-      "tests/reference_parity/test_misc_sens_stata_parity.py"
+      "tests/reference_parity/test_lee_bounds_tight_Stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -119229,7 +119230,8 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 vargranger; vars::causality 1.6.1 [R version 4.5.2 (2025-10-31), Stata 18, vars 1.6.1]; tolerance chi2 and F 1e-10 rel (observed 4.1e-15), p-values 1e-8 -- tests/reference_parity/test_timeseries_R_parity.py",
       "tests/reference_parity/test_dynamic_modelling_parity.py",
-      "tests/reference_parity/test_timeseries_parity.py"
+      "tests/reference_parity/test_timeseries_parity.py",
+      "tests/reference_parity/test_ts_causal_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -141208,7 +141210,8 @@
       "R parity module 34_lp",
       "Stata parity module 34_lp",
       "Cross-language parity (bit-exact) vs lpirfs::lp_lin [R version 4.5.2 (2025-10-31), lpirfs 0.2.5]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 34_lp -- tests/r_parity/34_lp.py",
-      "tests/reference_parity/test_local_projections_parity.py"
+      "tests/reference_parity/test_local_projections_parity.py",
+      "tests/reference_parity/test_ts_causal_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -157136,7 +157139,8 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata med4way (yreg/mreg linear); CMAverse::cmest 0.1.0 (rb, paramfunc, delta) [CMAverse 0.1.0, R version 4.5.2 (2025-10-31), Stata 18]; tolerance components 1e-12 rel; delta SEs 1e-12 rel vs CMAverse (vcov='ols'); variances 5e-9 rel vs med4way (vcov='ml') -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/reference_parity/test_decomp_qte_parity.py",
-      "tests/reference_parity/test_four_way_decomposition_parity.py"
+      "tests/reference_parity/test_four_way_decomposition_parity.py",
+      "tests/reference_parity/test_four_way_nonlinear_parity.py"
     ],
     "validation_status": "certified"
   },
