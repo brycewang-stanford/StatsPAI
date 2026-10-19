@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — survival: sp.stteffects, sp.rmst (new exports)
+
+- **Commits.** `e09587ce` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
+  24, 25, 26, 27, 53, 65, 66) and
+  `tests/orig_parity/results/_implementation_trace.json` (module 08).
+- **Reason.** New exports in `src/statspai/__init__.py` (`sp.rmst`,
+  `sp.stteffects`), which those modules execute, and a docstring /
+  import-order change in `survival/models.py` / `survival/__init__.py`
+  (module 24).
+- **Effect on the paper.** None. Every listed module was re-run into
+  scratch and compared with its committed result: largest relative
+  difference 3e-10 (`25_lmm`, pre-existing last-digit jitter), inside the
+  1e-9 reproducibility tolerance; the committed results were kept.
+
 ### 2026-10-19 — R argument-name aliases on the DiD entry points; aipw propensity in `model_info`
 
 - **Commits.** `9c4c691c` re-recorded
