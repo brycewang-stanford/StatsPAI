@@ -31,6 +31,19 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — survival: weighted / counting-process Cox and Kaplan-Meier
+
+- **Commits.** `1ae5ae8c` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (module 24).
+- **Reason.** `survival/_cox_core.py` (case weights and `(start, stop]`
+  risk sets in the kernel), `survival/models.py` (`sp.cox(weights=, start=,
+  ssc=, weights_as=)`) and the new `survival/_cox_inputs.py` are on the
+  `24_coxph` estimation path.
+- **Effect on the paper.** None. Module 24 was re-run into scratch and
+  compared with its committed `24_coxph_py.json`: largest relative
+  difference 1e-15 (last-bit summation order), inside the 1e-9
+  reproducibility tolerance, so the committed result was kept.
+
 ### 2026-10-19 — `sp.mediate` bootstraps the potential-outcome estimator
 
 - **Commits.** `6bf4d662` re-recorded
