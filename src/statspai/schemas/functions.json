@@ -1554,7 +1554,10 @@
         "alpha": {
           "default": 0.05,
           "description": "Significance level.",
-          "type": "number"
+          "type": "number",
+          "x-aliases": [
+            "alp"
+          ]
         },
         "anticipation": {
           "default": 0,
@@ -1635,14 +1638,18 @@
             "ipw",
             "reg"
           ],
-          "type": "string"
+          "type": "string",
+          "x-aliases": [
+            "est_method"
+          ]
         },
         "g": {
           "description": "First-treatment-period column (0 = never-treated)",
           "type": "string",
           "x-aliases": [
             "cohort",
-            "first_treat"
+            "first_treat",
+            "gname"
           ],
           "x-statspai-role": "column"
         },
@@ -1651,6 +1658,7 @@
           "type": "string",
           "x-aliases": [
             "id",
+            "idname",
             "unit"
           ],
           "x-canonical": "id",
@@ -1710,7 +1718,8 @@
           "description": "Time period column",
           "type": "string",
           "x-aliases": [
-            "time"
+            "time",
+            "tname"
           ],
           "x-canonical": "time",
           "x-statspai-role": "column"
@@ -1727,6 +1736,9 @@
         "weights": {
           "description": "Unit-level sampling/population weights omega (R did::att_gt(weightsname=), Stata csdid [aweight=]). NOT a precision knob: omega enters the definition of the target parameter. Unweighted answers 'the average effect across treated units'; weighted answers 'across the population those units represent'. The two are different estimands and can differ in sign, so comparing them is not a robustness check. Must be constant within unit.",
           "type": "string",
+          "x-aliases": [
+            "weightsname"
+          ],
           "x-statspai-role": "column"
         },
         "x": {
@@ -1737,12 +1749,16 @@
           "type": "array",
           "x-aliases": [
             "controls",
-            "covariates"
+            "covariates",
+            "xformla"
           ]
         },
         "y": {
           "description": "Outcome variable",
           "type": "string",
+          "x-aliases": [
+            "yname"
+          ],
           "x-statspai-role": "column"
         }
       },
@@ -28087,6 +28103,7 @@
           "description": "Unit-level treatment indicator (0/1)",
           "type": "string",
           "x-aliases": [
+            "dname",
             "treat"
           ],
           "x-statspai-role": "column"
@@ -28095,6 +28112,7 @@
           "description": "Unit identifier for true two-period panel DR-DID",
           "type": "string",
           "x-aliases": [
+            "idname",
             "unit"
           ],
           "x-statspai-role": "column"
@@ -28111,7 +28129,10 @@
             "imp",
             "trad"
           ],
-          "type": "string"
+          "type": "string",
+          "x-aliases": [
+            "estMethod"
+          ]
         },
         "n_boot": {
           "description": "Deprecated / inert: standard errors come from the Sant'Anna-Zhao influence function on every path.",
@@ -28133,6 +28154,9 @@
         "time": {
           "description": "Time period column",
           "type": "string",
+          "x-aliases": [
+            "tname"
+          ],
           "x-statspai-role": "column"
         },
         "trim_level": {
@@ -28143,11 +28167,17 @@
         "weights": {
           "description": "Observation weights column (R DRDID i.weights), renormalised to mean one.",
           "type": "string",
+          "x-aliases": [
+            "weightsname"
+          ],
           "x-statspai-role": "column"
         },
         "y": {
           "description": "Outcome variable",
           "type": "string",
+          "x-aliases": [
+            "yname"
+          ],
           "x-statspai-role": "column"
         }
       },
@@ -29513,7 +29543,10 @@
         },
         "treat_time": {
           "description": "First-treatment period column, or a number for a common date",
-          "type": "string"
+          "type": "string",
+          "x-aliases": [
+            "first_treat"
+          ]
         },
         "unit": {
           "description": "Unit identifier",
@@ -31787,7 +31820,10 @@
         "alpha": {
           "default": 0.05,
           "description": "Nominal level for confidence intervals.",
-          "type": "number"
+          "type": "number",
+          "x-aliases": [
+            "alp"
+          ]
         },
         "balance_e": {
           "description": "For dynamic: cap event time at +/-balance_e for balanced panel",
@@ -31821,7 +31857,10 @@
         },
         "n_boot": {
           "description": "Replications (default: fit's biters, else 1000)",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "biters"
+          ]
         },
         "na_rm": {
           "default": true,

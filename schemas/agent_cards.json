@@ -3361,7 +3361,10 @@
           "alpha": {
             "default": 0.05,
             "description": "Significance level.",
-            "type": "number"
+            "type": "number",
+            "x-aliases": [
+              "alp"
+            ]
           },
           "anticipation": {
             "default": 0,
@@ -3442,14 +3445,18 @@
               "ipw",
               "reg"
             ],
-            "type": "string"
+            "type": "string",
+            "x-aliases": [
+              "est_method"
+            ]
           },
           "g": {
             "description": "First-treatment-period column (0 = never-treated)",
             "type": "string",
             "x-aliases": [
               "cohort",
-              "first_treat"
+              "first_treat",
+              "gname"
             ],
             "x-statspai-role": "column"
           },
@@ -3458,6 +3465,7 @@
             "type": "string",
             "x-aliases": [
               "id",
+              "idname",
               "unit"
             ],
             "x-canonical": "id",
@@ -3517,7 +3525,8 @@
             "description": "Time period column",
             "type": "string",
             "x-aliases": [
-              "time"
+              "time",
+              "tname"
             ],
             "x-canonical": "time",
             "x-statspai-role": "column"
@@ -3534,6 +3543,9 @@
           "weights": {
             "description": "Unit-level sampling/population weights omega (R did::att_gt(weightsname=), Stata csdid [aweight=]). NOT a precision knob: omega enters the definition of the target parameter. Unweighted answers 'the average effect across treated units'; weighted answers 'across the population those units represent'. The two are different estimands and can differ in sign, so comparing them is not a robustness check. Must be constant within unit.",
             "type": "string",
+            "x-aliases": [
+              "weightsname"
+            ],
             "x-statspai-role": "column"
           },
           "x": {
@@ -3544,12 +3556,16 @@
             "type": "array",
             "x-aliases": [
               "controls",
-              "covariates"
+              "covariates",
+              "xformla"
             ]
           },
           "y": {
             "description": "Outcome variable",
             "type": "string",
+            "x-aliases": [
+              "yname"
+            ],
             "x-statspai-role": "column"
           }
         },
@@ -63360,6 +63376,7 @@
             "description": "Unit-level treatment indicator (0/1)",
             "type": "string",
             "x-aliases": [
+              "dname",
               "treat"
             ],
             "x-statspai-role": "column"
@@ -63368,6 +63385,7 @@
             "description": "Unit identifier for true two-period panel DR-DID",
             "type": "string",
             "x-aliases": [
+              "idname",
               "unit"
             ],
             "x-statspai-role": "column"
@@ -63384,7 +63402,10 @@
               "imp",
               "trad"
             ],
-            "type": "string"
+            "type": "string",
+            "x-aliases": [
+              "estMethod"
+            ]
           },
           "n_boot": {
             "description": "Deprecated / inert: standard errors come from the Sant'Anna-Zhao influence function on every path.",
@@ -63406,6 +63427,9 @@
           "time": {
             "description": "Time period column",
             "type": "string",
+            "x-aliases": [
+              "tname"
+            ],
             "x-statspai-role": "column"
           },
           "trim_level": {
@@ -63416,11 +63440,17 @@
           "weights": {
             "description": "Observation weights column (R DRDID i.weights), renormalised to mean one.",
             "type": "string",
+            "x-aliases": [
+              "weightsname"
+            ],
             "x-statspai-role": "column"
           },
           "y": {
             "description": "Outcome variable",
             "type": "string",
+            "x-aliases": [
+              "yname"
+            ],
             "x-statspai-role": "column"
           }
         },
@@ -66220,7 +66250,10 @@
           },
           "treat_time": {
             "description": "First-treatment period column, or a number for a common date",
-            "type": "string"
+            "type": "string",
+            "x-aliases": [
+              "first_treat"
+            ]
           },
           "unit": {
             "description": "Unit identifier",
@@ -71019,7 +71052,10 @@
           "alpha": {
             "default": 0.05,
             "description": "Nominal level for confidence intervals.",
-            "type": "number"
+            "type": "number",
+            "x-aliases": [
+              "alp"
+            ]
           },
           "balance_e": {
             "description": "For dynamic: cap event time at +/-balance_e for balanced panel",
@@ -71053,7 +71089,10 @@
           },
           "n_boot": {
             "description": "Replications (default: fit's biters, else 1000)",
-            "type": "integer"
+            "type": "integer",
+            "x-aliases": [
+              "biters"
+            ]
           },
           "na_rm": {
             "default": true,
@@ -122820,6 +122859,207 @@
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_berry_logit_pyblp_parity.py"
     ],
     "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "smart",
+    "cost_profile": "",
+    "description": "Recommend the appropriate estimator(s) for your research question.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "rec = sp.recommend(df, y=\"log_wage\", treatment=\"union\",\n covariates=[\"education\", \"experience\"])",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass id= and time= (the unit and period columns).",
+        "symptom": "recommend: the data look like a panel but more than one (unit, time) pair fits: <layouts>. Recommending without knowing which would treat a panel as a cross-section."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "recommend",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "RecommendationResult",
+      "description": "RecommendationResult: With .summary(), .run(), .run_all() methods.",
+      "fields": {
+        "data": "DataFrame",
+        "data_profile": "Dict[str, Any]",
+        "design": "str",
+        "recommendations": "List[Dict[str, Any]]",
+        "treatment": "Optional[str]",
+        "warnings": "List[str]",
+        "y": "str"
+      }
+    },
+    "signature": {
+      "description": "Recommend the appropriate estimator(s) for your research question.",
+      "name": "recommend",
+      "parameters": {
+        "properties": {
+          "allow_experimental": {
+            "default": false,
+            "description": "Whether to include estimators registered as ``stability='experimental'`` (or ``'deprecated'``) in the ranked output. The default ``False`` is the agent-safe choice -- an LLM agent or pipeline that asks for an estimator recommendation should not silently land on a frontier MVP. Set ``True`` when you are explicitly exploring frontier methods (e.g. ``causal_text``, ``did_multiplegt_dyn``); dropped names are listed in ``RecommendationResult.warnings`` either way. See ``docs/guides/stability.md`` for the full contract.",
+            "type": "boolean"
+          },
+          "covariates": {
+            "description": "Control variables.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "cutoff": {
+            "description": "RD cutoff value.",
+            "type": "number"
+          },
+          "dag": {
+            "description": "Causal DAG for identification analysis.",
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "design": {
+            "description": "Override design detection: 'rct', 'did', 'rd', 'iv', 'observational', 'panel', 'cross-section'.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unit identifier (for panel data).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "instrument": {
+            "description": "Instrumental variable.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "mediator": {
+            "description": "Mediator variable name. Triggers mediation / front-door recommendations (Imai-Keele-Tingley 2010, VanderWeele et al. 2014, Pearl 1995).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "post_treat_strata": {
+            "description": "Binary post-treatment variable defining principal strata (take-up, survival, employment, ...). Triggers `sp.principal_strat` (Frangakis & Rubin 2002).",
+            "type": "string"
+          },
+          "proxy_w": {
+            "description": "Outcome-side proxy variables (see `proxy_z`).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "proxy_z": {
+            "description": "Treatment-side proxy variables. Triggers `sp.proximal` when `proxy_w` is also supplied (Tchetgen Tchetgen et al. 2020).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "running_var": {
+            "description": "Running variable (for RD designs).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "shares": {
+            "description": "Exposure-share matrix (units x industries) and industry shock vector for ``design='bartik'``; forwarded to :func:`sp.bartik`.",
+            "type": "string"
+          },
+          "shocks": {
+            "description": "Exposure-share matrix (units x industries) and industry shock vector for ``design='bartik'``; forwarded to :func:`sp.bartik`.",
+            "type": "string"
+          },
+          "subgroup": {
+            "description": "Binary eligibility column for a triple difference (``design='ddd'``). Without it the DDD card is returned with ``ready=False`` and ``missing_arguments=['subgroup']``.",
+            "type": "string"
+          },
+          "time": {
+            "description": "Time variable (for panel/DID).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat_time": {
+            "description": "Adoption period for a single-adoption design. Needed for pooled DiD on repeated cross-sections with more than two periods (no ``id``), where ``post = 1[time >= treat_time]`` is built explicitly.",
+            "type": "string"
+          },
+          "treatment": {
+            "description": "Treatment/exposure variable.",
+            "type": "string",
+            "x-aliases": [
+              "treat"
+            ],
+            "x-canonical": "treat",
+            "x-statspai-role": "column"
+          },
+          "tv_confounders": {
+            "description": "Time-varying confounders (must be pre-treatment at each period). Triggers `sp.msm` -- Marginal Structural Model via IPTW (Robins, Hernan & Brumback 2000).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "verify": {
+            "default": false,
+            "description": "If True, run *resampling-stability* checks on the top-k recommendations (bootstrap CV, permutation placebo, 50%-subsample sign agreement) and attach a composite ``score`` to each recommendation's ``verify`` dict. The score is used to re-rank the top-k. Opt-in because it costs extra compute.",
+            "type": "boolean"
+          },
+          "verify_B": {
+            "default": 50,
+            "description": "Bootstrap replications per recommendation (auto-capped by budget).",
+            "type": "integer"
+          },
+          "verify_budget_s": {
+            "default": 30.0,
+            "description": "Wall-clock budget (seconds) per verified recommendation.",
+            "type": "number"
+          },
+          "verify_top_k": {
+            "default": 3,
+            "description": "Number of top recommendations to verify.",
+            "type": "integer"
+          },
+          "y": {
+            "description": "Outcome variable.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
   },
   {
     "alias_of": null,

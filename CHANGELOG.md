@@ -299,6 +299,25 @@ All notable changes to StatsPAI will be documented in this file.
   `sp.feols` result was also handed the IV checklist (first-stage F,
   over-identification, Kitagawa) because `"iv"` is a substring of
   `"ols (statspai native)"`; IV is now matched on whole words.
+- `sp.recommend` on a panel passed without `id=` / `time=` reads the layout
+  with `sp.detect_design` (and refuses when two layouts fit equally well);
+  it used to profile the panel as a cross-section and offer the unit,
+  period and cohort columns as covariates. Columns that encode the unit or
+  the adoption timing (`first_treat`, a cohort index, another unit code)
+  are never default covariates, also under a declared cross-sectional
+  design. The `sp.regress` code it emits put quoted column names inside
+  the formula (`'y ~ d + 'x1', 'x2''`) and did not parse.
+- `sp.aipw` records its unclipped fitted propensity, so `violations()`
+  reports weak overlap as it does for `sp.ipw` (it reported nothing).
+- MCP reproduction bundles hold the standard error and interval as well
+  as the estimate (headline and every coefficient). The bundle looked for
+  `std_error` where the payload says `se`, so a re-run with another
+  variance estimator passed as reproduced.
+- R argument names are accepted: `sp.callaway_santanna(yname=, tname=,
+  idname=, gname=, xformla=, weightsname=, est_method=, alp=)`,
+  `sp.aggte(alp=, biters=)`, `sp.drdid(yname=, tname=, idname=, dname=,
+  estMethod=, weightsname=)` (R `DRDID::drdid`), and
+  `sp.event_study(first_treat=)`.
 
 
 ### ⚠️ Correctness: `sp.rdrobust` fuzzy bandwidth with covariates

@@ -52,7 +52,7 @@ from ._validate import inference_note as _inference_note
 # ======================================================================
 
 
-@accepts_aliases(seed="random_state")
+@accepts_aliases(seed="random_state", alp="alpha", biters="n_boot")
 def aggte(
     result: CausalResult,
     type: str = "simple",

@@ -2269,7 +2269,19 @@ def _drdid_all(data: pd.DataFrame, **common: Any) -> CausalResult:
     return headline
 
 
-@accepts_aliases(_strict=True, unit="id", treat="group", controls="covariates")
+@accepts_aliases(
+    _strict=True,
+    unit="id",
+    treat="group",
+    controls="covariates",
+    # R DRDID::drdid spellings.
+    yname="y",
+    tname="time",
+    idname="id",
+    dname="group",
+    estMethod="method",
+    weightsname="weights",
+)
 @_expands_categorical("covariates")
 def drdid(
     data: pd.DataFrame,

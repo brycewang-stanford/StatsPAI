@@ -237,6 +237,15 @@ def _require_columns(
     # R did::att_gt's spelling and stays the parameter name.
     cluster="clustervars",
     seed="random_state",
+    # R did::att_gt spellings, so a call copied from R runs unchanged.
+    yname="y",
+    tname="t",
+    idname="i",
+    gname="g",
+    xformla="x",
+    weightsname="weights",
+    est_method="estimator",
+    alp="alpha",
 )
 @accepts_vce(
     default=None, cluster="clustervars", native={"bootstrap": {"bstrap": True}}

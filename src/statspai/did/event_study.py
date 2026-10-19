@@ -226,7 +226,9 @@ def _build_bins(
 
 
 @records_call("event_study")
-@accepts_aliases(_strict=True, id="unit", controls="covariates")
+@accepts_aliases(
+    _strict=True, id="unit", controls="covariates", first_treat="treat_time"
+)
 @accepts_vce(default="cluster")
 @_expands_categorical("covariates")
 def event_study(
