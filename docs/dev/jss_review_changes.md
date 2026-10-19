@@ -4103,3 +4103,25 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   the dof change does not apply to it.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record after the output-layer result fixes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `466574f9`.
+- **Reason.** `core/results.py` (`CausalResult.summary()` without a stored
+  pre-trend test, `to_word` default precision, strict `plot(type=)`,
+  `booktabs=`), `_result_serialize.py` (`tidy` / `glance` on the result
+  protocol), `did/bacon.py` and `diagnostics/evalue.py` (results are now
+  dict subclasses with the same keys) and `survival/models.py` (`plot`
+  validates its type) sit on the estimation paths of 76 Track A modules and
+  all 12 original-data modules, so both traces were re-recorded.
+- **Effect on the paper.** None. Before re-recording, every affected module
+  was re-run into a scratch directory: Track A 76 / 76 reproduce
+  (`verify_reproduce_py.py`, fixtures byte-identical or embedded, worst
+  relative difference 1.3e-10, inside the 1e-9 reproducibility floor);
+  original data 12 / 12 reproduce (worst relative
+  difference 1.6e-11, module 01). No result file changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
