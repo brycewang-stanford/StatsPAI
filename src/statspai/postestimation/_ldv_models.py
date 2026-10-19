@@ -312,6 +312,31 @@ class _IntReg(_Tobit):
         return mask
 
 
+class _GOLogit(_LDVModel):
+    """``gologit``: Pr(Y > c_j) = F(a_j + x'b_j), one equation per cut."""
+
+    kind = "gologit"
+    options = ("pr",)
+    default = "pr"
+
+    def __init__(self, result: Any, categories: List[Any], link: str, **kw: Any):
+        super().__init__(result, **kw)
+        self.categories = list(categories)
+        self.link = link
+
+    def outcomes(self, opt: _Option) -> List[Any]:
+        return list(self.categories)
+
+    def expression(self, opt: _Option) -> str:
+        return "Pr(y==outcome)"
+
+    def predict(self, theta: np.ndarray, idx: List[np.ndarray], opt: _Option) -> Any:
+        n = idx[0].shape[0]
+        F = [_cdf_pdf(self.link, z) for z in idx]
+        cum = np.column_stack([np.ones(n)] + F + [np.zeros(n)])
+        return cum[:, :-1] - cum[:, 1:]
+
+
 class _Heckman(_LDVModel):
     kind = "heckman"
     options = ("xb", "ycond", "yexpected", "psel", "xbsel")
@@ -563,6 +588,21 @@ def _from_state(result: Any, st: Dict[str, Any]) -> _LDVModel:
             eq_terms=[list(st["out_terms"]), list(st["sel_terms"])],
             eq_pos=[np.arange(kx), np.arange(kx, kx + kz)],
             formula=None,
+            nobs=nobs,
+        )
+    if model == "gologit":
+        terms = list(st["terms"])
+        k = len(terms)
+        J = len(st["categories"]) - 1
+        return _GOLogit(
+            result,
+            list(st["categories"]),
+            st["link"],
+            theta=theta,
+            V=V,
+            eq_terms=[terms for _ in range(J)],
+            eq_pos=[np.arange(j * k, (j + 1) * k) for j in range(J)],
+            formula=formula,
             nobs=nobs,
         )
     if model == "heckman_twostep":

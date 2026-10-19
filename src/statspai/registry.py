@@ -1592,6 +1592,62 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="gologit",
+            category="regression",
+            description=(
+                "Generalized ordered logit / probit with partial proportional "
+                "odds (the model of Stata's gologit2): Pr(Y > c_j) = "
+                "F(a_j + x'b_j), parallel lines for pl= variables."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", False, None, "Ordinal outcome (>= 3 values)"),
+                ParamSpec("x", "list", False, None, "Regressors"),
+                ParamSpec(
+                    "pl",
+                    "list",
+                    False,
+                    None,
+                    "True: all variables parallel (= ologit); a list: those "
+                    "variables parallel",
+                ),
+                ParamSpec(
+                    "npl",
+                    "list",
+                    False,
+                    None,
+                    "True (default): no variable parallel; a list: those "
+                    "variables free, the others parallel",
+                ),
+                ParamSpec("link", "str", False, "logit", "Link", ["logit", "probit"]),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster column"),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+                ParamSpec(
+                    "formula", "str", False, None, "'y ~ x1 + C(g)' instead of y / x"
+                ),
+            ],
+            returns="EconometricResults",
+            example='sp.gologit(df, y="health", x=["age", "income"], npl=["age"])',
+            tags=["ordinal", "ordered", "partial-proportional-odds", "gologit"],
+            reference="Stata gologit2 (Williams)",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="intreg",
             category="regression",
             description=(

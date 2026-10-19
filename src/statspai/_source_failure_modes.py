@@ -596,6 +596,19 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "glmnet: the outcome and predictors must be numeric.",
         },
     ],
+    "gologit": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass formula='y ~ x1 + x2', or y= and x=.",
+            "symptom": "gologit: the outcome and the regressors are needed.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "With two categories use sp.logit / sp.probit.",
+            "symptom": "gologit: the outcome needs at least three "
+            "categories; got <M>.",
+        },
+    ],
     "hausman": [
         {
             "exception": "statspai.MethodIncompatibility",

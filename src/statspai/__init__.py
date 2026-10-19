@@ -1107,6 +1107,7 @@ from .regression.fracreg import betareg, fracreg
 from .regression.gam import GAMResult, gam
 from .regression.gee import gee
 from .regression.glm import GLMEstimator, GLMRegression, glm
+from .regression.gologit import gologit
 
 # bayes — lazy-loaded (PyMC pulls heavy deps); see _LAZY_ATTRS below.
 from .regression.heckman import heckman
@@ -1782,6 +1783,7 @@ __all__ = [
     "xtlsdvc",
     "heckman",
     "heckprobit",
+    "gologit",
     "intreg",
     "qreg",
     "sqreg",

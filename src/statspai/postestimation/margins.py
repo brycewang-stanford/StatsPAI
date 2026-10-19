@@ -106,7 +106,7 @@ def margins(
         ``margins, predict(...)``; only after the limited-dependent-variable
         models, where Stata's default is used when omitted:
 
-        - ``mlogit`` / ``ologit`` / ``oprobit``: ``'pr'`` (default; one
+        - ``mlogit`` / ``ologit`` / ``oprobit`` / ``gologit``: ``'pr'`` (default; one
           row per variable and outcome), ``'xb'`` (ordered models);
         - ``tobit`` / ``intreg``: ``'xb'`` (default), ``'e(a,b)'`` =
           E(y | a < y < b), ``'ystar(a,b)'`` = E(max(a, min(y*, b))),

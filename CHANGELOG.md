@@ -4,6 +4,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.gologit`: generalized ordered logit / probit (partial proportional odds)
+
+#### Added
+
+- `sp.gologit(data, y, x, pl=, npl=, link='logit' | 'probit', vce=)`, the
+  model of Stata's user-written `gologit2`: `Pr(Y > c_j) = F(a_j +
+  x'b_j)` with free or parallel-lines coefficients per variable, gologit2's
+  coefficient layout (`'<category>:<variable>'`), a warning when the
+  unconstrained model predicts negative probabilities, and `sp.margins`
+  per outcome. Against gologit2 3.2.8 (used as a black box) coefficients,
+  standard errors and margins agree to 1e-6, gologit2's own convergence
+  tolerance (`tests/test_gologit_stata.py`); `pl=True` reproduces
+  `sp.ologit` (`a_j = -cut_j`).
+
 ### `sp.xttobit` / `sp.xtintreg`: random-effects tobit and interval regression
 
 #### Added

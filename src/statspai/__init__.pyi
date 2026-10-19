@@ -1248,6 +1248,7 @@ from .regression.gee import gee as gee
 from .regression.glm import GLMEstimator as GLMEstimator
 from .regression.glm import GLMRegression as GLMRegression
 from .regression.glm import glm as glm
+from .regression.gologit import gologit as gologit
 from .regression.heckman import heckman as heckman
 from .regression.heckprobit import heckprobit as heckprobit
 from .regression.interflex import interflex as interflex

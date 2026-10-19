@@ -511,6 +511,83 @@
     }
   },
   {
+    "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables.",
+    "name": "gologit",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "'y ~ x1 + C(g)' instead of y / x",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "link": {
+          "default": "logit",
+          "description": "Link",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
+        },
+        "npl": {
+          "description": "True (default): no variable parallel; a list: those variables free, the others parallel",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "pl": {
+          "description": "True: all variables parallel (= ologit); a list: those variables parallel",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "vce": {
+          "description": "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Ordinal outcome (>= 3 values)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows).",
     "name": "intreg",
     "parameters": {
@@ -46249,7 +46326,7 @@
           "type": "string"
         },
         "predict": {
-          "description": "The prediction whose marginal effect is reported, as Stata's ``margins, predict(...)``; only after the limited-dependent-variable models, where Stata's default is used when omitted: - ``mlogit`` / ``ologit`` / ``oprobit``: ``'pr'`` (default; one row per variable and outcome), ``'xb'`` (ordered models); - ``tobit`` / ``intreg``: ``'xb'`` (default), ``'e(a,b)'`` = E(y | a < y < b), ``'ystar(a,b)'`` = E(max(a, min(y*, b))), ``'pr(a,b)'``; ``'.'`` is an open limit and a bare ``'e'`` / ``'ystar'`` / ``'pr'`` uses the fit's censoring limits; - ``heckman`` (``method='ml'``): ``'xb'`` (default), ``'ycond'``, ``'yexpected'``, ``'psel'``, ``'xbsel'``; - ``heckprobit``: ``'pmargin'`` (default), ``'p11'``, ``'p10'``, ``'p01'``, ``'p00'``, ``'psel'``, ``'pcond'``, ``'xb'``, ``'xbsel'``; - ``ivprobit`` (``method='mle'``): ``'xb'`` (default, as Stata 18), ``'pr'`` (average structural function).",
+          "description": "The prediction whose marginal effect is reported, as Stata's ``margins, predict(...)``; only after the limited-dependent-variable models, where Stata's default is used when omitted: - ``mlogit`` / ``ologit`` / ``oprobit`` / ``gologit``: ``'pr'`` (default; one row per variable and outcome), ``'xb'`` (ordered models); - ``tobit`` / ``intreg``: ``'xb'`` (default), ``'e(a,b)'`` = E(y | a < y < b), ``'ystar(a,b)'`` = E(max(a, min(y*, b))), ``'pr(a,b)'``; ``'.'`` is an open limit and a bare ``'e'`` / ``'ystar'`` / ``'pr'`` uses the fit's censoring limits; - ``heckman`` (``method='ml'``): ``'xb'`` (default), ``'ycond'``, ``'yexpected'``, ``'psel'``, ``'xbsel'``; - ``heckprobit``: ``'pmargin'`` (default), ``'p11'``, ``'p10'``, ``'p01'``, ``'p00'``, ``'psel'``, ``'pcond'``, ``'xb'``, ``'xbsel'``; - ``ivprobit`` (``method='mle'``): ``'xb'`` (default, as Stata 18), ``'pr'`` (average structural function).",
           "type": "string"
         },
         "result": {

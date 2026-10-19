@@ -4,6 +4,7 @@ Regression module initialization
 
 from .count import nbreg, poisson, ppmlhdfe, xtnbreg
 from .glm import GLMEstimator, GLMRegression, glm
+from .gologit import gologit
 from .heckman import heckman
 from .heckprobit import heckprobit
 from .intreg import intreg
@@ -27,6 +28,7 @@ __all__ = [
     "IVEstimator",
     "heckman",
     "heckprobit",
+    "gologit",
     "intreg",
     "qreg",
     "sqreg",
