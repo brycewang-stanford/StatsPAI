@@ -71,9 +71,42 @@ sp.hypotheses(tab, "b1 - b2 = 0")              # rows of a table
 ```
 
 Each table carries the Jacobian of its estimates with respect to the
-coefficients (`tab.attrs["jacobian"]`). That is how a test of two rows
-uses their joint covariance. The expression is parsed with the same
-restricted grammar as `sp.nlcom` and is never run as code.
+coefficients (`tab.attrs["jacobian"]`, read it with `np.asarray`). That is
+how a test of two rows uses their joint covariance; a subset of the rows
+(`tab.iloc[[0, 2]]`) keeps the link to its own rows. The expression is
+parsed with the same restricted grammar as `sp.nlcom` and is never run as
+code.
+
+A list of hypotheses gives one row each. `joint=` runs one Wald test of
+several restrictions instead, linear or not (Stata `testnl`):
+
+```python
+sp.hypotheses(fit, ["x = 0", "z = 0"])                 # two rows
+sp.hypotheses(fit, joint=["x", "z"])                    # F on (2, n - k)
+sp.hypotheses(fit, ["exp(x) = 2", "x * z = 0.1"], joint=True, joint_test="chisq")
+```
+
+With `joint_test="f"` (the default) the statistic is `W / q` on `q` and
+the fit's residual degrees of freedom, also after a logit, as
+marginaleffects reports it.
+
+## Fixed-effects models
+
+After `sp.feols` / `sp.fepois` / `sp.feglm` with absorbed effects
+(`y ~ x | firm + year`) the absorbed effects are held at their estimates
+and enter the linear index like an offset, as marginaleffects does on a
+fixest model. `fit.fixef()` returns them (normalised as fixest reports
+them) and `fit.predict(newdata=...)` adds them; a level the fit never saw
+predicts NaN with a warning.
+
+Standard errors follow marginaleffects. A slope or a difference of a
+linear model does not depend on the effects and keeps its standard
+error. A prediction, or any quantity of a Poisson or logit model, does.
+The coefficient covariance does not carry the effects' uncertainty, so
+those calls need `vce=False` (marginaleffects' `vcov=FALSE`; `vcov=` is
+accepted too) and return estimates only. `sp.margins`
+reports delta-method standard errors that are conditional on the
+estimated effects.
 
 ## Evidence
 

@@ -23,9 +23,88 @@ import pandas as pd
 
 from ..exceptions import MethodIncompatibility
 
-__all__ = ["coefficient_covariance", "inference_df", "require_covariance"]
+__all__ = [
+    "AttrArray",
+    "coefficient_covariance",
+    "inference_df",
+    "require_covariance",
+]
 
 _COVARIANCE_KEYS = ("var_cov", "vcov", "cov_params", "cov")
+
+
+class AttrArray:
+    """A read-only matrix that can live in ``DataFrame.attrs``.
+
+    pandas compares the ``attrs`` of the inputs of ``pd.concat`` with ``==``
+    and needs a single bool -- and ``print`` of a wide table concatenates
+    the halves it shows. A bare ndarray there makes both raise ("the truth
+    value of an array ... is ambiguous"). This wrapper compares by value and
+    returns a bool, and behaves as the array for reading (``np.asarray``,
+    indexing, ``@``, ``.T``, ``.shape``).
+    """
+
+    __slots__ = ("_a",)
+
+    def __init__(self, a: Any) -> None:
+        arr = np.array(a, dtype=float)
+        arr.setflags(write=False)
+        object.__setattr__(self, "_a", arr)
+
+    def __array__(self, dtype: Any = None, copy: Any = None) -> np.ndarray:
+        return self._a if dtype is None else self._a.astype(dtype)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, AttrArray):
+            other = other._a
+        try:
+            return bool(np.array_equal(self._a, np.asarray(other), equal_nan=True))
+        except (TypeError, ValueError):
+            return False
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
+
+    __hash__ = None  # type: ignore[assignment]
+
+    def __getitem__(self, key: Any) -> Any:
+        return self._a[key]
+
+    def __len__(self) -> int:
+        return len(self._a)
+
+    def __iter__(self) -> Any:
+        return iter(self._a)
+
+    def __matmul__(self, other: Any) -> Any:
+        return self._a @ np.asarray(other)
+
+    def __rmatmul__(self, other: Any) -> Any:
+        return np.asarray(other) @ self._a
+
+    def __deepcopy__(self, memo: Any) -> "AttrArray":
+        return self  # immutable
+
+    def __copy__(self) -> "AttrArray":
+        return self
+
+    def __reduce__(self) -> Any:
+        return (AttrArray, (self._a,))
+
+    @property
+    def T(self) -> np.ndarray:
+        return self._a.T
+
+    @property
+    def shape(self) -> Tuple[int, ...]:
+        return self._a.shape
+
+    @property
+    def ndim(self) -> int:
+        return self._a.ndim
+
+    def __repr__(self) -> str:
+        return f"AttrArray(shape={self._a.shape})"
 
 
 def _standard_errors(result: Any, k: int) -> np.ndarray:

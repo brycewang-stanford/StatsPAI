@@ -953,11 +953,43 @@ class EconometricResults:
             g["df_model"] = int(dm) if np.isfinite(dm) else float(dm)
         return pd.DataFrame([g])
 
+    def fixef(self) -> Dict[str, pd.Series]:
+        """Estimated fixed effects of a ``sp.feols`` / ``fepois`` / ``feglm`` fit.
+
+        R ``fixest::fixef`` / Stata ``reghdfe, savefe``: one Series per
+        absorbed effect, indexed by its levels, on the scale of the linear
+        index. Effects are identified up to one constant per connected set
+        of levels (per additional effect); the normalisation is fixest's
+        (see :mod:`statspai.fixest._fixef`). Sums of effects, and so
+        predictions, do not depend on it.
+
+        Returns
+        -------
+        dict of str to pd.Series
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> d = pd.DataFrame({"g": rng.integers(0, 5, 200), "x": rng.normal(size=200)})
+        >>> d["y"] = d.g + 0.5 * d.x + rng.normal(size=200)
+        >>> fit = sp.feols("y ~ x | g", d)
+        >>> fe = fit.fixef()["g"]
+        >>> len(fe)
+        5
+        """
+        from ..fixest._fixef import fixef as _fixef
+
+        return _fixef(self)
+
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,
         what: str = "mean",
         alpha: float = 0.05,
+        *,
+        newdata: Optional[pd.DataFrame] = None,
     ) -> Union[np.ndarray, pd.DataFrame]:
         """
         Generate predictions from the fitted model.
@@ -968,7 +1000,11 @@ class EconometricResults:
             New data for out-of-sample prediction, holding the variables of
             the formula (the design -- ``I(x**2)``, ``np.log(x)``, ``C(g)``,
             interactions -- is rebuilt from them). If None, the estimation
-            sample is used.
+            sample is used. After a fit with absorbed fixed effects
+            (``sp.feols`` / ``fepois`` / ``feglm`` with ``| fe``) the
+            prediction adds the estimated effects of each row's levels, as
+            R ``fixest``'s ``predict`` does; a level the fit never saw
+            gives NaN, with a warning.
         what : {"mean", "link", "confidence", "prediction"}, default "mean"
             - ``"mean"`` -- the predicted mean of the outcome. For a model
               with a link function (``sp.glm``, ``sp.poisson``, ``sp.nbreg``)
@@ -985,6 +1021,8 @@ class EconometricResults:
               fit used, and is not defined after a weighted fit.
         alpha : float, default 0.05
             One minus the coverage of the interval.
+        newdata : pd.DataFrame, optional
+            Alias of ``data`` (the R spelling).
 
         Returns
         -------
@@ -1016,7 +1054,17 @@ class EconometricResults:
                 "'prediction'.",
                 diagnostics={"what": repr(what)},
             )
+        if newdata is not None:
+            if data is not None:
+                raise MethodIncompatibility(
+                    "predict(): pass the new data once, as data= or newdata=.",
+                    recovery_hint="Drop one of data= / newdata=.",
+                )
+            data = newdata
         inverse = self._inverse_link()
+        from ..fixest._fixef import has_fixed_effects
+
+        absorbed = has_fixed_effects(self)
 
         # In-sample point predictions: the stored fitted values
         if data is None and what == "mean":
@@ -1031,6 +1079,13 @@ class EconometricResults:
             raise NotImplementedError("Prediction not available for this model type.")
 
         index: Any = None
+        if data is None and absorbed:
+            # the stored design is the within-transformed one
+            raise MethodIncompatibility(
+                "predict(): the fit absorbed fixed effects, so its stored "
+                f"design is demeaned; what={what!r} needs the data.",
+                recovery_hint="Pass the estimation data as data=.",
+            )
         if data is None:
             X = self.data_info.get("X")
             if X is None:
@@ -1294,6 +1349,11 @@ class EconometricResults:
                     )
                 values = data[setting].to_numpy(dtype=float)
             total = total + (transform(values) if transform is not None else values)
+        if data is not None:
+            from ..fixest._fixef import fe_offset
+
+            # absorbed fixed effects enter the index like an offset
+            total = total + fe_offset(self, data, unseen="nan")
         return total
 
     def residuals(self) -> Optional[np.ndarray]:

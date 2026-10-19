@@ -453,6 +453,18 @@ def _estimation_sample(
     """
     if not restrict:
         return frame, 0
+    from ..fixest._fixef import fe_state
+
+    state = fe_state(result)
+    if (
+        state is not None
+        and state.sample_index is not None
+        and frame.index.isin(state.sample_index).sum() == len(state.sample_index)
+    ):
+        # a fixed-effects fit drops singletons / separated groups too: its
+        # sample is recorded by row label
+        kept = frame.loc[frame.index.isin(state.sample_index)]
+        return kept, len(frame) - len(kept)
     cols = [v for v in design.variables if v in frame.columns]
     dep = (getattr(result, "data_info", None) or {}).get("dependent_var")
     if isinstance(dep, str) and dep in frame.columns:
@@ -628,7 +640,11 @@ def _offset(result: Any, frame: pd.DataFrame) -> np.ndarray:
                 "the data passed to margins.",
                 recovery_hint="Pass data= containing the offset/exposure column.",
             )
-    return total
+    from ..fixest._fixef import fe_offset
+
+    # Absorbed fixed effects (sp.feols / fepois / feglm) are held fixed at
+    # their estimates, as marginaleffects does on a fixest model.
+    return total + fe_offset(result, frame, unseen="raise")
 
 
 def _get_vcov(result: Any) -> np.ndarray:

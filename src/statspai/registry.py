@@ -11924,6 +11924,18 @@ def _build_registry() -> None:
             "the fit's own (t after regress), or a number",
         ),
         ParamSpec("conf_level", "float", False, 0.95, "Confidence level"),
+        ParamSpec(
+            "vce",
+            "bool",
+            False,
+            True,
+            "False returns estimates without standard errors (alias vcov=, "
+            "marginaleffects' spelling). Required after "
+            "a fit with absorbed fixed effects (feols / fepois / feglm '| fe') "
+            "for predictions and for any quantity of a non-linear model: the "
+            "effects are held at their estimates and their uncertainty is not "
+            "in the coefficient covariance (marginaleffects refuses the same)",
+        ),
     ]
     _me_variables = ParamSpec(
         "variables",
@@ -12055,7 +12067,10 @@ def _build_registry() -> None:
                 "(marginaleffects::hypotheses): on a fit, of its coefficients; "
                 "on a table from sp.predictions / comparisons / slopes, of its "
                 "rows with their joint covariance. b1, b2 ... by position, "
-                "coefficient names, 'lhs = rhs'. Parsed, never evaluated as code."
+                "coefficient names, 'lhs = rhs'; a list gives one row each. "
+                "joint=True / joint=[names] runs one Wald test of several, "
+                "possibly non-linear, restrictions (Stata testnl). Parsed, "
+                "never evaluated as code."
             ),
             params=[
                 ParamSpec(
@@ -12067,13 +12082,33 @@ def _build_registry() -> None:
                 ),
                 ParamSpec(
                     "hypothesis",
-                    "str",
-                    True,
+                    "str | list[str]",
+                    False,
                     None,
-                    "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2'",
+                    "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2', or a list "
+                    "of such strings (one row each, or one joint test with "
+                    "joint=True); may be omitted when joint names the estimates",
                 ),
                 _me_common[4],
                 _me_common[5],
+                ParamSpec(
+                    "joint",
+                    "bool | list[str]",
+                    False,
+                    False,
+                    "Joint Wald test: True tests all the hypotheses (or, with "
+                    "none given, every estimate = 0) at once; a list of "
+                    "coefficient names tests that those are 0",
+                ),
+                ParamSpec(
+                    "joint_test",
+                    "str",
+                    False,
+                    "f",
+                    "'f': F = W / q on (q, residual df), marginaleffects' "
+                    "convention; 'chisq': W on q",
+                    enum=["f", "chisq"],
+                ),
             ],
             returns="DataFrame",
             example='sp.hypotheses(fit, "b2 = b3")',

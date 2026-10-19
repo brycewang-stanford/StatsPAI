@@ -1176,6 +1176,7 @@ def _fepois_fit(
         "keep_mask": keep,
         "y": y,
         "mu": mu,
+        "eta": eta,
         "w": obs_weights,
         "cluster": cluster_arr_full,
         "n_clusters": (

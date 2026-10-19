@@ -437,6 +437,7 @@ def _finish(
         "keep_mask": keep,
         "y": y,
         "mu": mu,
+        "eta": eta,
         "n_clusters": n_clusters,
         "df_k": int(df_k),
         "df_k_cluster": int(df_k_c),

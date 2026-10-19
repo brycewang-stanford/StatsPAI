@@ -495,6 +495,28 @@ def _inference(
     return se, t, pd.Series(pv, index=params.index)
 
 
+def _attach_fe(
+    out: EconometricResults,
+    p: Plan,
+    keep: Any,
+    eta: Any,
+    cols: List[str],
+    beta: Any,
+) -> None:
+    """Keep what ``fixef()`` / ``predict(newdata)`` / margins need."""
+    if not p.fe:
+        return
+    from ._fixef import attach
+
+    keep = np.asarray(keep, dtype=bool)
+    X = (
+        p.data.loc[keep, cols].to_numpy(dtype=float)
+        if cols
+        else np.zeros((int(keep.sum()), 0))
+    )
+    attach(out, p.data, keep, p.fe, np.asarray(eta, dtype=float), X, beta)
+
+
 def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     """Fit a planned ``sp.feols`` call natively, in the delegate's layout."""
     from ..fast.feols import _feols_fit
@@ -594,6 +616,7 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     )
     out.tvalues = t
     out.pvalues = pv
+    _attach_fe(out, p, a["keep_mask"], y - u, list(res.coef_names), params.to_numpy())
     return out
 
 
@@ -745,9 +768,25 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
     if G:
         data_info["df_inference"] = G - 1
     if not lean:
-        data_info["X"] = X
-        data_info["y"] = ys
-        data_info["var_names"] = names
+        # The 2SLS structure on the residualised columns, under the ``iv``
+        # namespace sp.ivreg uses: the WRE wild bootstrap reads it there.
+        # Not under X / y: the least-squares helpers (wild_cluster_boot,
+        # cr2_se) would treat the structural design as an OLS one.
+        data_info["iv"] = {
+            "y": ys,
+            "X": X,
+            "W": Z,
+            "exog_names": list(p.rhs),
+            "endog_names": list(p.endog),
+            "var_names": names,
+            "n_exog": k_ex,
+            "n_endog": k_en,
+            "kappa": 1.0,
+            "weighted": p.weights is not None,
+            # the WRE bootstrap residualises each draw on the effects again
+            "fe_codes": [np.asarray(c, dtype=np.int64) for c in a["fe_codes"]],
+        }
+        data_info["sample_index"] = p.data.index[np.asarray(a["keep_mask"], bool)]
     out = EconometricResults(
         params=params,
         std_errors=se,
@@ -757,6 +796,14 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
     )
     out.tvalues = t
     out.pvalues = pv
+    _attach_fe(
+        out,
+        p,
+        a["keep_mask"],
+        np.asarray(a["y"], dtype=float) - u,
+        list(p.rhs) + list(p.endog),
+        beta,
+    )
     if p.weights is not None:
         return out  # the delegate reports IV diagnostics for unweighted fits
     from .wrapper import _iv_diagnostics_core
@@ -872,6 +919,10 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
     )
     out.tvalues = t
     out.pvalues = pv
+    model_info["link"] = "log"
+    _attach_fe(
+        out, p, a["keep_mask"], a["eta"], list(res.coef_names), params.to_numpy()
+    )
     return out
 
 
@@ -950,6 +1001,10 @@ def fit_feglm(p: Plan, fml: str, *, family: str) -> EconometricResults:
     )
     out.tvalues = t
     out.pvalues = pv
+    model_info["link"] = family
+    _attach_fe(
+        out, p, a["keep_mask"], a["eta"], list(res.coef_names), params.to_numpy()
+    )
     return out
 
 
