@@ -391,6 +391,9 @@ def aipw(
         e_hat = e_known
         n_clipped = 0
     else:
+        # Kept unclipped so result.violations() can judge overlap from the
+        # fitted scores themselves, as it does for sp.ipw.
+        e_raw = e_hat.copy()
         n_clipped = int(np.sum((e_hat < trim) | (e_hat > 1.0 - trim)))
         if trim > 0:
             np.clip(e_hat, trim, 1.0 - trim, out=e_hat)
@@ -512,6 +515,11 @@ def aipw(
         "se_method": se_method,
         "n_propensity_clipped": n_clipped,
         "trim": float(trim),
+        # Unclipped fitted propensity and the bound it is judged against,
+        # read by result.violations() (the overlap check sp.ipw already
+        # gets). A known design probability is not a fitted score.
+        "_pscore": None if e_known is not None else e_raw,
+        "trimming_threshold": float(trim),
         "potential_outcome_means": po_means,
         "potential_outcome_means_se": po_means_se,
         "weights": weights,

@@ -95,7 +95,15 @@ def test_bundle_reruns_a_transformed_fit_in_a_new_process(csv, tmp_path):
 
     done = _run_script(bundle["script"], tmp_path)
     assert done.returncode == 0, done.stderr[-2000:]
-    assert "reproduced: 3 number(s) match" in done.stdout
+    # Three coefficients, each with its estimate, standard error and both
+    # interval ends.
+    assert "reproduced: 12 number(s) match" in done.stdout
+    for name, row in fit["coefficients"].items():
+        assert bundle["expected"]["coefficient_se"][name] == row["std_error"]
+        assert bundle["expected"]["coefficient_ci"][name] == [
+            row["conf_low"],
+            row["conf_high"],
+        ]
 
     # And the numbers are right, not merely self-consistent.
     clean = frame.dropna(subset=["inc"])
@@ -166,3 +174,48 @@ def test_bundle_unit_placeholder_argument_blocks_the_script():
     assert bundle["completeness"] == "call_only" and "script" not in bundle
     assert "<TypeName>" in bundle["needs"][0]
     assert bundle["expected"] == {"estimate": 1.5}
+
+
+def test_script_checks_the_standard_error_not_only_the_estimate(csv, tmp_path):
+    # 2026-10-19 audit: the bundle recorded the estimate only (it looked for
+    # ``std_error`` where the payload says ``se``), so a re-run with another
+    # variance estimator "reproduced". The SE and interval are now held too.
+    path, _ = csv
+    fit = _call(
+        "regress", formula="y ~ x", data_path=path, robust="hc1", as_handle=True
+    )
+    bundle = _bundle(fit["result_id"])
+    assert (
+        bundle["expected"]["coefficient_se"]["x"]
+        == fit["coefficients"]["x"]["std_error"]
+    )
+    done = _run_script(bundle["script"], tmp_path)
+    assert done.returncode == 0, done.stderr[-2000:]
+    # Same estimate, other variance estimator: the script must refuse it.
+    tampered = bundle["script"].replace("robust='hc1'", "robust='nonrobust'")
+    assert tampered != bundle["script"]
+    done = _run_script(tampered, tmp_path)
+    assert done.returncode != 0
+    assert "std_error of Intercept differs" in done.stderr
+
+
+def test_causal_result_bundle_holds_se_and_ci(tmp_path):
+    import statspai as sp
+
+    df = sp.dgp_observational(n=400, seed=3)
+    path = tmp_path / "obs.csv"
+    df.to_csv(path, index=False)
+    fit = _call(
+        "aipw",
+        y="y",
+        treat="treatment",
+        covariates=["x1", "x2"],
+        data_path=str(path),
+        as_handle=True,
+    )
+    bundle = _bundle(fit["result_id"])
+    assert bundle["expected"]["std_error"] == fit["se"]
+    assert bundle["expected"]["ci"] == list(fit["ci"])
+    done = _run_script(bundle["script"], tmp_path)
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert "reproduced: 4 number(s) match" in done.stdout

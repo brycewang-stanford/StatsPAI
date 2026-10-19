@@ -13,6 +13,7 @@ analysis outside the agent loop.
 from __future__ import annotations
 
 import keyword
+import math
 import re
 from typing import Any, Dict, Mapping, Optional
 
@@ -174,24 +175,85 @@ def replay_transforms(data: Any, steps: Any) -> Any:
     return data
 
 
+def _num(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def _headline(payload: Mapping[str, Any]) -> Dict[str, Any]:
-    """The numbers a re-run is checked against."""
+    """The numbers a re-run is checked against.
+
+    The point estimate alone does not pin a fit: a re-run with another
+    variance estimator (``vce``, clustering, bootstrap seed) reproduces
+    the estimate and nothing else. So the standard error and the interval
+    are recorded too, for the headline and for every coefficient.
+    """
     expected: Dict[str, Any] = {}
-    for key in ("estimate", "std_error", "n_obs"):
-        value = payload.get(key)
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            expected[key] = value
+    for key in ("estimate", "n_obs"):
+        if _num(payload.get(key)):
+            expected[key] = payload[key]
+    se = payload.get("se", payload.get("std_error"))
+    if _num(se):
+        expected["std_error"] = se
+    ci = payload.get("ci")
+    if isinstance(ci, (list, tuple)) and len(ci) == 2 and all(_num(v) for v in ci):
+        expected["ci"] = [ci[0], ci[1]]
     coefs = payload.get("coefficients")
     if isinstance(coefs, Mapping):
-        table = {
-            str(name): row.get("estimate")
-            for name, row in coefs.items()
-            if isinstance(row, Mapping)
-            and isinstance(row.get("estimate"), (int, float))
-        }
+        rows = {str(k): v for k, v in coefs.items() if isinstance(v, Mapping)}
+        table = {k: r["estimate"] for k, r in rows.items() if _num(r.get("estimate"))}
         if table:
             expected["coefficients"] = table
+        ses = {k: r["std_error"] for k, r in rows.items() if _num(r.get("std_error"))}
+        if ses:
+            expected["coefficient_se"] = ses
+        cis = {
+            k: [r["conf_low"], r["conf_high"]]
+            for k, r in rows.items()
+            if _num(r.get("conf_low")) and _num(r.get("conf_high"))
+        }
+        if cis:
+            expected["coefficient_ci"] = cis
     return expected
+
+
+def _close(a: float, b: float) -> bool:
+    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-12)
+
+
+def check_headline(result: Any, expected: Mapping[str, Any]) -> int:
+    """Compare a re-run ``result`` with a bundle's ``expected`` numbers.
+
+    Raises ``AssertionError`` naming the first number that differs and
+    returns how many numbers were compared. Used by the bundle script, so
+    an old bundle and a new one are checked by the same rules.
+    """
+    checked = 0
+
+    def same(label: str, got: Any, want: float) -> None:
+        nonlocal checked
+        assert _close(float(got), float(want)), f"{label} differs: {got} vs {want}"
+        checked += 1
+
+    if "estimate" in expected and hasattr(result, "estimate"):
+        same("estimate", result.estimate, expected["estimate"])
+        if "std_error" in expected and hasattr(result, "se"):
+            same("std_error", result.se, expected["std_error"])
+        ci = getattr(result, "ci", None)
+        if "ci" in expected and ci is not None:
+            same("ci lower", ci[0], expected["ci"][0])
+            same("ci upper", ci[1], expected["ci"][1])
+    for name, value in expected.get("coefficients", {}).items():
+        same(f"coefficient {name}", result.params[name], value)
+    for name, value in expected.get("coefficient_se", {}).items():
+        same(f"std_error of {name}", result.std_errors[name], value)
+    if expected.get("coefficient_ci"):
+        lo = getattr(result, "conf_int_lower", None)
+        hi = getattr(result, "conf_int_upper", None)
+        if lo is not None and hi is not None:
+            for name, (want_lo, want_hi) in expected["coefficient_ci"].items():
+                same(f"ci lower of {name}", lo[name], want_lo)
+                same(f"ci upper of {name}", hi[name], want_hi)
+    return checked
 
 
 _SCRIPT = """\
@@ -201,11 +263,10 @@ _SCRIPT = """\
 # It checks the data file against the recorded SHA-256, rebuilds the
 # analysis data, re-runs the call and compares the headline numbers.
 import hashlib
-import math
 
 import statspai as sp
 from statspai.agent._data_loader import load_dataframe
-from statspai.agent._replay import replay_transforms
+from statspai.agent._replay import check_headline, replay_transforms
 
 SOURCE = {source!r}
 SHA256 = {sha256!r}
@@ -222,17 +283,7 @@ data = replay_transforms(data, STEPS)
 result = {call}
 
 
-def _close(a, b):
-    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-12)
-
-
-checked = 0
-if "estimate" in EXPECTED and hasattr(result, "estimate"):
-    assert _close(float(result.estimate), EXPECTED["estimate"]), "estimate differs"
-    checked += 1
-for name, value in EXPECTED.get("coefficients", {{}}).items():
-    assert _close(float(result.params[name]), value), f"coefficient {{name}} differs"
-    checked += 1
+checked = check_headline(result, EXPECTED)
 print(f"reproduced: {{checked}} number(s) match")
 """
 
@@ -320,6 +371,7 @@ __all__ = [
     "REPLAY_LEVELS",
     "build_bundle",
     "build_replay",
+    "check_headline",
     "data_comment",
     "replay_completeness",
     "replay_transforms",
