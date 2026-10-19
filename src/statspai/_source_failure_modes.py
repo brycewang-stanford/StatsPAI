@@ -1433,7 +1433,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "A recursive identification is B=np.tril(np.full((K, K), "
             "np.nan)).",
             "symptom": "svar: give exactly one kind of restriction: A= / B= "
-            "(short-run), long_run= or sign=.",
+            "(short-run), long_run=, sign= or proxy=.",
         },
         {
             "exception": "statspai.DataInsufficient",

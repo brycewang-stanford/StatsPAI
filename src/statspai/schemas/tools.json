@@ -16605,9 +16605,19 @@
           "description": "Variable(s) hypothesised to cause; a list tests all their lags jointly (Stata ``vargranger``'s ``ALL`` row when it lists every other variable).",
           "type": "string"
         },
+        "id": {
+          "description": "Unit and period columns of a panel in ``data``: the Dumitrescu-Hurlin test (``plm::pgrangertest``, Stata ``xtgcause``), one regression per unit with its own coefficients, averaging the unit Wald statistics. Returns ``W_bar``, ``Z_bar``, ``Z_tilde`` (the fixed-``T`` version, whose two-sided p-value is ``p_value``) with their p-values and the per-unit statistics in ``individual``. ``lags`` defaults to 1.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "lags": {
           "description": "Number of lags (if fitting new VAR).",
           "type": "integer"
+        },
+        "time": {
+          "description": "Unit and period columns of a panel in ``data``: the Dumitrescu-Hurlin test (``plm::pgrangertest``, Stata ``xtgcause``), one regression per unit with its own coefficients, averaging the unit Wald statistics. Returns ``W_bar``, ``Z_bar``, ``Z_tilde`` (the fixed-``T`` version, whose two-sided p-value is ``p_value``) with their p-values and the per-unit statistics in ``individual``. ``lags`` defaults to 1.",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "var_result": {
           "description": "Pre-estimated VAR model.",
@@ -21267,6 +21277,11 @@
           "description": "If ``True`` (the legacy default), also adds ``y_{t-1}`` and ``shock_{t-1}`` as automatic regressors. Set ``False`` for a bare ``y_{t+h} ~ const + shock_t + controls`` specification. These two auto-controls were silent in the pre-1.16 docstring.",
           "type": "boolean"
         },
+        "common_sample": {
+          "default": false,
+          "description": "Fit every horizon on the observations available at the longest horizon (Stata ``lpirf``); the default uses each horizon's own sample (``lpirfs``).",
+          "type": "boolean"
+        },
         "controls": {
           "description": "Additional regressors taken **verbatim** from ``data``: the column values at time t are used directly, without re-lagging. If you want the lag of a control, lag it yourself before passing it in (e.g. ``df[\"unemp_lag\"] = df[\"unemp\"].shift(1)`` and then ``controls=[\"unemp_lag\"]``). The pre-1.16 behaviour silently re-lagged controls a second time on top of an auto- added ``y_{t-1}``, producing collinear columns and surprising impulse responses; see ``MIGRATION.md`` for context.",
           "items": {
@@ -21284,17 +21299,39 @@
           "description": "If ``True``, return the cumulative response ``y_{t+h} - y_{t-1}``. Default (False) returns ``y_{t+h}`` directly. With ``auto_lag=True`` the regression already holds ``y_{t-1}`` fixed, so the two give the same response and the same standard error; they differ only with ``auto_lag=False``.",
           "type": "boolean"
         },
+        "dfk": {
+          "description": "Small-sample adjustment. Unset: the ``lpirfs`` convention, ``n - k`` divisor for ``vce='ols'`` and none for the sandwiches. ``True``: Stata ``lpirf, dfk`` (``n - k`` divisor, robust and HAC variances times ``n / (n - k)``). ``False``: Stata ``lpirf`` without ``dfk`` (divisor ``n``, no factor).",
+          "type": "boolean"
+        },
+        "diff_shock": {
+          "default": false,
+          "description": "Panel only: use the first difference of the shock (and of the instruments), the ``lpirfs`` default ``diff_shock=TRUE``.",
+          "type": "boolean"
+        },
         "endog_order": {
-          "description": "Endogenous variable order used only when ``identification='lpirfs_cholesky'``. Defaults to ``[outcome, shock]``.",
+          "description": "With ``identification='lpirfs_cholesky'``: the Cholesky order of the system. With ``lags=``: the variables whose lags enter every projection (``lpirfs``' ``endog_data``). Defaults to ``[outcome, shock]``.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
+        "gamma": {
+          "description": "Steepness of the logistic transition; required with ``state_transform='logistic'``.",
+          "type": "number"
+        },
         "horizons": {
           "default": 20,
           "description": "Number of horizons h = 0, 1, ..., H to estimate.",
           "type": "integer"
+        },
+        "hp_lambda": {
+          "description": "If given, ``z`` is the standardised Hodrick-Prescott cycle of the state with this smoothing parameter (``lpirfs`` ``use_hp``).",
+          "type": "number"
+        },
+        "id": {
+          "description": "Unit and period columns: a panel local projection (``lpirfs::lp_lin_panel``). Leads, lags and differences are taken within unit by period.",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "identification": {
           "default": "direct",
@@ -21304,6 +21341,26 @@
             "lpirfs_cholesky"
           ],
           "type": "string"
+        },
+        "instruments": {
+          "description": "External instruments for the shock: ``shock`` is treated as endogenous and each horizon is fitted by two-stage least squares with every other regressor as its own instrument (``lpirfs:: lp_lin_iv(use_twosls=TRUE)``; panel: ``lp_lin_panel(iv_reg=TRUE)``). The first-stage F of every horizon is in ``diagnostics``; below 10 an ``AssumptionWarning`` is raised.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "lag_state": {
+          "default": true,
+          "description": "Use ``F_{t-1}`` so the regime is fixed before the shock.",
+          "type": "boolean"
+        },
+        "lags": {
+          "description": "Lags of the ``endog_order`` variables included as controls; an int ``p`` means lags 1..p (``lpirfs`` ``lags_endog_lin``, Stata ``lpirf, lags(1/p)``). Passing ``lags``, ``instruments``, ``vce``, ``trend``, ``common_sample`` or ``dfk`` selects this explicit design in place of ``auto_lag`` (``lags=1`` with the default ``endog_order`` is the ``auto_lag=True`` design), and the default Newey-West lag becomes the ``lpirfs`` rule ``h + 1`` at horizon ``h``. Unset, it is 1 if ``auto_lag`` else 0.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
         },
         "nw_lags": {
           "description": "Newey-West truncation lag, used at every horizon (for ``identification='direct'``). Defaults to ``round(1.5 * horizons)`` per Kilian & Kim (2011) recommendation.",
@@ -21318,8 +21375,58 @@
           "x-canonical": "y",
           "x-statspai-role": "column"
         },
+        "panel_effect": {
+          "default": "individual",
+          "description": "Fixed effects swept out by the within transformation; ``'none'`` is pooled OLS (``plm`` ``effect`` / ``model='pooling'``).",
+          "enum": [
+            "individual",
+            "time",
+            "twoways",
+            "none"
+          ],
+          "type": "string"
+        },
         "shock": {
           "description": "Column name of the shock / treatment variable.",
+          "type": "string"
+        },
+        "state": {
+          "description": "Column of the state variable for a state-dependent projection (``lpirfs::lp_nl_iv`` with an observed shock, ``lp_nl`` with ``identification='lpirfs_cholesky'``). Returns a ``StateDependentLPResult`` with the responses in the regimes ``F = 1`` and ``F = 0`` and a per-horizon test of their equality.",
+          "type": "string"
+        },
+        "state_transform": {
+          "default": "logistic",
+          "description": "``'logistic'``: ``F = exp(-gamma z) / (1 + exp(-gamma z))`` (near 1 when ``z`` is low). ``'none'``: the state is already the weight and must lie in [0, 1].",
+          "enum": [
+            "logistic",
+            "none"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Unit and period columns: a panel local projection (``lpirfs::lp_lin_panel``). Leads, lags and differences are taken within unit by period.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trend": {
+          "default": 0,
+          "description": "Deterministic trend: none, linear, or linear and quadratic (``lpirfs`` ``trend``).",
+          "enum": [
+            0,
+            1,
+            2
+          ],
+          "type": "integer"
+        },
+        "vce": {
+          "description": "Variance of the explicit design: ``'hac'`` Newey-West (default), ``'robust'`` HC0, or ``'ols'`` homoskedastic. Panel projections take ``'cluster'`` (by unit, default), ``'driscoll_kraay'`` or ``'ols'``.",
+          "enum": [
+            "hac",
+            "robust",
+            "ols",
+            "cluster",
+            "driscoll_kraay"
+          ],
           "type": "string"
         }
       },
@@ -39570,6 +39677,26 @@
           "default": 1000,
           "description": "Admissible rotations kept",
           "type": "integer"
+        },
+        "proxy": {
+          "description": "External instrument for one shock (a proxy SVAR): correlated with that shock, uncorrelated with the others. One value per row of the data given to :func:`var` (or per residual), NaN where it is not observed. Identifies the shock's impact column ``b Cov(e_t, m_t)``, the 2SLS coefficients of each residual on the target's residual with the proxy as instrument; ``.irf(ci='bootstrap')`` uses a wild bootstrap that flips the residual and the proxy of a period together. ``.proxy_diagnostics`` holds the robust first-stage F (warning below 10) and ``.shock_series`` the identified shock.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "proxy_scale": {
+          "default": "unit",
+          "description": "``'unit'``: the target's impact response is 1. ``'std'``: a one-standard-deviation shock, ``b / sqrt(b' Sigma^{-1} b)``.",
+          "enum": [
+            "unit",
+            "std"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
+        "proxy_target": {
+          "description": "Variable whose impact response the proxy pins down (default the first variable), usually the policy variable.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "seed": {
           "description": "Seed of the rotation draws",

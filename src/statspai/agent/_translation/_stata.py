@@ -1075,11 +1075,12 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
         "0.1304), so the line is not translated.",
         ["lee_bounds"],
     ),
-    "lpirf": (
-        "`lpirf` maps to sp.local_projections(data, outcome=, shock=, "
-        "horizons=<step()>, controls=); lpirf's lag structure (lags(), "
-        "exog()) and its standard errors differ enough that the call is "
-        "best written directly.",
+    "ivlpirf": (
+        "`ivlpirf` (StataNow) maps to sp.local_projections(data, "
+        "outcome=, shock=<endogenous>, instruments=[...], lags=, "
+        "endog_order=, horizons=<step() - 1>, vce=); the Stata 18 used for "
+        "checking has no ivlpirf, so the option mapping is unverified and "
+        "the line is not translated.",
         ["local_projections"],
     ),
     "rwolf": (

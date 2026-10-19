@@ -273,6 +273,8 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     # [TS] var: lags(numlist); the parser takes lag() as well.
     "var": (("lags", 3), ("exog", 2)),
     "svar": (("lags", 3), ("exog", 2)),
+    # [TS] lpirf: la:gs(), st:ep(), ex:og().
+    "lpirf": (("lags", 2), ("step", 2), ("exog", 2)),
     "psmatch2": (("outcome", 3), ("neighbor", 1), ("pscore", 2), ("common", 3)),
     "attnd": (("bootstrap", 4), ("detail", 3)),
     "attk": (("bootstrap", 4), ("detail", 3)),

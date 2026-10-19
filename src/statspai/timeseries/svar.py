@@ -12,7 +12,9 @@ that the data cannot pin down. Three ways of pinning them down are offered:
   cumulative effect of the shocks (Blanchard and Quah; Stata ``svar,
   lreq()``);
 * **sign** restrictions on the impulse responses, which give a set of
-  admissible ``P`` instead of one (Uhlig; Rubio-Ramirez, Waggoner and Zha).
+  admissible ``P`` instead of one (Uhlig; Rubio-Ramirez, Waggoner and Zha);
+* an external instrument (**proxy**) for one shock, which identifies that
+  shock's column of ``P`` alone (``_svar_proxy.py``).
 
 The reduced form is taken from :func:`statspai.var` as estimated; this
 module only adds the identification step.
@@ -84,7 +86,9 @@ class SVARResult(ResultProtocolMixin):
     Attributes
     ----------
     identification : str
-        ``"short-run"``, ``"long-run"`` or ``"sign"``.
+        ``"short-run"``, ``"long-run"``, ``"sign"`` or ``"proxy"`` (one
+        shock: ``impact`` has one column, ``fevd`` shares are of the full
+        forecast-error variance).
     impact : pandas.DataFrame
         The structural impact matrix ``P`` (rows: variables, columns:
         shocks): the response in the same period to a one-standard-deviation
@@ -272,6 +276,8 @@ class SVARResult(ResultProtocolMixin):
                 recovery_hint="Structural responses get their bands from the "
                 "residual bootstrap.",
             )
+        if self.identification == "proxy":
+            return self._proxy_bands(periods, cumulative, reps, seed, alpha, what)
         if self._draws is not None:
             raise MethodIncompatibility(
                 "svar: sign restrictions give an identified set, whose "
@@ -378,6 +384,13 @@ class SVARResult(ResultProtocolMixin):
             return self._bootstrap_irf(
                 periods, False, str(ci).lower(), reps, seed, boot, alpha, "fevd"
             )
+        if self.identification == "proxy":
+            from ._svar_proxy import proxy_fevd
+
+            theta = self._theta(periods, self._impact)
+            return self._long(
+                {"fevd": proxy_fevd(theta, self._lag_matrices, self._sigma)}, periods
+            )
         if self._draws is None:
             return self._long(
                 {"fevd": fevd_shares(self._theta(periods, self._impact))}, periods
@@ -425,6 +438,47 @@ class SVARResult(ResultProtocolMixin):
         return (
             f"SVARResult({self.identification} restrictions, K={len(self.var_names)})"
         )
+
+    def _proxy_bands(self, periods, cumulative, reps, seed, alpha, what):
+        from ._svar_proxy import proxy_bootstrap, proxy_fevd
+
+        level = self.alpha if alpha is None else float(alpha)
+
+        def path(lag_matrices: List[np.ndarray], impact: np.ndarray) -> np.ndarray:
+            phi = ma_coefficients(lag_matrices, periods)
+            theta = np.asarray(np.einsum("sij,jk->sik", phi, impact))
+            if what == "fevd":
+                return np.asarray(proxy_fevd(theta, lag_matrices, self._sigma))
+            return np.cumsum(theta, axis=0) if cumulative else theta
+
+        estimate = path(self._lag_matrices, self._impact)
+        stack, _ = proxy_bootstrap(self, path, int(reps), seed)
+        return self._long(
+            {
+                what: estimate,
+                "se": stack.std(axis=0, ddof=1),
+                "lower": np.quantile(stack, level / 2.0, axis=0),
+                "upper": np.quantile(stack, 1.0 - level / 2.0, axis=0),
+            },
+            periods,
+        )
+
+    def historical_decomposition(self) -> pd.DataFrame:
+        """Historical decomposition of every variable into shock contributions.
+
+        Returns one row per period and variable: ``actual``, ``baseline``
+        (the path from the initial values and deterministic terms with all
+        shocks set to zero), one column per identified shock with its
+        accumulated contribution ``sum_s Theta_s[:, j] u_{j, t-s}`` from the
+        first residual on, and with a proxy identification ``other`` for
+        the shocks it leaves unidentified. ``actual = baseline + sum of the
+        shock columns (+ other)`` holds exactly in every row. Not defined
+        for sign restrictions, whose median impact matrix is not itself an
+        admissible model.
+        """
+        from ._svar_hd import historical_decomposition
+
+        return historical_decomposition(self)
 
 
 # ------------------------------------------------------- AB-model likelihood
@@ -751,6 +805,9 @@ def svar(
     max_tries: int = 200_000,
     seed: Optional[int] = None,
     alpha: float = 0.05,
+    proxy: Optional[Any] = None,
+    proxy_target: Optional[str] = None,
+    proxy_scale: str = "unit",
 ) -> SVARResult:
     """Structural VAR: identify the shocks behind a fitted :func:`var`.
 
@@ -762,6 +819,7 @@ def svar(
     ``sp.svar(fit, A=A, B=B)``                    ``svar ..., aeq(A) beq(B)``
     ``sp.svar(fit, long_run=C)``                  ``svar ..., lreq(C)``
     ``sp.svar(fit, sign={...})``                  no official command
+    ``sp.svar(fit, proxy=m, proxy_target='i')``   no official command
     ============================================  ==========================
 
     Parameters
@@ -797,6 +855,23 @@ def svar(
     alpha : float, default 0.05
         Sign restrictions: the bands of ``irf`` / ``fevd`` are the
         ``alpha / 2`` and ``1 - alpha / 2`` quantiles over the draws.
+    proxy : array-like or pandas.Series, optional
+        External instrument for one shock (a proxy SVAR): correlated with
+        that shock, uncorrelated with the others.
+        One value per row of the data given to :func:`var` (or per
+        residual), NaN where it is not observed. Identifies the shock's
+        impact column ``b ∝ Cov(e_t, m_t)``, the 2SLS coefficients of each
+        residual on the target's residual with the proxy as instrument;
+        ``.irf(ci='bootstrap')`` uses a wild bootstrap that flips the
+        residual and the proxy of a period together. ``.proxy_diagnostics``
+        holds the robust first-stage F (warning below 10) and
+        ``.shock_series`` the identified shock.
+    proxy_target : str, optional
+        Variable whose impact response the proxy pins down (default the
+        first variable), usually the policy variable.
+    proxy_scale : {'unit', 'std'}, default 'unit'
+        ``'unit'``: the target's impact response is 1. ``'std'``: a
+        one-standard-deviation shock, ``b / sqrt(b' Sigma^{-1} b)``.
 
     Returns
     -------
@@ -880,11 +955,16 @@ def svar(
             f"svar: alpha must be in (0, 1), got {alpha!r}.",
             recovery_hint="alpha is 1 minus the coverage of the bands.",
         )
-    kinds = [A is not None or B is not None, long_run is not None, sign is not None]
+    kinds = [
+        A is not None or B is not None,
+        long_run is not None,
+        sign is not None,
+        proxy is not None,
+    ]
     if sum(kinds) != 1:
         raise MethodIncompatibility(
             "svar: give exactly one kind of restriction: A= / B= (short-run), "
-            "long_run= or sign=.",
+            "long_run=, sign= or proxy=.",
             recovery_hint="A recursive identification is "
             "B=np.tril(np.full((K, K), np.nan)).",
         )
@@ -901,6 +981,10 @@ def svar(
     )
     lags = _lag_matrices(var_result)
     shocks = [f"shock{i + 1}" for i in range(k)]
+    if proxy is not None:
+        from ._svar_proxy import proxy_svar
+
+        return proxy_svar(var_result, proxy, proxy_target, proxy_scale, alpha)
 
     if sign is not None:
         if sign_horizon < 0 or n_draws < 1:

@@ -4,6 +4,45 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Local projections with instruments, regimes and panels; proxy SVAR
+
+#### Added
+
+- `sp.local_projections(..., instruments=[...])` fits each horizon by
+  two-stage least squares with the shock endogenous (`lpirfs::lp_lin_iv`,
+  `use_twosls=TRUE`), reporting the first-stage F by horizon and warning
+  below 10. The same explicit design without instruments takes `lags=`
+  (int or list), `endog_order=` (the lagged system), `trend=`, `vce=`
+  (`'hac'`, `'robust'`, `'ols'`), `dfk=` and `common_sample=`; with
+  `common_sample=True` it is Stata 18 `lpirf`'s dynamic multiplier of an
+  `exog()` variable under every `vce()` and `dfk`. Passing none of these
+  leaves the existing two paths unchanged.
+- `state=` gives state-dependent projections (`lpirfs::lp_nl_iv` for an
+  observed shock, `lp_nl` with `identification='lpirfs_cholesky'`):
+  logistic or indicator regime weights, optional Hodrick-Prescott cycle,
+  and a per-horizon Wald test that the two regime responses are equal
+  (new `StateDependentLPResult`).
+- `id=` / `time=` give panel projections (`lpirfs::lp_lin_panel`): unit,
+  period or two-way fixed effects or pooled OLS, differenced shock,
+  instruments, and unit-clustered (default), Driscoll-Kraay or
+  homoskedastic errors.
+- `sp.svar(fit, proxy=m, proxy_target=, proxy_scale=)` identifies one shock
+  with an external instrument (a proxy SVAR), with a wild
+  bootstrap for `irf(ci='bootstrap')`, FEVD shares of the full
+  forecast-error variance and the robust first-stage F.
+- `SVARResult.historical_decomposition()` splits every variable into a
+  shock-free baseline and accumulated shock contributions (R `svars::hd`).
+- `sp.granger_causality(data=, caused=, causing=, lags=, id=, time=)` is
+  the Dumitrescu-Hurlin panel test (`W_bar`, `Z_bar`, `Z_tilde`).
+- `sp.from_stata` translates `lpirf y, exog(x)` with `lags()`, `step()`,
+  `vce(ols | robust | hac nwest [#])`, `dfk`, `level()`; the other `lpirf`
+  forms and `ivlpirf` (absent from Stata 18) are refused with the call to
+  write.
+- Evidence: `tests/reference_parity/test_ts_causal_parity.py`, 1e-12 or
+  better against `lpirfs` 0.2.5, `plm` 2.6 (GPL packages used as black
+  boxes), `svars` 1.3, Stata 18 `lpirf` and `xtgcause`; the proxy SVAR
+  against the 2SLS identity and a long simulated sample.
+
 ### `sp.xtevent`: trend adjustment and proxy-IV estimation
 
 #### Added

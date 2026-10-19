@@ -694,6 +694,8 @@ def granger_causality(
     caused: Optional[str] = None,
     causing: Optional[str] = None,
     lags: Optional[int] = None,
+    id: Optional[str] = None,
+    time: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Granger causality test.
@@ -714,6 +716,14 @@ def granger_causality(
         other variable).
     lags : int, optional
         Number of lags (if fitting new VAR).
+    id, time : str, optional
+        Unit and period columns of a panel in ``data``: the
+        Dumitrescu-Hurlin test (``plm::pgrangertest``, Stata ``xtgcause``),
+        one regression per unit with its own coefficients, averaging the
+        unit Wald statistics. Returns ``W_bar``, ``Z_bar``, ``Z_tilde`` (the
+        fixed-``T`` version, whose two-sided p-value is ``p_value``) with
+        their p-values and the per-unit statistics in ``individual``.
+        ``lags`` defaults to 1.
 
     Returns
     -------
@@ -757,6 +767,20 @@ def granger_causality(
         raise MethodIncompatibility(
             "granger_causality requires both caused=... and causing=....",
             diagnostics={"caused": caused, "causing": causing},
+        )
+
+    if id is not None or time is not None:
+        if id is None or time is None or data is None or var_result is not None:
+            raise MethodIncompatibility(
+                "granger_causality: the panel test needs data=, id= and time= "
+                "(and no var_result).",
+                recovery_hint="sp.granger_causality(data=df, caused='y', "
+                "causing='x', lags=1, id='country', time='year')",
+            )
+        from ._panel_granger import panel_granger
+
+        return panel_granger(
+            data, caused, causing, 1 if lags is None else lags, id, time
         )
 
     if var_result is None:

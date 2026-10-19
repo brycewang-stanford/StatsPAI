@@ -1,6 +1,7 @@
 """Translations of Stata's time-series commands.
 
-``prais``, ``corrgram`` / ``wntestq`` and the ``var`` family. All of them
+``prais``, ``corrgram`` / ``wntestq``, the ``var`` family and ``lpirf``'s
+dynamic multipliers. All of them
 read the series in the row order of the data; ``sp.stata`` sorts by the
 ``tsset`` time variable, a single translated line cannot.
 """
@@ -275,6 +276,150 @@ def _h_vec(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("vec", args, f"sp.vec(df, {kw})", semantics=[_ROW_ORDER, _LAGS_NOTE])
 
 
+_LPIRF_FN = ["local_projections"]
+
+
+def _lpirf_lags(raw: Optional[str]) -> Any:
+    """``lags(numlist)`` -> int ``p`` for ``1/p``, else the sorted list."""
+    import re
+
+    if raw is None:
+        return 2  # Stata's default is lags(1 2)
+    out: List[int] = []
+    for part in str(raw).replace(",", " ").split():
+        m = re.fullmatch(r"(\d+)\s*/\s*(\d+)", part)
+        if m:
+            out.extend(range(int(m.group(1)), int(m.group(2)) + 1))
+        elif part.isdigit():
+            out.append(int(part))
+        else:
+            return None
+    lags = sorted(set(out))
+    if not lags or lags[0] != 1:
+        return None
+    return len(lags) if lags == list(range(1, len(lags) + 1)) else lags
+
+
+def _h_lpirf(cmd: StataCommand) -> Dict[str, Any]:
+    """``lpirf y, exog(x) [lags() step() vce() dfk small level()]`` ->
+    ``sp.local_projections`` (the dynamic multiplier of ``x`` on ``y``).
+
+    Checked against Stata 18 (``tests/reference_parity/
+    test_ts_causal_parity.py``): every vce type, ``dfk``, skipped lags.
+    """
+    deps = list(cmd.varlist)
+    exog = str(cmd.options.get("exog") or "").split()
+    template = (
+        "sp.local_projections(df, outcome=<response>, shock=<exog variable>, "
+        "controls=<other exog variables>, endog_order=<depvarlist>, "
+        "lags=<lags()>, horizons=<step() - 1>, common_sample=True, "
+        "vce='ols' | 'robust' | 'hac', dfk=<dfk given>)"
+    )
+    if not exog:
+        return _emit_error(
+            "'lpirf' without exog() is not translated line by line: its "
+            "responses to the dependent variables are their own first-lag "
+            "coefficients, a reduced-form projection; for an observed or "
+            f"instrumented shock call {template}",
+            command="lpirf",
+            suggestions=[],
+            statspai_functions=_LPIRF_FN,
+        )
+    if len(deps) != 1 or len(exog) != 1:
+        return _emit_error(
+            "'lpirf' with several responses or exog() variables is one "
+            f"projection per pair; write one call each: {template}",
+            command="lpirf",
+            suggestions=[],
+            statspai_functions=_LPIRF_FN,
+        )
+    if any("." in v for v in deps + exog):
+        return _emit_error(
+            "lpirf: time-series operators in the variable lists are not "
+            "translated; create the lagged column first",
+            command="lpirf",
+            suggestions=[],
+            statspai_functions=_LPIRF_FN,
+        )
+    lags = _lpirf_lags(cmd.options.get("lags"))
+    if lags is None:
+        return _emit_error(
+            f"lpirf: lags({cmd.options.get('lags')}) must be a numlist that "
+            "includes lag 1",
+            command="lpirf",
+            suggestions=[],
+        )
+    step = _int_option(cmd, "step")
+    if isinstance(step, dict):
+        return step
+    step = 8 if step is None else step
+    if step < 1:
+        return _emit_error("lpirf: step() must be positive", command="lpirf")
+    args: Dict[str, Any] = {
+        "outcome": deps[0],
+        "shock": exog[0],
+        "horizons": step - 1,
+        "lags": lags,
+        "endog_order": [deps[0]],
+        "common_sample": True,
+    }
+    vce = " ".join(str(cmd.options.get("vce") or "").lower().split())
+    if vce in ("", "ols"):
+        args["vce"] = "ols"
+    elif vce in ("r", "ro", "rob", "robu", "robus", "robust"):
+        args["vce"] = "robust"
+    else:
+        parts = vce.split()
+        if (
+            parts[0] != "hac"
+            or len(parts) not in (2, 3)
+            or parts[1]
+            not in (
+                "nwest",
+                "bartlett",
+            )
+        ):
+            return _emit_error(
+                f"lpirf: vce({vce}) is not translated (Newey-West HAC, robust "
+                "and ols are)",
+                command="lpirf",
+                suggestions=[],
+            )
+        args["vce"] = "hac"
+        if len(parts) == 3 and not parts[2].isdigit():
+            return _emit_error(
+                f"lpirf: vce({vce}) lag is not an integer", command="lpirf"
+            )
+        args["nw_lags"] = int(parts[2]) if len(parts) == 3 else step
+    args["dfk"] = "dfk" in cmd.options
+    level = cmd.options.get("level")
+    if level is not None:
+        try:
+            args["alpha"] = round(1 - float(str(level).strip()) / 100, 10)
+        except ValueError:
+            return _emit_error(
+                f"lpirf: level({level}) is not a number", command="lpirf"
+            )
+    semantics = [
+        _ROW_ORDER,
+        "irf[h] is lpirf's step h of the exog() block of e(b) (step 0 is the "
+        "impact); the responses to the dependent variables' own lags, the "
+        "other rows of lpirf's table, are not part of this call.",
+    ]
+    if "small" in cmd.options:
+        semantics.append(
+            "small: Stata reports t statistics; the coefficients and standard "
+            "errors are the same, the bands here use the normal."
+        )
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit(
+        "local_projections",
+        args,
+        f"sp.local_projections(df, {kw})",
+        semantics=semantics,
+    )
+
+
 HANDLERS = {
     "prais": _h_prais,
     "corrgram": _h_corrgram,
@@ -290,5 +435,6 @@ HANDLERS = {
     "vecstable": _h_var_postest,
     "vecrank": _h_vecrank,
     "vec": _h_vec,
+    "lpirf": _h_lpirf,
 }
 POSTEST = frozenset({_h_var_postest})

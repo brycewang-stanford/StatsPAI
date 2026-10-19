@@ -173,6 +173,42 @@ bootstrap sample. Sign restrictions give a set of models, not one; their
 `irf()` already reports the spread of that set, which is not a confidence
 band.
 
+An external instrument identifies one shock without restricting the
+others, and every point-identified model decomposes the data history:
+
+```python
+px = sp.svar(fit, proxy=df["news"], proxy_target="i")   # proxy SVAR
+px.proxy_diagnostics["robust_f"]          # proxy strength; warns below 10
+px.irf(20, ci="bootstrap", reps=500, seed=1)   # wild bootstrap, proxy flipped with u
+px.fevd(20)                               # share of the full forecast-error variance
+ab.historical_decomposition()             # actual = baseline + shock contributions
+```
+
+### Local projections: IV, state-dependent and panel
+
+```python
+sp.local_projections(df, outcome="y", shock="g", instruments=["news"],
+                     lags=4, endog_order=["y", "g"], horizons=16)    # lpirfs::lp_lin_iv
+sp.local_projections(df, outcome="y", shock="g", lags=4, state="gap",
+                     gamma=3, hp_lambda=1600, horizons=16)          # lpirfs::lp_nl_iv
+sp.local_projections(panel, outcome="y", shock="x", id="country",
+                     time="year", lags=2, horizons=8)               # lpirfs::lp_lin_panel
+sp.local_projections(df, outcome="y", shock="g", lags=2,
+                     endog_order=["y"], common_sample=True,
+                     vce="ols", dfk=False, horizons=7)              # Stata lpirf, exog(g)
+sp.granger_causality(data=panel, caused="y", causing="x", lags=1,
+                     id="country", time="year")                     # Dumitrescu-Hurlin
+```
+
+Any of `lags`, `instruments`, `vce`, `trend`, `common_sample` or `dfk`
+selects the explicit design: lags of the `endog_order` variables replace
+`auto_lag`, and the Newey-West lag at horizon `h` is `h + 1` (the `lpirfs`
+rule) unless `nw_lags` is given. IV projections report the first-stage F
+of every horizon and warn below 10. State-dependent projections return
+the responses in the two regimes of the weight `F` and a per-horizon test
+of their equality. Panel projections cluster by unit by default; `lpirfs`
+reports homoskedastic errors unless asked, `vce="ols"` reproduces them.
+
 ### Cointegration (chapter 16)
 
 ```python
@@ -286,6 +322,10 @@ over time. Report both before claiming that it did.
 | `sp.garch` | Stata `arch`, R `rugarch` |
 | `sp.xcorr` | R `ccf`, Stata `xcorr` |
 | `sp.var`, `sp.irf`, `sp.svar` | Stata `var`, `irf`, `svar`; R `vars` |
+| `sp.svar(proxy=)` | the 2SLS identity on the residuals; recovery of the true impact column |
+| `SVARResult.historical_decomposition` | R `svars::hd`; the shock-free path from the initial values |
+| `sp.local_projections` (IV, state, panel) | R `lpirfs` `lp_lin_iv`, `lp_nl_iv`, `lp_nl`, `lp_lin_panel`; Stata `lpirf` |
+| `sp.granger_causality(id=, time=)` | R `plm::pgrangertest`, Stata `xtgcause` |
 | `sp.johansen`, `sp.vec`, `sp.johansen_lrtest` | Stata `vecrank`, `vec`; R `urca` |
 | `sp.kalman_filter`, `sp.statespace` | R `KFAS`, statsmodels |
 | `sp.mswitch` | Stata `mswitch`, statsmodels |

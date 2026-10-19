@@ -1227,6 +1227,12 @@ TIER3_ROUND_TRIPS = [
     ("prais y x, corc", "prais", {"formula": "y ~ x", "method": "corc"}),
     ("corrgram y, lags(5)", "corrgram", {"y": "y", "lags": 5}),
     (
+        "lpirf y, exog(g) lags(1/3) step(4) vce(robust)",
+        "local_projections",
+        {"outcome": "y", "shock": "g", "horizons": 3, "lags": 3,
+         "common_sample": True, "vce": "robust", "dfk": False},
+    ),  # fmt: skip
+    (
         "var y1 y2, lag(1/2) exog(t t2)",
         "var",
         {"variables": ["y1", "y2"], "lags": 2, "exog": ["t", "t2"]},

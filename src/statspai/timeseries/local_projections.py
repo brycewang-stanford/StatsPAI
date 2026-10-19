@@ -16,8 +16,8 @@ macro (Ramey 2016; Plagborg-Møller & Wolf 2021).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -94,6 +94,8 @@ class LocalProjectionsResult(ResultProtocolMixin):
     shock_name: str
     outcome_name: str
     n_obs_per_horizon: np.ndarray  # (H+1,)  — usable sample per horizon
+    method: str = "direct"
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
 
     def to_frame(self) -> pd.DataFrame:
         return pd.DataFrame(
@@ -275,8 +277,27 @@ def local_projections(
     auto_lag: bool = True,
     identification: str = "direct",
     endog_order: Optional[List[str]] = None,
-) -> LocalProjectionsResult:
+    lags: Optional[Union[int, List[int]]] = None,
+    instruments: Optional[List[str]] = None,
+    vce: Optional[str] = None,
+    dfk: Optional[bool] = None,
+    trend: int = 0,
+    common_sample: bool = False,
+    state: Optional[str] = None,
+    state_transform: str = "logistic",
+    gamma: Optional[float] = None,
+    hp_lambda: Optional[float] = None,
+    lag_state: bool = True,
+    id: Optional[str] = None,
+    time: Optional[str] = None,
+    panel_effect: str = "individual",
+    diff_shock: bool = False,
+) -> Any:
     """Estimate impulse responses via Jordà (2005) local projections.
+
+    One entry for the single-series projection with an observed shock, its
+    instrumental-variable form (``instruments=``), the state-dependent form
+    (``state=``) and the panel form (``id=``, ``time=``).
 
     Parameters
     ----------
@@ -322,9 +343,90 @@ def local_projections(
         ``endog_order`` define the Cholesky ordering, and the reported
         response is the unit structural shock for ``shock``.
     endog_order : list of str, optional
-        Endogenous variable order used only when
-        ``identification='lpirfs_cholesky'``. Defaults to
+        With ``identification='lpirfs_cholesky'``: the Cholesky order of the
+        system. With ``lags=``: the variables whose lags enter every
+        projection (``lpirfs``' ``endog_data``). Defaults to
         ``[outcome, shock]``.
+    lags : int or list of int, optional
+        Lags of the ``endog_order`` variables included as controls; an int
+        ``p`` means lags 1..p (``lpirfs`` ``lags_endog_lin``, Stata
+        ``lpirf, lags(1/p)``). Passing ``lags``, ``instruments``, ``vce``,
+        ``trend``, ``common_sample`` or ``dfk`` selects this explicit
+        design in place of ``auto_lag`` (``lags=1`` with the default
+        ``endog_order`` is the ``auto_lag=True`` design), and the default
+        Newey-West lag becomes the ``lpirfs`` rule ``h + 1`` at horizon
+        ``h``. Unset, it is 1 if ``auto_lag`` else 0.
+    instruments : list of str, optional
+        External instruments for the shock: ``shock`` is treated as
+        endogenous and each horizon is fitted by two-stage least squares
+        with every other regressor as its own instrument (``lpirfs::
+        lp_lin_iv(use_twosls=TRUE)``; panel: ``lp_lin_panel(iv_reg=TRUE)``).
+        The first-stage F of every horizon is in ``diagnostics``; below 10
+        an ``AssumptionWarning`` is raised.
+    vce : {'hac', 'robust', 'ols', 'cluster', 'driscoll_kraay'}, optional
+        Variance of the explicit design: ``'hac'`` Newey-West (default),
+        ``'robust'`` HC0, or ``'ols'`` homoskedastic. Panel projections take
+        ``'cluster'`` (by unit, default), ``'driscoll_kraay'`` or ``'ols'``.
+    dfk : bool, optional
+        Small-sample adjustment. Unset: the ``lpirfs`` convention, ``n - k``
+        divisor for ``vce='ols'`` and none for the sandwiches. ``True``:
+        Stata ``lpirf, dfk`` (``n - k`` divisor, robust and HAC variances
+        times ``n / (n - k)``). ``False``: Stata ``lpirf`` without ``dfk``
+        (divisor ``n``, no factor).
+    trend : {0, 1, 2}, default 0
+        Deterministic trend: none, linear, or linear and quadratic
+        (``lpirfs`` ``trend``).
+    common_sample : bool, default False
+        Fit every horizon on the observations available at the longest
+        horizon (Stata ``lpirf``); the default uses each horizon's own
+        sample (``lpirfs``).
+    state : str, optional
+        Column of the state variable for a state-dependent projection
+        (``lpirfs::lp_nl_iv`` with an observed shock, ``lp_nl`` with
+        ``identification='lpirfs_cholesky'``). Returns a
+        ``StateDependentLPResult`` with the responses in the regimes
+        ``F = 1`` and ``F = 0`` and a per-horizon test of their equality.
+    state_transform : {'logistic', 'none'}, default 'logistic'
+        ``'logistic'``: ``F = exp(-gamma z) / (1 + exp(-gamma z))`` (near 1
+        when ``z`` is low). ``'none'``: the state is already the weight and
+        must lie in [0, 1].
+    gamma : float, optional
+        Steepness of the logistic transition; required with
+        ``state_transform='logistic'``.
+    hp_lambda : float, optional
+        If given, ``z`` is the standardised Hodrick-Prescott cycle of the
+        state with this smoothing parameter (``lpirfs`` ``use_hp``).
+    lag_state : bool, default True
+        Use ``F_{t-1}`` so the regime is fixed before the shock.
+    id, time : str, optional
+        Unit and period columns: a panel local projection
+        (``lpirfs::lp_lin_panel``). Leads, lags and differences are taken
+        within unit by period.
+    panel_effect : {'individual', 'time', 'twoways', 'none'}, default 'individual'
+        Fixed effects swept out by the within transformation; ``'none'`` is
+        pooled OLS (``plm`` ``effect`` / ``model='pooling'``).
+    diff_shock : bool, default False
+        Panel only: use the first difference of the shock (and of the
+        instruments), the ``lpirfs`` default ``diff_shock=TRUE``.
+
+    Returns
+    -------
+    LocalProjectionsResult or StateDependentLPResult
+        One response path with standard errors and bands
+        (``to_frame()``); ``method`` names the design and ``diagnostics``
+        holds the settings and, for IV, the first-stage F by horizon. With
+        ``state=`` the regime-specific result.
+
+    Notes
+    -----
+    Horizon ``h`` here is ``lpirfs``' ``h + 1``. ``lpirfs`` builds the
+    cumulative outcome ``y_{t+h} - y_{t-1}`` after trimming the lag rows, so
+    it drops one more observation at the start than this function; on
+    ``data.iloc[1:]`` the two agree. Panel leads and lags are by period;
+    ``lpirfs`` shifts by row, which differs only when a unit skips periods.
+    The panel default ``vce='cluster'`` departs from ``lpirfs``'
+    homoskedastic default (``robust_cov = NULL``) because projection
+    residuals are serially correlated by construction.
 
     Examples
     --------
@@ -363,6 +465,38 @@ def local_projections(
     identification_norm = identification.lower().replace("-", "_")
     if identification_norm not in {"direct", "lpirfs_cholesky", "cholesky"}:
         raise ValueError("identification must be 'direct' or 'lpirfs_cholesky'")
+    from ._lp_dispatch import extended_design
+
+    extended = extended_design(
+        data=data,
+        outcome=outcome,
+        shock=shock,
+        controls=controls,
+        horizons=horizons,
+        nw_lags=nw_lags,
+        alpha=alpha,
+        cumulative=cumulative,
+        auto_lag=auto_lag,
+        cholesky=identification_norm in {"lpirfs_cholesky", "cholesky"},
+        endog_order=endog_order,
+        lags=lags,
+        instruments=instruments,
+        vce=vce,
+        dfk=dfk,
+        trend=trend,
+        common_sample=common_sample,
+        state=state,
+        state_transform=state_transform,
+        gamma=gamma,
+        hp_lambda=hp_lambda,
+        lag_state=lag_state,
+        id=id,
+        time=time,
+        panel_effect=panel_effect,
+        diff_shock=diff_shock,
+    )
+    if extended is not None:
+        return extended
     if identification_norm in {"lpirfs_cholesky", "cholesky"}:
         if controls:
             raise ValueError(
