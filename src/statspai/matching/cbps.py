@@ -65,6 +65,7 @@ from scipy import optimize
 from scipy import stats as sp_stats
 
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import require_binary_treatment
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 
@@ -142,6 +143,7 @@ def cbps(
     df = data[[y, treat] + list(covariates)].dropna().copy()
     Y = df[y].to_numpy(dtype=np.float64)
     T = _treatment_as_float(df[treat], function="cbps")
+    require_binary_treatment(T, function="cbps", argument=treat)
     X = df[covariates].to_numpy(dtype=np.float64)
     if add_intercept:
         X = np.column_stack([np.ones(len(df)), X])

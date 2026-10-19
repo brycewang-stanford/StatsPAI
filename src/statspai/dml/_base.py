@@ -767,6 +767,45 @@ class _DoubleMLBase:
             clf.fit(X, y)
         return clf
 
+    def _warn_propensity_clipping(self, diagnostics: dict, n: int) -> None:
+        """Say how many cross-fitted propensities were clipped.
+
+        The clip changes the score on those rows, so the estimate is no
+        longer the AIPW formula there; ``sp.aipw`` and ``sp.tmle`` say so
+        and so does this. Counts are summed over ``n_rep`` repetitions, so
+        the share divides by ``n * n_rep``.
+        """
+        if not self._USES_IPW:
+            return
+        lo = diagnostics.get("n_clipped_below")
+        hi = diagnostics.get("n_clipped_above")
+        if not isinstance(lo, int) or not isinstance(hi, int):
+            return
+        total = lo + hi
+        denom = max(int(n) * int(self.n_rep), 1)
+        share = total / denom
+        diagnostics["n_clipped"] = int(total)
+        diagnostics["clip_share"] = float(share)
+        if total == 0:
+            return
+        import warnings
+
+        from ..exceptions import AssumptionWarning
+
+        thr = self.trimming_threshold
+        reps = f" (summed over n_rep={self.n_rep})" if self.n_rep > 1 else ""
+        warnings.warn(
+            f"dml.{self._MODEL_TAG.lower()}: {total} cross-fitted propensity "
+            f"scores{reps} ({100.0 * share:.1f}%) lie outside "
+            f"[{thr:g}, {1.0 - thr:g}] and were clipped to it, so the score "
+            "differs from the unclipped formula on those rows and overlap is "
+            "weak. See result.model_info['diagnostics'] and "
+            "result.violations(); consider sp.overlap_weights or restricting "
+            "the sample to the overlap region.",
+            AssumptionWarning,
+            stacklevel=4,
+        )
+
     @staticmethod
     def _aggregate_diagnostics(per_rep: List[dict]) -> dict:
         """Merge per-rep diagnostics into a single dict.
@@ -1124,6 +1163,7 @@ class _DoubleMLBase:
             model_info["se_all_reps"] = ses
         if per_rep_diags:
             model_info["diagnostics"] = self._aggregate_diagnostics(per_rep_diags)
+            self._warn_propensity_clipping(model_info["diagnostics"], n)
         if external_predictions is not None:
             model_info["scoring_engine"] = "statspai_irm_external_predictions"
             model_info["external_predictions_hashes"] = dict(external_input.hashes)

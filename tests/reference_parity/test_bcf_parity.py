@@ -1,7 +1,9 @@
 """Reference parity: ``sp.bcf`` posterior ATE vs R ``bcf`` package.
 
 Hahn-Murray-Carvalho (2020) Bayesian Causal Forests.  R ``bcf`` is
-the canonical implementation.  ``sp.bcf`` is the Python port.
+the canonical implementation.  ``sp.bcf`` is NOT a port: it is a
+random-forest + boosting approximation (no BART prior, no MCMC), so this
+file is a screen of its ATE against R `bcf`, not a parity claim.
 
 Caveat: BCF is Bayesian + MCMC.  Posterior means agree well across
 implementations *given enough samples* but draw-level noise means

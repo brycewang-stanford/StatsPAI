@@ -169,7 +169,10 @@ class SuperLearner:
         passed to every base learner's ``fit`` and weights the simplex
         least-squares and the CV risks -- R ``SuperLearner``'s
         ``obsWeights``. A learner whose ``fit`` does not take
-        ``sample_weight`` raises rather than being fitted unweighted.
+        ``sample_weight`` raises rather than being fitted unweighted --
+        except in the *default* library, where such learners (the k-nearest
+        neighbours learner) are left out with a warning and listed in
+        ``dropped_learners_``.
         """
         from sklearn.base import clone
         from sklearn.model_selection import KFold, StratifiedKFold
@@ -200,8 +203,30 @@ class SuperLearner:
                     recovery_hint="Use learners that accept sample_weight.",
                 ) from exc
 
+        self.dropped_learners_: List[str] = []
         if self.library is None:
             self.library = self._default_library()
+            if sw is not None:
+                from sklearn.utils.validation import has_fit_parameter
+
+                kept = [
+                    m for m in self.library if has_fit_parameter(m, "sample_weight")
+                ]
+                self.dropped_learners_ = [
+                    type(m).__name__ for m in self.library if m not in kept
+                ]
+                if self.dropped_learners_:
+                    import warnings
+
+                    warnings.warn(
+                        "SuperLearner: the default library's "
+                        f"{', '.join(self.dropped_learners_)} cannot take "
+                        "sample_weight and is left out of this weighted fit. "
+                        "Pass library= to choose the learners yourself.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                self.library = kept
         if not isinstance(self.library, list) or len(self.library) == 0:
             raise MethodIncompatibility(
                 "SuperLearner.fit() requires a non-empty learner library.",

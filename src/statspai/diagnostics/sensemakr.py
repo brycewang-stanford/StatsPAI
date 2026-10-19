@@ -25,8 +25,100 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
+
+
+class SensemakrResult(dict, ResultProtocolMixin):
+    """Result of :func:`sensemakr` (Cinelli-Hazlett omitted-variable bias).
+
+    A :class:`dict` subclass, so ``result['rv_q']`` and
+    ``isinstance(result, dict)`` keep working, with attribute access
+    (``result.rv_q``), :meth:`summary` and the shared result protocol
+    (``to_dict`` / ``to_latex`` / ``violations`` / ``cite``).
+
+    Keys: ``beta_treat``, ``se_treat``, ``t_treat``, ``partial_r2_yd``,
+    ``rv_q``, ``rv_qa``, ``robustness``, ``benchmark_table``,
+    ``interpretation``, plus ``treat``, ``alpha``, ``n_obs`` and
+    ``df_resid``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.cps_wage()
+    >>> res = sp.sensemakr(df, y='log_wage', treat='education',
+    ...                    controls=['experience', 'female'])
+    >>> isinstance(res, dict)
+    True
+    >>> res.rv_q == res['rv_q']
+    True
+    """
+
+    _citation_keys = ("cinelli2020making",)
+
+    def __getattr__(self, key: str) -> Any:
+        try:
+            return self[key]
+        except KeyError as exc:
+            raise AttributeError(key) from exc
+
+    @property
+    def estimate(self) -> float:
+        """Treatment coefficient of the full regression."""
+        return float(self["beta_treat"])
+
+    @property
+    def se(self) -> float:
+        """Its conventional (homoskedastic) standard error."""
+        return float(self["se_treat"])
+
+    def summary(self) -> str:
+        """Plain-text report, after R ``summary(sensemakr(...))``."""
+        lines = [
+            "Sensitivity analysis to unobserved confounding "
+            "(Cinelli & Hazlett 2020)",
+            "-" * 64,
+            f"Treatment            : {self.get('treat', '')}",
+            f"Estimate (SE)        : {self['beta_treat']:.4f} "
+            f"({self['se_treat']:.4f}), t = {self['t_treat']:.3f}",
+            f"Partial R2 of D on Y : {self['partial_r2_yd']:.4f}",
+            f"RV_q (q=1)           : {self['rv_q']:.4f}",
+            f"RV_q,alpha           : {self['rv_qa']:.4f} "
+            f"(alpha = {self.get('alpha', float('nan')):g})",
+            f"Verdict              : {self['robustness']}",
+        ]
+        table = self.get("benchmark_table")
+        if isinstance(table, pd.DataFrame) and len(table):
+            cols = [
+                c
+                for c in (
+                    "variable",
+                    "kd",
+                    "ky",
+                    "r2dz_x",
+                    "r2yz_dx",
+                    "adjusted_estimate",
+                    "adjusted_se",
+                    "adjusted_lower_CI",
+                    "adjusted_upper_CI",
+                )
+                if c in table.columns
+            ]
+            lines += [
+                "",
+                "Bounds from observed covariates:",
+                table[cols].round(4).to_string(index=False),
+            ]
+        lines += ["", str(self["interpretation"])]
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return (
+            f"SensemakrResult(treat={self.get('treat')!r}, "
+            f"estimate={self['beta_treat']:.4g}, rv_q={self['rv_q']:.4g}, "
+            f"rv_qa={self['rv_qa']:.4g}, robustness={self['robustness']!r})"
+        )
 
 
 @accepts_aliases(covariates="controls")
@@ -39,7 +131,7 @@ def sensemakr(
     alpha: float = 0.05,
     kd: Union[float, Sequence[float]] = 1.0,
     ky: Optional[Union[float, Sequence[float]]] = None,
-) -> Dict[str, Any]:
+) -> SensemakrResult:
     """
     Cinelli & Hazlett (2020) omitted variable bias sensitivity analysis.
 
@@ -73,7 +165,9 @@ def sensemakr(
 
     Returns
     -------
-    dict
+    SensemakrResult
+        A ``dict`` subclass (``result['rv_q']`` and ``result.rv_q`` both
+        work) with ``summary()``. Keys:
         ``'rv_q'``: Robustness Value — minimum partial R² to change sign
         ``'rv_qa'``: RV for significance (to make p > alpha)
         ``'adjusted_estimate'``: bias-adjusted β for given confounder
@@ -247,19 +341,26 @@ def sensemakr(
         robustness = "FRAGILE"
         detail = "Even a weak confounder could invalidate this result."
 
-    return {
-        "beta_treat": beta_treat,
-        "se_treat": se_treat,
-        "t_treat": float(t_treat),
-        "partial_r2_yd": float(partial_r2_yd),
-        "rv_q": rv_q,
-        "rv_qa": rv_qa,
-        "robustness": robustness,
-        "benchmark_table": bench_df,
-        "interpretation": (
-            f"{robustness}: RV_q = {rv_q:.1%}, " f"RV_{{q,α}} = {rv_qa:.1%}. {detail}"
-        ),
-    }
+    return SensemakrResult(
+        {
+            "beta_treat": beta_treat,
+            "se_treat": se_treat,
+            "t_treat": float(t_treat),
+            "partial_r2_yd": float(partial_r2_yd),
+            "rv_q": rv_q,
+            "rv_qa": rv_qa,
+            "robustness": robustness,
+            "benchmark_table": bench_df,
+            "interpretation": (
+                f"{robustness}: RV_q = {rv_q:.1%}, "
+                f"RV_{{q,α}} = {rv_qa:.1%}. {detail}"
+            ),
+            "treat": treat,
+            "alpha": float(alpha),
+            "n_obs": int(n),
+            "df_resid": int(df_resid),
+        }
+    )
 
 
 def _control_columns(col: pd.Series) -> np.ndarray:

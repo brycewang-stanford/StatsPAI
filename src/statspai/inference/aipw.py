@@ -35,6 +35,7 @@ from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import require_binary_treatment
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
@@ -299,8 +300,7 @@ def aipw(
     X = df[covariates].values.astype(float)
     n = len(Y)
 
-    if not set(np.unique(D)).issubset({0, 1}):
-        raise ValueError("Treatment must be binary (0/1)")
+    require_binary_treatment(D, function="aipw", argument=treat)
     n_arm1 = int(D.sum())
     if n_arm1 == 0 or n_arm1 == n:
         raise DataInsufficient(

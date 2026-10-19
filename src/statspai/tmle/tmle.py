@@ -574,9 +574,19 @@ class TMLE:
                     "tmle: cluster= needs at least two clusters."
                 )
 
+        from ..core._validate import require_binary_treatment
+        from ..exceptions import DataInsufficient
+
+        require_binary_treatment(A, function="tmle", argument=self.treat)
         unique_a = np.unique(A)
-        if not (len(unique_a) == 2 and set(unique_a.astype(int)) == {0, 1}):
-            raise ValueError(f"Treatment must be binary (0/1), got: {unique_a}")
+        if len(unique_a) != 2:
+            raise DataInsufficient(
+                f"tmle: {self.treat!r} takes only the value {unique_a.tolist()} "
+                "on the complete rows; the estimator needs treated and "
+                "control units.",
+                recovery_hint="Check the treatment coding and the row filter.",
+                diagnostics={"values": unique_a.tolist()},
+            )
 
         # Opt-in CV-TMLE partition, aligned with the input rows and then
         # subset to the complete cases kept above.

@@ -37,6 +37,7 @@ from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import require_binary_treatment
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
@@ -300,8 +301,7 @@ def ipw(
                 diagnostics={"cluster": cluster},
             )
 
-    if not set(np.unique(T)).issubset({0, 1}):
-        raise ValueError(f"Treatment variable '{treat}' must be binary (0/1)")
+    require_binary_treatment(T, function="ipw", argument=treat)
     if T.sum() == 0 or T.sum() == n:
         raise ValueError(
             f"Treatment variable '{treat}' must contain both treated and "

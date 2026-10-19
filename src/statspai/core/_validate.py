@@ -188,7 +188,7 @@ def require_binary_treatment(
         return
     shown = sorted(observed, key=repr)[:6]
     raise MethodIncompatibility(
-        f"{function}: {argument} must be coded 0/1; found "
+        f"{function}: {argument} must be a binary treatment coded 0/1; found "
         f"{len(observed)} distinct values, e.g. {shown}.",
         recovery_hint=(
             "For several arms, compare one arm with the control at a time on "

@@ -314,11 +314,44 @@ def rosenbaum_bounds(
             {"y": y, "treat": treat, "pair_id": pair_id},
             function="sp.rosenbaum_bounds",
         )
+        from ..core._validate import require_binary_treatment
+
         d = data[[y, treat, pair_id]].dropna().copy()
+        require_binary_treatment(d[treat], function="rosenbaum_bounds", argument=treat)
+        cell_size = d.groupby([pair_id, treat]).size()
+        crowded = cell_size[cell_size > 1]
+        if len(crowded):
+            bad_pairs = pd.Index(pd.unique(crowded.index.get_level_values(0))).tolist()
+            raise MethodIncompatibility(
+                f"rosenbaum_bounds: pair_id={pair_id!r} must hold exactly one "
+                f"treated and one control row per pair; {len(bad_pairs)} "
+                f"pair(s) hold more than one row in an arm, e.g. "
+                f"{[repr(v) for v in bad_pairs[:5]]}.",
+                recovery_hint=(
+                    "Fix the pair identifiers, or for matched sets with "
+                    "several treated or several controls use "
+                    "sp.weighted_rank (Rosenbaum's matched-set statistic)."
+                ),
+                diagnostics={
+                    "n_bad_pairs": int(len(bad_pairs)),
+                    "bad_pairs": [repr(v) for v in bad_pairs[:20]],
+                },
+                alternative_functions=["sp.weighted_rank"],
+            )
         wide = d.pivot(index=pair_id, columns=treat, values=y)
         if 0 not in wide.columns or 1 not in wide.columns:
             raise ValueError("treat column must contain both 0 and 1 values")
+        n_incomplete = int(wide.isna().any(axis=1).sum())
         wide = wide.dropna()
+        if n_incomplete:
+            import warnings
+
+            warnings.warn(
+                f"rosenbaum_bounds: {n_incomplete} pair(s) have no complete "
+                "treated or control row and are dropped.",
+                UserWarning,
+                stacklevel=2,
+            )
         diffs = (wide[1].values - wide[0].values).astype(float)
     else:
         if treated is None or control is None:
