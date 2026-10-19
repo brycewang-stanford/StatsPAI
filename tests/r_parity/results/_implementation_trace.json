@@ -835,7 +835,7 @@
    "result_sha256": "143c423a1304d62c34cdde02849c5d2cae5d6b26bf95233125e3ae130c8eafa0"
   },
   "20_bacon": {
-   "seconds": 2.95,
+   "seconds": 3.66,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -846,7 +846,7 @@
     "src/statspai/datasets/__init__.py": "35afc67fba95f72807d97c36fd13d55c3af6d1093f19c5ad63cbf92885109c61",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/did/_core.py": "dad7cb1e7567dd720c9d297ae156f0dc027dd3177d21eeb8c343145813879bbc",
-    "src/statspai/did/bacon.py": "e0cece98ef804a317aecd67bd19cf103c72bbc36920834ab91d8ed41b1f11d18",
+    "src/statspai/did/bacon.py": "412f0497f9069e431cca9879a2cc3e74e0090e10ec609df3840d33d9f7239302",
     "src/statspai/exceptions.py": "3c61427fbf9b9a6d85a2916ef09a5e0ad437d6f67ed9099ddae79643888e326d",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
