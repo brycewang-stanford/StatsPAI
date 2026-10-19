@@ -4324,3 +4324,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record for the IV / state / panel local projections
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `612557ee`.
+- **Reason.** `timeseries/local_projections.py` (new arguments routed
+  through `timeseries/_lp_dispatch.py`) and `timeseries/var.py`
+  (`granger_causality(id=, time=)`) are on the estimation paths of
+  modules 34 and 33; their traces were re-recorded.
+- **Effect on the paper.** None. Both modules were re-run first and
+  reproduce their committed `*_py.json` byte for byte; the new arguments
+  are not reached by either module.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
