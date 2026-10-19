@@ -4,6 +4,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.mediate_paths`: path-specific effects with ordered mediators
+
+#### Added
+
+- `sp.mediate_paths(data, y=, treat=, mediators=['m1', 'm2', ...],
+  covariates=, interaction=True, outcome_model='linear' | 'logistic',
+  ps=False)` splits the total effect of a binary treatment into a direct
+  effect and one effect through each of several causally ordered
+  mediators (a mediator may affect later ones; a block of columns can
+  form one mediator). Both decompositions (Type I and Type II), the pure
+  imputation estimator and, with `ps=True`, the imputation-based weighting
+  estimator of Zhou and Yamamoto [@zhou2023tracing], with a nonparametric
+  bootstrap. Point estimates equal R `paths` 0.1.2 (GPL, used as a black
+  box) to 1e-12 with linear outcome models and to R `glm`'s convergence
+  with logistic ones, on five settings
+  (`tests/reference_parity/test_mediate_paths_parity.py`); a linear
+  structural model checks the path effects against products of
+  coefficients. Reference verified via Crossref and doi.org.
+
 ### Stata factor-variable and time-series terms in formulas
 
 #### Added

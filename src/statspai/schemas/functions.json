@@ -74122,6 +74122,95 @@
     }
   },
   {
+    "description": "Path-specific effects of a binary treatment through ordered mediators.",
+    "name": "mediate_paths",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Pre-treatment confounders, entered linearly in every model.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "decomposition": {
+          "default": "type1",
+          "description": "Which decomposition is the headline (both are in ``detail``). Type I switches the mediators from the treated to the control value one at a time starting from ``M_1``; for one mediator it is pure direct + total indirect effect.",
+          "enum": [
+            "type1",
+            "type2"
+          ],
+          "type": "string"
+        },
+        "interaction": {
+          "default": true,
+          "description": "Include treatment x mediator interactions in the outcome models.",
+          "type": "boolean"
+        },
+        "mediators": {
+          "description": "The mediators in causal order, ``M_1`` first. Each entry is a column name or a list of columns that form one mediator block (R ``paths``' ``m = list(...)``). A mediator may affect every later one; a later mediator may not affect an earlier one.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "n_boot": {
+          "default": 500,
+          "description": "Nonparametric bootstrap replications (units resampled, every model refitted) for the standard errors and percentile intervals.",
+          "type": "integer"
+        },
+        "outcome_model": {
+          "default": "linear",
+          "description": "Model for ``E[Y | A, X, M_1..M_j]``; ``'logistic'`` for a 0/1 outcome (effects on the risk-difference scale).",
+          "enum": [
+            "linear",
+            "logistic"
+          ],
+          "type": "string"
+        },
+        "ps": {
+          "default": false,
+          "description": "Reweight with a logistic propensity score of the treatment on the covariates (the imputation-based weighting estimator) instead of the pure imputation estimator.",
+          "type": "boolean"
+        },
+        "seed": {
+          "default": 42,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "treat": {
+          "description": "Binary treatment (0/1).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "mediators"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Parametric four-way decomposition of TE = CDE + INT_ref + INT_med + PIE. Validation: certified parity evidence.",
     "name": "four_way_decomposition",
     "parameters": {

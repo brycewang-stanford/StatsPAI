@@ -885,6 +885,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "and needs demean=True.",
         },
     ],
+    "mediate_paths": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'logistic' for a 0/1 outcome.",
+            "symptom": "outcome_model must be 'linear' or 'logistic', "
+            "got <outcome_model>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Both are reported in result.detail.",
+            "symptom": "decomposition must be 'type1' or 'type2', got "
+            "<decomposition>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass mediators=['m1', 'm2', ...] in causal " "order.",
+            "symptom": "mediate_paths needs at least one mediator.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Each mediator column belongs to one block.",
+            "symptom": "mediate_paths: a column appears in two " "mediator blocks.",
+        },
+    ],
     "mmhc": [
         {
             "exception": "statspai.MethodIncompatibility",

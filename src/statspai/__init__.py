@@ -377,6 +377,7 @@ from .mediation import (
     four_way_decomposition,
     mediate,
     mediate_interventional,
+    mediate_paths,
     mediate_sensitivity,
 )
 
@@ -3151,6 +3152,7 @@ __all__ = [
     "ips",
     "snips",
     # Mediation
+    "mediate_paths",
     "four_way_decomposition",
     "FourWayResult",
     # Interrupted time series

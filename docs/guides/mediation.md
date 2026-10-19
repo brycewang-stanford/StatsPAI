@@ -330,6 +330,38 @@ print(round(fw.proportions["mediated"], 3), round(fw.se["pie"], 3))
 # 0.339 0.022
 ```
 
+### Several mediators in causal order: path-specific effects
+
+When there are several mediators and the earlier ones affect the later
+ones (`D -> M1 -> M2 -> Y`, plus `D -> M2` and `D -> Y`),
+`sp.mediate_paths` splits the total effect into a direct effect and one
+effect through each mediator [@zhou2023tracing]. "Via M1" counts every
+path that starts with `D -> M1`, including `D -> M1 -> M2 -> Y`; "via
+M2" is `D -> M2 -> Y`. A mediator given as a list of columns is one
+block.
+
+```python
+rng = np.random.default_rng(0)
+n = 4000
+d = rng.integers(0, 2, n).astype(float)
+m1 = 0.6 * d + rng.normal(size=n)
+m2 = 0.5 * d + 0.7 * m1 + rng.normal(size=n)
+y = 0.4 * d + 0.5 * m1 + 0.8 * m2 + rng.normal(size=n)
+df5 = pd.DataFrame({"y": y, "d": d, "m1": m1, "m2": m2})
+
+r = sp.mediate_paths(df5, y="y", treat="d", mediators=["m1", "m2"],
+                     interaction=False, n_boot=200)
+print({k: round(v, 3) for k, v in r.model_info["type1"].items()})
+# {'direct': 0.413, 'via_M2': 0.413, 'via_M1': 0.689}
+# truth: direct 0.4, via M2 0.5 * 0.8 = 0.4, via M1 0.6 * (0.5 + 0.7 * 0.8) = 0.636
+```
+
+Type I switches the mediators one at a time starting from `M1`, with the
+treatment held at 1; Type II does the same with the roles of 1 and 0
+exchanged. Both are in `r.detail`. With `ps=True` the covariate
+reweighting uses a propensity score instead of a regression (R `paths`'
+imputation-based weighting estimator).
+
 ## 6. Front-door adjustment: identification despite unobserved confounding
 
 Everything above assumed the D–Y relationship is unconfounded given
