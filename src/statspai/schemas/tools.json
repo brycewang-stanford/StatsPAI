@@ -669,8 +669,11 @@
           "type": "array"
         },
         "endog": {
-          "description": "Endogenous regressor (single).",
-          "type": "string",
+          "description": "Endogenous regressor(s). With a list of two or more, the test is the joint AR F test of ``beta = h0`` for all of them (at ``h0 = 0`` Stata ``ivreg2``'s ``e(arf)``), in the same ``ar_vcov`` / ``cluster`` / ``absorb`` forms; no confidence set, effective F or tF value is returned then (the AR set is a region in R^p -- use ``sp.weakrobust(..., project=[...])`` for intervals on single coefficients).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
           "x-statspai-role": "columns"
         },
         "exog": {
@@ -683,8 +686,14 @@
         },
         "h0": {
           "default": 0,
-          "description": "Null hypothesis value for the endogenous coefficient.",
-          "type": "number"
+          "description": "Null hypothesis value for the endogenous coefficient(s): one per endogenous regressor, or one number used for all.",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "instruments": {
           "description": "Excluded instruments.",
@@ -696,7 +705,7 @@
         },
         "vcov": {
           "default": "HC1",
-          "description": "Variance estimator used for the Olea-Pflueger effective F reported alongside AR.",
+          "description": "Variance estimator used for the Olea-Pflueger effective F reported alongside AR (one endogenous regressor).",
           "enum": [
             "HC0",
             "HC1",
@@ -42897,7 +42906,7 @@
         },
         "clr_method": {
           "default": "exact",
-          "description": "How the CLR conditional null distribution is evaluated. ``'exact'`` integrates it numerically (the closed form R ``ivmodel::CLR`` and Stata ``weakiv`` use), making the CLR p-value and set deterministic. ``'simulate'`` is the pre-1.29 Monte-Carlo version.",
+          "description": "How the CLR conditional null distribution is evaluated. ``'exact'`` integrates it numerically (the closed form R ``ivmodel::CLR`` and Stata ``weakiv`` use), making the CLR p-value and set deterministic. ``'simulate'`` is the pre-1.29 Monte-Carlo version. Used by the ``'ivmodel'`` convention only.",
           "enum": [
             "exact",
             "simulate"
@@ -42909,9 +42918,19 @@
           "description": "Monte-Carlo draws for the CLR null distribution; used only with ``clr_method='simulate'``.",
           "type": "integer"
         },
+        "cluster": {
+          "description": "Cluster variable for the weak-IV-robust tests (one-way, as Stata ``weakiv ..., cluster()``); implies ``test_vcov='cluster'``. The effective F is clustered on it too.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "endog": {
-          "description": "Outcome and single endogenous regressor (column names in ``data``).",
-          "type": "string",
+          "description": "Endogenous regressor(s). With two or more the tests are joint tests of ``beta = h0`` in Stata ``weakiv``'s form (see Notes); ``subset=`` / ``project=`` give intervals for single coefficients.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
           "x-statspai-role": "columns"
         },
         "exog": {
@@ -42929,8 +42948,14 @@
         },
         "h0": {
           "default": 0.0,
-          "description": "Null value for the endogenous coefficient. All under-H0 tests (AR, CLR, K) are evaluated at ``beta = h0``.",
-          "type": "number"
+          "description": "Null value(s) for the endogenous coefficient(s): one per endogenous regressor, or one number used for all. All under-H0 tests (AR, CLR, K) are evaluated at ``beta = h0``.",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
         },
         "include_clr": {
           "default": true,
@@ -42950,6 +42975,13 @@
           "type": "array",
           "x-statspai-role": "columns"
         },
+        "project": {
+          "description": "With several endogenous regressors: names whose coefficient gets the projection of the joint AR set (``weakiv ..., project()``): ``b1`` is in the set if *some* value of the other coefficients is not rejected by the joint AR test, ``chi2(k)``. Conservative. Computed in closed form (LIML root) over the whole real line, where Stata searches a user-bounded grid. i.i.d. errors only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "random_state": {
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer",
@@ -42958,13 +42990,30 @@
           ],
           "x-canonical": "seed"
         },
+        "subset": {
+          "description": "With several endogenous regressors: names whose coefficient gets a subset AR test (``weakiv ..., subset()``) at its ``h0`` value and a confidence set, the other coefficients concentrated out by LIML. Referred to ``chi2(k - p + 1)``. i.i.d. errors only, as in Stata.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "test_vcov": {
+          "description": "Variance behind the AR / K / J / CLR tests, in Stata ``weakiv``'s form (see Notes). ``'robust'`` is heteroskedasticity-robust (``weakiv ..., robust``). Default: ``'cluster'`` when ``cluster`` is given, else ``'classic'``; leaving it unset with one endogenous regressor and no ``cluster`` keeps the ``ivmodel`` convention.",
+          "enum": [
+            "classic",
+            "robust",
+            "cluster"
+          ],
+          "type": "string"
+        },
         "vcov": {
           "default": "HC1",
-          "description": "Used by the Olea-Pflueger effective F.",
+          "description": "Used by the Olea-Pflueger effective F. ``'cluster'`` (with ``cluster=``) also makes the weak-IV-robust tests cluster-robust, i.e. it implies ``test_vcov='cluster'``.",
           "enum": [
             "HC0",
             "HC1",
-            "classic"
+            "classic",
+            "cluster"
           ],
           "type": "string",
           "x-aliases": [
@@ -42973,7 +43022,7 @@
           "x-canonical": "vce"
         },
         "y": {
-          "description": "Outcome and single endogenous regressor (column names in ``data``).",
+          "description": "Outcome.",
           "type": "string",
           "x-statspai-role": "column"
         }

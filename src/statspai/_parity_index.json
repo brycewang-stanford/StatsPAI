@@ -453,7 +453,8 @@
         "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_anderson_rubin_parity.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
-        "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py"
+        "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py",
+        "tests/reference_parity/test_weakiv_stata.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -834,6 +835,9 @@
       "tolerance": "estimate and std.err 1e-10 rel (observed 2.0e-15)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_fixest_postestimation_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -859,6 +863,9 @@
       "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_fixest_postestimation_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -884,6 +891,9 @@
       "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_fixest_postestimation_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -6642,7 +6652,8 @@
       "additional_tests": [
         "tests/reference_parity/test_anderson_rubin_parity.py",
         "tests/reference_parity/test_effective_f_critical_values.py",
-        "tests/reference_parity/test_iv_hdfe_stata_parity.py"
+        "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+        "tests/reference_parity/test_weakiv_stata.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -7651,11 +7662,13 @@
         "tests/reference_parity/test_feols_multiref_R_parity.py",
         "tests/reference_parity/test_feols_varying_slopes_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py",
+        "tests/reference_parity/test_fixest_postestimation_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sasp_within_parity.py",
         "tests/reference_parity/test_ssc_presets_Stata_parity.py",
-        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
+        "tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py"
       ],
       "also_in_modules": [
         "15_hdfe_cluster"
@@ -7719,7 +7732,8 @@
         "tests/reference_parity/test_fast_fepois_fixest_parity.py",
         "tests/reference_parity/test_feglm_native_fixest_parity.py",
         "tests/reference_parity/test_feglm_wild_boottest_parity.py",
-        "tests/reference_parity/test_ppmlhdfe_extended_vce_parity.py"
+        "tests/reference_parity/test_ppmlhdfe_extended_vce_parity.py",
+        "tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -9351,7 +9365,8 @@
         "tests/reference_parity/test_hdfe_iv_paths_agree.py",
         "tests/reference_parity/test_hdfe_nested_collinear_parity.py",
         "tests/reference_parity/test_hdfe_parity.py",
-        "tests/reference_parity/test_hdfe_wild_boottest_parity.py"
+        "tests/reference_parity/test_hdfe_wild_boottest_parity.py",
+        "tests/reference_parity/test_panel_absorb_ols_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -9845,6 +9860,9 @@
       "tolerance": "count + zero coefficients 1e-6 abs (observed ~2e-8)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_fixest_postestimation_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -12694,6 +12712,7 @@
         "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/external_parity/test_gow_ding_accounting.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/reference_parity/test_fixest_postestimation_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py"
@@ -14815,7 +14834,8 @@
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
-        "tests/reference_parity/test_vuong_pscl_parity.py"
+        "tests/reference_parity/test_vuong_pscl_parity.py",
+        "tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -16975,6 +16995,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_fixest_postestimation_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -24241,6 +24264,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_fixest_postestimation_parity.py",
         "tests/reference_parity/test_vcov_refit_identity.py"
       ],
       "tolerance": ""
@@ -24375,6 +24399,9 @@
       "tolerance": "1e-9 abs pointwise, 1e-8 on the estimates"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_weakiv_stata.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -24472,6 +24499,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

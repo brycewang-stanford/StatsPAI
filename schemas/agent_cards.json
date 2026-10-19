@@ -21542,7 +21542,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (aligned) vs marginaleffects::predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+      "Cross-language parity (aligned) vs marginaleffects::predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py",
+      "tests/reference_parity/test_fixest_postestimation_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -21658,7 +21659,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (aligned) vs marginaleffects::avg_predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+      "Cross-language parity (aligned) vs marginaleffects::avg_predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py",
+      "tests/reference_parity/test_fixest_postestimation_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -21928,7 +21930,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (aligned) vs marginaleffects::avg_comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+      "Cross-language parity (aligned) vs marginaleffects::avg_comparisons on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py",
+      "tests/reference_parity/test_fixest_postestimation_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -22206,7 +22209,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (aligned) vs marginaleffects::avg_slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+      "Cross-language parity (aligned) vs marginaleffects::avg_slopes on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py",
+      "tests/reference_parity/test_fixest_postestimation_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -22322,7 +22326,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (aligned) vs marginaleffects::hypotheses on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py"
+      "Cross-language parity (aligned) vs marginaleffects::hypotheses on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py",
+      "tests/reference_parity/test_fixest_postestimation_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -75048,6 +75053,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_fixest_postestimation_parity.py",
         "tests/reference_parity/test_vcov_refit_identity.py"
       ],
       "tolerance": ""
@@ -75103,7 +75109,7 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_vcov_refit_identity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_fixest_postestimation_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -96557,8 +96563,11 @@
             "x-statspai-role": "dataframe"
           },
           "endog": {
-            "description": "Endogenous regressor (single).",
-            "type": "string",
+            "description": "Endogenous regressor(s). With a list of two or more, the test is the joint AR F test of ``beta = h0`` for all of them (at ``h0 = 0`` Stata ``ivreg2``'s ``e(arf)``), in the same ``ar_vcov`` / ``cluster`` / ``absorb`` forms; no confidence set, effective F or tF value is returned then (the AR set is a region in R^p -- use ``sp.weakrobust(..., project=[...])`` for intervals on single coefficients).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
             "x-statspai-role": "columns"
           },
           "exog": {
@@ -96571,8 +96580,14 @@
           },
           "h0": {
             "default": 0,
-            "description": "Null hypothesis value for the endogenous coefficient.",
-            "type": "number"
+            "description": "Null hypothesis value for the endogenous coefficient(s): one per endogenous regressor, or one number used for all.",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
           },
           "instruments": {
             "description": "Excluded instruments.",
@@ -96584,7 +96599,7 @@
           },
           "vcov": {
             "default": "HC1",
-            "description": "Variance estimator used for the Olea-Pflueger effective F reported alongside AR.",
+            "description": "Variance estimator used for the Olea-Pflueger effective F reported alongside AR (one endogenous regressor).",
             "enum": [
               "HC0",
               "HC1",
@@ -96816,7 +96831,8 @@
       "Cross-language parity (bit-exact) vs Stata weakivtest (Montiel Olea & Pflueger) after ivreg2; R ivDiag::eff_F 1.0.6 [R version 4.5.2 (2025-10-31), Stata 18 MP, ivDiag 1.0.6, ivreg2 4.1.12, weakivtest 10/28/2020]; tolerance F_eff rel 1e-9 on 6 designs (observed 3.7e-14 vs Stata, 1.3e-12 vs ivDiag for k = 1) -- tests/reference_parity/test_rd_iv_R_parity.py",
       "tests/reference_parity/test_anderson_rubin_parity.py",
       "tests/reference_parity/test_effective_f_critical_values.py",
-      "tests/reference_parity/test_iv_hdfe_stata_parity.py"
+      "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+      "tests/reference_parity/test_weakiv_stata.py"
     ],
     "validation_status": "certified"
   },
@@ -97072,8 +97088,8 @@
       "fields": {
         "alpha": "float",
         "data": "Dict[str, Any]",
-        "endog": "str",
-        "h0": "float",
+        "endog": "Union[str, List[str]]",
+        "h0": "Any",
         "instruments": "List[str]",
         "n": "int"
       }
@@ -97090,7 +97106,7 @@
           },
           "clr_method": {
             "default": "exact",
-            "description": "How the CLR conditional null distribution is evaluated. ``'exact'`` integrates it numerically (the closed form R ``ivmodel::CLR`` and Stata ``weakiv`` use), making the CLR p-value and set deterministic. ``'simulate'`` is the pre-1.29 Monte-Carlo version.",
+            "description": "How the CLR conditional null distribution is evaluated. ``'exact'`` integrates it numerically (the closed form R ``ivmodel::CLR`` and Stata ``weakiv`` use), making the CLR p-value and set deterministic. ``'simulate'`` is the pre-1.29 Monte-Carlo version. Used by the ``'ivmodel'`` convention only.",
             "enum": [
               "exact",
               "simulate"
@@ -97102,14 +97118,24 @@
             "description": "Monte-Carlo draws for the CLR null distribution; used only with ``clr_method='simulate'``.",
             "type": "integer"
           },
+          "cluster": {
+            "description": "Cluster variable for the weak-IV-robust tests (one-way, as Stata ``weakiv ..., cluster()``); implies ``test_vcov='cluster'``. The effective F is clustered on it too.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
           "endog": {
-            "description": "Outcome and single endogenous regressor (column names in ``data``).",
-            "type": "string",
+            "description": "Endogenous regressor(s). With two or more the tests are joint tests of ``beta = h0`` in Stata ``weakiv``'s form (see Notes); ``subset=`` / ``project=`` give intervals for single coefficients.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
             "x-statspai-role": "columns"
           },
           "exog": {
@@ -97127,8 +97153,14 @@
           },
           "h0": {
             "default": 0.0,
-            "description": "Null value for the endogenous coefficient. All under-H0 tests (AR, CLR, K) are evaluated at ``beta = h0``.",
-            "type": "number"
+            "description": "Null value(s) for the endogenous coefficient(s): one per endogenous regressor, or one number used for all. All under-H0 tests (AR, CLR, K) are evaluated at ``beta = h0``.",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
           },
           "include_clr": {
             "default": true,
@@ -97148,6 +97180,13 @@
             "type": "array",
             "x-statspai-role": "columns"
           },
+          "project": {
+            "description": "With several endogenous regressors: names whose coefficient gets the projection of the joint AR set (``weakiv ..., project()``): ``b1`` is in the set if *some* value of the other coefficients is not rejected by the joint AR test, ``chi2(k)``. Conservative. Computed in closed form (LIML root) over the whole real line, where Stata searches a user-bounded grid. i.i.d. errors only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "random_state": {
             "description": "Random seed or RandomState for reproducible stochastic steps.",
             "type": "integer",
@@ -97156,13 +97195,30 @@
             ],
             "x-canonical": "seed"
           },
+          "subset": {
+            "description": "With several endogenous regressors: names whose coefficient gets a subset AR test (``weakiv ..., subset()``) at its ``h0`` value and a confidence set, the other coefficients concentrated out by LIML. Referred to ``chi2(k - p + 1)``. i.i.d. errors only, as in Stata.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "test_vcov": {
+            "description": "Variance behind the AR / K / J / CLR tests, in Stata ``weakiv``'s form (see Notes). ``'robust'`` is heteroskedasticity-robust (``weakiv ..., robust``). Default: ``'cluster'`` when ``cluster`` is given, else ``'classic'``; leaving it unset with one endogenous regressor and no ``cluster`` keeps the ``ivmodel`` convention.",
+            "enum": [
+              "classic",
+              "robust",
+              "cluster"
+            ],
+            "type": "string"
+          },
           "vcov": {
             "default": "HC1",
-            "description": "Used by the Olea-Pflueger effective F.",
+            "description": "Used by the Olea-Pflueger effective F. ``'cluster'`` (with ``cluster=``) also makes the weak-IV-robust tests cluster-robust, i.e. it implies ``test_vcov='cluster'``.",
             "enum": [
               "HC0",
               "HC1",
-              "classic"
+              "classic",
+              "cluster"
             ],
             "type": "string",
             "x-aliases": [
@@ -97171,7 +97227,7 @@
             "x-canonical": "vce"
           },
           "y": {
-            "description": "Outcome and single endogenous regressor (column names in ``data``).",
+            "description": "Outcome.",
             "type": "string",
             "x-statspai-role": "column"
           }
@@ -97188,7 +97244,8 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (aligned) vs R ivmodel::CLR 1.9.1; Stata weakiv 2.4.07 (md small) [R version 4.5.2 (2025-10-31), Stata 18 MP, ivmodel 1.9.1, weakiv 2.4.07]; tolerance CLR statistic and p-value vs ivmodel rel 1e-9 (observed 1.2e-11); CLR set vs ivmodel 5e-5 (observed 1.2e-5, ivmodel's uniroot default tolerance); CLR / K / AR vs Stata weakiv 1e-6 (observed 1.1e-7 / 1.1e-7 / 2.1e-8, not bisected further) -- tests/reference_parity/test_rd_iv_R_parity.py"
+      "Cross-language parity (aligned) vs R ivmodel::CLR 1.9.1; Stata weakiv 2.4.07 (md small) [R version 4.5.2 (2025-10-31), Stata 18 MP, ivmodel 1.9.1, weakiv 2.4.07]; tolerance CLR statistic and p-value vs ivmodel rel 1e-9 (observed 1.2e-11); CLR set vs ivmodel 5e-5 (observed 1.2e-5, ivmodel's uniroot default tolerance); CLR / K / AR vs Stata weakiv 1e-6 (observed 1.1e-7 / 1.1e-7 / 2.1e-8, not bisected further) -- tests/reference_parity/test_rd_iv_R_parity.py",
+      "tests/reference_parity/test_weakiv_stata.py"
     ],
     "validation_status": "certified"
   },
@@ -99315,7 +99372,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R fwildclusterboot::boottest; Stata boottest (WCR, Rademacher, full enumeration) [R version 4.5.2 (2025-10-31), Stata 18, boottest 4.5.3, fwildclusterboot 0.14.3]; tolerance p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14) -- tests/reference_parity/test_inference_sens_R_parity.py"
+      "Cross-language parity (bit-exact) vs R fwildclusterboot::boottest; Stata boottest (WCR, Rademacher, full enumeration) [R version 4.5.2 (2025-10-31), Stata 18, boottest 4.5.3, fwildclusterboot 0.14.3]; tolerance p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14) -- tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py"
     ],
     "validation_status": "certified"
   },
