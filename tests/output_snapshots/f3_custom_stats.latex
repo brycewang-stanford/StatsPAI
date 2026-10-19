@@ -13,9 +13,9 @@ x2 & -0.687*** & -0.677*** \\
 x3 &  & 0.281*** \\
  &  & (0.050) \\
 \hline
-n\_obs &  &  \\
-r\_squared &  &  \\
-adj\_r\_squared &  &  \\
+N & 400 & 400 \\
+R$^2$ & 0.604 & 0.633 \\
+Adj. R$^2$ & 0.602 & 0.631 \\
 \hline\hline
 \multicolumn{3}{l}{\footnotesize Standard errors in parentheses} \\
 \multicolumn{3}{l}{\footnotesize *** p\textless{}0.001, ** p\textless{}0.01, * p\textless{}0.05} \\

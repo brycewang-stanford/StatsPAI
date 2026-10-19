@@ -134,7 +134,7 @@ hal = sp.hal_tmle(cohort, y="mace", treat="statin_initiation",
 # Convergent-evidence table — risk difference at 5 years
 rt = sp.regtable(iptw, gcomp, tmle, hal,
                  model_labels=["(1) IPTW-MSM","(2) g-formula","(3) TMLE","(4) HAL-TMLE"],
-                 stats=["N","Effect type","Risk diff. (RD)","Risk ratio (RR)"],
+                 stats=["N"],   # summary statistics only; custom rows go in add_rows=
                  title="Table 2. Effect of statin initiation on 5-yr MACE — convergent estimators")
 rt.to_word ("tables/table2_epi.docx"); rt.to_excel("tables/table2_epi.xlsx")
 ```

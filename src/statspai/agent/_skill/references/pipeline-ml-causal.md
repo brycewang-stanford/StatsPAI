@@ -88,7 +88,8 @@ mc   = sp.matrix_completion(panel_df, y="revenue", d="treatment", unit="user_id"
 # both flow into regtable.
 rt = sp.regtable(dml, ml_dr, cf, bcf,
                  model_labels=["(1) DML-PLR","(2) DR-Learner","(3) Causal forest","(4) BCF"],
-                 stats=["N","ATE","CATE 5–95% range","Cross-fit folds","Nuisance R²"],
+                 stats=["N"],
+                 add_rows={"Estimator": ["DML-PLR","DR-Learner","Causal forest","BCF"]},
                  title="Table 2. ATE — ML estimator horse race")
 rt.to_word ("tables/table2_ml.docx"); rt.to_excel("tables/table2_ml.xlsx")
 ```

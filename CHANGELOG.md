@@ -360,6 +360,46 @@ period gave `sun_abraham` zero standard errors. The checks now live in
   `pcalg::pc` and `mr_ivw` are refused with the sp call to make
   (`R_GUIDANCE`). `pkg::fn(...)` is accepted.
 
+### Output layer: exports with their defaults, and honest table rows
+
+#### Fixed
+
+- `CausalResult.to_word(path)` (every causal estimator, `sp.qreg`,
+  `sp.tobit` ...) crashed with its own default `digits=None`; it now uses
+  the `"auto"` precision of `to_latex` / `to_markdown`. A new contract test
+  calls `summary` / `to_latex` / `to_markdown` / `to_word` / `to_excel` /
+  `cite` / `to_dict` / `sp.regtable` with defaults on 49 estimators.
+- `sp.regtable` / `sp.esttab` / `sp.modelsummary` on a result without
+  coefficients (`OaxacaResult`, `KMResult`, `VARResult`, `LPolyResult` ...)
+  raise `MethodIncompatibility` with a recovery hint instead of
+  `AttributeError: ... no attribute 'params'`.
+- ⚠️ "Cluster SE" said `No` for clustered `sp.feols` / `sp.fepois` /
+  `sp.feglm` columns (`cluster=` or `vcov={"CRV1": ...}`) and for
+  `sp.hdfe_ols(cluster=)`; it now names the cluster variable(s).
+  `sp.hdfe_ols` columns also get their FE rows and R².
+- ⚠️ "Mean of Y" printed `-0.000` for every fixed-effect column (it averaged
+  the demeaned outcome); it is now the outcome mean on the estimation
+  sample.
+- An unknown `stats=` name printed an empty row; it now raises
+  `MethodIncompatibility` with a did-you-mean. `n_obs`, `r_squared`,
+  `adj_r_squared`, `pseudo_r2`, `loglik`, `DV mean` are recognised, and
+  `Cluster` / `FE` / `First-stage F` (rows the indicator block prints) are
+  accepted without adding an empty row.
+- `sp.modelsummary(output="table.tex")` (or `.html` / `.md` / `.txt` /
+  `.csv`) wrote nothing and returned text; it writes the file. A misspelt
+  `output=` raises instead of returning text, as does
+  `sp.esttab(output="bogus")`. `sp.outreg2(filename="t.html")` wrote an
+  Excel workbook under that name; `.html` / `.md` / `.txt` now write the
+  rendering, an unknown extension or `format=` raises, and a bare name
+  still writes Excel.
+
+#### Changed
+
+- Default summary rows: likelihood models that report a pseudo-R² (logit,
+  probit ...) show `Pseudo R²` and `Log-Lik.`; default rows that no column
+  can fill (`R² / Adj. R² / F` under a logit or a causal estimate) are
+  dropped. OLS tables are unchanged.
+
 ### Singletons: the default of `fixef_rm` changes in 1.40
 
 - `sp.feols` / `sp.fepois`: `fixef_rm` defaults to `None`, which keeps

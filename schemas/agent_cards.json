@@ -10485,12 +10485,12 @@
             "type": "integer"
           },
           "filename": {
-            "description": "Output file path (.xlsx, .tex, .docx)",
+            "description": "Output file path; the extension picks the format (.xlsx, .docx, .tex, .html, .md, .txt; no extension = Excel; any other extension is refused)",
             "type": "string"
           },
           "format": {
             "default": "auto",
-            "description": "``\"auto\"`` (default) detects from filename extension: ``.xlsx`` -> Excel, ``.docx`` -> Word, ``.tex`` -> LaTeX. Override with ``\"excel\"``, ``\"word\"``, or ``\"latex\"``.",
+            "description": "``\"auto\"`` (default) detects from filename extension: ``.xlsx`` -> Excel, ``.docx`` -> Word, ``.tex`` -> LaTeX, ``.html``, ``.md``, ``.txt``; a name without an extension is written as Excel, and any other extension raises ``MethodIncompatibility``. Override with ``\"excel\"``, ``\"word\"``, ``\"latex\"``, ``\"html\"``, ``\"markdown\"`` or ``\"text\"``.",
             "type": "string",
             "x-statspai-source": "signature"
           },
@@ -10676,9 +10676,8 @@
           },
           "output": {
             "default": "text",
-            "description": "``'text'``, ``'latex'``, ``'html'`` or ``'markdown'`` return the rendered string; ``'dataframe'`` returns a DataFrame; a path ending in ``.xlsx`` or ``.docx`` writes that file and returns a confirmation string.",
-            "type": "string",
-            "x-statspai-source": "signature"
+            "description": "'text', 'latex', 'html', 'markdown' or 'dataframe' return the table; a path ending in .tex, .html, .md, .txt, .csv, .docx or .xlsx writes it. Anything else raises",
+            "type": "string"
           },
           "results": {
             "description": "List of EconometricResults",

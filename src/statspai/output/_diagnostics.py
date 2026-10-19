@@ -134,7 +134,15 @@ def _fe_raw(result: Any) -> Any:
     mi = _model_info(result)
     if _is_causal(result):
         return mi.get("fixed_effects")
-    return mi.get("fixed_effects") or mi.get("absorbed_fe") or mi.get("fe")
+    fe = mi.get("fixed_effects") or mi.get("absorbed_fe") or mi.get("fe")
+    if not fe and getattr(result, "absorber", None) is not None:
+        # ``FEOLSResult`` (sp.hdfe_ols) has no model_info; its absorbed
+        # effects are the second part of ``formula`` ("y ~ x | firm + year").
+        # The table printed "Firm FE  No" for it.
+        formula = getattr(result, "formula", None)
+        if isinstance(formula, str) and "|" in formula:
+            fe = formula.split("|")[1].strip() or None
+    return fe
 
 
 def _fe_unknown(result: Any) -> bool:
@@ -204,9 +212,20 @@ def _cluster_cell(result: Any) -> str:
     results — the metadata shape is identical.
     """
     mi = _model_info(result)
-    if _is_causal(result) and "cluster" not in mi and "cluster_var" not in mi:
+    # ``cluster`` / ``cluster_var``: regress, ivreg, logit, panel, did ...;
+    # ``clustervar``: the fixest family (feols / fepois / feglm), whether the
+    # clustering came from ``cluster=`` or ``vcov={"CRV1": ...}``. Reading
+    # only the first two printed "Cluster SE  No" for every clustered
+    # feols column. ``FEOLSResult`` (sp.hdfe_ols) keeps it in
+    # ``cluster_info``.
+    declared = ("cluster", "cluster_var", "clustervar")
+    cl = mi.get("cluster") or mi.get("cluster_var") or mi.get("clustervar")
+    if not cl:
+        info = getattr(result, "cluster_info", None)
+        if isinstance(info, dict) and info.get("cluster"):
+            cl = info.get("cluster")
+    if not cl and _is_causal(result) and not any(k in mi for k in declared):
         return ""  # undeclared: blank, not a claim that SEs are unclustered
-    cl = mi.get("cluster") or mi.get("cluster_var")
     if cl in (None, "", "None", "none", False):
         return "No"
     if isinstance(cl, (list, tuple, set)):

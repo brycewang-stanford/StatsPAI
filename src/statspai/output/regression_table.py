@@ -53,6 +53,7 @@ from ._format import normalize_fmt, sig_decimals
 from ._journals import get_template, star_note_for
 from ._repro import build_repro_note
 from .estimates import (
+    _DIAGNOSTIC_STAT_NAMES,
     _STAT_ALIASES,
     _STAT_DISPLAY,
     _ci_bounds,
@@ -389,6 +390,23 @@ _RULE_SETS = {
 }
 
 
+#: Short spellings listed when ``stats=`` names an unknown statistic.
+_STAT_NAMES_FOR_HINT = (
+    "N",
+    "r2",
+    "adj_r2",
+    "pseudo_r2",
+    "F",
+    "ll",
+    "aic",
+    "bic",
+    "ymean",
+    "ysd",
+    "FE",
+    "cluster",
+)
+
+
 def _stdout_encodes_box_drawing() -> bool:
     """Whether the interpreter's stdout can represent the box-drawing rules."""
     encoding = getattr(sys.stdout, "encoding", None) or "ascii"
@@ -566,7 +584,7 @@ class RegtableResult:
         self.title = title
         self.notes = notes or []
         self.add_rows = add_rows or {}
-        self.requested_stats = stats or ["N", "R2", "adj_R2", "F"]
+        self.requested_stats = list(stats) if stats else self._default_stats(panels)
         self.alpha = float(alpha)
         self.n_models = sum(len(p.models) for p in panels)
         self.multi_se = multi_se or []
@@ -807,9 +825,54 @@ class RegtableResult:
             return "%.3f" if self.se_type == "p" else "%.2f"
         return self._pair_fmt(var, flat_idx)
 
+    @staticmethod
+    def _default_stats(panels: List["_PanelData"]) -> List[str]:
+        """Summary rows shown when ``stats=`` is not given.
+
+        ``N / R² / Adj. R² / F`` as before, plus pseudo-R² and the
+        log-likelihood when a column is a likelihood model that reports a
+        pseudo-R² (logit, probit, ...: the rows Stata's ``esttab`` shows
+        for them). A default row that no column can fill is dropped: a
+        logit or a causal estimate used to carry three empty
+        ``R² / Adj. R² / F`` rows.
+        """
+        models = [m for p in panels for m in p.models]
+        keys = ["N", "R2", "adj_R2", "F"]
+        if any(m.stats.get("Pseudo R-squared") is not None for m in models):
+            keys = ["N", "R2", "adj_R2", "pseudo_r2", "F", "ll"]
+        return [
+            k
+            for k in keys
+            if any(m.stats.get(_STAT_ALIASES.get(k, k)) is not None for m in models)
+        ] or ["N"]
+
     def _resolve_stat_keys(self) -> List[str]:
+        available = {k for p in self.panels for m in p.models for k in m.stats}
+        known = set(_STAT_ALIASES) | set(_STAT_ALIASES.values()) | available
         keys: List[str] = []
         for s in self.requested_stats:
+            if s in _DIAGNOSTIC_STAT_NAMES:
+                continue  # rendered by the FE / cluster indicator block
+            if s not in known:
+                import difflib
+
+                close = difflib.get_close_matches(
+                    str(s), sorted(known, key=str), n=3, cutoff=0.5
+                )
+                hint = (
+                    f"Did you mean {', '.join(repr(c) for c in close)}? "
+                    if close
+                    else ""
+                )
+                raise MethodIncompatibility(
+                    f"stats= has an unknown statistic {s!r}; it would print "
+                    "as an empty row.",
+                    recovery_hint=hint
+                    + "Known statistics: "
+                    + ", ".join(_STAT_NAMES_FOR_HINT)
+                    + ". Use add_rows= for a custom row.",
+                    diagnostics={"stat": s, "suggestions": close},
+                )
             canonical = _STAT_ALIASES.get(s, s)
             if canonical not in keys:
                 keys.append(canonical)
@@ -2131,6 +2194,8 @@ class RegtableResult:
                 disp = "R$^2$"
             elif key == "Adj. R-squared":
                 disp = "Adj. R$^2$"
+            elif key == "Pseudo R-squared":
+                disp = "Pseudo R$^2$"
             else:
                 disp = _latex_escape(disp)
             cells_s = [self._stat_cell(m, key) for m in all_models]

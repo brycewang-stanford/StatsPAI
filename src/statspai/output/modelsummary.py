@@ -163,8 +163,9 @@ def modelsummary(
     output : str, default 'text'
         ``'text'``, ``'latex'``, ``'html'`` or ``'markdown'`` return the
         rendered string; ``'dataframe'`` returns a DataFrame; a path ending
-        in ``.xlsx`` or ``.docx`` writes that file and returns a
-        confirmation string.
+        in ``.tex``, ``.html``, ``.md``, ``.txt``, ``.csv``, ``.xlsx`` or
+        ``.docx`` writes that file and returns a confirmation string. Any
+        other value raises ``MethodIncompatibility``.
     title : str, default ''
         Table title / caption.
     notes : list of str, optional
@@ -284,23 +285,72 @@ def modelsummary(
     table = regtable(list(models), **kwargs)
 
     # ── output dispatch ──────────────────────────────────────────────
-    out = output.lower()
-    if out == "dataframe":
-        return table.to_dataframe()
-    if out == "latex":
-        return table.to_latex()
-    if out == "html":
-        return table.to_html()
-    if out == "markdown":
-        return table.to_markdown()
-    if output.lower().endswith(".xlsx"):
+    return _dispatch_output(table, output)
+
+
+#: File extensions ``output=`` writes to, as R ``modelsummary`` does.
+_FILE_RENDERERS = {
+    ".tex": "to_latex",
+    ".html": "to_html",
+    ".htm": "to_html",
+    ".md": "to_markdown",
+    ".markdown": "to_markdown",
+    ".txt": "to_text",
+    ".csv": None,  # via to_dataframe()
+}
+
+
+def _dispatch_output(table: Any, output: str) -> Union[str, pd.DataFrame]:
+    """Render or write ``table`` according to ``output=``.
+
+    Keywords return the rendering; a path writes the file and returns a
+    confirmation. ``output="x.tex"`` / ``".html"`` / ``".md"`` used to fall
+    through to the text renderer and write nothing, and a misspelt keyword
+    silently returned text.
+    """
+    from pathlib import Path
+
+    from ..exceptions import MethodIncompatibility
+
+    out = str(output).lower()
+    keywords = {
+        "text": "to_text",
+        "dataframe": None,
+        "data.frame": None,
+        "latex": "to_latex",
+        "tex": "to_latex",
+        "html": "to_html",
+        "markdown": "to_markdown",
+        "md": "to_markdown",
+    }
+    if out in keywords:
+        method = keywords[out]
+        return table.to_dataframe() if method is None else getattr(table, method)()
+    suffix = Path(out).suffix
+    if suffix == ".xlsx":
         table.to_excel(output)
         return f"Table exported to: {output}"
-    if output.lower().endswith(".docx"):
+    if suffix == ".docx":
         table.to_word(output)
         return f"Table exported to: {output}"
-    # default: text
-    return table.to_text()
+    if suffix in _FILE_RENDERERS:
+        method = _FILE_RENDERERS[suffix]
+        text = (
+            table.to_dataframe().to_csv()
+            if method is None
+            else str(getattr(table, method)())
+        )
+        Path(output).write_text(text, encoding="utf-8")
+        return f"Table exported to: {output}"
+    raise MethodIncompatibility(
+        f"output={output!r} is neither a format keyword nor a file path "
+        "with a known extension.",
+        recovery_hint=(
+            "Use 'text', 'latex', 'html', 'markdown' or 'dataframe', or a "
+            "path ending in .tex, .html, .md, .txt, .csv, .docx or .xlsx."
+        ),
+        diagnostics={"output": output},
+    )
 
 
 # ======================================================================

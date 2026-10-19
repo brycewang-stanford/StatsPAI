@@ -7,9 +7,8 @@
 | x2 | -1.173*** |
 | | (0.167) |
 | N | 400 |
-| R² |  |
-| Adj. R² |  |
-| F |  |
+| Pseudo R² | 0.362 |
+| Log-Lik. | -176.655 |
 
 *Standard errors in parentheses*
 **** p<0.01, ** p<0.05, * p<0.10*

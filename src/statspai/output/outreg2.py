@@ -314,8 +314,11 @@ def outreg2(
         Custom variable labels (mapped to ``regtable.coef_labels``).
     format : str, default "auto"
         ``"auto"`` (default) detects from filename extension:
-        ``.xlsx`` → Excel, ``.docx`` → Word, ``.tex`` → LaTeX.
-        Override with ``"excel"``, ``"word"``, or ``"latex"``.
+        ``.xlsx`` → Excel, ``.docx`` → Word, ``.tex`` → LaTeX, ``.html``,
+        ``.md``, ``.txt``; a name without an extension is written as Excel,
+        and any other extension raises ``MethodIncompatibility``. Override
+        with ``"excel"``, ``"word"``, ``"latex"``, ``"html"``,
+        ``"markdown"`` or ``"text"``.
 
     Returns
     -------
@@ -342,15 +345,48 @@ def outreg2(
     """
     _warn_outreg2_deprecation()
 
+    from ..exceptions import MethodIncompatibility
+
     fmt = format.lower()
+    by_extension = {
+        ".docx": "word",
+        ".doc": "word",
+        ".tex": "latex",
+        ".xlsx": "excel",
+        ".xls": "excel",
+        ".html": "html",
+        ".htm": "html",
+        ".md": "markdown",
+        ".txt": "text",
+    }
     if fmt == "auto":
-        lower = filename.lower()
-        if lower.endswith((".docx", ".doc")):
-            fmt = "word"
-        elif lower.endswith(".tex"):
-            fmt = "latex"
-        else:
-            fmt = "excel"
+        # Anything not named here used to be written as an Excel workbook
+        # whatever its extension ("table.html" held .xlsx bytes).
+        from pathlib import Path as _Path
+
+        suffix = _Path(filename).suffix.lower()
+        if not suffix:
+            suffix = ".xlsx"  # historical default for a bare name
+        if suffix not in by_extension:
+            raise MethodIncompatibility(
+                f"outreg2 cannot tell the format of {filename!r} from its "
+                "extension.",
+                recovery_hint=(
+                    "Use a filename ending in .xlsx, .docx, .tex, .html, .md "
+                    "or .txt, or pass format='excel' / 'word' / 'latex' / "
+                    "'html' / 'markdown' / 'text'."
+                ),
+                diagnostics={"filename": filename},
+            )
+        fmt = by_extension[suffix]
+    if fmt not in set(by_extension.values()):
+        raise MethodIncompatibility(
+            f"outreg2(format={format!r}) is not a known format.",
+            recovery_hint=(
+                "Use 'auto', 'excel', 'word', 'latex', 'html', 'markdown' or 'text'."
+            ),
+            diagnostics={"format": format},
+        )
 
     from ._format import unwrap_single_sequence
 
@@ -376,6 +412,16 @@ def outreg2(
         Path(out_path).write_text(latex, encoding="utf-8")
         print(f"Regression results exported to: {out_path}")
         return latex
+    if fmt in ("html", "markdown", "text"):
+        from pathlib import Path
+
+        render = {"html": table.to_html, "markdown": table.to_markdown}.get(
+            fmt, table.to_text
+        )
+        rendered = str(render())
+        Path(filename).write_text(rendered, encoding="utf-8")
+        print(f"Regression results exported to: {filename}")
+        return rendered
     if fmt == "word":
         table.to_word(filename)
         print(f"Regression results exported to: {filename}")

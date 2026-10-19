@@ -527,8 +527,11 @@ rt = sp.regtable(ols, ivr, did, dml, mtch,
                  coef_labels={"training": "Job training (β̂)"},
                  model_labels=["(1) OLS+FE", "(2) 2SLS", "(3) CS-DID",
                                "(4) DML-PLR", "(5) PSM"],
-                 stats=["Estimator", "Identifying assumption",
-                        "N", "R2 / Pseudo-R2", "Cluster"],
+                 stats=["N", "R2", "Cluster"],
+                 # Custom rows go through add_rows=; stats= takes only
+                 # summary statistics and refuses names it cannot fill.
+                 add_rows={"Estimator": ["OLS+FE", "2SLS", "CS-DiD",
+                                         "DML-PLR", "PSM"]},
                  title="Table 2-bis. Convergent evidence across designs")
 rt.to_word ("tables/table2b_design_race.docx")
 rt.to_excel("tables/table2b_design_race.xlsx")

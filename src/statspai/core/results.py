@@ -4767,6 +4767,9 @@ class CausalResult:
         4. Trailing notes paragraph: ``"Standard errors in parentheses.
            Observations: N. Method: <method>."``.
 
+        ``digits`` / ``fmt`` follow :meth:`to_latex`: the default is the
+        journal-adaptive ``"auto"`` precision every other export uses.
+
         Requires ``python-docx``.
         """
         try:
@@ -4784,6 +4787,10 @@ class CausalResult:
             apply_word_booktab_rules,
             style_word_table_typography,
         )
+
+        # ``digits=None`` (the default) used to reach ``DataFrame.round(None)``
+        # and crash; resolve it the way to_latex / to_markdown do.
+        fmt = _resolve_digits(fmt, digits, default=_AUTO)
 
         doc = Document()
         title = caption or f"{self.method} — {self.estimand} Estimates"
@@ -4806,9 +4813,9 @@ class CausalResult:
             for i, (idx, row) in enumerate(df.iterrows()):
                 table.rows[i + 1].cells[0].text = str(idx)
                 for j, val in enumerate(row, 1):
-                    if isinstance(val, float):
-                        cell_text = f"{val:.{digits}f}" if np.isfinite(val) else ""
-                    elif pd.isna(val):
+                    if isinstance(val, (float, np.floating)) and not np.isfinite(val):
+                        cell_text = ""
+                    elif not isinstance(val, str) and pd.isna(val):
                         cell_text = ""
                     else:
                         cell_text = str(val)
@@ -4824,22 +4831,21 @@ class CausalResult:
             apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
 
         # Estimates block — always present
-        tidy = (
-            self.tidy().round(digits).set_index(self.tidy().columns[0])
-            if "term" in self.tidy().columns or "estimand" in self.tidy().columns
-            else self.tidy().round(digits)
-        )
+        raw_tidy = self.tidy()
+        tidy = _format_frame(raw_tidy, fmt)
+        if "term" in raw_tidy.columns or "estimand" in raw_tidy.columns:
+            tidy = tidy.set_index(tidy.columns[0])
         _write_df_to_table(tidy)
 
         # Detail block — group/time ATTs, etc.
         if self.detail is not None and len(self.detail) > 0:
             doc.add_paragraph().add_run("Detail").bold = True
-            detail_view = self.detail.round(digits)
+            detail_view = self.detail
             if not detail_view.index.is_unique or detail_view.index.equals(
                 pd.RangeIndex(len(detail_view))
             ):
                 detail_view = detail_view.reset_index(drop=True)
-            _write_df_to_table(detail_view)
+            _write_df_to_table(_format_frame(detail_view, fmt))
 
         notes = (
             "Standard errors in parentheses. "

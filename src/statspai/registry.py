@@ -7270,7 +7270,11 @@ def _build_registry() -> None:
                     "filename",
                     "str",
                     True,
-                    description="Output file path (.xlsx, .tex, .docx)",
+                    description=(
+                        "Output file path; the extension picks the format "
+                        "(.xlsx, .docx, .tex, .html, .md, .txt; no extension "
+                        "= Excel; any other extension is refused)"
+                    ),
                 ),
                 ParamSpec(
                     "decimal_places",
@@ -7305,6 +7309,15 @@ def _build_registry() -> None:
                 ),
                 ParamSpec(
                     "results", "list", True, description="List of EconometricResults"
+                ),
+                ParamSpec(
+                    "output",
+                    "str",
+                    False,
+                    "text",
+                    "'text', 'latex', 'html', 'markdown' or 'dataframe' return "
+                    "the table; a path ending in .tex, .html, .md, .txt, .csv, "
+                    ".docx or .xlsx writes it. Anything else raises",
                 ),
                 ParamSpec(
                     "fmt",

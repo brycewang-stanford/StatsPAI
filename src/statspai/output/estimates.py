@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, NoReturn, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -86,21 +86,38 @@ _STAT_ALIASES = {
     "N": "N",
     "n": "N",
     "nobs": "N",
+    "n_obs": "N",
     "R2": "R-squared",
     "r2": "R-squared",
+    "r_squared": "R-squared",
+    "rsquared": "R-squared",
     "R-squared": "R-squared",
     "adj_R2": "Adj. R-squared",
     "adj_r2": "Adj. R-squared",
+    "r2_a": "Adj. R-squared",
+    "adj_r_squared": "Adj. R-squared",
+    "adj_rsquared": "Adj. R-squared",
     "Adj. R-squared": "Adj. R-squared",
     "F": "F-statistic",
     "f": "F-statistic",
+    "f_stat": "F-statistic",
+    "fstat": "F-statistic",
     "F-statistic": "F-statistic",
     "AIC": "AIC",
     "aic": "AIC",
     "BIC": "BIC",
     "bic": "BIC",
     "ll": "Log-Likelihood",
+    "loglik": "Log-Likelihood",
+    "log_likelihood": "Log-Likelihood",
+    "logLik": "Log-Likelihood",
     "Log-Likelihood": "Log-Likelihood",
+    "Log-likelihood": "Log-Likelihood",
+    "pseudo_r2": "Pseudo R-squared",
+    "pr2": "Pseudo R-squared",
+    "r2_p": "Pseudo R-squared",
+    "Pseudo R2": "Pseudo R-squared",
+    "Pseudo R-squared": "Pseudo R-squared",
     # Dependent-variable summary rows. Top-5 econ journals routinely require
     # these so reviewers can sanity-check effect magnitudes against the
     # outcome's scale; ``modelsummary`` exposes them via ``glance``,
@@ -111,7 +128,34 @@ _STAT_ALIASES = {
     "SD of Y": "SD of Y",
     "ymean": "Mean of Y",
     "ysd": "SD of Y",
+    "DV mean": "Mean of Y",
+    "dv_mean": "Mean of Y",
+    "Mean DV": "Mean of Y",
+    "DV SD": "SD of Y",
 }
+
+#: ``stats=`` names that request the fixed-effect / cluster / first-stage F
+#: indicator rows.
+#: Those rows come from the diagnostics block (``diagnostics="auto"``) and
+#: are printed whenever a column absorbs effects or clusters, so the names
+#: are accepted and add no summary-statistic row of their own. They used to
+#: be passed through as unknown statistics and print as empty rows.
+_DIAGNOSTIC_STAT_NAMES = frozenset(
+    {
+        "Cluster",
+        "cluster",
+        "Cluster SE",
+        "cluster_se",
+        "clusters",
+        "FE",
+        "fe",
+        "Fixed Effects",
+        "fixed_effects",
+        "First-stage F",
+        "first_stage_F",
+        "first_stage_f",
+    }
+)
 
 _STAT_DISPLAY = {
     "N": "N",
@@ -121,6 +165,7 @@ _STAT_DISPLAY = {
     "AIC": "AIC",
     "BIC": "BIC",
     "Log-Likelihood": "Log-Lik.",
+    "Pseudo R-squared": "Pseudo R\u00b2",
     "Mean of Y": "Mean of Y",
     "SD of Y": "SD of Y",
 }
@@ -284,6 +329,31 @@ def _full_vector_causal(result: Any) -> Optional[_ModelData]:
     )
 
 
+def _refuse_untabulable(result: Any) -> NoReturn:
+    """Raise a typed error for an object a regression table cannot hold.
+
+    A result without a coefficient vector (``params``) or a headline
+    ``estimate`` / ``se`` pair used to surface as a bare
+    ``AttributeError: ... has no attribute 'params'`` from deep inside the
+    table builder.
+    """
+    from ..exceptions import MethodIncompatibility
+
+    name = type(result).__name__
+    hint = (
+        "A regression table needs coefficients (params / std_errors) or an "
+        "estimate / se pair. Export this result on its own with "
+        "result.to_latex() / .to_word(path) / .to_excel(path), or tabulate "
+        "result.tidy()."
+    )
+    raise MethodIncompatibility(
+        f"{name} has no coefficient vector or estimate/se pair to put in a "
+        "regression table.",
+        recovery_hint=hint,
+        diagnostics={"result_type": name},
+    )
+
+
 def _extract_model_data(result: Any) -> _ModelData:
     """Unified extraction for EconometricResults and CausalResult."""
 
@@ -330,7 +400,14 @@ def _extract_model_data(result: Any) -> _ModelData:
         )
 
     # EconometricResults (or duck-typed equivalent)
-    params = result.params
+    params = getattr(result, "params", None)
+    if params is None:
+        _refuse_untabulable(result)
+    if not isinstance(params, pd.Series):
+        try:
+            params = pd.Series(params)
+        except (TypeError, ValueError):
+            _refuse_untabulable(result)
     std_errors = _as_series(getattr(result, "std_errors", None), params.index)
     if std_errors is None:
         std_errors = pd.Series(np.nan, index=params.index)
@@ -365,6 +442,7 @@ def _extract_model_data(result: Any) -> _ModelData:
     for k in (
         "R-squared",
         "Adj. R-squared",
+        "Pseudo R-squared",
         "F-statistic",
         "AIC",
         "BIC",
@@ -372,6 +450,16 @@ def _extract_model_data(result: Any) -> _ModelData:
     ):
         if k in diag:
             stats[k] = diag[k]
+    # The fixest family spells it with a lower-case "l".
+    if "Log-Likelihood" not in stats and "Log-likelihood" in diag:
+        stats["Log-Likelihood"] = diag["Log-likelihood"]
+    # Result dataclasses without a diagnostics dict (``FEOLSResult`` from
+    # sp.hdfe_ols) carry R² as attributes.
+    for attr, key in (("r2", "R-squared"), ("r2_a", "Adj. R-squared")):
+        if key not in stats:
+            val = getattr(result, attr, None)
+            if isinstance(val, (int, float, np.floating)) and np.isfinite(val):
+                stats[key] = float(val)
 
     # Dependent-variable mean / SD (sample, ddof=1). Looked up across the
     # several conventions different StatsPAI estimators use to stash the
@@ -381,6 +469,25 @@ def _extract_model_data(result: Any) -> _ModelData:
     y_vec = dinfo.get("y") if isinstance(dinfo, dict) else None
     if y_vec is None and isinstance(dinfo, dict):
         y_vec = dinfo.get("endog") or dinfo.get("dep_var") or dinfo.get("Y")
+    mi_econ = getattr(result, "model_info", {}) or {}
+    if isinstance(mi_econ, dict) and mi_econ.get("fixed_effects"):
+        # With absorbed fixed effects ``data_info['y']`` is the *within*
+        # (demeaned) outcome, whose mean is zero by construction: the table
+        # printed "Mean of Y  -0.000" for every FE column. The outcome
+        # itself is fitted + residual on the estimation sample (exact for
+        # feols, and for fepois / feglm whose residuals are response
+        # residuals); without both vectors the row stays empty.
+        y_vec = None
+        fitted = dinfo.get("fitted_values") if isinstance(dinfo, dict) else None
+        resid = dinfo.get("residuals") if isinstance(dinfo, dict) else None
+        if fitted is not None and resid is not None:
+            try:
+                f_arr = np.asarray(fitted, dtype=float).ravel()
+                r_arr = np.asarray(resid, dtype=float).ravel()
+                if f_arr.shape == r_arr.shape:
+                    y_vec = f_arr + r_arr
+            except (TypeError, ValueError):
+                y_vec = None
     if y_vec is not None:
         try:
             y_arr = np.asarray(y_vec, dtype=float).ravel()
@@ -655,6 +762,19 @@ def esttab(
     True
     """
     _warn_once_esttab()
+    _esttab_outputs = ("text", "latex", "tex", "html", "markdown", "md", "csv")
+    if output not in _esttab_outputs:
+        # An unknown keyword used to fall back to text silently.
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            f"esttab(output={output!r}) is not a known format.",
+            recovery_hint=(
+                f"Use one of {list(_esttab_outputs)}; to write a file pass "
+                "filename='table.tex' (the extension picks the format)."
+            ),
+            diagnostics={"output": output},
+        )
 
     # Resolve models: positional args > global store
     results = _format_module.unwrap_single_sequence(results)
