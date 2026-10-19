@@ -689,6 +689,10 @@ All notable changes to StatsPAI will be documented in this file.
   better against `lpirfs` 0.2.5, `plm` 2.6 (GPL packages used as black
   boxes), `svars` 1.3, Stata 18 `lpirf` and `xtgcause`; the proxy SVAR
   against the 2SLS identity and a long simulated sample.
+- `sp.vcov(lp, vce)` / `sp.vcov_compare` re-report a local projection
+  under another `vce=`: the call is recorded, and an impulse-response
+  result is read as one estimate per horizon (per regime for `state=`).
+  The refit equals `sp.local_projections(..., vce=vce)` bit for bit.
 
 ### Experiments: group sequential designs, always-valid tests, CUPED, simulation power
 

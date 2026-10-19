@@ -72,11 +72,58 @@ def _se_args(fn: Any, name: str) -> frozenset:
     return frozenset(out)
 
 
+#: Impulse-response results (sp.local_projections): one estimate per
+#: horizon, as ``(estimate, se, ci_lower, ci_upper)`` attribute names.
+_IRF_BLOCKS = (
+    ("", ("irf", "se", "ci_lower", "ci_upper")),
+    ("state1:", ("irf_state1", "se_state1", None, None)),
+    ("state0:", ("irf_state0", "se_state0", None, None)),
+)
+
+
+def _irf_table(result: Any) -> Optional[pd.DataFrame]:
+    """Per-horizon rows of an impulse-response result, or None."""
+    horizons = getattr(result, "horizons", None)
+    if horizons is None:
+        return None
+    frames = []
+    for prefix, (est, se, lo, hi) in _IRF_BLOCKS:
+        values = getattr(result, est, None)
+        if values is None:
+            continue
+        n = len(np.asarray(values))
+
+        def col(attr: Optional[str]) -> np.ndarray:
+            value = getattr(result, attr, None) if attr else None
+            return (
+                np.asarray(value, dtype=float)
+                if value is not None
+                else np.full(n, np.nan)
+            )
+
+        frames.append(
+            pd.DataFrame(
+                {
+                    "term": [f"{prefix}h{int(h)}" for h in np.asarray(horizons)],
+                    "estimate": np.asarray(values, dtype=float),
+                    "se": col(se),
+                    "ci_lower": col(lo),
+                    "ci_upper": col(hi),
+                    "pvalue": np.full(n, np.nan),
+                }
+            )
+        )
+    return pd.concat(frames, ignore_index=True) if frames else None
+
+
 def _estimates(result: Any) -> pd.Series:
     """Point estimates as a Series, the quantity the replay must reproduce."""
     params = getattr(result, "params", None)
     if isinstance(params, pd.Series) and len(params):
         return params.astype(float)
+    irf = _irf_table(result)
+    if irf is not None:
+        return pd.Series(irf["estimate"].to_numpy(), index=list(irf["term"]))
     est = getattr(result, "estimate", None)
     if est is not None and np.ndim(est) == 0:
         return pd.Series([float(est)], index=["estimate"])
@@ -109,6 +156,9 @@ def _table(result: Any) -> pd.DataFrame:
                 "pvalue": col("pvalues"),
             }
         )
+    irf = _irf_table(result)
+    if irf is not None:
+        return irf
     est = float(_estimates(result).iloc[0])
     ci = getattr(result, "ci", None)
     lo, hi = (

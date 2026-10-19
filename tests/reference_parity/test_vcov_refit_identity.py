@@ -296,6 +296,44 @@ def test_vcov_compare_table(cross):
     assert np.isnan(tab.loc[3, "se"]) and tab.loc[3, "note"]
 
 
+@pytest.fixture(scope="module")
+def lp_series():
+    rng = np.random.default_rng(3)
+    T = 200
+    shock = rng.normal(size=T)
+    y = np.zeros(T)
+    for t in range(1, T):
+        y[t] = 0.5 * y[t - 1] + 0.8 * shock[t] + rng.normal(0, 0.5)
+    d = (rng.uniform(size=T) < 0.5).astype(float)
+    return pd.DataFrame({"y": y, "s": shock, "d": d})
+
+
+@pytest.mark.parametrize(
+    "base,vce",
+    [
+        ({}, "robust"),
+        ({"vce": "hac"}, "robust"),
+        ({"vce": "robust"}, "ols"),
+        ({"state": "d", "state_transform": "none"}, "robust"),
+    ],
+)
+def test_local_projections_identity(lp_series, base, vce):
+    """One estimate per horizon (and per regime): the refit equals the
+    direct call bit for bit, and the point estimates do not move."""
+    fit = _quiet(sp.local_projections, lp_series, "y", "s", horizons=4, **base)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", sp.exceptions.StatsPAIWarning)
+        new = sp.vcov(fit, vce)
+    direct = _quiet(
+        sp.local_projections, lp_series, "y", "s", horizons=4, **{**base, "vce": vce}
+    )
+    attrs = ("irf_state1", "se_state1", "irf_state0", "se_state0")
+    if "state" not in base:
+        attrs = ("irf", "se", "ci_lower", "ci_upper")
+    for attr in attrs:
+        np.testing.assert_array_equal(getattr(new, attr), getattr(direct, attr))
+
+
 def test_every_vce_estimator_records_its_call():
     missing = []
     for name in sp.list_functions():

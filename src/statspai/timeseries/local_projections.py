@@ -26,6 +26,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..core._collinear import independent_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -264,6 +265,7 @@ def _lpirfs_cholesky(
 # --------------------------------------------------------------------- #
 
 
+@records_call("local_projections")
 @accepts_aliases(covariates="controls", y="outcome")
 def local_projections(
     data: pd.DataFrame,
