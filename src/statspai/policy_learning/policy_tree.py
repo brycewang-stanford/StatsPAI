@@ -142,6 +142,26 @@ class PolicyTreeResult(dict, ResultProtocolMixin):
     def summary(self) -> str:
         lo, hi = self.value_policy_ci
         rules = str(self["rules"])
+        if self.get("multi_action"):
+            vals = ", ".join(f"{k}: {v:+.4f}" for k, v in self["action_values"].items())
+            shares = ", ".join(
+                f"{k}: {v:.3f}" for k, v in self["action_shares"].items()
+            )
+            return (
+                "Multi-action Policy Tree\n"
+                "----------------------------------------\n"
+                f"  Max depth          : {self.max_depth}\n"
+                f"  Policy covariates  : {', '.join(self.policy_covariates)}\n"
+                f"  Observations       : {self.n_obs:,}\n"
+                f"  V(assign all to a) : {vals}\n"
+                f"  Shares assigned    : {shares}\n"
+                f"  V(learned policy)  : {self.value_policy:+.4f}"
+                f"  (SE {self.value_policy_se:.4f}, "
+                f"95% CI [{lo:+.4f}, {hi:+.4f}])\n"
+                f"  Gain vs best uniform ({self['best_uniform_action']!r}) : "
+                f"{self.value_gain:+.4f} (SE {self.value_gain_se:.4f})\n"
+                "\nLearned policy:\n" + rules
+            )
         return (
             "Policy Tree (Athey-Wager 2021)\n"
             "----------------------------------------\n"
@@ -408,7 +428,21 @@ def policy_tree(
     y : str
         Outcome variable.
     treat : str
-        Binary treatment variable (0/1).
+        Treatment variable. A 0/1 column grows the binary treat / don't
+        treat tree. Any other column (three or more arms, or two levels
+        not coded 0/1) grows a multi-action tree whose leaves each assign
+        one level: the reward matrix is the cross-fitted AIPW score of
+        every arm (``Gamma[i, a] = mu_a + 1[A = a] (Y - mu_a) / e_a``,
+        gradient-boosting nuisances, generalized propensity scores
+        clipped below at 0.025 and counted in
+        ``n_propensity_clipped``) unless ``scores=`` supplies it. Given
+        the reward matrix the depth <= 2 search is exact and assigns every
+        row the same action as R ``policytree`` 1.2.4
+        (``tests/reference_parity/test_policytree_multi_action_parity.py``).
+        Multi-action results add ``actions``, ``levels``,
+        ``action_values`` (value of assigning everyone to each level),
+        ``action_shares`` and ``best_uniform_action``; ``value_gain`` is
+        against the best uniform action and ``predict`` returns levels.
     covariates : list of str
         Covariates for CATE estimation (nuisance).
     policy_covariates : list of str, optional
@@ -422,9 +456,12 @@ def policy_tree(
     alpha : float, default 0.05
         Significance level.
     random_state : int, default 42
-    scores : np.ndarray (n,), optional
+    scores : np.ndarray (n,) or (n, A), optional
         Pre-computed doubly-robust scores ``Gamma_i`` for treating unit
-        ``i``, one per row of ``data``.  When supplied the internal
+        ``i``, one per row of ``data``; or an ``n x A`` reward matrix, one
+        column per action in the order of the sorted treatment levels,
+        which grows a multi-action tree (``policytree::policy_tree(X,
+        Gamma)``).  When supplied the internal
         cross-fitted AIPW step is skipped entirely, so the tree search is
         decoupled from nuisance estimation -- this is the injection point
         that makes the search directly comparable with
@@ -439,8 +476,10 @@ def policy_tree(
         Depth ``>= 3`` is always greedy.
     split_step : int, default 1
         Consider only every ``split_step``-th distinct value of each
-        policy covariate, mirroring ``policytree``'s ``split.step``.
-        ``1`` searches the complete grid.
+        policy covariate. ``1`` searches the complete grid. An
+        approximation in the spirit of ``policytree``'s ``split.step``,
+        which thins by sample rather than by distinct value, so the two
+        agree only at 1.
 
     Returns
     -------
@@ -683,14 +722,16 @@ class PolicyTree:
 
         clean = self.data[all_cols].dropna()
         Y = clean[self.y].values.astype(np.float64)
-        D = clean[self.treat].values.astype(np.float64)
         W = clean[self.covariates].values.astype(np.float64)
         X_pol = clean[self.policy_covariates].values.astype(np.float64)
         n = len(Y)
 
-        unique_d = np.unique(D)
-        if not (len(unique_d) == 2 and set(unique_d.astype(int)) == {0, 1}):
-            raise ValueError("Treatment must be binary (0/1)")
+        t = clean[self.treat]
+        levels = sorted(t.unique().tolist(), key=lambda v: (str(type(v)), v))
+        binary01 = len(levels) == 2 and set(levels) <= {0, 1, 0.0, 1.0, True, False}
+        if not binary01 or (self.scores is not None and self.scores.ndim == 2):
+            return self._fit_multi_action(clean, all_cols, Y, t, levels, W, X_pol)
+        D = t.values.astype(np.float64)
 
         # Step 1: doubly robust scores -- caller-supplied, or cross-fitted.
         if self.scores is not None:
@@ -769,6 +810,86 @@ class PolicyTree:
             search_mode=search_mode,
         )
 
+    def _fit_multi_action(
+        self,
+        clean: pd.DataFrame,
+        all_cols: List[str],
+        Y: np.ndarray,
+        t: pd.Series,
+        levels: List[Any],
+        W: np.ndarray,
+        X_pol: np.ndarray,
+    ) -> "PolicyTreeResult":
+        """Multi-action tree on an ``n x A`` reward matrix (see
+        :mod:`._multi_action`)."""
+        from ._multi_action import (
+            check_reward_matrix,
+            fit_multi_action,
+            multi_arm_dr_scores,
+        )
+
+        if len(levels) < 2:
+            raise MethodIncompatibility(
+                "policy_tree: the treatment has a single level.",
+                recovery_hint="A policy needs at least two actions.",
+            )
+        code = {lv: k for k, lv in enumerate(levels)}
+        G = np.array([code[v] for v in t.tolist()])
+        extra: Dict[str, Any] = {}
+        if self.scores is not None:
+            R_in = np.asarray(self.scores, dtype=np.float64)
+            if R_in.ndim != 2:
+                raise MethodIncompatibility(
+                    "policy_tree: with a treatment of more than two levels (or "
+                    "not coded 0/1), scores= must be the n x A reward matrix.",
+                    recovery_hint="Pass one column of doubly robust scores per "
+                    "action, ordered as the sorted treatment levels.",
+                )
+            keep = self.data[all_cols].notna().all(axis=1).to_numpy()
+            R = check_reward_matrix(R_in, len(self.data), len(levels))[keep]
+            extra["score_source"] = "user"
+        else:
+            R, info = multi_arm_dr_scores(
+                Y, G, W, len(levels), self.n_folds, self.random_state
+            )
+            extra.update(info)
+            extra["score_source"] = "cross-fitted AIPW (gradient boosting)"
+        out = fit_multi_action(self, X_pol, R, list(levels), extra)
+        self._tree = out["tree"]
+        self._scores = R
+        self._n_policy_features = X_pol.shape[1]
+        self._multi_levels = list(levels)
+        av = out["action_values"]
+        best = out["best_uniform_action"]
+        res = PolicyTreeResult(
+            tree=self,
+            policy=out["policy"],
+            value_treat_all=float(av[best]),
+            value_treat_none=float(av[0]),
+            value_policy=out["value_policy"],
+            value_gain=out["value_gain"],
+            fraction_treated=float(np.mean(out["actions"] != 0)),
+            rules=out["rules"],
+            n_obs=len(Y),
+            scores=R,
+            value_policy_se=out["value_policy_se"],
+            value_policy_ci=out["value_policy_ci"],
+            value_gain_se=out["value_gain_se"],
+            policy_covariates=tuple(self.policy_covariates),
+            max_depth=self.max_depth,
+            search_mode=out["search_mode"],
+        )
+        res.update(
+            multi_action=True,
+            levels=list(levels),
+            actions=out["actions"],
+            action_values={str(lv): float(v) for lv, v in zip(levels, av)},
+            action_shares=out["action_shares"],
+            best_uniform_action=levels[best],
+            **extra,
+        )
+        return res
+
     def predict(self, X_new: np.ndarray) -> np.ndarray:
         """
         Predict treatment assignment for new data.
@@ -838,6 +959,11 @@ class PolicyTree:
                 "PolicyTree.predict(): X_new contains NaN or infinite values.",
                 recovery_hint="Drop or impute non-finite policy covariate rows.",
             )
+        if getattr(self, "_multi_levels", None) is not None:
+            from ._multi_action import predict_actions
+
+            labels = np.asarray(self._multi_levels, dtype=object)
+            return labels[predict_actions(self._tree, X_new)]
         return self._predict_tree(self._tree, X_new)
 
     def _compute_dr_scores(
