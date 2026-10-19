@@ -60,6 +60,32 @@ fit's weights and the t distribution after `regress`. Pass `wts=True` and
 `df="model"` to get Stata's numbers. In that case `sp.avg_slopes` equals
 `sp.margins` to rounding, and a test checks it.
 
+## Limited-dependent-variable models
+
+After `mlogit`, `ologit`, `oprobit`, `tobit`, `intreg`, `heckman`
+(`method='ml'`), `heckprobit` and `ivprobit` the prediction is not one index
+through a link, so these functions refuse and point to `sp.margins` /
+`sp.margins_at`, which follow Stata's `margins` there. `predict=` names
+Stata's statistic and defaults to Stata's choice:
+
+```python
+fit = sp.tobit(df, formula="y ~ x1 + x2 + C(g)", ll=0)
+sp.margins(fit, data=df)                       # d xb / dx (Stata default)
+sp.margins(fit, data=df, predict="e(0,.)")     # d E(y | y > 0) / dx
+sp.margins_at(fit, data=df, at={"x1": [0, 1]}, predict="ystar(0,.)")
+
+ol = sp.ologit("y ~ x1 + x2", data=df)
+sp.margins(ol, data=df)                        # one row per variable and outcome
+sp.margins(ol, data=df, category=2)            # Stata predict(outcome(2))
+
+iv = sp.ivprobit(df, y="y", x=["x1"], endog="d", instruments=["z"])
+sp.margins(iv, data=df, predict="pr")          # average structural function
+```
+
+The `ivprobit` default is the linear prediction (as Stata 18); `pr` is
+Stata's average structural function, which holds each row's reduced-form
+error at its observed value, and `pr fixedasf` is `Phi(x'b)`.
+
 ## Testing functions of estimates
 
 ```python

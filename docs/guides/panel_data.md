@@ -644,6 +644,8 @@ from here.
 | FE negative binomial          | (no HDFE command; `nbreg y x i.i i.t`) | `fenegbin(y ~ x \| i + t)`                  | `sp.feglm("y ~ x \| i + t", data=df, family="negbin")`                    |
 | Bias-corrected FE logit       | —                                    | `alpaca::biasCorr(feglm(...))`              | `sp.feglm(..., family="logit", bias_correction=True)`                     |
 | Dynamic panel GMM             | `xtabond y x`                        | `pgmm(...)`                                 | `sp.xtabond(df, y="y", x=["x"], id="id", time="t")`                       |
+| Panel IV (RE / FE / BE)       | `xtivreg y x (d = z), re [ec2sls]`   | `plm(y ~ x + d \| x + z, model="random")`   | `sp.xtivreg(df, y="y", x="x", endog="d", instruments="z", id="id")`       |
+| Panel-corrected SEs           | `xtpcse y x, correlation(ar1)`       | `pcse::pcse(lm(...))`                       | `sp.xtpcse(df, y="y", x="x", id="id", time="t", correlation="ar1")`       |
 | Panel unit root               | `xtunitroot ips y`                   | `purtest(y, test="ips")`                    | `sp.panel_unitroot(df, variable="y", id="id", time="t", test="ips")`      |
 
 More R-to-StatsPAI translations (including `fixest` IV syntax and
