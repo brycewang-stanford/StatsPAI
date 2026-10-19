@@ -1592,6 +1592,74 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="intreg",
+            category="regression",
+            description=(
+                "Interval regression by maximum likelihood (Stata intreg): a "
+                "normal linear model for an outcome known only to lie between "
+                "a lower and an upper bound (point, left-, right- or "
+                "interval-censored rows)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "y_lower",
+                    "str",
+                    False,
+                    None,
+                    "Lower-bound column (NaN = no lower bound, left-censored)",
+                ),
+                ParamSpec(
+                    "y_upper",
+                    "str",
+                    False,
+                    None,
+                    "Upper-bound column (NaN = no upper bound, right-censored)",
+                ),
+                ParamSpec("x", "list", False, None, "Regressors (a constant is added)"),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "None/'oim' (observed information), 'robust' or 'cluster' "
+                    "(e.g. vce='cluster firm'); robust= is an alias",
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster column"),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling weights [pw=] (imply robust SEs)",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+                ParamSpec(
+                    "formula",
+                    "str",
+                    False,
+                    None,
+                    "'lo + hi ~ x1 + C(g)' instead of y_lower / y_upper / x",
+                ),
+            ],
+            returns="CausalResult",
+            example=(
+                'sp.intreg(df, y_lower="wage_lo", y_upper="wage_hi", '
+                'x=["educ", "exper"])'
+            ),
+            tags=["censored", "interval", "tobit", "limited-dependent"],
+            reference="Stata intreg",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="tobit",
             category="regression",
             description="Tobit model for censored dependent variables.",

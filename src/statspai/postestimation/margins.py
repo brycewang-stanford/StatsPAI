@@ -107,8 +107,9 @@ def margins(
 
         - ``mlogit`` / ``ologit`` / ``oprobit``: ``'pr'`` (default; one
           row per variable and outcome), ``'xb'`` (ordered models);
-        - ``tobit``: ``'xb'`` (default), ``'e(a,b)'`` = E(y | a < y < b),
-          ``'ystar(a,b)'`` = E(max(a, min(y*, b))), ``'pr(a,b)'``; ``'.'``
+        - ``tobit`` / ``intreg``: ``'xb'`` (default), ``'e(a,b)'`` =
+          E(y | a < y < b), ``'ystar(a,b)'`` = E(max(a, min(y*, b))),
+          ``'pr(a,b)'``; ``'.'``
           is an open limit and a bare ``'e'`` / ``'ystar'`` / ``'pr'``
           uses the fit's censoring limits;
         - ``heckman`` (``method='ml'``): ``'xb'`` (default), ``'ycond'``,
@@ -252,7 +253,7 @@ class _MarginsContext:
             raise MethodIncompatibility(
                 "this margins function is not available after limited-"
                 "dependent-variable models (mlogit, ologit, oprobit, tobit, "
-                "heckman, heckprobit, ivprobit).",
+                "heckman, heckprobit, ivprobit, intreg).",
                 recovery_hint="Use sp.margins (dy/dx) or sp.margins_at "
                 "(predictive margins and their contrasts), with predict=.",
             )
@@ -421,7 +422,7 @@ def _reject_ldv_options(predict: Any, category: Any, fn: str) -> None:
         raise MethodIncompatibility(
             f"{fn}: predict= and category= apply after limited-dependent-"
             "variable models (mlogit, ologit, oprobit, tobit, heckman, "
-            "heckprobit, ivprobit); this model has one prediction scale.",
+            "heckprobit, ivprobit, intreg); this model has one prediction scale.",
             recovery_hint="Drop predict= / category=.",
         )
 

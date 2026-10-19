@@ -228,7 +228,7 @@ All notable changes to StatsPAI will be documented in this file.
   `synthdid_se(method = "jackknife")` (1e-9, `test_did_synth_R_parity.py`)
   and Stata `vce(jackknife)` (1e-10, `test_sdid_staggered_parity.py`);
   unchanged.
-### `sp.margins` after mlogit / ologit / oprobit / tobit / heckman / ivprobit; `sp.heckprobit`
+### `sp.margins` after mlogit / ologit / oprobit / tobit / heckman / ivprobit; `sp.heckprobit`, `sp.intreg`
 
 #### Added
 
@@ -258,6 +258,12 @@ All notable changes to StatsPAI will be documented in this file.
   `rho = 0`. Coefficients and standard errors match Stata 18 to 1e-9.
 - `tobit` and `heckman` results keep their estimation-scale parameters and
   full covariance (`result._ml_state`) for the above.
+- `sp.intreg`: interval regression by ML (Stata `intreg lo hi x`), with
+  exact, left-, right- and interval-censored rows, `vce=` oim / robust /
+  cluster, `weights=`, `formula='lo + hi ~ x + C(g)'`; `sp.margins` takes
+  the tobit statistics after it. Coefficients, standard errors, counts
+  and log-likelihood match Stata 18 to 1e-9 (`tests/test_intreg_stata.py`);
+  with one censoring point it reproduces `sp.tobit`.
 
 #### Changed
 

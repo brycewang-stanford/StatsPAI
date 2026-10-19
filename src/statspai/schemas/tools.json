@@ -18634,6 +18634,58 @@
     "name": "interpret_result"
   },
   {
+    "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows). Failure modes: intreg: the two bounds and the regressors are needed -> Pass y_lower=, y_upper= and x=, or formula='lo + hi ~ x1 + x2'; intreg: <int(bad.sum())> row(s) have <y_lower> > <y_upper> -> Swap or fix the bounds; Stata drops these rows with a note, which hides a data error.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "formula": {
+          "description": "'lo + hi ~ x1 + C(g)' instead of y_lower / y_upper / x",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "vce": {
+          "description": "None/'oim' (observed information), 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "weights": {
+          "description": "Sampling weights [pw=] (imply robust SEs)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "x": {
+          "description": "Regressors (a constant is added)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y_lower": {
+          "description": "Lower-bound column (NaN = no lower bound, left-censored)",
+          "type": "string"
+        },
+        "y_upper": {
+          "description": "Upper-bound column (NaN = no upper bound, right-censored)",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "intreg"
+  },
+  {
     "description": "Inverse logit, ``1 / (1 + exp(-x))``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
@@ -22268,7 +22320,7 @@
           "type": "string"
         },
         "predict": {
-          "description": "The prediction whose marginal effect is reported, as Stata's ``margins, predict(...)``; only after the limited-dependent-variable models, where Stata's default is used when omitted: - ``mlogit`` / ``ologit`` / ``oprobit``: ``'pr'`` (default; one row per variable and outcome), ``'xb'`` (ordered models); - ``tobit``: ``'xb'`` (default), ``'e(a,b)'`` = E(y | a < y < b), ``'ystar(a,b)'`` = E(max(a, min(y*, b))), ``'pr(a,b)'``; ``'.'`` is an open limit and a bare ``'e'`` / ``'ystar'`` / ``'pr'`` uses the fit's censoring limits; - ``heckman`` (``method='ml'``): ``'xb'`` (default), ``'ycond'``, ``'yexpected'``, ``'psel'``, ``'xbsel'``; - ``heckprobit``: ``'pmargin'`` (default), ``'p11'``, ``'p10'``, ``'p01'``, ``'p00'``, ``'psel'``, ``'pcond'``, ``'xb'``, ``'xbsel'``; - ``ivprobit`` (``method='mle'``): ``'xb'`` (default, as Stata 18), ``'pr'`` (average structural function).",
+          "description": "The prediction whose marginal effect is reported, as Stata's ``margins, predict(...)``; only after the limited-dependent-variable models, where Stata's default is used when omitted: - ``mlogit`` / ``ologit`` / ``oprobit``: ``'pr'`` (default; one row per variable and outcome), ``'xb'`` (ordered models); - ``tobit`` / ``intreg``: ``'xb'`` (default), ``'e(a,b)'`` = E(y | a < y < b), ``'ystar(a,b)'`` = E(max(a, min(y*, b))), ``'pr(a,b)'``; ``'.'`` is an open limit and a bare ``'e'`` / ``'ystar'`` / ``'pr'`` uses the fit's censoring limits; - ``heckman`` (``method='ml'``): ``'xb'`` (default), ``'ycond'``, ``'yexpected'``, ``'psel'``, ``'xbsel'``; - ``heckprobit``: ``'pmargin'`` (default), ``'p11'``, ``'p10'``, ``'p01'``, ``'p00'``, ``'psel'``, ``'pcond'``, ``'xb'``, ``'xbsel'``; - ``ivprobit`` (``method='mle'``): ``'xb'`` (default, as Stata 18), ``'pr'`` (average structural function).",
           "type": "string"
         },
         "result": {

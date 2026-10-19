@@ -699,6 +699,20 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "ui must be 'auto', 'jupyter', 'window' or " "'none', got <ui>",
         }
     ],
+    "intreg": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass y_lower=, y_upper= and x=, or formula='lo + hi ~ "
+            "x1 + x2'.",
+            "symptom": "intreg: the two bounds and the regressors are " "needed.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Swap or fix the bounds; Stata drops these rows with a "
+            "note, which hides a data error.",
+            "symptom": "intreg: <int(bad.sum())> row(s) have <y_lower> > " "<y_upper>.",
+        },
+    ],
     "jackknife": [
         {
             "exception": "statspai.MethodIncompatibility",

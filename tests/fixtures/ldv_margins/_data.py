@@ -43,6 +43,21 @@ def make_ldv_frame(seed: int = 20261019, n: int = 600) -> pd.DataFrame:
     df["ybh"] = np.where(
         df.s == 1, (df.ys + 0.3 * rng.normal(size=n) > 0.6).astype(float), np.nan
     )
+    # interval-coded outcome for intreg: bands of width 1, open below -1 and
+    # above 3, a fifth exact, five rows with no information
+    yi = 0.5 + df.x1 - 0.5 * df.x2 + gd + 1.3 * rng.normal(size=n)
+    lo = np.floor(yi)
+    hi = lo + 1.0
+    exact = rng.uniform(size=n) < 0.2
+    lo = np.where(exact, yi, lo)
+    hi = np.where(exact, yi, hi)
+    lo = np.where(yi < -1, np.nan, lo)
+    hi = np.where(yi < -1, -1.0, hi)
+    hi = np.where(yi > 3, np.nan, hi)
+    lo = np.where(yi > 3, 3.0, lo)
+    lo[:5] = np.nan
+    hi[:5] = np.nan
+    df["ilo"], df["ihi"] = lo, hi
     df["g2"] = (df.g == 2).astype(float)
     df["g3"] = (df.g == 3).astype(float)
     return df

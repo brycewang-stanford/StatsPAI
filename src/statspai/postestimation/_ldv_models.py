@@ -295,6 +295,23 @@ class _Tobit(_LDVModel):
         return _tobit_moments(xb, s, opt.a, opt.b, opt.name)[:, None]
 
 
+class _IntReg(_Tobit):
+    """``intreg``: the tobit statistics with no censoring limits of its
+    own; rows with both bounds missing are outside ``e(sample)``."""
+
+    kind = "intreg"
+
+    def dependent(self) -> Optional[str]:
+        return None
+
+    def sample_mask(self, frame: pd.DataFrame, variables: Sequence[str]) -> np.ndarray:
+        mask = super().sample_mask(frame, variables)
+        bounds = (getattr(self.result, "_ml_state", None) or {}).get("bounds")
+        if bounds and all(b in frame.columns for b in bounds):
+            mask &= frame[list(bounds)].notna().any(axis=1).to_numpy()
+        return mask
+
+
 class _Heckman(_LDVModel):
     kind = "heckman"
     options = ("xb", "ycond", "yexpected", "psel", "xbsel")
@@ -520,9 +537,10 @@ def _from_state(result: Any, st: Dict[str, Any]) -> _LDVModel:
     V = np.asarray(st["vcov"], dtype=float)
     formula = st.get("formula")
     nobs = st.get("nobs")
-    if model == "tobit":
+    if model in ("tobit", "intreg"):
         k = len(st["terms"])
-        return _Tobit(
+        cls = _Tobit if model == "tobit" else _IntReg
+        return cls(
             result,
             st.get("ll"),
             st.get("ul"),

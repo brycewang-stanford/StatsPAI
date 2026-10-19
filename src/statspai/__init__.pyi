@@ -1248,6 +1248,7 @@ from .regression.heckman import heckman as heckman
 from .regression.heckprobit import heckprobit as heckprobit
 from .regression.interflex import interflex as interflex
 from .regression.interflex import interflex_plot as interflex_plot
+from .regression.intreg import intreg as intreg
 from .regression.iv import IVRegression as IVRegression
 from .regression.iv import ivreg as ivreg
 from .regression.iv_count import ivpoisson as ivpoisson

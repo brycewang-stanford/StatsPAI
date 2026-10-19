@@ -98,7 +98,7 @@ class _Model:
             raise MethodIncompatibility(
                 f"{fn}: not available after limited-dependent-variable models "
                 "(mlogit, ologit, oprobit, tobit, heckman, heckprobit, "
-                "ivprobit), whose predictions are not a single index.",
+                "ivprobit, intreg), whose predictions are not a single index.",
                 recovery_hint="Use sp.margins (dy/dx) or sp.margins_at "
                 "(predictive margins) with predict=, Stata's margins "
                 "conventions.",

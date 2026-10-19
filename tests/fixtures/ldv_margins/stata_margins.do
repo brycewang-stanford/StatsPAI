@@ -122,4 +122,21 @@ margins, dydx(*) predict(psel)
 dump heckprobit_psel
 heckprobit ybh x1 x2 g2 g3, select(s = z x1) vce(robust)
 dumpe heckprobit_rob_e
+intreg ilo ihi x1 x2 i.g
+dumpe intreg_e
+display e(N) " " e(N_unc) " " e(N_lc) " " e(N_rc) " " e(N_int) " " %20.15g e(ll)
+margins, dydx(*)
+dump intreg_xb
+margins, dydx(*) predict(e(0,.))
+dump intreg_e0
+margins, dydx(*) predict(ystar(-1,3))
+dump intreg_ystar
+margins, dydx(*) predict(pr(0,2))
+dump intreg_pr02
+intreg ilo ihi x1 x2 i.g, vce(robust)
+dumpe intreg_rob_e
+intreg ilo ihi x1 x2 i.g [pw=w]
+dumpe intreg_pw_e
+margins, dydx(*) predict(e(0,.))
+dump intreg_pw_e0
 file close fh

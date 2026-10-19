@@ -6,6 +6,7 @@ from .count import nbreg, poisson, ppmlhdfe, xtnbreg
 from .glm import GLMEstimator, GLMRegression, glm
 from .heckman import heckman
 from .heckprobit import heckprobit
+from .intreg import intreg
 from .iv import IVEstimator, IVRegression, iv, ivreg
 from .logit_probit import cloglog, logit, probit
 from .multinomial import clogit, mlogit, ologit, oprobit
@@ -26,6 +27,7 @@ __all__ = [
     "IVEstimator",
     "heckman",
     "heckprobit",
+    "intreg",
     "qreg",
     "sqreg",
     "tobit",
