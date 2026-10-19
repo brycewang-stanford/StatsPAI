@@ -4,6 +4,27 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Discovery: Stata / R command names, paraphrases, `limit=`
+
+- `sp.search_functions` ranks the function a Stata command or R function
+  translates to first: `csdid` / `att_gt` -> `callaway_santanna`,
+  `reghdfe` / `ivreghdfe` -> `hdfe_ols`, `ivreg2` -> `iv`, `boottest` ->
+  `wild_cluster_boot`, `bacondecomp`, `did2s`, `matchit`, and
+  `eventstudyinteract` / `fixest::sunab` -> `sun_abraham`. The index is read
+  from the `sp.from_stata` / `sp.from_r` translator tables
+  (`_discovery_commands.py`); hits carry `matched_command`. `sp.csdid`
+  now raises an `AttributeError` that names `sp.callaway_santanna` (it
+  suggested `sp.sdid`). On 31 common command names the translator's target
+  (or the function of that name) ranked first for 16 and in the top 3 for
+  17; it now ranks first for all 31.
+- Paraphrased questions ("treatment adopted at different times", "only one
+  treated unit ... donors", "first stage F statistic is small", "score
+  cutoff") reach the design's entry point; a 12-query eval set
+  (`tests/test_discovery_paraphrase.py`) went from 0 to 12 top-3 hits.
+- `sp.search_functions(query, limit=10, category=None)`: like the MCP tool,
+  the Python function returns the top 10 by default; `limit=None` returns
+  every match as before.
+
 ### ⚠️ Correctness: `sp.rdrobust` fuzzy bandwidth with covariates
 
 - ⚠️ `sp.rdrobust(fuzzy=..., covs=...)` with an automatic bandwidth: `h`

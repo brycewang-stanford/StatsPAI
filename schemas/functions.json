@@ -51323,12 +51323,21 @@
     }
   },
   {
-    "description": "Search function names, descriptions, tags and agent cards by keywords,",
+    "description": "Search the registry by keywords, task phrase, or Stata / R command name.",
     "name": "search_functions",
     "parameters": {
       "properties": {
+        "category": {
+          "description": "Keep only hits whose registry ``category`` equals this (case-insensitive), e.g. ``'causal'`` or ``'regression'``.",
+          "type": "string"
+        },
+        "limit": {
+          "default": 10,
+          "description": "Maximum number of hits returned, most relevant first. ``None`` returns every match (all calls did before ``limit`` existed).",
+          "type": "integer"
+        },
         "query": {
-          "description": "query parameter (str).",
+          "description": "Keywords, a task phrase, a research question, or a command name.",
           "type": "string"
         }
       },

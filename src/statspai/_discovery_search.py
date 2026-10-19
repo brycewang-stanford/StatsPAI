@@ -29,6 +29,7 @@ This module keeps the original scoring (name > tag > description) and adds:
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 _STOPWORDS = frozenset(
@@ -247,6 +248,44 @@ PHRASES: Tuple[Tuple[str, str], ...] = (
     ("wild cluster bootstrap", "wildboot"),
 )
 
+#: Paraphrases an applied researcher types instead of the design name
+#: ("treatment adopted at different times" is staggered adoption, "one
+#: treated unit ... donors" is synthetic control, "first stage F statistic
+#: is small" is a weak instrument). Applied after :data:`PHRASES`; each
+#: match collapses to a concept token. The eval set in
+#: ``tests/test_discovery_paraphrase.py`` pins the top-3 result per query.
+_UNIT = (
+    r"(?:units?|states?|countr(?:y|ies)|regions?|cit(?:y|ies)|firms?"
+    r"|schools?|counties|county)"
+)
+_WHEN = r"(?:times|years|dates|periods|points in time)"
+PATTERNS: Tuple[Tuple["re.Pattern[str]", str], ...] = tuple(
+    (re.compile(pat), token)
+    for pat, token in (
+        (rf"\badopt\w*\b(?:\W+\w+){{0,4}}?\W+(?:at|in) different {_WHEN}", "staggered"),
+        (rf"\btreated (?:at|in) different {_WHEN}", "staggered"),
+        (
+            rf"\brolled? out\b(?:\W+\w+){{0,4}}?\W+(?:at|in|over) different {_WHEN}",
+            "staggered",
+        ),
+        (
+            r"\b(?:different|differential|varying|variation in)"
+            r"(?: treatment)? timing\b",
+            "staggered",
+        ),
+        (r"\btiming of (?:the )?treatment varies\b", "staggered"),
+        (rf"\b(?:only )?(?:one|a single|single) treated {_UNIT}", "synth"),
+        (r"\bdonor(?:s| pool| units?)?\b", "donor"),
+        (r"\bfirst[- ]stage f(?:[- ]stat(?:istic)?s?)?\b", "weakiv"),
+        (r"\bweak first[- ]stage\b", "weakiv"),
+        (r"\bweak (?:iv|instruments?)\b", "weakiv"),
+        (r"\binstruments? (?:is|are) weak\b", "weakiv"),
+        (r"\brunning variable\b", "rd"),
+        (r"\b(?:score|eligibility|assignment) (?:cutoff|cut-off|threshold)\b", "rd"),
+        (r"\bcut-?off\b", "cutoff"),
+    )
+)
+
 #: Concept token -> registered entry points, most canonical first. Names that
 #: are not registered are skipped at query time, so a rename degrades to "no
 #: boost" rather than an error. Only estimand / design vocabulary lives here;
@@ -299,6 +338,9 @@ CONCEPT_TARGETS: Dict[str, Tuple[str, ...]] = {
     "sensitivity": ("sensemakr", "evalue"),
     "mht": ("adjust_pvalues", "romano_wolf"),
     "wildboot": ("wild_cluster_bootstrap",),
+    "donor": ("synth", "sdid", "augsynth"),
+    "weakiv": ("iv_diag", "effective_f_test", "weakrobust", "anderson_rubin_ci"),
+    "cutoff": ("rdrobust", "rd"),
 }
 
 #: Down-weight for concept words that are ambiguous on their own (a bare
@@ -310,6 +352,8 @@ CONCEPT_WEIGHT: Dict[str, float] = {
     "att": 0.5,
     "ate": 0.6,
     "matching": 0.8,
+    "donor": 0.6,
+    "cutoff": 0.6,
 }
 
 #: Weight of an agent-card hit relative to a description hit (1.0).
@@ -327,6 +371,8 @@ def search_terms(query: str) -> List[Tuple[str, Tuple[str, ...]]]:
     lowered = " " + translate_query(query).lower() + " "
     for phrase, token in PHRASES:
         lowered = lowered.replace(phrase, f" {token} ")
+    for pattern, token in PATTERNS:
+        lowered = pattern.sub(f" {token} ", lowered)
     raw = [w.strip(".,;:()[]'\"?!") for w in lowered.replace("_", " ").split()]
     # ``event_study`` / ``causal_forest`` / ``principal_strat`` are single
     # concept tokens; the underscore split above must not break them.
@@ -387,6 +433,51 @@ def _concept_bonus(terms: List[Tuple[str, Tuple[str, ...]]]) -> Dict[str, float]
     return bonus
 
 
+#: Bonus for the translator's target of a Stata / R command named by the
+#: whole query (``csdid``) and by one word of a longer query (``csdid with
+#: covariates``); later targets of the same command step down.
+COMMAND_BONUS = 40.0
+COMMAND_WORD_BONUS = 15.0
+
+
+def _command_bonus(
+    query: str, registry: Dict[str, Any]
+) -> Dict[str, Tuple[float, str]]:
+    """``{function: (bonus, "stata csdid")}`` for Stata / R command names.
+
+    The index comes from the translators (:mod:`statspai._discovery_commands`).
+    A word that is itself a registered function name (``did``, ``synth``,
+    ``feols``) is left to the name match, so ``search_functions('did')``
+    still returns ``sp.did`` first.
+    """
+    from ._discovery_commands import AMBIGUOUS_WORDS, lookup
+
+    q = query.strip()
+    if q.lower().startswith("sp."):
+        q = q[3:]
+    words = [w.strip(".,;:()[]'\"?!") for w in q.split()]
+    words = [w for w in words if w]
+    if not words:
+        return {}
+    whole = len(words) == 1
+    out: Dict[str, Tuple[float, str]] = {}
+    for word in words:
+        key = word.lower()
+        bare = key.split("::", 1)[-1].rstrip("()")
+        if bare in registry and not getattr(registry[bare], "alias_of", None):
+            continue
+        if not whole and (bare in AMBIGUOUS_WORDS or len(bare) < 4):
+            continue
+        base = COMMAND_BONUS if whole else COMMAND_WORD_BONUS
+        for lang, targets in lookup(word):
+            live = [t for t in targets if t in registry]
+            for k, target in enumerate(live):
+                b = max(base - 5.0 * k, base / 2)
+                if b > out.get(target, (0.0, ""))[0]:
+                    out[target] = (b, f"{lang} {bare}")
+    return out
+
+
 def rank(
     registry: Dict[str, Any], query: str, *, parents: Optional[set] = None
 ) -> List[Dict[str, Any]]:
@@ -398,6 +489,7 @@ def rank(
     query_lower = query.lower().strip()
     parents = parents or set()
     concept = _concept_bonus(terms)
+    commands = _command_bonus(query, registry)
 
     full: List[Tuple[float, int, Dict[str, Any]]] = []
     partial: List[Tuple[float, int, Dict[str, Any]]] = []
@@ -439,6 +531,8 @@ def rank(
                 if word in card:
                     score += CARD_WEIGHT
         c_bonus = concept.get(spec.name, 0.0)
+        cmd_bonus, cmd_label = commands.get(spec.name, (0.0, ""))
+        c_bonus += cmd_bonus
         if hits == 0 and c_bonus == 0.0:
             continue
         score += c_bonus
@@ -465,6 +559,8 @@ def rank(
         }
         if alias_of:
             entry["alias_of"] = alias_of
+        if cmd_label:
+            entry["matched_command"] = cmd_label
         row = (score, -len(spec.name), entry)
         if hits >= needed or c_bonus > 0.0:
             entry["match"] = "full"

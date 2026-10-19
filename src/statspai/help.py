@@ -639,7 +639,7 @@ def _search_results(query: str) -> str:
 
     _ensure_full_registry()
 
-    hits = search_functions(query)
+    hits = search_functions(query, limit=None)
     lines: List[str] = []
     header = f"Search: {query!r}  →  {len(hits)} match(es)"
     if hits and all(h.get("match") == "partial" for h in hits):
@@ -741,7 +741,7 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
         if format == "dict":
             from .registry import search_functions
 
-            return {"query": search, "results": search_functions(search)}
+            return {"query": search, "results": search_functions(search, limit=None)}
         return HelpResult(text, data={"kind": "search", "query": search})
 
     # No topic → top-level overview

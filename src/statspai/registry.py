@@ -38080,10 +38080,14 @@ def agent_schema(name: str) -> Dict[str, Any]:
     return function_schema(name, agent_native=True)
 
 
-def search_functions(query: str) -> List[Dict[str, Any]]:
+def search_functions(
+    query: str, limit: Optional[int] = 10, category: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """
-    Search function names, descriptions, tags and agent cards by keywords,
-    a short task phrase, or a research question.
+    Search the registry by keywords, task phrase, or Stata / R command name.
+
+    Function names, descriptions, tags and agent cards are searched; the
+    query may be a short task phrase or a research question.
 
     Scoring (highest first): exact name match, name containing a query
     word, tag match, description hits, then (at low weight) the
@@ -38105,10 +38109,29 @@ def search_functions(query: str) -> List[Dict[str, Any]]:
     entry and carry ``alias_of``. Result / exception classes
     (PascalCase) are listed only when the query names them.
 
-    Returns a list of ``{'name', 'description', 'category', 'stability',
-    'validation_status', 'match'}`` dicts (plus ``alias_of`` for
-    aliases), most relevant first; ``match`` is ``'full'`` or
-    ``'partial'``.
+    Stata commands and R functions (``csdid``, ``att_gt``, ``reghdfe``,
+    ``ivreg2``, ``bacondecomp``, ``fixest::sunab``) rank the function the
+    ``sp.from_stata`` / ``sp.from_r`` translators map them to first; such
+    hits carry ``matched_command`` (e.g. ``'stata csdid'``).
+
+    Parameters
+    ----------
+    query : str
+        Keywords, a task phrase, a research question, or a command name.
+    limit : int or None, default 10
+        Maximum number of hits returned, most relevant first. ``None``
+        returns every match (all calls did before ``limit`` existed).
+    category : str, optional
+        Keep only hits whose registry ``category`` equals this
+        (case-insensitive), e.g. ``'causal'`` or ``'regression'``.
+
+    Returns
+    -------
+    list of dict
+        ``{'name', 'description', 'category', 'stability',
+        'validation_status', 'match'}`` dicts (plus ``alias_of`` for
+        aliases and ``matched_command`` for command-name hits), most
+        relevant first; ``match`` is ``'full'`` or ``'partial'``.
 
     Examples
     --------
@@ -38120,15 +38143,29 @@ def search_functions(query: str) -> List[Dict[str, Any]]:
     ['category', 'description', 'match']
     >>> sp.search_functions('local average treatment effect')[0]['name']
     'iv'
+    >>> sp.search_functions('csdid')[0]['name']
+    'callaway_santanna'
+    >>> len(sp.search_functions('regression', limit=3))
+    3
     """
     from ._discovery_search import rank
 
+    if limit is not None:
+        if isinstance(limit, bool) or not hasattr(limit, "__index__"):
+            raise TypeError(f"limit must be a positive int or None, got {limit!r}")
+        limit = limit.__index__()
+        if limit < 1:
+            raise ValueError(f"limit must be >= 1 or None, got {limit!r}")
     _ensure_full_registry()
     # Functions other entries inherit their agent card from (``rdrobust``
     # for the RD family, ``did`` for the DiD family, …) are the canonical
     # entry points and rank above their derived variants on ties.
     parents = {s.inherits_from for s in _REGISTRY.values() if s.inherits_from}
-    return rank(_REGISTRY, query, parents=parents)
+    hits = rank(_REGISTRY, query, parents=parents)
+    if category is not None and str(category).strip():
+        cat = str(category).strip().lower()
+        hits = [h for h in hits if str(h.get("category", "")).lower() == cat]
+    return hits if limit is None else hits[:limit]
 
 
 def all_schemas(

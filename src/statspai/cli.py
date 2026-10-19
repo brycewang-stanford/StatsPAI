@@ -690,7 +690,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command == "search":
         q = " ".join(args.query)
         if args.json:
-            print(_dumps(sp.search_functions(q), indent=2))
+            print(_dumps(sp.search_functions(q, limit=None), indent=2))
             return 0
         print(sp.help(search=q))
         return 0

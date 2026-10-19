@@ -2835,10 +2835,9 @@ def _tool_search_functions(arguments: Dict[str, Any]) -> Dict[str, Any]:
     except (TypeError, ValueError):
         limit = 10
     category = arguments.get("category")
-    hits = search_functions(query)
-    if isinstance(category, str) and category.strip():
-        cat = category.strip().lower()
-        hits = [h for h in hits if str(h.get("category", "")).lower() == cat]
+    if not (isinstance(category, str) and category.strip()):
+        category = None
+    hits = search_functions(query, limit=None, category=category)
     return {
         "query": query,
         "n_matches": len(hits),

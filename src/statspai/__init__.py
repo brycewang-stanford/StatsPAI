@@ -4060,6 +4060,13 @@ def _missing_name_message(name):
     elsewhere = _ELSEWHERE_NAMES.get(name)
     if elsewhere is not None:
         return f"{message}; it is {elsewhere} here"
+    # Stata / R command names (``csdid``, ``att_gt``, ``reghdfe``), read from
+    # the sp.from_stata / sp.from_r translator tables.
+    from ._discovery_commands import describe as _describe_command
+
+    command = _describe_command(name, set(__all__))
+    if command is not None:
+        return f"{message}; the {command} here"
     import difflib
 
     close = difflib.get_close_matches(name, __all__, n=3, cutoff=0.8)
