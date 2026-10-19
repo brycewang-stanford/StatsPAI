@@ -21,8 +21,8 @@ All notable changes to StatsPAI will be documented in this file.
   placebo test (`placebo_test=True`). Matched sets, weights, estimates,
   analytic standard errors, balance and placebo estimates equal R
   `PanelMatch` 3.1.5 to 1e-10 on fifteen settings
-  (`tests/reference_parity/test_panel_match_R_parity.py`); three places
-  where R's output is wrong are documented and pinned by identities
+  (`tests/reference_parity/test_panel_match_R_parity.py`); the places
+  where R's output is wrong are documented, two of them pinned by identities
   (`docs/dev/modules/did.md`).
 
 
