@@ -33,11 +33,11 @@ Rules:
 
 ### 2026-10-19 — did: sp.panel_match (new export)
 
-- **Commits.** `aa7b26d3` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
   24, 25, 26, 27, 53, 65, 66) and
   `tests/orig_parity/results/_implementation_trace.json` (module 08);
-  `2f8a5687` re-recorded `tests/r_parity/results/_implementation_trace.json`
+  `5d355f04` re-recorded `tests/r_parity/results/_implementation_trace.json`
   (the same modules) after a rebase.
 - **Reason.** One new import in `src/statspai/__init__.py`
   (`sp.panel_match`), which those modules execute. No estimation code on
@@ -67,11 +67,11 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-19 — survival: sp.stteffects, sp.rmst (new exports)
 
-- **Commits.** `5e4e91a5` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
   24, 25, 26, 27, 53, 65, 66) and
   `tests/orig_parity/results/_implementation_trace.json` (module 08);
-  `07ca91ba` re-recorded `tests/r_parity/results/_implementation_trace.json`
+  `5d355f04` re-recorded `tests/r_parity/results/_implementation_trace.json`
   (module 24) after `survival/__init__.py` began loading `sp.rmst` /
   `sp.stteffects` on first use.
 - **Reason.** New exports in `src/statspai/__init__.py` (`sp.rmst`,
@@ -85,7 +85,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-19 — R argument-name aliases on the DiD entry points; aipw propensity in `model_info`
 
-- **Commits.** `9c4c691c` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 04, 17, 38,
   79, 83, 85) and `tests/orig_parity/results/_implementation_trace.json`
   (modules 02, 07).
@@ -99,7 +99,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-19 — survival: weighted / counting-process Cox and Kaplan-Meier
 
-- **Commits.** `1ae5ae8c` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (module 24).
 - **Reason.** `survival/_cox_core.py` (case weights and `(start, stop]`
   risk sets in the kernel), `survival/models.py` (`sp.cox(weights=, start=,
@@ -112,7 +112,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-19 — `sp.mediate` bootstraps the potential-outcome estimator
 
-- **Commits.** `6bf4d662` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (module 36).
 - **Reason.** `mediation/mediate.py` is on module 36's estimation path; the
   default `inference='bootstrap'` now also runs for `interaction=True` and
@@ -122,7 +122,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-19 — treatment-effect audit fixes (binary-treatment check, matching, DML, TMLE, sensemakr)
 
-- **Commits.** `0de72982` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 04, 08, 11,
   22, 50, 71, 72, 79) and `tests/orig_parity/results/_implementation_trace.json`
   (modules 02, 04, 04b, 06, 07, 09, 10, 11).
@@ -141,7 +141,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-19 — shared staggered-DiD input checks
 
-- **Commits.** `d11b4b66` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 04, 05, 16,
   17, 38, 73, 75, 79, 84, 86) and
   `tests/orig_parity/results/_implementation_trace.json` (module 02).
@@ -161,7 +161,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-19 — command-name hint in `sp.__getattr__`
 
-- **Commits.** `9107c15c` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
   24, 25, 26, 27, 53, 65, 66) and
   `tests/orig_parity/results/_implementation_trace.json` (module 08).
@@ -176,7 +176,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-19 — `sp.rdrobust` no longer demeans covariates
 
-- **Commits.** `5ab25202` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 06, 89) and
   `tests/orig_parity/results/_implementation_trace.json` (module 05).
 - **Reason.** `rd/rdrobust.py` is on those modules' estimation paths; the
@@ -188,7 +188,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-18 — native multiple estimation and two-way clustered GLMs
 
-- **Commits.** `bf5c9d03` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 03, 15, 47,
   53, 67).
 - **Reason.** `fast/fepois.py`, `fast/_feglm.py`, `fixest/_native.py` and
@@ -200,7 +200,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-18 — native two-way clustering, `i()` terms and IV in `sp.feols`
 
-- **Commits.** `0f055347` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 03, 15, 47,
   53, 67).
 - **Reason.** `fast/feols.py`, `fast/inference.py` and `fixest/_native.py`
@@ -234,7 +234,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-18 — Rust kernels rebuilt; parity traces re-recorded
 
-- **Commits.** `eb2d830f` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 01, 03, 14,
   15, 47, 51, 53, 54, 55, 56, 68, 75) and
   `tests/orig_parity/results/_implementation_trace.json` (01, 04, 04b, 09).
@@ -267,7 +267,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-14 — call traces re-recorded after the `sp.stata` round
 
-- **Commits.** `c77464c1` re-recorded Track A module 11 in
+- **Commits.** `e3e26858` re-recorded Track A module 11 in
   `tests/r_parity/results/_implementation_trace.json` and the 12
   original-data modules in
   `tests/orig_parity/results/_implementation_trace.json`.
@@ -284,7 +284,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-14 — call traces re-recorded after the October review
 
-- **Commits.** `ab1786f2` re-recorded all 89 Track A modules in
+- **Commits.** `e3e26858` re-recorded all 89 Track A modules in
   `tests/r_parity/results/_implementation_trace.json` and all 12
   original-data modules in
   `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -326,7 +326,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-13 — call traces re-recorded after the sample-size alias in the base result class
 
-- **Commits.** `3d5dfe37` re-recorded all 89 Track A modules in
+- **Commits.** `e3e26858` re-recorded all 89 Track A modules in
   `tests/r_parity/results/_implementation_trace.json` and all 12
   original-data modules in
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -357,7 +357,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-12 — call traces re-recorded after `sp.ctree` was exported
 
-- **Commits.** `d24210d5` re-recorded the entries of Track A modules 03, 13,
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03, 13,
   15, 24, 25, 26, 27, 53, 65 and 66 in
   `tests/r_parity/results/_implementation_trace.json` and of
   original-data module 08 in
@@ -378,7 +378,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-12 — call traces re-recorded after `sp.blp_instruments` was exported
 
-- **Commits.** `1cf8f5af` re-recorded the entries of Track A modules 03, 13,
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03, 13,
   15, 24, 25, 26, 27, 53, 65 and 66 in
   `tests/r_parity/results/_implementation_trace.json` and of
   original-data module 08 in
@@ -655,7 +655,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 ### 2026-10-07 — call traces re-recorded after `sp.glmnet`; one original-data result regenerated
 
-- **Commits.** `ccbdb0a9` re-recorded the entries of Track A modules 03 13 15 24
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24
   25 26 27 53 65 66 in `tests/r_parity/results/_implementation_trace.json`
   and of original-data modules 06 08 10 11 in
   `tests/orig_parity/results/_implementation_trace.json`, and regenerated
@@ -704,7 +704,7 @@ was not stale and is unchanged.
 
 ### 2026-10-07 — call traces re-recorded after the Yuksel-Aydede pass
 
-- **Commits.** `d653a302` re-recorded the entries of Track A modules 03 07
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 07
   08 13 15 19 24 25 26 27 52 53 65 66 71 in
   `tests/r_parity/results/_implementation_trace.json` and of original-data
   modules 03 07 08 in `tests/orig_parity/results/_implementation_trace.json`.
@@ -1466,7 +1466,7 @@ only the recorded source hashes move.
 
 ### 2026-10-03 — call traces re-recorded for 13 and 24 after the forest docstring splice was made version-independent
 
-- **Commits.** `6ae1fd6b` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` for Track A modules
   13 and 24.
 - **Reason.** The traces bind SHA-256 digests of every source file on each
@@ -1611,7 +1611,7 @@ only the recorded source hashes move.
 
 ### 2026-10-03 — call traces re-recorded after docstring repairs that unblock the strict docs build
 
-- **Commits.** `fd6c43ca` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` for Track A modules
   01, 02, 13, 14, 24, 35, 51, 53, 54, 55, 56 and 59, and
   `tests/orig_parity/results/_implementation_trace.json` for original-data
@@ -1767,7 +1767,7 @@ only the recorded source hashes move.
 
 ### 2026-10-03 — call traces re-recorded after `sp.write_data` was exported and the matched-frame helper changed
 
-- **Commits.** `bed80f3f` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` for Track A modules
   03, 13, 15, 24, 25, 26, 27, 53, 65 and 66, and
   `tests/orig_parity/results/_implementation_trace.json` for original-data
@@ -2180,7 +2180,7 @@ only the recorded source hashes move.
   estimation paths — `src/statspai/core/results.py`,
   `src/statspai/_result_serialize.py`, `src/statspai/did/__init__.py`,
   `src/statspai/_input_validation.py` — which staled the traces;
-  `71d0df1` re-recorded `tests/r_parity/results/_implementation_trace.json`
+  `5d355f04` re-recorded `tests/r_parity/results/_implementation_trace.json`
   and `tests/orig_parity/results/_implementation_trace.json`.
 - **Reason.** No estimator's numbers changed: the edits add agent-facing
   methods (`to_dict(detail=)`, `violations`, `next_steps`, `result_card`),
@@ -2320,7 +2320,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the cluster-Lasso pass (Gaillac and L'Hour)
 
-- **Commits.** `f1fa33c4` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (Track A modules
   01 02 04 05 06 07 08 09 11 12 14 16 17 18 19 20 22 52 53 55 73 88) and
   `tests/orig_parity/results/_implementation_trace.json` (all 12
@@ -2348,7 +2348,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the pass over *The Effect* (Huntington-Klein)
 
-- **Commits.** `119ea880` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (Track A modules
   01 02 04 05 06 11 14 16 17 22 37 42 44 45 46 47 48 49 51 53 54 55 56 57
   58 63 64 67 78 79 83 84 85 89) and
@@ -2379,7 +2379,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the pass over the de Chaisemartin-D'Haultfoeuille DiD textbook
 
-- **Commits.** `b7b4166f` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (Track A modules
   01 03 05 13 14 15 17 24 25 26 27 38 51 53 54 55 56 65 66 78 81 86) and
   `tests/orig_parity/results/_implementation_trace.json` (modules 01 04
@@ -2460,7 +2460,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the second round of the syllabus pass
 
-- **Commits.** `0ec5f60c` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (Track A modules
   01 14 41 51 53 54 55 56) and
   `tests/orig_parity/results/_implementation_trace.json` (all 12
@@ -2482,7 +2482,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded for every module: the SCM interval and `summary()` of infinite bounds
 
-- **Commits.** `7b279680` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (all 89 Track A
   modules) and `tests/orig_parity/results/_implementation_trace.json`
   (all 12). The sources that staled them are in the same commit:
@@ -2512,7 +2512,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the second round of the dCDH textbook pass
 
-- **Commits.** `c9a593ea` re-recorded
+- **Commits.** `e3e26858` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (Track A modules
   10 21 78). The sources that staled them are in the same commit:
   `src/statspai/did/did_multiplegt_dyn.py` (the slope-estimation term of
@@ -2537,7 +2537,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces of modules 68 and 75 re-recorded after `absorb_dof`
 
-- **Commits.** `1286f507` re-recorded the entries of Track A modules 68 and 75
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 68 and 75
   in `tests/r_parity/results/_implementation_trace.json`. The source that
   staled them is in the same commit: `src/statspai/panel/hdfe.py`
   (`sp.absorb_ols` takes `absorb_dof=`; the default, `'reghdfe'`, is
@@ -2555,7 +2555,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the chapter 1 functions of the syllabus pass
 
-- **Commits.** `23711a16` re-recorded the entries of Track A modules 03 13 15
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15
   24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -2574,7 +2574,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the *Causal Inference in R* pass
 
-- **Commits.** `57171c15` re-recorded the entries of Track A modules 03 13 15
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15
   24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -2604,7 +2604,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the Facure notebooks pass
 
-- **Commits.** `0a2a5124` re-recorded the entries of Track A modules 02 03
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 02 03
   04 05 07 08 11 13 15 16 17 24 25 26 27 35 36 38 50 52 53 59 65 66 70 71
   72 78 79 83 84 85 in
   `tests/r_parity/results/_implementation_trace.json` and all 12 modules
@@ -2635,7 +2635,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the *Linear Model and Extensions* pass
 
-- **Commits.** `9621744d` re-recorded the entries of Track A modules 01 02
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 01 02
   03 04 05 07 13 14 15 16 17 18 24 25 26 27 35 37 40 41 42 43 44 45 46 47
   48 49 51 52 53 54 55 56 57 58 59 61 62 63 64 65 66 67 69 78 79 83 84 85
   in `tests/r_parity/results/_implementation_trace.json` and all 12
@@ -2665,7 +2665,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the Kohler-Kreuter pass
 
-- **Commits.** `c4688894` re-recorded the entries of Track A modules 01 02
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 01 02
   03 13 14 15 24 25 26 27 35 37 42 44 45 46 47 48 49 51 53 54 55 56 57 58
   63 64 65 66 67 in `tests/r_parity/results/_implementation_trace.json`
   and all 12 modules of
@@ -2692,7 +2692,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the Dogan textbook pass
 
-- **Commits.** `0527cbe7` re-recorded every Track A module in
+- **Commits.** `e3e26858` re-recorded every Track A module in
   `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The sources
   that staled them are in the same commit: `src/statspai/core/results.py`
@@ -2721,7 +2721,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces of modules 24, 48, 57, 63 and 64 re-recorded after the second round of the *Linear Model and Extensions* pass
 
-- **Commits.** `adcfffbb` re-recorded the entries of Track A modules 24 48 57
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 24 48 57
   63 64 in `tests/r_parity/results/_implementation_trace.json`. The
   source that staled them is in the same commit:
   `src/statspai/survival/models.py` (`sp.kaplan_meier(conf_type=)`
@@ -2742,7 +2742,7 @@ only the recorded source hashes move.
 
 ### 2026-10-05 — call traces re-recorded after the second round of the Facure notebooks pass
 
-- **Commits.** `218937a9` re-recorded the entries of Track A modules 05 08 11
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 05 08 11
   16 17 20 36 38 70 71 73 75 81 83 84 85 in
   `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -2766,7 +2766,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the third round of the Facure notebooks pass
 
-- **Commits.** `45b56635` re-recorded the entries of Track A modules 13 and
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 13 and
   24 in `tests/r_parity/results/_implementation_trace.json`. The source
   that staled them is in the same commit:
   `src/statspai/forest/_grf_family.py` and
@@ -2784,7 +2784,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the Dogan follow-up
 
-- **Commits.** `e34f417f` re-recorded every Track A module in
+- **Commits.** `e3e26858` re-recorded every Track A module in
   `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The sources
   that staled them are in the same commit: `src/statspai/__init__.py`
@@ -2853,7 +2853,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after `sp.gam` and `sp.conformal_regression`
 
-- **Commits.** `ab3f96b8` re-recorded the entries of Track A modules 03 13 15
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15
   24 25 26 27 53 63 64 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -2875,7 +2875,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after `sp.xthtaylor`
 
-- **Commits.** `7fa469a8` re-recorded the entries of Track A modules 03 13 15
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15
   24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -2893,7 +2893,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the discrete choice covariance
 
-- **Commits.** `8149feec` re-recorded the entries of Track A modules 44 45 46 49
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 44 45 46 49
   in `tests/r_parity/results/_implementation_trace.json` and rewrote
   `tests/orig_parity/results/_implementation_trace.json`. The source that
   staled them is in `46c3483a`: `src/statspai/regression/multinomial.py`
@@ -2911,7 +2911,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the Das *Causal Inference in R* pass
 
-- **Commits.** `eb32bfdd` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   02 03 11 13 15 24 25 26 27 35 37 42 47 53 58 59 63 64 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and of modules 01, 04,
   04b and 08 in `tests/orig_parity/results/_implementation_trace.json`. The
@@ -2936,7 +2936,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — Maitra's *Static and Dynamic Econometric Modelling* pass: call traces
 
-- **Commits.** `06c2ed66` re-recorded every entry of
+- **Commits.** `e3e26858` re-recorded every entry of
   `tests/r_parity/results/_implementation_trace.json` (89 modules) and of
   `tests/orig_parity/results/_implementation_trace.json` (12 modules). The
   source that staled them is in `8e68b894`: `src/statspai/__init__.py` (three
@@ -2961,7 +2961,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the Gow and Ding pass
 
-- **Commits.** `7d14ea5c` re-recorded the entries of 45 Track A modules in
+- **Commits.** `e3e26858` re-recorded the entries of 45 Track A modules in
   `tests/r_parity/results/_implementation_trace.json` and of 6 of the
   12 modules of `tests/orig_parity/results/_implementation_trace.json`. The
   source that staled them is in `a07851ca`: `src/statspai/core/utils.py` (`factor(x)`
@@ -2992,7 +2992,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the Ness *Causal AI* pass
 
-- **Commits.** `e305f9bd` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 04 08 13 14 15 24 25 26 27 50 53 65 66 71 72 79 in
   `tests/r_parity/results/_implementation_trace.json` and of modules 02, 06,
   07, 08, 09, 10 and 11 in
@@ -3019,7 +3019,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the forecasting toolkit and the `sp.arima` optimiser change
 
-- **Commits.** `8358dbf5` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 39 53 65 66 in
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 39 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and of module(s)
   08 in `tests/orig_parity/results/_implementation_trace.json`. The
   source that staled them is in `fdcf0a19`: `src/statspai/__init__.py` (19
@@ -3045,7 +3045,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the Bayesian econometrics pass
 
-- **Commits.** `02f99f19` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `cefca309`: `src/statspai/__init__.py` (the
@@ -3068,7 +3068,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the dynamic panel fix (Hansen, Table 17.3)
 
-- **Commits.** `9705f342` re-recorded the entry of Track A module 50 in
+- **Commits.** `e3e26858` re-recorded the entry of Track A module 50 in
   `tests/r_parity/results/_implementation_trace.json` and rewrote
   `tests/orig_parity/results/_implementation_trace.json`. The source that
   staled module 50 is in `1879dce1`:
@@ -3093,7 +3093,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call trace of module 39 re-recorded after the `sp.arima` likelihood change
 
-- **Commits.** `c3c01c13` re-recorded the entries of Track A modules 39 in
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 39 in
   `tests/r_parity/results/_implementation_trace.json`. The source that
   staled them is in `2d82b3f8`: `src/statspai/timeseries/arima.py`.
 - **Reason.** Second round of the audit in
@@ -3112,7 +3112,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after `sp.abnormal_returns` and the `sp.feols` covariance adjustment
 
-- **Commits.** `ed111e56` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 67 in
   `tests/r_parity/results/_implementation_trace.json` and of 1 module(s) of
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3169,7 +3169,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after `sp.threshold` (Hansen, chapter 23)
 
-- **Commits.** `9eff7366` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and rewrote
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3189,7 +3189,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after `sp.path_analysis`
 
-- **Commits.** `087480e9` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and of module 08 in
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3205,7 +3205,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after `sp.bayes_ivreg`
 
-- **Commits.** `dbbaf462` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `1e429eef`: `src/statspai/__init__.py` (one new
@@ -3244,7 +3244,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after a typing fix
 
-- **Commits.** `dc858d18` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   04 05 06 13 16 17 20 24 44 45 49 50 73 75 77 78 79 80 83 84 85 88 89 in
   `tests/r_parity/results/_implementation_trace.json` and of two modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -3263,7 +3263,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the last items of the forecasting audit
 
-- **Commits.** `f8940920` re-recorded the entries of Track A module(s) 03 13 15 24 25 26 27 39 53 65 66 in
+- **Commits.** `e3e26858` re-recorded the entries of Track A module(s) 03 13 15 24 25 26 27 39 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and of original-data
   module(s) 08 in
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3287,7 +3287,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the feols IV diagnostics
 
-- **Commits.** `6ecde941` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   [67] in
   `tests/r_parity/results/_implementation_trace.json` and of 0 module(s)
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -3305,7 +3305,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the matchit translation fix
 
-- **Commits.** `005ffadd` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   [] in
   `tests/r_parity/results/_implementation_trace.json` and of 0 module(s)
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -3323,7 +3323,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the FCI, mediation, hill-climbing and forest-tuning batch
 
-- **Commits.** `c2adac47` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 08 11 13 15 24 25 26 27 36 53 65 66 70 71 in
   `tests/r_parity/results/_implementation_trace.json` and of modules
   04 04b 08 in `tests/orig_parity/results/_implementation_trace.json`.
@@ -3336,7 +3336,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after backtick-quoted names in formulas
 
-- **Commits.** `badb893c` re-recorded the entries of every Track A and
+- **Commits.** `e3e26858` re-recorded the entries of every Track A and
   original-data module whose estimation path reads a formula, in
   `tests/r_parity/results/_implementation_trace.json` and
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3358,7 +3358,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after a docstring punctuation fix
 
-- **Commits.** `4271b141` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   [] in
   `tests/r_parity/results/_implementation_trace.json` and of 0 module(s)
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -3376,7 +3376,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the latent-variable engine in sp.path_analysis
 
-- **Commits.** `ac4bdfe3` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   none in
   `tests/r_parity/results/_implementation_trace.json` and of modules
   nonein `tests/orig_parity/results/_implementation_trace.json`.
@@ -3389,7 +3389,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after sp.mmpc and sp.mmhc
 
-- **Commits.** `646dbf4d` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and of modules
   08 in `tests/orig_parity/results/_implementation_trace.json`.
@@ -3402,7 +3402,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after missing='fiml' in sp.path_analysis
 
-- **Commits.** `93de0591` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   none in
   `tests/r_parity/results/_implementation_trace.json` and of modules
   nonein `tests/orig_parity/results/_implementation_trace.json`.
@@ -3415,7 +3415,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the lmrob covariance option and the event-study rank tests
 
-- **Commits.** `da90232f` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   [] in
   `tests/r_parity/results/_implementation_trace.json` and of 0 module(s)
   of `tests/orig_parity/results/_implementation_trace.json`. The source
@@ -3433,7 +3433,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after `sp.mprobit`, `sp.series` and the chapter 26 translations (Hansen)
 
-- **Commits.** `b485e277` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and rewrote
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3457,7 +3457,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after `sp.dlm`
 
-- **Commits.** `5399c1da` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and all 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `ea557463`: `src/statspai/__init__.py` (two new
@@ -3518,7 +3518,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after sp.bayes_sur and sp.bayes_shrink
 
-- **Commits.** `515fcb89` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `7188f202`: `src/statspai/__init__.py` (new
@@ -3536,7 +3536,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the small never-treated group warning
 
-- **Commits.** `2f6b29a4` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   04 79 in `tests/r_parity/results/_implementation_trace.json`, and
   `6c82c328` the entry of module 02 in
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3557,7 +3557,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after sp.stochvol and sp.bayes_arima
 
-- **Commits.** `c2a358be` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `1b243a68`: `src/statspai/__init__.py` (new
@@ -3575,7 +3575,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after the probit systems and sp.bayes_mixture
 
-- **Commits.** `9b81f99a` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `16214fdd`: `src/statspai/__init__.py` (new
@@ -3593,7 +3593,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the Neusser time-series pass
 
-- **Commits.** `5d0773f6` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 33 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 33 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `c3ac0134`: `src/statspai/__init__.py` (new
@@ -3615,7 +3615,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after sp.gp_regress, sp.bart and sp.abc
 
-- **Commits.** `48cd2652` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `54c3732d`: `src/statspai/__init__.py` (new
@@ -3648,7 +3648,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call trace of module 33 re-recorded after the variance-decomposition bands
 
-- **Commits.** `04ad1192` re-recorded the entry of Track A module 33 in
+- **Commits.** `e3e26858` re-recorded the entry of Track A module 33 in
   `tests/r_parity/results/_implementation_trace.json`. The source that
   staled it is in `c3b02841`: `src/statspai/timeseries/var.py`
   (`VARResult.fevd` gained `ci=`; the estimation in `sp.var` is
@@ -3697,7 +3697,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the Rosenbaum pass (`sp.weighted_rank`, `sp.two_criteria_match` and eight more)
 
-- **Commits.** `81706b55` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and rewrote
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3738,7 +3738,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the third round of the Neusser pass
 
-- **Commits.** `91fe7234` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 33 39 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 33 39 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `0f897085`: `src/statspai/__init__.py` (new
@@ -3760,7 +3760,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call traces re-recorded after the fourth round of the Neusser pass
 
-- **Commits.** `78f8bd45` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
   of `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `ca468f13`: `src/statspai/__init__.py` (new
@@ -3778,7 +3778,7 @@ only the recorded source hashes move.
 
 ### 2026-10-06 — call trace of module 33 re-recorded after the bootstrap default
 
-- **Commits.** `22ccdf6b` re-recorded the entry of Track A module 33 in
+- **Commits.** `e3e26858` re-recorded the entry of Track A module 33 in
   `tests/r_parity/results/_implementation_trace.json`. The source that
   staled it is in `8813adf9`: `src/statspai/timeseries/var.py` and
   `irf_bands.py` (the default of `boot=` in `sp.irf` and
@@ -3793,7 +3793,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after the `sp.tmle` estimands and `sp.aipw(propensity=)`
 
-- **Commits.** `4495b612` re-recorded the entries of Track A modules 03,
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03,
   13, 15, 24, 25, 26, 27, 53, 65, 66 and 72 in
   `tests/r_parity/results/_implementation_trace.json` and of original-data
   modules 07 and 08 in
@@ -3818,7 +3818,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after the design-of-experiments subpackage
 
-- **Commits.** `925d517d` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and of module 08 in
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3835,7 +3835,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after the pass over Wager's textbook
 
-- **Commits.** `a579b13a` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and of module 08
   in `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is `src/statspai/__init__.py` (new exports), changed in
@@ -3861,7 +3861,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after `sp.rd_optimized`
 
-- **Commits.** `3073ea18` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and of module 08
   in `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `90c0eb8f`: `src/statspai/__init__.py` (one new
@@ -3883,7 +3883,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after `sp.tmle(se_method=)` and `sp.ipw(propensity=)`
 
-- **Commits.** `da4baf76` re-recorded the entry of Track A module 72 in
+- **Commits.** `e3e26858` re-recorded the entry of Track A module 72 in
   `tests/r_parity/results/_implementation_trace.json` and of original-data
   modules 06, 10 and 11 in
   `tests/orig_parity/results/_implementation_trace.json`. The sources that
@@ -3900,7 +3900,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after the second round on design of experiments
 
-- **Commits.** `5af23458` re-recorded the entries of Track A modules
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules
   03 13 15 24 25 26 27 53 65 66 in
   `tests/r_parity/results/_implementation_trace.json` and of module 08 in
   `tests/orig_parity/results/_implementation_trace.json`. The source that
@@ -3919,7 +3919,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after the third round of the Wager pass
 
-- **Commits.** `d27a8a6b` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
   in `tests/r_parity/results/_implementation_trace.json` and of module 08
   in `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled them is in `7510a33d`: `src/statspai/__init__.py` (new
@@ -3941,7 +3941,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after `sp.aipw(outcome_model=)` and the CV-TMLE bootstrap
 
-- **Commits.** `4134ae32` re-recorded the entry of Track A module 72 in
+- **Commits.** `e3e26858` re-recorded the entry of Track A module 72 in
   `tests/r_parity/results/_implementation_trace.json` and of original-data
   module 07 in `tests/orig_parity/results/_implementation_trace.json`.
   The sources that staled them are in the same commit:
@@ -3960,7 +3960,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces of modules 13 and 24 re-recorded after a docstring fix
 
-- **Commits.** `1566fcda` re-recorded the entries of Track A modules 13 and 24 in
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 13 and 24 in
   `tests/r_parity/results/_implementation_trace.json`. The source that
   staled them is in the same commit: `src/statspai/forest/tuning.py`, a
   docstring in which two citation keys were separated by a space and are
@@ -3976,7 +3976,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call trace of original-data module 07 re-recorded after the probit outcome model
 
-- **Commits.** `5a3246a6` re-recorded the entry of original-data module
+- **Commits.** `e3e26858` re-recorded the entry of original-data module
   07 in `tests/orig_parity/results/_implementation_trace.json`. The source
   that staled it is in the same commit: `src/statspai/inference/aipw.py`
   (a probit outcome model; the default linear path is untouched).
@@ -3990,7 +3990,7 @@ only the recorded source hashes move.
 
 ### 2026-10-07 — call traces re-recorded after `sp.ctmle` was exported
 
-- **Commits.** `dca3a690` re-recorded the entries of Track A modules 03, 13,
+- **Commits.** `e3e26858` re-recorded the entries of Track A modules 03, 13,
   15, 24, 25, 26, 27, 53, 65, 66 and 72 in
   `tests/r_parity/results/_implementation_trace.json` and of
   original-data module 08 in
