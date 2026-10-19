@@ -77,6 +77,34 @@ All notable changes to StatsPAI will be documented in this file.
   `covariates=` get different weights and estimates; calls without it are
   unchanged (Track A module 18 reproduces its committed result exactly).
 
+### Weak-IV-robust tests with several endogenous regressors and clustered errors
+
+#### Added
+
+- `sp.weakrobust` reproduces Stata `weakiv` when given `cluster=`,
+  `test_vcov=` (`'classic'` / `'robust'` / `'cluster'`), a list of
+  endogenous regressors, `subset=` or `project=`: AR, K, J, K-J and CLR
+  (with its conditioning rank statistic) in weakiv's LM form, equal to
+  weakiv 2.4.07 to 1e-12 under i.i.d., robust and cluster variances for one
+  and two endogenous regressors, with AR / K / CLR confidence sets (unions
+  of intervals, infinite endpoints when unbounded) for one regressor; Stata's
+  own p-value at every StatsPAI endpoint is 0.05
+  (`tests/reference_parity/test_weakiv_stata.py`). With several regressors,
+  `subset=` gives the subset AR test and set for a coefficient and
+  `project=` the projection of the joint AR set, both i.i.d. only as in
+  Stata. Differences from weakiv, documented in the docstring: the CLR
+  p-value is the exact conditional integral (weakiv: a 20-node Simpson rule
+  for one regressor; for several, a simulation that draws AR and K
+  independently although AR = K + J); the sets invert the reported LM
+  tests (weakiv's closed-form i.i.d. AR / K intervals invert the Wald form);
+  projection minimises over the whole real line rather than a user grid.
+  Without these arguments, one-regressor output is unchanged (the R
+  `ivmodel` convention).
+- `sp.anderson_rubin_test(endog=[...], h0=[...])`: joint AR F test of
+  several endogenous coefficients in the classic / HC / cluster / absorb
+  forms; at `h0 = 0` it equals `ivreghdfe`'s `e(arf)` to 1e-9. Both
+  functions raised `TypeError: unhashable type: 'list'` on a list before.
+
 ### `sp.hdfe_ols` IV: rank statistics with several endogenous regressors
 
 #### Fixed

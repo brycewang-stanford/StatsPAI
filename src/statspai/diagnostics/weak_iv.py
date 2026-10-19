@@ -764,7 +764,7 @@ def _interacted_fe(data: pd.DataFrame, absorb_terms: List[str]) -> tuple:
 def _prep_matrices_absorbed(
     data: pd.DataFrame,
     y: str,
-    endog: str,
+    endog: Union[str, List[str]],
     instruments: List[str],
     exog: Optional[List[str]],
     absorb_terms: List[str],
@@ -779,14 +779,17 @@ def _prep_matrices_absorbed(
     residualised controls.
     """
     data, absorb_terms = _interacted_fe(data, list(absorb_terms))
-    cols = [y, endog] + list(instruments) + list(exog or [])
+    # ``endog`` may be a list (joint tests); D is then (n, p)
+    endog_cols = [endog] if isinstance(endog, str) else list(endog)
+    cols = [y] + endog_cols + list(instruments) + list(exog or [])
     cols += list(absorb_terms) + list(cluster_names)
     seen: set = set()
     cols = [c for c in cols if not (c in seen or seen.add(c))]
     df = data[cols].dropna()
     n = len(df)
     Y = df[y].to_numpy(dtype=float)
-    D = df[endog].to_numpy(dtype=float)
+    D = df[endog_cols].to_numpy(dtype=float)
+    p_endog = D.shape[1]
     Z = df[list(instruments)].to_numpy(dtype=float)
     if Z.ndim == 1:
         Z = Z.reshape(-1, 1)
@@ -800,19 +803,29 @@ def _prep_matrices_absorbed(
 
     if not absorb_terms:
         W = np.column_stack([np.ones(n), X]) if n_x else np.ones((n, 1))
-        return Y, D, Z, W, n, cluster_frame, 0
+        return (
+            Y,
+            D[:, 0] if isinstance(endog, str) else D,
+            Z,
+            W,
+            n,
+            cluster_frame,
+            0,
+        )
 
     from ..fast.demean import demean as _demean
 
-    stacked = np.column_stack([Y.reshape(-1, 1), D.reshape(-1, 1), Z, X])
+    stacked = np.column_stack([Y.reshape(-1, 1), D, Z, X])
     stacked, info = _demean(stacked, df[absorb_terms], drop_singletons=True)
     keep = info.keep_mask
     n = int(info.n_kept)
     k_z = Z.shape[1]
     Y = stacked[:, 0]
-    D = stacked[:, 1]
-    Z = stacked[:, 2 : 2 + k_z]
-    W = stacked[:, 2 + k_z :]
+    D = stacked[:, 1 : 1 + p_endog]
+    if isinstance(endog, str):
+        D = D[:, 0]
+    Z = stacked[:, 1 + p_endog : 1 + p_endog + k_z]
+    W = stacked[:, 1 + p_endog + k_z :]
     if cluster_frame is not None:
         cluster_frame = cluster_frame.iloc[keep].reset_index(drop=True)
 
@@ -832,10 +845,10 @@ def _prep_matrices_absorbed(
 def anderson_rubin_test(
     data: pd.DataFrame,
     y: str,
-    endog: str,
+    endog: Union[str, List[str]],
     instruments: List[str],
     exog: Optional[List[str]] = None,
-    h0: float = 0,
+    h0: Union[float, List[float]] = 0,
     alpha: float = 0.05,
     vcov: str = "HC1",
     absorb: Optional[Union[str, List[str]]] = None,
@@ -855,19 +868,26 @@ def anderson_rubin_test(
     data : pd.DataFrame
     y : str
         Outcome variable.
-    endog : str
-        Endogenous regressor (single).
+    endog : str or list of str
+        Endogenous regressor(s). With a list of two or more, the test is
+        the joint AR F test of ``beta = h0`` for all of them (at ``h0 = 0``
+        Stata ``ivreg2``'s ``e(arf)``), in the same ``ar_vcov`` / ``cluster``
+        / ``absorb`` forms; no confidence set, effective F or tF value is
+        returned then (the AR set is a region in R^p -- use
+        ``sp.weakrobust(..., project=[...])`` for intervals on single
+        coefficients).
     instruments : list of str
         Excluded instruments.
     exog : list of str, optional
         Included exogenous controls.
-    h0 : float, default 0
-        Null hypothesis value for the endogenous coefficient.
+    h0 : float or list of float, default 0
+        Null hypothesis value for the endogenous coefficient(s): one per
+        endogenous regressor, or one number used for all.
     alpha : float, default 0.05
         Significance level.
     vcov : {'HC0', 'HC1', 'classic'}, default 'HC1'
         Variance estimator used for the Olea-Pflueger effective F
-        reported alongside AR.
+        reported alongside AR (one endogenous regressor).
     absorb : str or list of str, optional
         High-dimensional fixed effects to partial out of ``y``, the
         endogenous regressor, the instruments and the controls before the
@@ -963,6 +983,32 @@ def anderson_rubin_test(
             "which are not available after absorbing fixed effects.",
             recovery_hint="Use ar_vcov='HC1' with absorb.",
         )
+    if not isinstance(endog, str):
+        endog_list = [str(e) for e in endog]
+        if len(endog_list) != 1:
+            from ._weakiv_multi import ar_joint
+
+            return ar_joint(
+                data,
+                y,
+                endog_list,
+                list(instruments),
+                exog,
+                h0=h0,
+                alpha=alpha,
+                ar_key=ar_key,
+                absorb_terms=absorb_terms,
+                cluster_names=cluster_names,
+            )
+        endog = endog_list[0]
+    if np.ndim(h0) > 0:
+        h0_arr = np.asarray(h0, dtype=float).reshape(-1)
+        if h0_arr.size != 1:
+            raise MethodIncompatibility(
+                f"h0 has {h0_arr.size} values for one endogenous regressor.",
+                recovery_hint="Pass a single number as h0.",
+            )
+        h0 = float(h0_arr[0])
     Y, D, Z, W, n, cluster_frame, fe_dof = _prep_matrices_absorbed(
         data, y, endog, instruments, exog, absorb_terms, cluster_names
     )
@@ -1183,18 +1229,78 @@ class WeakRobustResult(ResultProtocolMixin):
     def __init__(
         self,
         data: Dict[str, Any],
-        endog: str,
+        endog: Union[str, List[str]],
         instruments: List[str],
         n: int,
-        h0: float,
+        h0: Any,
         alpha: float,
     ):
         self._data = data
         self.endog = endog
         self.instruments = list(instruments)
         self.n = int(n)
-        self.h0 = float(h0)
+        h0_arr = np.atleast_1d(np.asarray(h0, dtype=float)).reshape(-1)
+        self.h0 = float(h0_arr[0]) if h0_arr.size == 1 else h0_arr.tolist()
         self.alpha = float(alpha)
+
+    def _h0_label(self) -> str:
+        h0 = self._data.get("h0")
+        if isinstance(h0, dict):
+            return ", ".join(f"{k}={v:g}" for k, v in h0.items())
+        return f"β={self.h0:g}"
+
+    def _weakiv_rows(self) -> List[tuple]:
+        d = self._data
+        lab = self._h0_label()
+        rows: List[tuple] = []
+        if d.get("first_stage_F") is not None:
+            rows.append(("First-stage F (classical)", d["first_stage_F"], None, None))
+            rows.append(("Olea–Pflueger effective F", d["effective_F"], None, None))
+        rows.append(
+            ("Kleibergen–Paap rk LM", d["kp_rk_lm"], d["kp_rk_lm_pvalue"], None)
+        )
+        rows.append(("Kleibergen–Paap rk Wald F", d["kp_rk_f"], None, None))
+        rows.append((f"CLR at {lab}", d["clr_stat"], d["clr_pvalue"], d.get("clr_ci")))
+        rows.append(
+            (f"K chi2({d['k_df']}) at {lab}", d["k_stat"], d["k_pvalue"], d.get("k_ci"))
+        )
+        if d.get("j_stat") is not None:
+            rows.append(
+                (f"J chi2({d['j_df']}) at {lab}", d["j_stat"], d["j_pvalue"], None)
+            )
+            rows.append(
+                (f"K-J (kwt={d['kwt']:g}) at {lab}", None, d["kj_pvalue"], None)
+            )
+        rows.append(
+            (
+                f"AR chi2({d['ar_df']}) at {lab}",
+                d["ar_stat"],
+                d["ar_pvalue"],
+                d.get("ar_ci"),
+            )
+        )
+        rows.append(
+            (
+                f"rk (CLR conditioning) chi2({d['rk_df']})",
+                d["rk_stat"],
+                d["rk_pvalue"],
+                None,
+            )
+        )
+        for key, title in (
+            ("subset_ar", "Subset AR"),
+            ("projection_ar", "Projection AR"),
+        ):
+            for nm, b in (d.get(key) or {}).items():
+                rows.append(
+                    (
+                        f"{title} chi2({b['df']}) {nm}={b['h0']:g}",
+                        b["stat"],
+                        b["pvalue"],
+                        b["ci"],
+                    )
+                )
+        return rows
 
     def __getitem__(self, key: str) -> Any:
         return self._data[key]
@@ -1207,6 +1313,10 @@ class WeakRobustResult(ResultProtocolMixin):
 
     def to_frame(self) -> pd.DataFrame:
         """Return the Stata-style single-table summary."""
+        if self._data.get("convention") == "weakiv":
+            return pd.DataFrame(
+                self._weakiv_rows(), columns=["statistic", "value", "p_value", "CI"]
+            )
         rows = []
         d = self._data
         # Strength diagnostics
@@ -1246,7 +1356,42 @@ class WeakRobustResult(ResultProtocolMixin):
             )
         return pd.DataFrame(rows, columns=["statistic", "value", "p_value", "CI"])
 
+    def _weakiv_summary(self) -> str:
+        d = self._data
+        endog = self.endog if isinstance(self.endog, str) else ", ".join(self.endog)
+        lines = [
+            "Weak-IV-robust diagnostic panel  (sp.weakrobust, weakiv LM form)",
+            "=" * 72,
+            f"  endog        : {endog}",
+            f"  instruments  : {', '.join(self.instruments)}",
+            f"  N            : {self.n}"
+            + (f"   clusters: {d['n_clusters']}" if d.get("n_clusters") else ""),
+            f"  H0           : {self._h0_label()}",
+            f"  variance     : {d['test_vcov']}",
+            "-" * 72,
+        ]
+        for name, val, pv, ci in self._weakiv_rows():
+            txt = f"  {name:<40s}"
+            txt += f" {val:10.4f}" if val is not None else " " * 11
+            if pv is not None:
+                txt += f"   p = {pv:.4f}"
+            lines.append(txt)
+            if ci is not None:
+                lines.append(
+                    f"  {'':<40s} {100 * (1 - self.alpha):.0f}% set hull "
+                    f"[{ci[0]:.4f}, {ci[1]:.4f}]"
+                )
+        for test in ("ar", "k", "clr"):
+            st = d.get(f"{test}_set")
+            if st is not None and len(st) > 1:
+                parts = " U ".join(f"[{a:.4f}, {b:.4f}]" for a, b in st)
+                lines.append(f"  {test.upper()} set: {parts}")
+        lines.append("=" * 72)
+        return "\n".join(lines)
+
     def summary(self) -> str:
+        if self._data.get("convention") == "weakiv":
+            return self._weakiv_summary()
         d = self._data
         lines = [
             "Weak-IV-robust diagnostic panel  (sp.weakrobust)",
@@ -1311,11 +1456,11 @@ class WeakRobustResult(ResultProtocolMixin):
 def weakrobust(
     data: pd.DataFrame,
     y: str,
-    endog: str,
+    endog: Union[str, List[str]],
     instruments: List[str],
     exog: Optional[List[str]] = None,
     *,
-    h0: float = 0.0,
+    h0: Union[float, List[float]] = 0.0,
     alpha: float = 0.05,
     vcov: str = "HC1",
     include_clr: bool = True,
@@ -1324,6 +1469,10 @@ def weakrobust(
     grid_size: int = 401,
     random_state: Optional[int] = None,
     clr_method: str = "exact",
+    cluster: Optional[Union[str, List[str]]] = None,
+    test_vcov: Optional[str] = None,
+    subset: Optional[Union[str, List[str]]] = None,
+    project: Optional[Union[str, List[str]]] = None,
 ) -> "WeakRobustResult":
     """
     Stata-style unified weak-instrument-robust diagnostic panel.
@@ -1351,19 +1500,26 @@ def weakrobust(
     Parameters
     ----------
     data : DataFrame
-    y, endog : str
-        Outcome and single endogenous regressor (column names in ``data``).
+    y : str
+        Outcome.
+    endog : str or list of str
+        Endogenous regressor(s). With two or more the tests are joint tests
+        of ``beta = h0`` in Stata ``weakiv``'s form (see Notes);
+        ``subset=`` / ``project=`` give intervals for single coefficients.
     instruments : list of str
         Excluded instruments.
     exog : list of str, optional
         Included exogenous controls. An intercept is always added.
-    h0 : float, default 0.0
-        Null value for the endogenous coefficient. All under-H0 tests
-        (AR, CLR, K) are evaluated at ``β = h0``.
+    h0 : float or list of float, default 0.0
+        Null value(s) for the endogenous coefficient(s): one per endogenous
+        regressor, or one number used for all. All under-H0 tests (AR, CLR,
+        K) are evaluated at ``beta = h0``.
     alpha : float, default 0.05
         Significance level for the robust confidence sets.
-    vcov : {'HC0', 'HC1', 'classic'}, default 'HC1'
-        Used by the Olea–Pflueger effective F.
+    vcov : {'HC0', 'HC1', 'classic', 'cluster'}, default 'HC1'
+        Used by the Olea–Pflueger effective F. ``'cluster'`` (with
+        ``cluster=``) also makes the weak-IV-robust tests cluster-robust,
+        i.e. it implies ``test_vcov='cluster'``.
     include_clr : bool, default True
         Also run the CLR test and invert it for a CLR confidence set.
     include_k : bool, default True
@@ -1379,7 +1535,29 @@ def weakrobust(
         ``'exact'`` integrates it numerically (the closed form R
         ``ivmodel::CLR`` and Stata ``weakiv`` use), making the CLR
         p-value and set deterministic. ``'simulate'`` is the pre-1.29
-        Monte-Carlo version.
+        Monte-Carlo version. Used by the ``'ivmodel'`` convention only.
+    cluster : str, optional
+        Cluster variable for the weak-IV-robust tests (one-way, as Stata
+        ``weakiv ..., cluster()``); implies ``test_vcov='cluster'``. The
+        effective F is clustered on it too.
+    test_vcov : {'classic', 'robust', 'cluster'}, optional
+        Variance behind the AR / K / J / CLR tests, in Stata ``weakiv``'s
+        form (see Notes). ``'robust'`` is heteroskedasticity-robust
+        (``weakiv ..., robust``). Default: ``'cluster'`` when ``cluster`` is
+        given, else ``'classic'``; leaving it unset with one endogenous
+        regressor and no ``cluster`` keeps the ``ivmodel`` convention.
+    subset : str or list of str, optional
+        With several endogenous regressors: names whose coefficient gets a
+        subset AR test (``weakiv ..., subset()``) at its ``h0`` value and a
+        confidence set, the other coefficients concentrated out by LIML.
+        Referred to ``chi2(k - p + 1)``. i.i.d. errors only, as in Stata.
+    project : str or list of str, optional
+        With several endogenous regressors: names whose coefficient gets
+        the projection of the joint AR set (``weakiv ..., project()``):
+        ``b1`` is in the set if *some* value of the other coefficients is
+        not rejected by the joint AR test, ``chi2(k)``. Conservative.
+        Computed in closed form (LIML root) over the whole real line, where
+        Stata searches a user-bounded grid. i.i.d. errors only.
 
     Returns
     -------
@@ -1408,6 +1586,26 @@ def weakrobust(
     >>> bool("effective_F" in panel.to_dict())
     True
 
+    Notes
+    -----
+    **Two conventions.** With one endogenous regressor and none of
+    ``cluster`` / ``test_vcov`` / ``subset`` / ``project``, the panel keeps
+    the ``ivmodel`` convention
+    (``result['convention'] == 'ivmodel'``): AR is an F statistic with
+    ``n - k_w - k`` denominator degrees of freedom, CLR / K as R
+    ``ivmodel``. Otherwise (``'weakiv'``) every statistic is in Stata
+    ``weakiv``'s LM form -- AR ``chi2(k)``, K ``chi2(p)``, J ``chi2(k-p)``,
+    the K-J combination (``kwt = 0.8``) and CLR with its conditioning rank
+    statistic ``rk_stat`` -- and they reproduce ``weakiv`` to 1e-10 under
+    i.i.d., robust and cluster variances. The CLR p-value is the exact
+    conditional one: ``weakiv`` approximates it with a 20-node Simpson rule
+    for one regressor (differences ~1e-7), and for several simulates it
+    with ``AR`` and ``K`` drawn independently although ``AR = K + J``, which
+    is a different distribution (p 0.80 where the exact value is 0.75).
+    The sets for one regressor invert the reported LM tests exactly; Stata's
+    closed-form AR and K intervals invert the Wald form instead, so its own
+    AR p-value at its interval endpoint is 0.053, not 0.05.
+
     References
     ----------
     Anderson–Rubin (1949) Ann. Math. Stat. 20, 46-63.
@@ -1421,6 +1619,81 @@ def weakrobust(
         instruments = [instruments]
     if exog is not None and isinstance(exog, str):
         exog = [exog]
+    endog_list = [endog] if isinstance(endog, str) else [str(e) for e in endog]
+    cluster_names = _as_name_list(cluster)
+    subset_names = _as_name_list(subset)
+    project_names = _as_name_list(project)
+    vcov_ef = vcov
+    if str(vcov).lower() == "cluster":
+        if not cluster_names:
+            raise MethodIncompatibility(
+                "vcov='cluster' needs cluster=.",
+                recovery_hint="Pass cluster='<column>'.",
+            )
+        if test_vcov is None:
+            test_vcov = "cluster"
+        vcov_ef = "HC1"  # effective_f_test clusters whenever cluster= is given
+    tv = (
+        test_vcov
+        if test_vcov is not None
+        else ("cluster" if cluster_names else "classic")
+    )
+    if (
+        len(endog_list) > 1
+        or cluster_names
+        or test_vcov is not None
+        or subset_names
+        or project_names
+    ):
+        from ._weakiv_multi import weakiv_panel
+
+        out_w = weakiv_panel(
+            data,
+            y,
+            endog_list,
+            list(instruments),
+            exog,
+            h0=h0,
+            alpha=alpha,
+            test_vcov=tv,
+            cluster_names=cluster_names,
+            subset=subset_names,
+            project=project_names,
+        )
+        if len(endog_list) == 1:
+            ef = effective_f_test(
+                data,
+                endog_list[0],
+                list(instruments),
+                exog,
+                vcov=vcov_ef,
+                cluster=cluster_names or None,
+            )
+            out_w["first_stage_F"] = ef["first_stage_F"]
+            out_w["effective_F"] = ef["F_eff"]
+            out_w["strength"] = ef["strength"]
+            out_w["tF_critical_value"] = (
+                tF_critical_value(ef["F_eff"], alpha=0.05)
+                if len(instruments) == 1
+                and np.isclose(alpha, 0.05)
+                and np.isfinite(ef["F_eff"])
+                else None
+            )
+        else:
+            out_w["first_stage_F"] = out_w["effective_F"] = None
+            out_w["tF_critical_value"] = None
+            out_w["strength"] = None
+        return WeakRobustResult(
+            data=out_w,
+            endog=endog_list[0] if len(endog_list) == 1 else endog_list,
+            instruments=list(instruments),
+            n=out_w["n_obs"],
+            h0=h0,
+            alpha=alpha,
+        )
+    endog = endog_list[0]
+    if np.ndim(h0) > 0:
+        h0 = float(np.asarray(h0, dtype=float).reshape(-1)[0])
 
     ar = anderson_rubin_test(
         data=data,
@@ -1443,6 +1716,7 @@ def weakrobust(
         "tF_critical_value": ar["tF_critical_value"],
         "n_instruments": ar["n_instruments"],
         "strength": ar["strength"],
+        "convention": "ivmodel",
     }
 
     # ── KP rk LM / Wald F (robust rank test) ──────────────────────────

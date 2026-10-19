@@ -57,6 +57,23 @@ If first-stage F < 10:
 weak-IV.** Use the Anderson-Rubin CI, which is robust to any
 first-stage strength.
 
+**Clustered data and several endogenous regressors.** `sp.weakrobust`
+reproduces Stata `weakiv` (AR, K, J, K-J and CLR in its LM form) when
+given `cluster=`, `test_vcov='robust'` or a list of endogenous regressors:
+
+```python
+sp.weakrobust(df, y="y", endog="d", instruments=["z1", "z2", "z3"],
+              exog=["x"], cluster="state")          # cluster-robust AR/K/CLR + sets
+sp.weakrobust(df, y="y", endog=["d1", "d2"], instruments=["z1", "z2", "z3"],
+              h0=[0, 0], subset=["d1"], project=["d1"])
+```
+
+With several regressors the tests are joint; `subset=` (subset AR, the
+others concentrated out by LIML) and `project=` (projection of the joint
+AR set) give intervals for one coefficient, i.i.d. errors only as in
+Stata. `sp.anderson_rubin_test(..., endog=[...])` is the joint AR F test
+(`ivreg2`'s `e(arf)` at `h0 = 0`).
+
 ## 3. Many instruments
 
 With more than 5-10 instruments relative to sample size, 2SLS has
