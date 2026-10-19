@@ -4,6 +4,47 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: `sp.mi_estimate` complete-data df; `binscatter(method='binsreg')`; labels in `sp.sumstats`
+
+#### Fixed
+
+- ⚠️ `sp.mi_estimate` took the complete-data degrees of freedom of the
+  Barnard-Rubin small-sample df from `df_resid` (`n - k`) whatever the fit.
+  It now takes the df of the fit's own t reference, as Stata `mi estimate`
+  reads `e(df_r)`: `G - 1` after a clustered `sp.regress` (before: `n - k`,
+  so the df were 140 / 77 / 23 where Stata reports 8.1 / 5.7 / 9.3 on the
+  test data, and p-values and intervals were too narrow), and Rubin's
+  large-sample df after `sp.logit` / `sp.poisson` and other z-based fits
+  (before: small-sample df with `n - k`). Point estimates and the total
+  variance are unchanged; `df`, `pvalues`, the intervals and
+  `fmi_barnard_rubin` change for those fits. Matches Stata 18 `mi estimate`
+  for `regress`, `regress, vce(cluster)` and `logit`
+  (`tests/test_mi_estimate_dfcom.py`).
+
+#### Added
+
+- `sp.binscatter(..., method='binsreg')`: the binscatter of
+  `cattaneo2024binscatter` as R `binsreg` 2.2 computes it. Covariates enter
+  the regression with the bin indicators and each dot is the bin's
+  coefficient at the mean of the covariates (not residualized bin means);
+  quantile bins (type-2 quantiles, intervals closed on the right);
+  `n_bins=None` selects the IMSE-optimal number by the direct plug-in rule
+  started from the rule of thumb; `ci=True` gives robust bias-corrected
+  intervals from a continuous piecewise-linear fit; `cb=True` the uniform
+  band with a simulated sup-t critical value (`nsims=`, `simsgrid=`,
+  `seed=`). Selected number of bins equal to R `binsregselect` on 40
+  designs, dots and intervals to 1e-10; the band's critical value is
+  simulated in both (screened, not certified). R `binsreg` (GPL-3) was used
+  as a black box: outputs only. The default `method='classic'` is
+  unchanged.
+
+#### Changed
+
+- `sp.sumstats` shows the variable labels stored on the data
+  (`sp.label_var`, a labelled `.dta`) and the value labels of `by` as panel
+  headers; `use_labels=False` shows the column names. `labels=` and
+  `by_labels=` still override them.
+
 ### `sp.feglm`: fixed-effects negative binomial and bias-corrected logit / probit
 
 #### Added

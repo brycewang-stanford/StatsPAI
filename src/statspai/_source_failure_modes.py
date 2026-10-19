@@ -140,6 +140,25 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "sp.beveridge_nelson: max_order=<pmax> with " "<n> differences.",
         },
     ],
+    "binscatter": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass method='binsreg' for the CCFF (2024) " "binscatter.",
+            "symptom": "binscatter: method must be 'classic' or "
+            "'binsreg', not <method>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Add the fixed effects to controls as indicator "
+            "columns, or use method='classic'.",
+            "symptom": "binscatter(method='binsreg') does not absorb " "fixed effects",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='classic' for weighted bin means.",
+            "symptom": "binscatter(method='binsreg') does not take " "weights",
+        },
+    ],
     "blp_instruments": [
         {
             "exception": "statspai.DataInsufficient",

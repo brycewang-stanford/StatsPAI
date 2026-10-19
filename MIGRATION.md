@@ -16,6 +16,16 @@ change (to the dummy-variable regression's numbers); converged fits do not.
 numbers were wrong. `sp.read_data` on a large CSV now parses decimals to
 the nearest double (pyarrow), which can move the last bit of a value that
 pandas' default parser rounded the other way.
+## 1.39.6 → unreleased: ⚠️ `sp.mi_estimate` degrees of freedom for clustered and likelihood fits
+
+`sp.mi_estimate` now takes the complete-data df of the Barnard-Rubin
+correction from the fit's own t reference, as Stata `mi estimate` does:
+`G - 1` for a clustered `sp.regress`, and the large-sample df for z-based
+fits such as `sp.logit` / `sp.poisson`. Estimates and variances are the
+same; the df, p-values and confidence intervals of those fits change
+(clustered fits get wider intervals). Unclustered `sp.regress` fits are
+unchanged. There is no switch back: the old df were not those of any
+reference implementation.
 
 ---
 

@@ -743,9 +743,14 @@ def mi_estimate(
         ``std_errors`` ... so ``sp.regtable(result)`` takes it. The within-imputation
         covariance is the estimator's full ``var_cov`` when it exposes one
         (``data_info['var_cov']``), else the diagonal of squared standard
-        errors; the complete-data df for Barnard-Rubin is its ``df_resid``
-        when exposed, else infinity. This reproduces R ``mice::pool`` and
-        Stata ``mi estimate`` (small-sample df) for ``sp.regress``.
+        errors. The complete-data df for Barnard-Rubin is the df of the
+        fit's t reference distribution, as Stata ``mi estimate`` takes it
+        from ``e(df_r)``: ``n - k`` for ``sp.regress``, ``G - 1`` with
+        clustered standard errors, and infinity (Rubin's large-sample df)
+        for likelihood fits that report z statistics (``sp.logit``,
+        ``sp.poisson`` ...) or fits that record no df. This reproduces R
+        ``mice::pool`` and Stata ``mi estimate`` (checked against Stata 18
+        for ``regress``, ``regress, vce(cluster)`` and ``logit``).
 
     Examples
     --------
@@ -764,6 +769,8 @@ def mi_estimate(
     >>> combined['var_names']
     ['Intercept', 'x1', 'x2']
     """
+    from ..postestimation._covariance import inference_df
+
     estimates = []
     var_names: Optional[List[str]] = None
     n_obs = None
@@ -778,8 +785,12 @@ def mi_estimate(
             # No full covariance exposed: pool the variances only.
             V = np.diag(np.asarray(result.std_errors, dtype=float) ** 2)
         est = {"params": np.asarray(params, dtype=float), "var_cov": np.asarray(V)}
-        if info.get("df_resid") is not None:
-            est["df_resid"] = float(info["df_resid"])
+        # The complete-data df is the df of the fit's own t reference:
+        # G - 1 for a clustered fit, none (large sample) for a z-based
+        # likelihood fit -- what Stata's mi estimate reads from e(df_r).
+        dfcom = inference_df(result, stores=("data_info",))
+        if np.isfinite(dfcom):
+            est["df_resid"] = float(dfcom)
         estimates.append(est)
         if var_names is None:
             var_names = list(getattr(params, "index", range(k)))

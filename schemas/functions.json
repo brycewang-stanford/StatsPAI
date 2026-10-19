@@ -43069,7 +43069,7 @@
           "type": "string"
         },
         "by_labels": {
-          "description": "Group labels for ``by=`` panel headers, e.g. ``{0: 'Control', 1: 'Treated'}``. When ``by`` is binary 0/1 and no ``by_labels`` is supplied, ``Control``/``Treated`` is auto-applied so academic Table 1 reads correctly out of the box.",
+          "description": "Group labels for ``by=`` panel headers, e.g. ``{0: 'Control', 1: 'Treated'}``. Without them the value labels stored for ``by`` are used (see ``use_labels``); when there are none and ``by`` is binary 0/1, ``Control``/``Treated`` is auto-applied so academic Table 1 reads correctly out of the box.",
           "type": "object"
         },
         "data": {
@@ -43090,7 +43090,7 @@
           "type": "integer"
         },
         "labels": {
-          "description": "Variable labels: ``{'x1': 'Education (years)'}``.",
+          "description": "Variable labels: ``{'x1': 'Education (years)'}``. They override the labels stored on the data (see ``use_labels``).",
           "type": "object"
         },
         "output": {
@@ -43122,6 +43122,11 @@
         "total": {
           "default": false,
           "description": "With ``by=``, add a panel ``'Total'`` for all the rows that belong to a group (Stata ``tabstat, by()`` prints it as its last row).",
+          "type": "boolean"
+        },
+        "use_labels": {
+          "default": true,
+          "description": "Show the variable labels stored on the data (``sp.label_var``, a Stata ``.dta`` read with ``sp.read_data``) instead of the column names, and the value labels of ``by`` as the panel headers. ``False`` shows the names.",
           "type": "boolean"
         },
         "vars": {
@@ -43772,6 +43777,11 @@
           "description": "Grouping variable -- produces separate series on the same plot (e.g., ``by='female'`` overlays male and female).",
           "type": "string"
         },
+        "cb": {
+          "default": false,
+          "description": "With ``method='binsreg'``: add the uniform confidence band (same piecewise-linear fit, simulated critical value of the sup-t statistic at level ``ci_level``).",
+          "type": "boolean"
+        },
         "ci": {
           "default": false,
           "description": "Show pointwise confidence intervals within each bin.",
@@ -43850,8 +43860,22 @@
           },
           "type": "array"
         },
+        "method": {
+          "default": "classic",
+          "description": "``'classic'`` residualizes ``y`` and ``x`` on the controls and plots bin means (Stepner's ``binscatter``). ``'binsreg'`` is the binscatter of Cattaneo, Crump, Farrell and Feng (2024), as R / Stata ``binsreg`` computes it: the controls enter one regression with the bin indicators and each dot is that bin's coefficient at the mean of the controls (residualizing estimates a different function when ``x`` and the controls are related); bins at the quantiles of ``x`` (``quantiles`` is ignored); ``n_bins=None`` selects the IMSE-optimal number (direct plug-in, as ``binsregselect``); ``ci=True`` gives robust bias-corrected intervals from a continuous piecewise-linear fit on the same bins. ``absorb`` and ``weights`` are not available with ``'binsreg'``.",
+          "enum": [
+            "classic",
+            "binsreg"
+          ],
+          "type": "string"
+        },
         "n_bins": {
           "description": "Number of bins. Default: min(20, ceil(n^(1/3))) following the IMSE-optimal rate from Cattaneo et al. (2024).",
+          "type": "integer"
+        },
+        "nsims": {
+          "default": 500,
+          "description": "Simulation draws for the band's critical value.",
           "type": "integer"
         },
         "quantiles": {
@@ -43862,6 +43886,15 @@
         "scatter_kw": {
           "description": "Extra kwargs for ``ax.scatter()``.",
           "type": "object"
+        },
+        "seed": {
+          "description": "Seed of the band's simulation.",
+          "type": "integer"
+        },
+        "simsgrid": {
+          "default": 20,
+          "description": "Evaluation points inside each bin for the band.",
+          "type": "integer"
         },
         "title": {
           "description": "title parameter (Optional[str]).",

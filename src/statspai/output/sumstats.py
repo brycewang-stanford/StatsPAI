@@ -35,6 +35,7 @@ def sumstats(
     weights: Optional[str] = None,
     total: bool = False,
     filename: Optional[str] = None,
+    use_labels: bool = True,
 ) -> Union[str, pd.DataFrame]:
     """
     Generate descriptive statistics table.
@@ -74,11 +75,13 @@ def sumstats(
         Number format. The default rounds each cell to a few significant
         digits; pass ``digits=3`` for a fixed three decimals throughout.
     labels : dict, optional
-        Variable labels: ``{'x1': 'Education (years)'}``.
+        Variable labels: ``{'x1': 'Education (years)'}``. They override
+        the labels stored on the data (see ``use_labels``).
     by_labels : dict, optional
         Group labels for ``by=`` panel headers, e.g.
-        ``{0: 'Control', 1: 'Treated'}``. When ``by`` is binary 0/1
-        and no ``by_labels`` is supplied, ``Control``/``Treated`` is
+        ``{0: 'Control', 1: 'Treated'}``. Without them the value labels
+        stored for ``by`` are used (see ``use_labels``); when there are
+        none and ``by`` is binary 0/1, ``Control``/``Treated`` is
         auto-applied so academic Table 1 reads correctly out of the box.
     percentile_method : {'linear', 'stata'}, default 'linear'
         How a percentile between two order statistics is defined.
@@ -107,6 +110,11 @@ def sumstats(
         Also write the table to this file; the extension picks the format
         (.xlsx / .docx / .tex / .html / .md / .txt / .csv). The return value
         is still what ``output`` asks for.
+    use_labels : bool, default True
+        Show the variable labels stored on the data (``sp.label_var``, a
+        Stata ``.dta`` read with ``sp.read_data``) instead of the column
+        names, and the value labels of ``by`` as the panel headers.
+        ``False`` shows the names.
 
     Returns
     -------
@@ -115,6 +123,11 @@ def sumstats(
     Examples
     --------
     >>> import statspai as sp
+    >>> import pandas as pd
+    >>> small = pd.DataFrame({"educ": [12.0, 16.0, 14.0], "d": [0, 1, 1]})
+    >>> sp.label_var(small, "educ", "Education (years)")
+    >>> list(sp.sumstats(small, vars=["educ"], output="dataframe").index)
+    ['Education (years)']
     >>> df = sp.cps_wage()
     >>> tab = sp.sumstats(
     ...     df, vars=['log_wage', 'education', 'experience'],
@@ -195,6 +208,14 @@ def sumstats(
         {"vars": vars_given, "by": by, "weights": weights},
         function="sumstats",
     )
+    if use_labels:
+        stored = dict(getattr(data, "attrs", {}).get("_labels") or {})
+        if stored:
+            labels = {**stored, **(labels or {})}
+        if by is not None and by_labels is None:
+            coded = (getattr(data, "attrs", {}).get("_value_labels") or {}).get(by)
+            if coded:
+                by_labels = dict(coded)
     data, vars, labels = _expand_categoricals(data, list(vars), labels, exclude=by)
     if weights is not None:
         if (pd.to_numeric(data[weights], errors="coerce") < 0).any():

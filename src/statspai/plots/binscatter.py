@@ -36,6 +36,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..exceptions import MethodIncompatibility
 
 
 @accepts_aliases(covariates="controls")
@@ -63,6 +64,11 @@ def binscatter(
     legend: bool = True,
     scatter_kw: Optional[dict] = None,
     line_kw: Optional[dict] = None,
+    method: str = "classic",
+    cb: bool = False,
+    nsims: int = 500,
+    simsgrid: int = 20,
+    seed: Optional[int] = None,
 ) -> Tuple:
     """
     Binned scatter plot with optional residualization.
@@ -120,6 +126,29 @@ def binscatter(
         Extra kwargs for ``ax.scatter()``.
     line_kw : dict, optional
         Extra kwargs for ``ax.plot()`` (the fit line).
+    method : {'classic', 'binsreg'}, default 'classic'
+        ``'classic'`` residualizes ``y`` and ``x`` on the controls and
+        plots bin means (Stepner's ``binscatter``). ``'binsreg'`` is the
+        binscatter of Cattaneo, Crump, Farrell and Feng (2024), as R / Stata
+        ``binsreg`` computes it: the controls enter one regression with the
+        bin indicators and each dot is that bin's coefficient at the mean of
+        the controls (residualizing estimates a different function when
+        ``x`` and the controls are related); bins at the quantiles of ``x``
+        (``quantiles`` is ignored); ``n_bins=None`` selects the IMSE-optimal
+        number (direct plug-in, as ``binsregselect``); ``ci=True`` gives
+        robust bias-corrected intervals from a continuous piecewise-linear
+        fit on the same bins. ``absorb`` and ``weights`` are not available
+        with ``'binsreg'``.
+    cb : bool, default False
+        With ``method='binsreg'``: add the uniform confidence band (same
+        piecewise-linear fit, simulated critical value of the sup-t
+        statistic at level ``ci_level``).
+    nsims : int, default 500
+        Simulation draws for the band's critical value.
+    simsgrid : int, default 20
+        Evaluation points inside each bin for the band.
+    seed : int, optional
+        Seed of the band's simulation.
 
     Returns
     -------
@@ -127,6 +156,11 @@ def binscatter(
     ax : matplotlib.axes.Axes
     bin_data : pd.DataFrame
         The binned data (columns: x_mean, y_mean, n, [ci_lower, ci_upper]).
+        With ``method='binsreg'``, ``bin_data.attrs['binsreg']`` holds the
+        number of bins, the selection (``rot_poly`` / ``rot`` / ``dpi``),
+        the knots, and with ``cb=True`` the band (``x``, ``fit``,
+        ``cb_lower``, ``cb_upper``) and its critical value; per group when
+        ``by`` is given.
 
     Examples
     --------
@@ -218,12 +252,30 @@ def binscatter(
     # Drop NaN in relevant columns
     df = df[required_cols].dropna()
 
+    if method not in ("classic", "binsreg"):
+        raise MethodIncompatibility(
+            f"binscatter: method must be 'classic' or 'binsreg', not {method!r}",
+            recovery_hint="Pass method='binsreg' for the CCFF (2024) binscatter.",
+        )
+    if method == "binsreg" and absorb:
+        raise MethodIncompatibility(
+            "binscatter(method='binsreg') does not absorb fixed effects",
+            recovery_hint="Add the fixed effects to controls as indicator "
+            "columns, or use method='classic'.",
+        )
+    if method == "binsreg" and weights:
+        raise MethodIncompatibility(
+            "binscatter(method='binsreg') does not take weights",
+            recovery_hint="Use method='classic' for weighted bin means.",
+        )
+
     if len(df) < 10:
         raise ValueError("Need at least 10 observations after dropping NaN")
 
     # --- Default bins ---
-    if n_bins is None:
+    if n_bins is None and method == "classic":
         n_bins = min(20, max(5, int(np.ceil(len(df) ** (1 / 3)))))
+    binsreg_info: dict = {}
 
     # --- Defaults for colors/markers ---
     if colors is None:
@@ -268,25 +320,56 @@ def binscatter(
         X_raw = df_g[x].values.astype(float)
         W = df_g[weights].values.astype(float) if weights else None
 
+        if method == "binsreg":
+            from ._binsreg import binsreg_series
+
+            series = binsreg_series(
+                X_raw,
+                Y_raw,
+                df_g[controls].to_numpy(dtype=float) if controls else None,
+                n_bins,
+                ci,
+                cb,
+                ci_level,
+                nsims,
+                simsgrid,
+                seed,
+            )
+            bin_df = series["dots"]
+            binsreg_info[group_val] = {
+                k: series[k]
+                for k in (
+                    "n_bins",
+                    "selection",
+                    "knots",
+                    "band",
+                    "cb_critical_value",
+                )
+            }
+            X_plot, Y_plot = X_raw, Y_raw
+
         # --- Step 1: Absorb fixed effects ---
-        if absorb:
+        if method == "binsreg":
+            pass
+        elif absorb:
             Y_raw = _absorb_fe(Y_raw, df_g, absorb)
             X_raw = _absorb_fe(X_raw, df_g, absorb)
 
-        # --- Step 2: Residualize on controls ---
-        if controls:
-            Z = df_g[controls].values.astype(float)
-            Y_resid, X_resid = _residualize(Y_raw, X_raw, Z, W)
-        else:
-            Y_resid = Y_raw
-            X_resid = X_raw
+        if method == "classic":
+            # --- Step 2: Residualize on controls ---
+            if controls:
+                Z = df_g[controls].values.astype(float)
+                Y_resid, X_resid = _residualize(Y_raw, X_raw, Z, W)
+            else:
+                Y_resid = Y_raw
+                X_resid = X_raw
 
-        # Add back means for interpretability
-        Y_plot = Y_resid - Y_resid.mean() + Y_raw.mean()
-        X_plot = X_resid - X_resid.mean() + X_raw.mean()
+            # Add back means for interpretability
+            Y_plot = Y_resid - Y_resid.mean() + Y_raw.mean()
+            X_plot = X_resid - X_resid.mean() + X_raw.mean()
 
-        # --- Step 3: Bin ---
-        bin_df = _compute_bins(X_plot, Y_plot, n_bins, quantiles, W, ci, ci_level)
+            # --- Step 3: Bin ---
+            bin_df = _compute_bins(X_plot, Y_plot, n_bins, quantiles, W, ci, ci_level)
 
         if group_val is not None:
             bin_df["group"] = group_val
@@ -323,6 +406,18 @@ def binscatter(
                 linewidth=0.8,
                 alpha=0.6,
                 zorder=3,
+            )
+
+        band = binsreg_info.get(group_val, {}).get("band")
+        if band is not None:
+            ax.fill_between(
+                band["x"],
+                band["cb_lower"],
+                band["cb_upper"],
+                color=color,
+                alpha=0.15,
+                linewidth=0,
+                zorder=2,
             )
 
         # --- Step 5: Overlay fit line ---
@@ -369,6 +464,10 @@ def binscatter(
 
     # Combine bin data
     result_df = pd.concat(all_bin_data, ignore_index=True)
+    if method == "binsreg":
+        result_df.attrs["binsreg"] = (
+            binsreg_info[None] if by is None else dict(binsreg_info)
+        )
 
     return fig, ax, result_df
 
