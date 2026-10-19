@@ -91962,6 +91962,129 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "output",
+    "cost_profile": "",
+    "description": "Generate a balance table comparing treated and control groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.balance_table( # doctest: +SKIP\n df, treat='union', covariates=cov, output='balance.docx'\n)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use test='ttest' or 'ranksum'.",
+        "symptom": "balance_table: unknown test <test>."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "balance_table",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "str",
+      "description": "str or pd.DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Generate a balance table comparing treated and control groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "balance_table",
+      "parameters": {
+        "properties": {
+          "covariates": {
+            "description": "Variables to check balance on. A string, categorical or boolean covariate gets one row per level, the balance of its 0/1 indicator (the means are the shares of the level in each arm).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "Input data.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "digits": {
+            "description": "digits parameter (Optional[int]).",
+            "type": "integer"
+          },
+          "filename": {
+            "description": "Also write the table to this file; the extension picks the format.",
+            "type": "string"
+          },
+          "fmt": {
+            "description": "Number format.",
+            "type": "integer"
+          },
+          "labels": {
+            "description": "Variable labels.",
+            "type": "object"
+          },
+          "output": {
+            "default": "text",
+            "description": "'text', 'latex', 'html', 'markdown', 'dataframe', or a file path (.xlsx / .docx / .tex / .html / .md / .txt / .csv). Anything else raises ``MethodIncompatibility``.",
+            "type": "string"
+          },
+          "test": {
+            "default": "ttest",
+            "description": "Test for difference: 'ttest' or 'ranksum'.",
+            "enum": [
+              "ttest",
+              "ranksum"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "default": "Balance Table",
+            "description": "Table title.",
+            "type": "string"
+          },
+          "treat": {
+            "description": "Binary treatment variable (0/1).",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_facure_causal_inference_in_python.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "sp.regress",
       "sp.feols",

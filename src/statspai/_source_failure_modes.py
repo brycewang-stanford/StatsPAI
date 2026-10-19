@@ -58,6 +58,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "forecaster.",
         },
     ],
+    "balance_table": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use test='ttest' or 'ranksum'.",
+            "symptom": "balance_table: unknown test <test>.",
+        }
+    ],
     "balance_vs_randomization": [
         {
             "exception": "statspai.DataInsufficient",
