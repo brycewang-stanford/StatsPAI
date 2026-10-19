@@ -48484,6 +48484,655 @@
   {
     "alias_of": null,
     "alternatives": [
+      "xtset",
+      "lead",
+      "diff"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "The time variable counts whole periods (Stata dates are integers)"
+    ],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Stata's L. operator read from the time variable: x at t - n*delta in the same panel, missing where that period is absent (gaps), whatever the row order. Not shift(): shift() reads the row above.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.lag(df, \"x\", id=\"firm\", time=\"year\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Pass time= (and id=), or call sp.xtset(data, id=, time=) first.",
+        "symptom": "No time variable given or declared"
+      },
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Drop rows with a missing period; convert datetimes with .dt.to_period(); aggregate duplicates with sp.collapse.",
+        "symptom": "Time variable with missing, non-integer or repeated values within a panel, or a datetime column"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "lag",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "Series",
+      "description": "Series named 'L.x' / 'L2.x' (DataFrame for several variables or orders)",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Stata's L. operator read from the time variable: x at t - n*delta in the same panel, missing where that period is absent (gaps), whatever the row order. Not shift(): shift() reads the row above.",
+      "name": "lag",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "delta": {
+            "description": "Length of one period (default 1)",
+            "type": "number"
+          },
+          "id": {
+            "description": "Panel variable (default: the sp.xtset declaration)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "n": {
+            "default": 1,
+            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x",
+            "items": {
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
+          },
+          "time": {
+            "description": "Time variable, integer periods or pandas Period (default: the sp.xtset declaration)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "var": {
+            "description": "Variable(s) to operate on",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "var"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "xtset",
+      "lag",
+      "diff"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "The time variable counts whole periods (Stata dates are integers)"
+    ],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Stata's F. operator read from the time variable: x at t + n*delta in the same panel, missing where that period is absent (gaps), whatever the row order. Not shift(): shift() reads the row above.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.lead(df, \"x\", id=\"firm\", time=\"year\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Pass time= (and id=), or call sp.xtset(data, id=, time=) first.",
+        "symptom": "No time variable given or declared"
+      },
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Drop rows with a missing period; convert datetimes with .dt.to_period(); aggregate duplicates with sp.collapse.",
+        "symptom": "Time variable with missing, non-integer or repeated values within a panel, or a datetime column"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "lead",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "Series",
+      "description": "Series named 'F.x' / 'F2.x' (DataFrame for several variables or orders)",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Stata's F. operator read from the time variable: x at t + n*delta in the same panel, missing where that period is absent (gaps), whatever the row order. Not shift(): shift() reads the row above.",
+      "name": "lead",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "delta": {
+            "description": "Length of one period (default 1)",
+            "type": "number"
+          },
+          "id": {
+            "description": "Panel variable (default: the sp.xtset declaration)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "n": {
+            "default": 1,
+            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x",
+            "items": {
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
+          },
+          "time": {
+            "description": "Time variable, integer periods or pandas Period (default: the sp.xtset declaration)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "var": {
+            "description": "Variable(s) to operate on",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "var"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "xtset",
+      "lag",
+      "lead"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "The time variable counts whole periods (Stata dates are integers)"
+    ],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Stata's D. operator read from the time variable: the n-th difference (D2.x = x - 2 L.x + L2.x) in the same panel, missing where that period is absent (gaps), whatever the row order. Not shift(): shift() reads the row above.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.diff(df, \"x\", id=\"firm\", time=\"year\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Pass time= (and id=), or call sp.xtset(data, id=, time=) first.",
+        "symptom": "No time variable given or declared"
+      },
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Drop rows with a missing period; convert datetimes with .dt.to_period(); aggregate duplicates with sp.collapse.",
+        "symptom": "Time variable with missing, non-integer or repeated values within a panel, or a datetime column"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "diff",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "Series",
+      "description": "Series named 'D.x' / 'D2.x' (DataFrame for several variables or orders)",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Stata's D. operator read from the time variable: the n-th difference (D2.x = x - 2 L.x + L2.x) in the same panel, missing where that period is absent (gaps), whatever the row order. Not shift(): shift() reads the row above.",
+      "name": "diff",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "delta": {
+            "description": "Length of one period (default 1)",
+            "type": "number"
+          },
+          "id": {
+            "description": "Panel variable (default: the sp.xtset declaration)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "n": {
+            "default": 1,
+            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x",
+            "items": {
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
+          },
+          "time": {
+            "description": "Time variable, integer periods or pandas Period (default: the sp.xtset declaration)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "var": {
+            "description": "Variable(s) to operate on",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "var"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "lag",
+      "lead",
+      "diff"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Declare the panel and time variables (Stata xtset id t / tsset t): stored in data.attrs and read by sp.lag / sp.lead / sp.diff and by L.x / F.x / D.x in formulas. Returns Stata's description: balance (strongly / weakly / unbalanced), gaps, first and last period.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.xtset(df, id=\"firm\", time=\"year\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "One row per panel and period; integer periods; a delta no larger than the smallest step (Stata r(451)).",
+        "symptom": "Repeated time values within a panel, non-integer periods, or periods closer than delta"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xtset",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "PanelDeclaration",
+      "description": "PanelDeclaration (id, time, delta, balanced, gaps, n_units, t_min, t_max)",
+      "fields": {
+        "balanced": "Optional[str]",
+        "delta": "float",
+        "gaps": "bool",
+        "id": "Optional[str]",
+        "n_units": "Optional[int]",
+        "t_max": "Optional[float]",
+        "t_min": "Optional[float]",
+        "time": "Optional[str]"
+      }
+    },
+    "signature": {
+      "description": "Declare the panel and time variables (Stata xtset id t / tsset t): stored in data.attrs and read by sp.lag / sp.lead / sp.diff and by L.x / F.x / D.x in formulas. Returns Stata's description: balance (strongly / weakly / unbalanced), gaps, first and last period.",
+      "name": "xtset",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "The data. Only ``data.attrs`` is changed; the rows keep their order (Stata sorts by panel and time; nothing here depends on the order).",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "delta": {
+            "default": 1.0,
+            "description": "Length of one period (delta())",
+            "type": "number"
+          },
+          "id": {
+            "description": "Panel variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "time": {
+            "description": "Time variable: integer periods or pandas Period",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "collapse"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Stata's reshape wide / reshape long with i() and j(): the same column order and rows as Stata, and its refusals (j not unique within i, a non-stub variable that varies within i).",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.reshape(df, \"wide\", stubs=\"inc\", id=\"hid\", j=\"year\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Aggregate duplicates (sp.collapse); list the varying variable as a stub or drop it.",
+        "symptom": "j not unique within id, or a variable that is not a stub varies within id"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "reshape",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Stata's reshape wide / reshape long with i() and j(): the same column order and rows as Stata, and its refusals (j not unique within i, a non-stub variable that varies within i).",
+      "name": "reshape",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Not modified.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "direction": {
+            "description": "'wide' (long -> wide) or 'long'",
+            "enum": [
+              "wide",
+              "long"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "description": "Stata's i()",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "i"
+            ]
+          },
+          "j": {
+            "description": "Stata's j()",
+            "type": "string"
+          },
+          "string": {
+            "default": false,
+            "description": "j takes text values (Stata's string option)",
+            "type": "boolean"
+          },
+          "stubs": {
+            "description": "Variables that vary with j (long: the name before the suffix)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "direction",
+          "stubs",
+          "id",
+          "j"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "reshape"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Stata's collapse: a dataset of summary statistics by group, written '(mean) x (sum) total=y' or as a dict; missing by-values form their own group; aweight / fweight / pweight / iweight as Stata defines them; cw.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.collapse(df, \"(mean) wage (count) n=wage\", by=\"state\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Use aweights, or drop the offending rows.",
+        "symptom": "Non-integer frequency weights, negative weights, or sd with pweights"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "collapse",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame (by-variables, then one column per statistic)",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Stata's collapse: a dataset of summary statistics by group, written '(mean) x (sum) total=y' or as a dict; missing by-values form their own group; aweight / fweight / pweight / iweight as Stata defines them; cw.",
+      "name": "collapse",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Group variables",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "cw": {
+            "default": false,
+            "description": "Casewise deletion over all source variables",
+            "type": "boolean"
+          },
+          "data": {
+            "description": "Not modified. Filter rows first for Stata's ``if`` / ``in``.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "stats": {
+            "description": "'(mean) x y (sd) sdx=x' or {new: stat} / {new: (stat, source)}; stats mean median p50 sd sum rawsum count min max first last firstnm lastnm",
+            "type": "object"
+          },
+          "weight_type": {
+            "default": "aweight",
+            "description": "Stata weight type",
+            "enum": [
+              "aweight",
+              "fweight",
+              "pweight",
+              "iweight"
+            ],
+            "type": "string"
+          },
+          "weights": {
+            "description": "Weight column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "stats"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "rake",
       "svydesign",
       "direct_standardize"

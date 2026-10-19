@@ -221,8 +221,8 @@ def reshape(
     >>> list(wide.columns)
     ['hid', 'inc80', 'inc81', 'sex']
     >>> back = sp.reshape(wide, "long", stubs="inc", id="hid", j="year")
-    >>> back[["hid", "year", "inc"]].values.tolist()
-    [[1, 80, 5.0], [1, 81, 6.0], [2, 80, 7.0], [2, 81, 8.0]]
+    >>> back["inc"].tolist(), back["year"].tolist()
+    ([5.0, 6.0, 7.0, 8.0], [80, 81, 80, 81])
 
     References
     ----------
