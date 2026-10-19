@@ -4693,3 +4693,38 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — Track C re-timed on the Rust HDFE path
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `e6ecbde28`.
+- **Reason.** All four timed paths were stale (`fast/`, `did/`,
+  `core/results.py`, `output/_lineage.py`, `dml/` and the Rust crate had
+  changed). Re-measured on 7568499a1 with `tests/perf/run_when_idle.sh`
+  (peak load at most 1.47, no step repeated, one thread on both sides).
+  statspai-hdfe 0.9.0 is a core dependency on wheel platforms, so the
+  HDFE row now times the Rust kernels the default install runs;
+  `_timed_path.json` records `rust_loaded`.
+- **Effect on the paper.** Track C table (`track_c_perf.tex`) and the
+  log-log figure. 01_hdfe, sp seconds (ratio to `fixest::feols`): n=1e4
+  0.0022 -> 0.0007 (1.82 -> 7.08), 1e5 0.0130 -> 0.0035 (0.85 -> 3.18),
+  1e6 0.1174 -> 0.0315 (0.61 -> 2.41); agreement unchanged (<= 2e-14).
+  02_csdid ratios 1.38 / 2.09 / 2.60 -> 1.33 / 1.78 / 2.61. 03_scm ratios
+  1.04 / 1.07 / 3.49 -> 1.01 / 1.04 / 3.59. 04_dml ratios 1.17 / 1.10 /
+  1.07 -> 1.17 / 1.15 / 1.09. Any text saying StatsPAI is slower than
+  fixest at large n no longer holds.
+- **Paths.**
+  - `tests/perf/results/01_hdfe_py.json`
+  - `tests/perf/results/01_hdfe_R.json`
+  - `tests/perf/results/02_csdid_py.json`
+  - `tests/perf/results/02_csdid_R.json`
+  - `tests/perf/results/03_scm_py.json`
+  - `tests/perf/results/03_scm_R.json`
+  - `tests/perf/results/04_dml_py.json`
+  - `tests/perf/results/04_dml_doubleml_py.json`
+  - `tests/perf/results/_timed_path.json`
+  - `tests/perf/results/perf_table.md`
+  - `tests/perf/results/perf_table.tex`
+  - `tests/perf/figures/track_c_loglog.pdf`
+  - `tests/perf/figures/track_c_loglog.png`
