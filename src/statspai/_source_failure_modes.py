@@ -1093,6 +1093,16 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "(approach='location' or 'distance').",
         },
     ],
+    "recommend": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass id= and time= (the unit and period columns).",
+            "symptom": "recommend: the data look like a panel but more "
+            "than one (unit, time) pair fits: <layouts>. "
+            "Recommending without knowing which would treat a "
+            "panel as a cross-section.",
+        }
+    ],
     "refresh_legend": [
         {
             "exception": "statspai.MethodIncompatibility",

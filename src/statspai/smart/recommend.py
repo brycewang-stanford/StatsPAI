@@ -561,6 +561,97 @@ def _detect_design(
     return "cross-section"
 
 
+#: Designs for which shape-detected panel columns are used as ``id`` /
+#: ``time``. A caller who declares a cross-sectional design keeps it; the
+#: detected columns are then only kept out of the default covariates.
+_PANEL_DESIGNS = {"did", "panel", "synth", "sdid", "ddd", "event_study", "staggered"}
+#: Detection confidence at which a panel layout is taken as given.
+_PANEL_CONFIDENCE = 0.9
+
+
+def _panel_roles_from_shape(
+    data: pd.DataFrame,
+    y: str,
+    treatment: Optional[str],
+    id_col: Optional[str],
+    time_col: Optional[str],
+) -> List[Tuple[str, str]]:
+    """The ``(unit, time)`` layouts :func:`sp.detect_design` is confident of.
+
+    Empty when the data do not look like a panel; more than one when
+    several layouts fit equally well (the caller then refuses to guess).
+    """
+    from .detect_design import detect_design
+
+    kw: Dict[str, Any] = {}
+    if id_col is not None:
+        kw["unit"] = id_col
+    if time_col is not None:
+        kw["time"] = time_col
+    found = detect_design(data, **kw)
+    roles = {y, treatment} - {None}
+    layouts = sorted(
+        {
+            (str(c["unit"]), str(c["time"]))
+            for c in found.get("candidates", [])
+            if c.get("design") == "panel"
+            and float(c.get("confidence") or 0.0) >= _PANEL_CONFIDENCE
+            and c.get("unit") is not None
+            and c.get("time") is not None
+            and not ({c.get("unit"), c.get("time")} & roles)
+        }
+    )
+    return layouts
+
+
+def _structural_columns(
+    data: pd.DataFrame,
+    treatment: Optional[str],
+    id_col: Optional[str],
+    time_col: Optional[str],
+) -> List[str]:
+    """Columns that encode the panel or the treatment timing, not covariates.
+
+    * another code for the unit (constant within unit, one value per unit),
+    * the adoption cohort and anything that is a function of it
+      (``first_treat``, a cohort index): constant within unit and fully
+      determined by the first period the unit is treated.
+
+    Adjusting for either absorbs the unit fixed effect or the treatment
+    itself, so neither belongs in a default covariate set.
+    """
+    if id_col is None or id_col not in data.columns:
+        return []
+    out: List[str] = []
+    units = data[id_col]
+    n_units = units.nunique(dropna=True)
+    adoption: Optional[pd.Series] = None
+    if (
+        treatment is not None
+        and time_col is not None
+        and pd.api.types.is_numeric_dtype(data[treatment])
+    ):
+        treated_time = data[time_col].where(data[treatment] > 0)
+        adoption = treated_time.groupby(units).min()
+    skip = {id_col, time_col, treatment}
+    for col in data.columns:
+        if col in skip or not pd.api.types.is_numeric_dtype(data[col]):
+            continue
+        per_unit = data.groupby(units)[col].nunique(dropna=False)
+        if per_unit.max() > 1:
+            continue  # varies within unit: an ordinary covariate
+        first = data.groupby(units)[col].first()
+        if first.nunique(dropna=True) == n_units and n_units > 1:
+            out.append(col)
+            continue
+        if adoption is None or first.nunique(dropna=False) < 2:
+            continue
+        key = adoption.reindex(first.index).fillna(-np.inf)
+        if (first.groupby(key).nunique(dropna=False) <= 1).all():
+            out.append(col)
+    return out
+
+
 @accepts_aliases(treat="treatment")
 def recommend(
     data: pd.DataFrame,
@@ -701,13 +792,66 @@ def recommend(
     >>> bool("method" in rec.recommendations[0])
     True
     """
+    early_notes: List[str] = []
+    # A panel passed without id= / time= used to be profiled as a cross-
+    # section, with the unit, period and cohort columns offered as
+    # covariates (2026-10-19 audit). Read the layout from the data first.
+    if running_var is None and instrument is None and (id is None or time is None):
+        layouts = _panel_roles_from_shape(data, y, treatment, id, time)
+        layout = layouts[0] if layouts else None
+        panel_design = design is None or design in _PANEL_DESIGNS
+        if len(layouts) > 1 and panel_design:
+            # Guessing would pick the wrong unit or clock, and every panel
+            # estimator depends on both.
+            raise MethodIncompatibility(
+                "recommend: the data look like a panel but more than one "
+                f"(unit, time) pair fits: {layouts}. Recommending without "
+                "knowing which would treat a panel as a cross-section.",
+                recovery_hint="Pass id= and time= (the unit and period columns).",
+                diagnostics={"candidate_layouts": [list(p) for p in layouts]},
+            )
+        if layout is not None and panel_design:
+            if id is None or time is None:
+                id, time = id or layout[0], time or layout[1]
+                early_notes.append(
+                    f"No id= / time= given; the data are a panel of unit "
+                    f"{id!r} by period {time!r} (sp.detect_design) and are "
+                    "analysed as one. Pass id= and time= to choose otherwise."
+                )
+        elif layout is not None and covariates is None:
+            # A declared cross-sectional design keeps its design, but the
+            # panel's columns are still not covariates.
+            id_hint, time_hint = layout
+            dropped = sorted(
+                {c for pair in layouts for c in pair}
+                | set(_structural_columns(data, treatment, *layout))
+            )
+            covariates = [
+                c
+                for c in data.columns
+                if c not in [y, treatment, running_var, instrument, *dropped]
+                and pd.api.types.is_numeric_dtype(data[c])
+            ]
+            early_notes.append(
+                f"design={design!r} kept, but the data are a panel of unit "
+                f"{id_hint!r} by period {time_hint!r}; left out of the default "
+                f"covariates: {dropped}."
+            )
     if covariates is None:
+        structural = _structural_columns(data, treatment, id, time)
         covariates = [
             c
             for c in data.columns
             if c not in [y, treatment, id, time, running_var, instrument]
+            and c not in structural
             and pd.api.types.is_numeric_dtype(data[c])
         ]
+        if structural:
+            early_notes.append(
+                "Left out of the default covariates because they encode the "
+                f"unit or the treatment timing: {structural}. Pass "
+                "covariates= to choose them yourself."
+            )
 
     profile = _profile_data(data, y, treatment, id, time)
 
@@ -717,7 +861,7 @@ def recommend(
             data, y, treatment, id, time, running_var, instrument, profile
         )
 
-    warnings_list: List[str] = []
+    warnings_list: List[str] = list(early_notes)
     recommendations: List[Dict[str, Any]] = []
 
     # DAG-based recommendations
@@ -739,6 +883,9 @@ def recommend(
     ctrl_str = ", ".join(f"'{c}'" for c in controls[:5])
     if len(controls) > 5:
         ctrl_str += ", ..."
+    # Right-hand side of a regression formula: the controls are terms, not
+    # quoted strings ("y ~ d + 'x1', 'x2'" does not parse).
+    ols_formula = " + ".join([f"{y} ~ {treatment}", *map(str, controls)])
 
     # Missing data warning
     if profile["missing_pct"] > 0.1:
@@ -758,10 +905,7 @@ def recommend(
                 "Add covariates for precision.",
                 "assumptions": ["Random assignment", "SUTVA", "No attrition bias"],
                 "robustness": "Check sp.balance_check() and sp.attrition_test()",
-                "code": (
-                    f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, "
-                    "robust='hc1')"
-                ),
+                "code": (f"sp.regress('{ols_formula}', data=df, robust='hc1')"),
                 "params": {
                     "formula": f"{y} ~ {treatment}",
                     "data": data,
@@ -1461,10 +1605,7 @@ def recommend(
                 "reason": _ols_reason,
                 "assumptions": _ols_assumptions,
                 "robustness": _ols_robust,
-                "code": (
-                    f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, "
-                    "robust='hc1')"
-                ),
+                "code": (f"sp.regress('{ols_formula}', data=df, robust='hc1')"),
                 "params": {
                     "formula": f"{y} ~ {treatment}",
                     "data": data,
