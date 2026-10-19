@@ -374,7 +374,7 @@ def heckman(
         model_info["wald_df"] = len(x)
         model_info["wald_pvalue"] = float(stats.chi2.sf(wald, len(x)))
 
-    return LimitedDepResult(
+    res = LimitedDepResult(
         method="Heckman (1979) Selection Model",
         estimand=f"beta_{x[0]}",
         estimate=main_coef,
@@ -387,6 +387,15 @@ def heckman(
         model_info=model_info,
         _citation_key="heckman",
     )
+    res._ml_state = {
+        "model": "heckman_twostep",
+        "theta": np.asarray(beta, dtype=float),
+        "vcov": np.asarray(vcov, dtype=float),
+        "out_terms": ["const"] + list(x),
+        "y": y,
+        "nobs": int(n_total),
+    }
+    return res
 
 
 def _heckman_ml_result(
@@ -449,7 +458,7 @@ def _heckman_ml_result(
         "n_clusters": fit["n_clusters"],
         "weights": weights,
     }
-    return LimitedDepResult(
+    res = LimitedDepResult(
         method="Heckman (1979) Selection Model (ML)",
         estimand=f"beta_{x[0]}",
         estimate=main_coef,
@@ -462,6 +471,19 @@ def _heckman_ml_result(
         model_info=model_info,
         _citation_key="heckman",
     )
+    # What sp.margins needs: (beta, gamma, athrho, lnsigma) and their
+    # covariance (Stata's e(b) / e(V) after heckman).
+    res._ml_state = {
+        "model": "heckman",
+        "theta": np.asarray(fit["theta"], dtype=float),
+        "vcov": np.asarray(fit["vcov"], dtype=float),
+        "out_terms": ["const"] + list(x),
+        "sel_terms": ["const"] + list(z),
+        "select": select if select in data.columns else None,
+        "y": y,
+        "nobs": int(fit["n_total"]),
+    }
+    return res
 
 
 def _probit_fit(

@@ -92,7 +92,17 @@ class _Model:
         vcov: bool = True,
     ) -> None:
         from ..fixest._fixef import has_fixed_effects
+        from ._ldv_margins import ldv_model
 
+        if ldv_model(result) is not None:
+            raise MethodIncompatibility(
+                f"{fn}: not available after limited-dependent-variable models "
+                "(mlogit, ologit, oprobit, tobit, heckman, heckprobit, "
+                "ivprobit), whose predictions are not a single index.",
+                recovery_hint="Use sp.margins (dy/dx) or sp.margins_at "
+                "(predictive margins) with predict=, Stata's margins "
+                "conventions.",
+            )
         self.result = result
         self.fn = fn
         self.vcov = bool(vcov)

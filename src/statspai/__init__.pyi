@@ -1245,6 +1245,7 @@ from .regression.glm import GLMEstimator as GLMEstimator
 from .regression.glm import GLMRegression as GLMRegression
 from .regression.glm import glm as glm
 from .regression.heckman import heckman as heckman
+from .regression.heckprobit import heckprobit as heckprobit
 from .regression.interflex import interflex as interflex
 from .regression.interflex import interflex_plot as interflex_plot
 from .regression.iv import IVRegression as IVRegression

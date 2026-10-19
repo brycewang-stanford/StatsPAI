@@ -1630,7 +1630,7 @@
    "result_sha256": "a11c44c4bb53314cb1b4856ec5ed19ea977a546b9aaa0b5f3ee74a9ff6564d89"
   },
   "41_tobit": {
-   "seconds": 1.41,
+   "seconds": 2.07,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1643,10 +1643,10 @@
     "src/statspai/core/_collinear.py": "956b0d85841b5b74e880e98cd2f0ca15fed27362d9691bb6bdffad5b7d0ed25a",
     "src/statspai/core/_vcov.py": "3053a156e479e849627e62079e83352749664a19930fc1dee830a3254d9f4413",
     "src/statspai/core/_vcov_spec.py": "7ec5770f5bcc40b91e6b6c382f5d5ec87c1ee21b9aa06f874a05b7ea7662e3a1",
-    "src/statspai/core/results.py": "617ab2f97d47dabae0d74191e7c1e9919af174512ea192b45b01184a0a0fb70a",
+    "src/statspai/core/results.py": "365241990e7eeae10f6a7f7f5b55ff7d2d91c04e395aa8fe79f7c31821de544b",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/regression/_optim_helpers.py": "c96d13611572465925d1a4bbbecfa5d304f8de442625768004bdc1d24e152d08",
-    "src/statspai/regression/tobit.py": "5ce5a7a8eec16e3a9a9add96948ac713463679fb198d36743a4b733386d5d9b0"
+    "src/statspai/regression/tobit.py": "a489ac64d87cd8413944a88d86fc15f13ab4f0757fe87ae2f05db2ca6042861c"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -1699,7 +1699,7 @@
    "result_sha256": "d45e85adde3449ee07c8ae97a2ebabcc31e0420bf39ac5c27134bf64267acf17"
   },
   "43_heckman": {
-   "seconds": 1.34,
+   "seconds": 1.69,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1710,9 +1710,9 @@
     "src/statspai/_input_validation.py": "6add3ff66101c2eee1eea5ab5a509ad8df7e346f53700fe7428b5cdce66ef193",
     "src/statspai/core/_call_record.py": "d54627764ab09e6a852aea12ea218e9f8e58bc15fa646fd03063d1f460cf923c",
     "src/statspai/core/_vcov_spec.py": "7ec5770f5bcc40b91e6b6c382f5d5ec87c1ee21b9aa06f874a05b7ea7662e3a1",
-    "src/statspai/core/results.py": "617ab2f97d47dabae0d74191e7c1e9919af174512ea192b45b01184a0a0fb70a",
+    "src/statspai/core/results.py": "365241990e7eeae10f6a7f7f5b55ff7d2d91c04e395aa8fe79f7c31821de544b",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
-    "src/statspai/regression/heckman.py": "4cc864819004f815cd1c246484ff8c3d17f0fd68ecc769240a2bfc5f23c18924"
+    "src/statspai/regression/heckman.py": "4c0507fd3894c4e03ff513ac987528db3b87390cb9b28756696dd0bfad055e11"
    },
    "dependency_versions": {
     "numpy": "2.2.6",

@@ -1,8 +1,8 @@
 {
   "counts": {
-    "agent_cards": 989,
-    "functions": 1180,
-    "tools": 719
+    "agent_cards": 990,
+    "functions": 1181,
+    "tools": 720
   },
   "files": [
     "tools.json",

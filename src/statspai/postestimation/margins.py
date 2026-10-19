@@ -27,6 +27,7 @@ from .._result_serialize import ResultProtocolMixin
 from ..exceptions import ColumnNotFound, MethodIncompatibility, StatsPAIWarning
 from ._covariance import coefficient_covariance, inference_df, require_covariance
 from ._design import design_for, model_setting
+from ._ldv_margins import ldv_margins, ldv_margins_at, ldv_model
 
 
 def margins(
@@ -38,6 +39,8 @@ def margins(
     eps: float = 1e-5,
     alpha: float = 0.05,
     subset: Any = None,
+    predict: Optional[str] = None,
+    category: Any = None,
 ) -> pd.DataFrame:
     """
     Compute marginal effects from a fitted model.
@@ -97,11 +100,34 @@ def margins(
         subpop()``; R ``marginaleffects`` ``newdata = subset(...)``).
         Passing an already subsetted frame as ``data`` is not the same:
         a level that is absent from it cannot be contrasted.
+    predict : str, optional
+        The prediction whose marginal effect is reported, as Stata's
+        ``margins, predict(...)``; only after the limited-dependent-variable
+        models, where Stata's default is used when omitted:
+
+        - ``mlogit`` / ``ologit`` / ``oprobit``: ``'pr'`` (default; one
+          row per variable and outcome), ``'xb'`` (ordered models);
+        - ``tobit``: ``'xb'`` (default), ``'e(a,b)'`` = E(y | a < y < b),
+          ``'ystar(a,b)'`` = E(max(a, min(y*, b))), ``'pr(a,b)'``; ``'.'``
+          is an open limit and a bare ``'e'`` / ``'ystar'`` / ``'pr'``
+          uses the fit's censoring limits;
+        - ``heckman`` (``method='ml'``): ``'xb'`` (default), ``'ycond'``,
+          ``'yexpected'``, ``'psel'``, ``'xbsel'``;
+        - ``heckprobit``: ``'pmargin'`` (default), ``'p11'``, ``'p10'``,
+          ``'p01'``, ``'p00'``, ``'psel'``, ``'pcond'``, ``'xb'``,
+          ``'xbsel'``;
+        - ``ivprobit`` (``method='mle'``): ``'xb'`` (default, as Stata 18),
+          ``'pr'`` (average structural function).
+    category : scalar or list, optional
+        Restrict a multiple-outcome prediction (``mlogit`` / ``ologit`` /
+        ``oprobit``) to these outcome categories (Stata
+        ``predict(outcome(#))``).
 
     Returns
     -------
     pd.DataFrame
-        Table with columns: variable, dy/dx, se, z, pvalue, ci_lower, ci_upper.
+        Table with columns: variable, dy/dx, se, z, pvalue, ci_lower, ci_upper
+        (with an ``outcome`` column after multiple-outcome models).
         ``.attrs`` records ``n`` (rows averaged over), ``weights``,
         ``design_backend`` and, for factor rows, ``base_levels``.
 
@@ -141,6 +167,12 @@ def margins(
         raise MethodIncompatibility(
             f"margins: method must be 'ame' or 'mem', got {method!r}."
         )
+    ldv = ldv_model(result)
+    if ldv is not None:
+        return ldv_margins(
+            ldv, data, variables, at, method, eps, alpha, subset, predict, category
+        )
+    _reject_ldv_options(predict, category, "margins")
     ctx = _MarginsContext(result, data, at=at, subset=subset)
     design = ctx.design
     if variables is None:
@@ -216,6 +248,14 @@ class _MarginsContext:
         alpha: float = 0.05,
         subset: Any = None,
     ) -> None:
+        if ldv_model(result) is not None:
+            raise MethodIncompatibility(
+                "this margins function is not available after limited-"
+                "dependent-variable models (mlogit, ologit, oprobit, tobit, "
+                "heckman, heckprobit, ivprobit).",
+                recovery_hint="Use sp.margins (dy/dx) or sp.margins_at "
+                "(predictive margins and their contrasts), with predict=.",
+            )
         self.result = result
         self.link = _response_link(result)
         self.beta = result.params.to_numpy(dtype=float)
@@ -374,6 +414,16 @@ class _MarginsContext:
             "design_backend": self.design.backend,
             "prediction_scale": _SCALE_LABEL.get(self.link, self.link),
         }
+
+
+def _reject_ldv_options(predict: Any, category: Any, fn: str) -> None:
+    if predict is not None or category is not None:
+        raise MethodIncompatibility(
+            f"{fn}: predict= and category= apply after limited-dependent-"
+            "variable models (mlogit, ologit, oprobit, tobit, heckman, "
+            "heckprobit, ivprobit); this model has one prediction scale.",
+            recovery_hint="Drop predict= / category=.",
+        )
 
 
 class _IndexScaleView:
@@ -782,6 +832,8 @@ def margins_at(
     alpha: float = 0.05,
     contrast: Optional[str] = None,
     subset: Any = None,
+    predict: Optional[str] = None,
+    category: Any = None,
 ) -> pd.DataFrame:
     """
     Compute predictive margins at specific covariate values.
@@ -824,6 +876,10 @@ def margins_at(
         variables = list(dose = c(30, 60)))``).
     subset : str or boolean array-like, optional
         Average over a subpopulation of ``data``; see :func:`margins`.
+    predict, category : optional
+        The prediction after a limited-dependent-variable model and the
+        outcome categories to report; see :func:`margins`. Multiple-outcome
+        predictions add an ``outcome`` column.
 
     Returns
     -------
@@ -860,6 +916,10 @@ def margins_at(
             f"margins_at: contrast must be None, 'first' or 'adjacent'; "
             f"got {contrast!r}"
         )
+    ldv = ldv_model(result)
+    if ldv is not None:
+        return ldv_margins_at(ldv, data, at, alpha, contrast, subset, predict, category)
+    _reject_ldv_options(predict, category, "margins_at")
     ctx = _MarginsContext(result, data, alpha=alpha, subset=subset)
     for v in at:
         _require_model_variable(ctx, v, "margins_at")

@@ -1518,6 +1518,80 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="heckprobit",
+            category="regression",
+            description=(
+                "Probit with sample selection by maximum likelihood (Stata "
+                "heckprobit): a binary outcome observed only for a selected "
+                "subsample, errors bivariate normal with correlation rho."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "y",
+                    "str",
+                    True,
+                    description="Binary outcome (0/1), observed when select=1",
+                ),
+                ParamSpec(
+                    "x",
+                    "list",
+                    True,
+                    description="Regressors of the outcome equation (constant added)",
+                ),
+                ParamSpec(
+                    "select",
+                    "str",
+                    False,
+                    None,
+                    "Binary selection indicator; omitted, a row is selected "
+                    "when y is not missing",
+                ),
+                ParamSpec(
+                    "z",
+                    "list",
+                    True,
+                    description=(
+                        "Selection-equation variables (constant added); include "
+                        "an exclusion restriction not in x"
+                    ),
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "None/'oim' (observed information), 'robust' or 'cluster' "
+                    "(e.g. vce='cluster firm'); robust= is an alias",
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster column"),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling weights [pw=] (imply robust SEs)",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="CausalResult",
+            example=(
+                'sp.heckprobit(df, y="insured", x=["age", "income"], '
+                'select="asked", z=["phone", "age"])'
+            ),
+            tags=["selection", "heckman", "probit", "binary"],
+            reference="Van de Ven and Van Praag (1981)",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="tobit",
             category="regression",
             description="Tobit model for censored dependent variables.",

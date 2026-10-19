@@ -100,8 +100,6 @@ def biprobit(
     >>> bool('rho' in result.model_info)  # error correlation reported
     True
     """
-    from scipy import special
-
     from ..core._vcov import ml_vcov
     from ..core._vcov_spec import parse_se_request
     from ._optim_helpers import inverse_information, ml_newton_polish, se_from_vcov
@@ -129,44 +127,10 @@ def biprobit(
     k1 = X1.shape[1]
     k2 = X2.shape[1]
 
-    def _bvn_cdf(h: np.ndarray, k: np.ndarray, rho: Any) -> np.ndarray:
-        """Bivariate standard-normal CDF P(X<=h, Y<=k; corr=rho).
-
-        Vectorised over observations via the Drezner-Wesolowsky (1990)
-        identity
-
-            Phi2(h, k; rho) = Phi(h) Phi(k) + integral_0^rho phi2(h, k; r) dr,
-
-        with the inner integral evaluated by a 24-node Gauss-Legendre rule
-        (smooth in every argument, accurate to ~1e-10). The previous
-        implementation looped over observations calling
-        ``multivariate_normal.cdf`` per point: ~280x slower and — fatally —
-        precise only to ~1e-8, which corrupted BFGS's finite-difference
-        gradient and pinned ``rho`` at its starting value of 0 (so the model
-        always reported zero error correlation regardless of the data).
-        """
-        # Complex-step safe: no dtype casts and no clipping, so the same
-        # function yields exact per-observation scores. |rho| < 1 holds by
-        # construction (rho = tanh(athrho)).
-        h = np.asarray(h)
-        k = np.asarray(k)
-        rho = np.asarray(rho)
-        if rho.ndim == 0:
-            rho = rho * np.ones(h.shape)
-        base = special.ndtr(h) * special.ndtr(k)
-        nodes, weights = np.polynomial.legendre.leggauss(24)
-        s = 0.5 * (nodes + 1.0)  # map [-1, 1] -> [0, 1]
-        w = 0.5 * weights
-        integral = np.zeros(h.shape, dtype=np.result_type(h, k, rho, float))
-        for s_j, w_j in zip(s, w):
-            r = rho * s_j
-            denom = 1.0 - r * r
-            integral = integral + (
-                w_j
-                * np.exp(-(h * h - 2.0 * r * h * k + k * k) / (2.0 * denom))
-                / (2.0 * np.pi * np.sqrt(denom))
-            )
-        return base + rho * integral
+    # Bivariate normal CDF shared with sp.heckprobit (complex-step safe).
+    # It replaced a 24-node rule in r, accurate to ~1e-10 for |rho| < 0.9
+    # but off by 9e-7 at |rho| = 0.99 and 4e-4 at 0.999.
+    from ._bivariate_normal import binormal_cdf as _bvn_cdf
 
     # Adjust signs for different (y1, y2) combinations
     q1 = 2 * y1_data - 1  # +1 if y=1, -1 if y=0

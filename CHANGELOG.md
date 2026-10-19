@@ -154,6 +154,46 @@ All notable changes to StatsPAI will be documented in this file.
   `synthdid_se(method = "jackknife")` (1e-9, `test_did_synth_R_parity.py`)
   and Stata `vce(jackknife)` (1e-10, `test_sdid_staggered_parity.py`);
   unchanged.
+### `sp.margins` after mlogit / ologit / oprobit / tobit / heckman / ivprobit; `sp.heckprobit`
+
+#### Added
+
+- `sp.margins` and `sp.margins_at` work after `mlogit`, `ologit`,
+  `oprobit`, `tobit`, `heckman(method='ml')`, `ivprobit` (ML) and the new
+  `sp.heckprobit`, with Stata's `predict()` statistics through a new
+  `predict=` argument and Stata's defaults: one row per variable and outcome
+  after the multiple-outcome models (`category=` restricts them, Stata
+  `predict(outcome(#))`); `xb`, `e(a,b)`, `ystar(a,b)`, `pr(a,b)` after
+  tobit; `xb`, `ycond`, `yexpected`, `psel`, `xbsel` after heckman;
+  `xb` (Stata 18's default), `pr` (the average structural function,
+  conditional on the observed reduced-form errors) and `pr fixedasf` after
+  ivprobit; `pmargin`, `p11` ... `p00`, `psel`, `pcond` after heckprobit.
+  Factor variables are discrete changes, `method='mem'` is Stata's
+  `atmeans`, `margins_at(contrast=)` is `contrast(atcontrast(r))`, and fits
+  with `weights=` average with them. Delta-method standard errors use the
+  full ML covariance on the estimation scale. Before, `sp.margins` refused
+  mlogit / ologit / ivprobit, and failed on tobit (it looked for a data
+  column named `sigma`) and heckman.
+  Evidence: `tests/test_ldv_margins_stata.py` against Stata 18 MP on 25
+  dy/dx tables and 7 predictive-margin tables, point estimates to ~1e-10.
+  Stata's numerical derivatives leave a few 1e-7 in some of its standard
+  errors (tobit `pr()`, ivprobit `pr`, heckprobit `p11`); there ours are
+  within 1e-8 of a complex-step derivative of the closed form.
+- `sp.heckprobit`: probit with sample selection by ML (Stata `heckprobit`),
+  `vce=` oim / robust / cluster, `weights=`, Wald and LR tests of
+  `rho = 0`. Coefficients and standard errors match Stata 18 to 1e-9.
+- `tobit` and `heckman` results keep their estimation-scale parameters and
+  full covariance (`result._ml_state`) for the above.
+
+#### Changed
+
+- `sp.avg_slopes` / `avg_predictions` / ... and `sp.contrast` /
+  `sp.pwcompare` after these models raise `MethodIncompatibility` pointing
+  to `sp.margins(predict=...)` / `sp.margins_at`; on tobit they used to fail
+  with a misleading missing-column error.
+- `sp.biprobit` evaluates the bivariate normal CDF over `arcsin(r)` (shared
+  with `sp.heckprobit`). Results move by less than 1e-10 unless `|rho|`
+  exceeds 0.95; at `|rho|` = 0.99 the old rule was off by 9e-7 in the CDF.
 
 ### `sp.augsynth`: several treated units, `progfunc`, `scm`, `fixedeff`, covariates
 

@@ -1105,6 +1105,7 @@ from .regression.glm import GLMEstimator, GLMRegression, glm
 
 # bayes — lazy-loaded (PyMC pulls heavy deps); see _LAZY_ATTRS below.
 from .regression.heckman import heckman
+from .regression.heckprobit import heckprobit
 from .regression.iv_count import ivpoisson
 from .regression.iv_limited import ivprobit, ivtobit
 from .regression.iv_quantile import ivqreg
@@ -1758,6 +1759,7 @@ __all__ = [
     "xtdpdsys",
     "xtlsdvc",
     "heckman",
+    "heckprobit",
     "qreg",
     "sqreg",
     "tobit",

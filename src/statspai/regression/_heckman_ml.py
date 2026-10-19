@@ -189,4 +189,5 @@ def heckman_ml(
             int(pd.Series(clusters).nunique()) if clusters is not None else None
         ),
         "vcov": V,
+        "theta": theta,
     }

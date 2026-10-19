@@ -596,6 +596,21 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "does not store.",
         },
     ],
+    "heckprobit": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass z=[...]; include at least one variable that "
+            "is not in x (an exclusion restriction).",
+            "symptom": "heckprobit: z= lists the variables of the "
+            "selection equation.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "For a continuous outcome use sp.heckman.",
+            "symptom": "heckprobit: the outcome <y> must be 0/1 on the "
+            "selected rows.",
+        },
+    ],
     "hierarchy": [
         {
             "exception": "statspai.MethodIncompatibility",

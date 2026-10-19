@@ -17370,6 +17370,65 @@
     "name": "heckman"
   },
   {
+    "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho. Failure modes: heckprobit: z= lists the variables of the selection equation -> Pass z=[...]; include at least one variable that is not in x (an exclusion restriction); heckprobit: the outcome <y> must be 0/1 on the selected rows -> For a continuous outcome use sp.heckman.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "select": {
+          "description": "Binary selection indicator; omitted, a row is selected when y is not missing",
+          "type": "string"
+        },
+        "vce": {
+          "description": "None/'oim' (observed information), 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "weights": {
+          "description": "Sampling weights [pw=] (imply robust SEs)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "x": {
+          "description": "Regressors of the outcome equation (constant added)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Binary outcome (0/1), observed when select=1",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "z": {
+          "description": "Selection-equation variables (constant added); include an exclusion restriction not in x",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "type": "object"
+    },
+    "name": "heckprobit"
+  },
+  {
     "description": "Breusch-Pagan test for heteroskedasticity. Validation: certified parity evidence. Assumptions: The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity. Pre-conditions: A fitted StatsPAI result object (sp.regress / sp.logit / ...) -- these functions do not take raw data. Failure modes: Heteroskedasticity or RESET rejects -> Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms. Alternatives: sp.sp.margins, sp.sp.test, sp.sp.regress.",
     "input_schema": {
       "properties": {
@@ -22081,6 +22140,13 @@
           "description": "Fix covariates at specific values for conditional margins. E.g., ``{'age': 30, 'female': 1}``. Every key must be a model variable (Stata error 322 otherwise).",
           "type": "object"
         },
+        "category": {
+          "description": "Restrict a multiple-outcome prediction (``mlogit`` / ``ologit`` / ``oprobit``) to these outcome categories (Stata ``predict(outcome(#))``).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "eps": {
           "default": 1e-05,
           "description": "Relative step for the central difference used on transformed terms.",
@@ -22093,6 +22159,10 @@
             "ame",
             "mem"
           ],
+          "type": "string"
+        },
+        "predict": {
+          "description": "The prediction whose marginal effect is reported, as Stata's ``margins, predict(...)``; only after the limited-dependent-variable models, where Stata's default is used when omitted: - ``mlogit`` / ``ologit`` / ``oprobit``: ``'pr'`` (default; one row per variable and outcome), ``'xb'`` (ordered models); - ``tobit``: ``'xb'`` (default), ``'e(a,b)'`` = E(y | a < y < b), ``'ystar(a,b)'`` = E(max(a, min(y*, b))), ``'pr(a,b)'``; ``'.'`` is an open limit and a bare ``'e'`` / ``'ystar'`` / ``'pr'`` uses the fit's censoring limits; - ``heckman`` (``method='ml'``): ``'xb'`` (default), ``'ycond'``, ``'yexpected'``, ``'psel'``, ``'xbsel'``; - ``heckprobit``: ``'pmargin'`` (default), ``'p11'``, ``'p10'``, ``'p01'``, ``'p00'``, ``'psel'``, ``'pcond'``, ``'xb'``, ``'xbsel'``; - ``ivprobit`` (``method='mle'``): ``'xb'`` (default, as Stata 18), ``'pr'`` (average structural function).",
           "type": "string"
         },
         "result": {
@@ -22131,12 +22201,20 @@
           "description": "Mapping of variable names to lists/arrays of values. If multiple variables are given, the Cartesian product of all value lists is used. Example:: at={\"experience\": [1, 5, 10], \"female\": [0, 1]} produces 6 grid points. Every key must be a model variable.",
           "type": "object"
         },
+        "category": {
+          "description": "The prediction after a limited-dependent-variable model and the outcome categories to report; see :func:`margins`. Multiple-outcome predictions add an ``outcome`` column.",
+          "type": "string"
+        },
         "contrast": {
           "description": "Return differences between grid points instead of the margins: each point against the first one (``'first'``) or against the point before it (``'adjacent'``). The standard error uses the covariance between the two margins, which the separate rows do not show. With ``at={\"dose\": [30, 60]}`` this is g-computation of the effect of moving everyone from 30 to 60, whatever shape the model gives the dose (R ``marginaleffects::avg_comparisons( variables = list(dose = c(30, 60)))``).",
           "enum": [
             "first",
             "adjacent"
           ],
+          "type": "string"
+        },
+        "predict": {
+          "description": "The prediction after a limited-dependent-variable model and the outcome categories to report; see :func:`margins`. Multiple-outcome predictions add an ``outcome`` column.",
           "type": "string"
         },
         "result": {

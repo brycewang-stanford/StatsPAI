@@ -373,6 +373,18 @@ def tobit(
         model_info=model_info,
         _citation_key="tobit",
     )
+    # What sp.margins needs: the estimation-scale parameters (b, ln sigma),
+    # their full covariance and the censoring limits.
+    fit._ml_state = {
+        "model": "tobit",
+        "theta": np.asarray(theta_hat, dtype=float),
+        "vcov": np.asarray(V_full, dtype=float),
+        "terms": list(var_names),
+        "ll": float(ll) if np.isfinite(ll) else None,
+        "ul": float(ul) if np.isfinite(ul) else None,
+        "formula": formula,
+        "nobs": int(n),
+    }
     if weights is None:
         # What sp.cmtest needs to rebuild the likelihood and its moments.
         fit._cm_design = {
