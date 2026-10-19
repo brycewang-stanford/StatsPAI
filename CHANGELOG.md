@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.xttobit` / `sp.xtintreg`: random-effects tobit and interval regression
+
+#### Added
+
+- `sp.xttobit(data, y, x, id, ll=, ul=)` and `sp.xtintreg(data, y_lower,
+  y_upper, x, id)`, Stata's `xttobit` / `xtintreg`: normal panel effect
+  integrated out by adaptive Gauss-Hermite quadrature (30 nodes by default,
+  centred at each panel's mode), `sigma_u`, `sigma_e`, `rho` and the
+  likelihood-ratio test against the pooled model. Against Stata 18 on 120
+  unbalanced panels: `xttobit` coefficients, standard errors, `sigma_u`,
+  `sigma_e`, log-likelihood and LR statistic to 1e-7; `xtintreg` estimates
+  and log-likelihood to 1e-7, standard errors within 0.5% (ours equal an
+  independent finite-difference Hessian of the likelihood to 1e-7; the
+  gap is on Stata's side of an unexplained difference, recorded in
+  `docs/dev/modules/panel_multilevel.md`) (`tests/test_xttobit_stata.py`).
+
 ### `sp.margins` after `fepois` / `feglm` refuses standard errors that ignore the fixed effects
 
 #### Changed

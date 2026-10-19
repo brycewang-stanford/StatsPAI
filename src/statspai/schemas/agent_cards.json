@@ -14247,6 +14247,126 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.xttobit(df, y=\"hours\", x=[\"wage\"], id=\"id\", ll=0)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Without limits the model is a random-effects linear regression: use sp.panel(method='re') or sp.mixed.",
+        "symptom": "xttobit: give a censoring limit, ll= and/or ul=."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xttobit",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "Stata xttobit",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+      "name": "xttobit",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "id": {
+            "description": "Panel identifier",
+            "type": "string",
+            "x-aliases": [
+              "entity"
+            ],
+            "x-statspai-role": "column"
+          },
+          "intpoints": {
+            "default": 30,
+            "description": "Adaptive Gauss-Hermite nodes per panel (Stata default 12)",
+            "type": "integer"
+          },
+          "ll": {
+            "description": "Lower censoring limit",
+            "type": "number"
+          },
+          "ul": {
+            "description": "Upper censoring limit",
+            "type": "number"
+          },
+          "x": {
+            "description": "Regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y": {
+            "description": "Censored outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "panel",
       "hausman"

@@ -1826,6 +1826,14 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "sp.xtsum: <name> has no observed value.",
         }
     ],
+    "xttobit": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Without limits the model is a random-effects linear "
+            "regression: use sp.panel(method='re') or sp.mixed.",
+            "symptom": "xttobit: give a censoring limit, ll= and/or ul=.",
+        }
+    ],
     "zivot_andrews": [
         {
             "exception": "statspai.MethodIncompatibility",

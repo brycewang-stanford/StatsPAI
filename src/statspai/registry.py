@@ -8970,6 +8970,88 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="xtintreg",
+            category="panel",
+            description=(
+                "Random-effects interval regression by ML (Stata xtintreg): "
+                "exact, left-, right- and interval-censored outcomes with a "
+                "normal panel effect; adaptive Gauss-Hermite quadrature."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "y_lower", "str", True, description="Lower bound (NaN = open)"
+                ),
+                ParamSpec(
+                    "y_upper", "str", True, description="Upper bound (NaN = open)"
+                ),
+                ParamSpec("x", "list", True, description="Regressors"),
+                ParamSpec("id", "str", True, description="Panel identifier"),
+                ParamSpec(
+                    "intpoints",
+                    "int",
+                    False,
+                    30,
+                    "Adaptive Gauss-Hermite nodes per panel (Stata default 12)",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.xtintreg(df, y_lower="wage_lo", y_upper="wage_hi", '
+                'x=["educ"], id="id")'
+            ),
+            tags=["panel", "random-effects", "interval", "censored"],
+            reference="Stata xtintreg",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="xttobit",
+            category="panel",
+            description=(
+                "Random-effects tobit by ML (Stata xttobit): censoring at "
+                "ll / ul with a normal panel effect; adaptive Gauss-Hermite "
+                "quadrature."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Censored outcome"),
+                ParamSpec("x", "list", True, description="Regressors"),
+                ParamSpec("id", "str", True, description="Panel identifier"),
+                ParamSpec("ll", "float", False, None, "Lower censoring limit"),
+                ParamSpec("ul", "float", False, None, "Upper censoring limit"),
+                ParamSpec(
+                    "intpoints",
+                    "int",
+                    False,
+                    30,
+                    "Adaptive Gauss-Hermite nodes per panel (Stata default 12)",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example='sp.xttobit(df, y="hours", x=["wage"], id="id", ll=0)',
+            tags=["panel", "random-effects", "tobit", "censored"],
+            reference="Stata xttobit",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="xthtaylor",
             category="panel",
             description=(

@@ -7364,6 +7364,124 @@
     }
   },
   {
+    "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+    "name": "xtintreg",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "intpoints": {
+          "default": 30,
+          "description": "Adaptive Gauss-Hermite nodes per panel (Stata default 12)",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y_lower": {
+          "description": "Lower bound (NaN = open)",
+          "type": "string"
+        },
+        "y_upper": {
+          "description": "Upper bound (NaN = open)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y_lower",
+        "y_upper",
+        "x",
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+    "name": "xttobit",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "intpoints": {
+          "default": 30,
+          "description": "Adaptive Gauss-Hermite nodes per panel (Stata default 12)",
+          "type": "integer"
+        },
+        "ll": {
+          "description": "Lower censoring limit",
+          "type": "number"
+        },
+        "ul": {
+          "description": "Upper censoring limit",
+          "type": "number"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Censored outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x",
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
     "name": "xthtaylor",
     "parameters": {

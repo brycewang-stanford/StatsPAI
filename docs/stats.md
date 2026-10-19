@@ -53,7 +53,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mcmc` | 14,643 | 25 | 46 |
 | `diagnostics` | 15,478 | 28 | 47 |
 | `core` | 15,017 | 26 | 6 |
-| `panel` | 13,703 | 22 | 25 |
+| `panel` | 14,106 | 23 | 27 |
 | `dml` | 10,333 | 25 | 17 |
 | `decomposition` | 9,940 | 19 | 32 |
 | `iv` | 9,274 | 17 | 10 |

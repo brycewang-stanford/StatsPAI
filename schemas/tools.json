@@ -44662,6 +44662,57 @@
     "name": "xthtaylor"
   },
   {
+    "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "intpoints": {
+          "default": 30,
+          "description": "Adaptive Gauss-Hermite nodes per panel (Stata default 12)",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y_lower": {
+          "description": "Lower bound (NaN = open)",
+          "type": "string"
+        },
+        "y_upper": {
+          "description": "Upper bound (NaN = open)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "x",
+        "y_lower",
+        "y_upper"
+      ],
+      "type": "object"
+    },
+    "name": "xtintreg"
+  },
+  {
     "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Failure modes: xtivreg: id= names the panel identifier -> Pass id='<panel column>'.",
     "input_schema": {
       "properties": {
@@ -45088,6 +45139,61 @@
       "type": "object"
     },
     "name": "xtsum"
+  },
+  {
+    "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature. Failure modes: xttobit: give a censoring limit, ll= and/or ul= -> Without limits the model is a random-effects linear regression: use sp.panel(method='re') or sp.mixed.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "intpoints": {
+          "default": 30,
+          "description": "Adaptive Gauss-Hermite nodes per panel (Stata default 12)",
+          "type": "integer"
+        },
+        "ll": {
+          "description": "Lower censoring limit",
+          "type": "number"
+        },
+        "ul": {
+          "description": "Upper censoring limit",
+          "type": "number"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Censored outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "id",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xttobit"
   },
   {
     "description": "Yatchew differencing test that E[y | x] is a polynomial of ``order``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity. Pre-conditions: A fitted StatsPAI result object (sp.regress / sp.logit / ...) -- these functions do not take raw data. Failure modes: Small sample: the test is asymptotic and has low power against smooth departures from the polynomial -> Report it next to a RESET test and a plot of binned residuals. Alternatives: sp.sp.margins, sp.sp.test, sp.sp.regress.",

@@ -1065,6 +1065,8 @@ from .panel.unit_root import panel_unitroot as panel_unitroot
 from .panel.xt_tools import xtoverid as xtoverid
 from .panel.xt_tools import xtserial as xtserial
 from .panel.xt_tools import xtsum as xtsum
+from .panel.xtintreg import xtintreg as xtintreg
+from .panel.xtintreg import xttobit as xttobit
 from .panel.xtivreg import xtivreg as xtivreg
 from .panel.xtpcse import xtpcse as xtpcse
 from .parity import ParityStatus as ParityStatus
