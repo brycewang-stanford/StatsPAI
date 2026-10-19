@@ -29965,6 +29965,17 @@
           "description": "Policy variable (0/1 or continuous)",
           "type": "string"
         },
+        "proxy": {
+          "description": "Stata proxy(): confound proxies entered as endogenous regressors, 2SLS with unit effects (xtivreg, fe)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "proxy_iv": {
+          "description": "Stata proxyiv(): 'select', leads of the policy change (ints, their event-time coefficients normalised) and / or external instrument columns",
+          "type": "string"
+        },
         "static": {
           "default": false,
           "description": "Regress on the policy level instead",
@@ -29974,6 +29985,19 @@
           "description": "Integer period",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "trend": {
+          "description": "Stata trend(#): remove a linear pre-event trend fitted to the coefficients trend..-2 (window start <= trend <= -2, norm=-1)",
+          "type": "integer"
+        },
+        "trend_method": {
+          "default": "gmm",
+          "description": "gmm: minimum-distance slope, adjusted covariance (Stata default); ols: drop those event-time regressors and add event time (0/1 policy adopted once)",
+          "enum": [
+            "gmm",
+            "ols"
+          ],
+          "type": "string"
         },
         "vce": {
           "description": "'robust' for HC SEs",

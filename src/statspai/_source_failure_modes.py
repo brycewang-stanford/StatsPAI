@@ -1668,6 +1668,19 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "sp.xcorr: alpha=<alpha> is not between 0 and 1.",
         },
     ],
+    "xtevent": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Fit them separately.",
+            "symptom": "xtevent: trend= and proxy= are not combined here.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop engine='reghdfe' / absorb= for the proxy " "estimator.",
+            "symptom": "xtevent: proxy= is fitted as Stata xtivreg, fe "
+            "(engine='areg').",
+        },
+    ],
     "xtoverid": [
         {
             "exception": "statspai.MethodIncompatibility",

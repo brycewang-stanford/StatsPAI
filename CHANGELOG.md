@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.xtevent`: trend adjustment and proxy-IV estimation
+
+#### Added
+
+- `sp.xtevent(..., trend=-3, trend_method='gmm' | 'ols')` removes a linear
+  pre-event trend as Stata `xtevent, trend()` does, and
+  `sp.xtevent(..., proxy=['x'], proxy_iv='select' | [leads] | ['w'])` is
+  the Freyaldenhoven-Hansen-Shapiro proxy-IV estimator (Stata `proxy()` /
+  `proxyiv()`, 2SLS with unit effects as `xtivreg, fe`). Coefficients,
+  SEs, N and the normalised event times equal Stata `xtevent` 3.1.0 to
+  1e-9 on eleven settings
+  (`tests/reference_parity/test_xtevent_extensions_Stata_parity.py`). When
+  the trend starts after the window start, Stata's adjusted covariance
+  attaches the trend weights to the wrong coefficient; ours follows the
+  delta method (the test reproduces Stata's numbers from the misplaced
+  weights). Not done: the smoothest-path plot (`xteventplot, smpath`).
+
 ### `sp.bacon_decomposition(covariates=)`
 
 #### Added

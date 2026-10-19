@@ -24864,7 +24864,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_xtevent_Stata_parity.py"
+        "tests/reference_parity/test_xtevent_Stata_parity.py",
+        "tests/reference_parity/test_xtevent_extensions_Stata_parity.py"
       ],
       "tolerance": ""
     },

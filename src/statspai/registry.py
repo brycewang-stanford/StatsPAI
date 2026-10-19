@@ -29535,6 +29535,42 @@ def _build_registry() -> None:
                 ParamSpec("cluster", "str", False, None, "Cluster variable"),
                 ParamSpec("vce", "str", False, None, "'robust' for HC SEs", ["robust"]),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "trend",
+                    "int",
+                    False,
+                    None,
+                    "Stata trend(#): remove a linear pre-event trend fitted to "
+                    "the coefficients trend..-2 (window start <= trend <= -2, "
+                    "norm=-1)",
+                ),
+                ParamSpec(
+                    "trend_method",
+                    "str",
+                    False,
+                    "gmm",
+                    "gmm: minimum-distance slope, adjusted covariance (Stata "
+                    "default); ols: drop those event-time regressors and add "
+                    "event time (0/1 policy adopted once)",
+                    ["gmm", "ols"],
+                ),
+                ParamSpec(
+                    "proxy",
+                    "list",
+                    False,
+                    None,
+                    "Stata proxy(): confound proxies entered as endogenous "
+                    "regressors, 2SLS with unit effects (xtivreg, fe)",
+                ),
+                ParamSpec(
+                    "proxy_iv",
+                    "str",
+                    False,
+                    None,
+                    "Stata proxyiv(): 'select', leads of the policy change (ints, "
+                    "their event-time coefficients normalised) and / or external "
+                    "instrument columns",
+                ),
             ],
             returns=(
                 "CausalResult: mean post-event effect; event_study table, "

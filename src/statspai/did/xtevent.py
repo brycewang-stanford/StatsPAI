@@ -33,6 +33,10 @@ from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._xtevent_ext import iv_within as _iv_within
+from ._xtevent_ext import ols_trend_column as _ols_trend_column
+from ._xtevent_ext import proxy_normalisations as _proxy_normalisations
+from ._xtevent_ext import trend_gmm_adjust as _trend_gmm_adjust
 
 
 def _window(window: Union[int, Sequence[int]]) -> Tuple[int, int]:
@@ -84,6 +88,10 @@ def xtevent(
     cluster: Optional[str] = None,
     vce: Optional[str] = None,
     alpha: float = 0.05,
+    trend: Optional[int] = None,
+    trend_method: str = "gmm",
+    proxy: Optional[List[str]] = None,
+    proxy_iv: Union[None, str, int, Sequence[Union[int, str]]] = None,
 ) -> CausalResult:
     """Event study of a (possibly continuous, repeatedly changing) policy.
 
@@ -125,6 +133,31 @@ def xtevent(
     vce : {'robust'}, optional
         ``'robust'``: heteroskedasticity-robust SEs (Stata ``vce(robust)``).
     alpha : float, default 0.05
+    trend : int, optional
+        Stata ``trend(#)``: remove a linear pre-event trend fitted to the
+        event-time coefficients ``trend .. -2`` (and the normalised -1);
+        ``window[0] <= trend <= -2`` and ``norm=-1``. The effects are then
+        deviations from the extrapolated trend; ``model_info['trend']``
+        holds its slope.
+    trend_method : {'gmm', 'ols'}, default 'gmm'
+        ``'gmm'`` (Stata's default) fits the slope by minimum distance on
+        the estimated coefficients and adjusts their covariance; ``'ols'``
+        drops the event-time regressors ``trend .. -2`` and adds the event
+        time as a regressor (0/1 policy adopted once only); the dropped
+        event times are reported as normalised.
+    proxy : list of str, optional
+        Stata ``proxy()``: variables moved by the confound but not by the
+        policy, entered as endogenous regressors (Freyaldenhoven, Hansen and
+        Shapiro 2019) and fitted by 2SLS with unit effects (Stata
+        ``xtivreg, fe``; normal-reference inference). Needs
+        ``engine='areg'``.
+    proxy_iv : 'select', int, list of int / str, optional
+        Instruments for the proxies (Stata ``proxyiv()``): leads ``v`` of the
+        policy change (whose event-time coefficient at ``-v`` is then
+        normalised to zero; at ``-v-1`` when ``-v`` is ``norm``), and / or
+        external variables (each normalises one more pre-event
+        coefficient). Default: ``'select'`` (the lead with the strongest
+        first stage) for one proxy, leads ``1..len(proxy)`` otherwise.
 
     Returns
     -------
@@ -162,8 +195,36 @@ def xtevent(
         )
     if vce is not None and str(vce).lower() != "robust":
         raise MethodIncompatibility("xtevent: vce must be 'robust' (or use cluster=).")
+    proxies = [proxy] if isinstance(proxy, str) else list(proxy or [])
+    if trend_method not in ("gmm", "ols"):
+        raise MethodIncompatibility("xtevent: trend_method must be 'gmm' or 'ols'.")
+    if (trend is not None or proxies) and static:
+        raise MethodIncompatibility(
+            "xtevent: trend= and proxy= apply to the event study, not static=True."
+        )
+    if trend is not None and proxies:
+        raise MethodIncompatibility(
+            "xtevent: trend= and proxy= are not combined here.",
+            recovery_hint="Fit them separately.",
+        )
+    if proxies and (engine != "areg" or absorb is not None):
+        raise MethodIncompatibility(
+            "xtevent: proxy= is fitted as Stata xtivreg, fe (engine='areg').",
+            recovery_hint="Drop engine='reghdfe' / absorb= for the proxy estimator.",
+        )
     controls = list(covariates or [])
-    need = [y, policy, panel, time] + controls + ([cluster] if cluster else [])
+    extra_iv = [
+        v
+        for v in ([proxy_iv] if isinstance(proxy_iv, str) else list(proxy_iv or []))
+        if isinstance(v, str) and v != "select"
+    ]
+    need = (
+        [y, policy, panel, time]
+        + controls
+        + proxies
+        + extra_iv
+        + ([cluster] if cluster else [])
+    )
     check_columns(
         data,
         {
@@ -211,15 +272,55 @@ def xtevent(
             df[_label(k)] = shift(k) - shift(k + 1)
         df[_label(hi + 1)] = shift(hi + 1)
         df[_label(lo - 1)] = 1.0 - shift(lo)
-        names_event = [_label(k) for k in ks if k != norm]
+        zeroed = [norm]
+        iv_leads: List[int] = []
+        iv_external: List[str] = []
+        selected_lead = None
+        if trend is not None:
+            if norm != -1 or not (lo <= int(trend) <= -2):
+                raise MethodIncompatibility(
+                    f"xtevent: trend={trend} needs norm=-1 and "
+                    f"window[0] <= trend <= -2 (window starts at {lo}).",
+                )
+            trend = int(trend)
+            if trend_method == "ols":
+                zeroed += list(range(trend, -1))
+                df["_ttrend"] = _ols_trend_column(df, policy, panel, time, lo, hi)
+        if proxies:
+            iv_leads, ivnorm, iv_external, selected_lead = _proxy_normalisations(
+                proxies,
+                proxy_iv,
+                norm,
+                lo,
+                {k: df[_label(k)].to_numpy(dtype=float) for k in range(lo, 0)},
+                df,
+            )
+            zeroed += [k for k in ivnorm if k not in zeroed]
+            for v in iv_leads:
+                df[f"__iv_lead{v}"] = df[_label(-v)]
+        names_event = [_label(k) for k in ks if k not in zeroed]
         regs = names_event + controls
+        if trend is not None and trend_method == "ols":
+            regs = regs + ["_ttrend"]
 
-    use = df.dropna(subset=[y] + regs + ([cluster] if cluster else [])).copy()
+    iv_cols = (
+        [f"__iv_lead{v}" for v in iv_leads] + iv_external
+        if not static and proxies
+        else []
+    )
+    use = df.dropna(
+        subset=[y] + regs + proxies + iv_cols + ([cluster] if cluster else [])
+    ).copy()
     if len(use) == 0:
         raise DataInsufficient("xtevent: no observations with every lead and lag.")
     fe = f"{panel} + {time}" + (f" + {absorb}" if absorb else "")
     fml = f"{y} ~ {' + '.join(regs)} | {fe}"
-    if engine == "areg":
+    if proxies:
+        params, ses, V_all = _fit_proxy_iv(
+            use, y, proxies, regs, iv_cols, panel, time, cluster, vce
+        )
+        df_inf = np.inf
+    elif engine == "areg":
         from ..core.ssc_presets import ssc as _ssc
         from ..fixest.wrapper import feols as _feols
 
@@ -242,6 +343,26 @@ def xtevent(
         params, ses = fit.params, fit.std_errors
         V_all = fit.cov_params()
         df_inf = fit.df_inference
+    trend_info = None
+    if not static and trend is not None:
+        V_df = pd.DataFrame(
+            np.asarray(V_all), index=list(params.index), columns=list(params.index)
+        )
+        if trend_method == "gmm":
+            ev_names = {k: _label(k) for k in ks if k not in zeroed}
+            params, V_df, slope = _trend_gmm_adjust(
+                params.astype(float), V_df, ev_names, trend
+            )
+            ses = pd.Series(np.sqrt(np.diag(V_df.to_numpy())), index=params.index)
+            trend_info = {"start": trend, "method": "gmm", "slope": slope}
+        else:
+            trend_info = {
+                "start": trend,
+                "method": "ols",
+                "slope": float(params["_ttrend"]),
+                "slope_se": float(ses["_ttrend"]),
+            }
+        V_all = V_df.to_numpy()
     crit = (
         stats.t.ppf(1 - alpha / 2, df_inf)
         if np.isfinite(df_inf)
@@ -281,7 +402,7 @@ def xtevent(
     rows = []
     for k in ks:
         nm = _label(k)
-        if k == norm:
+        if k in zeroed:
             b = s = 0.0
         else:
             b, s = float(coef_table.loc[nm, "estimate"]), float(
@@ -296,16 +417,16 @@ def xtevent(
                 ci_lower=b - crit * s,
                 ci_upper=b + crit * s,
                 pvalue=(_two_sided_p(b / s, df_inf) if s > 0 else np.nan),
-                is_reference=k == norm,
+                is_reference=k in zeroed,
                 is_endpoint=k in (lo - 1, hi + 1),
             )
         )
     es = pd.DataFrame(rows)
     V_ev = Vdf.loc[names_event, names_event]
-    V_ev.index = V_ev.columns = [k for k in ks if k != norm]
+    V_ev.index = V_ev.columns = [k for k in ks if k not in zeroed]
 
     def _contrast(w: Dict[int, float]) -> Tuple[float, float]:
-        keys = [k for k in w if k != norm]
+        keys = [k for k in w if k not in zeroed]
         vec = np.array([w[k] for k in keys])
         b = float(
             sum(w[k] * es.set_index("relative_time").loc[k, "estimate"] for k in keys)
@@ -333,10 +454,28 @@ def xtevent(
             event_study=es,
             vcov_event=V_ev,
             event_study_vcov=V_ev,
-            diffavg={"estimate": d_b, "se": d_se},
+            diffavg=(
+                {"estimate": d_b, "se": d_se}
+                if trend_info is None
+                else {
+                    "unavailable": "Stata drops the endpoints from diffavg with trend()"
+                }
+            ),
             coef_table=coef_table,
             window=(lo, hi),
             norm=norm,
+            normalized=sorted(zeroed),
+            trend=trend_info,
+            proxy=(
+                {
+                    "proxies": proxies,
+                    "leads": iv_leads,
+                    "external": iv_external,
+                    "selected_lead": selected_lead,
+                }
+                if proxies
+                else None
+            ),
             engine=engine,
             n_obs=n,
             n_units=int(use[panel].nunique()),
@@ -346,6 +485,38 @@ def xtevent(
         ),
         **common,
     )
+
+
+def _fit_proxy_iv(
+    use: pd.DataFrame,
+    y: str,
+    proxies: List[str],
+    regs: List[str],
+    iv_cols: List[str],
+    panel: str,
+    time: str,
+    cluster: Optional[str],
+    vce: Optional[str],
+):
+    """2SLS with unit effects and period dummies (Stata ``xtivreg, fe``)."""
+    T = pd.get_dummies(use[time], prefix="__t", dtype=float)
+    T = T.loc[:, T.std() > 0].iloc[:, 1:]
+    exog = pd.concat([use[regs].astype(float), T], axis=1)
+    unit = use[panel].to_numpy()
+    # Stata xtivreg turns vce(robust) into clustering on the panel unit
+    cl = use[cluster].to_numpy() if cluster else (unit if vce is not None else None)
+    beta, V = _iv_within(
+        use[y].to_numpy(dtype=float),
+        use[proxies].to_numpy(dtype=float),
+        exog.to_numpy(dtype=float),
+        use[iv_cols].to_numpy(dtype=float),
+        unit,
+        cl,
+    )
+    names = proxies + list(exog.columns)
+    params = pd.Series(beta, index=names)
+    ses = pd.Series(np.sqrt(np.diag(V)), index=names)
+    return params, ses, V
 
 
 # Mirrors paper.bib ``freyaldenhoven2019event``.

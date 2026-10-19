@@ -66794,12 +66794,26 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_xtevent_Stata_parity.py"
+        "tests/reference_parity/test_xtevent_Stata_parity.py",
+        "tests/reference_parity/test_xtevent_extensions_Stata_parity.py"
       ],
       "tolerance": ""
     },
     "example": "sp.xtevent(df, y=\"y\", policy=\"z\", panel=\"id\", time=\"t\", window=3, cluster=\"state\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fit them separately.",
+        "symptom": "xtevent: trend= and proxy= are not combined here."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop engine='reghdfe' / absorb= for the proxy estimator.",
+        "symptom": "xtevent: proxy= is fitted as Stata xtivreg, fe (engine='areg')."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "xtevent",
@@ -66809,6 +66823,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
@@ -66889,6 +66904,17 @@
             "description": "Policy variable (0/1 or continuous)",
             "type": "string"
           },
+          "proxy": {
+            "description": "Stata proxy(): confound proxies entered as endogenous regressors, 2SLS with unit effects (xtivreg, fe)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "proxy_iv": {
+            "description": "Stata proxyiv(): 'select', leads of the policy change (ints, their event-time coefficients normalised) and / or external instrument columns",
+            "type": "string"
+          },
           "static": {
             "default": false,
             "description": "Regress on the policy level instead",
@@ -66898,6 +66924,19 @@
             "description": "Integer period",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "trend": {
+            "description": "Stata trend(#): remove a linear pre-event trend fitted to the coefficients trend..-2 (window start <= trend <= -2, norm=-1)",
+            "type": "integer"
+          },
+          "trend_method": {
+            "default": "gmm",
+            "description": "gmm: minimum-distance slope, adjusted covariance (Stata default); ols: drop those event-time regressors and add event time (0/1 policy adopted once)",
+            "enum": [
+              "gmm",
+              "ols"
+            ],
+            "type": "string"
           },
           "vce": {
             "description": "'robust' for HC SEs",
