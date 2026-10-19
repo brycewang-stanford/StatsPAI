@@ -573,6 +573,7 @@ def gate_test(
     vce: str = "HC1",
     n_folds: int = 5,
     seed: int = 42,
+    clan: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Sorted group average treatment effects (GATES) and heterogeneity tests.
 
@@ -612,6 +613,14 @@ def gate_test(
         Outcome, binary treatment and covariates; required for GATES.
     propensity, baseline, proxy, vce, n_folds, seed
         As in :func:`blp_test`.
+    clan : list of str, optional
+        Classification analysis (CLAN; R ``GenericML::CLAN``): for each of
+        these columns, its mean in every group (standard error
+        ``sd / sqrt(n_k)``) and the difference between the most and the
+        least affected group (Welch standard error), with normal
+        intervals. Returned as ``clan_table``. GATES path only. Equals
+        ``GenericML::CLAN`` given the same groups to 1e-12
+        (``tests/reference_parity/test_clan_genericml_parity.py``).
 
     Returns
     -------
@@ -709,7 +718,14 @@ def gate_test(
     C = np.column_stack([np.ones(K - 1), -np.eye(K - 1)])  # gamma_1 - gamma_k
     cg = C @ g
     wald = float(cg @ np.linalg.solve(C @ Vg @ C.T, cg))
+    extra: Dict[str, Any] = {}
+    if clan is not None:
+        check_columns(data, {"clan": list(clan)}, function="sp.gate_test")
+        extra["clan_table"] = _clan_table(
+            data[list(clan)].to_numpy(dtype=float)[:n], labels, K, list(clan), z
+        )
     return {
+        **extra,
         "gate_table": table,
         "omnibus_stat": wald,
         "omnibus_df": K - 1,
@@ -722,6 +738,30 @@ def gate_test(
         "propensity_source": p_source,
         "vcov_type": vce,
     }
+
+
+def _clan_table(
+    Z: np.ndarray, labels: np.ndarray, K: int, names: List[str], z: float
+) -> pd.DataFrame:
+    """Group means of each column and most-minus-least difference
+    (Welch standard error), normal intervals."""
+    rows = []
+    for j, name in enumerate(names):
+        x = Z[:, j]
+        means, ses = [], []
+        for k in range(K):
+            xk = x[labels == k]
+            means.append(float(xk.mean()))
+            ses.append(
+                float(xk.std(ddof=1) / np.sqrt(len(xk))) if len(xk) > 1 else np.nan
+            )
+            rows.append((name, f"group {k}", means[-1], ses[-1]))
+        diff = means[-1] - means[0]
+        rows.append((name, "most - least", diff, float(np.hypot(ses[-1], ses[0]))))
+    out = pd.DataFrame(rows, columns=["variable", "target", "estimate", "se"])
+    out["ci_lower"] = out["estimate"] - z * out["se"]
+    out["ci_upper"] = out["estimate"] + z * out["se"]
+    return out
 
 
 def _gate_descriptive(

@@ -104846,6 +104846,13 @@
             "description": "``'cate'`` or a column name.",
             "type": "string"
           },
+          "clan": {
+            "description": "Classification analysis (CLAN; R ``GenericML::CLAN``): for each of these columns, its mean in every group (standard error ``sd / sqrt(n_k)``) and the difference between the most and the least affected group (Welch standard error), with normal intervals. Returned as ``clan_table``. GATES path only. Equals ``GenericML::CLAN`` given the same groups to 1e-12 (``tests/reference_parity/test_clan_genericml_parity.py``).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "covariates": {
             "description": "Outcome, binary treatment and covariates; required for GATES.",
             "items": {

@@ -235,6 +235,17 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.bcf` is unchanged (the ensemble approximation); its warning now
   points to `sp.bart_causal(method='bcf')`.
 
+### CLAN in `sp.gate_test`
+
+#### Added
+
+- `sp.gate_test(..., clan=[cols])`: classification analysis of the
+  generic-ML framework, the mean of each column in every CATE group and
+  the most-minus-least difference with its Welch standard error
+  (`clan_table`). Equals R `GenericML::CLAN` 0.2.3 (GPL, black box)
+  given the same groups to 1e-12.
+  `tests/reference_parity/test_clan_genericml_parity.py`.
+
 ### Machine-learning nuisances in `sp.aipw`
 
 #### Added
