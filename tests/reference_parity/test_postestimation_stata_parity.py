@@ -159,9 +159,13 @@ def test_margins_is_not_the_index_coefficient_after_logit():
 
 
 def test_margins_refuses_unsupported_models():
+    # A two-equation count model: Stata's margins after zinb averages the
+    # mixture mean, which index-model margins do not compute. (ologit and
+    # the other LDV models are supported since bd370d02, with Stata parity
+    # in tests/test_ldv_margins_stata.py.)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.ologit("yo ~ x1 + x2", _data())
+        r = sp.zinb("yz ~ x1 + x2", _data())
     with pytest.raises(MethodIncompatibility, match="prediction scale"):
         sp.margins(r, data=_data())
     with pytest.raises(MethodIncompatibility, match="do not enter the model"):
