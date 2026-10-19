@@ -2868,7 +2868,7 @@
    "result_sha256": "494f49a88ec68428c28dbbf39ea6d58359af8a233482e3512602de56b7580e3c"
   },
   "72_tmle": {
-   "seconds": 4.25,
+   "seconds": 1.35,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2904,7 +2904,7 @@
     "scikit-learn": "1.6.1"
    },
    "source_sha256": "bf84cf028cf8e76fb18c47fc4674ae4e619b91583be9531e27c0faf153b9a71e",
-   "result_sha256": "4d43a569f700cf0743b468ccf5935f925008ddd4cdf0f939424924d627917509"
+   "result_sha256": "913d3799e13efd02c0877500fa052edb499afddf8ff15a2484784d35d3440b12"
   },
   "73_did2s": {
    "seconds": 3.32,

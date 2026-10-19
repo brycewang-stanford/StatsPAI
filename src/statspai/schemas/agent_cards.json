@@ -9130,8 +9130,8 @@
       "Cross-language parity (bit-exact) vs MatchIt::matchit 4.7.2 (nearest, glm/logit distance); tolerance 1:1 and 2:1 PS matching without replacement: rel <= 1e-9. Mahalanobis metric pinned against MatchIt:::mahalanobis_dist (rel <= 1e-10); greedy m_order='data'/'closest' rel <= 1e-9. -- tests/reference_parity/test_matching_r_parity.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_accounting_research_parity.py",
-      "tests/reference_parity/test_ding_first_course_parity.py",
-      "tests/reference_parity/test_match_fw_stata_parity.py"
+      "tests/reference_parity/test_cem_k2k_parity.py",
+      "tests/reference_parity/test_ding_first_course_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -10855,9 +10855,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survey::svydesign + svymean/svytotal/svyglm/degf (strata, nested PSUs, fpc, survey.lonely.psu); Stata svyset + svy: mean/total/regress/logit/poisson + estat effects [R version 4.5.2 (2025-10-31), Stata 18 MP, survey 4.5]; tolerance estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel (observed <= 4e-14; p 6e-13) -- tests/reference_parity/test_survey_design_R_parity.py",
       "tests/external_parity/test_gelman_ros_examples.py",
+      "tests/reference_parity/test_mediate_design_Stata_parity.py",
       "tests/reference_parity/test_survey_calib_R_parity.py",
       "tests/reference_parity/test_survey_calibrated_design_parity.py",
-      "tests/reference_parity/test_survey_causal_parity.py",
       "API/unit contract evidence: tests/test_survey.py"
     ],
     "validation_status": "certified"
@@ -28477,8 +28477,8 @@
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_dag_implications_dagitty_parity.py",
+      "tests/reference_parity/test_dag_instruments_dagitty_parity.py",
       "tests/reference_parity/test_misc_sens_R_parity.py",
-      "tests/reference_parity/test_ness_causal_ai_parity.py",
       "API/unit contract evidence: tests/test_dag_scm.py",
       "API/unit contract evidence: tests/test_dag_recommend_and_tte_report.py"
     ],
@@ -30753,9 +30753,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 36_mediation -- tests/r_parity/36_mediation.py",
       "tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_mediate_design_Stata_parity.py",
       "tests/reference_parity/test_mediate_nonlinear_stata_parity.py",
-      "tests/reference_parity/test_mediate_po_bootstrap.py",
-      "tests/reference_parity/test_mediate_potential_outcomes.py"
+      "tests/reference_parity/test_mediate_po_bootstrap.py"
     ],
     "validation_status": "certified"
   },
@@ -44371,17 +44371,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
+    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bart_causal_seed_screen.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bart_causal(df, \"y\", \"d\", [\"x1\", \"x2\"], method=\"bcf\", seed=1)",
@@ -44444,7 +44448,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
+      "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
       "name": "bart_causal",
       "parameters": {
         "properties": {
@@ -44566,8 +44570,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bart_causal_seed_screen.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -89986,7 +89992,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_dml_cluster_doubleml_parity.py"
+        "tests/reference_parity/test_dml_cluster_doubleml_parity.py",
+        "tests/reference_parity/test_dml_twoway_cluster_doubleml_parity.py"
       ],
       "tolerance": ""
     },
@@ -104926,7 +104933,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs GenericML::GATES 0.2.3 (monotonize = FALSE) with GenericML::quantile_group membership [GenericML 0.2.3, R version 4.5.2 (2025-10-31), sandwich 3.1.1]; tolerance gamma_k, SE and gamma_K - gamma_1 1e-10 rel (observed 1.9e-15); group membership identical -- tests/reference_parity/test_ml_causal_R_parity.py"
+      "Cross-language parity (bit-exact) vs GenericML::GATES 0.2.3 (monotonize = FALSE) with GenericML::quantile_group membership [GenericML 0.2.3, R version 4.5.2 (2025-10-31), sandwich 3.1.1]; tolerance gamma_k, SE and gamma_K - gamma_1 1e-10 rel (observed 1.9e-15); group membership identical -- tests/reference_parity/test_ml_causal_R_parity.py",
+      "tests/reference_parity/test_clan_genericml_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -107131,6 +107139,7 @@
       "Cross-language parity (bit-exact) vs pcalg::pc(skel.method = 'stable') with gaussCItest, and with bnlearn::ci.test(test = 'x2-adf') as its independence test [R version 4.5.2 (2025-10-31), bnlearn 5.2.1, pcalg 2.7.12]; tolerance graphs compared for equality: Gaussian data, every directed and undirected edge of the CPDAG and every separating set; categorical data, skeleton and every separating set -- tests/reference_parity/test_ness_causal_ai_parity.py",
       "tests/external_parity/test_ness_causal_ai.py",
       "tests/reference_parity/test_causal_discovery_parity.py",
+      "tests/reference_parity/test_ida_pcalg_parity.py",
       "tests/reference_parity/test_pc_pcalg_parity.py"
     ],
     "validation_status": "certified"
@@ -108060,7 +108069,8 @@
       "R parity module 70_policy_tree",
       "Stata parity module 70_policy_tree",
       "Cross-language parity (bit-exact) vs policytree::policy_tree [R version 4.5.2 (2025-10-31), policytree 1.2.4]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 70_policy_tree -- tests/r_parity/70_policy_tree.py",
-      "tests/reference_parity/test_policy_tree_parity.py"
+      "tests/reference_parity/test_policy_tree_parity.py",
+      "tests/reference_parity/test_policytree_multi_action_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -138001,7 +138011,8 @@
     "validation_notes": [
       "Cross-language parity (aligned) vs splm::spml(model = 'within') 1.6.5; Stata xsmle 1.4.5 fe type(ind) vce(oim) [R version 4.5.2 (2025-10-31), Stata 18, plm 2.6.7, splm 1.6.5, xsmle version 1.4.5 5jun2017]; tolerance vs splm: estimates and SEs 1e-7 rel (observed 7.2e-8 / 1.3e-8, the splm optimize floor); vs xsmle (tightened ml tolerances): estimates and beta SEs 1e-9 (observed 2.5e-13 / 8.5e-11), spatial-parameter SE 1e-8 (observed 3.0e-9) -- tests/reference_parity/test_spatial_survey_R_parity.py",
       "tests/reference_parity/test_r2_spatial_parity.py",
-      "tests/reference_parity/test_spatial_models_parity.py"
+      "tests/reference_parity/test_spatial_models_parity.py",
+      "tests/reference_parity/test_spatial_panel_re_Stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -147286,17 +147297,21 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA).",
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_ida_pcalg_parity.py"
+      ],
       "tolerance": ""
     },
     "example": "r = sp.ida(df, cp, x=\"b\", y=\"c\")",
@@ -147350,7 +147365,7 @@
       }
     },
     "signature": {
-      "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA).",
+      "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ida",
       "parameters": {
         "properties": {
@@ -147401,8 +147416,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ida_pcalg_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -159600,17 +159617,21 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Mean outcome under a modified treatment policy (sequential TMLE).",
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_lmtp_parity.py"
+      ],
       "tolerance": ""
     },
     "example": "r = sp.lmtp(df, 'Y', ['A'], shift=1.0, baseline=['W'])",
@@ -159651,7 +159672,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Mean outcome under a modified treatment policy (sequential TMLE).",
+      "description": "Mean outcome under a modified treatment policy (sequential TMLE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "lmtp",
       "parameters": {
         "properties": {
@@ -159753,8 +159774,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lmtp_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

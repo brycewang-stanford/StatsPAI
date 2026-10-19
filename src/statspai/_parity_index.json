@@ -19,6 +19,23 @@
       "tolerance": ""
     },
     {
+      "function": "DAG",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_dag_instruments_dagitty_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "DoubleML",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -31,7 +48,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_dml_cluster_doubleml_parity.py"
+        "tests/reference_parity/test_dml_cluster_doubleml_parity.py",
+        "tests/reference_parity/test_dml_twoway_cluster_doubleml_parity.py"
       ],
       "tolerance": ""
     },
@@ -1207,6 +1225,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_bayes_nonparametric_exact.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "bart_causal",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bart_causal_seed_screen.py"
       ],
       "tolerance": ""
     },
@@ -4755,6 +4790,7 @@
       "additional_tests": [
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_dag_implications_dagitty_parity.py",
+        "tests/reference_parity/test_dag_instruments_dagitty_parity.py",
         "tests/reference_parity/test_misc_sens_R_parity.py",
         "tests/reference_parity/test_ness_causal_ai_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
@@ -6158,6 +6194,7 @@
         "tests/reference_parity/test_dml_parity.py",
         "tests/reference_parity/test_dml_pliv_anderson_rubin.py",
         "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
+        "tests/reference_parity/test_dml_twoway_cluster_doubleml_parity.py",
         "tests/reference_parity/test_ml_causal_dml_parity.py",
         "tests/reference_parity/test_rlasso_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
@@ -8181,7 +8218,8 @@
         "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_survreg_streg_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
-        "tests/reference_parity/test_ts_causal_parity.py"
+        "tests/reference_parity/test_ts_causal_parity.py",
+        "tests/reference_parity/test_westfall_young_wyoung_parity.py"
       ],
       "tolerance": ""
     },
@@ -8582,6 +8620,9 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_clan_genericml_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -9099,6 +9140,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "gns",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_spatial_durbin_error_Stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -9982,6 +10040,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_frontier_known_truth_recovery.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "ida",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ida_pcalg_parity.py"
       ],
       "tolerance": ""
     },
@@ -11527,6 +11602,23 @@
       "tolerance": "chi-squared with and without ties 1e-5 rel"
     },
     {
+      "function": "l1_imbalance",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_cem_k2k_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "lasso_iv",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -11952,6 +12044,23 @@
         "tests/reference_parity/test_spdep_parity.py"
       ],
       "tolerance": "All five statistics and their p-values at 1e-9. Before the fix: LM_err 39.47 against 19.58, and Robust_LM_err 20.49 (p=6e-6) against 0.0397 (p=0.84) -- the Anselin lag-vs-error decision rule, reversed."
+    },
+    {
+      "function": "lmtp",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_lmtp_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -12867,6 +12976,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/test_cem_k2k_parity.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_match_fw_stata_parity.py",
         "tests/reference_parity/test_match_sweights_parity.py",
@@ -13116,6 +13226,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
+        "tests/reference_parity/test_mediate_design_Stata_parity.py",
         "tests/reference_parity/test_mediate_nonlinear_stata_parity.py",
         "tests/reference_parity/test_mediate_po_bootstrap.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
@@ -16309,6 +16420,7 @@
       "additional_tests": [
         "tests/external_parity/test_ness_causal_ai.py",
         "tests/reference_parity/test_causal_discovery_parity.py",
+        "tests/reference_parity/test_ida_pcalg_parity.py",
         "tests/reference_parity/test_pc_pcalg_parity.py"
       ],
       "also_verified_by": [
@@ -16519,7 +16631,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_policy_tree_parity.py"
+        "tests/reference_parity/test_policy_tree_parity.py",
+        "tests/reference_parity/test_policytree_multi_action_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -20711,6 +20824,23 @@
       "tolerance": "On R's weights: rho, Q.star, u.mean, Omega, Sigma, e.mean at 1e-9; out-of-sample e.var and gaussian / ls / qreg bounds at 1e-9 against R with rrq(method = 'br') (exact LP) and 5e-4 abs against the default Frisch-Newton rrq. In-sample simulation fed R's draws: per-draw median <= 1e-6 and max <= 2e-4 vs ECOS at 1e-12, quantile bounds at 1e-5; vs default ECOS (1e-8) bounds within 2e-3 abs. Average-effect CI = scdataMulti(effect = 'unit') within 5e-4. J > T0 (California, 38 donors) covered."
     },
     {
+      "function": "sdem",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_spatial_durbin_error_Stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_did_synth_R_parity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",
@@ -21602,7 +21732,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_r2_spatial_parity.py",
-        "tests/reference_parity/test_spatial_models_parity.py"
+        "tests/reference_parity/test_spatial_models_parity.py",
+        "tests/reference_parity/test_spatial_panel_re_Stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -22650,6 +22781,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_gelman_ros_examples.py",
+        "tests/reference_parity/test_mediate_design_Stata_parity.py",
         "tests/reference_parity/test_survey_calib_R_parity.py",
         "tests/reference_parity/test_survey_calibrated_design_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
@@ -24620,7 +24752,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_frontier_known_truth_recovery.py",
+        "tests/reference_parity/test_westfall_young_wyoung_parity.py"
       ],
       "tolerance": ""
     },

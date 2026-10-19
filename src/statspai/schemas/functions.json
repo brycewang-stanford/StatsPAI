@@ -20078,7 +20078,7 @@
     }
   },
   {
-    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
+    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled.",
     "name": "bart_causal",
     "parameters": {
       "properties": {
@@ -43323,7 +43323,7 @@
     }
   },
   {
-    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011).",
+    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "l1_imbalance",
     "parameters": {
       "properties": {
@@ -65475,7 +65475,7 @@
     }
   },
   {
-    "description": "Spatial Durbin error model: ``y = Xb + WXt + u, u = lambda W u + e``.",
+    "description": "Spatial Durbin error model: ``y = Xb + WXt + u, u = lambda W u + e``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "sdem",
     "parameters": {
       "properties": {
@@ -65513,7 +65513,7 @@
     }
   },
   {
-    "description": "General nesting spatial model (Manski-type): spatial lag of ``y``,",
+    "description": "General nesting spatial model (Manski-type): spatial lag of ``y``, Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "gns",
     "parameters": {
       "properties": {
@@ -70092,7 +70092,7 @@
     }
   },
   {
-    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA).",
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ida",
     "parameters": {
       "properties": {
@@ -75456,7 +75456,7 @@
     }
   },
   {
-    "description": "Mean outcome under a modified treatment policy (sequential TMLE).",
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lmtp",
     "parameters": {
       "properties": {
