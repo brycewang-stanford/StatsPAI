@@ -4433,3 +4433,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-records for the panel wild-bootstrap fix
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `419a56bf9`, `3eedaaa3f`.
+- **Reason.** `panel/panel_reg.py` (the wild bootstrap of `sp.panel(method=
+  'fe', vce='wild')` now re-absorbs entity effects that are not nested in
+  the clusters) is on the estimation paths of modules 35 and 69; their
+  traces were re-recorded.
+- **Effect on the paper.** None. Neither module uses `vce='wild'`; both
+  reproduce their committed results.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
