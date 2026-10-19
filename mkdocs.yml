@@ -119,6 +119,7 @@ nav:
       - "Report card: cs_report()": guides/cs_report.md
       - "Repeated cross-sections": guides/repeated_cross_sections.md
       - "Randomised rollouts (design-based DiD)": guides/randomized_rollout.md
+      - "Sequential experiments: group sequential, always-valid, CUPED": guides/sequential_experiments.md
       - "Stock & Watson 4th edition: run the do-files, check the numbers, what to add": guides/stock_watson_4e.md
       - "陈强《计量经济学及Stata应用》第2版：运行 do 文件、核对数字、今天该补什么": guides/chen_qiang_2e.md
       - "邱嘉平《因果推断实用计量方法》：运行 Stata 代码、核对数字、今天该补什么": guides/qiu_jiaping.md

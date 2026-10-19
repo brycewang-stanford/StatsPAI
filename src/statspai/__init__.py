@@ -2324,6 +2324,12 @@ __all__ = [
     "adaptive_inference",
     "BanditExperimentResult",
     "AdaptiveInferenceResult",
+    "group_sequential",
+    "GroupSequentialResult",
+    "msprt",
+    "msprt_lambda",
+    "MSPRTResult",
+    "cuped",
     # Design of experiments (factorial, optimal, space-filling, sensitivity)
     "space_filling",
     "design_augment",
@@ -3820,6 +3826,12 @@ _register_lazy(
     "adaptive_inference",
     "BanditExperimentResult",
     "AdaptiveInferenceResult",
+    "group_sequential",
+    "GroupSequentialResult",
+    "msprt",
+    "msprt_lambda",
+    "MSPRTResult",
+    "cuped",
 )
 _register_lazy(
     "doe",

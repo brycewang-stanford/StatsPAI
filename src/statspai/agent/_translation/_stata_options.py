@@ -204,6 +204,18 @@ _VCE_TYPES = (
 #: Command-specific abbreviations, as underlined in each command's syntax
 #: diagram. ``atet`` precedes ``ate`` so that the longer word wins.
 _COMMAND_OPTIONS: Dict[str, _Table] = {
+    # [ADAPT] gsbounds: efficacy(), futility(), information(), alpha(),
+    # power(), beta(), onesided by their documented abbreviations.
+    "gsbounds": (
+        ("efficacy", 3),
+        ("futility", 3),
+        ("information", 4),
+        ("alpha", 1),
+        ("power", 1),
+        ("beta", 1),
+        ("onesided", 6),
+        ("nopvalues", 6),
+    ),
     # [R] qreg: quantile(#), minimum abbreviation q(#).
     "qreg": (("quantile", 1),),
     # leebounds (SSC): SELect(), TIGht(), CIEffect.
@@ -470,6 +482,7 @@ _DISPLAY_BY_COMMAND = {
     "stcox": {"nohr", "noshow"},
     "stcrreg": {"noshr", "noshow"},
     "power": {"table", "graph", "notitle", "saving", "parallel"},
+    "gsbounds": {"nopvalues", "graphbounds", "matlistopts"},
 }
 
 

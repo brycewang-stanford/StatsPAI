@@ -12,7 +12,7 @@
 
 | Ecosystem / Project                  | Method     |  Files | Lines of code | Primary focus                      |
 | ------------------------------------ | ---------- | -----: | ------------: | ---------------------------------- |
-| **StatsPAI** `src/statspai/`         | measured   |  1,082 |   **646,690** | validation-tiered causal inference |
+| **StatsPAI** `src/statspai/`         | measured   |  1,206 |   **708,649** | validation-tiered causal inference |
 | StatsPAI tests (`tests/`)            | measured   |  1,978 |       443,207 | —                                  |
 | statsmodels 0.14.x                   | measured   |    948 |   **381,981** | GLM / time series / general        |
 | linearmodels                         | measured   |    131 |        36,607 | panel / IV                         |
@@ -83,7 +83,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `interference` | 3,349 | 11 | 22 |
 | `bartik` | 3,209 | 6 | 9 |
 | `causal_llm` | 3,025 | 10 | 15 |
-| `experimental` | 3,068 | 6 | 17 |
+| `experimental` | 4,615 | 10 | 23 |
 | `conformal_causal` | 2,947 | 10 | 22 |
 | `rlasso` | 2,859 | 7 | 10 |
 | `crossval` | 2,812 | 7 | 2 |

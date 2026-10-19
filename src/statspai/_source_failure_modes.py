@@ -430,6 +430,29 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "sp.<who>: the series is " "constant.",
         },
     ],
+    "cuped": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='cuped' (default), 'cupac' or 'lin'.",
+            "symptom": "method must be one of <list(_METHODS)>; got <method>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Without covariates use sp.difference_in_means.",
+            "symptom": "cuped: no covariates given.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Encode categorical covariates as indicators first.",
+            "symptom": "cuped: covariates must be numeric; got <non_numeric>.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Use fewer covariates.",
+            "symptom": "cuped: <len(frame)> complete rows for "
+            "<len(covariates)> covariates.",
+        },
+    ],
     "diversity_index": [
         {
             "exception": "statspai.DataInsufficient",
@@ -964,6 +987,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Averaging compares fits of one outcome.",
             "symptom": "sp.model_average: the formulas have different "
             "outcomes (<outcomes>).",
+        },
+    ],
+    "msprt": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "tau is the prior standard deviation of the effect in "
+            "outcome units, e.g. the effect size you hope to detect.",
+            "symptom": "tau must be a positive number; got <tau>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "E.g. alpha=0.05.",
+            "symptom": "alpha must be in (0, 1); got <alpha>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop sigma= to use the running sample variances.",
+            "symptom": "sigma must be a positive number; got <sigma>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Compare two arms at a time.",
+            "symptom": "sp.msprt: <treat> must take exactly two values; found "
+            "<len(levels)>.",
         },
     ],
     "ndiffs": [

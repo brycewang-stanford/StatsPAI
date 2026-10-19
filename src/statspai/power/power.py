@@ -822,6 +822,14 @@ _DESIGN_FUNCTIONS = {
 }
 
 
+# t-test designs routed to power_ttest (Stata's ``power`` subcommand names).
+_TTEST_DESIGNS = {
+    "ttest": "two-sample",
+    "twomeans": "two-sample",
+    "onemean": "one-sample",
+    "pairedmeans": "paired",
+}
+
 # ---------------------------------------------------------------------------
 # Main dispatcher: power()
 # ---------------------------------------------------------------------------
@@ -842,14 +850,22 @@ def power(
     ----------
     design : str
         One of ``'rct'``, ``'did'``, ``'rd'``, ``'iv'``,
-        ``'cluster_rct'``, ``'ols'``.
+        ``'cluster_rct'``, ``'ols'``; ``'ttest'`` / ``'twomeans'`` /
+        ``'onemean'`` / ``'pairedmeans'`` (exact noncentral-t power via
+        :func:`power_ttest`, with ``effect_size`` the difference in outcome
+        units and ``sigma=`` / ``sd=`` its standard deviation); or
+        ``'simulation'`` (Monte Carlo power, bias, RMSE and coverage of any
+        estimator on a user data-generating process; see
+        :func:`statspai.power.simulation.power_simulation` for ``dgp=``,
+        ``estimator=``, ``n_sims=``, ``seed=``, ``term=``).
     n : int, array-like, range, or None
         Sample size.  For cluster_rct this is *n_clusters*.
         Pass *None* to solve for the minimum n that achieves
         *power_target*.
     effect_size : float, array-like, or None
         Effect size, standardised unless ``sigma=`` is passed with it (then
-        in the units of the outcome).  Pass *None* to solve for MDE
+        in the units of the outcome); ``delta=`` is accepted as an alias.
+        Pass *None* to solve for MDE
         (use :func:`mde` for a cleaner interface).
     power_target : float or None
         Target power (e.g. 0.80).  When *n* is None, the function
@@ -878,11 +894,46 @@ def power(
     PowerResult(design='did', power=[0.0840..0.7170], len=19)
     >>> ax = result.plot()
     """
-    # Accept 'power' kwarg as alias for power_target (convenience API)
+    # Accept 'power' kwarg as alias for power_target (convenience API), and
+    # power_ttest's spelling delta= for effect_size=.
     if power_target is None and "power" in kwargs:
         power_target = kwargs.pop("power")
+    if "delta" in kwargs:
+        if effect_size is not None:
+            raise MethodIncompatibility(
+                "Pass either effect_size= or its alias delta=, not both.",
+                recovery_hint="Drop delta=.",
+            )
+        effect_size = kwargs.pop("delta")
 
     design = design.lower().strip()
+    if design in ("simulation", "sim", "montecarlo", "monte_carlo"):
+        from .simulation import power_simulation
+
+        if n is None or power_target is not None:
+            raise MethodIncompatibility(
+                "power('simulation') computes power at given sample sizes; "
+                "it does not solve for n or the effect size.",
+                recovery_hint=(
+                    "Pass n= as a list of sizes and read off where power "
+                    "crosses the target, e.g. n=[100, 200, 400]."
+                ),
+            )
+        return power_simulation(n=n, effect_size=effect_size, **kwargs)
+    if design in _TTEST_DESIGNS:
+        from .ttest_power import power_ttest
+
+        if "type" in kwargs and design != "ttest":
+            raise MethodIncompatibility(
+                f"design={design!r} fixes the test type; drop type=.",
+                recovery_hint="Use design='ttest' with type=... instead.",
+            )
+        ttype = kwargs.pop("type", _TTEST_DESIGNS[design])
+        if "sigma" in kwargs:
+            kwargs["sd"] = kwargs.pop("sigma")
+        return power_ttest(
+            n=n, delta=effect_size, power=power_target, type=ttype, **kwargs
+        )
     if design not in _DESIGN_FUNCTIONS:
         supported = ", ".join(sorted(_DESIGN_FUNCTIONS))
         raise ValueError(f"Unknown design {design!r}. Supported designs: {supported}")

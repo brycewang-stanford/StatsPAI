@@ -972,6 +972,25 @@ TIER2_ROUND_TRIPS = [
 
 
 TIER3_ROUND_TRIPS = [
+    # 2026-10-19: group sequential bounds and wyoung (numbers against Stata
+    # 18 in tests/reference_parity/test_group_sequential_stata_parity.py and
+    # test_westfall_young_wyoung_parity.py)
+    (
+        "gsbounds, efficacy(errobfleming) futility(errpocock) nlooks(3) upper",
+        "group_sequential",
+        {
+            "efficacy": "errobfleming",
+            "futility": "errpocock",
+            "n_looks": 3,
+            "side": "upper",
+        },
+    ),
+    (
+        "wyoung y1 y2, cmd(regress OUTCOMEVAR d x, robust) familyp(d) "
+        "permute(d) reps(1000)",
+        "westfall_young",
+        {"y": ["y1", "y2"], "treat": "d", "covariates": ["x"], "n_perms": 1000},
+    ),
     # 2026-10-19 (numbers against Stata 18: test_stata_translation_extra.py)
     (
         "stcox age female, efron",
@@ -1620,6 +1639,10 @@ class TestStataHandlerCoverage:
         #     runs in an sp.stata session only →
         #     test_stata_qiu_jiaping_syntax.py::test_pstest_reads_what_psmatch2_left
         covered.add("pstest")
+        #   gsdesign — always answered with the two-line recipe (power_ttest
+        #     then group_sequential(n_fixed=)) →
+        #     test_stata_translation_gsbounds.py::test_refusals_carry_guidance
+        covered.add("gsdesign")
         # Each handler should have at least one alias covered.
         handler_to_aliases = {}
         for alias, h in STATA_COMMAND_MAP.items():

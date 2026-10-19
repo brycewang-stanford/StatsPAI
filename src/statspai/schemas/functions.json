@@ -10116,7 +10116,10 @@
         },
         "delta": {
           "description": "Difference to detect, outcome units",
-          "type": "number"
+          "type": "number",
+          "x-aliases": [
+            "effect_size"
+          ]
         },
         "n": {
           "description": "Total sample size (both groups), observations, or pairs",
@@ -10124,7 +10127,10 @@
         },
         "power": {
           "description": "Target power",
-          "type": "number"
+          "type": "number",
+          "x-aliases": [
+            "power_target"
+          ]
         },
         "ratio": {
           "default": 1.0,
@@ -10134,7 +10140,10 @@
         "sd": {
           "default": 1.0,
           "description": "Outcome standard deviation",
-          "type": "number"
+          "type": "number",
+          "x-aliases": [
+            "sigma"
+          ]
         },
         "type": {
           "default": "two-sample",
@@ -11122,7 +11131,7 @@
     }
   },
   {
-    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
+    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
     "name": "weightit",
     "parameters": {
       "properties": {
@@ -11203,7 +11212,7 @@
     }
   },
   {
-    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9.",
+    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bal_tab",
     "parameters": {
       "properties": {
@@ -28566,6 +28575,257 @@
         "data",
         "y",
         "arm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "group_sequential",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Overall type I error",
+          "type": "number"
+        },
+        "binding": {
+          "default": false,
+          "description": "Binding futility (efficacy bounds account for it)",
+          "type": "boolean"
+        },
+        "efficacy": {
+          "description": "Efficacy boundary (default 'obfleming' unless only futility is given)",
+          "enum": [
+            "obfleming",
+            "pocock",
+            "wtsiatis",
+            "errobfleming",
+            "errpocock",
+            "kdemets",
+            "hsdecani"
+          ],
+          "type": "string"
+        },
+        "efficacy_param": {
+          "description": "Delta (wtsiatis), rho (kdemets) or gamma (hsdecani)",
+          "type": "number"
+        },
+        "futility": {
+          "description": "Futility boundary, same class as efficacy",
+          "enum": [
+            "obfleming",
+            "pocock",
+            "wtsiatis",
+            "errobfleming",
+            "errpocock",
+            "kdemets",
+            "hsdecani"
+          ],
+          "type": "string"
+        },
+        "futility_param": {
+          "description": "Parameter of futility",
+          "type": "number"
+        },
+        "information": {
+          "description": "Information or sample size at each analysis (ratios matter)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "n_fixed": {
+          "description": "Fixed-design sample size; gives n_max and n per look",
+          "type": "number"
+        },
+        "n_looks": {
+          "description": "Number of analyses (default 2)",
+          "type": "integer"
+        },
+        "power": {
+          "default": 0.8,
+          "description": "Power at the alternative",
+          "type": "number"
+        },
+        "side": {
+          "default": "two-sided",
+          "description": "Direction of the test",
+          "enum": [
+            "two-sided",
+            "upper",
+            "lower"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha.",
+    "name": "msprt",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "data": {
+          "description": "Rows in arrival order",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "min_per_arm": {
+          "default": 2,
+          "description": "Skip looks with fewer per arm",
+          "type": "integer"
+        },
+        "sigma": {
+          "description": "Known outcome SD (exact test); default plug-in variances",
+          "type": "number"
+        },
+        "tau": {
+          "description": "Prior SD of the effect (outcome units); tunes power, not validity",
+          "type": "number"
+        },
+        "theta0": {
+          "default": 0.0,
+          "description": "Null value of the effect",
+          "type": "number"
+        },
+        "time": {
+          "description": "Analysis-time column (batched looks)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "Two-valued treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "tau"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value.",
+    "name": "msprt_lambda",
+    "parameters": {
+      "properties": {
+        "estimate": {
+          "description": "Effect estimate(s)",
+          "type": "number"
+        },
+        "tau": {
+          "description": "Prior SD of the effect",
+          "type": "number"
+        },
+        "theta0": {
+          "default": 0.0,
+          "description": "Null value",
+          "type": "number"
+        },
+        "variance": {
+          "description": "Variance(s) of the estimate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "estimate",
+        "variance",
+        "tau"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin).",
+    "name": "cuped",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Randomization cluster",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Pre-experiment numeric covariates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "One row per unit",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "learner": {
+          "description": "sklearn regressor for cupac",
+          "type": "string"
+        },
+        "method": {
+          "default": "cuped",
+          "description": "Adjustment",
+          "enum": [
+            "cuped",
+            "cupac",
+            "lin"
+          ],
+          "type": "string"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Cross-fitting folds (cupac)",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seed (cupac)",
+          "type": "integer"
+        },
+        "theta": {
+          "description": "Fixed adjustment coefficients (default: pooled OLS slope)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "treat": {
+          "description": "Two-valued treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "covariates"
       ],
       "type": "object"
     }
@@ -51765,19 +52025,11 @@
     "parameters": {
       "properties": {
         "design": {
-          "description": "One of ``'rct'``, ``'did'``, ``'rd'``, ``'iv'``, ``'cluster_rct'``, ``'ols'``.",
-          "enum": [
-            "rct",
-            "did",
-            "rd",
-            "iv",
-            "cluster_rct",
-            "ols"
-          ],
+          "description": "One of ``'rct'``, ``'did'``, ``'rd'``, ``'iv'``, ``'cluster_rct'``, ``'ols'``; ``'ttest'`` / ``'twomeans'`` / ``'onemean'`` / ``'pairedmeans'`` (exact noncentral-t power via :func:`power_ttest`, with ``effect_size`` the difference in outcome units and ``sigma=`` / ``sd=`` its standard deviation); or ``'simulation'`` (Monte Carlo power, bias, RMSE and coverage of any estimator on a user data-generating process; see :func:`statspai.power.simulation.power_simulation` for ``dgp=``, ``estimator=``, ``n_sims=``, ``seed=``, ``term=``).",
           "type": "string"
         },
         "effect_size": {
-          "description": "Effect size, standardised unless ``sigma=`` is passed with it (then in the units of the outcome). Pass *None* to solve for MDE (use :func:`mde` for a cleaner interface).",
+          "description": "Effect size, standardised unless ``sigma=`` is passed with it (then in the units of the outcome); ``delta=`` is accepted as an alias. Pass *None* to solve for MDE (use :func:`mde` for a cleaner interface).",
           "type": "string"
         },
         "n": {
@@ -74527,7 +74779,7 @@
     }
   },
   {
-    "description": "Path-specific effects of a binary treatment through ordered mediators.",
+    "description": "Path-specific effects of a binary treatment through ordered mediators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mediate_paths",
     "parameters": {
       "properties": {

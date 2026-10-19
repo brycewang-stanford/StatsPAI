@@ -492,6 +492,45 @@ All notable changes to StatsPAI will be documented in this file.
   boxes), `svars` 1.3, Stata 18 `lpirf` and `xtgcause`; the proxy SVAR
   against the 2SLS identity and a long simulated sample.
 
+### Experiments: group sequential designs, always-valid tests, CUPED, simulation power
+
+#### Added
+
+- `sp.group_sequential(n_looks=, information=, alpha=, power=, side=,
+  efficacy=, futility=, binding=, n_fixed=)`: stopping boundaries and the
+  maximum-information ratio of a group sequential trial, with the boundary
+  families and conventions of Stata 18 `gsbounds` (classical O'Brien-Fleming,
+  Pocock, Wang-Tsiatis with Pampallona-Tsiatis futility; Lan-DeMets error
+  spending of O'Brien-Fleming and Pocock type, Kim-DeMets, Hwang-Shih-DeCani;
+  nonbinding or binding futility; one- or two-sided). `.decision(z)` applies
+  the bounds. On 117 designs every bound and the information ratio equal
+  `gsbounds` to 3e-7 when Stata's tolerances are tightened
+  (`intpointsscale(60) infotol(1e-12)`); at its default `infotol(1e-6)`
+  Stata's futility bounds sit up to 3e-5 from the exact solution
+  (`tests/reference_parity/test_group_sequential_stata_parity.py`).
+  `expected_info_h0` / `_h1` equal Stata's `ESS0` / `ESS1` to 1e-7 for
+  efficacy-only and binding designs; for nonbinding futility Stata's ESS
+  follows a rule we could not reproduce (open item, see
+  `docs/dev/modules/experiments_interference.md`). `sp.from_stata` now
+  translates `gsbounds` and answers `gsdesign` with the two-line recipe.
+- `sp.msprt(data, y, treat, tau=, sigma=, time=)` and `sp.msprt_lambda`:
+  always-valid p-values and confidence sequences of the normal-mixture SPRT
+  (Johari et al. 2022) for continuously monitored A/B tests. No
+  deterministic reference exists; the closed form equals its defining
+  integral to 1e-9 and Monte Carlo checks confirm the type I error and the
+  uniform coverage stay at alpha under continuous monitoring (S-level).
+- `sp.cuped(data, y, treat, covariates, method='cuped' | 'cupac' | 'lin')`:
+  CUPED variance reduction (Deng et al. 2013), CUPAC with an out-of-fold
+  learner, or Lin's interacted regression; inference is
+  `sp.difference_in_means` on the adjusted outcome.
+- `sp.power("simulation", n=, dgp=, estimator=, n_sims=, seed=, term=)`:
+  Monte Carlo power, bias, RMSE and coverage (with Monte Carlo standard
+  errors) of any estimator on a user data-generating process.
+- `sp.power("ttest" | "twomeans" | "onemean" | "pairedmeans", ...)` routes
+  to `sp.power_ttest`; `sp.power` accepts `delta=` for `effect_size=`, and
+  `sp.power_ttest` accepts `effect_size=`, `power_target=` and `sigma=` for
+  `delta=`, `power=` and `sd=`.
+
 ### `sp.xtevent`: trend adjustment and proxy-IV estimation
 
 #### Added

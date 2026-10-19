@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from scipy import optimize, stats
 
+from .._aliases import accepts_aliases
 from ..exceptions import MethodIncompatibility
 from .power import PowerResult
 
@@ -76,6 +77,7 @@ def _tail_power(df: float, ncp: float, alpha: float, side: str) -> float:
     return float(stats.nct.cdf(-crit, df, ncp))
 
 
+@accepts_aliases(effect_size="delta", power_target="power", sigma="sd")
 def power_ttest(
     n: Optional[float] = None,
     delta: Optional[float] = None,

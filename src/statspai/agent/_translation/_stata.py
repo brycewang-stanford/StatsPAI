@@ -1081,12 +1081,6 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
         "resamples, so the p-values match only in distribution.",
         ["romano_wolf"],
     ),
-    "wyoung": (
-        "`wyoung` wraps estimation commands; sp.westfall_young(data, "
-        "y=[...], treat=, covariates=, strata=, cluster=, n_perms=, seed=) "
-        "covers the familyp() of one treatment across outcomes.",
-        ["westfall_young"],
-    ),
     "spregress": (
         "`spregress` reads an spmatrix; build the weights matrix W and call "
         "sp.sar(W, data, 'y ~ x') for dvarlag(W) (spatial lag) models.",
@@ -5300,7 +5294,9 @@ from . import _stata_basics as _basics  # noqa: E402
 from . import _stata_design as _design  # noqa: E402
 from . import _stata_did as _did  # noqa: E402
 from . import _stata_extra as _extra  # noqa: E402
+from . import _stata_gs as _gs  # noqa: E402
 from . import _stata_matching as _matching  # noqa: E402
+from . import _stata_mht as _mht  # noqa: E402
 from . import _stata_models as _models  # noqa: E402
 from . import _stata_panel as _panel  # noqa: E402
 from . import _stata_postest as _postest  # noqa: E402
@@ -5321,6 +5317,8 @@ STATA_COMMAND_MAP.update(_models.HANDLERS)
 STATA_COMMAND_MAP.update(_matching.HANDLERS)
 STATA_COMMAND_MAP.update(_survival.HANDLERS)
 STATA_COMMAND_MAP.update(_extra.HANDLERS)
+STATA_COMMAND_MAP.update(_gs.HANDLERS)
+STATA_COMMAND_MAP.update(_mht.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
     {
@@ -5472,6 +5470,8 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         handler in _POSTEST_HANDLERS
         or handler in _models.EXPRESSION
         or handler in _extra.LITERAL
+        or handler in _gs.LITERAL
+        or handler in _mht.LITERAL
     ):
         # postestimation commands take variable names / expressions, which
         # their handlers interpret themselves (``contrast i.g`` -> ``g``);

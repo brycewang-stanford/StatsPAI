@@ -21085,7 +21085,10 @@
           },
           "delta": {
             "description": "Difference to detect, outcome units",
-            "type": "number"
+            "type": "number",
+            "x-aliases": [
+              "effect_size"
+            ]
           },
           "n": {
             "description": "Total sample size (both groups), observations, or pairs",
@@ -21093,7 +21096,10 @@
           },
           "power": {
             "description": "Target power",
-            "type": "number"
+            "type": "number",
+            "x-aliases": [
+              "power_target"
+            ]
           },
           "ratio": {
             "default": 1.0,
@@ -21103,7 +21109,10 @@
           "sd": {
             "default": 1.0,
             "description": "Outcome standard deviation",
-            "type": "number"
+            "type": "number",
+            "x-aliases": [
+              "sigma"
+            ]
           },
           "type": {
             "default": "two-sample",
@@ -23707,17 +23716,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
+    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_weightit_cobalt_parity.py"
+      ],
       "tolerance": ""
     },
     "example": "W = sp.weightit(df, \"dose\", [\"x1\", \"x2\"], method=\"ebal\"); W.balance()",
@@ -23764,7 +23777,7 @@
       }
     },
     "signature": {
-      "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
+      "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
       "name": "weightit",
       "parameters": {
         "properties": {
@@ -23846,8 +23859,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_weightit_cobalt_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -23863,17 +23878,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9.",
+    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_weightit_cobalt_parity.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bal_tab(df, \"treat\", [\"x1\", \"x2\"], weights=W)",
@@ -23902,7 +23921,7 @@
       }
     },
     "signature": {
-      "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9.",
+      "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bal_tab",
       "parameters": {
         "properties": {
@@ -24002,8 +24021,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_weightit_cobalt_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -63935,6 +63956,565 @@
   {
     "alias_of": null,
     "alternatives": [
+      "msprt",
+      "power_ttest",
+      "power"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "The z-statistics at the looks are jointly normal with the canonical (independent-increments) covariance",
+      "Information at the looks is proportional to the stated information levels",
+      "The interim schedule is not chosen by looking at the data (error-spending bounds may be recomputed at the observed information)"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_group_sequential_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.group_sequential(n_looks=3, efficacy=\"errobfleming\", futility=\"errpocock\", side=\"upper\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use both classical or both error-spending boundaries.",
+        "symptom": "Classical efficacy with error-spending futility"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "group_sequential",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "lan1983discrete",
+    "returns": {
+      "class": "GroupSequentialResult",
+      "description": "GroupSequentialResult (.boundaries, .info_ratio, .decision(z))",
+      "fields": {
+        "alpha": "float",
+        "binding": "bool",
+        "boundaries": "pd.DataFrame",
+        "detail": "Dict[str, Any]",
+        "efficacy": "Optional[str]",
+        "expected_info_h0": "float",
+        "expected_info_h1": "float",
+        "futility": "Optional[str]",
+        "info_ratio": "float",
+        "n_fixed": "Optional[float]",
+        "n_max": "Optional[float]",
+        "power": "float",
+        "power_attained": "float",
+        "side": "str",
+        "z_fixed": "float"
+      }
+    },
+    "signature": {
+      "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "group_sequential",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Overall type I error",
+            "type": "number"
+          },
+          "binding": {
+            "default": false,
+            "description": "Binding futility (efficacy bounds account for it)",
+            "type": "boolean"
+          },
+          "efficacy": {
+            "description": "Efficacy boundary (default 'obfleming' unless only futility is given)",
+            "enum": [
+              "obfleming",
+              "pocock",
+              "wtsiatis",
+              "errobfleming",
+              "errpocock",
+              "kdemets",
+              "hsdecani"
+            ],
+            "type": "string"
+          },
+          "efficacy_param": {
+            "description": "Delta (wtsiatis), rho (kdemets) or gamma (hsdecani)",
+            "type": "number"
+          },
+          "futility": {
+            "description": "Futility boundary, same class as efficacy",
+            "enum": [
+              "obfleming",
+              "pocock",
+              "wtsiatis",
+              "errobfleming",
+              "errpocock",
+              "kdemets",
+              "hsdecani"
+            ],
+            "type": "string"
+          },
+          "futility_param": {
+            "description": "Parameter of futility",
+            "type": "number"
+          },
+          "information": {
+            "description": "Information or sample size at each analysis (ratios matter)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "n_fixed": {
+            "description": "Fixed-design sample size; gives n_max and n per look",
+            "type": "number"
+          },
+          "n_looks": {
+            "description": "Number of analyses (default 2)",
+            "type": "integer"
+          },
+          "power": {
+            "default": 0.8,
+            "description": "Power at the alternative",
+            "type": "number"
+          },
+          "side": {
+            "default": "two-sided",
+            "description": "Direction of the test",
+            "enum": [
+              "two-sided",
+              "upper",
+              "lower"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_group_sequential_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "group_sequential",
+      "ttest",
+      "difference_in_means"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Observations are independent; assignment does not depend on outcomes",
+      "Gaussian outcomes with known sigma for exact validity; with plug-in variances validity is asymptotic"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.msprt(df, \"y\", \"d\", tau=0.2, sigma=1.0)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "tau is the prior standard deviation of the effect in outcome units, e.g. the effect size you hope to detect.",
+        "symptom": "tau must be a positive number; got <tau>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "E.g. alpha=0.05.",
+        "symptom": "alpha must be in (0, 1); got <alpha>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop sigma= to use the running sample variances.",
+        "symptom": "sigma must be a positive number; got <sigma>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Compare two arms at a time.",
+        "symptom": "sp.msprt: <treat> must take exactly two values; found <len(levels)>."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "msprt",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "johari2022always",
+    "returns": {
+      "class": "MSPRTResult",
+      "description": "MSPRTResult (.path, .p_value, .ci, .rejected, .stop_look)",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Dict[str, Any]",
+        "estimate": "float",
+        "p_value": "float",
+        "path": "pd.DataFrame",
+        "rejected": "bool",
+        "stop_look": "Optional[int]",
+        "tau": "float",
+        "theta0": "float",
+        "variance": "str"
+      }
+    },
+    "signature": {
+      "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha.",
+      "name": "msprt",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level",
+            "type": "number"
+          },
+          "data": {
+            "description": "Rows in arrival order",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "min_per_arm": {
+            "default": 2,
+            "description": "Skip looks with fewer per arm",
+            "type": "integer"
+          },
+          "sigma": {
+            "description": "Known outcome SD (exact test); default plug-in variances",
+            "type": "number"
+          },
+          "tau": {
+            "description": "Prior SD of the effect (outcome units); tunes power, not validity",
+            "type": "number"
+          },
+          "theta0": {
+            "default": 0.0,
+            "description": "Null value of the effect",
+            "type": "number"
+          },
+          "time": {
+            "description": "Analysis-time column (batched looks)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "Two-valued treatment column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "tau"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "msprt"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.msprt_lambda(0.3, 0.01, tau=0.2)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "msprt_lambda",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "johari2022always",
+    "returns": {
+      "class": "float",
+      "description": "float or numpy.ndarray",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value.",
+      "name": "msprt_lambda",
+      "parameters": {
+        "properties": {
+          "estimate": {
+            "description": "Effect estimate(s)",
+            "type": "number"
+          },
+          "tau": {
+            "description": "Prior SD of the effect",
+            "type": "number"
+          },
+          "theta0": {
+            "default": 0.0,
+            "description": "Null value",
+            "type": "number"
+          },
+          "variance": {
+            "description": "Variance(s) of the estimate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "estimate",
+          "variance",
+          "tau"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "lm_lin",
+      "difference_in_means"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Treatment is randomized",
+      "Covariates are measured before treatment and unaffected by it"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin).",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.cuped(df, \"y\", \"d\", [\"y_pre\"])",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use method='cuped' (default), 'cupac' or 'lin'.",
+        "symptom": "method must be one of <list(_METHODS)>; got <method>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Without covariates use sp.difference_in_means.",
+        "symptom": "cuped: no covariates given."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Encode categorical covariates as indicators first.",
+        "symptom": "cuped: covariates must be numeric; got <non_numeric>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use fewer covariates.",
+        "symptom": "cuped: <len(frame)> complete rows for <len(covariates)> covariates."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "cuped",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "deng2013improving",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult (model_info: theta, variance_reduction)",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin).",
+      "name": "cuped",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Randomization cluster",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "covariates": {
+            "description": "Pre-experiment numeric covariates",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "One row per unit",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "learner": {
+            "description": "sklearn regressor for cupac",
+            "type": "string"
+          },
+          "method": {
+            "default": "cuped",
+            "description": "Adjustment",
+            "enum": [
+              "cuped",
+              "cupac",
+              "lin"
+            ],
+            "type": "string"
+          },
+          "n_folds": {
+            "default": 5,
+            "description": "Cross-fitting folds (cupac)",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Seed (cupac)",
+            "type": "integer"
+          },
+          "theta": {
+            "description": "Fixed adjustment coefficients (default: pooled OLS slope)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "treat": {
+            "description": "Two-valued treatment column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "bandit_experiment",
       "ips",
       "policy_tree"
@@ -88730,9 +89310,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs ebal::ebalance 0.2.1 (Hainmueller 2012); tolerance ATT rel <= 1e-5 (observed 3.2e-7); moment gap <= 1e-10 -- tests/reference_parity/test_matching_r_parity.py",
       "tests/reference_parity/test_ebalance_estimand_parity.py",
+      "tests/reference_parity/test_ebalance_sweights_parity.py",
       "tests/reference_parity/test_ebalance_weightit_parity.py",
-      "tests/reference_parity/test_matching_parity.py",
-      "tests/reference_parity/test_paper_parity.py"
+      "tests/reference_parity/test_matching_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -110407,19 +110987,11 @@
       "parameters": {
         "properties": {
           "design": {
-            "description": "One of ``'rct'``, ``'did'``, ``'rd'``, ``'iv'``, ``'cluster_rct'``, ``'ols'``.",
-            "enum": [
-              "rct",
-              "did",
-              "rd",
-              "iv",
-              "cluster_rct",
-              "ols"
-            ],
+            "description": "One of ``'rct'``, ``'did'``, ``'rd'``, ``'iv'``, ``'cluster_rct'``, ``'ols'``; ``'ttest'`` / ``'twomeans'`` / ``'onemean'`` / ``'pairedmeans'`` (exact noncentral-t power via :func:`power_ttest`, with ``effect_size`` the difference in outcome units and ``sigma=`` / ``sd=`` its standard deviation); or ``'simulation'`` (Monte Carlo power, bias, RMSE and coverage of any estimator on a user data-generating process; see :func:`statspai.power.simulation.power_simulation` for ``dgp=``, ``estimator=``, ``n_sims=``, ``seed=``, ``term=``).",
             "type": "string"
           },
           "effect_size": {
-            "description": "Effect size, standardised unless ``sigma=`` is passed with it (then in the units of the outcome). Pass *None* to solve for MDE (use :func:`mde` for a cleaner interface).",
+            "description": "Effect size, standardised unless ``sigma=`` is passed with it (then in the units of the outcome); ``delta=`` is accepted as an alias. Pass *None* to solve for MDE (use :func:`mde` for a cleaner interface).",
             "type": "string"
           },
           "n": {
@@ -157906,17 +158478,21 @@
     "assumptions": [],
     "category": "mediation",
     "cost_profile": "",
-    "description": "Path-specific effects of a binary treatment through ordered mediators.",
+    "description": "Path-specific effects of a binary treatment through ordered mediators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_mediate_paths_parity.py"
+      ],
       "tolerance": ""
     },
     "example": "r = sp.mediate_paths(df, y=\"y\", treat=\"a\", mediators=[\"m1\", \"m2\"],\n interaction=False, n_boot=50)",
@@ -157976,7 +158552,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Path-specific effects of a binary treatment through ordered mediators.",
+      "description": "Path-specific effects of a binary treatment through ordered mediators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "mediate_paths",
       "parameters": {
         "properties": {
@@ -158066,8 +158642,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mediate_paths_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -158605,6 +159183,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs ltmle::ltmle 1.3-0 (glm, gbounds c(0.01, 1), variance.method = 'ic') [R version 4.5.2 (2025-10-31), ltmle 1.3.0]; tolerance psi1 / psi0 / ATE / SE 1e-9 rel without censoring (observed 5e-13); 1e-8 with censoring nodes (observed 5e-10) -- tests/reference_parity/test_teffects_R_parity.py",
+      "tests/reference_parity/test_ltmle_weights_parity.py",
       "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
     ],
     "validation_status": "certified"

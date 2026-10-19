@@ -27563,6 +27563,280 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="group_sequential",
+            category="experimental",
+            description=(
+                "Stopping boundaries and maximum-information inflation of a "
+                "group sequential trial (Stata gsbounds / gsdesign): classical "
+                "O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets "
+                "error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-"
+                "DeCani), efficacy and binding or nonbinding futility, one- or "
+                "two-sided; .decision(z) applies the bounds to observed z."
+            ),
+            params=[
+                ParamSpec(
+                    "n_looks", "int", False, None, "Number of analyses (default 2)"
+                ),
+                ParamSpec(
+                    "information",
+                    "list",
+                    False,
+                    None,
+                    "Information or sample size at each analysis (ratios matter)",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Overall type I error"),
+                ParamSpec("power", "float", False, 0.8, "Power at the alternative"),
+                ParamSpec(
+                    "side",
+                    "str",
+                    False,
+                    "two-sided",
+                    "Direction of the test",
+                    ["two-sided", "upper", "lower"],
+                ),
+                ParamSpec(
+                    "efficacy",
+                    "str",
+                    False,
+                    None,
+                    "Efficacy boundary (default 'obfleming' unless only futility "
+                    "is given)",
+                    [
+                        "obfleming",
+                        "pocock",
+                        "wtsiatis",
+                        "errobfleming",
+                        "errpocock",
+                        "kdemets",
+                        "hsdecani",
+                    ],
+                ),
+                ParamSpec(
+                    "efficacy_param",
+                    "float",
+                    False,
+                    None,
+                    "Delta (wtsiatis), rho (kdemets) or gamma (hsdecani)",
+                ),
+                ParamSpec(
+                    "futility",
+                    "str",
+                    False,
+                    None,
+                    "Futility boundary, same class as efficacy",
+                    [
+                        "obfleming",
+                        "pocock",
+                        "wtsiatis",
+                        "errobfleming",
+                        "errpocock",
+                        "kdemets",
+                        "hsdecani",
+                    ],
+                ),
+                ParamSpec(
+                    "futility_param", "float", False, None, "Parameter of futility"
+                ),
+                ParamSpec(
+                    "binding",
+                    "bool",
+                    False,
+                    False,
+                    "Binding futility (efficacy bounds account for it)",
+                ),
+                ParamSpec(
+                    "n_fixed",
+                    "float",
+                    False,
+                    None,
+                    "Fixed-design sample size; gives n_max and n per look",
+                ),
+            ],
+            returns="GroupSequentialResult (.boundaries, .info_ratio, .decision(z))",
+            example=(
+                'sp.group_sequential(n_looks=3, efficacy="errobfleming", '
+                'futility="errpocock", side="upper")'
+            ),
+            tags=[
+                "experiment",
+                "clinical trial",
+                "group sequential",
+                "interim analysis",
+                "alpha spending",
+                "gsdesign",
+                "gsbounds",
+            ],
+            reference="lan1983discrete",
+            assumptions=[
+                "The z-statistics at the looks are jointly normal with the "
+                "canonical (independent-increments) covariance",
+                "Information at the looks is proportional to the stated "
+                "information levels",
+                "The interim schedule is not chosen by looking at the data "
+                "(error-spending bounds may be recomputed at the observed "
+                "information)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Classical efficacy with error-spending futility",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Use both classical or both error-spending boundaries.",
+                    alternative="",
+                ),
+            ],
+            alternatives=["msprt", "power_ttest", "power"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="msprt",
+            category="experimental",
+            description=(
+                "Always-valid p-values and confidence sequences for a two-arm "
+                "A/B test monitored continuously (mixture SPRT with a normal "
+                "mixing distribution); stopping whenever p <= alpha keeps the "
+                "type I error at alpha."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Rows in arrival order"),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec("treat", "str", True, None, "Two-valued treatment column"),
+                ParamSpec(
+                    "tau",
+                    "float",
+                    True,
+                    None,
+                    "Prior SD of the effect (outcome units); tunes power, not validity",
+                ),
+                ParamSpec(
+                    "sigma",
+                    "float",
+                    False,
+                    None,
+                    "Known outcome SD (exact test); default plug-in variances",
+                ),
+                ParamSpec(
+                    "time", "str", False, None, "Analysis-time column (batched looks)"
+                ),
+                ParamSpec("theta0", "float", False, 0.0, "Null value of the effect"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+                ParamSpec(
+                    "min_per_arm", "int", False, 2, "Skip looks with fewer per arm"
+                ),
+            ],
+            returns="MSPRTResult (.path, .p_value, .ci, .rejected, .stop_look)",
+            example='sp.msprt(df, "y", "d", tau=0.2, sigma=1.0)',
+            tags=[
+                "experiment",
+                "a/b test",
+                "sequential test",
+                "always valid",
+                "continuous monitoring",
+                "peeking",
+            ],
+            reference="johari2022always",
+            assumptions=[
+                "Observations are independent; assignment does not depend on "
+                "outcomes",
+                "Gaussian outcomes with known sigma for exact validity; with "
+                "plug-in variances validity is asymptotic",
+            ],
+            alternatives=["group_sequential", "ttest", "difference_in_means"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="msprt_lambda",
+            category="experimental",
+            description=(
+                "Mixture likelihood ratio of the normal-mixture SPRT for an "
+                "estimate with known variance; 1 / running max is the "
+                "always-valid p-value."
+            ),
+            params=[
+                ParamSpec("estimate", "float", True, None, "Effect estimate(s)"),
+                ParamSpec(
+                    "variance", "float", True, None, "Variance(s) of the estimate"
+                ),
+                ParamSpec("tau", "float", True, None, "Prior SD of the effect"),
+                ParamSpec("theta0", "float", False, 0.0, "Null value"),
+            ],
+            returns="float or numpy.ndarray",
+            example="sp.msprt_lambda(0.3, 0.01, tau=0.2)",
+            tags=["sequential test", "always valid", "likelihood ratio"],
+            reference="johari2022always",
+            alternatives=["msprt"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="cuped",
+            category="experimental",
+            description=(
+                "Average treatment effect of an A/B test with CUPED variance "
+                "reduction: difference in means of the outcome minus its pooled "
+                "linear projection on pre-experiment covariates; 'cupac' uses "
+                "an out-of-fold ML prediction as the covariate, 'lin' is the "
+                "interacted regression (sp.lm_lin)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per unit"),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec("treat", "str", True, None, "Two-valued treatment column"),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    None,
+                    "Pre-experiment numeric covariates",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "cuped",
+                    "Adjustment",
+                    ["cuped", "cupac", "lin"],
+                ),
+                ParamSpec(
+                    "theta",
+                    "list",
+                    False,
+                    None,
+                    "Fixed adjustment coefficients (default: pooled OLS slope)",
+                ),
+                ParamSpec("cluster", "str", False, None, "Randomization cluster"),
+                ParamSpec(
+                    "learner", "object", False, None, "sklearn regressor for cupac"
+                ),
+                ParamSpec("n_folds", "int", False, 5, "Cross-fitting folds (cupac)"),
+                ParamSpec("seed", "int", False, None, "Seed (cupac)"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="CausalResult (model_info: theta, variance_reduction)",
+            example='sp.cuped(df, "y", "d", ["y_pre"])',
+            tags=[
+                "experiment",
+                "a/b test",
+                "variance reduction",
+                "cuped",
+                "cupac",
+                "regression adjustment",
+            ],
+            reference="deng2013improving",
+            assumptions=[
+                "Treatment is randomized",
+                "Covariates are measured before treatment and unaffected by it",
+            ],
+            alternatives=["lm_lin", "difference_in_means"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="contextual_bandit",
             category="experimental",
             description=(
