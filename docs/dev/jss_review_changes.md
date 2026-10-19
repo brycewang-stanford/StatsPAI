@@ -4451,7 +4451,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `ed109ae31`.
+- **Commits.** `70739f451`.
 - **Reason.** `core/utils.py` (`r_formula_idioms`, `create_design_matrices`)
   now reads Stata factor-variable and time-series terms; it is on the
   traced path of Track A modules 01, 02, 14, 37, 42, 44-49, 51, 53-58, 63,
