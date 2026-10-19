@@ -40,7 +40,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.regress(\"wage ~ education + experience\", data=df, robust=\"hc1\")",
+    "example": "df = sp.cps_wage()\nr = sp.regress(\"log_wage ~ education + experience\", data=df, vce=\"hc1\")",
     "failure_modes": [
       {
         "alternative": "sp.vif",
@@ -260,7 +260,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.iv(\"wage ~ (education ~ parent_edu + distance) + experience\", data=df, method=\"liml\")",
+    "example": "df = sp.datasets.card_1995()\nr = sp.iv(\n \"lwage ~ (educ ~ nearc4 + nearc2) + exper + black\", data=df,\n method=\"liml\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.anderson_rubin_ci",
@@ -474,7 +474,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.ivreg(\"wage ~ (education ~ parent_edu + distance) + experience\", data=df)",
+    "example": "df = sp.datasets.card_1995()\nr = sp.ivreg(\n \"lwage ~ (educ ~ nearc4 + nearc2) + exper + black\", data=df,\n vce=\"hc1\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.anderson_rubin_ci",
@@ -689,7 +689,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.qreg(df, \"wage ~ education\", quantile=0.9)",
+    "example": "df = sp.cps_wage()\nr = sp.qreg(df, \"log_wage ~ education + experience\", quantile=0.9)",
     "failure_modes": [
       {
         "alternative": "regress",
@@ -868,7 +868,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.heckman(df, y=\"wage\", x=[\"education\", \"experience\"], select=\"employed\", z=[\"age\", \"kids\"])",
+    "example": "df = sp.datasets.nsw_dw()\ndf[\"employed\"] = (df.re78 > 0).astype(int)\nr = sp.heckman(\n df, y=\"re78\", x=[\"education\", \"age\"], select=\"employed\",\n z=[\"married\", \"nodegree\"],\n)",
     "failure_modes": [
       {
         "alternative": "sp.attrition_bounds",
@@ -1036,7 +1036,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.tobit(df, y=\"hours\", x=[\"wage\", \"kids\"], ll=0)",
+    "example": "df = sp.datasets.nsw_dw()\nr = sp.tobit(df, y=\"re78\", x=[\"treat\", \"age\", \"education\"], ll=0)",
     "failure_modes": [
       {
         "alternative": "sp.qreg",
@@ -2272,7 +2272,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.005"
     },
-    "example": "sp.nbreg(\"visits ~ age + income | person\", data=df, cluster=\"person\")",
+    "example": "df = sp.datasets.castle_doctrine()\ndf[\"n_homicide\"] = (df.homicide * df.population / 1e5).round().astype(int)\nr = sp.nbreg(\"n_homicide ~ post + unemployrt\", data=df, cluster=\"state\")",
     "failure_modes": [
       {
         "alternative": "poisson",
@@ -2486,7 +2486,7 @@
       ],
       "tolerance": "coefficients / SEs rtol 1e-7 (observed <= 2.7e-8: Stata fe's score at its own estimate is 3e-7, pglm's gradtol), log-likelihood rtol 1e-12"
     },
-    "example": "sp.xtnbreg(\"visits ~ age + income\", data=df, entity=\"person\", model=\"fe\")",
+    "example": "df = sp.datasets.castle_doctrine()\ndf[\"n_homicide\"] = (df.homicide * df.population / 1e5).round().astype(int)\nr = sp.xtnbreg(\n \"n_homicide ~ post + unemployrt\", data=df, entity=\"state\",\n model=\"fe\",\n)",
     "failure_modes": [
       {
         "alternative": "nbreg",
@@ -2706,7 +2706,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.did(df, y=\"wage\", treat=\"treated\", time=\"post\")",
+    "example": "df = sp.dgp_did(seed=0)\nr = sp.did(df, y=\"y\", treat=\"treated\", time=\"time\", id=\"unit\")",
     "failure_modes": [
       {
         "alternative": "sp.sensitivity_rr",
@@ -3250,7 +3250,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-09"
     },
-    "example": "sp.callaway_santanna(df, y=\"earnings\", g=\"first_treat\", t=\"year\", i=\"worker\")",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.callaway_santanna(\n df, y=\"l_homicide\", g=\"effyear\", t=\"year\", i=\"sid\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.sensitivity_rr",
@@ -3619,7 +3619,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.rdrobust(df, y=\"score\", x=\"income\", c=10000)",
+    "example": "df = sp.datasets.lee_2008_senate()\nr = sp.rdrobust(df, y=\"y\", x=\"x\", c=0)",
     "failure_modes": [
       {
         "alternative": "sp.rdrobust",
@@ -4278,7 +4278,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.synth(data=df, outcome=\"gdp\", unit=\"state\", time=\"year\", treated_unit=\"CA\", treatment_time=1989, method=\"demeaned\")",
+    "example": "df = sp.datasets.california_prop99()\nr = sp.synth(\n df, outcome=\"cigsale\", unit=\"state\", time=\"year\",\n treated_unit=\"California\", treatment_time=1989,\n)",
     "failure_modes": [
       {
         "alternative": "sp.synth",
@@ -4546,7 +4546,7 @@
       ],
       "tolerance": "rel_est<=1e-10, rel_se<=1e-10"
     },
-    "example": "sp.dml(df, y=\"wage\", treat=\"training\", covariates=[\"age\",\"edu\"], model=\"plr\")",
+    "example": "df = sp.dgp_observational(seed=0)\nr = sp.dml(\n df, y=\"y\", treat=\"treatment\", covariates=[\"x1\", \"x2\"], model=\"plr\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.overlap_weights",
@@ -5533,7 +5533,7 @@
       ],
       "tolerance": "rel_est<=0.01, rel_se<=0.05"
     },
-    "example": "sp.causal_forest(data=df, y=\"wage\", d=\"training\", x=[\"age\", \"educ\"], clusters=\"firm\")",
+    "example": "df = sp.dgp_rct(n=400, heterogeneous=True, seed=0)\nr = sp.causal_forest(\n \"y ~ treatment | x1 + x2 + x3\", data=df, n_trees=100, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.calibrate_cate",
@@ -8216,7 +8216,7 @@
       ],
       "tolerance": "S / T / X conditional-average-treatment-effect vectors match econml elementwise to 1e-12 absolute (observed <= 1.1e-15) when both fitting stages use the same base learner"
     },
-    "example": "sp.metalearner(df, y=\"outcome\", treat=\"treat\", covariates=[\"x1\",\"x2\"], learner=\"x\")",
+    "example": "df = sp.dgp_rct(heterogeneous=True, seed=0)\nr = sp.metalearner(\n df, y=\"y\", treat=\"treatment\", covariates=[\"x1\", \"x2\", \"x3\"],\n learner=\"x\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.compare_metalearners",
@@ -8430,7 +8430,7 @@
       ],
       "tolerance": "1:1 and 2:1 PS matching without replacement: rel <= 1e-9. Mahalanobis metric pinned against MatchIt:::mahalanobis_dist (rel <= 1e-10); greedy m_order='data'/'closest' rel <= 1e-9."
     },
-    "example": "sp.match(df, y=\"y\", treat=\"treat\", covariates=[\"x1\",\"x2\"])",
+    "example": "df = sp.datasets.nsw_lalonde()\nr = sp.match(\n df, y=\"re78\", treat=\"treat\",\n covariates=[\"age\", \"educ\", \"re74\", \"re75\"],\n)",
     "failure_modes": [
       {
         "alternative": "sp.ebalance",
@@ -8894,7 +8894,7 @@
       ],
       "tolerance": "Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9)."
     },
-    "example": "sp.psmatch2(df, treat='union', outcome='log_wage', covariates=['education','experience','tenure'])",
+    "example": "df = sp.datasets.nsw_lalonde()\nr = sp.psmatch2(\n df, treat=\"treat\", y=\"re78\",\n covariates=[\"age\", \"educ\", \"re74\", \"re75\"],\n)",
     "failure_modes": [
       {
         "alternative": "sp.ebalance",
@@ -9172,7 +9172,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.tmle(df, y=\"outcome\", treat=\"treat\", covariates=[\"x1\",\"x2\",\"x3\"])",
+    "example": "df = sp.dgp_observational(seed=0)\nr = sp.tmle(\n df, y=\"y\", treat=\"treatment\", covariates=[\"x1\", \"x2\"],\n random_state=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.trimming",
@@ -9443,7 +9443,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.001"
     },
-    "example": "sp.panel(df, \"wage ~ edu + exp\", entity=\"worker\", time=\"year\", method=\"fe\")",
+    "example": "df = sp.dgp_panel(seed=0)\nr = sp.panel(df, \"y ~ x\", id=\"unit\", time=\"time\", method=\"fe\")",
     "failure_modes": [
       {
         "alternative": "sp.panel",
@@ -9644,7 +9644,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.xtabond(df, y=\"output\", x=[\"capital\", \"labor\"], id=\"firm\", time=\"year\")",
+    "example": "df = sp.dgp_panel(seed=0)\nr = sp.xtabond(df, y=\"y\", x=[\"x\"], id=\"unit\", time=\"time\")",
     "failure_modes": [
       {
         "alternative": "sp.panel",
@@ -26519,7 +26519,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.sensemakr(df, y=\"wage\", treat=\"education\", controls=[\"experience\"], benchmark=[\"experience\"])",
+    "example": "df = sp.cps_wage()\nr = sp.sensemakr(\n df, y=\"log_wage\", treat=\"union\",\n controls=[\"education\", \"experience\"], benchmark=[\"education\"],\n)",
     "failure_modes": [
       {
         "alternative": "",
@@ -26666,7 +26666,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.spec_curve(df, y=\"outcome\", x=\"treat\", controls=[[], [\"x1\"], [\"x1\", \"x2\"]])",
+    "example": "df = sp.cps_wage()\nr = sp.spec_curve(\n df, y=\"log_wage\", x=\"union\",\n controls=[[], [\"education\"], [\"education\", \"experience\"]],\n)",
     "failure_modes": [
       {
         "alternative": "",
@@ -26844,7 +26844,7 @@
       ],
       "tolerance": "Hajek ATE/ATT estimate 1e-9 (observed <= 2e-15; SE not pinned)"
     },
-    "example": "sp.ipw(df, y=\"wage\", treat=\"training\", covariates=[\"age\",\"edu\"], estimand=\"ATT\")",
+    "example": "df = sp.dgp_observational(seed=0)\nr = sp.ipw(\n df, y=\"y\", treat=\"treatment\", covariates=[\"x1\", \"x2\"],\n estimand=\"ATT\", seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.hal_tmle",
@@ -28016,7 +28016,7 @@
       ],
       "tolerance": "psi 1e-8 (observed <= 7e-16; bootstrap SE pinned loosely +/-25%)"
     },
-    "example": "sp.g_computation(df, y=\"wage\", treat=\"trained\", covariates=[\"age\",\"edu\"])",
+    "example": "df = sp.dgp_observational(seed=0)\nr = sp.g_computation(\n df, y=\"y\", treat=\"treatment\", covariates=[\"x1\", \"x2\"], n_boot=50,\n seed=0,\n)",
     "failure_modes": [
       {
         "exception": "ValueError",
@@ -29163,7 +29163,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.1"
     },
-    "example": "sp.mediate(df, y=\"y\", treat=\"d\", mediator=\"m\")",
+    "example": "df = sp.cps_wage()\nr = sp.mediate(\n df, y=\"log_wage\", treat=\"union\", mediator=\"tenure\",\n covariates=[\"education\"], n_boot=100, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.mediate_interventional",
@@ -52290,7 +52290,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.gardner_did(df, y=\"wage\", group=\"county\", time=\"year\", first_treat=\"first_treat\", event_study=True)",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.gardner_did(\n df, y=\"l_homicide\", group=\"sid\", time=\"year\",\n first_treat=\"effyear\", event_study=True,\n)",
     "failure_modes": [
       {
         "alternative": "sp.honest_did",
@@ -53639,7 +53639,7 @@
       ],
       "tolerance": "2SLS / OLS coefficients and SEs, classical first-stage F, effective F, tF critical value and interval: rel 1e-9 on 6 designs (observed <= 6e-12)"
     },
-    "example": "sp.iv.iv_diag(df, y='wage', endog='educ', instruments=['nearc4','nearc2'], exog=['exper','south'], n_boot=500, ltz_gamma_sd=0.05, random_state=42)",
+    "example": "df = sp.datasets.card_1995()\nr = sp.iv.iv_diag(\n df, y=\"lwage\", endog=\"educ\", instruments=[\"nearc4\", \"nearc2\"],\n exog=[\"exper\", \"black\"], n_boot=100, random_state=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.anderson_rubin_ci",
@@ -62761,7 +62761,7 @@
       ],
       "tolerance": "rel_est<=1e-06"
     },
-    "example": "sp.did_multiplegt(df, y=\"wage\", group=\"county\", time=\"year\", treatment=\"treated\", placebo=2, dynamic=3, cluster=\"state\", n_boot=200, seed=42)",
+    "example": "df = sp.dgp_did(staggered=True, seed=0)\nr = sp.did_multiplegt(\n df, y=\"y\", group=\"unit\", time=\"time\", treatment=\"treated\",\n n_boot=20, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -63237,7 +63237,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.drdid(df, y=\"y\", group=\"d\", time=\"t\", covariates=[\"age\",\"edu\"])",
+    "example": "df = sp.datasets.castle_doctrine().query(\"year in (2005, 2006)\")\ndf = df[df.effyear.isna() | (df.effyear == 2006)].copy()\ndf[\"post\"] = (df.year == 2006).astype(int)\ndf[\"d\"] = df.effyear.notna().astype(int)\nr = sp.drdid(df, y=\"l_homicide\", group=\"d\", time=\"post\", id=\"sid\")",
     "failure_modes": [
       {
         "alternative": "trimming",
@@ -63459,7 +63459,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.03"
     },
-    "example": "sp.sun_abraham(df, y=\"y\", g=\"first_treat\", t=\"year\", i=\"unit\")",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.sun_abraham(df, y=\"l_homicide\", g=\"effyear\", t=\"year\", i=\"sid\")",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -63759,7 +63759,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.fect(df, y=\"y\", treat=\"d\", unit=\"id\", time=\"t\", method=\"ife\", r=2, vce=\"bootstrap\", seed=0)",
+    "example": "df = sp.dgp_did(staggered=True, seed=0)\nr = sp.fect(\n df, y=\"y\", treat=\"treated\", unit=\"unit\", time=\"time\", method=\"fe\",\n)",
     "failure_modes": [
       {
         "alternative": "did_imputation",
@@ -64082,7 +64082,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.did_imputation(df, y=\"y\", group=\"i\", time=\"t\", first_treat=\"g_first\")",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.did_imputation(\n df, y=\"l_homicide\", group=\"sid\", time=\"year\",\n first_treat=\"effyear\",\n)",
     "failure_modes": [
       {
         "alternative": "did_multiplegt",
@@ -64842,7 +64842,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.001"
     },
-    "example": "sp.wooldridge_did(df, y=\"y\", group=\"i\", time=\"t\", first_treat=\"g\")",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.wooldridge_did(\n df, y=\"l_homicide\", group=\"sid\", time=\"year\",\n first_treat=\"effyear\",\n)",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -65024,7 +65024,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.001"
     },
-    "example": "sp.etwfe(df, y=\"y\", group=\"i\", time=\"t\", first_treat=\"g\")",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.etwfe(\n df, y=\"l_homicide\", group=\"sid\", time=\"year\",\n first_treat=\"effyear\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.honest_did",
@@ -65499,7 +65499,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.bacon_decomposition(df, y=\"y\", treat=\"d\", time=\"t\", id=\"i\")",
+    "example": "df = sp.datasets.castle_doctrine()\ndf[\"d\"] = (df.year >= df.effyear).astype(int)\nr = sp.bacon_decomposition(\n df, y=\"l_homicide\", treat=\"d\", time=\"year\", id=\"sid\",\n)",
     "failure_modes": [
       {
         "alternative": "did_multiplegt",
@@ -65820,7 +65820,7 @@
       ],
       "tolerance": "rel_est<=1e-06"
     },
-    "example": "sp.stacked_did(df, y=\"y\", group=\"i\", time=\"t\", first_treat=\"g\", window=(-4, 4))",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.stacked_did(\n df, y=\"l_homicide\", group=\"sid\", time=\"year\",\n first_treat=\"effyear\", window=(-3, 3),\n)",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -66076,7 +66076,7 @@
       ],
       "tolerance": "rel_est<=1e-09, rel_se<=1e-09"
     },
-    "example": "sp.event_study(df, y=\"y\", treat_time=\"g\", time=\"t\", unit=\"i\", window=(-3, 3))",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.event_study(\n df, y=\"l_homicide\", treat_time=\"effyear\", time=\"year\", unit=\"sid\",\n window=(-3, 3),\n)",
     "failure_modes": [
       {
         "alternative": "sun_abraham",
@@ -67863,7 +67863,7 @@
       ],
       "tolerance": "rel_est<=1e-06"
     },
-    "example": "sp.did_multiplegt_dyn(df, y=\"y\", group=\"i\", time=\"t\", treatment=\"d\", placebo=2, dynamic=4)",
+    "example": "df = sp.dgp_did(staggered=True, seed=0)\nr = sp.did_multiplegt_dyn(\n df, y=\"y\", group=\"unit\", time=\"time\", treatment=\"treated\",\n placebo=2, dynamic=2,\n)",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -68656,7 +68656,7 @@
       ],
       "tolerance": "rel_est<=1e-10, rel_se<=1e-10"
     },
-    "example": "sp.lp_did(df, y=\"y\", unit=\"i\", time=\"t\", treatment=\"d\", horizons=(-3, 5))",
+    "example": "df = sp.dgp_did(staggered=True, seed=0)\nr = sp.lp_did(\n df, y=\"y\", unit=\"unit\", time=\"time\", treatment=\"treated\",\n horizons=(-3, 3),\n)",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -70699,7 +70699,7 @@
       ],
       "tolerance": "1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14)"
     },
-    "example": "sp.aipw(df, y=\"wage\", treat=\"trained\", covariates=[\"age\", \"edu\"])",
+    "example": "df = sp.dgp_observational(seed=0)\nr = sp.aipw(\n df, y=\"y\", treat=\"treatment\", covariates=[\"x1\", \"x2\"], seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "overlap_weights",
@@ -70911,7 +70911,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.aggte(cs_result, type=\"dynamic\")",
+    "example": "df = sp.datasets.castle_doctrine()\ncs = sp.callaway_santanna(\n df, y=\"l_homicide\", g=\"effyear\", t=\"year\", i=\"sid\",\n)\nr = sp.aggte(cs, type=\"dynamic\")",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -74734,7 +74734,7 @@
       ],
       "tolerance": "1e-12 rel vs psacalc (observed 4.4e-14); 5e-7 abs vs robomit (it rounds to 6 dp)"
     },
-    "example": "sp.oster_bounds(df, y=\"wage\", treat=\"college\", controls=[\"age\", \"edu\"], delta=1.0)",
+    "example": "df = sp.cps_wage()\nr = sp.oster_bounds(\n df, y=\"log_wage\", treat=\"union\",\n controls=[\"education\", \"experience\"], delta=1.0,\n)",
     "failure_modes": [
       {
         "alternative": "evalue",
@@ -75245,7 +75245,7 @@
       ],
       "tolerance": "estimate / std.error / maximum.bias / conf.low / conf.high 1e-9 rel at fixed bandwidth; 1e-6 rel when the bandwidth and M are selected"
     },
-    "example": "sp.rd_honest(df, y=\"score\", x=\"income\", c=10000, M=0.05)",
+    "example": "df = sp.dgp_rd(seed=0)\nr = sp.rd_honest(df, y=\"y\", x=\"x\", c=0, M=1.0)",
     "failure_modes": [
       {
         "alternative": "rdrobust",
@@ -76088,7 +76088,7 @@
       ],
       "tolerance": "estimate, std.error, maximum.bias, conf.low/high rel 1e-9 at fixed h and for BME; 1e-6 when RDHonest selects h and M (optimiser)"
     },
-    "example": "sp.rd_discrete(df, y=\"earnings\", x=\"age_in_years\", c=18)",
+    "example": "df = sp.dgp_rd(seed=0)\ndf[\"xd\"] = df.x.round(1)\nr = sp.rd_discrete(df, y=\"y\", x=\"xd\", c=0)",
     "failure_modes": [
       {
         "alternative": "sp.rd_honest",
@@ -76302,7 +76302,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "res = sp.interflex(df, y=\"Y\", d=\"D\", x=\"X\",\n estimator=\"binning\") # doctest: +SKIP",
+    "example": "df = sp.dgp_rct(seed=0)\nr = sp.interflex(df, y=\"y\", d=\"treatment\", x=\"x1\", estimator=\"binning\")",
     "failure_modes": [
       {
         "exception": "(none -- informational)",
@@ -76572,7 +76572,7 @@
       ],
       "tolerance": "abs_est<=1e-06, abs_se<=1e-06"
     },
-    "example": "sensitivity = sp.honest_did(r, e=0)",
+    "example": "df = sp.datasets.castle_doctrine()\ncs = sp.callaway_santanna(\n df, y=\"l_homicide\", g=\"effyear\", t=\"year\", i=\"sid\",\n)\nr = sp.honest_did(sp.aggte(cs, type=\"dynamic\"), e=0)",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -79903,7 +79903,7 @@
       ],
       "tolerance": "rel_est<=1e-06"
     },
-    "example": "bw = sp.rdbwselect(df, y='y', x='x', c=0)",
+    "example": "df = sp.datasets.lee_2008_senate()\nr = sp.rdbwselect(df, y=\"y\", x=\"x\", c=0)",
     "failure_modes": [
       {
         "alternative": "sp.rdrandinf",
@@ -81208,7 +81208,7 @@
       ],
       "tolerance": "observed statistic & asymptotic p-value 1e-8 rel (observed 2.3e-15)"
     },
-    "example": "res = sp.rdrandinf(df, y=\"y\", x=\"x\", c=0.0, wl=-0.3,\n wr=0.3, n_perms=500, seed=42)",
+    "example": "df = sp.datasets.lee_2008_senate()\nr = sp.rdrandinf(\n df, y=\"y\", x=\"x\", c=0, wl=-2.5, wr=2.5, n_perms=200, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.rdrobust",
@@ -84311,7 +84311,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "fit = sp.gsynth(panel, \"y\", \"id\", \"t\", treat=\"d\", n_factors=1,\n inference=\"none\")",
+    "example": "df = sp.dgp_synth(seed=0)\nr = sp.gsynth(\n df, \"y\", \"unit\", \"time\", treat=\"treated\", n_factors=1,\n inference=\"none\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.synth_sensitivity",
@@ -85117,7 +85117,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.sdid(df, y='packspercapita', unit='state',\n time='year', treat_unit='California',\n treat_time=1989)",
+    "example": "df = sp.datasets.california_prop99()\nr = sp.sdid(\n df, y=\"cigsale\", unit=\"state\", time=\"year\", treat=\"treated\",\n n_reps=50, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.synth",
@@ -86138,7 +86138,7 @@
       ],
       "tolerance": "ATT rel <= 1e-5 (observed 3.2e-7); moment gap <= 1e-10"
     },
-    "example": "result = sp.ebalance(df, y='outcome', treat='treated',\n covariates=['age', 'income', 'education'])",
+    "example": "df = sp.datasets.nsw_lalonde()\nr = sp.ebalance(\n df, y=\"re78\", treat=\"treat\",\n covariates=[\"age\", \"educ\", \"re74\", \"re75\"],\n)",
     "failure_modes": [
       {
         "alternative": "sp.trimming",
@@ -90189,7 +90189,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "res = sp.hdfe_ols(\"lwage ~ educ + exper | firm + year\", data=df,\n cluster='firm')",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.hdfe_ols(\n \"l_homicide ~ post | sid + year\", data=df, cluster=\"sid\",\n)",
     "failure_modes": [
       {
         "alternative": "regress",
@@ -90645,7 +90645,7 @@
       ],
       "tolerance": "ATE over/exact and ATT exact: rel <= 5e-3 (R's optimiser slack). ATT over is NOT pinned to R -- CBPS's ATT gradient mis-scales the balance block by n/n_1 and stops off-stationarity; StatsPAI is asserted to attain strictly better covariate balance instead."
     },
-    "example": "result = sp.cbps(df, y='log_wage', treat='union',\n covariates=['education', 'experience', 'tenure'],\n estimand='ATT', n_bootstrap=20, seed=42)",
+    "example": "df = sp.datasets.nsw_lalonde()\nr = sp.cbps(\n df, y=\"re78\", treat=\"treat\",\n covariates=[\"age\", \"educ\", \"re74\", \"re75\"], estimand=\"ATT\",\n n_bootstrap=10, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.trimming",
@@ -93297,7 +93297,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.logit(\"union ~ education + experience\", data=df)",
+    "example": "df = sp.cps_wage()\nr = sp.logit(\"union ~ education + experience\", data=df)",
     "failure_modes": [
       {
         "alternative": "sp.regress",
@@ -93494,7 +93494,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.01"
     },
-    "example": "result = sp.probit(\"union ~ education + experience\", data=df)",
+    "example": "df = sp.cps_wage()\nr = sp.probit(\"union ~ education + experience\", data=df)",
     "failure_modes": [
       {
         "alternative": "sp.regress",
@@ -93683,7 +93683,7 @@
       ],
       "tolerance": "coefficients 5e-5 abs (observed ~1e-5; IRLS convergence)"
     },
-    "example": "result = sp.cloglog(\"union ~ education + experience\", data=df)",
+    "example": "df = sp.cps_wage()\nr = sp.cloglog(\"union ~ education + experience\", data=df)",
     "failure_modes": [
       {
         "alternative": "sp.regress",
@@ -93865,7 +93865,7 @@
       ],
       "tolerance": "coef / logLik / AIC 1e-8 abs (observed <= 5e-13); SE ~1e-3 rel"
     },
-    "example": "res = sp.glm(\"admit ~ x1 + x2\", data=df, family=\"binomial\")",
+    "example": "df = sp.cps_wage()\nr = sp.glm(\"union ~ education + experience\", data=df, family=\"binomial\")",
     "failure_modes": [
       {
         "alternative": "sp.fracreg",
@@ -94089,7 +94089,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "res = sp.poisson(\"num_awards ~ math + prog\", data=df)",
+    "example": "df = sp.datasets.castle_doctrine()\ndf[\"n_homicide\"] = (df.homicide * df.population / 1e5).round().astype(int)\nr = sp.poisson(\n \"n_homicide ~ post + unemployrt\", data=df, cluster=\"state\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.nbreg",
@@ -94277,7 +94277,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=2e-06"
     },
-    "example": "res = sp.ppmlhdfe(\"trade ~ dist + contig | origin + dest + year\",\n data=df, cluster=\"pair_id\")",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.ppmlhdfe(\n \"homicide ~ post + unemployrt | state + year\", data=df,\n cluster=\"state\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.nbreg",
@@ -95818,7 +95818,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.rddensity(df, x='score', c=0)",
+    "example": "df = sp.datasets.lee_2008_senate()\nr = sp.rddensity(df, x=\"x\", c=0)",
     "failure_modes": [
       {
         "alternative": "mccrary_test",
@@ -105478,7 +105478,7 @@
       ],
       "tolerance": "1e-10 rel on bounds and analytic variances"
     },
-    "example": "result = sp.lee_bounds(df, y='wage', treat='training',\n selection='employed', n_bootstrap=100)",
+    "example": "df = sp.datasets.nsw_dw()\ndf[\"employed\"] = (df.re78 > 0).astype(int)\nr = sp.lee_bounds(\n df, y=\"re78\", treat=\"treat\", selection=\"employed\", n_bootstrap=50,\n)",
     "failure_modes": [
       {
         "alternative": "sp.iv_bounds",
@@ -108695,7 +108695,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.05"
     },
-    "example": "result = sp.oaxaca(\n data=sp.cps_wage(), y=\"log_wage\", group=\"female\",\n x=[\"education\", \"experience\", \"tenure\"],\n reference=0, detail=True,\n)",
+    "example": "df = sp.cps_wage()\nr = sp.oaxaca(\n df, y=\"log_wage\", group=\"female\",\n x=[\"education\", \"experience\", \"tenure\"],\n)",
     "failure_modes": [
       {
         "alternative": "sp.ffl_decompose",
@@ -110197,7 +110197,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
     },
-    "example": "result = sp.mlogit('choice ~ price + income', data=df, base=0)",
+    "example": "df = sp.cps_wage()\ndf[\"edu_level\"] = (df.education >= 12).astype(int) + (df.education >= 16)\nr = sp.mlogit(\"edu_level ~ experience + female\", data=df, base=0)",
     "failure_modes": [
       {
         "alternative": "sp.regress",
@@ -110371,7 +110371,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-05"
     },
-    "example": "result = sp.ologit('satisfaction ~ income + age', data=df)",
+    "example": "df = sp.cps_wage()\ndf[\"edu_level\"] = (df.education >= 12).astype(int) + (df.education >= 16)\nr = sp.ologit(\"edu_level ~ experience + female\", data=df)",
     "failure_modes": [
       {
         "alternative": "sp.regress",
@@ -111783,7 +111783,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.liml(data=df, y='lwage', x_endog=['educ'],\n x_exog=['exper'], z=['z1', 'z2'])",
+    "example": "df = sp.datasets.card_1995()\nr = sp.liml(\n data=df, y=\"lwage\", x_endog=[\"educ\"], x_exog=[\"exper\", \"black\"],\n z=[\"nearc4\", \"nearc2\"],\n)",
     "failure_modes": [
       {
         "alternative": "sp.anderson_rubin_ci",
@@ -113403,7 +113403,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "r1 = sp.feols(\"y ~ x1\", data=df) # doctest: +SKIP",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.feols(\n \"l_homicide ~ post | sid + year\", data=df, vcov={\"CRV1\": \"sid\"},\n)",
     "failure_modes": [
       {
         "alternative": "sp.panel",
@@ -113613,7 +113613,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
     },
-    "example": "res = sp.fepois(\"y ~ x1 | firm\", data=df) # doctest: +SKIP",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.fepois(\n \"homicide ~ post | state + year\", data=df, vcov={\"CRV1\": \"state\"},\n)",
     "failure_modes": [
       {
         "alternative": "sp.regress",
@@ -113815,7 +113815,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
     },
-    "example": "res = sp.feglm(\"y ~ x1 | firm\", data=df, family=\"logit\") # doctest: +SKIP",
+    "example": "df = sp.cps_wage()\nr = sp.feglm(\n \"union ~ education + experience | female\", data=df, family=\"logit\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.fracreg",
@@ -123663,7 +123663,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "res = sp.mixed(df, y=\"y\", x_fixed=[\"x\"], group=\"school\")",
+    "example": "df = sp.dgp_panel(seed=0)\nr = sp.mixed(df, y=\"y\", x_fixed=[\"x\"], group=\"unit\")",
     "failure_modes": [
       {
         "alternative": "regress",
@@ -140861,7 +140861,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.psm(df, y='log_wage', d='union',\n X=['education', 'experience', 'tenure'])",
+    "example": "df = sp.datasets.nsw_lalonde()\nr = sp.psm(\n df, y=\"re78\", treat=\"treat\",\n covariates=[\"age\", \"educ\", \"re74\", \"re75\"],\n)",
     "failure_modes": [
       {
         "alternative": "sp.trimming",

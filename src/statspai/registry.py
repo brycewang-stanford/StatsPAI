@@ -37678,11 +37678,21 @@ def _apply_docstring_examples() -> None:
     block: 51 curated entries advertised no example to an agent while the
     call sat one ``help()`` away. Only a statement that calls the function
     is taken, and a curated example is never overwritten.
+
+    The entry points in :mod:`statspai._card_examples` get that module's
+    self-contained, tested example instead, whatever the card had.
     """
+    from ._card_examples import RUNNABLE_EXAMPLES
+
     for name, spec in list(_REGISTRY.items()):
         if name in _DOCSTRING_EXAMPLE_DONE:
             continue
         _DOCSTRING_EXAMPLE_DONE.add(name)
+        runnable = RUNNABLE_EXAMPLES.get(name)
+        if runnable is not None:
+            object.__setattr__(spec, "example", runnable.rstrip("\n"))
+            _record_scalar_source(spec, ["example"], "curated")
+            continue
         if spec.example:
             continue
         obj = _live_callable(name)

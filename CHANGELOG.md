@@ -187,6 +187,12 @@ All notable changes to StatsPAI will be documented in this file.
   `callaway_santanna` / `feols` / `rdrobust` / `dml` / `synth`.
 - MCP tools accept `detail="full"` as a spelling of `"agent"` (the fullest
   payload); it was refused as an invalid argument.
+- Agent-card examples of the 70 audited entry points run as written
+  (`statspai/_card_examples.py`): each loads a bundled dataset (the real
+  Castle Doctrine, Prop 99, LaLonde, Lee Senate and Card extracts where
+  the design fits) or a `sp.dgp_*` simulator and uses the parameter names
+  the schema lists. Before, most assumed a `df` with columns no dataset
+  has. `tests/test_card_examples.py` executes all 70.
 
 
 ### ⚠️ Correctness: `sp.rdrobust` fuzzy bandwidth with covariates
