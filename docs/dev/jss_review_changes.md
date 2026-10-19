@@ -33,11 +33,11 @@ Rules:
 
 ### 2026-10-19 — did: sp.panel_match (new export)
 
-- **Commits.** `c5b1c858` re-recorded
+- **Commits.** `aa7b26d3` re-recorded
   `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
   24, 25, 26, 27, 53, 65, 66) and
   `tests/orig_parity/results/_implementation_trace.json` (module 08);
-  `8cfca4a3` re-recorded `tests/r_parity/results/_implementation_trace.json`
+  `2f8a5687` re-recorded `tests/r_parity/results/_implementation_trace.json`
   (the same modules) after a rebase.
 - **Reason.** One new import in `src/statspai/__init__.py`
   (`sp.panel_match`), which those modules execute. No estimation code on
