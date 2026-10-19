@@ -333,8 +333,24 @@ class CoxResult(EconometricResults):
             ``'hazard'`` — baseline cumulative hazard,
             ``'hr'`` — hazard ratio forest plot.
         ax : matplotlib.Axes, optional
+        type : str, optional
+            Alias of ``kind`` (the spelling other result classes use).
         """
         import matplotlib.pyplot as plt
+
+        if "type" in kwargs:
+            # ``type=`` used to fall into **kwargs and be handed to
+            # matplotlib, so an unknown value silently drew the survival
+            # curve.
+            kind = kwargs.pop("type")
+            if kind == "auto":
+                kind = "survival"
+        if kind not in ("survival", "hazard", "hr"):
+            raise MethodIncompatibility(
+                f"Unknown kind={kind!r}. Use 'survival', 'hazard', or 'hr'.",
+                recovery_hint="Pass kind='survival', 'hazard' or 'hr'.",
+                diagnostics={"kind": kind},
+            )
 
         if ax is None:
             fig, ax = plt.subplots(figsize=kwargs.pop("figsize", (7, 4)))

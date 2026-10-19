@@ -43,6 +43,15 @@ class RKDResult(CausalResult):
         return _rkd_summary(self, alpha)
 
     def plot(self, type: str = "main", **kwargs: Any) -> Any:
+        if type not in ("main", "auto"):
+            # ``type`` used to be ignored, so any value drew the main plot.
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"plot(type={type!r}) is not a plot an RKD result can draw.",
+                recovery_hint="Use type='main' (or 'auto').",
+                diagnostics={"type": type},
+            )
         return _rkd_plot(self, **kwargs)
 
 

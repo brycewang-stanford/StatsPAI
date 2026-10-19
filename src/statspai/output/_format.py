@@ -39,6 +39,7 @@ __all__ = [
     "resolve_digits",
     "format_frame",
     "format_pvalue",
+    "booktabs_rules",
     "is_missing",
     "AUTO",
     "AUTO_PREFIX",
@@ -640,3 +641,24 @@ def fmt_int(value: Any) -> str:
         return f"{int(round(float(value))):,}"
     except (TypeError, ValueError):
         return ""
+
+
+def booktabs_rules(latex: str) -> str:
+    """Swap ``\\hline`` rules for ``booktabs`` ones in a rendered table.
+
+    The first rule line becomes ``\\toprule``, the last ``\\bottomrule``
+    and every rule in between ``\\midrule`` (a doubled ``\\hline\\hline``
+    counts as one rule). Needs ``\\usepackage{booktabs}``.
+    """
+    lines = latex.split("\n")
+    rule_idx = [
+        i for i, ln in enumerate(lines) if ln.strip() in ("\\hline", "\\hline\\hline")
+    ]
+    if not rule_idx:
+        return latex
+    for i in rule_idx:
+        lines[i] = "\\midrule"
+    lines[rule_idx[0]] = "\\toprule"
+    if len(rule_idx) > 1:
+        lines[rule_idx[-1]] = "\\bottomrule"
+    return "\n".join(lines)

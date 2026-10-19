@@ -844,7 +844,7 @@ class RegtableResult:
             k
             for k in keys
             if any(m.stats.get(_STAT_ALIASES.get(k, k)) is not None for m in models)
-        ] or ["N"]
+        ]
 
     def _resolve_stat_keys(self) -> List[str]:
         available = {k for p in self.panels for m in p.models for k in m.stats}
@@ -1958,6 +1958,7 @@ class RegtableResult:
         siunitx: bool = False,
         threeparttable: bool = False,
         siunitx_preamble: bool = False,
+        booktabs: bool = False,
     ) -> str:
         """Render the table as a LaTeX ``table`` float.
 
@@ -1975,6 +1976,10 @@ class RegtableResult:
             ``tablenotes`` block (requires ``\\usepackage{threeparttable}``).
         siunitx_preamble : bool, default False
             Prepend a comment line listing the required ``\\usepackage`` lines.
+        booktabs : bool, default False
+            Draw ``\\toprule`` / ``\\midrule`` / ``\\bottomrule`` instead of
+            ``\\hline`` (requires ``\\usepackage{booktabs}``). The default
+            keeps the plain rules, which compile without extra packages.
         """
         all_models = self._all_models_flat()
         n_cols = len(all_models) + 1
@@ -2245,7 +2250,12 @@ class RegtableResult:
                 )
             lines.append("\\end{tabular}")
         lines.append("\\end{table}")
-        return "\n".join(lines)
+        out = "\n".join(lines)
+        if booktabs:
+            from ._format import booktabs_rules
+
+            out = booktabs_rules(out)
+        return out
 
     # ═══════════════════════════════════════════════════════════════════════
     # Markdown

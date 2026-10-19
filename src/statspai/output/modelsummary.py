@@ -49,7 +49,7 @@ Migration notes
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -367,6 +367,7 @@ def coefplot(
     colors: Optional[List[str]] = None,
     title: Optional[str] = None,
     alpha: float = 0.05,
+    drop: Optional[Sequence[str]] = None,
 ) -> Any:
     """
     Forest plot comparing coefficients across models.
@@ -384,10 +385,20 @@ def coefplot(
     title : str, optional
     alpha : float
         Significance level for CIs.
+    drop : sequence of str, optional
+        Coefficients to leave out, as Stata ``coefplot, drop(_cons)``:
+        ``drop=["Intercept"]``. Like Stata's ``coefplot``, the intercept is
+        plotted unless dropped.
 
     Returns
     -------
     (fig, ax)
+
+    Notes
+    -----
+    Coefficients of models on different scales (OLS slopes, logit
+    log-odds, Poisson log-rates) are not comparable on one axis; a
+    ``UserWarning`` names the scales when the models mix them.
 
     Examples
     --------
@@ -430,6 +441,7 @@ def coefplot(
     z_crit = sp_stats.norm.ppf(1 - alpha / 2)
 
     coef_data = [_extract_coefs(m) for m in models]
+    _warn_mixed_scales(models, model_names)
 
     # Variables to plot
     if variables is None:
@@ -437,6 +449,9 @@ def coefplot(
         for cd in coef_data:
             all_v.update(cd.keys())
         variables = sorted(all_v)
+    if drop:
+        dropped = set(drop)
+        variables = [v for v in variables if v not in dropped]
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -491,6 +506,42 @@ def coefplot(
     fig.tight_layout()
 
     return fig, ax
+
+
+def _coef_scale(model: Any) -> str:
+    """The scale a model's coefficients live on, for the mixed-axis warning."""
+    mi = getattr(model, "model_info", {}) or {}
+    if not isinstance(mi, dict):
+        return "linear"
+    link = str(mi.get("link") or "").lower()
+    family = str(mi.get("family") or "").lower()
+    mtype = str(mi.get("model_type") or "").lower()
+    text = " ".join((link, family, mtype))
+    if "logit" in text or (family == "binomial" and link in ("", "logit")):
+        return "log-odds (logit)"
+    if "probit" in text:
+        return "probit index"
+    if "poisson" in text or "negative binomial" in text or "negbin" in text:
+        return "log rate (count model)"
+    if link == "log":
+        return "log link"
+    if "cox" in text:
+        return "log hazard ratio"
+    return "linear"
+
+
+def _warn_mixed_scales(models: Sequence[Any], names: Sequence[str]) -> None:
+    scales = {name: _coef_scale(m) for m, name in zip(models, names)}
+    if len(set(scales.values())) > 1:
+        detail = ", ".join(f"{n}: {sc}" for n, sc in scales.items())
+        warnings.warn(
+            "coefplot puts coefficients on different scales on one axis "
+            f"({detail}); they are not comparable. Plot them separately, or "
+            "convert to a common scale (e.g. sp.margins / average marginal "
+            "effects) first.",
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 def _coefplot_tikz_escape(s: str) -> str:

@@ -1510,13 +1510,15 @@ class EconometricResults:
         siunitx: bool = False,
         threeparttable: bool = False,
         siunitx_preamble: bool = False,
+        booktabs: bool = False,
         **kwargs: Any,
     ) -> str:
         """Render the regression result as a publication-quality LaTeX table.
 
         A thin wrapper over :func:`~statspai.output.regtable` (single
-        column).  Produces a ``booktabs``-style ``\\begin{table}`` float with
-        significance stars and standard errors in parentheses.
+        column).  Produces a ``\\begin{table}`` float with significance
+        stars and standard errors in parentheses; ``booktabs=True`` draws
+        ``\\toprule`` / ``\\midrule`` / ``\\bottomrule`` rules.
 
         Parameters
         ----------
@@ -1535,6 +1537,9 @@ class EconometricResults:
             (requires ``\\usepackage{threeparttable}``).
         siunitx_preamble : bool, default False
             Prepend a comment listing the required ``\\usepackage`` lines.
+        booktabs : bool, default False
+            ``booktabs`` rules instead of ``\\hline`` (requires
+            ``\\usepackage{booktabs}``).
         **kwargs
             Forwarded to :func:`~statspai.output.regtable` — e.g.
             ``coef_labels``, ``keep``, ``drop``, ``order``, ``stats``,
@@ -1565,6 +1570,7 @@ class EconometricResults:
                 siunitx=siunitx,
                 threeparttable=threeparttable,
                 siunitx_preamble=siunitx_preamble,
+                booktabs=booktabs,
             ),
         )
         if label:
@@ -1639,6 +1645,23 @@ class EconometricResults:
         """
         self._as_regtable(title=caption, **kwargs).to_word(path)
         return path
+
+    def plot(self, type: str = "auto", **kwargs: Any) -> Any:
+        """Coefficient plot of this fit (``sp.coefplot``).
+
+        ``type`` is ``'auto'`` or ``'coefplot'``; ``**kwargs`` go to
+        :func:`statspai.coefplot` (``variables=``, ``drop=["Intercept"]``,
+        ``alpha=``, ``ax=`` ...). Returns ``(fig, ax)``.
+        """
+        if type not in ("auto", "coefplot"):
+            raise MethodIncompatibility(
+                f"plot(type={type!r}) is not a plot this result can draw.",
+                recovery_hint="Use type='auto' or 'coefplot'.",
+                diagnostics={"type": type},
+            )
+        from ..output.modelsummary import coefplot
+
+        return coefplot(self, **kwargs)
 
     # ------------------------------------------------------------------
     # Agent-native serialisation
@@ -4092,12 +4115,16 @@ class CausalResult:
             lines.append("")
 
         # Pre-trend test
-        if "pretrend_test" in self.model_info:
-            pt = self.model_info["pretrend_test"]
+        # ``None`` when no test was run (``pretest='none'``, or an event
+        # window without leads); summary() used to crash subscripting it.
+        pt = self.model_info.get("pretrend_test")
+        if isinstance(pt, dict) and "statistic" in pt and "pvalue" in pt:
+            dof = pt.get("df")
+            label = f"chi2({dof})" if dof is not None else "chi2"
             lines.append("-" * 78)
             lines.append(
-                f"  Pre-trend Test: chi2({pt['df']}) = {pt['statistic']:.4f}, "
-                f"p-value = {pt['pvalue']:.4f}"
+                f"  Pre-trend Test: {label} = {float(pt['statistic']):.4f}, "
+                f"p-value = {float(pt['pvalue']):.4f}"
             )
             lines.append("")
 
@@ -4452,10 +4479,13 @@ class CausalResult:
         ----------
         type : str
             'auto' (recommended), 'event_study', 'coefplot',
-            'trajectory', 'gap', 'both', 'weights', 'placebo',
-            'placebo_gap', 'conformal', 'staggered', 'factors',
-            'balance', 'density', 'original', 'pointwise',
-            'cumulative', 'all'.
+            'trajectory', 'gap', 'both' (alias 'synth'), 'weights',
+            'placebo', 'placebo_gap', 'placebo_dist', 'conformal',
+            'staggered', 'factors', 'loadings', 'compare', 'balance',
+            'density' (``sp.rddensity``), 'original', 'pointwise',
+            'cumulative', 'all', and for neural estimators 'cate', 'ite',
+            'effects', 'propensity', 'overlap', 'loss'. Any other value
+            raises ``MethodIncompatibility`` (it used to draw a coefplot).
 
         Returns
         -------
@@ -4473,9 +4503,15 @@ class CausalResult:
         - Matching → Love plot (covariate balance)
         - Neural causal estimators → CATE distribution
         - RD → coefplot (use ``rdplot()`` for binned scatter)
+        - ``sp.rddensity`` → the two boundary densities with their
+          intervals (use ``sp.rdplotdensity(data, x)`` for the curves)
         - Other → coefplot
         """
         method_lower = self.method.lower()
+        if type == "synth":
+            type = "both"
+        _impact_types = {"original", "pointwise", "cumulative", "all"}
+        _neural_types = {"cate", "ite", "effects", "propensity", "overlap", "loss"}
 
         # All synth-related plot types handled by unified synthplot
         _synth_types = {
@@ -4492,6 +4528,23 @@ class CausalResult:
             "loadings",
             "compare",
         }
+
+        _valid = (
+            {"auto", "event_study", "coefplot", "balance", "density"}
+            | _synth_types
+            | _impact_types
+            | _neural_types
+        )
+        if type not in _valid:
+            raise MethodIncompatibility(
+                f"plot(type={type!r}) is not a plot this result can draw.",
+                recovery_hint=(
+                    "Use type='auto' or one of: " + ", ".join(sorted(_valid)) + "."
+                ),
+                diagnostics={"type": type},
+            )
+        if type == "density" or (type == "auto" and self._is_density_test()):
+            return self._density_test_plot(**kwargs)
 
         if type == "auto":
             # Event study (DID)
@@ -4538,7 +4591,7 @@ class CausalResult:
             from ..synth.plots import synthplot
 
             return synthplot(self, type=type, **kwargs)
-        if type in ("original", "pointwise", "cumulative", "all"):
+        if type in _impact_types:
             from ..causal_impact.impact import impactplot
 
             return impactplot(self, type=type, **kwargs)
@@ -4546,11 +4599,68 @@ class CausalResult:
             from ..matching.match import balanceplot
 
             return balanceplot(self, **kwargs)
-        if type in ("cate", "ite", "effects", "propensity", "overlap", "loss"):
+        if type in _neural_types:
             from ..neural_causal.plots import neural_causal_plot
 
             return neural_causal_plot(self, type=type, **kwargs)
         return self._coefplot(**kwargs)
+
+    def _is_density_test(self) -> bool:
+        mi = self.model_info
+        return all(
+            k in mi for k in ("density_left", "density_right", "se_left", "se_right")
+        )
+
+    def _density_test_plot(
+        self,
+        ax: Any = None,
+        figsize: tuple[float, float] = (6, 5),
+        **kwargs: Any,
+    ) -> Any:
+        """Boundary densities of a manipulation test, each with its interval.
+
+        The headline of ``sp.rddensity`` is a T statistic while its ``ci`` is
+        on the density-difference scale, so the generic coefplot drew an
+        error bar from a point outside its own interval and matplotlib
+        raised "'yerr' must not contain negative values".
+        """
+        if not self._is_density_test():
+            raise MethodIncompatibility(
+                "plot(type='density') needs a density-test result " "(sp.rddensity).",
+                recovery_hint="Use type='auto' for this result.",
+            )
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError("matplotlib required for plotting")
+
+        mi = self.model_info
+        crit = float(_scipy_stats().norm.ppf(1 - self.alpha / 2))
+        if ax is None:
+            fig, ax = plt.subplots(figsize=figsize)
+        else:
+            fig = ax.get_figure()
+        for pos, side in ((-0.5, "left"), (0.5, "right")):
+            f = float(mi[f"density_{side}"])
+            se = float(mi[f"se_{side}"])
+            ax.errorbar(
+                pos,
+                f,
+                yerr=crit * se if np.isfinite(se) and se >= 0 else None,
+                fmt="o",
+                color="#2C3E50",
+                capsize=5,
+                markersize=8,
+            )
+        ax.set_xlim(-1.2, 1.2)
+        ax.set_xticks([-0.5, 0.5])
+        ax.set_xticklabels(["below cutoff", "above cutoff"])
+        ax.set_ylabel("Density at the cutoff")
+        ax.set_title(f"{self.method}: T = {self.estimate:.3f}, p = {self.pvalue:.3f}")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        fig.tight_layout()
+        return fig, ax
 
     def _is_synth_result(self) -> bool:
         """Check if this result is from any synthetic control variant."""
@@ -4606,15 +4716,24 @@ class CausalResult:
         else:
             fig = ax.get_figure()
 
-        ax.errorbar(
-            0,
-            self.estimate,
-            yerr=[[self.estimate - self.ci[0]], [self.ci[1] - self.estimate]],
-            fmt="o",
-            color="#2C3E50",
-            capsize=5,
-            markersize=8,
-        )
+        lo, hi = (float(v) for v in self.ci)
+        est = float(self.estimate)
+        if np.isfinite(lo) and np.isfinite(hi) and lo <= est <= hi:
+            ax.errorbar(
+                0,
+                est,
+                yerr=[[est - lo], [hi - est]],
+                fmt="o",
+                color="#2C3E50",
+                capsize=5,
+                markersize=8,
+            )
+        else:
+            # An interval that does not contain the estimate (a different
+            # scale, or a set-valued CI) cannot be drawn as an error bar.
+            ax.plot([0], [est], "o", color="#2C3E50", markersize=8)
+            if np.isfinite(lo) and np.isfinite(hi):
+                ax.vlines(0, lo, hi, color="#2C3E50")
         ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
         ax.set_xlim(-1, 1)
         ax.set_xticks([0])
@@ -4864,6 +4983,7 @@ class CausalResult:
         label: Optional[str] = None,
         digits: Optional[int] = None,
         fmt: Union[str, int, None] = None,
+        booktabs: bool = False,
     ) -> str:
         """Generate a LaTeX table of the results.
 
@@ -4886,12 +5006,17 @@ class CausalResult:
             whichever surface it leaves by. Accepts ``"%.3f"`` (printf),
             ``3`` (decimals), ``"r3"`` / ``"s3"`` (fixest spellings).
 
+        booktabs : bool, default False
+            ``\\toprule`` / ``\\midrule`` / ``\\bottomrule`` instead of the
+            default plain ``\\hline`` rules (requires
+            ``\\usepackage{booktabs}``).
+
         Notes
         -----
         The table body is wrapped in a ``threeparttable`` environment so the
         ``tablenotes`` block below the tabular is valid LaTeX; the rendered
-        source therefore requires ``\\usepackage{threeparttable}`` (and
-        ``booktabs`` is not needed — plain ``\\hline`` rules are used).
+        source therefore requires ``\\usepackage{threeparttable}`` (and,
+        by default, not ``booktabs`` — plain ``\\hline`` rules are used).
         """
         # A caller-supplied caption passes through verbatim — it may hold
         # deliberate LaTeX ($\beta$, \citet{...}). Only the auto-generated
@@ -5000,6 +5125,10 @@ class CausalResult:
             "\\end{table}",
         ]
         latex = "\n".join(lines)
+        if booktabs:
+            from ..output._format import booktabs_rules
+
+            latex = booktabs_rules(latex)
         if path is not None:
             from pathlib import Path
 
