@@ -526,6 +526,15 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.power("simulation", n=, dgp=, estimator=, n_sims=, seed=, term=)`:
   Monte Carlo power, bias, RMSE and coverage (with Monte Carlo standard
   errors) of any estimator on a user data-generating process.
+- `sp.westfall_young` checked against Stata `wyoung, permute()` (Reif,
+  SSC): coefficients, HC1 / CR1 t-statistics and analytic p-values agree to
+  1e-12 on a stratified and a cluster-randomized design; the adjusted
+  p-values (exact here, 20,000 draws in wyoung) agree within Monte Carlo
+  error (`tests/reference_parity/test_westfall_young_wyoung_parity.py`).
+  `sp.from_stata` translates the permutation form of `wyoung` (robust or
+  clustered `regress`, stratum effects exactly when `strata()` is given)
+  and refuses the bootstrap form, classical SEs, `subgroup()` and
+  `controls()` with the reason.
 - `sp.power("ttest" | "twomeans" | "onemean" | "pairedmeans", ...)` routes
   to `sp.power_ttest`; `sp.power` accepts `delta=` for `effect_size=`, and
   `sp.power_ttest` accepts `effect_size=`, `power_target=` and `sigma=` for
