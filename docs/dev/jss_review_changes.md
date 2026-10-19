@@ -4372,6 +4372,13 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 - **Commits.** `63726d7d`.
 - **Reason.** Registering `sp.xtpcse` in `statspai/__init__.py` touches the
+### 2026-10-19 — trace re-records for the export of the data layer
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `1804c446`.
+- **Reason.** Exporting `sp.xtset` / `sp.lag` / `sp.lead` / `sp.diff` /
+  `sp.reshape` / `sp.collapse` from `statspai/__init__.py` touches the
   traced paths of modules 03, 13, 15, 24-27, 53, 65, 66 and original-data
   module 08; their traces were re-recorded.
 - **Effect on the paper.** None; no estimate changes.
