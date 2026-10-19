@@ -52,6 +52,8 @@ from ._core import normalize_se_method as _normalize_se_method
 from ._core import parallel_trends_block as _pt_block
 from ._core import require_bool as _require_bool
 from ._core import weight_influence as _weight_influence
+from ._validate import inference_note as _inference_note
+from ._validate import require_constant_cohort as _require_constant_cohort
 
 #: Below this many treated clusters the cluster-robust and multiplier-
 #: bootstrap variances over-reject whatever the total cluster count
@@ -695,6 +697,10 @@ def callaway_santanna(
         columns=[y, t, i, *(x or [])],
         function="callaway_santanna",
     )
+    if panel:
+        # R `did` stops on a cohort that varies within a unit; the reshape
+        # below would otherwise keep each unit's first row only.
+        _require_constant_cohort(data, unit=i, cohort=g, function="callaway_santanna")
     balance_info: Optional[Dict[str, Any]] = None
     if balance == "full":
         data, balance_info = _balance_full(data, i, t)
@@ -1167,6 +1173,7 @@ def callaway_santanna(
         "clustervars": clustervars,
         "bstrap": bstrap,
         "se_method": "multiplier" if bstrap else "analytic",
+        "inference_note": _inference_note(bstrap, cband),
         "biters": biters if bstrap else 0,
         "cband": cband,
         "boot_weight_type": boot_weight_type if bstrap else None,
@@ -3431,6 +3438,7 @@ def _callaway_santanna_rcs(
         # Private plumbing for sp.influence_functions. Under the unbalanced
         # fold a row is a unit; for a true RCS it is an observation.
         "se_method": "multiplier" if bstrap else "analytic",
+        "inference_note": _inference_note(bstrap, cband),
         "crit_val_uniform": crit_val_uniform,
         "_cluster_ids": rc_cluster_ids,
         # Row cohort / period of a true repeated cross-section (influence

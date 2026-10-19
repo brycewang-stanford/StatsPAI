@@ -28,6 +28,10 @@ from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
+from ._validate import drop_always_treated as _drop_always_treated
+from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
+from ._validate import require_constant_cohort as _require_constant_cohort
+from ._validate import warn_few_treated_clusters as _warn_few_treated_clusters
 
 
 @records_call("stacked_did")
@@ -244,6 +248,7 @@ def stacked_did(
         event_id, treated, event_time = "_ev_id", "_ev_treated", "_ev_time"
     else:
         n_events_dropped = None
+    always_treated = None
 
     prebuilt = event_id is not None
     if prebuilt:
@@ -290,6 +295,19 @@ def stacked_did(
             raise MethodIncompatibility(
                 "first_treat is required unless event_id is given.",
                 recovery_hint="Pass first_treat=, or a pre-built stack via event_id=.",
+            )
+        # Shared staggered-panel checks: one cohort per unit, repeated
+        # (unit, period) rows flagged, and cohorts treated from the first
+        # period (no pre-treatment row, so no reference period) left out.
+        if events is None:
+            _require_constant_cohort(
+                df, unit=group, cohort=first_treat, function="stacked_did"
+            )
+            _duplicate_unit_period_rows(
+                df, unit=group, time=time, function="stacked_did"
+            )
+            df, always_treated = _drop_always_treated(
+                df, unit=group, time=time, cohort=first_treat, function="stacked_did"
             )
         # ── Normalize first_treat ────────────────────────────────────── #
         ft = df[first_treat].copy().astype(float)
@@ -361,6 +379,15 @@ def stacked_did(
     n_cohorts = len(stacked["_cohort"].unique())
     n_units = stacked[group].nunique()
     n_stacked = len(stacked)
+    if cluster in stacked.columns:
+        _warn_few_treated_clusters(
+            stacked,
+            treated_rows=(
+                (stacked["_treated_unit"] == 1) & (stacked["_post"] == 1)
+            ).to_numpy(),
+            cluster=cluster,
+            function="stacked_did",
+        )
 
     # ── Step 4: Estimate on stacked data ─────────────────────────── #
     # Create event-study dummies: D_k = 1(rel_time == k & treated_unit)
@@ -602,6 +629,7 @@ def stacked_did(
         "n_stacked_obs": n_stacked,
         "events": events,
         "n_events_dropped_overlap": n_events_dropped,
+        "dropped_always_treated": always_treated,
         "window": window,
         "never_treated_only": never_treated_only,
         "control_group": control_group,

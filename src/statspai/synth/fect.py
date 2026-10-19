@@ -708,7 +708,7 @@ def fect(
     tol: float = 1e-3,
     max_iter: int = 1000,
     vce: Optional[str] = None,
-    n_boot: int = 200,
+    n_boot: Optional[int] = None,
     seed: Optional[int] = None,
     alpha: float = 0.05,
     cv: bool = False,
@@ -769,8 +769,10 @@ def fect(
     vce : {None, 'bootstrap', 'jackknife'}, optional
         Resampling standard errors over units (fect ``vartype``); ``None``
         reports the point estimates only.
-    n_boot : int, default 200
-        Bootstrap replications.
+    n_boot : int, optional
+        Bootstrap replications when ``vce='bootstrap'`` (default 200,
+        fect's ``nboots``). Passing it with any other ``vce`` has no
+        effect and warns: no bootstrap runs unless ``vce='bootstrap'``.
     seed : int, optional
         Random seed for the bootstrap.
     alpha : float, default 0.05
@@ -894,6 +896,28 @@ def fect(
     force_int = _FORCE[force_key]
     if vce not in (None, "bootstrap", "jackknife"):
         raise ValueError("vce must be None, 'bootstrap', or 'jackknife'")
+    if n_boot is not None and vce != "bootstrap":
+        # Before 2026-10-19 n_boot= alone ran nothing and returned se=None
+        # without a word, which reads as "the bootstrap failed" at best.
+        warnings.warn(
+            f"fect: n_boot={n_boot!r} has no effect with vce={vce!r}; "
+            + (
+                "no standard errors are computed. Pass vce='bootstrap' to "
+                "bootstrap them (fect's se = TRUE, vartype = 'bootstrap')."
+                if vce is None
+                else "the jackknife leaves out each unit once."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+    if n_boot is None:
+        n_boot = 200
+    elif isinstance(n_boot, bool) or int(n_boot) < 1:
+        raise MethodIncompatibility(
+            f"n_boot must be a positive int, got {n_boot!r}.",
+            recovery_hint="Pass n_boot=200 (fect's nboots default) or more.",
+            diagnostics={"n_boot": repr(n_boot)},
+        )
     covs = list(covariates) if covariates else []
     check_columns(
         data,

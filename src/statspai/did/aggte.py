@@ -45,6 +45,7 @@ from ..exceptions import MethodIncompatibility
 from ._core import cohort_share_context as _cohort_share_context
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 from ._core import weight_influence as _weight_influence
+from ._validate import inference_note as _inference_note
 
 # ======================================================================
 # Public API
@@ -530,6 +531,9 @@ def aggte(
         "n_boot": n_boot if bstrap else 0,
         "random_state": random_state if bstrap else None,
         "cband": cband and type != "simple",
+        # Same comparison with R did::aggte's inherited defaults as on the
+        # att_gt result (a single overall number has no band to widen).
+        "inference_note": _inference_note(bstrap, cband or type == "simple"),
         "crit_val_uniform": float(crit_unif),
         "n_units": n_units,
         "overall_influence_function": overall_inf,

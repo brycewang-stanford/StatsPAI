@@ -38,6 +38,79 @@ All notable changes to StatsPAI will be documented in this file.
   New fixture `tests/reference_parity/test_rd_fuzzy_covs_level_R_parity.py`
   (p = 1, p = 2, cluster, hc1, cerrd, msetwo; rdrobust 4.0.0, rel 1e-6).
 
+### Staggered DiD: one set of input checks, anticipation in `sun_abraham` and `did_imputation`
+
+The 2026-10-19 audit found the staggered estimators handling the same bad
+input in different ways: a cohort column that changes within a unit gave
+three different estimates from `callaway_santanna`, `sun_abraham` and
+`did_imputation` with no warning, and a cohort treated from the first
+period gave `sun_abraham` zero standard errors. The checks now live in
+`did/_validate.py` and are shared.
+
+#### Added
+
+- `sp.sun_abraham(anticipation=, ref_p=)`: the reference period becomes
+  `-1 - anticipation` (fixest `sunab(ref.p = )`), the anticipation effects
+  are estimated and left out of the pre-trend test and the post-treatment
+  average. Matches `fixest::sunab` to 1e-11 with one or two reference
+  periods and a covariate.
+- `sp.sun_abraham(i=None)` fits repeated cross sections with cohort fixed
+  effects and HC1 standard errors, `feols(y ~ sunab(g, t) | g + t,
+  vcov = "hetero")` (1e-11).
+- `sp.did_imputation(shift=)`, Stata `did_imputation, shift()`: treatment
+  is moved `shift` periods earlier and horizons are counted from the
+  shifted date. Matches Stata 18 to 4e-8 (reghdfe's tolerance).
+- `sun_abraham` names its headline (`model_info['headline']`) and prints
+  the other aggregation next to it (`other_aggregation`): the default
+  `.estimate` is the equal-weight mean of the post-treatment event-time
+  effects, not fixest's `summary(agg = "att")`, which is
+  `aggregation='fixest_att'` and always in `model_info['att_fixest_att']`.
+- `callaway_santanna` / `aggte` results carry `model_info['inference_note']`
+  when the intervals are analytic or pointwise, saying that R
+  `did::att_gt` defaults to `bstrap = TRUE, cband = TRUE` and how to get
+  that. The defaults are unchanged.
+- `sun_abraham`, `did_imputation`, `gardner_did`, `stacked_did` and
+  `etwfe` warn (`AssumptionWarning`) when the treated observations fall in
+  fewer than ten clusters, as `callaway_santanna` already did.
+
+#### Changed
+
+- A cohort (first-treatment) column that takes more than one value within
+  a unit is refused (`MethodIncompatibility`) by `callaway_santanna`
+  (panel), `sun_abraham`, `did_imputation`, `gardner_did`, `stacked_did`
+  and `etwfe` (panel), as R `did` does. NaN, inf and 0 all mean never
+  treated and do not count as different values.
+- Several rows per (unit, period) are kept by the regression estimators
+  (the unit may be a group with individuals sampled each period, as in
+  Stata `did_imputation` and fixest) but now raise a
+  `RepeatedUnitPeriodWarning`, since an accidental many-to-one merge looks
+  the same and understates the standard errors. `callaway_santanna` still
+  refuses them.
+- `sun_abraham` with no never-treated unit raises `DataInsufficient` whose
+  hint points to `control_group='lastcohort'` / `control_cohort=`.
+- `sp.fect(n_boot=)` defaults to `None` (200 when bootstrapping); passing
+  it without `vce='bootstrap'` now warns instead of silently returning no
+  standard errors.
+
+#### Fixed
+
+- ⚠️ `sp.sun_abraham` with a cohort that has no row in the reference
+  period (treated in or before the first period of the panel): the
+  cohort's interaction cells are collinear with its own fixed effects, and
+  every post-period estimate came back with standard error 0 and p = 1,
+  with the unidentified cohort's late relative times reported as effects.
+  Such cohorts are now dropped with a warning
+  (`model_info['dropped_unidentified_cohorts']`), and the fit equals
+  `fixest::sunab` on the panel without them to 1e-11
+  (`tests/reference_parity/test_did_validation_parity.py`).
+- ⚠️ `sp.etwfe` and `sp.stacked_did` drop cohorts treated in or before the
+  first period, with a warning (`model_info['dropped_always_treated']`).
+  ETWFE's cohort x period cells for such a cohort are collinear with its
+  fixed effect and the dropped cell's treated period became a comparison
+  (on the audit panel the ATT was 2.892 with the cohort and 2.930 without;
+  R `etwfe` gives 2.86 and 2.93); a stacked sub-experiment for such a
+  cohort has no reference period.
+
 ### Singletons: the default of `fixef_rm` changes in 1.40
 
 - `sp.feols` / `sp.fepois`: `fixef_rm` defaults to `None`, which keeps

@@ -19,6 +19,30 @@ explicitly.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ staggered DiD input checks (`sun_abraham`, `etwfe`, `stacked_did`, ...)
+
+**What changed.** (1) A cohort column that varies within a unit is now an
+error in `callaway_santanna`, `sun_abraham`, `did_imputation`,
+`gardner_did`, `stacked_did` and `etwfe`; before, each estimator resolved
+it differently and silently. (2) `sun_abraham`, `etwfe` and `stacked_did`
+drop cohorts treated in or before the first period of the panel (no
+untreated row), with a warning. `sun_abraham` previously returned zero
+standard errors for such panels; `etwfe` and `stacked_did` returned
+estimates contaminated by the unidentified cohort. On panels without such
+a cohort nothing changes. (3) The regression estimators warn on repeated
+(unit, period) rows and on fewer than ten treated clusters.
+
+**What to do.** Recompute the cohort as the first treated period per unit
+(0 or NaN for never treated). To reproduce an old `etwfe` / `stacked_did`
+number on a panel with an always-treated cohort there is no switch: the
+old number depended on which collinear cell the solver dropped. If the
+repeated rows are accidental copies, drop them; if `unit` is a group with
+several individuals per period, the warning can be ignored
+(`warnings.filterwarnings("ignore", category=RepeatedUnitPeriodWarning)`,
+from `statspai.did._validate`).
+
+---
+
 ## 1.39.6 → 1.40: `sp.feols` / `sp.fepois` will drop fixed-effect singletons by default
 
 **What changes.** `fixef_rm` of `sp.feols` and `sp.fepois` defaults to

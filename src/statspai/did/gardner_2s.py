@@ -63,6 +63,9 @@ from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
+from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
+from ._validate import require_constant_cohort as _require_constant_cohort
+from ._validate import warn_few_treated_clusters as _warn_few_treated_clusters
 
 __all__ = ["gardner_did", "did_2stage"]
 
@@ -181,6 +184,7 @@ def _gardner_cluster_bootstrap(
             with warnings.catch_warnings():
                 # Already reported once for the observed sample.
                 warnings.filterwarnings("ignore", message="gardner_did: dropped")
+                warnings.filterwarnings("ignore", message="gardner_did: .* rows share")
                 r = gardner_did(
                     bd,
                     y=y,
@@ -624,6 +628,8 @@ def gardner_did(
         df[weights] = pd.to_numeric(df[weights], errors="coerce")
         subset.append(weights)
     df = df.dropna(subset=subset).reset_index(drop=True)
+    _require_constant_cohort(df, unit=group, cohort=first_treat, function="gardner_did")
+    _duplicate_unit_period_rows(df, unit=group, time=time, function="gardner_did")
     df, unidentified = _drop_unidentified_cells(df, group, time, first_treat)
 
     if cluster is None:
@@ -652,6 +658,10 @@ def gardner_did(
     t_arr = df[time].to_numpy(dtype=float)
     treated_now = np.isfinite(ft) & (ft > 0) & (t_arr >= ft)
     df["_D"] = treated_now.astype(float)
+    if vce != "none":
+        _warn_few_treated_clusters(
+            df, treated_rows=treated_now, cluster=cluster, function="gardner_did"
+        )
 
     # ── Stage 1: FE + covariate regression on untreated rows ────── #
     untreated_mask = ~treated_now

@@ -27415,7 +27415,36 @@ def _build_registry() -> None:
                     description="First-treatment period (0 = never-treated)",
                 ),
                 ParamSpec("t", "str", True, description="Time period column"),
-                ParamSpec("i", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "i",
+                    "str",
+                    False,
+                    None,
+                    "Unit identifier (unit fixed effects; default cluster). "
+                    "None reads the rows as repeated cross sections: cohort "
+                    "fixed effects and HC1 SEs, fixest feols(y ~ sunab(g, t) "
+                    "| g + t, vcov='hetero').",
+                ),
+                ParamSpec(
+                    "anticipation",
+                    "int",
+                    False,
+                    0,
+                    "Periods before g in which units may already respond. The "
+                    "reference period becomes -1 - anticipation (fixest "
+                    "ref.p); relative times -anticipation..-1 are reported as "
+                    "anticipation effects and left out of the pre-trend test "
+                    "and the post-treatment average.",
+                ),
+                ParamSpec(
+                    "ref_p",
+                    "int | list[int]",
+                    False,
+                    None,
+                    "Omitted reference relative period(s), fixest sunab's "
+                    "ref.p (int or list of int). Default -1 - anticipation; "
+                    "every value must be below -anticipation.",
+                ),
                 ParamSpec(
                     "event_window",
                     "tuple",
@@ -27565,7 +27594,14 @@ def _build_registry() -> None:
                     "estimates only.",
                     ["bootstrap", "jackknife"],
                 ),
-                ParamSpec("n_boot", "int", False, 200, "Bootstrap replications"),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    None,
+                    "Bootstrap replications when vce='bootstrap' (default "
+                    "200, fect's nboots); warns and is ignored otherwise.",
+                ),
                 ParamSpec("seed", "int", False, None, "Bootstrap seed"),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec(
@@ -27937,6 +27973,17 @@ def _build_registry() -> None:
                     "Drop treated observations whose unit or period has no "
                     "untreated observation (fixed effect not imputable) instead "
                     "of raising (Stata: autosample)",
+                ),
+                ParamSpec(
+                    "shift",
+                    "int",
+                    False,
+                    0,
+                    "Allow for anticipation (Stata did_imputation shift()): "
+                    "treatment is moved shift periods earlier and event-study "
+                    "horizons are counted from the shifted date, so with "
+                    "shift=3 horizon 1 is the effect two periods before "
+                    "actual treatment.",
                 ),
             ],
             returns="CausalResult",

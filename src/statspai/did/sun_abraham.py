@@ -55,10 +55,15 @@ from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
-from ..exceptions import ColumnNotFound, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
+from ._sa_sample import drop_unidentified_cohorts as _drop_unidentified_cohorts
+from ._sa_sample import resolve_reference_periods as _resolve_reference_periods
+from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
+from ._validate import require_constant_cohort as _require_constant_cohort
+from ._validate import warn_few_treated_clusters as _warn_few_treated_clusters
 
 # ======================================================================
 # Public API
@@ -154,6 +159,7 @@ def _sunab_pretrend_test(
     *,
     pretest: str,
     pretest_periods: Optional[int],
+    anticipation: int = 0,
 ) -> Optional[dict]:
     """Joint test that the pre-treatment IW effects are all zero.
 
@@ -181,12 +187,15 @@ def _sunab_pretrend_test(
     return one fewer than asked for. Distant leads are often estimated on
     few cohorts and drag the test toward non-rejection.
 
+    With ``anticipation=k`` the relative times ``-k..-1`` are anticipation
+    effects, not leads, and are left out of the test.
+
     Returns ``None`` when disabled or when there are no pre-periods.
     """
     if pretest == "none":
         return None
 
-    pre = sorted(e for e in combos if e < 0)
+    pre = sorted(e for e in combos if e < -anticipation)
     if pretest_periods is not None:
         # The k nearest *estimated* leads, not literally ℓ >= -k. ℓ = -1 is
         # the omitted reference here, so the estimated leads start at -2 and
@@ -297,7 +306,7 @@ def sun_abraham(
     y: str,
     g: str,
     t: str,
-    i: str,
+    i: Optional[str] = None,
     event_window: Optional[Tuple[int, int]] = None,
     control_group: str = "nevertreated",
     control_cohort: Optional[Any] = None,
@@ -310,6 +319,8 @@ def sun_abraham(
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
     window_rule: str = "report",
+    anticipation: int = 0,
+    ref_p: Optional[Any] = None,
 ) -> CausalResult:
     """
     Sun & Abraham (2021) interaction-weighted event-study estimator.
@@ -324,8 +335,25 @@ def sun_abraham(
         Cohort variable: first treatment period (0 or inf = never treated).
     t : str
         Time period variable.
-    i : str
-        Unit identifier.
+    i : str, optional
+        Unit identifier; its fixed effects are absorbed and it is the
+        default cluster. ``None`` reads the rows as **repeated cross
+        sections**: cohort fixed effects replace the unit effects, which is
+        ``fixest``'s ``feols(y ~ sunab(g, t) | g + t)``, and the standard
+        errors are heteroskedasticity-robust (HC1, ``vcov='hetero'``)
+        unless ``cluster`` is given.
+
+        Cohorts with no row in the reference period(s) (treated from the
+        first period of the panel, or before it) have no untreated
+        comparison of their own: their cells are collinear with their own
+        fixed effects. They are dropped with a warning and listed in
+        ``model_info['dropped_unidentified_cohorts']``. ``fixest`` keeps
+        them and drops one collinear cell instead, which shifts the
+        estimates for every other cohort through the period effects.
+
+        Several rows per (``i``, ``t``) pair are kept (``i`` may be a group
+        with several individuals per period) with a warning, and a cohort
+        value that changes within ``i`` is refused.
     event_window : tuple of (int, int), optional
         (min_relative_time, max_relative_time).
         Default: observed range in the data. What happens to the treated
@@ -422,6 +450,17 @@ def sun_abraham(
         Failing to reject is still weak evidence — it is a statement about
         power as much as about trends. Pair it with
         :func:`statspai.honest_did` or :func:`statspai.pretrends_power`.
+    anticipation : int, default 0
+        Periods before ``g`` in which units may already respond. The
+        reference period becomes ``-1 - anticipation`` (``fixest``
+        ``sunab(..., ref.p = -1 - anticipation)``); the relative times
+        ``-anticipation..-1`` are estimated and reported as anticipation
+        effects, and are left out of the pre-trend test and of the
+        post-treatment average, which still starts at ``0``.
+    ref_p : int or sequence of int, optional
+        The omitted reference relative period(s), ``fixest``'s ``ref.p``.
+        Default ``-1 - anticipation``. Every value must lie before the
+        anticipation window (``< -anticipation``).
     pretest_periods : int, optional
         Restrict the joint test to the ``pretest_periods`` **estimated**
         leads nearest treatment, in the spirit of Stata's ``pretrends(k)``.
@@ -436,8 +475,20 @@ def sun_abraham(
     -------
     CausalResult
         ``.detail`` is the event-study table (IW ATT by relative time
-        with cluster-robust SE and 1−α CI).  ``.estimate`` / ``.se``
-        are the simple post-treatment average and its delta-method SE.
+        with cluster-robust SE and 1−α CI).
+
+        ``.estimate`` / ``.se`` depend on ``aggregation``. With the
+        default ``'event_time'`` they are the **equal-weight average of
+        the post-treatment event-time effects**, which is not the number
+        ``fixest`` reports as ``summary(m, agg = "att")``: that one weights
+        every post-treatment cohort x period cell by its size, so later
+        event times, observed for fewer cohorts, count less. Both are
+        always in ``model_info``: ``att_event_time`` / ``se_event_time``
+        and ``att_fixest_att`` / ``se_fixest_att`` (``se_fixest_att_share``
+        adds the cohort-share term, Stata ``eventstudyinteract``'s
+        ``e(V_iw)`` convention), and ``summary()`` prints the one that is
+        not the headline. Pass ``aggregation='fixest_att'`` to make the
+        cell-weighted ATT the headline.
 
     Examples
     --------
@@ -474,9 +525,14 @@ def sun_abraham(
     # wiped outcome surfaces as an error instead of a headline ATT of 0.0.
     df = _drop_unusable_rows(
         df,
-        columns=[y, t, i, *(covariates or [])],
+        columns=[y, t, *([i] if i is not None else []), *(covariates or [])],
         function="sun_abraham",
     )
+    if i is not None:
+        _require_constant_cohort(df, unit=i, cohort=g, function="sun_abraham")
+        _duplicate_unit_period_rows(df, unit=i, time=t, function="sun_abraham")
+    ref_periods = _resolve_reference_periods(anticipation, ref_p)
+    ref_set = set(ref_periods)
     if pretest not in ("joint", "none"):
         raise ValueError(f"pretest must be 'joint' or 'none', got {pretest!r}.")
     if pretest_periods is not None:
@@ -543,6 +599,21 @@ def sun_abraham(
         ref_mask = df[g] == 0
         control_cohort_label = "nevertreated"
 
+    df, cohorts, unidentified = _drop_unidentified_cohorts(
+        df,
+        g=g,
+        t=t,
+        unit=i,
+        cohorts=cohorts,
+        ref_set=ref_set,
+        outside_window_is_reference=(
+            window_rule == "reference" and event_window is not None
+        ),
+        event_window=event_window,
+    )
+    ref_mask = ref_mask.loc[df.index].reset_index(drop=True)
+    df = df.reset_index(drop=True)
+
     if not cohorts:
         raise ValueError(
             "No non-reference cohorts available for estimation"
@@ -555,13 +626,50 @@ def sun_abraham(
         )
     has_ref = bool(ref_mask.any())
     if not has_ref:
-        raise ValueError(
-            f"Reference group is empty (control_cohort={control_cohort_label})."
-            if control_cohort is not None
-            else f"Reference group is empty (control_group={control_group!r})."
+        if control_cohort is not None:
+            raise ValueError(
+                f"Reference group is empty (control_cohort={control_cohort_label})."
+            )
+        raise DataInsufficient(
+            f"sun_abraham: Reference group is empty "
+            f"(control_group={control_group!r}): "
+            + (
+                "no unit is never treated (g = 0, NaN or inf)."
+                if control_group == "nevertreated"
+                else "the last cohort has no rows."
+            ),
+            recovery_hint=(
+                "Use control_group='lastcohort' to compare against the "
+                "latest-treated cohort (drop the periods from its "
+                "treatment onward first), or name a control cohort with "
+                "control_cohort=<cohort value or 0/1 column> (Stata "
+                "eventstudyinteract's control_cohort())."
+            ),
+            diagnostics={
+                "function": "sun_abraham",
+                "control_group": control_group,
+                "cohorts": [int(c) for c in cohorts_all],
+            },
+            alternative_functions=["sp.callaway_santanna", "sp.did_imputation"],
         )
 
-    cluster_col = cluster or i
+    # Repeated cross sections: no unit, so the rows are their own clusters
+    # (HC1) unless the caller names a cluster.
+    if cluster is not None:
+        cluster_col = cluster
+    elif i is not None:
+        cluster_col = i
+    else:
+        cluster_col = "_sa_row"
+        df[cluster_col] = np.arange(len(df))
+    fe_unit = i if i is not None else g
+    if cluster_col != "_sa_row":
+        _warn_few_treated_clusters(
+            df,
+            treated_rows=(df[g].isin(cohorts) & (df[t] >= df[g])).to_numpy(),
+            cluster=cluster_col,
+            function="sun_abraham",
+        )
 
     # Relative time (NaN for reference observations)
     df["_rel_time"] = np.where(df[g] > 0, df[t] - df[g], np.nan)
@@ -578,29 +686,30 @@ def sun_abraham(
                 diagnostics={"event_window": repr(event_window)},
             )
 
-    # Reference relative time = -1 (CS-SA standard).
+    # Reference relative time(s): ref_p, default -1 - anticipation.
     binned = (
         window_rule == "bin"
         and event_window is not None
         and (obs_min < e_min or obs_max > e_max)
     )
     if binned:
-        if e_min > -2 or e_max < 0:
+        if e_min >= min(ref_periods) or e_max < 0:
             raise MethodIncompatibility(
                 "window_rule='bin' needs a window that keeps the reference "
-                "period out of the end bins: event_window[0] <= -2 and "
+                f"period(s) {ref_periods} out of the end bins: "
+                f"event_window[0] < {min(ref_periods)} and "
                 f"event_window[1] >= 0, got {event_window!r}.",
             )
         # "e_min or earlier" and "e_max or later"
         df["_rel_time"] = df["_rel_time"].clip(lower=e_min, upper=e_max)
-        rel_times = [e for e in range(e_min, e_max + 1) if e != -1]
+        rel_times = [e for e in range(e_min, e_max + 1) if e not in ref_set]
     elif window_rule == "report":
         # Saturate in every observed relative time; the window selects what
         # is reported. Leaving relative times out of the regression would
         # put their treated observations into the reference.
-        rel_times = [e for e in range(obs_min, obs_max + 1) if e != -1]
+        rel_times = [e for e in range(obs_min, obs_max + 1) if e not in ref_set]
     else:
-        rel_times = [e for e in range(e_min, e_max + 1) if e != -1]
+        rel_times = [e for e in range(e_min, e_max + 1) if e not in ref_set]
 
     # ----- Saturated design: 1(G=g) × 1(e=ℓ), one column per observed cell -----
     # Only cells that exist in the data are parameters. A cohort first
@@ -643,7 +752,7 @@ def sun_abraham(
     ).merge(keys, on=["_g", "_e"], how="left")
     cell = rows["_j"].fillna(-1).to_numpy(dtype=np.int64)
 
-    unit_idx = pd.Categorical(df[i])
+    unit_idx = pd.Categorical(df[fe_unit])
     time_idx = pd.Categorical(df[t])
     # Observation weights omega. Unit weights are constant within unit, but
     # the projection and the solve both work at observation level.
@@ -695,7 +804,7 @@ def sun_abraham(
     # the cluster-robust meat already absorbs it. With several non-nested
     # fixed effects, one level per additional effect is collinear and is
     # not counted (fixest's "levels minus (Q - 1)" rule).
-    k_fe = _fe_dof_not_nested(df.loc[valid], [i, t], cluster_col)
+    k_fe = _fe_dof_not_nested(df.loc[valid], [fe_unit, t], cluster_col)
     K = k + k_fe
     df_adj = (n_clust / max(n_clust - 1, 1)) * ((n - 1) / max(n - K, 1))
     V_beta = df_adj * XtX_inv @ Xu_sum @ XtX_inv
@@ -822,7 +931,12 @@ def sun_abraham(
     event_study = pd.DataFrame(es_rows)
 
     pretrend = _sunab_pretrend_test(
-        event_study, combos, V_int, pretest=pretest, pretest_periods=pretest_periods
+        event_study,
+        combos,
+        V_int,
+        pretest=pretest,
+        pretest_periods=pretest_periods,
+        anticipation=int(anticipation),
     )
 
     # ----- Overall post-treatment ATT via single linear combinations -----
@@ -915,8 +1029,22 @@ def sun_abraham(
     pvalue = float(2 * stats.norm.sf(abs(z)))
     ci = (att - z_crit * se_att, att + z_crit * se_att)
 
+    # The two post-treatment summaries answer different questions and differ
+    # by more than noise whenever effects grow with event time; name the one
+    # that is the headline and print the other next to it.
+    _alt_key = "fixest_att" if aggregation_key == "event_time" else "event_time"
+    _alt_att, _alt_se, _ = summary_stats[_alt_key]
+    headline_label = {
+        "event_time": "equal-weight mean of the post-treatment event-time effects",
+        "fixest_att": "cell-weighted ATT, fixest summary(agg = 'att')",
+    }
     model_info = {
         "estimator": "Sun-Abraham IW",
+        "headline": headline_label[aggregation_key],
+        "other_aggregation": (
+            f"{headline_label[_alt_key]}: {_alt_att:.6g} (SE {_alt_se:.6g}); "
+            f"aggregation='{_alt_key}' makes it the estimate"
+        ),
         "control_group": control_group,
         "control_cohort": control_cohort_label,
         "pretrend_test": pretrend,
@@ -941,7 +1069,18 @@ def sun_abraham(
         # terms plus the share term on the diagonal (the matrix e(V_iw))
         "vcov_event_time": _joint_event_time_vcov(combos, V_int),
         "event_times": sorted(combos),
-        "se_type": f"cluster-robust on {cluster_col}",
+        "se_type": (
+            "heteroskedasticity-robust (HC1)"
+            if cluster_col == "_sa_row"
+            else f"cluster-robust on {cluster_col}"
+        ),
+        "panel": i is not None,
+        "fixed_effects": [fe_unit, t],
+        "anticipation": int(anticipation),
+        "ref_p": list(ref_periods),
+        "dropped_unidentified_cohorts": unidentified["cohorts"],
+        "n_units_dropped_unidentified": unidentified["n_units"],
+        "n_rows_dropped_unidentified": unidentified["n_rows"],
         "n_clusters": int(n_clust),
         "n_coeffs": int(k_int),
         "share_variance": bool(share_variance),
@@ -982,6 +1121,8 @@ def sun_abraham(
                 "aggregation": aggregation,
                 "share_variance": share_variance,
                 "alpha": alpha,
+                "anticipation": anticipation,
+                "ref_p": list(ref_periods),
             },
             data=data,
             overwrite=False,

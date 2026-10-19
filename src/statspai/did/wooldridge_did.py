@@ -58,6 +58,10 @@ from ._etwfe_nonlinear import _ETWFE_GLM_FAMILIES
 from ._etwfe_nonlinear import etwfe_glm as _etwfe_glm_impl
 from ._etwfe_nonlinear import etwfe_glm_emfx as _etwfe_glm_emfx_impl
 from ._etwfe_nonlinear import normalise_scale as _normalise_etwfe_scale
+from ._validate import drop_always_treated as _drop_always_treated
+from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
+from ._validate import require_constant_cohort as _require_constant_cohort
+from ._validate import warn_few_treated_clusters as _warn_few_treated_clusters
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Helper: cluster-robust OLS
@@ -955,9 +959,28 @@ def etwfe(
             data = data.copy()
             data[first_treat] = _g_raw.where(~_late, 0.0)
 
+    # One cohort per unit, one row per (unit, period) unless the unit is a
+    # group, and no cohort without an untreated period (shared DiD checks).
+    if panel:
+        _require_constant_cohort(data, unit=group, cohort=first_treat, function="etwfe")
+        _duplicate_unit_period_rows(data, unit=group, time=time, function="etwfe")
+    data, _always_treated = _drop_always_treated(
+        data,
+        unit=group if panel else None,
+        time=time,
+        cohort=first_treat,
+        function="etwfe",
+    )
     _ft = data[first_treat].replace(0, np.nan)
     _cohorts = sorted(_ft.dropna().unique().tolist())
     _n_treated_post = int((_ft.notna() & (data[time] >= _ft)).sum())
+    if _n_treated_post:
+        _warn_few_treated_clusters(
+            data,
+            treated_rows=(_ft.notna() & (data[time] >= _ft)).to_numpy(),
+            cluster=cluster or group,
+            function="etwfe",
+        )
     if _cohorts and _n_treated_post == 0:
         raise DataInsufficient(
             "No treated post-treatment observations: every unit is either "
@@ -1113,6 +1136,8 @@ def etwfe(
             )
     if _last_cohort_ref is not None:
         _result.model_info["last_cohort_reference"] = _last_cohort_ref
+    if _always_treated is not None:
+        _result.model_info["dropped_always_treated"] = _always_treated
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 

@@ -40,6 +40,9 @@ from ._bjs_variance import bjs_se_for_target as _bjs_se
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import normalize_se_method as _normalize_se_method
+from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
+from ._validate import require_constant_cohort as _require_constant_cohort
+from ._validate import warn_few_treated_clusters as _warn_few_treated_clusters
 
 
 def _didimp_cluster_bootstrap(
@@ -53,6 +56,7 @@ def _didimp_cluster_bootstrap(
     n_boot: int,
     seed: int,
     weights: Optional[str] = None,
+    shift: int = 0,
 ) -> float:
     """Pairs-cluster bootstrap of the overall ATT for ``did_imputation``.
 
@@ -79,18 +83,23 @@ def _didimp_cluster_bootstrap(
             parts.append(sub)
         bd = pd.concat(parts, ignore_index=True)
         try:
-            r = did_imputation(
-                bd,
-                y=y,
-                group=group,
-                time=time,
-                first_treat=first_treat,
-                controls=ctrl,
-                horizon=None,
-                cluster="__bcl",
-                vce="none",
-                weights=weights,
-            )
+            # The sample checks already warned on the full data; a replicate
+            # repeating them (few treated clusters, ...) adds nothing.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                r = did_imputation(
+                    bd,
+                    y=y,
+                    group=group,
+                    time=time,
+                    first_treat=first_treat,
+                    controls=ctrl,
+                    horizon=None,
+                    cluster="__bcl",
+                    vce="none",
+                    weights=weights,
+                    shift=shift,
+                )
         except Exception:
             continue  # replicate stays NaN; bootstrap_se tracks the failure
         if np.isfinite(r.estimate):
@@ -141,6 +150,7 @@ def did_imputation(
     save_residuals: bool = False,
     weights: Optional[str] = None,
     autosample: bool = False,
+    shift: int = 0,
 ) -> CausalResult:
     """
     Borusyak, Jaravel & Spiess (2024) imputation DID estimator.
@@ -306,6 +316,16 @@ def did_imputation(
         estimation sample, with a warning and the count in
         ``model_info['n_obs_autosample_dropped']``. Typical case: units
         treated from the first period of the panel.
+    shift : int, default 0
+        Stata ``did_imputation, shift()``: allow for anticipation by
+        treating every treated unit as if treatment began ``shift``
+        periods earlier. Rows from ``first_treat - shift`` on leave the
+        untreated sample and count as treated, and event-study horizons are
+        measured from the **shifted** date, as in Stata: with ``shift=3``,
+        horizon ``1`` is the anticipation effect two periods before actual
+        treatment and horizon ``8`` is five periods after it. The overall
+        ATT averages over the anticipation periods too. Use
+        ``pretrends=`` rather than ``shift`` to test for pre-trends.
     min_n : int, optional
         Stata ``did_imputation, minn(#)``: drop event-study horizons
         with fewer than ``min_n`` treated observations (they are noisy
@@ -453,6 +473,26 @@ def did_imputation(
         function="did_imputation",
         reset_index=False,
     )
+    _require_constant_cohort(
+        df, unit=group, cohort=first_treat, function="did_imputation"
+    )
+    _duplicate_unit_period_rows(df, unit=group, time=time, function="did_imputation")
+    if isinstance(shift, bool) or not isinstance(shift, (int, np.integer)):
+        raise MethodIncompatibility(
+            f"shift must be a non-negative int, got {shift!r}.",
+            recovery_hint="Pass shift=0 (no anticipation) or a positive int.",
+            diagnostics={"shift": repr(shift)},
+        )
+    shift = int(shift)
+    if shift < 0:
+        raise MethodIncompatibility(
+            f"shift must be >= 0, got {shift}.",
+            recovery_hint=(
+                "shift moves treatment earlier to allow for anticipation; "
+                "pass a positive int, or 0 for none."
+            ),
+            diagnostics={"shift": shift},
+        )
 
     if vce not in ("analytic", "bootstrap", "none"):
         raise ValueError(f"vce must be 'analytic', 'bootstrap', or 'none'; got {vce!r}")
@@ -537,7 +577,9 @@ def did_imputation(
     ft = df[first_treat].copy().astype(float)
     ft = ft.replace(0, np.inf)
     ft = ft.fillna(np.inf)
-    df["_ft"] = ft
+    # shift(): pretend treatment began `shift` periods earlier (Stata's
+    # K = t - Ei + shift); never-treated (inf) stay never-treated.
+    df["_ft"] = ft - shift
 
     df["_treated_obs"] = df[time].astype(float) >= df["_ft"]
     df["_never_treated"] = np.isinf(df["_ft"])
@@ -626,6 +668,12 @@ def did_imputation(
 
     n_treated = df["_treated_obs"].sum()
     n_untreated = df["_untreated_obs"].sum()
+    _warn_few_treated_clusters(
+        df,
+        treated_rows=df["_treated_obs"].to_numpy(),
+        cluster=cluster,
+        function="did_imputation",
+    )
 
     if n_treated == 0:
         raise ValueError("No treated observations found. Check 'first_treat' column.")
@@ -822,6 +870,7 @@ def did_imputation(
             n_boot,
             boot_seed,
             weights=weights,
+            shift=shift,
         )
         if np.isfinite(se_boot):
             se_att = se_boot
@@ -1180,6 +1229,8 @@ def did_imputation(
     if autosample:
         model_info["autosample"] = True
         model_info["n_obs_autosample_dropped"] = n_autosample_dropped
+    if shift:
+        model_info["shift"] = shift
     if min_n is not None:
         model_info["min_n"] = min_n
     if hetby_df is not None:
@@ -1235,6 +1286,7 @@ def did_imputation(
                 "save_weights": save_weights,
                 "save_residuals": save_residuals,
                 "weights": weights,
+                "shift": shift,
             },
             data=data,
             overwrite=False,

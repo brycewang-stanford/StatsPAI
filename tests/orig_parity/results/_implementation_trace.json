@@ -78,7 +78,7 @@
    "result_sha256": "0770f9a37e8bc72e9f338d602037715ba70cb032401b8582095eebed942621b2"
   },
   "02_mpdta_original": {
-   "seconds": 0.73,
+   "seconds": 3.5,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -102,8 +102,9 @@
     "src/statspai/core/_vcov_spec.py": "7ec5770f5bcc40b91e6b6c382f5d5ec87c1ee21b9aa06f874a05b7ea7662e3a1",
     "src/statspai/core/results.py": "9b10ca0b640aadc32d1b57686f69b7812708862054c51431113c4be9e709ecb3",
     "src/statspai/did/_core.py": "dad7cb1e7567dd720c9d297ae156f0dc027dd3177d21eeb8c343145813879bbc",
-    "src/statspai/did/aggte.py": "5319fdbc4b39f39992bb2b09db91d63aaa99b555d7d3cb65f5bdb5e5819e9198",
-    "src/statspai/did/callaway_santanna.py": "04d72e751acff661e8568256b150619ed2a47115a14ddfcae8a128714392ac63",
+    "src/statspai/did/_validate.py": "6560223df00b0caf29bda2ab8b3be1193cec62469716693ca9438e8530bf8096",
+    "src/statspai/did/aggte.py": "030a990591cf7921ca448dbc01f18a33f7588fe84a9296ded1aa71d5ed58982e",
+    "src/statspai/did/callaway_santanna.py": "5e8f585c1577e72640f67d3dfb8b788e858f465d03494812182f6d7fbb1ca875",
     "src/statspai/output/_lineage.py": "2ab1741e61b80935256e3f0505f3b008258df66adfeb7c0aef36d5210cc6f3ea",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },

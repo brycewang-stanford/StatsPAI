@@ -63548,6 +63548,11 @@
             "description": "Significance level.",
             "type": "number"
           },
+          "anticipation": {
+            "default": 0,
+            "description": "Periods before g in which units may already respond. The reference period becomes -1 - anticipation (fixest ref.p); relative times -anticipation..-1 are reported as anticipation effects and left out of the pre-trend test and the post-treatment average.",
+            "type": "integer"
+          },
           "cluster": {
             "description": "Cluster variable (defaults to i)",
             "type": "string",
@@ -63599,7 +63604,7 @@
             "x-statspai-role": "column"
           },
           "i": {
-            "description": "Unit identifier",
+            "description": "Unit identifier (unit fixed effects; default cluster). None reads the rows as repeated cross sections: cohort fixed effects and HC1 SEs, fixest feols(y ~ sunab(g, t) | g + t, vcov='hetero').",
             "type": "string",
             "x-aliases": [
               "id",
@@ -63620,6 +63625,13 @@
           "pretest_periods": {
             "description": "Restrict the pre-trend test to the k estimated leads closest to treatment.",
             "type": "integer"
+          },
+          "ref_p": {
+            "description": "Omitted reference relative period(s), fixest sunab's ref.p (int or list of int). Default -1 - anticipation; every value must be below -anticipation.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
           },
           "share_variance": {
             "default": true,
@@ -63668,8 +63680,7 @@
           "data",
           "y",
           "g",
-          "t",
-          "i"
+          "t"
         ],
         "type": "object"
       }
@@ -63924,8 +63935,7 @@
             "type": "integer"
           },
           "n_boot": {
-            "default": 200,
-            "description": "Bootstrap replications",
+            "description": "Bootstrap replications when vce='bootstrap' (default 200, fect's nboots); warns and is ignored otherwise.",
             "type": "integer"
           },
           "nlambda": {
@@ -64266,6 +64276,11 @@
               "auto"
             ],
             "type": "string"
+          },
+          "shift": {
+            "default": 0,
+            "description": "Allow for anticipation (Stata did_imputation shift()): treatment is moved shift periods earlier and event-study horizons are counted from the shifted date, so with shift=3 horizon 1 is the effect two periods before actual treatment.",
+            "type": "integer"
           },
           "time": {
             "description": "Time period column",
@@ -77045,6 +77060,11 @@
             ],
             "type": "string"
           },
+          "shift": {
+            "default": 0,
+            "description": "Stata ``did_imputation, shift()``: allow for anticipation by treating every treated unit as if treatment began ``shift`` periods earlier. Rows from ``first_treat - shift`` on leave the untreated sample and count as treated, and event-study horizons are measured from the **shifted** date, as in Stata: with ``shift=3``, horizon ``1`` is the anticipation effect two periods before actual treatment and horizon ``8`` is five periods after it. The overall ATT averages over the anticipation periods too. Use ``pretrends=`` rather than ``shift`` to test for pre-trends.",
+            "type": "integer"
+          },
           "time": {
             "description": "Time period column.",
             "type": "string",
@@ -77372,6 +77392,11 @@
               "auto"
             ],
             "type": "string"
+          },
+          "shift": {
+            "default": 0,
+            "description": "Stata ``did_imputation, shift()``: allow for anticipation by treating every treated unit as if treatment began ``shift`` periods earlier. Rows from ``first_treat - shift`` on leave the untreated sample and count as treated, and event-study horizons are measured from the **shifted** date, as in Stata: with ``shift=3``, horizon ``1`` is the anticipation effect two periods before actual treatment and horizon ``8`` is five periods after it. The overall ATT averages over the anticipation periods too. Use ``pretrends=`` rather than ``shift`` to test for pre-trends.",
+            "type": "integer"
           },
           "time": {
             "description": "Time period column.",
