@@ -122,33 +122,49 @@ def _h_ivreg(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
 
 
 def _h_coxph(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
-    """``coxph(Surv(time, event) ~ x1 + strata(s), data, ties)`` -> ``sp.cox``.
+    """``coxph(Surv([start,] time, event) ~ x1 + strata(s), data, ties,
+    weights, robust, cluster, id)`` -> ``sp.cox``.
 
     Efron ties (both defaults; written out). ``robust = TRUE`` is
-    ``robust='hc0'`` (no small-sample factor in either). ``cluster`` is not
-    carried over: ``sp.cox`` multiplies by G/(G-1), as Stata's ``stcox``
-    does, and ``coxph`` does not.
+    ``robust='hc0'`` (no small-sample factor in either). ``cluster = c`` /
+    a ``cluster(c)`` term / ``id = c`` with ``robust = TRUE`` is
+    ``cluster=c, ssc='r'``: coxph's clustered variance has no G/(G-1)
+    factor. ``Surv(start, stop, event)`` is ``start=``. ``weights = w`` is
+    ``weights=w``; coxph turns the robust variance on by itself when the
+    weights are not all integers, which the translation cannot see, so
+    that case is noted (``sp.cox`` warns and takes
+    ``weights_as='sampling'``).
     """
     fml = _formula(pos, kw)
     m = re.fullmatch(
-        rf"(?:survival::)?Surv\(\s*({_NAME})\s*,\s*({_NAME})\s*\)\s*~(.*)",
+        rf"(?:survival::)?Surv\(\s*({_NAME})\s*,\s*({_NAME})\s*"
+        rf"(?:,\s*({_NAME})\s*)?\)\s*~(.*)",
         fml or "",
         re.S,
     )
     if m is None:
         return _emit_error(
-            "coxph: only `Surv(time, event) ~ x1 + ...` with column names is "
-            "translated (counting-process Surv(start, stop, event) is not).",
+            "coxph: only `Surv(time, event) ~ x1 + ...` or `Surv(start, stop, "
+            "event) ~ ...` with column names is translated.",
             command="coxph",
             suggestions=["cox"],
         )
-    duration, event, rhs = m.group(1), m.group(2), m.group(3)
+    start: Optional[str] = None
+    if m.group(3) is not None:
+        start, duration, event = m.group(1), m.group(2), m.group(3)
+    else:
+        duration, event = m.group(1), m.group(2)
+    rhs = m.group(4)
     xs: List[str] = []
     strata: List[str] = []
+    cluster_terms: List[str] = []
     for term in (t.strip() for t in rhs.split("+")):
         s = re.fullmatch(rf"strata\(\s*({_NAME})\s*\)", term)
+        c = re.fullmatch(rf"cluster\(\s*({_NAME})\s*\)", term)
         if s:
             strata.append(s.group(1))
+        elif c:
+            cluster_terms.append(c.group(1))
         elif re.fullmatch(_NAME, term):
             xs.append(term)
         else:
@@ -171,21 +187,45 @@ def _h_coxph(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
             command="coxph",
         )
     args: Dict[str, Any] = {"duration": duration, "event": event, "x": xs, "ties": ties}
+    if start is not None:
+        args["start"] = start
     if strata:
         args["strata"] = strata[0]
     read = ["formula", "ties"]
+    notes: List[str] = []
+    robust = None
     if "robust" in kw:
         read.append("robust")
-        if _true(kw["robust"]):
-            args["robust"] = "hc0"
-    notes: List[str] = []
+        robust = _true(kw["robust"])
+    cluster = _column(kw.get("cluster")) if "cluster" in kw else None
+    if "cluster" in kw:
+        read.append("cluster")
+    if cluster is None and cluster_terms:
+        cluster = cluster_terms[0]
+    if "id" in kw:
+        read.append("id")
+        if cluster is None and robust:
+            # coxph clusters the robust variance on id
+            cluster = _column(kw.get("id"))
+    w = _column(kw.get("weights")) if "weights" in kw else None
+    if w:
+        read.append("weights")
+        args["weights"] = w
+    if cluster:
+        args["cluster"] = cluster
+        args["ssc"] = "r"
+    elif robust:
+        args["robust"] = "hc0"
+    elif w and robust is False:
+        args["weights_as"] = "frequency"
+    elif w:
+        notes.append(
+            "coxph reports the robust variance by default when the weights "
+            "are not all integers (IPT / survey weights); sp.cox does so with "
+            "weights_as='sampling' and warns when it is missing."
+        )
     code = ", ".join(["data=df"] + [f"{k}={v!r}" for k, v in args.items()])
     out = _emit("cox", args, f"sp.cox({code})", notes)
-    if "cluster" in kw:
-        out["notes"].append(
-            "coxph(cluster = ) is not carried over: sp.cox's clustered "
-            "variance has Stata's G/(G-1) factor, coxph's has none."
-        )
     return _unread(out, kw, tuple(read))
 
 

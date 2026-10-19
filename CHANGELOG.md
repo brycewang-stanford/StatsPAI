@@ -51,6 +51,43 @@ All notable changes to StatsPAI will be documented in this file.
   `model_info['boot_draws']`. `inference='delta'` still refuses these
   models.
 
+### Survival: case weights, counting-process data, robust-variance conventions
+
+#### Added
+
+- `sp.cox(weights=, start=, ssc=, weights_as=)`. `weights=` fits the
+  weighted partial likelihood of R `coxph(weights=)` (each Efron term of an
+  event time carries the mean weight of its deaths); `weights_as='sampling'`
+  (Stata `[pw=]`) asks for the robust variance. `start=` takes
+  counting-process rows `(start, stop]` for delayed entry and time-varying
+  covariates (R `Surv(start, stop, event)`, Stata `stset, time0()` /
+  `enter(time v)`). `ssc='r'` gives coxph's robust / clustered variances
+  (no factor), `ssc='stata'` stcox's (`N/(N-1)` robust, `G/(G-1)`
+  clustered); not given, the old behaviour is kept. With weights or entry
+  times the concordance is computed over the risk sets, as R
+  `concordance()` does. Coefficients, SEs, log partial likelihood and
+  concordance match `coxph` to 1e-10 on 16 configurations, and `stcox` to
+  1e-7 on 8 (`tests/reference_parity/test_survival_weighted_parity.py`).
+- `sp.kaplan_meier(weights=, start=, cluster=, se_method=)`: weighted and
+  delayed-entry Kaplan-Meier with the infinitesimal-jackknife (robust)
+  variance of `survfit(robust=TRUE)`, R's default with non-integer weights
+  or a cluster. Survival, SE and intervals match `survfit` to 1e-12 on six
+  configurations.
+- `sp.stata` reads `stset t [pw=w], failure(d) time0(t0) id(i)` /
+  `enter(time t0)` for `stcox`; `stcox, vce(robust)` and `vce(cluster)` now
+  translate (`ssc='stata'`; the robust one used to be refused). `sp.from_r`
+  translates `coxph(cluster =)`, `+ cluster(id)`, `id =` with `robust =
+  TRUE`, `weights =` and `Surv(start, stop, event)` (the cluster used to be
+  dropped).
+
+#### Changed
+
+- `sp.cox(weights=...)` with non-integer weights and the model-based variance
+  warns: that variance reads the weights as frequencies.
+- `CoxResult.ph_test()` refuses weighted and counting-process fits
+  (`MethodIncompatibility`) instead of testing them as unweighted
+  right-censored data.
+
 ### Treatment effects: MatchIt-style matching constraints, entropy-balancing estimands, louder failures
 
 #### Added

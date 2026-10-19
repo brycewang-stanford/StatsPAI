@@ -24,6 +24,19 @@ The information matrix never needs the ``p x p`` array of each risk set:
 ``sum_g a_g S2_g`` with ``S2_g = sum_{k in R_g} r_k x_k x_k'`` equals
 ``X' diag(r_k A_k) X`` with ``A_k`` the sum of ``a_g`` over the risk sets
 that contain ``k``.
+
+Counting-process data ``(start, stop]`` (delayed entry, time-varying
+covariates split into intervals) change only the risk sets: a row is at
+risk at ``t`` iff ``start < t <= stop``. Since ``start < stop``, the rows
+with ``start >= t`` are a subset of those with ``stop >= t``, so every
+risk-set total is the right-censored total less the total over the rows
+that have not entered yet, one more sorted pass.
+
+Case weights ``w`` follow ``survival::coxph``: every risk-set total is
+taken over ``w_k r_k``, a death contributes ``w_k x_k`` to the score, and
+the ``d`` Efron terms of an event time are each weighted by the mean
+weight of its deaths (the down-weighting fractions ``l/d`` still count
+deaths, not weights).
 """
 
 from __future__ import annotations
@@ -43,7 +56,12 @@ class RiskSets:
     """
 
     def __init__(
-        self, T: Any, E: Any, strata: Optional[Any] = None, order: str = "sorted"
+        self,
+        T: Any,
+        E: Any,
+        strata: Optional[Any] = None,
+        order: str = "sorted",
+        start: Optional[Any] = None,
     ):
         T = np.asarray(T, dtype=float)
         dead = np.asarray(E) == 1
@@ -99,6 +117,38 @@ class RiskSets:
         self.term_d = np.repeat(d_ev, d_ev)
         self.term_start = first  # first term of each event group
 
+        self.has_entry = start is not None
+        if self.has_entry:
+            self._init_entry(np.asarray(start, dtype=float)[self.order])
+
+    def _init_entry(self, start_sorted: np.ndarray) -> None:
+        """Index the entry times: for each group, the rows of its stratum
+        that enter at or after its time; for each row, the groups of its
+        stratum at or before its entry time. Both are contiguous runs of an
+        ascending sort on ``(stratum, time rank)``."""
+        u = np.unique(np.concatenate([self.T, start_sorted]))
+        M = len(u) + 1
+        t_rank = np.searchsorted(u, self.T)
+        s_rank = np.searchsorted(u, start_sorted)
+        codes = self.codes.astype(np.int64)
+        # rows by (stratum, entry)
+        s_key = codes * M + s_rank
+        self._entry_perm = np.argsort(s_key, kind="stable")
+        s_key_sorted = s_key[self._entry_perm]
+        g_codes = self.g_code.astype(np.int64)
+        g_rank = t_rank[self.start]
+        # rows of the group's stratum with entry rank >= the group's rank
+        self._entry_lo = np.searchsorted(s_key_sorted, g_codes * M + g_rank, "left")
+        self._entry_hi = np.searchsorted(s_key_sorted, (g_codes + 1) * M, "left")
+        # groups by (stratum, time) ascending
+        gk = g_codes * M + g_rank
+        self._grp_perm = np.argsort(gk, kind="stable")
+        gk_sorted = gk[self._grp_perm]
+        # groups of the row's stratum with time <= its entry
+        self._row_lo = np.searchsorted(gk_sorted, codes * M, "left")
+        self._row_hi = np.searchsorted(gk_sorted, codes * M + s_rank, "right")
+        self.start_sorted = start_sorted
+
     # -- running totals -------------------------------------------------
     def at_risk(self, values: np.ndarray) -> np.ndarray:
         """Sum of ``values`` (sorted rows) over the risk set of each group."""
@@ -109,6 +159,10 @@ class RiskSets:
             has = first > 0
             out = out.copy()
             out[has] -= c[first[has] - 1]
+        if self.has_entry:
+            v = np.asarray(values)[self._entry_perm]
+            ce = np.concatenate([np.zeros((1,) + v.shape[1:]), np.cumsum(v, axis=0)])
+            out = out - (ce[self._entry_hi] - ce[self._entry_lo])
         return np.asarray(out)
 
     def over_groups(self, values: np.ndarray) -> np.ndarray:
@@ -127,7 +181,12 @@ class RiskSets:
             has = nxt < self.n_groups
             rc = rc.copy()
             rc[has] -= rc[nxt[has]]
-        return np.asarray(rc[self.group])
+        out = rc[self.group]
+        if self.has_entry:
+            v = np.asarray(per_group)[self._grp_perm]
+            cg = np.concatenate([np.zeros((1,) + v.shape[1:]), np.cumsum(v, axis=0)])
+            out = out - (cg[self._row_hi] - cg[self._row_lo])
+        return np.asarray(out)
 
     def stratum_scale(self, xb_sorted: np.ndarray) -> np.ndarray:
         """Per-row maximum of the linear index within its stratum."""
@@ -149,8 +208,10 @@ class CoxKernel:
         strata: Optional[np.ndarray] = None,
         breslow: bool = False,
         order: str = "sorted",
+        weights: Optional[np.ndarray] = None,
+        start: Optional[np.ndarray] = None,
     ):
-        self.rs = RiskSets(T, E, strata, order=order)
+        self.rs = RiskSets(T, E, strata, order=order, start=start)
         X = np.asarray(X, dtype=float)
         self.X_raw = X[self.rs.order]
         self.center = X.mean(axis=0) if len(X) else np.zeros(X.shape[1])
@@ -159,7 +220,18 @@ class CoxKernel:
         self.p = X.shape[1]
         rs = self.rs
         self.c = np.zeros(len(rs.term_ell)) if breslow else rs.term_ell / rs.term_d
-        self.dead_sum_x = self.X[rs.dead].sum(axis=0)
+        self.weighted = weights is not None
+        if weights is None:
+            self.w = np.ones(rs.n)
+        else:
+            self.w = np.asarray(weights, dtype=float)[rs.order]
+        # weight of each Efron term: the mean weight of the deaths of its
+        # event time (1 without weights)
+        dead_w = rs.over_groups(self.w * rs.dead) if rs.n else np.zeros(0)
+        self.dead_w = dead_w
+        mean_w = dead_w / np.maximum(rs.d, 1)
+        self.term_w = mean_w[rs.term_group]
+        self.dead_sum_x = (self.X[rs.dead] * self.w[rs.dead, None]).sum(axis=0)
 
     # -- building blocks -------------------------------------------------
     def _risk(self, beta: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -172,15 +244,16 @@ class CoxKernel:
     def _terms(self, r: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """``S0`` and ``D0`` per group and the denominator of each term."""
         rs = self.rs
-        S0 = rs.at_risk(r)
-        D0 = rs.over_groups(r * rs.dead)
+        rw = r * self.w
+        S0 = rs.at_risk(rw)
+        D0 = rs.over_groups(rw * rs.dead)
         denom = S0[rs.term_group] - self.c * D0[rs.term_group]
         return S0, D0, denom
 
     def _xbar(self, r: np.ndarray, denom: np.ndarray) -> np.ndarray:
         """Risk-set mean of ``x`` for each term, ``(n_deaths, p)``."""
         rs = self.rs
-        rx = self.X * r[:, None]
+        rx = self.X * (r * self.w)[:, None]
         S1 = rs.at_risk(rx)
         num = S1[rs.term_group]
         if not self.breslow:
@@ -200,7 +273,10 @@ class CoxKernel:
     def neg_loglik(self, beta: np.ndarray) -> float:
         r, xbn, _ = self._risk(np.asarray(beta, dtype=float))
         _, _, denom = self._terms(r)
-        return float(np.log(denom).sum() - xbn[self.rs.dead].sum())
+        dead = self.rs.dead
+        return float(
+            (self.term_w * np.log(denom)).sum() - (self.w[dead] * xbn[dead]).sum()
+        )
 
     def score_hessian(
         self, beta: np.ndarray, group_weights: Optional[np.ndarray] = None
@@ -214,19 +290,20 @@ class CoxKernel:
         r, _, _ = self._risk(np.asarray(beta, dtype=float))
         _, _, denom = self._terms(r)
         xbar = self._xbar(r, denom)
-        score = self.dead_sum_x - xbar.sum(axis=0)
+        score = self.dead_sum_x - (xbar * self.term_w[:, None]).sum(axis=0)
 
         inv = 1.0 / denom
         w_term = (
-            np.ones(len(denom))
+            self.term_w.copy()
             if group_weights is None
-            else group_weights[rs.term_group]
+            else self.term_w * group_weights[rs.term_group]
         )
         a = self._per_event_group(inv * w_term)
-        w_row = r * rs.containing(a)
+        rw = r * self.w
+        w_row = rw * rs.containing(a)
         if not self.breslow:
             b = self._per_event_group(self.c * inv * w_term)
-            w_row = w_row - r * rs.dead * b[rs.group]
+            w_row = w_row - rw * rs.dead * b[rs.group]
         info = (self.X * w_row[:, None]).T @ self.X - (xbar * w_term[:, None]).T @ xbar
         return score, -info
 
@@ -235,12 +312,16 @@ class CoxKernel:
         return -self.score_hessian(beta, group_weights)[1]
 
     def score_residuals(self, beta: np.ndarray) -> np.ndarray:
-        """Per-observation score residuals, in the original row order."""
+        """Per-observation score residuals, in the original row order.
+
+        Unweighted: with case weights the robust variance sums the outer
+        products of ``w_i`` times these rows (``residuals(fit, 'score')``
+        of R, which ``coxph`` multiplies by the weights)."""
         rs = self.rs
         r, _, _ = self._risk(np.asarray(beta, dtype=float))
         _, _, denom = self._terms(r)
         xbar = self._xbar(r, denom)
-        inv = 1.0 / denom
+        inv = self.term_w / denom
         a = self._per_event_group(inv)
         q = self._per_event_group(xbar * inv[:, None])
         H = rs.containing(a)
@@ -272,6 +353,8 @@ class CoxKernel:
         xbar = self._xbar(r, denom)
         xbar_sum = self._per_event_group(xbar)
         dead_x = rs.over_groups(self.X * rs.dead[:, None])
+        if self.weighted:
+            raise NotImplementedError("event_time_scores: unweighted fits only")
         # ascending time within stratum = reversed group order per stratum
         ev = rs.ev[np.lexsort((rs.g_time[rs.ev], rs.g_code[rs.ev]))]
         scores = dead_x[ev] - xbar_sum[ev]
@@ -285,24 +368,26 @@ class CoxKernel:
     def breslow_expected_x(self, beta: np.ndarray) -> np.ndarray:
         """``S1 / S0`` of each group (no tie correction), uncentred."""
         r, _, _ = self._risk(np.asarray(beta, dtype=float))
-        S0 = self.rs.at_risk(r)
-        S1 = self.rs.at_risk(self.X * r[:, None])
+        rw = r * self.w
+        S0 = self.rs.at_risk(rw)
+        S1 = self.rs.at_risk(self.X * rw[:, None])
         return np.asarray(S1 / S0[:, None] + self.center)
 
     def breslow_increments(
         self, beta: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Stratum code, time and ``d / sum_R exp(x'b)`` of each event
-        group, ascending in time within stratum."""
+        group, ascending in time within stratum (weighted deaths over the
+        weighted risk set with case weights)."""
         rs = self.rs
         beta = np.asarray(beta, dtype=float)
         r, _, m = self._risk(beta)
-        S0 = rs.at_risk(r)
+        S0 = rs.at_risk(r * self.w)
         # undo the scaling and the centring: the hazard is not invariant
         with np.errstate(over="ignore", under="ignore"):
             scale = np.exp(m[rs.start] + self.center @ beta)
         ev = rs.ev[np.lexsort((rs.g_time[rs.ev], rs.g_code[rs.ev]))]
-        return rs.g_code[ev], rs.g_time[ev], rs.d[ev] / (S0[ev] * scale[ev])
+        return rs.g_code[ev], rs.g_time[ev], self.dead_w[ev] / (S0[ev] * scale[ev])
 
 
 def dominance_counts(

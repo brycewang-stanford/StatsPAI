@@ -4375,7 +4375,8 @@
         "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_cox_ph_test_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
-        "tests/reference_parity/test_survival_epi_R_parity.py"
+        "tests/reference_parity/test_survival_epi_R_parity.py",
+        "tests/reference_parity/test_survival_weighted_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -5510,6 +5511,7 @@
         "tests/reference_parity/test_bjs_options_parity.py",
         "tests/reference_parity/test_bjs_project_parity.py",
         "tests/reference_parity/test_did_imputation_autosample_Stata_parity.py",
+        "tests/reference_parity/test_did_imputation_pretrend_vcov_Stata_parity.py",
         "tests/reference_parity/test_did_validation_parity.py",
         "tests/reference_parity/test_did_variants_parity.py",
         "tests/reference_parity/test_event_study_vcov_Stata_parity.py",
@@ -7270,6 +7272,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_did_imputation_pretrend_vcov_Stata_parity.py",
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
         "tests/reference_parity/test_honest_did_moments_R_parity.py",
         "tests/reference_parity/test_honest_did_options_R_parity.py"
@@ -9629,6 +9632,7 @@
         "tests/r_parity/21_honest_relmags.R",
         "tests/stata_parity/21_honest_relmags.do",
         "tests/external_parity/test_honest_did_paper_parity.py",
+        "tests/reference_parity/test_did_imputation_pretrend_vcov_Stata_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
         "tests/reference_parity/test_honest_did_moments_R_parity.py",
@@ -11093,7 +11097,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_linear_model_extensions_parity.py"
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/test_survival_weighted_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -13025,6 +13030,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_mediate_nonlinear_stata_parity.py",
+        "tests/reference_parity/test_mediate_po_bootstrap.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py"
       ],
       "also_verified_by": [
@@ -21917,6 +21923,7 @@
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
+        "tests/reference_parity/test_survival_weighted_parity.py",
         "tests/reference_parity/test_survreg_streg_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"

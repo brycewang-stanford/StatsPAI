@@ -283,31 +283,85 @@ def _unquote(text: str) -> Optional[str]:
     return None
 
 
-def survival_declaration(command: str) -> Optional[Tuple[str, str]]:
-    """``stset time, failure(event)`` -> ``(time, event)``.
+def survival_declaration(command: str) -> Optional[Tuple[Any, ...]]:
+    """``stset time [pw=w], failure(event) [id() time0() enter(time v)]``.
 
-    Only the form that needs no data step is read: one time variable and a
-    failure indicator, optionally written ``failure(event == 1)``. Anything
-    else (``id()``, ``enter()``, ``origin()``, ``scale()``, a failure code
-    other than 1, no ``failure()`` at all) raises ``ScriptError`` so that
-    the declaration is not half-applied.
+    Returns ``(time, event)`` for the plain declaration and ``(time, event,
+    extras)`` when it carries a sampling weight (``[pw=w]``), an interval
+    start (``time0(v)`` / ``enter(time v)``) or a subject id (``id(v)``);
+    ``stcox`` reads them as ``sp.cox(weights=, start=, cluster=)``. The
+    failure indicator may be written ``failure(event == 1)``. Anything else
+    (``origin()``, ``scale()``, ``exit()``, ``enter()`` on an event, other
+    weight types, a failure code other than 1, no ``failure()`` at all)
+    raises ``ScriptError`` so that the declaration is not half-applied.
     """
     text = command.strip()
     if not re.match(r"^stset\b", text, re.I):
         return None
     m = re.match(
-        r"^stset\s+([A-Za-z_]\w*)\s*,\s*f(?:a(?:i(?:l(?:u(?:r(?:e)?)?)?)?)?)?"
-        r"\(\s*([A-Za-z_]\w*)\s*(?:==\s*1\s*)?\)\s*$",
+        r"^stset\s+([A-Za-z_]\w*)\s*"
+        r"(?:\[\s*(pw|pweights?|fw|fweights?|iw|iweights?|aw|aweights?)\s*=\s*"
+        r"([A-Za-z_]\w*)\s*\])?\s*,(.*)$",
         text,
-        re.I,
+        re.I | re.S,
+    )
+    plain_msg = (
+        "only `stset timevar [pw=w], failure(eventvar) [id(v) time0(v) "
+        "enter(time v)]` is understood; build the duration and the 0/1 event "
+        "indicator in the data and declare them in that form"
     )
     if not m:
+        raise ScriptError(plain_msg)
+    time, wkind, wvar, rest = m.group(1), m.group(2), m.group(3), m.group(4)
+    if wkind is not None and not wkind.lower().startswith("pw"):
         raise ScriptError(
-            "only `stset timevar, failure(eventvar)` is understood; build the "
-            "duration and the 0/1 event indicator in the data and declare "
-            "them in that form"
+            f"stset [{wkind}=] is not translated; only [pw=] (sampling weights, "
+            "sp.cox(weights=, weights_as='sampling')) is"
         )
-    return m.group(1), m.group(2)
+    opts: Dict[str, str] = {}
+    pos = 0
+    rest = rest.strip()
+    opt_re = re.compile(r"\s*([A-Za-z_]\w*)\s*\(([^()]*)\)\s*")
+    while pos < len(rest):
+        om = opt_re.match(rest, pos)
+        if om is None:
+            raise ScriptError(plain_msg)
+        opts[om.group(1).lower()] = om.group(2).strip()
+        pos = om.end()
+    event = None
+    extras: Dict[str, str] = {}
+    for key, val in opts.items():
+        if re.fullmatch(r"f(?:a(?:i(?:l(?:u(?:r(?:e)?)?)?)?)?)?", key):
+            fm = re.fullmatch(r"([A-Za-z_]\w*)\s*(?:==\s*1\s*)?", val)
+            if fm is None:
+                raise ScriptError(plain_msg)
+            event = fm.group(1)
+        elif key == "id" and re.fullmatch(r"[A-Za-z_]\w*", val):
+            extras["id"] = val
+        elif key in ("time0", "t0") and re.fullmatch(r"[A-Za-z_]\w*", val):
+            extras["time0"] = val
+        elif key == "enter":
+            em = re.fullmatch(r"time\s+([A-Za-z_]\w*)", val)
+            if em is None:
+                raise ScriptError(
+                    "stset enter() is translated only as `enter(time v)` (entry "
+                    "at the time in v)"
+                )
+            extras["enter"] = em.group(1)
+        else:
+            raise ScriptError(plain_msg)
+    if event is None:
+        raise ScriptError(plain_msg)
+    if "time0" in extras and "enter" in extras:
+        raise ScriptError(
+            "stset with both time0() and enter() is not translated (sp.cox "
+            "takes one start column)"
+        )
+    if wvar is not None:
+        extras["weight"] = wvar
+    if not extras:
+        return time, event
+    return time, event, tuple(sorted(extras.items()))
 
 
 def panel_declaration(command: str) -> Optional[Tuple[Optional[str], Optional[str]]]:

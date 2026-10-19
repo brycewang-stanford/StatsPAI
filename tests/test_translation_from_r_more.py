@@ -110,9 +110,21 @@ def test_coxph(surv, line, name, b, se):
     assert _close(r.params[name], b) and _close(r.std_errors[name], se)
 
 
-def test_coxph_cluster_is_dropped_out_loud():
+def test_coxph_cluster_maps_to_no_small_sample_factor():
+    """coxph's clustered variance has no G/(G-1): sp.cox(ssc='r'); the
+    numbers are pinned in reference_parity/test_survival_weighted_parity.py."""
     out = sp.from_r("coxph(Surv(time, d) ~ x1, data = s, cluster = g)")
-    assert out["complete"] is False and out["dropped"] == ["cluster"]
+    assert out["complete"] is True
+    assert out["arguments"]["cluster"] == "g" and out["arguments"]["ssc"] == "r"
+    # the cluster() term and id= with robust = TRUE are the same variance
+    for line in (
+        "coxph(Surv(time, d) ~ x1 + cluster(g), data = s)",
+        "coxph(Surv(time, d) ~ x1, data = s, id = g, robust = TRUE)",
+    ):
+        args = sp.from_r(line)["arguments"]
+        assert args["cluster"] == "g" and args["ssc"] == "r"
+    args = sp.from_r("coxph(Surv(t0, t1, d) ~ x1, data = s)")["arguments"]
+    assert args["start"] == "t0" and args["duration"] == "t1"
 
 
 @pytest.mark.parametrize(

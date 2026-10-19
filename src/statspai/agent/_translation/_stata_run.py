@@ -428,10 +428,15 @@ def _with_panel(
 def _with_survival(
     line: str,
     out: Dict[str, Any],
-    survival: Optional[Tuple[str, str]],
+    survival: Optional[Tuple[Any, ...]],
     columns: Any,
 ) -> Dict[str, Any]:
-    """Fill the ``<stset>`` placeholders of ``streg`` from an earlier ``stset``."""
+    """Fill the ``<stset>`` placeholders of ``streg`` from an earlier ``stset``.
+
+    A declaration with a weight, an interval start or an id (``stset t
+    [pw=w], failure(d) time0(t0) id(i)``) is read by ``stcox`` only; the
+    other survival commands are refused rather than fitted without it.
+    """
     from ._stata import from_stata
     from ._stata_lexer import _split_options
 
@@ -440,10 +445,26 @@ def _with_survival(
     if "<stset" not in str(out.get("python_code") or ""):
         return out
     sep = " " if _split_options(line)[1] else ", "
-    time, event = survival
-    return from_stata(
-        f"{line}{sep}stset_time({time}) stset_failure({event})", columns=columns
-    )
+    time, event = survival[0], survival[1]
+    extras: Dict[str, str] = dict(survival[2]) if len(survival) > 2 else {}
+    tail = f"stset_time({time}) stset_failure({event})"
+    if extras:
+        if str(out.get("tool") or "") != "cox":
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: the stset declaration carries "
+                f"{sorted(extras)}, which only the stcox translation reads.",
+                recovery_hint="Declare `stset timevar, failure(eventvar)` "
+                "without weights / id / time0 / enter for this command.",
+                diagnostics={"command": line, "stset": sorted(extras)},
+            )
+        if "weight" in extras:
+            tail += f" stset_weight({extras['weight']})"
+        start = extras.get("time0") or extras.get("enter")
+        if start:
+            tail += f" stset_time0({start})"
+        if "id" in extras:
+            tail += f" stset_id({extras['id']})"
+    return from_stata(f"{line}{sep}{tail}", columns=columns)
 
 
 def _check_event_codes(
@@ -797,7 +818,7 @@ class StataSession:
         self._steps = None if data is None else DataSteps(data)
         self._macros = MacroTable()
         self.panel: Tuple[Optional[str], Optional[str]] = (None, None)
-        self.survival: Optional[Tuple[str, str]] = None
+        self.survival: Optional[Tuple[Any, ...]] = None
         self.last = result
         self.last_data = data
         self.output: Any = result

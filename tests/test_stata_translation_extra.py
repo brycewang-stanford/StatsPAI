@@ -135,12 +135,15 @@ def test_stcox_ties_default_is_written_out():
     assert sp.from_stata("stcox x1 x2, efron")["arguments"]["ties"] == "efron"
 
 
-def test_stcox_robust_is_not_carried_over(surv):
-    """Stata's stcox vce(robust) carries N/(N-1); sp.cox does not."""
+def test_stcox_robust_maps_to_the_stata_small_sample_factor():
+    """stcox vce(robust) is the sandwich times N/(N-1): sp.cox(ssc='stata').
+    The numbers are pinned against Stata 18 in
+    tests/reference_parity/test_survival_weighted_parity.py."""
     out = sp.from_stata("stcox x1 x2, vce(robust)")
-    assert out["complete"] is False and "vce" in out["dropped"]
-    with pytest.raises(Exception, match="not translated"):
-        _quiet("stset time, failure(d)\nstcox x1 x2, vce(robust)", surv)
+    assert out["complete"] is True
+    assert out["arguments"]["robust"] == "hc0" and out["arguments"]["ssc"] == "stata"
+    out = sp.from_stata("stcox x1 x2, vce(cluster g)")
+    assert out["arguments"]["cluster"] == "g" and out["arguments"]["ssc"] == "stata"
 
 
 def test_stcrreg_reproduces_stata(surv):

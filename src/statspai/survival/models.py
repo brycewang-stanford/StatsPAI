@@ -223,6 +223,18 @@ class CoxResult(EconometricResults):
         ----------
         [@grambsch1994proportional]
         """
+        if (
+            getattr(self, "_weights", None) is not None
+            or getattr(self, "_start", None) is not None
+        ):
+            raise MethodIncompatibility(
+                "ph_test is implemented for unweighted right-censored fits; "
+                "this fit used weights= or start= (counting-process data).",
+                recovery_hint=(
+                    "Refit without weights= / start= for the test, or use R "
+                    "survival::cox.zph on the weighted / (start, stop] fit."
+                ),
+            )
         beta = np.asarray(self.params.values, dtype=float)
         X = np.asarray(self._X, dtype=float)
         T = np.asarray(self._durations, dtype=float)
@@ -637,6 +649,10 @@ def kaplan_meier(
     group: Optional[str] = None,
     alpha: float = 0.05,
     conf_type: Optional[str] = None,
+    weights: Optional[str] = None,
+    start: Optional[str] = None,
+    cluster: Optional[str] = None,
+    se_method: Optional[str] = None,
 ) -> KMResult:
     """
     Kaplan-Meier non-parametric survival function estimator.
@@ -668,6 +684,25 @@ def kaplan_meier(
             the three that leaves [0, 1] and has to be truncated, and it
             is neither reference package's default. Pass
             ``conf_type="plain"`` to keep today's numbers.
+    weights : str, optional
+        Column of non-negative case weights (inverse-probability-of-
+        treatment weights give the IPTW-adjusted curve of each ``group``).
+        Deaths and the number at risk are weighted sums, as in R
+        ``survfit(weights=)``; ``n_risk`` / ``n_event`` / ``n_censor`` are
+        then weighted and reported as floats.
+    start : str, optional
+        Column with each row's entry time: counting-process data ``(start,
+        duration]`` (delayed entry), as R ``Surv(start, stop, event)``. A
+        row is at risk at ``t`` iff ``start < t <= duration``.
+    cluster : str, optional
+        Column whose levels are independent units (subject id with several
+        rows); the robust variance sums the influence within each.
+    se_method : {'greenwood', 'ij'}, optional
+        ``'greenwood'`` is Greenwood's formula on the (weighted) counts;
+        ``'ij'`` the infinitesimal jackknife (robust) variance of R
+        ``survfit(robust=TRUE)``, which treats the weights as fixed
+        sampling weights. Not given: R's default, ``'ij'`` with
+        ``cluster=`` or non-integer weights and ``'greenwood'`` otherwise.
 
     Returns
     -------
@@ -709,20 +744,48 @@ def kaplan_meier(
         raise ValueError(
             f"conf_type must be 'plain', 'log' or 'log-log', got {conf_type!r}"
         )
-    data = data.dropna(subset=[duration, event])
+    extra = [c for c in (weights, start, cluster) if c is not None]
+    data = data.dropna(subset=[duration, event] + extra)
+
+    from ._km import km_table_weighted, resolve_km_se
+
+    w_all = data[weights].values.astype(float) if weights is not None else None
+    if w_all is not None and (not np.all(np.isfinite(w_all)) or (w_all < 0).any()):
+        raise MethodIncompatibility(
+            "kaplan_meier: weights must be finite and non-negative.",
+            recovery_hint="Check the weight column for negative or infinite values.",
+        )
+    if start is not None and not np.all(
+        data[start].values.astype(float) < data[duration].values.astype(float)
+    ):
+        raise DataInsufficient(
+            "kaplan_meier: start must be strictly less than the duration on "
+            "every row.",
+            recovery_hint="Drop or fix the zero-length intervals.",
+        )
+    se_kind = resolve_km_se(se_method, w_all, cluster)
+    plain_path = weights is None and start is None and se_kind == "greenwood"
+
+    def _table(gdf: pd.DataFrame) -> pd.DataFrame:
+        if plain_path:
+            return _km_table(gdf[duration].values, gdf[event].values, alpha, conf_type)
+        return km_table_weighted(
+            gdf[duration].values.astype(float),
+            gdf[event].values,
+            gdf[weights].values.astype(float) if weights is not None else None,
+            gdf[start].values.astype(float) if start is not None else None,
+            gdf[cluster].values if cluster is not None else None,
+            se_kind,
+            alpha,
+            conf_type,
+        )
 
     if group is None:
-        tables = {
-            "all": _km_table(
-                data[duration].values, data[event].values, alpha, conf_type
-            )
-        }
+        tables = {"all": _table(data)}
     else:
         tables = {}
         for g_val, gdf in data.groupby(group):
-            tables[str(g_val)] = _km_table(
-                gdf[duration].values, gdf[event].values, alpha, conf_type
-            )
+            tables[str(g_val)] = _table(gdf)
 
     _result = KMResult(tables, alpha=alpha)
     try:
@@ -736,6 +799,10 @@ def kaplan_meier(
                 "event": event,
                 "group": group,
                 "alpha": alpha,
+                "weights": weights,
+                "start": start,
+                "cluster": cluster,
+                "se_method": se_kind,
             },
             data=data,
             overwrite=False,
@@ -1027,6 +1094,10 @@ def cox(
     cluster: Optional[str] = None,
     hazard_ratio: bool = True,
     alpha: float = 0.05,
+    weights: Optional[str] = None,
+    start: Optional[str] = None,
+    ssc: Optional[str] = None,
+    weights_as: Optional[str] = None,
 ) -> CoxResult:
     """
     Cox Proportional Hazards model via partial likelihood.
@@ -1056,12 +1127,52 @@ def cox(
         If True, report hazard ratios in the summary alongside coefficients.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    weights : str, optional
+        Column of non-negative case weights (inverse-probability-of-
+        treatment weights, survey weights, frequency counts). Weighted
+        partial likelihood as in R ``coxph(weights=)``: risk sets sum
+        ``w_k exp(x_k'b)`` and each Efron term of an event time carries the
+        mean weight of its deaths. The model-based variance reads the
+        weights as frequencies; for sampling / IPT weights pass
+        ``weights_as='sampling'`` (or ``robust='hc0'`` / ``cluster=``),
+        which is what R reports by default for non-integer weights and
+        Stata ``stcox [pw=]`` always does.
+    start : str, optional
+        Column with the start of each row's interval: counting-process data
+        ``(start, duration]`` as in R ``Surv(start, stop, event)`` and Stata
+        ``stset stop, time0(start)`` / ``enter()``. A row is at risk at
+        ``t`` iff ``start < t <= duration``, which covers delayed entry
+        (left truncation) and time-varying covariates split into intervals.
+        With several rows per subject pass ``cluster=<subject id>`` for the
+        robust variance by subject (``coxph(cluster=id)``; Stata clusters on
+        the ``stset`` id automatically).
+    ssc : {'r', 'stata'}, optional
+        Small-sample factor of the robust and clustered variances. ``'r'``
+        applies none, as R ``coxph(robust=TRUE)`` / ``coxph(cluster=)``.
+        ``'stata'`` multiplies the robust variance by ``N/(N-1)`` and the
+        clustered one by ``G/(G-1)``, as Stata ``stcox, vce(robust)`` /
+        ``vce(cluster)`` (``N`` counts observations, not weights). Not
+        given: the robust variance has no factor and the clustered one
+        ``G/(G-1)`` (the behaviour before this option existed). The
+        model-based variance and the coefficients are unaffected.
+    weights_as : {'frequency', 'sampling'}, optional
+        How to read ``weights=``. ``'frequency'`` keeps the model-based
+        variance; ``'sampling'`` (Stata ``[pw=]``) asks for the robust one
+        when neither ``robust=`` nor ``cluster=`` chose a variance.
 
     Returns
     -------
     CoxResult
         Result object extending ``EconometricResults`` with
         ``.concordance``, ``.baseline_hazard()``, ``.ph_test()``, ``.plot()``.
+
+    Notes
+    -----
+    With ``start=`` or ``weights=`` the concordance is computed over the
+    risk sets of the fit (pairs in which one row fails while the other is
+    at risk, weighted by the product of their weights), as R
+    ``concordance()`` does for counting-process and weighted fits; Harrell's
+    pairwise C of right-censored data is the special case without either.
 
     Examples
     --------
@@ -1104,12 +1215,48 @@ def cox(
         cols_needed.append(strata)
     if cluster is not None:
         cols_needed.append(cluster)
+    if weights is not None:
+        cols_needed.append(weights)
+    if start is not None:
+        cols_needed.append(start)
     data = data.dropna(subset=cols_needed).copy()
+
+    from ..core._agent_summary import resolve_weights_as
+    from ._cox_inputs import check_cox_inputs, resolve_cox_ssc
+
+    weights_as = resolve_weights_as(
+        weights_as,
+        has_weights=weights is not None,
+        native="frequency",
+        entry="sp.cox",
+    )
+    ssc = resolve_cox_ssc(ssc)
+    if weights_as == "sampling" and cluster is None and robust in ("nonrobust", None):
+        robust = "hc0"
 
     T = data[duration].values.astype(float)
     E = data[event].values.astype(float)
     X = data[x].values.astype(float)
     n, p = X.shape
+    w_arr = data[weights].values.astype(float) if weights is not None else None
+    start_arr = data[start].values.astype(float) if start is not None else None
+    w_arr, keep = check_cox_inputs(
+        T,
+        E,
+        w_arr,
+        start_arr,
+        robust=robust,
+        cluster=cluster,
+        weights_as=weights_as,
+    )
+    if keep is not None:
+        # zero weights carry no information: drop them (coxph does too)
+        data = data.iloc[np.flatnonzero(keep)]
+        T, E, X = T[keep], E[keep], X[keep]
+        w_arr = w_arr[keep]
+        if start_arr is not None:
+            start_arr = start_arr[keep]
+        n = len(T)
 
     strata_arr = data[strata].values if strata else None
     cluster_arr = data[cluster].values if cluster else None
@@ -1123,7 +1270,9 @@ def cox(
     breslow = ties == "breslow"
 
     # The risk sets are sorted once and shared by every evaluation below.
-    kern = CoxKernel(X, T, E, strata_arr, breslow=breslow)
+    kern = CoxKernel(
+        X, T, E, strata_arr, breslow=breslow, weights=w_arr, start=start_arr
+    )
     neg_logpl = kern.neg_loglik
 
     # Newton-Raphson with fallback to L-BFGS-B
@@ -1171,12 +1320,13 @@ def cox(
     except np.linalg.LinAlgError:
         info_inv = np.linalg.pinv(neg_H)
 
-    if cluster is not None:
+    if cluster is not None or robust in ("hc0", "HC0", "robust"):
+        from ._cox_inputs import cox_robust_vcov
+
         score_i = kern.score_residuals(beta)
-        var_beta = _cluster_variance(X, info_inv, score_i, cluster_arr)
-    elif robust in ("hc0", "HC0", "robust"):
-        score_i = kern.score_residuals(beta)
-        var_beta = _sandwich_variance(X, info_inv, score_i)
+        if w_arr is not None:
+            score_i = score_i * w_arr[:, None]
+        var_beta = cox_robust_vcov(info_inv, score_i, cluster_arr, ssc)
     else:
         var_beta = info_inv
 
@@ -1186,7 +1336,12 @@ def cox(
     loglik = -neg_logpl(beta)
     loglik0 = -neg_logpl(np.zeros(p))
     bh_df = _breslow_baseline_hazard(beta, X, T, E, strata_arr, _kernel=kern)
-    c_index = _concordance_index(beta, X, T, E)
+    if w_arr is None and start_arr is None:
+        c_index = _concordance_index(beta, X, T, E)
+    else:
+        from ._cox_inputs import risk_set_concordance
+
+        c_index = risk_set_concordance(X @ beta, T, E, start_arr, w_arr, strata_arr)
     schoenfeld = _schoenfeld_residuals(beta, X, T, E, strata_arr, _kernel=kern)
 
     # Hazard ratios
@@ -1206,6 +1361,13 @@ def cox(
     }
     if strata:
         model_info["strata"] = strata
+    if weights is not None:
+        model_info["weights"] = weights
+        model_info["weights_as"] = weights_as or "frequency"
+    if start is not None:
+        model_info["start"] = start
+    if ssc is not None:
+        model_info["ssc"] = ssc
 
     data_info = {
         "nobs": n,
@@ -1213,6 +1375,9 @@ def cox(
         "dependent_var": duration,
         "event_var": event,
         "df_resid": np.inf,  # use normal distribution for Cox
+        "n_clusters": (
+            int(pd.Series(cluster_arr).nunique()) if cluster is not None else None
+        ),
     }
 
     # The other two tests of beta = 0 that survival::coxph prints. The Wald
@@ -1242,6 +1407,9 @@ def cox(
         "AIC": -2 * loglik + 2 * p,
         "BIC": -2 * loglik + np.log(E.sum()) * p,
     }
+    if w_arr is not None:
+        # the model-based Wald / score / LR tests assume frequency weights
+        diagnostics["Sum of weights"] = float(w_arr.sum())
 
     model_info["alpha"] = alpha
     _result = CoxResult(
@@ -1260,6 +1428,8 @@ def cox(
         _hazard_ratios=hr,
         _hr_ci=hr_ci,
     )
+    _result._weights = w_arr
+    _result._start = start_arr
     # Store the global proportional-hazards test (from the Schoenfeld residuals
     # computed above) so result.violations() can flag a PH violation without
     # recomputing it — best-effort: strata models don't expose the residuals.
@@ -1290,6 +1460,10 @@ def cox(
                 "cluster": cluster,
                 "hazard_ratio": hazard_ratio,
                 "alpha": alpha,
+                "weights": weights,
+                "start": start,
+                "ssc": ssc,
+                "weights_as": weights_as,
             },
             data=data,
             overwrite=False,

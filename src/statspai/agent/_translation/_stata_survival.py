@@ -8,11 +8,15 @@ failure(eventvar)``.
 Conventions pinned against Stata 18 (``tests/test_stata_translation_
 survival.py``): ``stcox`` breaks ties with Breslow's method unless
 ``efron`` is given (``sp.cox`` defaults to Efron, so the method is always
-written out); ``vce(cluster c)`` is ``sp.cox(cluster=c)``; ``vce(robust)``
-is the one-observation-per-cluster variance with Stata's N/(N-1) factor,
-which ``sp.cox(robust=)`` does not apply, so it is reported as not
-translated. ``stcrreg`` is ``sp.finegray(small_sample=True)``: its default
-robust variance carries the same N/(N-1).
+written out); ``vce(cluster c)`` is ``sp.cox(cluster=c, ssc='stata')``
+(G/(G-1)); ``vce(robust)`` is ``sp.cox(robust='hc0', ssc='stata')``
+(N/(N-1)). A declaration ``stset t [pw=w], failure(d) time0(t0) id(i)``
+(or ``enter(time t0)``) adds ``weights=w, weights_as='sampling'`` (robust
+variance, as ``[pw=]`` forces), ``start=t0``, and clusters the robust
+variance on the ``stset`` id, as ``stcox`` does. Stata refuses
+``[pw=]`` with ``efron``, and so does the translation. ``stcrreg`` is
+``sp.finegray(small_sample=True)``: its default robust variance carries
+the same N/(N-1).
 """
 
 from __future__ import annotations
@@ -93,17 +97,34 @@ def _h_stcox(cmd: StataCommand) -> Dict[str, Any]:
         )
     if strata:
         args["strata"] = strata[0]
+    weight = (opts.get("stset_weight") or "").strip()
+    time0 = (opts.get("stset_time0") or "").strip()
+    st_id = (opts.get("stset_id") or "").strip()
+    if weight and ties == "efron":
+        return _emit_error(
+            "stcox: Stata does not allow pweights with efron (r(101) "
+            '"weights not allowed with efron option"); use breslow.',
+            command="stcox",
+            suggestions=[],
+        )
+    if time0:
+        args["start"] = time0
+    if weight:
+        args["weights"] = weight
+        args["weights_as"] = "sampling"
     cluster = _vce_cluster(cmd)
     vce = (opts.get("vce") or "").split()
+    robust = "robust" in opts or (bool(vce) and vce[0].lower() == "robust")
     if cluster:
         args["cluster"] = cluster
-    elif "robust" in opts or (vce and vce[0].lower() == "robust"):
-        untranslated.append("vce" if vce else "robust")
-        notes.append(
-            "stcox vce(robust) is the sandwich with Stata's N/(N-1) factor; "
-            "sp.cox(robust='hc0') leaves the factor out (SEs smaller by "
-            "sqrt((N-1)/N)). Not carried over."
-        )
+        args["ssc"] = "stata"
+    elif robust or weight:
+        if st_id:
+            # stcox clusters the robust variance on the stset id
+            args["cluster"] = st_id
+        elif not weight:
+            args["robust"] = "hc0"
+        args["ssc"] = "stata"
     if duration.startswith("<"):
         notes.append(_NEEDS_STSET.format(cmd="stcox"))
     code = ", ".join(["data=df"] + [f"{k}={v!r}" for k, v in args.items()])

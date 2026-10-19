@@ -29367,6 +29367,7 @@
       "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 36_mediation -- tests/r_parity/36_mediation.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_mediate_nonlinear_stata_parity.py",
+      "tests/reference_parity/test_mediate_po_bootstrap.py",
       "tests/reference_parity/test_mediate_potential_outcomes.py"
     ],
     "validation_status": "certified"
@@ -71664,6 +71665,7 @@
     "validation_notes": [
       "tests/test_es_inference.py: the diagonal reproduces every estimator's reported SEs to 1e-12; cross-horizon blocks checked against a cluster bootstrap",
       "Cross-language parity (bit-exact) vs did::aggte(type='dynamic') 2.5.1 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation (Borusyak, SSC, 2023-11-22) [R version 4.5.2 (2025-10-31), Stata 18, did 2.5.1, did2s 1.2.1, etwfe 0.6.2, fixest 0.14.0, marginaleffects 0.32.0]; tolerance full joint covariance (every off-diagonal entry) 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 6.7e-11 did2s), 1e-8 did_imputation (observed 1.2e-9), 1e-6 etwfe (observed 3.4e-9 not-yet / 8.1e-8 never); coefficients 1e-9 (observed <= 3.3e-10) -- tests/reference_parity/test_event_study_vcov_R_parity.py",
+      "tests/reference_parity/test_did_imputation_pretrend_vcov_Stata_parity.py",
       "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
       "tests/reference_parity/test_honest_did_moments_R_parity.py",
       "tests/reference_parity/test_honest_did_options_R_parity.py"
@@ -114240,6 +114242,18 @@
             ],
             "x-canonical": "vce"
           },
+          "ssc": {
+            "description": "Small-sample factor of the robust and clustered variances. ``'r'`` applies none, as R ``coxph(robust=TRUE)`` / ``coxph(cluster=)``. ``'stata'`` multiplies the robust variance by ``N/(N-1)`` and the clustered one by ``G/(G-1)``, as Stata ``stcox, vce(robust)`` / ``vce(cluster)`` (``N`` counts observations, not weights). Not",
+            "enum": [
+              "r",
+              "stata"
+            ],
+            "type": "string"
+          },
+          "start": {
+            "description": "Column with the start of each row's interval: counting-process data ``(start, duration]`` as in R ``Surv(start, stop, event)`` and Stata ``stset stop, time0(start)`` / ``enter()``. A row is at risk at ``t`` iff ``start < t <= duration``, which covers delayed entry (left truncation) and time-varying covariates split into intervals. With several rows per subject pass ``cluster=<subject id>`` for the robust variance by subject (``coxph(cluster=id)``; Stata clusters on the ``stset`` id automatically).",
+            "type": "string"
+          },
           "strata": {
             "description": "Column name for stratification variable.",
             "type": "string",
@@ -114251,6 +114265,19 @@
             "enum": [
               "efron",
               "breslow"
+            ],
+            "type": "string"
+          },
+          "weights": {
+            "description": "Column of non-negative case weights (inverse-probability-of- treatment weights, survey weights, frequency counts). Weighted partial likelihood as in R ``coxph(weights=)``: risk sets sum ``w_k exp(x_k'b)`` and each Efron term of an event time carries the mean weight of its deaths. The model-based variance reads the weights as frequencies; for sampling / IPT weights pass ``weights_as='sampling'`` (or ``robust='hc0'`` / ``cluster=``), which is what R reports by default for non-integer weights and Stata ``stcox [pw=]`` always does.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "weights_as": {
+            "description": "How to read ``weights=``. ``'frequency'`` keeps the model-based variance; ``'sampling'`` (Stata ``[pw=]``) asks for the robust one when neither ``robust=`` nor ``cluster=`` chose a variance.",
+            "enum": [
+              "frequency",
+              "sampling"
             ],
             "type": "string"
           },
@@ -114366,6 +114393,11 @@
             "description": "Significance level for confidence intervals (Greenwood formula).",
             "type": "number"
           },
+          "cluster": {
+            "description": "Column whose levels are independent units (subject id with several rows); the robust variance sums the influence within each.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "conf_type": {
             "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three. .. deprecated:: 1.39 Leaving it out still gives ``\"plain\"`` and warns. From 1.40 the default is ``\"log-log\"``: the plain interval is the one of the three that leaves [0, 1] and has to be truncated, and it is neither reference package's default. Pass ``conf_type=\"plain\"`` to keep today's numbers.",
             "enum": [
@@ -114394,6 +114426,23 @@
             "description": "Column name for group variable (stratification).",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "se_method": {
+            "description": "``'greenwood'`` is Greenwood's formula on the (weighted) counts; ``'ij'`` the infinitesimal jackknife (robust) variance of R ``survfit(robust=TRUE)``, which treats the weights as fixed sampling weights. Not given: R's default, ``'ij'`` with ``cluster=`` or non-integer weights and ``'greenwood'`` otherwise.",
+            "enum": [
+              "greenwood",
+              "ij"
+            ],
+            "type": "string"
+          },
+          "start": {
+            "description": "Column with each row's entry time: counting-process data ``(start, duration]`` (delayed entry), as R ``Surv(start, stop, event)``. A row is at risk at ``t`` iff ``start < t <= duration``.",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Column of non-negative case weights (inverse-probability-of- treatment weights give the IPTW-adjusted curve of each ``group``). Deaths and the number at risk are weighted sums, as in R ``survfit(weights=)``; ``n_risk`` / ``n_event`` / ``n_censor`` are then weighted and reported as floats.",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
@@ -114408,7 +114457,8 @@
     "typical_n_min": 50,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survival::survfit [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance S(t) at every event time 1e-12 (observed ~3e-17); median exact -- tests/reference_parity/test_survival_km_parity.py",
-      "tests/reference_parity/test_linear_model_extensions_parity.py"
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/reference_parity/test_survival_weighted_parity.py"
     ],
     "validation_status": "certified"
   },

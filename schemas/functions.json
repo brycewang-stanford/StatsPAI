@@ -53863,6 +53863,18 @@
           ],
           "x-canonical": "vce"
         },
+        "ssc": {
+          "description": "Small-sample factor of the robust and clustered variances. ``'r'`` applies none, as R ``coxph(robust=TRUE)`` / ``coxph(cluster=)``. ``'stata'`` multiplies the robust variance by ``N/(N-1)`` and the clustered one by ``G/(G-1)``, as Stata ``stcox, vce(robust)`` / ``vce(cluster)`` (``N`` counts observations, not weights). Not",
+          "enum": [
+            "r",
+            "stata"
+          ],
+          "type": "string"
+        },
+        "start": {
+          "description": "Column with the start of each row's interval: counting-process data ``(start, duration]`` as in R ``Surv(start, stop, event)`` and Stata ``stset stop, time0(start)`` / ``enter()``. A row is at risk at ``t`` iff ``start < t <= duration``, which covers delayed entry (left truncation) and time-varying covariates split into intervals. With several rows per subject pass ``cluster=<subject id>`` for the robust variance by subject (``coxph(cluster=id)``; Stata clusters on the ``stset`` id automatically).",
+          "type": "string"
+        },
         "strata": {
           "description": "Column name for stratification variable.",
           "type": "string",
@@ -53874,6 +53886,19 @@
           "enum": [
             "efron",
             "breslow"
+          ],
+          "type": "string"
+        },
+        "weights": {
+          "description": "Column of non-negative case weights (inverse-probability-of- treatment weights, survey weights, frequency counts). Weighted partial likelihood as in R ``coxph(weights=)``: risk sets sum ``w_k exp(x_k'b)`` and each Efron term of an event time carries the mean weight of its deaths. The model-based variance reads the weights as frequencies; for sampling / IPT weights pass ``weights_as='sampling'`` (or ``robust='hc0'`` / ``cluster=``), which is what R reports by default for non-integer weights and Stata ``stcox [pw=]`` always does.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "How to read ``weights=``. ``'frequency'`` keeps the model-based variance; ``'sampling'`` (Stata ``[pw=]``) asks for the robust one when neither ``robust=`` nor ``cluster=`` chose a variance.",
+          "enum": [
+            "frequency",
+            "sampling"
           ],
           "type": "string"
         },
@@ -53898,6 +53923,11 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals (Greenwood formula).",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Column whose levels are independent units (subject id with several rows); the robust variance sums the influence within each.",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "conf_type": {
           "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three. .. deprecated:: 1.39 Leaving it out still gives ``\"plain\"`` and warns. From 1.40 the default is ``\"log-log\"``: the plain interval is the one of the three that leaves [0, 1] and has to be truncated, and it is neither reference package's default. Pass ``conf_type=\"plain\"`` to keep today's numbers.",
@@ -53925,6 +53955,23 @@
         },
         "group": {
           "description": "Column name for group variable (stratification).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "se_method": {
+          "description": "``'greenwood'`` is Greenwood's formula on the (weighted) counts; ``'ij'`` the infinitesimal jackknife (robust) variance of R ``survfit(robust=TRUE)``, which treats the weights as fixed sampling weights. Not given: R's default, ``'ij'`` with ``cluster=`` or non-integer weights and ``'greenwood'`` otherwise.",
+          "enum": [
+            "greenwood",
+            "ij"
+          ],
+          "type": "string"
+        },
+        "start": {
+          "description": "Column with each row's entry time: counting-process data ``(start, duration]`` (delayed entry), as R ``Surv(start, stop, event)``. A row is at risk at ``t`` iff ``start < t <= duration``.",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Column of non-negative case weights (inverse-probability-of- treatment weights give the IPTW-adjusted curve of each ``group``). Deaths and the number at risk are weighted sums, as in R ``survfit(weights=)``; ``n_risk`` / ``n_event`` / ``n_censor`` are then weighted and reported as floats.",
           "type": "string",
           "x-statspai-role": "column"
         }

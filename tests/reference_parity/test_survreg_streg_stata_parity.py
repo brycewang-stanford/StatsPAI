@@ -210,5 +210,9 @@ def test_streg_translation_refuses_what_it_cannot_carry(data):
         sp.stata("streg x1, dist(weibull) time", data=data)
     with pytest.raises(bad, match="failure"):
         sp.stata("stset time\nstreg x1, dist(weibull) time", data=data)
-    with pytest.raises(bad, match="failure"):
-        sp.stata("stset time, failure(event) id(clust)", data=data)
+    # an id / weight / entry declaration is read by stcox only
+    with pytest.raises(bad, match="only the stcox translation"):
+        sp.stata(
+            "stset time, failure(event) id(clust)\nstreg x1, dist(weibull) time",
+            data=data,
+        )
