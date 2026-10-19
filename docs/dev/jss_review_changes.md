@@ -4308,3 +4308,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   its committed result byte for byte; the new options are off by default.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-records for LDV margins and sp.heckprobit
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `bd370d02`, `afa268a2`.
+- **Reason.** `regression/tobit.py` and `regression/heckman.py` (results
+  now keep their ML parameters and covariance for `sp.margins`) are on the
+  estimation paths of modules 41 and 43; the export of `sp.heckprobit` in
+  `statspai/__init__.py` touches modules 03, 13, 15, 24-27, 53, 65, 66 and
+  original-data module 08. Their traces were re-recorded.
+- **Effect on the paper.** None. No estimate changes; the traced modules
+  reproduce their committed results.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
