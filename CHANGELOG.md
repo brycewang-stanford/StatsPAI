@@ -30,6 +30,7 @@ All notable changes to StatsPAI will be documented in this file.
   `n_weights_changed`), and an `AssumptionWarning` fires when the two
   differ by more than 0.25 SE. `ipwtm(trunc = 0.01)` parity is unchanged
   with `trim=0.01` passed explicitly.
+
 ### Discovery: Stata / R command names, paraphrases, `limit=`
 
 - `sp.search_functions` ranks the function a Stata command or R function
