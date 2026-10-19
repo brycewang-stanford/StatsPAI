@@ -4,6 +4,35 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Design guardrails on `sp.feols` / `fepois` / `regress` / `hdfe_ols` / `panel`
+
+#### Added
+
+- A 0/1 treatment that switches on at different dates under unit and time
+  fixed effects is now flagged: `result.violations()` carries
+  `staggered_twfe` with the share of the Goodman-Bacon weight on
+  already-treated controls, an `AssumptionWarning` is issued, and the MCP
+  payload's `next_calls` lead with a ready `did` call (Callaway-Sant'Anna on
+  the same column) and `bacon_decomposition`. The share is computed from
+  cohort x period counts, without a regression, and equals
+  `sp.bacon_decomposition(...)['already_treated_control_weight_share']`
+  (to 1e-12 on random balanced designs, including always-treated units).
+  A single adoption date, a 2x2 DiD and event-study dummies are not flagged.
+- A treatment constant within each level (or level x period cell) of a
+  column coarser than the standard errors (HC1 / iid, or clusters nested in
+  it) is flagged as `treatment_cluster_level`, with a ready refit clustered
+  at that level. Clustering at the level or a coarser one containing it,
+  clusters that cross it (units x periods) and treatments that vary within
+  it are not flagged.
+- Each user-level fit of these five functions and each `sp.spec_curve` run
+  records its specifications; `model_info['multiplicity']` (and
+  `sp.audit(...)['multiplicity']`) gives the number of distinct
+  specifications of the outcome fitted in the session, and from 5 on
+  `violations()` carries `specification_search` (`info`; `warning` from 20).
+- Estimates and standard errors are unchanged. Regressions run inside
+  another StatsPAI function are not checked or counted.
+  `core/_design_guardrails.py`, `core/_spec_counter.py`;
+  `tests/test_design_guardrails.py`.
 ### `sp.sdid(treated_unit=...)` takes covariates and `se_method='noinference'`
 
 #### Added

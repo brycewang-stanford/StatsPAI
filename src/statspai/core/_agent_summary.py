@@ -673,7 +673,9 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
             if _fam != "generic":
                 method_family = _fam
                 break
-    out: List[Dict[str, Any]] = []
+    from ._design_guardrails import stored_design_violations
+
+    out: List[Dict[str, Any]] = stored_design_violations(result)
 
     # --- DID: parallel trends ------------------------------------------
     pretrend_p = _as_float(_safe_get(mi, "pretrend_test", "pvalue"))
@@ -1188,7 +1190,11 @@ def causal_agent_summary(result: Any) -> Dict[str, Any]:
 
 def econometric_violations(result: Any) -> List[Dict[str, Any]]:
     """Detect common violations on an :class:`EconometricResults`."""
-    out: List[Dict[str, Any]] = []
+    from ._design_guardrails import stored_design_violations
+
+    # Design guardrails recorded at fit time (staggered TWFE, treatment
+    # assigned above the clustering level, specification search).
+    out: List[Dict[str, Any]] = stored_design_violations(result)
     diag: Dict[str, Any] = getattr(result, "diagnostics", None) or {}
     mi: Dict[str, Any] = getattr(result, "model_info", None) or {}
     model_type = (mi.get("model_type", "") or "").lower()

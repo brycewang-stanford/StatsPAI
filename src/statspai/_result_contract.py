@@ -252,6 +252,12 @@ def generic_violations(obj: Any) -> List[Dict[str, Any]]:
             if v.get("test") == "se_positive" and se is None:
                 continue
             out.append(v)
+    if "design_violations" not in merged:
+        # results without a model_info mapping (FEOLSResult) keep the
+        # fit-time design guardrails on an attribute
+        from .core._design_guardrails import stored_design_violations
+
+        out.extend(stored_design_violations(obj))
     for d in getattr(obj, "degradations", None) or []:
         if not isinstance(d, Mapping):
             continue

@@ -2409,6 +2409,17 @@ def regress(
             else int(np.floor(4 * (n_used / 100) ** (2 / 9)))
         )
         _result.model_info["hac_small"] = bool(hac_small)
+    from ..core._design_guardrails import check_design
+
+    check_design(
+        _result,
+        data,
+        formula=formula,
+        entry="sp.regress",
+        cluster=cluster,
+        vcov="hac" if is_hac else ("ewc" if is_ewc else robust_kw),
+        weights=weights,
+    )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 

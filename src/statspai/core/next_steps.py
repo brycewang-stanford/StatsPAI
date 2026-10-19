@@ -366,6 +366,20 @@ def econometric_next_steps(result: Any) -> List[Step]:
     has_residuals = result.data_info.get("residuals") is not None
     has_X = result.data_info.get("X") is not None
 
+    # ── Design guardrails recorded at fit time come first ─────────── #
+    from ._design_guardrails import stored_design_violations
+
+    for v in stored_design_violations(result):
+        if v.get("python_call") and v.get("severity") in ("warning", "error"):
+            steps.append(
+                Step(
+                    str(v["python_call"]),
+                    str(v.get("message", "")),
+                    priority="essential",
+                    category="alternative",
+                )
+            )
+
     # ── Diagnostics ────────────────────────────────────────────────── #
     if has_residuals and has_X:
         steps.append(

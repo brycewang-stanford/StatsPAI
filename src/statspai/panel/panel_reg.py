@@ -26,6 +26,7 @@ Arellano, M. and Bond, S. (1991). "Some Tests of Specification for Panel Data."
 Blundell, R. and Bond, S. (1998). "Initial Conditions and Moment Restrictions."
 """
 
+import re
 import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -756,6 +757,7 @@ def panel(
             seed=seed,
             ssc=ssc,
         )
+    _panel_design_checks(_result, data, formula, entity, time, method, robust, cluster)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
@@ -1786,6 +1788,50 @@ _LINEARMODELS_REFERENCE = (
     "tests referred to N - K degrees of freedom. ssc='stata' gives xtreg's "
     "G/(G-1) factor and t(G-1); ssc='fixest' gives R fixest's."
 )
+
+
+def _panel_design_checks(
+    result: Any,
+    data: Any,
+    formula: str,
+    entity: str,
+    time: str,
+    method: str,
+    robust: str,
+    cluster: Any,
+) -> None:
+    """Run the shared design guardrails (``core/_design_guardrails.py``).
+
+    Fixed / random effects and pooled fits only; the absorbed effects are
+    the entity (``'fe'``) or entity and time (``'twoway'``, or ``'fe'`` with
+    ``TimeEffects`` / ``C(time)`` in the formula).
+    """
+    key = str(method).lower().strip().replace("-", "_")
+    canon = _METHOD_ALIASES.get(key, key)
+    if canon not in ("fe", "twoway", "re", "pooled") or not isinstance(formula, str):
+        return
+    from ..core._design_guardrails import check_design
+
+    fe: List[str] = []
+    if canon in ("fe", "twoway"):
+        fe = [entity]
+        if canon == "twoway" or re.search(
+            rf"TimeEffects|C\(\s*{re.escape(str(time))}\s*\)", formula
+        ):
+            fe.append(time)
+    if cluster in ("entity", "time", "twoway"):
+        cluster = {"entity": entity, "time": time, "twoway": [entity, time]}[cluster]
+    check_design(
+        result,
+        data,
+        formula=re.sub(r"\+\s*(EntityEffects|TimeEffects)\b", "", formula),
+        entry="sp.panel",
+        fe=fe,
+        cluster=cluster,
+        vcov=robust,
+        unit=entity,
+        time=time,
+    )
 
 
 def _binding_cluster_keys(

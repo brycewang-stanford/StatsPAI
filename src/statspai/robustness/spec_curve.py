@@ -40,7 +40,7 @@ Usage
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import product
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -110,6 +110,9 @@ class SpecCurveResult(ResultProtocolMixin):
     share_significant: float
     share_positive: float
     choice_dims: List[str]
+    model_info: Dict[str, Any] = field(default_factory=dict)
+    """``multiplicity``: the session count of specifications of ``y``
+    (this curve's included), see ``core/_spec_counter.py``."""
 
     # ---- pretty-print --------------------------------------------------
 
@@ -868,7 +871,7 @@ def spec_curve(
 
     n_specs = len(results_df)
 
-    return SpecCurveResult(
+    out = SpecCurveResult(
         results_df=results_df,
         x=x,
         y=y,
@@ -878,3 +881,19 @@ def spec_curve(
         share_positive=float((results_df["estimate"] > 0).mean()),
         choice_dims=choice_dims,
     )
+    from ..core._design_guardrails import record_search
+
+    record_search(
+        out,
+        data,
+        y,
+        [
+            "sp.spec_curve|" + "|".join(str(r[c]) for c in _SPEC_KEY_COLUMNS)
+            for r in all_results
+        ],
+    )
+    return out
+
+
+#: The choice columns that identify one specification of the curve.
+_SPEC_KEY_COLUMNS = ("controls", "fe", "se_type", "subset", "y_transform")

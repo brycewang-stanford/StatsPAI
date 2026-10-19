@@ -21,6 +21,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from ..core._call_record import records_call
+from ..core._design_guardrails import check_design as _check_design
 from ..core._vcov_spec import markout_clusters, stata_vce_to_fixest
 from ..core.results import EconometricResults
 from ..core.utils import (
@@ -241,6 +242,16 @@ def _native_feols(
     _note_multiway_adjustment(
         out, v, int(out.model_info.get("multiway_negative_eigenvalues", 0) or 0)
     )
+    _check_design(
+        out,
+        data,
+        formula=fml,
+        entry="sp.feols",
+        fe=p.fe,
+        cluster=p.cluster,
+        vcov=p.vcov,
+        weights=weights,
+    )
     return out
 
 
@@ -339,6 +350,17 @@ def _native_fepois(
         out,
         _native_vcov(p),
         int(out.model_info.get("multiway_negative_eigenvalues", 0) or 0),
+    )
+    _check_design(
+        out,
+        data,
+        formula=fml,
+        entry="sp.fepois",
+        fe=p.fe,
+        cluster=p.cluster,
+        vcov=p.vcov,
+        weights=weights,
+        poisson=True,
     )
     return out
 
@@ -2009,6 +2031,15 @@ def feols(
     _note_multiway_adjustment(out, vcov, n_negative)
     if weights is None:
         _note_iv_diagnostics(fit, out)
+    _check_design(
+        out,
+        data,
+        formula=fml,
+        entry="sp.feols",
+        cluster=cluster,
+        vcov=vcov,
+        weights=weights,
+    )
     return out
 
 

@@ -1542,7 +1542,7 @@ def feols(
             weights_as=weights_as,
         )
 
-    return FEOLSResult(
+    out = FEOLSResult(
         params=coef,
         std_errors=se,
         vcov=vcov,
@@ -1575,6 +1575,18 @@ def feols(
         df_a_nested=df_a_nested,
         weight_info=weight_info,
     )
+    from ..core._design_guardrails import check_design
+
+    check_design(
+        out,
+        data,
+        formula=formula,
+        entry="sp.hdfe_ols",
+        cluster=cluster_names or None,
+        vcov=vce if vce is not None else se_type,
+        weights=weights if isinstance(weights, str) else None,
+    )
+    return out
 
 
 def _resolve_df_inference(

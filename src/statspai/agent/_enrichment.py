@@ -405,6 +405,44 @@ def attach_data_source(payload: Dict[str, Any], data_args: Dict[str, Any]) -> No
             _annotate_readiness(call)
 
 
+def violation_next_calls(
+    payload: Dict[str, Any],
+    *,
+    tool_name: str,
+    result_id: Optional[str] = None,
+    base_args: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Follow-up calls carried by the payload's ``violations``.
+
+    The design guardrails (``core/_design_guardrails.py``) attach
+    ``next_calls`` templates to their violations. A template with
+    ``same_call: true`` re-runs this tool with the caller's arguments, minus
+    ``drop_arguments``, plus its own ``arguments`` (for example the same
+    regression clustered at the treatment's assignment level).
+    """
+    base_args = base_args or {}
+    out: List[Dict[str, Any]] = []
+    for v in payload.get("violations") or []:
+        if not isinstance(v, dict):
+            continue
+        for t in v.get("next_calls") or []:
+            if not isinstance(t, dict) or not t.get("tool"):
+                continue
+            if t.get("same_call"):
+                drop = set(t.get("drop_arguments") or [])
+                args = {k: val for k, val in base_args.items() if k not in drop}
+                args.update(t.get("arguments") or {})
+                call: Dict[str, Any] = {"tool": tool_name, "arguments": args}
+                if "rationale" in t:
+                    call["rationale"] = t["rationale"]
+                out.append(_annotate_readiness(call))
+            else:
+                out.append(
+                    _instantiate_followup(t, result_id=result_id, base_args=base_args)
+                )
+    return out
+
+
 def build_next_calls(
     tool_name: str,
     *,
@@ -633,6 +671,20 @@ def enrich_payload(
     if not isinstance(payload, dict):
         return payload
 
+    try:
+        flagged = violation_next_calls(
+            payload, tool_name=tool_name, result_id=result_id, base_args=base_args
+        )
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        from ..workflow._degradation import record_degradation
+
+        degradations = payload.setdefault("degradations", [])
+        if isinstance(degradations, list):
+            record_degradation(
+                degradations, section="next_calls", exc=exc, detail=tool_name
+            )
+        flagged = []
+
     if "next_calls" not in payload:
         try:
             nc = build_next_calls(
@@ -656,6 +708,20 @@ def enrich_payload(
             nc = []
         if nc:
             payload["next_calls"] = nc
+    if flagged:
+        # design problems first: they say the estimate answers another
+        # question, which outranks the routine follow-ups
+        rest = [
+            c
+            for c in payload.get("next_calls") or []
+            if not any(
+                isinstance(c, dict)
+                and c.get("tool") == f["tool"]
+                and c.get("arguments") == f["arguments"]
+                for f in flagged
+            )
+        ]
+        payload["next_calls"] = flagged + rest
 
     if "citations" not in payload:
         keys = build_citations(tool_name)
@@ -682,6 +748,7 @@ def enrich_payload(
 
 __all__ = [
     "build_next_calls",
+    "violation_next_calls",
     "build_citations",
     "fetch_bibtex",
     "build_narrative",

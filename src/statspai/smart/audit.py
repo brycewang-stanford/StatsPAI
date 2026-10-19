@@ -917,6 +917,12 @@ class AuditReport(dict):
         ]
         if n_na:
             lines.append("n/a checks do not exist for this fit and are not counted.")
+        mult = self.get("multiplicity")
+        if isinstance(mult, dict) and mult.get("specifications_tried"):
+            lines.append(
+                f"Specifications of '{mult.get('outcome', '')}' fitted this "
+                f"session: {mult['specifications_tried']}."
+            )
         return "\n".join(lines)
 
     __str__ = _render
@@ -1003,6 +1009,10 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
           of *applicable* checks (``passed + failed + missing``)
         - ``coverage`` (float in [0, 1]) — ``passed / n_total``; agents
           can sort multiple results by reviewer-readiness
+        - ``multiplicity`` (dict, when the fit recorded one) — the number
+          of distinct specifications of the outcome fitted in this session
+          (``specifications_tried``), from ``sp.regress`` / ``feols`` /
+          ``fepois`` / ``hdfe_ols`` / ``panel`` / ``spec_curve``
 
     Examples
     --------
@@ -1226,21 +1236,25 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
     n_total = len(checks) - n_na
     coverage = (n_passed / n_total) if n_total else 0.0
 
-    return AuditReport(
-        {
-            "method": method_label,
-            "method_family": family,
-            "checks": checks,
-            "summary": {
-                "passed": n_passed,
-                "failed": n_failed,
-                "missing": n_missing,
-                "not_applicable": n_na,
-                "n_total": n_total,
-            },
-            "coverage": round(coverage, 3),
-        }
-    )
+    report = {
+        "method": method_label,
+        "method_family": family,
+        "checks": checks,
+        "summary": {
+            "passed": n_passed,
+            "failed": n_failed,
+            "missing": n_missing,
+            "not_applicable": n_na,
+            "n_total": n_total,
+        },
+        "coverage": round(coverage, 3),
+    }
+    # How many specifications of this outcome the session has fitted
+    # (core/_spec_counter.py): read-only, recorded at fit time.
+    multiplicity = model_info.get("multiplicity", getattr(result, "multiplicity", None))
+    if isinstance(multiplicity, dict):
+        report["multiplicity"] = dict(multiplicity)
+    return AuditReport(report)
 
 
 __all__ = ["AuditReport", "audit"]
