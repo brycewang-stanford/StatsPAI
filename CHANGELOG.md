@@ -235,6 +235,22 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.bcf` is unchanged (the ensemble approximation); its warning now
   points to `sp.bart_causal(method='bcf')`.
 
+### CEM k2k and the L1 imbalance
+
+#### Added
+
+- `sp.match(method='cem', k2k=True)`: 1:1 matching without replacement on
+  the Mahalanobis distance inside each coarsened cell, in data order
+  (R MatchIt's `method = "cem", k2k = TRUE`); unmatched units drop out.
+  Pairs and ATT equal MatchIt 4.7.2 given the same cells.
+  `tests/reference_parity/test_cem_k2k_parity.py`.
+- `sp.l1_imbalance(data, treat, covariates, weights=)`: the multivariate
+  L1 statistic of Iacus, King and Porro (2011) on a coarsening of the
+  covariates (equal-width bins, Sturges by default), weighted or not;
+  identities (0 for identical arms, 1 for disjoint cells, a hand
+  computation) are tested. R cem's `imbalance()` coarsens differently by
+  default, so its numbers are comparable only under the same coarsening.
+
 ### CLAN in `sp.gate_test`
 
 #### Added

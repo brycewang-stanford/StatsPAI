@@ -43,6 +43,7 @@ from typing import Any, Dict, List, Optional
 from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import MethodIncompatibility
+from ._cem_extras import l1_imbalance
 from .bal_tab import BalTabResult, bal_tab
 from .balance_randomization import BalanceRandomizationResult, balance_vs_randomization
 from .cbps import cbps
@@ -488,6 +489,7 @@ __all__ = [
     "weightit",
     "WeightItResult",
     "bal_tab",
+    "l1_imbalance",
     "BalTabResult",
     "residual_balance",
     "psmatch2",

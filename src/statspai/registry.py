@@ -6462,6 +6462,15 @@ def _build_registry() -> None:
                     "SE clustered on matched sets (HC3 with replacement)",
                 ),
                 ParamSpec(
+                    "k2k",
+                    "bool",
+                    False,
+                    False,
+                    "method='cem': 1:1 Mahalanobis matching without replacement "
+                    "inside each coarsened cell, data order (MatchIt cem k2k); "
+                    "check sp.l1_imbalance",
+                ),
+                ParamSpec(
                     "ps_model",
                     "str",
                     False,

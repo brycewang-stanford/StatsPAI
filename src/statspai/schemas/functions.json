@@ -4475,6 +4475,11 @@
           },
           "type": "array"
         },
+        "k2k": {
+          "default": false,
+          "description": "method='cem': 1:1 Mahalanobis matching without replacement inside each coarsened cell, data order (MatchIt cem k2k); check sp.l1_imbalance",
+          "type": "boolean"
+        },
         "llr_stata_compat": {
           "default": false,
           "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) rather than genuine local linear regression.",
@@ -43311,6 +43316,46 @@
       "required": [
         "data",
         "y",
+        "treat",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011).",
+    "name": "l1_imbalance",
+    "parameters": {
+      "properties": {
+        "covariates": {
+          "description": "Covariate matrix, DataFrame, or column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "n_bins": {
+          "description": "Bins per covariate; default Sturges' rule ``ceil(log2(n) + 1)`` (the default of R ``cem``'s ``imbalance`` is a different, histogram-based coarsening, so the numbers are comparable only under the same coarsening).",
+          "type": "integer"
+        },
+        "treat": {
+          "description": "0/1 treatment.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "weights": {
+          "description": "Matching or balancing weights (``NaN`` = not in the sample); the default is the unweighted sample.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
         "treat",
         "covariates"
       ],

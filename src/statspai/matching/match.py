@@ -258,6 +258,7 @@ def match(
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
     sampling_weights: Optional[str] = None,
+    k2k: bool = False,
 ) -> CausalResult:
     """
     Estimate treatment effect using matching.
@@ -589,6 +590,14 @@ def match(
         Equals MatchIt 4.7.2 + sandwich to 1e-9
         (``tests/reference_parity/test_match_sweights_parity.py``). To
         reproduce MatchIt's matches pass ``m_order='largest'``.
+    k2k : bool, default False
+        ``method='cem'`` only: after the coarsening, match 1:1 without
+        replacement inside each cell on the Mahalanobis distance of the
+        original covariates, in data order, and drop unmatched units (R
+        ``MatchIt``'s ``method = "cem", k2k = TRUE``). The pairs equal
+        MatchIt's given the same cells
+        (``tests/reference_parity/test_cem_k2k_parity.py``). Balance on
+        the coarsened distribution is measured by :func:`sp.l1_imbalance`.
 
     Returns
     -------
@@ -697,6 +706,22 @@ def match(
         n_bins=n_bins,
         alpha=alpha,
     )
+    if k2k:
+        if str(method).lower() != "cem":
+            raise MethodIncompatibility(
+                "sp.match: k2k=True applies to method='cem'.",
+                recovery_hint="Use method='cem', k2k=True.",
+            )
+        if weights is not None or sampling_weights is not None:
+            raise MethodIncompatibility(
+                "sp.match: k2k=True is not combined with weights.",
+            )
+        from ._cem_extras import match_cem_k2k
+
+        def _fit_k2k(frame: pd.DataFrame, sp_: Dict[str, Any]) -> CausalResult:
+            return MatchEstimator(data=frame, **sp_).fit()
+
+        return match_cem_k2k(data, spec, _fit_k2k)
     if sampling_weights is not None:
         if weights is not None:
             raise MethodIncompatibility(

@@ -8986,6 +8986,11 @@
             },
             "type": "array"
           },
+          "k2k": {
+            "default": false,
+            "description": "method='cem': 1:1 Mahalanobis matching without replacement inside each coarsened cell, data order (MatchIt cem k2k); check sp.l1_imbalance",
+            "type": "boolean"
+          },
           "llr_stata_compat": {
             "default": false,
             "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) rather than genuine local linear regression.",
