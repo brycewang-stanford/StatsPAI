@@ -753,6 +753,7 @@ def feols(
     df_inference: Optional[Union[str, float]] = None,
     absorb_dof: str = "reghdfe",
     weights_as: Optional[str] = None,
+    cluster_df: str = "per_term",
 ) -> FEOLSResult:
     """reghdfe-style OLS with high-dimensional fixed effects.
 
@@ -886,6 +887,18 @@ def feols(
         the slopes and standard errors are then those of
         ``sp.regress('y ~ x + C(g)')`` without building the dummies. OLS
         with one-way clustering only.
+    cluster_df : {'per_term', 'min'}, default 'per_term'
+        Small-sample factor of a multi-way cluster variance (the
+        inclusion-exclusion sum ``V_a + V_b - V_ab``). ``'per_term'`` scales
+        each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does;
+        ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest
+        cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and
+        so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to
+        reproduce their numbers. The two differ by a few percent with few
+        clusters in one dimension (0.00935 against 0.00856 on one 40 x 15
+        panel); one-way clustering is the same either way. The choice is
+        recorded in ``cluster_info['cluster_df']``. OLS with fixed effects
+        only.
 
     Returns
     -------
@@ -1137,6 +1150,12 @@ def feols(
                 f"hdfe_ols vce={vce!r} needs at least one absorbed fixed "
                 "effect; use sp.regress for the no-FE SE menu."
             )
+        if cluster_df != "per_term":
+            raise MethodIncompatibility(
+                "hdfe_ols: cluster_df= applies with absorbed fixed effects; "
+                "without them use sp.regress / sp.feols.",
+                recovery_hint="Drop cluster_df=, or add a '| fe' part.",
+            )
         return _ols_no_fe(
             df, lhs, X_arr, x_names, w_arr, cluster_names, alpha, formula, df_inference
         )
@@ -1152,6 +1171,12 @@ def feols(
                 "hdfe_ols: absorb_dof='areg' is defined for OLS; the IV "
                 "path follows ivreghdfe.",
                 recovery_hint="Drop absorb_dof=, or fit without instruments.",
+            )
+        if cluster_df != "per_term":
+            raise MethodIncompatibility(
+                "hdfe_ols: cluster_df= is implemented for OLS with fixed "
+                "effects; the IV path keeps its own multi-way factor.",
+                recovery_hint="Drop cluster_df=, or fit without instruments.",
             )
         endog_arr, endog_names = _materialize_rhs(df, endog_terms)
         inst_arr, inst_names = _materialize_rhs(df, inst_terms)
@@ -1197,6 +1222,7 @@ def feols(
         slopes=slope_specs,
         collinear_tol=collinear_tol,
         absorb_dof=absorb_dof,
+        cluster_df=cluster_df,
     )
 
     coef = pd.Series(result["coef"], index=x_names, name="coef")
@@ -1278,6 +1304,8 @@ def feols(
             "dof_fe_cluster": int(result.get("dof_fe_cluster", result["dof_fe"])),
             "nested_fe": nested_fe,
         }
+        if len(cluster_names) > 1:
+            cluster_info["cluster_df"] = cluster_df
         if len(cluster_names) == 1:
             from ..core._agent_summary import warn_if_clusters_unequal
 
