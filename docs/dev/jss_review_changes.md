@@ -4138,3 +4138,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record after the native Honest DiD restriction families
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `fa8d6630`.
+- **Reason.** `did/honest_did.py` (new `bias_direction` /
+  `monotonicity_direction` / `smoothness_relative_magnitude` dispatch) and
+  `did/_arp.py` (conditional-FLCI hybrid first-stage edge rule) sit on the
+  estimation paths of modules 10 and 21; their traces were re-recorded.
+- **Effect on the paper.** None. Modules 10 and 21 reproduce their
+  committed results exactly (the FLCI and the relative-magnitudes
+  Conditional set do not touch the changed branches).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
