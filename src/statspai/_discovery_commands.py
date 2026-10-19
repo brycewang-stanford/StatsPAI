@@ -18,8 +18,7 @@ and the tool it emits is taken. Nothing here restates a mapping the
 translators already hold.
 
 :data:`SUPPLEMENT` lists the few names users type that the translators do
-not recognise at all (``eventstudyinteract``, ``xtabond2``, fixest's
-``sunab``). ``tests/test_discovery_commands.py`` fails as soon as a
+not recognise at all (``csdid2``, fixest's ``sunab``). ``tests/test_discovery_commands.py`` fails as soon as a
 translator learns one of them, so the entry moves to the translator and is
 deleted here.
 """
@@ -32,10 +31,9 @@ from typing import Callable, Dict, List, Optional, Tuple
 #: Each target must be a registered function; a name the translators gain
 #: must be removed here (the test above enforces both).
 SUPPLEMENT: Dict[str, Tuple[str, Tuple[str, ...]]] = {
-    # Stata (ssc) packages without a translator handler.
-    "eventstudyinteract": ("stata", ("sun_abraham",)),
-    # xtabond2 fits system GMM unless `noleveleq`; sp.xtabond covers both.
-    "xtabond2": ("stata", ("xtabond",)),
+    # Stata (ssc) packages without a translator handler. eventstudyinteract
+    # and xtabond2 moved to the translator on 2026-10-19 (a handler and a
+    # guidance entry).
     "csdid2": ("stata", ("callaway_santanna",)),
     # R functions without a translator handler.
     "sunab": ("r", ("sun_abraham",)),
