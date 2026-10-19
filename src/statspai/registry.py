@@ -29519,7 +29519,7 @@ def _build_registry() -> None:
                     "treat",
                     "str",
                     True,
-                    description="0/1 treatment status per period (may switch on and off)",
+                    description="0/1 treatment status per period (may switch)",
                 ),
                 ParamSpec("id", "str", True, description="Unit identifier"),
                 ParamSpec("time", "str", True, description="Integer period"),

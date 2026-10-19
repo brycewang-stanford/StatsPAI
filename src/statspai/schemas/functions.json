@@ -30084,7 +30084,7 @@
           "x-statspai-role": "column"
         },
         "treat": {
-          "description": "0/1 treatment status per period (may switch on and off)",
+          "description": "0/1 treatment status per period (may switch)",
           "type": "string",
           "x-statspai-role": "column"
         },
