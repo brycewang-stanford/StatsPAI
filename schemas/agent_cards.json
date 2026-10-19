@@ -26810,6 +26810,7 @@
       "fields": {
         "choice_dims": "List[str]",
         "median_estimate": "float",
+        "model_info": "Dict[str, Any]",
         "n_specs": "int",
         "results_df": "pd.DataFrame",
         "share_positive": "float",

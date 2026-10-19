@@ -175,9 +175,18 @@ first:
 ```python
 bacon = sp.bacon_decomposition(df, y='y', treat='treat',
                                time='t', id='i')
-# If most weight goes to "Earlier vs Later Treated" comparisons,
-# TWFE is contaminated by already-treated units acting as controls.
+# Weight on "Later vs Earlier Treated" (and "Later vs Always Treated")
+# comparisons is TWFE using already-treated units as controls:
+bacon['already_treated_control_weight_share']
 ```
+
+`sp.feols`, `sp.fepois`, `sp.hdfe_ols`, `sp.regress` (with `C(unit) +
+C(time)`) and `sp.panel(method='twoway')` report the same share themselves
+when they see a 0/1 treatment that switches on at different dates under
+unit and time effects: `result.violations()` lists `staggered_twfe`, a
+warning is issued, and `result.next_steps()` starts with the `sp.did` call
+that estimates the same design with Callaway-Sant'Anna. The share comes
+from the cohort sizes and dates alone, so the check costs no regression.
 
 `sp.bacon_decomposition` needs a binary treatment that turns on once.
 `sp.twowayfeweights` does not. It returns the weights the regression puts
