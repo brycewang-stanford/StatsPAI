@@ -171,9 +171,11 @@ def test_parse_data_mask_is_optional(df):
     for a, b in zip(four, five[:4]):
         np.testing.assert_array_equal(a, b)
     assert five[4].sum() == len(df) - 2
-    # centred at the cutoff; covariates demeaned
+    # centred at the cutoff; covariates on their own scale, as R / Stata
+    # rdrobust (demeaning moved the fuzzy bandwidth, see
+    # tests/reference_parity/test_rd_fuzzy_covs_level_R_parity.py)
     np.testing.assert_allclose(four[1], holed["x"][five[4]] - 0.25)
-    assert abs(four[3].mean()) < 1e-12
+    np.testing.assert_array_equal(four[3][:, 0], holed["z"][five[4]].to_numpy())
 
 
 # ------------------------------------------------------------ manipulation test

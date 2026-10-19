@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: `sp.rdrobust` fuzzy bandwidth with covariates
+
+- ⚠️ `sp.rdrobust(fuzzy=..., covs=...)` with an automatic bandwidth: `h`
+  now equals R / Stata `rdrobust`'s. The parser demeaned `covs` before the
+  bandwidth cascade, and the fuzzy cascade at `nu = 0` builds its
+  delta-method weights from each side's levels at the cutoff, which move
+  with the covariates' location. `h` (and so every estimate) was 4e-3 to
+  5e-3 (relative) off on covariates with non-zero means; `b`, all sharp
+  bandwidths and all fixed-`h` estimates were already exact, and
+  standardised covariates (the earlier fuzzy fixture) were unaffected.
+  New fixture `tests/reference_parity/test_rd_fuzzy_covs_level_R_parity.py`
+  (p = 1, p = 2, cluster, hc1, cerrd, msetwo; rdrobust 4.0.0, rel 1e-6).
+
 ### Singletons: the default of `fixef_rm` changes in 1.40
 
 - `sp.feols` / `sp.fepois`: `fixef_rm` defaults to `None`, which keeps

@@ -2279,8 +2279,13 @@ def _parse_data(
     Z = None
     if covs:
         Z = np.column_stack([data.loc[valid, col].values.astype(float) for col in covs])
-        # Demean covariates for numerical stability
-        Z = Z - Z.mean(axis=0)
+        # Covariates enter on their own scale, as in R / Stata rdrobust. Do
+        # NOT demean them: the fuzzy bandwidth cascade forms its delta-method
+        # weights from each side's *levels* tau_Y / tau_T at the cutoff
+        # (``rdrobust_bw`` at nu = 0), and those levels move with the
+        # covariates' location. Demeaning here (as through 2026-10-18) left
+        # the fuzzy + covs mserd h 4e-3 to 5e-3 (relative) off rdrobust 4.0.0
+        # while b, every sharp bandwidth and every fixed-h estimate matched.
 
     if return_mask:
         return Y, X_c, D, Z, valid

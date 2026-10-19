@@ -246,7 +246,7 @@
    "result_sha256": "b89cab74aaedc16e8b571d753b9af9747d7cfc6c950dfb9773885d4cd8d1d526"
   },
   "05_lee_original": {
-   "seconds": 0.74,
+   "seconds": 6.42,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -273,7 +273,7 @@
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/rd/_cct_bandwidth.py": "707b0ffeb91e5da0b2c92a0d7603968ea9d27b135443129d68d28908240dfb0d",
     "src/statspai/rd/_core.py": "3c5ad051e6e4cf17cdee86ff845d76dbc955f61ee1a21e9ee5ef32f977a126de",
-    "src/statspai/rd/rdrobust.py": "31f679e35951d8811d0a50930bb42f81bf2d91ebf4e451d634f2f66431df40d7"
+    "src/statspai/rd/rdrobust.py": "a6fa9eb042df2a44de028c77a08072e1374650d38d05c7849acf1c3f1e560941"
    },
    "dependency_versions": {
     "numpy": "2.2.6",

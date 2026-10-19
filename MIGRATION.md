@@ -5,6 +5,20 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` fuzzy + covariates bandwidth
+
+**What changed.** With `fuzzy=` and `covs=` and no `h=`, the selected
+bandwidth now matches R / Stata `rdrobust` (the covariates are no longer
+demeaned before selection). On covariates whose means are far from zero
+`h` moves by a few parts in a thousand and the estimate and standard
+errors move with it. Sharp designs, fuzzy designs without covariates and
+any call with a fixed `h` are unchanged.
+
+**What to do.** Nothing; to reproduce an old number pass the old `h=`
+explicitly.
+
+---
+
 ## 1.39.6 → 1.40: `sp.feols` / `sp.fepois` will drop fixed-effect singletons by default
 
 **What changes.** `fixef_rm` of `sp.feols` and `sp.fepois` defaults to
