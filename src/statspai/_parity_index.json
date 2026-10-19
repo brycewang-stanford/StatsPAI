@@ -920,6 +920,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_bacon_controls_R_parity.py",
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_did_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"

@@ -28887,6 +28887,15 @@ def _build_registry() -> None:
                     ),
                     enum=["error", "drop_units"],
                 ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Time-varying controls: the TWFE coefficient with controls "
+                    "splits into omega * beta_within + (1 - omega) * the weighted "
+                    "between-group 2x2 terms (R bacondecomp with controls)",
+                ),
             ],
             returns="dict with 'weights', 'estimates', 'summary'",
             example=('sp.bacon_decomposition(df, y="y", treat="d", time="t", id="i")'),

@@ -25,3 +25,4 @@
 
 
 - **TWFE 回归入口上的分期处理护栏（2026-10-19 起）**：`sp.feols` / `hdfe_ols` / `regress` / `panel(twoway)` / `fepois` 遇到单位 + 时期固定效应下的分期 0/1 处理时报 `staggered_twfe`（份额按 `bacon_decomposition` 的权重从 cohort × 时期行数算出，不跑回归），`next_calls` 首项是 `did`（同一列走 Callaway-Sant'Anna）。规则与实现见 `regression.md` 的「设计护栏」一条；改 `did/bacon.py` 的权重时同时看 `core/_design_guardrails.py::bacon_forbidden_share`，`tests/test_design_guardrails.py` 断言两者相等。
+- **`sp.bacon_decomposition(covariates=)`（`did/_bacon_controls.py`，2026-10-19 起）**：带控制变量的 Goodman-Bacon 分解（2021 第 5 节），逐项跟 R `bacondecomp` 0.1.1（MIT，读过源码）：处理对控制变量与双向效应做 FWL，残差的组内部分给 `beta_within` 与 `omega`，组间每一对（只取较早组对较晚组，每对一次）合成 2x2 项与控制变量组-期均值项。平衡面板上所有带双向效应的回归都用精确的双重去均值。**always-treated 对 never-treated 这一对没有 2x2 变异**：R 里 `VD` 是舍入噪声、R² 由噪声回归得到，但都乘以 ~0，权重与估计只剩控制变量均值项；我们把 `VD < 1e-12` 判为零、直接取该项，与 R 对到 1e-10（该对的 `beta_2x2` 报 NaN）。恒等式 `TWFE = omega·beta_within + (1-omega)·Σ weight·estimate` 精确成立（1e-12）。不带 `covariates` 时代码路径与数字都没变（Track A 20 重跑逐字节相同）。

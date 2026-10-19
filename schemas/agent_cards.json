@@ -65734,6 +65734,14 @@
             ],
             "type": "string"
           },
+          "covariates": {
+            "description": "Time-varying controls: the TWFE coefficient with controls splits into omega * beta_within + (1 - omega) * the weighted between-group 2x2 terms (R bacondecomp with controls)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "data": {
             "description": "Balanced panel data.",
             "type": "object",
@@ -65776,6 +65784,7 @@
       "R parity module 20_bacon",
       "Stata parity module 20_bacon",
       "Cross-language parity (bit-exact) vs bacondecomp::bacon [R version 4.5.2 (2025-10-31), bacondecomp 0.1.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 20_bacon -- tests/r_parity/20_bacon.py",
+      "tests/reference_parity/test_bacon_controls_R_parity.py",
       "tests/reference_parity/test_castle_stata_parity.py",
       "tests/reference_parity/test_did_parity.py",
       "tests/reference_parity/test_twfe_decomposition_known_truth.py"

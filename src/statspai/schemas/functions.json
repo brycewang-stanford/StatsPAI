@@ -29312,6 +29312,14 @@
           ],
           "type": "string"
         },
+        "covariates": {
+          "description": "Time-varying controls: the TWFE coefficient with controls splits into omega * beta_within + (1 - omega) * the weighted between-group 2x2 terms (R bacondecomp with controls)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "data": {
           "description": "Balanced panel data.",
           "type": "object",

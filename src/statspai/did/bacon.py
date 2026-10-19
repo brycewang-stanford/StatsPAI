@@ -20,7 +20,7 @@ Goodman-Bacon, A., Goldring, T. and Nichols, A. (2019).
 of difference-in-differences estimation."
 """
 
-from typing import Any, Dict
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -71,6 +71,7 @@ def bacon_decomposition(
     id: str,
     alpha: float = 0.05,
     balance: str = "error",
+    covariates: Optional[List[str]] = None,
 ) -> "BaconDecompositionResult":
     """
     Goodman-Bacon (2021) decomposition of the TWFE DID estimator.
@@ -100,6 +101,16 @@ def bacon_decomposition(
         treatment in every period -- Stata ``xtbalance`` before
         ``bacondecomp`` -- and decomposes the TWFE estimate on that balanced
         subpanel; the dropped units are listed in the output.
+    covariates : list of str, optional
+        Time-varying controls (R ``bacon(y ~ d + x1 + x2, ...)``). The TWFE
+        coefficient with controls splits into a within-timing-group part
+        and a weighted sum of between-group 2x2 terms:
+        ``beta = omega * beta_within + (1 - omega) * sum(weight * estimate)``
+        (Goodman-Bacon 2021, Section 5). Pairs are earlier vs later timing
+        groups only (each pair once), typed ``'Treated vs Untreated'``,
+        ``'Both Treated'`` or ``'Later vs Always Treated'`` as in R
+        ``bacondecomp``; the result adds ``omega``, ``beta_within`` and
+        ``beta_between``.
 
     Returns
     -------
@@ -230,6 +241,11 @@ def bacon_decomposition(
     timing_groups = sorted(unit_treat.unique())
     never_treated = np.inf
 
+    if covariates:
+        return _decompose_with_controls(
+            df, y, treat, time, id, list(covariates), dropped_units
+        )
+
     # Overall TWFE estimate (for reference)
     beta_twfe = _twfe_estimate(df, y, treat, time, id)
 
@@ -331,6 +347,56 @@ def bacon_decomposition(
             "n_comparisons": len(decomp),
             "negative_weight_share": neg_share,
             "already_treated_control_weight_share": forbidden_share,
+            "n_units": int(df[id].nunique()),
+            "dropped_units": dropped_units,
+        }
+    )
+
+
+def _decompose_with_controls(
+    df: pd.DataFrame,
+    y: str,
+    treat: str,
+    time: str,
+    id: str,
+    covariates: List[str],
+    dropped_units: list,
+) -> "BaconDecompositionResult":
+    from ._bacon_controls import bacon_with_controls, twfe_with_controls
+
+    check_columns(df, {"covariates": covariates}, function="sp.bacon_decomposition")
+    out = bacon_with_controls(
+        df,
+        y=y,
+        treat=treat,
+        time=time,
+        id=id,
+        covariates=covariates,
+        treat_time="_treat_time",
+    )
+    decomp = out["decomposition"]
+    weights = decomp["weight"] if len(decomp) else pd.Series(dtype=float)
+    always = decomp["type"].eq("Later vs Always Treated") if len(decomp) else weights
+    abs_total = float(weights.abs().sum())
+    return BaconDecompositionResult(
+        {
+            "beta_twfe": twfe_with_controls(df, y, treat, time, id, covariates),
+            "decomposition": decomp,
+            "summary": _summary_by_type(decomp),
+            "weighted_sum": out["weighted_sum"],
+            "n_comparisons": len(decomp),
+            "omega": out["omega"],
+            "beta_within": out["beta_within"],
+            "beta_between": out["beta_between"],
+            "covariates": covariates,
+            "negative_weight_share": (
+                float(weights[weights < 0].abs().sum()) / abs_total
+                if abs_total > 0
+                else 0.0
+            ),
+            "already_treated_control_weight_share": (
+                float(weights[always].sum()) if len(decomp) else 0.0
+            ),
             "n_units": int(df[id].nunique()),
             "dropped_units": dropped_units,
         }

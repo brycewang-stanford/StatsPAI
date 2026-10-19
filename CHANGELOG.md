@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.bacon_decomposition(covariates=)`
+
+#### Added
+
+- `sp.bacon_decomposition(..., covariates=[...])` decomposes the TWFE
+  coefficient with time-varying controls (Goodman-Bacon 2021, Section 5)
+  into `omega * beta_within + (1 - omega) * sum(weight * estimate)` over
+  between-group pairs, as R `bacondecomp` does with controls; the result
+  adds `omega`, `beta_within` and `beta_between`. Every pair's weight,
+  estimate and type, omega and the within estimate equal `bacondecomp`
+  0.1.1 to 1e-10 (`tests/reference_parity/test_bacon_controls_R_parity.py`)
+  and the identity holds to 1e-12. Without `covariates` nothing changes.
+
 ### ⚠️ Correctness: `sp.from_stata` / `sp.stata` two-way clustered `reghdfe`
 
 #### Fixed
