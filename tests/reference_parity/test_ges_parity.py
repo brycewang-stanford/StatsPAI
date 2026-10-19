@@ -80,7 +80,7 @@ def test_result_does_not_depend_on_last_bit_rounding(monkeypatch):
     # the package exports the function under the module's name
     ges_mod = importlib.import_module("statspai.causal_discovery.ges")
 
-    real = ges_mod._total_bic
+    real = ges_mod._bic_score_local
     rng = np.random.default_rng(0)
     data_rng = np.random.default_rng(1)
     X = data_rng.normal(0, 1, N)
@@ -90,10 +90,11 @@ def test_result_does_not_depend_on_last_bit_rounding(monkeypatch):
     want = set(sp.ges(frame).edges())
     assert ("X", "Z", "-->") in want and ("Y", "Z", "-->") in want
 
-    def noisy(data, adj):
-        b = real(data, adj)
+    def noisy(data, j, parents):
+        b = real(data, j, parents)
         return b * (1.0 + 1e-13 * rng.standard_normal())
 
-    monkeypatch.setattr(ges_mod, "_total_bic", noisy)
+    # the search scores local (node, parent set) terms since 2026-10-19
+    monkeypatch.setattr(ges_mod, "_bic_score_local", noisy)
     for _ in range(20):
         assert set(sp.ges(frame).edges()) == want

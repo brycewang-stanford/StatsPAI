@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: `sp.ges` is Greedy Equivalence Search
+
+- ⚠️ `sp.ges` now searches equivalence classes with Chickering's (2002)
+  `Insert` / `Delete` operators and re-completes the CPDAG after every
+  step (Meek's rules). It used to add and remove single edges in DAG space
+  and then call every edge outside a v-structure undirected, so compelled
+  edges below a collider (`Z -> W` in `X -> Z <- Y, Z -> W`) came back as
+  `Z - W` and the search could stop short of the GES optimum. Against
+  `pcalg::ges(phase = c("forward", "backward"))` on 30 random
+  linear-Gaussian graphs it matched 11; it now matches all 30, mark for
+  mark (`tests/reference_parity/test_ges_pcalg_parity.py`). The provenance
+  call is no longer wrapped in a bare `except Exception: pass`.
+
 ### ⚠️ Correctness: `sp.msm` no longer truncates the weights by default
 
 - ⚠️ `sp.msm(trim=)` defaults to `0.0` (was `0.01`), as R `ipw::ipwtm`

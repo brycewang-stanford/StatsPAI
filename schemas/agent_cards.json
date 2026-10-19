@@ -139454,13 +139454,14 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "@chickering2002optimal",
     "returns": {
       "class": "GESResult",
-      "description": "GESResult: CPDAG (Markov equivalence class) with .adjacency, .bic, .edges() and .to_frame() helpers.",
+      "description": "GESResult: CPDAG (Markov equivalence class) with .adjacency, .bic, .edges() and .to_frame() helpers. bic is the Gaussian BIC sum_j n log(RSS_j / n) + (|pa_j| + 1) log n of any DAG in the class (lower is better).",
       "fields": {
         "adjacency": "np.ndarray",
         "bic": "float",
@@ -139479,7 +139480,7 @@
           },
           "max_iter": {
             "default": 500,
-            "description": "Maximum total edge additions + removals.",
+            "description": "Maximum number of operators applied (forward insertions plus backward deletions).",
             "type": "integer"
           }
         },

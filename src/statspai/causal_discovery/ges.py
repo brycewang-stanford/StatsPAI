@@ -1,22 +1,38 @@
-"""Greedy Equivalence Search (GES) — Chickering, JMLR 2002.
+"""Greedy Equivalence Search (GES), Chickering (2002).
 
-Score-based causal structure learning: search through equivalence
-classes of DAGs by greedily adding then removing edges to maximise
-the BIC score. Unlike constraint-based PC, GES does not rely on
-conditional independence tests and is consistent under faithfulness.
+Score-based causal structure learning over Markov equivalence classes.
+The state is a CPDAG, and every step applies the best of Chickering's
+operators under the Gaussian BIC (a score-equivalent, decomposable score):
 
-Two phases:
-1. **Forward**: add edges that maximally increase BIC.
-2. **Backward**: remove edges that increase BIC.
+1. **Forward**: ``Insert(X, Y, T)`` adds ``X -> Y`` and orients ``T - Y``
+   into ``Y``; valid when ``NA_{Y,X} | T`` is a clique and blocks every
+   semi-directed path from ``Y`` to ``X``.
+2. **Backward**: ``Delete(X, Y, H)`` removes the ``X``-``Y`` edge and
+   orients ``Y - h`` (and ``X - h``) towards ``h``; valid when
+   ``NA_{Y,X} \\ H`` is a clique.
 
-The output is a CPDAG (completed partially directed acyclic graph) —
-the Markov equivalence class of the true DAG.
+After each operator the PDAG is extended to a DAG (Dor and Tarsi) and
+re-completed (v-structures plus Meek's rules R1-R3).
+
+Before 2026-10-19 this module searched DAG space with single-edge
+additions and removals and then marked as undirected every edge not in a
+v-structure, so compelled edges such as ``Z -> W`` below a collider
+``X -> Z <- Y`` were reported as ``Z - W``, and the search could stop in a
+DAG that is not the GES optimum. It matched ``pcalg::ges(phase =
+c("forward", "backward"))`` on 11 of 30 random linear-Gaussian graphs; this
+implementation (written from the paper; pcalg is GPL and compared only as
+a black box) matches all 30 (``tests/reference_parity/test_ges_pcalg_parity.py``).
+
+References
+----------
+[@chickering2002optimal]
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple, Union
+from itertools import combinations
+from typing import Dict, FrozenSet, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -40,66 +56,136 @@ def _bic_score_local(data: np.ndarray, j: int, parents: List[int]) -> float:
     return float(n * np.log(rss / n) + k * np.log(n))
 
 
-def _total_bic(data: np.ndarray, adj: np.ndarray) -> float:
-    p = data.shape[1]
-    total = 0.0
-    for j in range(p):
-        parents = list(np.where(adj[:, j] != 0)[0])
-        total += _bic_score_local(data, j, parents)
-    return total
+# ---------------------------------------------------------------------------
+# CPDAG bookkeeping. ``g[i, j] == 1 and g[j, i] == 0`` is ``i -> j``;
+# ``g[i, j] == g[j, i] == 1`` is the undirected edge ``i - j``.
+# ---------------------------------------------------------------------------
 
 
-def _creates_cycle(adj: np.ndarray, i: int, j: int) -> bool:
-    """Would adding the directed edge ``i -> j`` create a directed cycle?
+def _undirected_nbrs(g: np.ndarray, y: int) -> set:
+    return {int(v) for v in np.flatnonzero((g[y] == 1) & (g[:, y] == 1))}
 
-    True iff ``j`` can already reach ``i`` along existing directed edges.
-    Without this guard the greedy search adds edges into a collider *and* out
-    of it (``X -> Z`` then ``Z -> Y``), which conditions on the collider and
-    spuriously links its otherwise-independent parents.
+
+def _parents(g: np.ndarray, y: int) -> set:
+    return {int(v) for v in np.flatnonzero((g[:, y] == 1) & (g[y] == 0))}
+
+
+def _adjacent(g: np.ndarray, a: int, b: int) -> bool:
+    return bool(g[a, b] or g[b, a])
+
+
+def _is_clique(g: np.ndarray, nodes: set) -> bool:
+    nodes = sorted(nodes)
+    return all(_adjacent(g, a, b) for i, a in enumerate(nodes) for b in nodes[i + 1 :])
+
+
+def _semi_directed_path_blocked(
+    g: np.ndarray, start: int, target: int, blocked: set
+) -> bool:
+    """True iff every semi-directed path ``start ~> target`` meets ``blocked``.
+
+    A semi-directed path follows ``a -> b`` forwards and ``a - b`` either way.
     """
-    p = adj.shape[0]
-    stack = [j]
-    seen = {j}
+    stack, seen = [start], {start}
     while stack:
-        node = stack.pop()
-        if node == i:
-            return True
-        for k in range(p):
-            if adj[node, k] != 0 and k not in seen:
-                seen.add(k)
-                stack.append(k)
-    return False
-
-
-def _dag_to_cpdag(adj: np.ndarray) -> np.ndarray:
-    """Convert a directed DAG adjacency to a CPDAG.
-
-    Edges that participate in a v-structure (``i -> k <- j`` with ``i``, ``j``
-    non-adjacent) stay directed; every other edge is rendered undirected
-    (both orientations set), matching the Markov-equivalence-class semantics
-    documented on :class:`GESResult`.
-    """
-    p = adj.shape[0]
-    directed: set = set()
-    for k in range(p):
-        parents = [i for i in range(p) if adj[i, k] != 0]
-        for a_idx in range(len(parents)):
-            for b_idx in range(a_idx + 1, len(parents)):
-                i, j = parents[a_idx], parents[b_idx]
-                if adj[i, j] == 0 and adj[j, i] == 0:  # non-adjacent -> collider
-                    directed.add((i, k))
-                    directed.add((j, k))
-    cpdag = np.zeros_like(adj)
-    for i in range(p):
-        for j in range(p):
-            if adj[i, j] == 0:
+        v = stack.pop()
+        for w in np.flatnonzero(g[v]):  # v -> w or v - w
+            w = int(w)
+            if w == target:
+                return False
+            if w in seen or w in blocked:
                 continue
-            if (i, j) in directed:
-                cpdag[i, j] = 1
-            else:
-                cpdag[i, j] = 1
-                cpdag[j, i] = 1
-    return cpdag
+            seen.add(w)
+            stack.append(w)
+    return True
+
+
+def _pdag_to_dag(g: np.ndarray) -> np.ndarray:
+    """A consistent DAG extension of a PDAG (Dor and Tarsi's procedure).
+
+    Repeatedly removes a sink ``x`` (no outgoing directed edge) whose
+    undirected neighbours are adjacent to every other neighbour of ``x``,
+    orienting its undirected edges into ``x``. GES's operators always leave
+    an extendable PDAG; failing to find such a node is a bug, not data.
+    """
+    p = g.shape[0]
+    work = g.copy()
+    dag = np.zeros_like(g)
+    alive = set(range(p))
+    while alive:
+        for x in sorted(alive):
+            out = [
+                int(v) for v in np.flatnonzero(work[x]) if v in alive and not work[v, x]
+            ]
+            if out:
+                continue
+            und = [int(v) for v in np.flatnonzero(work[x] & work[:, x]) if v in alive]
+            adj = {int(v) for v in np.flatnonzero(work[x] | work[:, x]) if v in alive}
+            nbrs = {
+                u: {int(w) for w in np.flatnonzero(work[u] | work[:, u])} for u in und
+            }
+            if all(adj - {u} <= nbrs[u] for u in und):
+                for v in adj:
+                    dag[v, x] = 1
+                for v in adj:
+                    work[x, v] = work[v, x] = 0
+                alive.discard(x)
+                break
+        else:  # pragma: no cover - guarded by the operator validity tests
+            raise RuntimeError("ges: PDAG has no consistent extension")
+    return dag
+
+
+def _dag_to_cpdag(dag: np.ndarray) -> np.ndarray:
+    """The CPDAG of a DAG: v-structures, then Meek's rules R1-R3 to closure."""
+    p = dag.shape[0]
+    skel = ((dag + dag.T) > 0).astype(int)
+    g = skel.copy()
+    for b in range(p):
+        pa = [int(v) for v in np.flatnonzero(dag[:, b])]
+        for i, a in enumerate(pa):
+            for c in pa[i + 1 :]:
+                if skel[a, c] == 0:
+                    g[b, a] = 0
+                    g[b, c] = 0
+    changed = True
+    while changed:
+        changed = False
+        for a in range(p):
+            for b in range(p):
+                if not (g[a, b] == 1 and g[b, a] == 1):
+                    continue
+                # R1: c -> a - b, c and b non-adjacent  =>  a -> b
+                r1 = any(
+                    g[c, a] == 1 and g[a, c] == 0 and skel[c, b] == 0
+                    for c in range(p)
+                    if c not in (a, b)
+                )
+                # R2: a -> c -> b  =>  a -> b
+                r2 = any(
+                    g[a, c] == 1 and g[c, a] == 0 and g[c, b] == 1 and g[b, c] == 0
+                    for c in range(p)
+                )
+                # R3: a - c1 -> b, a - c2 -> b, c1 and c2 non-adjacent
+                mids = [
+                    c
+                    for c in range(p)
+                    if g[a, c] == 1 and g[c, a] == 1 and g[c, b] == 1 and g[b, c] == 0
+                ]
+                r3 = any(
+                    skel[c1, c2] == 0
+                    for i, c1 in enumerate(mids)
+                    for c2 in mids[i + 1 :]
+                )
+                if r1 or r2 or r3:
+                    g[b, a] = 0
+                    changed = True
+    return g
+
+
+def _subsets(items: List[int]):
+    for k in range(len(items) + 1):
+        yield from (set(c) for c in combinations(items, k))
 
 
 @dataclass
@@ -179,13 +265,21 @@ def ges(
     ----------
     data : pd.DataFrame or (n, p) ndarray
     max_iter : int
-        Maximum total edge additions + removals.
+        Maximum number of operators applied (forward insertions plus
+        backward deletions).
 
     Returns
     -------
     GESResult
         CPDAG (Markov equivalence class) with ``.adjacency``, ``.bic``,
-        ``.edges()`` and ``.to_frame()`` helpers.
+        ``.edges()`` and ``.to_frame()`` helpers. ``bic`` is the Gaussian
+        BIC ``sum_j n log(RSS_j / n) + (|pa_j| + 1) log n`` of any DAG in the
+        class (lower is better). The search is the forward-backward GES of
+        Chickering (2002); ``pcalg::ges``'s optional turning phase is not run.
+
+    References
+    ----------
+    [@chickering2002optimal]
 
     Examples
     --------
@@ -224,98 +318,112 @@ def ges(
         names = [f"x{i}" for i in range(X.shape[1])]
 
     n, p = X.shape
-    adj = np.zeros((p, p), dtype=int)
+    cache: Dict[Tuple[int, FrozenSet[int]], float] = {}
 
-    def _score() -> float:
-        return _total_bic(X, adj)
+    def local(j: int, pa: set) -> float:
+        key = (j, frozenset(pa))
+        if key not in cache:
+            cache[key] = _bic_score_local(X, j, sorted(pa))
+        return cache[key]
 
-    best_bic = _score()
+    g = np.zeros((p, p), dtype=int)
 
-    def _tie_tol(bic: float) -> float:
-        """Gain below which two candidate edges count as exactly tied.
+    def _tie_tol(scale: float) -> float:
+        """Gain below which two candidate operators count as tied.
 
-        BIC cannot distinguish ``i -> j`` from ``j -> i`` for an isolated pair:
-        both encode the same Markov equivalence class, so their scores are
-        equal in exact arithmetic. Comparing raw gains with ``>`` therefore let
-        last-bit LAPACK rounding — which differs between BLAS builds — decide
-        the orientation of the first edge added, and that choice cascades: pick
-        the reverse edge on a collider ``X -> Z <- Y`` and conditioning on Z
-        makes the spurious ``X -- Y`` explaining-away edge score *better*, so
-        the search converges on a complete undirected graph instead of the
-        v-structure. That is exactly what the Windows CI leg produced while
-        Linux/macOS passed. Requiring a candidate to beat the incumbent by more
-        than this tolerance makes the deterministic scan order — not float
-        noise — the tie-break, so every platform returns the same CPDAG.
+        Score-equivalent moves (``i -> j`` against ``j -> i`` for an isolated
+        pair) score the same in exact arithmetic; comparing raw gains with
+        ``>`` let last-bit LAPACK rounding, which differs between BLAS builds,
+        pick between them, and on a collider the wrong pick cascades (the
+        Windows CI leg once returned a complete graph). A candidate has to
+        beat the incumbent by more than this margin, so the deterministic
+        scan order breaks ties on every platform.
         """
-        return 1e-9 * max(1.0, abs(bic))
+        return 1e-9 * max(1.0, abs(scale))
 
-    # Forward phase: greedily add the edge that most improves BIC
-    for _ in range(max_iter):
-        tol = _tie_tol(best_bic)
-        # The incumbent must be beaten by more than ``tol`` -- not only zero
-        # (before 2026-10-17 the margin applied to the first candidate only,
-        # so i -> j against j -> i was again decided by rounding).
+    n_steps = 0
+    scale = sum(local(j, set()) for j in range(p))
+
+    # Forward phase (Chickering 2002, Insert(X, Y, T)): add the best edge to
+    # the equivalence class until no insertion lowers the BIC.
+    while n_steps < max_iter:
+        tol = _tie_tol(scale)
+        best = None
         best_gain = 0.0
-        best_edge = None
-        best_new_bic = best_bic
-        for i in range(p):
-            for j in range(p):
-                if i == j or adj[i, j] or adj[j, i]:
+        for y in range(p):
+            pa_y = _parents(g, y)
+            ne_y = _undirected_nbrs(g, y)
+            for x in range(p):
+                if x == y or _adjacent(g, x, y):
                     continue
-                if _creates_cycle(adj, i, j):
-                    continue
-                adj[i, j] = 1
-                new_bic = _score()
-                gain = best_bic - new_bic
-                if gain > best_gain + tol:
-                    best_gain = gain
-                    best_edge = (i, j)
-                    best_new_bic = new_bic
-                adj[i, j] = 0
-        if best_edge is None:
+                na_yx = {v for v in ne_y if _adjacent(g, v, x)}
+                t0 = sorted(v for v in ne_y if not _adjacent(g, v, x))
+                for t in _subsets(t0):
+                    cond = na_yx | t
+                    if not _is_clique(g, cond):
+                        continue
+                    if not _semi_directed_path_blocked(g, y, x, cond):
+                        continue
+                    base = cond | pa_y
+                    gain = local(y, base) - local(y, base | {x})
+                    if gain > best_gain + tol:
+                        best_gain, best = gain, (x, y, t)
+        if best is None:
             break
-        adj[best_edge[0], best_edge[1]] = 1
-        best_bic = best_new_bic
+        x, y, t = best
+        g[x, y], g[y, x] = 1, 0
+        for v in t:
+            g[v, y], g[y, v] = 1, 0
+        g = _dag_to_cpdag(_pdag_to_dag(g))
+        n_steps += 1
 
-    # Backward phase: greedily remove edges that improve BIC
-    for _ in range(max_iter):
-        tol = _tie_tol(best_bic)
+    # Backward phase (Delete(X, Y, H)): remove edges while that lowers it.
+    while n_steps < max_iter:
+        tol = _tie_tol(scale)
+        best = None
         best_gain = 0.0
-        best_edge = None
-        best_new_bic = best_bic
-        for i in range(p):
-            for j in range(p):
-                if adj[i, j] == 0:
+        for y in range(p):
+            pa_y = _parents(g, y)
+            ne_y = _undirected_nbrs(g, y)
+            for x in range(p):
+                # x -> y, or x - y (visited once per orientation)
+                if not g[x, y]:
                     continue
-                adj[i, j] = 0
-                new_bic = _score()
-                gain = best_bic - new_bic
-                if gain > best_gain + tol:
-                    best_gain = gain
-                    best_edge = (i, j)
-                    best_new_bic = new_bic
-                adj[i, j] = 1
-        if best_edge is None:
+                na_yx = {v for v in ne_y if _adjacent(g, v, x)}
+                for h in _subsets(sorted(na_yx)):
+                    rest = na_yx - h
+                    if not _is_clique(g, rest):
+                        continue
+                    base = (rest | pa_y) - {x}
+                    gain = local(y, base | {x}) - local(y, base)
+                    if gain > best_gain + tol:
+                        best_gain, best = gain, (x, y, h)
+        if best is None:
             break
-        adj[best_edge[0], best_edge[1]] = 0
-        best_bic = best_new_bic
+        x, y, h = best
+        g[x, y] = g[y, x] = 0
+        for v in h:
+            g[y, v], g[v, y] = 1, 0
+            if g[x, v] and g[v, x]:
+                g[x, v], g[v, x] = 1, 0
+        g = _dag_to_cpdag(_pdag_to_dag(g))
+        n_steps += 1
 
-    # The greedy search returns a single DAG; report its Markov equivalence
-    # class (CPDAG) so v-structures stay directed and reversible edges read as
-    # undirected.
-    adj = _dag_to_cpdag(adj)
+    adj = g
+    dag = _pdag_to_dag(g)
+    best_bic = float(
+        sum(local(j, {int(v) for v in np.flatnonzero(dag[:, j])}) for j in range(p))
+    )
 
     _result = GESResult(adjacency=adj, names=names, bic=best_bic)
-    try:
-        from ..output._lineage import attach_provenance as _attach_prov
+    # attach_provenance never raises (it records nothing on failure).
+    from ..output._lineage import attach_provenance as _attach_prov
 
-        _attach_prov(
-            _result,
-            function="sp.causal_discovery.ges",
-            params={"max_iter": max_iter},
-            data=data if hasattr(data, "columns") else None,
-            overwrite=False,
-        )
-    except Exception:  # pragma: no cover
-        pass
+    _attach_prov(
+        _result,
+        function="sp.causal_discovery.ges",
+        params={"max_iter": max_iter},
+        data=data if hasattr(data, "columns") else None,
+        overwrite=False,
+    )
     return _result

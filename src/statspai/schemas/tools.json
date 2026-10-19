@@ -16074,7 +16074,7 @@
       "properties": {
         "max_iter": {
           "default": 500,
-          "description": "Maximum total edge additions + removals.",
+          "description": "Maximum number of operators applied (forward insertions plus backward deletions).",
           "type": "integer"
         }
       },

@@ -5,6 +5,18 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.ges` returns the GES equivalence class
+
+**What changed.** `sp.ges` runs Greedy Equivalence Search over CPDAGs
+(Chickering 2002). Edges that the old version reported as undirected but
+that every DAG in the class orients the same way are now directed, and on
+some data the learned skeleton itself changes (towards `pcalg::ges`).
+
+**What to do.** Nothing; `.adjacency`, `.edges()` and `.bic` keep their
+meaning. Results from earlier versions should be re-run.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.msm` weights are not truncated by default
 
 **What changed.** `sp.msm(trim=)` defaults to `0.0` (no truncation) instead
