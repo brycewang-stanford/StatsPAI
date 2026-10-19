@@ -2177,7 +2177,7 @@ def _panel_bias_reduced(
         # re-absorb them in each draw (boottest after areg / reghdfe; the
         # same fix as hdfe_ols(wild=True) and sp.wild_cluster_boot).
         nested = bool((work.groupby(entity)[ccol].nunique(dropna=False) <= 1).all())
-        reabsorb = None
+        reabsorb: Optional[Any] = None
         if not nested:
             from ._wild_fe import wild_cluster_fe
 
@@ -2193,7 +2193,7 @@ def _panel_bias_reduced(
 
             cl_values = work[ccol].to_numpy()
 
-            def reabsorb(j: int) -> Dict[str, Any]:
+            def _reabsorb(j: int) -> Dict[str, Any]:
                 return wild_cluster_fe(
                     _demean,
                     y,
@@ -2205,6 +2205,8 @@ def _panel_bias_reduced(
                     seed=seed,
                     alpha=alpha,
                 )
+
+            reabsorb = _reabsorb
 
         for j, v in enumerate(indep_vars):
             out = wild_cluster_boot(
