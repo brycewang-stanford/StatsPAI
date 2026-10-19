@@ -16008,6 +16008,31 @@
       "tolerance": "Graded by CONVERGENCE rather than a fixed tolerance: Stata integrates adaptively and StatsPAI does not, so the honest claim is that agreement improves as the Gauss-Hermite rule is refined. Observed 3.8e-04 at 12 points and 2.4e-07 at 60, with the log-likelihood at 2.1e-08 -- the sharpest single check, since it is the same objective evaluated at the same optimum. sigma_u and rho at 1e-4."
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "panel_match",
+      "notes": [
+        "Frozen-R fixture: fifteen settings on two synthetic panels with treatment switching on and off (one with missing rows and cells). Documented departures pinned by identities: sets whose controls all violate forbid_treatment_reversal (R keeps them), the placebo estimate near the panel end (R drops the t-1 outcome), CBPS refinement (sp.cbps's ATT fit, screened). Bootstrap SEs are stochastic screens."
+      ],
+      "reference": "PanelMatch::PanelMatch / PanelEstimate / get_covariate_balance / placebo_test",
+      "reference_versions": {
+        "PanelMatch": "3.1.5",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_panel_match_R_parity.py",
+        "tests/reference_parity/_fixtures/panel_match_R.json"
+      ],
+      "tolerance": "matched sets exact; refinement weights, estimates, conditional and unconditional SEs, balance and placebo estimates 1e-10 absolute"
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_panel_estimators_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"

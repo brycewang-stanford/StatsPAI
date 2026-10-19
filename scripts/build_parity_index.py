@@ -274,6 +274,32 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "subgradient conditions instead."
         ),
     },
+    "panel_match": {
+        "status": "bit-exact",
+        "reference": "PanelMatch::PanelMatch / PanelEstimate / get_covariate_balance / placebo_test",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "PanelMatch": "3.1.5",
+        },
+        "tolerance": (
+            "matched sets exact; refinement weights, estimates, conditional and "
+            "unconditional SEs, balance and placebo estimates 1e-10 absolute"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_panel_match_R_parity.py",
+            "tests/reference_parity/_fixtures/panel_match_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: fifteen settings on two synthetic panels with "
+            "treatment switching on and off (one with missing rows and cells). "
+            "Documented departures pinned by identities: sets whose controls all "
+            "violate forbid_treatment_reversal (R keeps them), the placebo "
+            "estimate near the panel end (R drops the t-1 outcome), CBPS "
+            "refinement (sp.cbps's ATT fit, screened). Bootstrap SEs are "
+            "stochastic screens."
+        ),
+    },
     "ctree": {
         "status": "bit-exact",
         "reference": "partykit::ctree (quadratic test statistic, Bonferroni and univariate tests)",

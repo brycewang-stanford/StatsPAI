@@ -29477,6 +29477,188 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="panel_match",
+            category="causal",
+            description=(
+                "Matching on treatment history for panel data with a binary "
+                "treatment that switches on and off (R PanelMatch; Imai, Kim & "
+                "Wang 2023): each switch into treatment is matched to units with "
+                "the same treatment history over the previous `lag` periods, "
+                "the match is refined on covariates (Mahalanobis, propensity "
+                "score or CBPS weighting / matching), and the effect at each "
+                "lead is a weighted DiD averaged over matched sets. ATT, ATC, "
+                "ATE and ART; unit bootstrap or analytic (conditional / "
+                "unconditional) SEs; covariate balance; placebo test. Sets, "
+                "weights, estimates and analytic SEs equal R PanelMatch 3.1.5 "
+                "to 1e-10."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, description="Long panel"),
+                ParamSpec("y", "str", True, description="Outcome"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    description="0/1 treatment status per period (may switch on and off)",
+                ),
+                ParamSpec("id", "str", True, description="Unit identifier"),
+                ParamSpec("time", "str", True, description="Integer period"),
+                ParamSpec(
+                    "lag",
+                    "int",
+                    False,
+                    4,
+                    "Length of the treatment history matched exactly (t-lag..t-1)",
+                ),
+                ParamSpec(
+                    "lead",
+                    "int",
+                    False,
+                    0,
+                    "Lead or list of leads at which the effect is estimated "
+                    "(0 = treatment period); several leads give a per-lead table "
+                    "and their average as the headline",
+                ),
+                ParamSpec(
+                    "qoi",
+                    "str",
+                    False,
+                    "att",
+                    "att: switchers into treatment; atc: units staying out; ate: "
+                    "both, weighted by set counts; art: switchers out of treatment",
+                    ["att", "atc", "ate", "art"],
+                ),
+                ParamSpec(
+                    "refinement",
+                    "str",
+                    False,
+                    "mahalanobis",
+                    "How controls in a matched set are weighted on covariates",
+                    [
+                        "mahalanobis",
+                        "ps_weight",
+                        "ps_match",
+                        "cbps_weight",
+                        "cbps_match",
+                        "none",
+                    ],
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Refinement covariates: column names or 'lag(x, k)' / "
+                    "'lag(x, a:b)' within-unit lags; required unless "
+                    "refinement='none'",
+                ),
+                ParamSpec(
+                    "size_match",
+                    "int",
+                    False,
+                    10,
+                    "Controls kept per set by the mahalanobis and *_match refinements",
+                ),
+                ParamSpec(
+                    "match_missing",
+                    "bool",
+                    False,
+                    True,
+                    "A missing treatment value is its own history state; False: "
+                    "histories with a missing value match nothing",
+                ),
+                ParamSpec(
+                    "exact_match",
+                    "list",
+                    False,
+                    None,
+                    "Variables a control must equal the treated unit on in every "
+                    "period t-lag..t",
+                ),
+                ParamSpec(
+                    "forbid_treatment_reversal",
+                    "bool",
+                    False,
+                    False,
+                    "Treated stay treated and controls stay untreated through the "
+                    "last lead (att / art)",
+                ),
+                ParamSpec(
+                    "restrict_control_period",
+                    "int",
+                    False,
+                    None,
+                    "Keep treated observations untreated in each of this many "
+                    "periods before t (att / art)",
+                ),
+                ParamSpec(
+                    "diagonal_covariance",
+                    "bool",
+                    False,
+                    False,
+                    "Mahalanobis distance with the covariance diagonal only",
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "bootstrap",
+                    "Unit bootstrap (percentile CI) or analytic variances (normal "
+                    "CI); the ATE has the bootstrap only",
+                    ["bootstrap", "conditional", "unconditional"],
+                ),
+                ParamSpec("n_boot", "int", False, 1000, "Bootstrap draws"),
+                ParamSpec("seed", "int", False, None, "Bootstrap seed"),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "placebo_test",
+                    "bool",
+                    False,
+                    False,
+                    "Also estimate pre-treatment placebo effects t-lag..t-2 "
+                    "(model_info['placebo_test'])",
+                ),
+                ParamSpec(
+                    "balance_covariates",
+                    "list",
+                    False,
+                    None,
+                    "Columns for the standardised-difference balance table "
+                    "(default: base covariates and the outcome)",
+                ),
+            ],
+            returns=(
+                "CausalResult: effect at the lead (or the average over leads); "
+                "detail has one row per lead; model_info has matched_sets, "
+                "balance / balance_unrefined, placebo_test, bootstrap_draws"
+            ),
+            example=(
+                'sp.panel_match(df, y="y", treat="d", id="unit", time="year", '
+                'lag=4, lead=[0, 1, 2], covariates=["lag(y, 1:4)", "x"], '
+                'se_method="conditional")'
+            ),
+            tags=[
+                "did",
+                "matching",
+                "panel",
+                "event_study",
+                "treatment_reversal",
+                "panelmatch",
+            ],
+            reference="Imai, Kim & Wang (2023) [@imai2023matching]",
+            assumptions=[
+                "Parallel trends conditional on the matched treatment history "
+                "and refinement covariates",
+                "No carryover beyond the lag window",
+                "No interference between units",
+            ],
+            alternatives=["did_multiplegt_dyn", "callaway_santanna", "fect"],
+            typical_n_min=30,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="did_analysis",
             category="causal",
             description=(

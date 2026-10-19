@@ -4,6 +4,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.panel_match`: matching on treatment history (R PanelMatch)
+
+#### Added
+
+- `sp.panel_match` estimates the effect of a binary treatment that can
+  switch on and off by matching each switch to the units with the same
+  treatment history over the previous `lag` periods (Imai, Kim and Wang
+  2023), refining the match on covariates (`refinement=` Mahalanobis,
+  propensity-score or CBPS weighting / matching, or none; lagged
+  covariates as `'lag(y, 1:4)'`), and averaging a weighted DiD over the
+  matched sets at each lead. `qoi=` ATT, ATC, ATE or ART; unit bootstrap
+  or the conditional / unconditional analytic standard errors;
+  `exact_match=`, `forbid_treatment_reversal=`, `restrict_control_period=`,
+  standardised covariate balance before and after refinement, and a
+  placebo test (`placebo_test=True`). Matched sets, weights, estimates,
+  analytic standard errors, balance and placebo estimates equal R
+  `PanelMatch` 3.1.5 to 1e-10 on fifteen settings
+  (`tests/reference_parity/test_panel_match_R_parity.py`); three places
+  where R's output is wrong are documented and pinned by identities
+  (`docs/dev/modules/did.md`).
+
+
 ### Design guardrails on `sp.feols` / `fepois` / `regress` / `hdfe_ols` / `panel`
 
 #### Added

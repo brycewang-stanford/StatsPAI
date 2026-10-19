@@ -26369,6 +26369,150 @@
     "name": "panel_logit"
   },
   {
+    "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10. Validation: certified parity evidence. Assumptions: Parallel trends conditional on the matched treatment history and refinement covariates; No carryover beyond the lag window; No interference between units. Failure modes: panel_match: leads must be non-negative integers -> Use placebo_test=True for pre-treatment periods; panel_match: qoi must be one of <_QOIS>, got <qoi> -> qoi='att' for the effect on units switching into treatment; panel_match: refinement must be one of <_REFINEMENTS>, got <refinement> -> The marginal-structural-model refinements of R PanelMatch (ps.msm.weight, CB...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "balance_covariates": {
+          "description": "Columns for the standardised-difference balance table (default: base covariates and the outcome)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "covariates": {
+          "description": "Refinement covariates: column names or 'lag(x, k)' / 'lag(x, a:b)' within-unit lags; required unless refinement='none'",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "diagonal_covariance": {
+          "default": false,
+          "description": "Mahalanobis distance with the covariance diagonal only",
+          "type": "boolean"
+        },
+        "exact_match": {
+          "description": "Variables a control must equal the treated unit on in every period t-lag..t",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "forbid_treatment_reversal": {
+          "default": false,
+          "description": "Treated stay treated and controls stay untreated through the last lead (att / art)",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Unit identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "lag": {
+          "default": 4,
+          "description": "Length of the treatment history matched exactly (t-lag..t-1)",
+          "type": "integer"
+        },
+        "lead": {
+          "default": 0,
+          "description": "Lead or list of leads at which the effect is estimated (0 = treatment period); several leads give a per-lead table and their average as the headline",
+          "type": "integer"
+        },
+        "match_missing": {
+          "default": true,
+          "description": "A missing treatment value is its own history state; False: histories with a missing value match nothing",
+          "type": "boolean"
+        },
+        "n_boot": {
+          "default": 1000,
+          "description": "Bootstrap draws",
+          "type": "integer"
+        },
+        "placebo_test": {
+          "default": false,
+          "description": "Also estimate pre-treatment placebo effects t-lag..t-2 (model_info['placebo_test'])",
+          "type": "boolean"
+        },
+        "qoi": {
+          "default": "att",
+          "description": "att: switchers into treatment; atc: units staying out; ate: both, weighted by set counts; art: switchers out of treatment",
+          "enum": [
+            "att",
+            "atc",
+            "ate",
+            "art"
+          ],
+          "type": "string"
+        },
+        "refinement": {
+          "default": "mahalanobis",
+          "description": "How controls in a matched set are weighted on covariates",
+          "enum": [
+            "mahalanobis",
+            "ps_weight",
+            "ps_match",
+            "cbps_weight",
+            "cbps_match",
+            "none"
+          ],
+          "type": "string"
+        },
+        "restrict_control_period": {
+          "description": "Keep treated observations untreated in each of this many periods before t (att / art)",
+          "type": "integer"
+        },
+        "se_method": {
+          "default": "bootstrap",
+          "description": "Unit bootstrap (percentile CI) or analytic variances (normal CI); the ATE has the bootstrap only",
+          "enum": [
+            "bootstrap",
+            "conditional",
+            "unconditional"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "description": "Bootstrap seed",
+          "type": "integer"
+        },
+        "size_match": {
+          "default": 10,
+          "description": "Controls kept per set by the mahalanobis and *_match refinements",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Integer period",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "0/1 treatment status per period (may switch on and off)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "id",
+        "time",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "panel_match"
+  },
+  {
     "description": "Panel probit model. Validation: certified parity evidence. Assumptions: Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0); Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain; Dynamic GMM: weak exogeneity and no second-order serial correlation in differenced errors. Pre-conditions: Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded; Method-specific structure satisfied (e.g. dynamic GMM needs T moderate, system GMM needs initial-condition validity). Failure modes: Hausman test rejects RE -> Switch to fixed effects (method='fe') or correlated random effects (method='mundlak'); Few clusters (< 30) inflate Type I error with cluster-robust SEs -> Use wild-cluster bootstrap or CR2/CR3 small-sample corrections; High-dimensional fixed effects make the design singular -> Switch to method='hdfe' / feols for absorption, or drop singletons. Alternatives: sp.feols, sp.hdfe_ols, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {

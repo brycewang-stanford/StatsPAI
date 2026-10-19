@@ -66867,6 +66867,259 @@
   {
     "alias_of": null,
     "alternatives": [
+      "did_multiplegt_dyn",
+      "callaway_santanna",
+      "fect"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Parallel trends conditional on the matched treatment history and refinement covariates",
+      "No carryover beyond the lag window",
+      "No interference between units"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "PanelMatch::PanelMatch / PanelEstimate / get_covariate_balance / placebo_test",
+      "reference_versions": {
+        "PanelMatch": "3.1.5",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_panel_match_R_parity.py",
+        "tests/reference_parity/_fixtures/panel_match_R.json"
+      ],
+      "tolerance": "matched sets exact; refinement weights, estimates, conditional and unconditional SEs, balance and placebo estimates 1e-10 absolute"
+    },
+    "example": "sp.panel_match(df, y=\"y\", treat=\"d\", id=\"unit\", time=\"year\", lag=4, lead=[0, 1, 2], covariates=[\"lag(y, 1:4)\", \"x\"], se_method=\"conditional\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use placebo_test=True for pre-treatment periods.",
+        "symptom": "panel_match: leads must be non-negative integers."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "qoi='att' for the effect on units switching into treatment.",
+        "symptom": "panel_match: qoi must be one of <_QOIS>, got <qoi>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "The marginal-structural-model refinements of R PanelMatch (ps.msm.weight, CBPS.msm.weight) are not implemented.",
+        "symptom": "panel_match: refinement must be one of <_REFINEMENTS>, got <refinement>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "se_method='conditional' for a deterministic analytic SE.",
+        "symptom": "panel_match: se_method must be one of <_SE_METHODS>."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "panel_match",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Imai, Kim & Wang (2023) [@imai2023matching]",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult: effect at the lead (or the average over leads); detail has one row per lead; model_info has matched_sets, balance / balance_unrefined, placebo_test, bootstrap_draws",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10. Validation: certified parity evidence.",
+      "name": "panel_match",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "balance_covariates": {
+            "description": "Columns for the standardised-difference balance table (default: base covariates and the outcome)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "covariates": {
+            "description": "Refinement covariates: column names or 'lag(x, k)' / 'lag(x, a:b)' within-unit lags; required unless refinement='none'",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "Long panel",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "diagonal_covariance": {
+            "default": false,
+            "description": "Mahalanobis distance with the covariance diagonal only",
+            "type": "boolean"
+          },
+          "exact_match": {
+            "description": "Variables a control must equal the treated unit on in every period t-lag..t",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "forbid_treatment_reversal": {
+            "default": false,
+            "description": "Treated stay treated and controls stay untreated through the last lead (att / art)",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Unit identifier",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "lag": {
+            "default": 4,
+            "description": "Length of the treatment history matched exactly (t-lag..t-1)",
+            "type": "integer"
+          },
+          "lead": {
+            "default": 0,
+            "description": "Lead or list of leads at which the effect is estimated (0 = treatment period); several leads give a per-lead table and their average as the headline",
+            "type": "integer"
+          },
+          "match_missing": {
+            "default": true,
+            "description": "A missing treatment value is its own history state; False: histories with a missing value match nothing",
+            "type": "boolean"
+          },
+          "n_boot": {
+            "default": 1000,
+            "description": "Bootstrap draws",
+            "type": "integer"
+          },
+          "placebo_test": {
+            "default": false,
+            "description": "Also estimate pre-treatment placebo effects t-lag..t-2 (model_info['placebo_test'])",
+            "type": "boolean"
+          },
+          "qoi": {
+            "default": "att",
+            "description": "att: switchers into treatment; atc: units staying out; ate: both, weighted by set counts; art: switchers out of treatment",
+            "enum": [
+              "att",
+              "atc",
+              "ate",
+              "art"
+            ],
+            "type": "string"
+          },
+          "refinement": {
+            "default": "mahalanobis",
+            "description": "How controls in a matched set are weighted on covariates",
+            "enum": [
+              "mahalanobis",
+              "ps_weight",
+              "ps_match",
+              "cbps_weight",
+              "cbps_match",
+              "none"
+            ],
+            "type": "string"
+          },
+          "restrict_control_period": {
+            "description": "Keep treated observations untreated in each of this many periods before t (att / art)",
+            "type": "integer"
+          },
+          "se_method": {
+            "default": "bootstrap",
+            "description": "Unit bootstrap (percentile CI) or analytic variances (normal CI); the ATE has the bootstrap only",
+            "enum": [
+              "bootstrap",
+              "conditional",
+              "unconditional"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "description": "Bootstrap seed",
+            "type": "integer"
+          },
+          "size_match": {
+            "default": 10,
+            "description": "Controls kept per set by the mahalanobis and *_match refinements",
+            "type": "integer"
+          },
+          "time": {
+            "description": "Integer period",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "0/1 treatment status per period (may switch on and off)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "id",
+          "time"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 30,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs PanelMatch::PanelMatch / PanelEstimate / get_covariate_balance / placebo_test [PanelMatch 3.1.5, R version 4.5.2 (2025-10-31)]; tolerance matched sets exact; refinement weights, estimates, conditional and unconditional SEs, balance and placebo estimates 1e-10 absolute -- tests/reference_parity/test_panel_match_R_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "callaway_santanna",
       "harvest_did",
       "did",

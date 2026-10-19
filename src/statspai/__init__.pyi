@@ -424,6 +424,7 @@ from .did.lp_did import lp_did as lp_did
 from .did.misclassified import did_misclassified as did_misclassified
 from .did.overlap_did import dl_propensity_score as dl_propensity_score
 from .did.overlap_did import overlap_weighted_did as overlap_weighted_did
+from .did.panelmatch import panel_match as panel_match
 from .did.plots import bacon_plot as bacon_plot
 from .did.plots import cohort_event_study_plot as cohort_event_study_plot
 from .did.plots import did_plot as did_plot
