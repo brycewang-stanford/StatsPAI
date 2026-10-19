@@ -133,3 +133,39 @@ def test_stata_default_is_not_substituted():
     )
     assert out["untranslated_options"] == ["covariates"]
     assert any("3e-4" in note for note in out["notes"])
+
+
+@pytest.mark.parametrize("cm", ["optimized", "projected"])
+def test_treated_unit_interface_runs_covariates(df, cm):
+    """``treated_unit=`` / ``treatment_time=`` with covariates is the same
+    block design as ``treat=``: one treated unit (California) here, so the
+    optimized fit must reproduce R's number above."""
+    a = _fit(df, ["x"], covariate_method=cm)
+    b = sp.sdid(
+        df,
+        "packspercapita",
+        "state",
+        "year",
+        treated_unit="California",
+        treatment_time=1989,
+        covariates=["x"],
+        covariate_method=cm,
+        se_method="noinference",
+    )
+    assert b.estimate == pytest.approx(a.estimate, rel=1e-13)
+    if cm == "optimized":
+        assert b.estimate == pytest.approx(-17.561000491802, rel=1e-11)
+    assert b.model_info["treated_units"] == ["California"]
+
+
+def test_treated_unit_covariates_need_a_method(df):
+    with pytest.raises(MethodIncompatibility):
+        sp.sdid(
+            df,
+            "packspercapita",
+            "state",
+            "year",
+            treated_unit="California",
+            treatment_time=1989,
+            covariates=["x"],
+        )

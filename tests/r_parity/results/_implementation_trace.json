@@ -519,7 +519,7 @@
    "result_sha256": "2237bc867708a5de31f9bf74b920f0ae89816da64160bef843ca86221a802997"
   },
   "12_sdid": {
-   "seconds": 3.68,
+   "seconds": 3.13,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -533,7 +533,7 @@
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/synth/_sdid_kernels.py": "66a1eeba22c256b3ae744625ad6a0b59527ddb49cf261a35f5228c529b43cfab",
     "src/statspai/synth/datasets.py": "d4ba853a30ae823dc072ac2302ed006fd7db613b9c8fe708317bf740352f23b2",
-    "src/statspai/synth/sdid.py": "4f0a53a0472ac35158555ceaf0d8b4031553007c172c394b6de61dcce9f9390b"
+    "src/statspai/synth/sdid.py": "c04651f3b719fa765ffe27601fe6bd9803308de2697e089e083d21b11f059905"
    },
    "dependency_versions": {
     "numpy": "2.2.6",

@@ -90,14 +90,15 @@ def sdid(
         * ``'sc'``   — Synthetic Control (unit weights only)
         * ``'did'``  — DID (uniform weights)
     covariates : list of str, optional
-        Covariates, with ``treat=`` and ``covariate_method=``. With ``treated_unit=`` / ``treatment_time=`` passing any raises
-        :class:`~statspai.exceptions.MethodIncompatibility` rather than
-        silently estimating the unadjusted model (through 1.28.0 the
-        argument was accepted and ignored).
+        Covariates; need ``covariate_method=``. With ``treated_unit=`` /
+        ``treatment_time=`` the block design is run through the ``treat=``
+        path (a 0/1 column switching on at ``treatment_time`` for the
+        treated units), which agrees with it to machine precision without
+        covariates. Through 1.28.0 the argument was accepted and ignored;
+        until 1.39 it raised with ``treated_unit=``.
     se_method : {'placebo', 'bootstrap', 'jackknife', 'noinference'}, default 'placebo'
-        Standard-error method (see Notes). ``'noinference'`` (``treat=``
-        only) returns the point estimate with NaN SE, as Stata's
-        ``vce(noinference)``.
+        Standard-error method (see Notes). ``'noinference'`` returns the
+        point estimate with NaN SE, as Stata's ``vce(noinference)``.
     n_reps : int, default 200
         Replications for placebo / bootstrap SE.
     seed : int, optional
@@ -246,32 +247,43 @@ def sdid(
             seed=seed,
             alpha=alpha,
         )
-    if se_method == "noinference" or covariate_method is not None:
-        raise MethodIncompatibility(
-            "sdid: se_method='noinference' and covariate_method= are available "
-            "with treat= only.",
-            recovery_hint="Declare treatment with treat='<0/1 column>'.",
-        )
     if treated_unit is None:
         raise TypeError("sdid: provide `treated_unit` (or legacy alias `treat_unit`)")
     if treatment_time is None:
         raise TypeError("sdid: provide `treatment_time` (or legacy alias `treat_time`)")
 
+    if covariates or covariate_method is not None or se_method == "noinference":
+        # Covariates and vce(noinference) live on the treat= path. A block
+        # design written as treated_unit= / treatment_time= is the same
+        # design as a 0/1 column switching on at treatment_time for those
+        # units, and the two interfaces agree to machine precision without
+        # covariates, so build that column and hand over.
+        if backend.lower() != "native":
+            raise MethodIncompatibility(
+                "sdid: covariates and se_method='noinference' run the native "
+                "estimator only.",
+                recovery_hint="Use backend='native'.",
+            )
+        return _sdid_block_via_treat(
+            data,
+            outcome=outcome,
+            unit=unit,
+            time=time,
+            treated_unit=treated_unit,
+            treatment_time=treatment_time,
+            method=method,
+            covariates=covariates,
+            covariate_method=covariate_method,
+            se_method=se_method,
+            n_reps=n_reps,
+            seed=seed,
+            alpha=alpha,
+        )
+
     # Internal variable names kept short for the math below.
     y = outcome
     treat_unit = treated_unit
     treat_time = treatment_time
-
-    if covariates:
-        raise MethodIncompatibility(
-            "sdid: covariate adjustment is not implemented; `covariates` "
-            "would be ignored.",
-            recovery_hint=(
-                "Use treat='<0/1 column>' with covariate_method='projected', "
-                "residualise the outcome first, or drop `covariates`."
-            ),
-            diagnostics={"covariates": list(covariates)},
-        )
 
     backend_norm = backend.lower().replace("-", "_")
     if backend_norm in ("synthdid", "r", "synthdid_r"):
@@ -467,6 +479,43 @@ def sdid(
         model_info=model_info,
         _citation_key="sdid",
     )
+
+
+def _sdid_block_via_treat(
+    data: pd.DataFrame,
+    *,
+    outcome: str,
+    unit: str,
+    time: str,
+    treated_unit: Any,
+    treatment_time: Any,
+    **kwargs: Any,
+) -> CausalResult:
+    """Run a ``treated_unit=`` block design through the ``treat=`` path."""
+    from ._sdid_staggered import sdid_from_treatment
+
+    treated = (
+        list(treated_unit)
+        if isinstance(treated_unit, (list, tuple, set, np.ndarray, pd.Index))
+        else [treated_unit]
+    )
+    missing = [u for u in treated if u not in set(data[unit])]
+    if missing:
+        raise MethodIncompatibility(
+            f"sdid: treated unit(s) {missing!r} not found in {unit!r}",
+            recovery_hint="Check treated_unit against the unit column.",
+        )
+    col = "__statspai_sdid_treat__"
+    while col in data.columns:
+        col += "_"
+    d = data.copy()
+    d[col] = (d[unit].isin(treated) & (d[time] >= treatment_time)).astype(int)
+    res = sdid_from_treatment(
+        d, y=outcome, unit=unit, time=time, treatment=col, **kwargs
+    )
+    res.model_info["treated_units"] = treated
+    res.model_info["treatment_time"] = treatment_time
+    return res
 
 
 def _find_rscript() -> str:

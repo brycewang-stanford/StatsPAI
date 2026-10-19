@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.sdid(treated_unit=...)` takes covariates and `se_method='noinference'`
+
+#### Added
+
+- With `treated_unit=` / `treatment_time=`, `covariates=` (with
+  `covariate_method='projected' | 'optimized'`) and
+  `se_method='noinference'` used to raise and send the user to `treat=`.
+  The block design is now run through the `treat=` path with a 0/1 column
+  built from the two arguments; the interfaces agree to 1e-15 without
+  covariates. One treated unit with covariates reproduces R
+  `synthdid_estimate(X=)` (-17.561000491802, 1e-11) and Stata `sdid`'s
+  `e(tau)`; tests in `test_sdid_optimized_covariates.py` and
+  `test_sdid_staggered_parity.py`. The jackknife SE already matched R
+  `synthdid_se(method = "jackknife")` (1e-9, `test_did_synth_R_parity.py`)
+  and Stata `vce(jackknife)` (1e-10, `test_sdid_staggered_parity.py`);
+  unchanged.
+
 ### `sp.augsynth`: several treated units, `progfunc`, `scm`, `fixedeff`, covariates
 
 #### Added

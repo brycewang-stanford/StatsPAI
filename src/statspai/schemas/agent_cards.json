@@ -85365,7 +85365,7 @@
             "type": "string"
           },
           "covariates": {
-            "description": "Covariates, with ``treat=`` and ``covariate_method=``. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
+            "description": "Covariates; need ``covariate_method=``. With ``treated_unit=`` / ``treatment_time=`` the block design is run through the ``treat=`` path (a 0/1 column switching on at ``treatment_time`` for the treated units), which agrees with it to machine precision without covariates. Through 1.28.0 the argument was accepted and ignored; until 1.39 it raised with ``treated_unit=``.",
             "items": {
               "type": "string"
             },
@@ -85399,7 +85399,7 @@
           },
           "se_method": {
             "default": "placebo",
-            "description": "Standard-error method (see Notes). ``'noinference'`` (``treat=`` only) returns the point estimate with NaN SE, as Stata's ``vce(noinference)``.",
+            "description": "Standard-error method (see Notes). ``'noinference'`` returns the point estimate with NaN SE, as Stata's ``vce(noinference)``.",
             "enum": [
               "placebo",
               "bootstrap",

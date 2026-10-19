@@ -237,17 +237,21 @@ class TestInputs:
                 treatment_time=1989,
             )
 
-    def test_noinference_needs_treatment(self):
-        with pytest.raises(MethodIncompatibility, match="treat= only"):
-            sp.sdid(
-                _prop99(),
-                outcome="packspercapita",
-                unit="state",
-                time="year",
-                treated_unit="California",
-                treatment_time=1989,
-                se_method="noinference",
-            )
+    def test_noinference_with_treated_unit_matches_stata(self):
+        # since 2026-10-19 the block interface hands over to the treat= path
+        res = sp.sdid(
+            _prop99(),
+            outcome="packspercapita",
+            unit="state",
+            time="year",
+            treated_unit="California",
+            treatment_time=1989,
+            se_method="noinference",
+        )
+        np.testing.assert_allclose(
+            res.estimate, REF["prop99_sdid"]["1989"][0], rtol=RTOL_FULL
+        )
+        assert np.isnan(res.se)
 
     @pytest.mark.parametrize(
         "mutate,match",
