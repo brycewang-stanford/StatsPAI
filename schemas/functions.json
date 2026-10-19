@@ -34648,6 +34648,11 @@
         "method": {
           "default": "smoothness",
           "description": "Type of restriction on violations: - ``'smoothness'``: |Delta2delta_t| <= M (``Delta^SD``: the slope of the violation changes by at most M per period) - ``'relative_magnitude'``: |Deltadelta_post| <= M x max|Deltadelta_pre| (``Delta^RM``) - ``'smoothness_relative_magnitude'`` (alias ``'sdrm'``): |Delta2delta_post| <= M x max|Delta2delta_pre| (``Delta^SDRM``, HonestDiD's ``bound = \"deviation from linear trend\"``); needs two or more pre-periods. Each can be intersected with a sign restriction (``bias_direction``) or a shape restriction (``monotonicity_direction``).",
+          "enum": [
+            "smoothness",
+            "relative_magnitude",
+            "smoothness_relative_magnitude"
+          ],
           "type": "string"
         },
         "monotonicity_direction": {
@@ -34750,6 +34755,11 @@
         "method": {
           "default": "smoothness",
           "description": "As in :func:`honest_did`.",
+          "enum": [
+            "smoothness",
+            "relative_magnitude",
+            "smoothness_relative_magnitude"
+          ],
           "type": "string"
         },
         "monotonicity_direction": {

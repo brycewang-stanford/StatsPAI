@@ -41,6 +41,11 @@ Key = Tuple[str, str]
 
 DIRECT: Dict[Key, List[str]] = {
     ("structural_break", "method"): ["bai-perron", "global", "sup-f", "chow"],
+    ("honest_did", "method"): [
+        "smoothness",
+        "relative_magnitude",
+        "smoothness_relative_magnitude",
+    ],
     ("mr_ivw", "model"): ["default", "fixed", "random"],
     ("etregress", "method"): ["mle", "twostep"],
     ("rlasso_effect", "method"): ["partialling out", "double selection"],

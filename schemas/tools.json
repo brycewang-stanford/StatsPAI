@@ -17514,6 +17514,11 @@
         "method": {
           "default": "smoothness",
           "description": "As in :func:`honest_did`.",
+          "enum": [
+            "smoothness",
+            "relative_magnitude",
+            "smoothness_relative_magnitude"
+          ],
           "type": "string"
         },
         "monotonicity_direction": {
