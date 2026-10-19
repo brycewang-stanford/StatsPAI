@@ -50,12 +50,13 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # Former per-unit solver, kept importable for existing callers; the
 # estimator itself uses the multisynth QP below.
 from ._core import placebo_rank_pvalue
 from ._core import solve_simplex_weights as _solve_weights  # noqa: F401
+from ._multisynth_qp import solve_multisynth_qp as _solve_qp
 
 
 @accepts_aliases(id="unit", treat="treatment", y="outcome")
@@ -490,127 +491,6 @@ def _fit_multisynth(
         ind_l2=float(i_l2),
         event_study=event_study,
     )
-
-
-def _solve_qp(
-    xs: List[np.ndarray],
-    Ms: List[np.ndarray],
-    n1: List[int],
-    ndims: List[int],
-    nu: float,
-    lam: float,
-    n_lags: int,
-    norm_pool: float,
-    norm_sep: float,
-) -> List[np.ndarray]:
-    """Minimise the multisynth objective over the stacked weights.
-
-    The objective is the convex quadratic ``0.5 z'Hz + c'z`` subject to
-    ``z >= 0`` and one adding-up constraint per treated unit / cohort.
-    SLSQP locates the optimal face; an active-set polish then solves the
-    KKT system on that face exactly and checks dual feasibility, so the
-    returned weights are accurate to machine precision rather than to the
-    first-order solver's tolerance.
-    """
-    J = len(xs)
-    sizes = [M.shape[1] for M in Ms]
-    cuts = np.cumsum([0] + sizes)
-    N = int(cuts[-1])
-    c_sep = (1.0 - nu) / (norm_sep * J)
-    c_pool = nu / (norm_pool * J**2 * n_lags)
-
-    Mbig = np.zeros((xs[0].shape[0] * J, N))
-    for j in range(J):
-        Mbig[j * xs[0].shape[0] : (j + 1) * xs[0].shape[0], cuts[j] : cuts[j + 1]] = Ms[
-            j
-        ]
-    H = np.zeros((N, N))
-    c = np.zeros(N)
-    x_sum = np.sum(xs, axis=0)
-    for j in range(J):
-        sl = slice(cuts[j], cuts[j + 1])
-        H[sl, sl] += c_sep * (Ms[j].T @ Ms[j]) / ndims[j]
-        c[sl] -= c_sep * (Ms[j].T @ xs[j]) / ndims[j]
-        if c_pool > 0:
-            c[sl] -= c_pool * (Ms[j].T @ x_sum)
-            for k in range(J):
-                sk = slice(cuts[k], cuts[k + 1])
-                H[sl, sk] += c_pool * (Ms[j].T @ Ms[k])
-    H += lam * np.eye(N)
-    A = np.zeros((J, N))
-    for j in range(J):
-        A[j, cuts[j] : cuts[j + 1]] = 1.0
-    b = np.asarray(n1, dtype=float)
-
-    z = _active_set_qp(H, c, A, b, cuts)
-    return [z[cuts[j] : cuts[j + 1]] for j in range(J)]
-
-
-def _active_set_qp(
-    H: np.ndarray,
-    c: np.ndarray,
-    A: np.ndarray,
-    b: np.ndarray,
-    cuts: np.ndarray,
-) -> np.ndarray:
-    """Primal active-set solver for ``min .5 z'Hz + c'z, Az = b, z >= 0``.
-
-    ``A`` has one row per block (``cuts`` delimits the blocks) with ones on
-    the block. Lawson-Hanson style: keep a feasible iterate, solve the
-    equality-constrained problem on the free set exactly (KKT system), step
-    back to the boundary when that solution leaves the orthant, and free the
-    coordinate with the most negative reduced cost once it does not. The
-    result is exact up to the linear-algebra round-off.
-    """
-    N = H.shape[0]
-    J = A.shape[0]
-    z = np.zeros(N)
-    free = np.zeros(N, dtype=bool)
-    for j in range(J):
-        sl = np.arange(cuts[j], cuts[j + 1])
-        # start each block at its best single donor (vertex of the simplex)
-        vals = 0.5 * b[j] ** 2 * np.diag(H)[sl] + b[j] * c[sl]
-        k = sl[int(np.argmin(vals))]
-        z[k] = b[j]
-        free[k] = True
-    scale_c = max(1.0, float(np.abs(c).max()), float(np.abs(H).max()))
-    for _ in range(20 * N + 100):
-        F = np.flatnonzero(free)
-        nF = F.size
-        K = np.zeros((nF + J, nF + J))
-        K[:nF, :nF] = H[np.ix_(F, F)]
-        K[:nF, nF:] = A[:, F].T
-        K[nF:, :nF] = A[:, F]
-        sol = np.linalg.lstsq(K, np.concatenate([-c[F], b]), rcond=None)[0]
-        zF, mu = sol[:nF], sol[nF:]
-        if np.any(zF < 0.0):
-            cur = z[F]
-            neg = np.flatnonzero(zF < 0.0)
-            ratios = cur[neg] / (cur[neg] - zF[neg])
-            step = float(np.min(ratios))
-            z[F] = cur + step * (zF - cur)
-            blocking = F[neg[int(np.argmin(ratios))]]
-            z[blocking] = 0.0
-            hit = F[z[F] <= 1e-14 * float(b.max())]
-            z[hit] = 0.0
-            free[hit] = False
-            free[blocking] = False
-            # keep every block non-empty
-            for j in range(J):
-                blk = slice(cuts[j], cuts[j + 1])
-                if not free[blk].any():
-                    k = cuts[j] + int(np.argmax(z[blk]))
-                    free[k] = True
-            continue
-        z = np.zeros(N)
-        z[F] = zF
-        s_red = H @ z + c + A.T @ mu
-        s_red[F] = 0.0
-        k = int(np.argmin(s_red))
-        if s_red[k] >= -1e-13 * scale_c:
-            return z
-        free[k] = True
-    raise ConvergenceFailure("multisynth QP active-set solver did not converge")
 
 
 def _imbalance(

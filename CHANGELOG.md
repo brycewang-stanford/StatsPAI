@@ -36,6 +36,24 @@ All notable changes to StatsPAI will be documented in this file.
   fit. The separate `synth/bsts.py` implementation (a local-level model,
   `sp.bsts_synth`) is a different model and was not changed.
 
+### `sp.staggered_synth` solves 300-unit panels in about a second
+
+#### Changed
+
+- The multisynth weight QP no longer forms the dense
+  `(sum_j n0_j) x (sum_j n0_j)` Hessian. The same primal active-set
+  iteration now works block by block, folds the pooled term (rank
+  `n_lags`) back in through a small Schur complement, and refactors a
+  block only when its free set changes (`synth/_multisynth_qp.py`). On a
+  300-unit, 10-period staggered panel (about 17,000 stacked weights) the
+  point estimate takes about 1.5 s instead of not finishing; 80 units go
+  from 3.6 s to 0.07 s. Weights agree with the former solver to about
+  1e-11 across 1,960 fits (separate / pooled, `nu` in {0, 0.4, auto},
+  ridge on and off, `fixedeff`); the R multisynth parity tests are
+  unchanged. Where the optimum is not unique (`nu=1` without ridge) the
+  solver can return a different optimal weight vector with the same
+  objective value.
+
 ### `sp.spillover` says which contrasts it computes
 
 #### Fixed
