@@ -2154,7 +2154,7 @@
     "name": "bauer_sinning"
   },
   {
-    "description": "Estimate heterogeneous treatment effects using Bayesian Causal Forest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
+    "description": "BCF-style CATE approximation (random forest + boosting), not BART/MCMC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -11788,7 +11788,7 @@
           "type": "integer"
         },
         "outcome_model": {
-          "description": "Model for E[Y|T, GPS]. Default: GBM.",
+          "description": "Model for E[Y|T, GPS]. Default: GBM. The outcome model sees the two columns ``[T, GPS]``, so ``make_pipeline(PolynomialFeatures(2), LinearRegression())`` with ``treatment_model=LinearRegression()`` is the quadratic specification of Hirano and Imbens (2004). Neither choice is reliable in general. On a linear confounded design (``T = 1 + 0.8x + 0.3x2 + e``, ``Y = 0.8T + x + 0.5x2 + u``, n = 1000, 30 draws) the default GBM pair is nearly unbiased for the 25th-75th percentile effect (bias -0.13 against a truth of about 1.9) but noisy (SD 0.43) and its curve was never monotone, while the Hirano-Imbens quadratic is precise (SD 0.07) and badly biased (+1.27, close to the unadjusted slope), because ``E[Y | T, GPS]`` is not quadratic there. The default is therefore kept, and a call with both default models warns. For an average slope with valid inference use ``sp.dml(model='plr')``.",
           "type": "string",
           "x-statspai-source": "signature"
         },
@@ -22187,6 +22187,10 @@
           ],
           "type": "string"
         },
+        "covariate_calipers": {
+          "description": "method='nearest' only: {column: width}; a pair must be within width on each column (MatchIt named caliper entries). caliper_scale='sd' reads widths in SDs of each column.",
+          "type": "object"
+        },
         "covariates": {
           "description": "Pre-treatment covariates to balance/match on.",
           "items": {
@@ -22197,6 +22201,13 @@
             "controls"
           ],
           "x-statspai-role": "columns"
+        },
+        "exact": {
+          "description": "method='nearest' only: match only within cells of equal values of these columns (MatchIt exact=~...). Treated units whose cell has no control go unmatched and are counted in model_info.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "llr_stata_compat": {
           "default": false,
@@ -22224,6 +22235,13 @@
             "total"
           ],
           "type": "string"
+        },
+        "mahvars": {
+          "description": "method='nearest' with the propensity distance: match on the Mahalanobis distance of these columns, the score serving only as caliper (MatchIt mahvars=~...).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "method": {
           "default": "nearest",

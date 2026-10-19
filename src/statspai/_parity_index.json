@@ -6601,6 +6601,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_ebalance_estimand_parity.py",
         "tests/reference_parity/test_ebalance_weightit_parity.py",
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_paper_parity.py",
@@ -7705,6 +7706,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_fast_fepois_fixest_parity.py",
+        "tests/reference_parity/test_feglm_native_fixest_parity.py",
         "tests/reference_parity/test_feglm_wild_boottest_parity.py",
         "tests/reference_parity/test_ppmlhdfe_extended_vce_parity.py"
       ],
@@ -12775,6 +12777,7 @@
         "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_match_fw_stata_parity.py",
         "tests/reference_parity/test_matching_parity.py",
+        "tests/reference_parity/test_matchit_constraints_parity.py",
         "tests/reference_parity/test_nnmatch_teffects_parity.py",
         "tests/reference_parity/test_psm_options_parity.py",
         "tests/reference_parity/test_psmatch2_llr_parity.py",

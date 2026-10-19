@@ -5,6 +5,24 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ treatment-effect estimators refuse non-binary treatments; `sp.sensemakr` / `sp.bcf` / `sp.optimal_match`
+
+- `sp.cbps`, `sp.ipw`, `sp.aipw`, `sp.tmle`, `sp.ebalance`, `sp.optimal_match`,
+  `sp.cardinality_match` and `sp.rosenbaum_bounds` raise
+  `MethodIncompatibility` (a `ValueError`) for a treatment not coded 0/1.
+  `sp.cbps` used to return a meaningless number there. Recode the treated arm
+  to 1 and the control arm to 0.
+- `sp.sensemakr` returns `SensemakrResult`, a `dict` subclass: existing
+  `result['rv_q']` code is unchanged; `type(result) is dict` is now `False`.
+- `sp.bcf`'s `result.method` reads "BCF-style approximation (RF + GBM; not
+  BART)" and every call issues `BCFApproximationWarning`; the numbers are
+  unchanged. Silence it with
+  `warnings.filterwarnings("ignore", category=statspai.bcf.bcf.BCFApproximationWarning)`.
+- `sp.optimal_match` with more treated than controls returns a result and
+  warns instead of raising `ValueError`; check `n_unmatched_treated`.
+- `sp.match(..., unknown_keyword=...)` raises `MethodIncompatibility`, which
+  is still a `TypeError`.
+
 ## 1.39.6 → unreleased: ⚠️ `sp.ges` returns the GES equivalence class
 
 **What changed.** `sp.ges` runs Greedy Equivalence Search over CPDAGs

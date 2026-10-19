@@ -4,6 +4,68 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Treatment effects: MatchIt-style matching constraints, entropy-balancing estimands, louder failures
+
+#### Added
+
+- `sp.match(method='nearest', exact=, covariate_calipers=, mahvars=)`: match
+  only within cells of equal values, within per-variable calipers, or on the
+  Mahalanobis distance of `mahvars` inside a propensity-score caliper -- R
+  `MatchIt::matchit(exact =, caliper = c(x = ...), mahvars =)`. On eight
+  configurations the matched pairs equal MatchIt 4.7.2's row by row and the
+  ATT agrees to 1e-14
+  (`tests/reference_parity/test_matchit_constraints_parity.py`).
+- `sp.ebalance(estimand='ATE' | 'ATC', base_weights=)`: each arm balanced to
+  the pooled sample, or the treated to the controls; base weights are the
+  entropy reference (Stata `ebalance, basewt()`, WeightIt `base.weights`).
+  Estimates and M-estimation standard errors match
+  `WeightIt::lm_weightit(vcov = "asympt")` to 1e-9 / 1e-7 on 15 cases
+  (`tests/reference_parity/test_ebalance_estimand_parity.py`). The ATT
+  numbers are bit-identical to before.
+- `sp.optimal_match` with fewer controls than treated matches every control
+  and leaves the rest of the treated unmatched with a warning, as MatchIt
+  does (it used to raise); `n_unmatched_treated` records how many, and the
+  summary labels the estimate as the effect on the matched treated.
+- `sp.sensemakr` returns a `SensemakrResult`: still a `dict` (every key and
+  `isinstance(r, dict)` work as before), with attribute access,
+  `summary()`, `to_dict()` / `to_latex()` / `cite()`, and `treat`, `alpha`,
+  `n_obs`, `df_resid` keys.
+
+#### Changed
+
+- `sp.match` refuses a keyword the chosen method does not take with a typed
+  error (`MethodIncompatibility`, still a `TypeError`) that names the right
+  spelling: `bias_correction=` is `bias_adjust=` for `method='nnmatch'`, and
+  the reverse for nearest-neighbour matching.
+- `sp.tmle(weights=)` with the default Super Learner library leaves out the
+  k-nearest-neighbour learners, which cannot take weights, and warns; it used
+  to stop with an error. A library you pass is still used as given.
+- `sp.dml(model='irm' | 'iivm')` warns with the number of cross-fitted
+  propensity scores it clipped, and records `n_clipped` / `clip_share` in
+  `model_info['diagnostics']` (as `sp.aipw` and `sp.tmle` already did).
+- `sp.rosenbaum_bounds(data=, pair_id=)`: a pair with two treated or two
+  control rows is a `MethodIncompatibility` pointing to `sp.weighted_rank`
+  (it was a pandas reshape error); a pair that lost a row is dropped with a
+  warning instead of silently.
+- `sp.bcf` warns on every call (`BCFApproximationWarning`) that it is a
+  random-forest + boosting approximation with bootstrap intervals, not
+  Bayesian Causal Forest; its method label now says so. Numbers unchanged.
+- `sp.dose_response` warns when both models are left at their gradient-
+  boosting defaults (noisy, usually non-monotone curves) and reports
+  `model_info['curve_monotone']`. The default is kept: on a linear confounded
+  design the Hirano-Imbens quadratic was far more biased (+1.27 against
+  -0.13 for the default, truth about 1.9).
+
+#### ⚠️ Correctness
+
+- `sp.cbps`, `sp.ipw`, `sp.aipw`, `sp.tmle`, `sp.ebalance`,
+  `sp.optimal_match`, `sp.cardinality_match` and `sp.rosenbaum_bounds`
+  refuse a treatment that is not coded 0/1 with `MethodIncompatibility`.
+  `sp.cbps` used to return a number for a 0/2 or continuous column (6892 and
+  -122.9 in the audit); `sp.tmle` accepted a column such as {0.5, 1}
+  because it rounded the codes before checking; `sp.optimal_match` read a
+  0/2 column as having no treated units.
+
 ### ⚠️ Correctness: `sp.ges` is Greedy Equivalence Search
 
 - ⚠️ `sp.ges` now searches equivalence classes with Chickering's (2002)

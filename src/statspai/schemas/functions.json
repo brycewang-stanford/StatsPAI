@@ -4214,6 +4214,10 @@
           ],
           "type": "string"
         },
+        "covariate_calipers": {
+          "description": "method='nearest' only: {column: width}; a pair must be within width on each column (MatchIt named caliper entries). caliper_scale='sd' reads widths in SDs of each column.",
+          "type": "object"
+        },
         "covariates": {
           "description": "Pre-treatment covariates to balance/match on.",
           "items": {
@@ -4229,6 +4233,13 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "exact": {
+          "description": "method='nearest' only: match only within cells of equal values of these columns (MatchIt exact=~...). Treated units whose cell has no control go unmatched and are counted in model_info.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "llr_stata_compat": {
           "default": false,
@@ -4256,6 +4267,13 @@
             "total"
           ],
           "type": "string"
+        },
+        "mahvars": {
+          "description": "method='nearest' with the propensity distance: match on the Mahalanobis distance of these columns, the score serving only as caliper (MatchIt mahvars=~...).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "method": {
           "default": "nearest",
@@ -26451,7 +26469,7 @@
           "type": "integer"
         },
         "outcome_model": {
-          "description": "Model for E[Y|T, GPS]. Default: GBM.",
+          "description": "Model for E[Y|T, GPS]. Default: GBM. The outcome model sees the two columns ``[T, GPS]``, so ``make_pipeline(PolynomialFeatures(2), LinearRegression())`` with ``treatment_model=LinearRegression()`` is the quadratic specification of Hirano and Imbens (2004). Neither choice is reliable in general. On a linear confounded design (``T = 1 + 0.8x + 0.3x2 + e``, ``Y = 0.8T + x + 0.5x2 + u``, n = 1000, 30 draws) the default GBM pair is nearly unbiased for the 25th-75th percentile effect (bias -0.13 against a truth of about 1.9) but noisy (SD 0.43) and its curve was never monotone, while the Hirano-Imbens quadratic is precise (SD 0.07) and badly biased (+1.27, close to the unadjusted slope), because ``E[Y | T, GPS]`` is not quadratic there. The default is therefore kept, and a call with both default models warns. For an average slope with valid inference use ``sp.dml(model='plr')``.",
           "type": "string",
           "x-statspai-source": "signature"
         },
@@ -39644,6 +39662,10 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "base_weights": {
+          "description": "Column of positive base weights ``q``: the reweighted units' weights are kept as close as possible to ``q`` in the entropy sense, ``w_i q_i exp(lambda'c(X_i))`` (Stata ``ebalance, basewt()``, WeightIt ``base.weights``). The balancing targets are the unweighted moments of the target group, as in WeightIt, and the base weights are treated as fixed in the standard error.",
+          "type": "string"
+        },
         "covariates": {
           "description": "Covariates to balance on.",
           "items": {
@@ -39662,8 +39684,18 @@
         },
         "dof_adjust": {
           "default": false,
-          "description": "How a second or third moment is matched. By default the raw moments of the controls are set to those of the treated, which is what R ``ebal`` and ``WeightIt`` do when handed ``x**2``. Stata's ``ebalance`` instead matches the *sample* variance: it scales the centred moment ``(x - mean_treated)**p`` by ``(n / (n - 1))**(p/2)`` within each group, so the reweighted controls reproduce the treated variance with its ``n - 1`` divisor. ``dof_adjust=True`` follows Stata; with ``moments=1`` the two agree. The factor differs from one by ``O(1/n)`` and does not enter the first-order variance, so the standard error is computed the same way.",
+          "description": "How a second or third moment is matched. By default the raw moments of the controls are set to those of the treated, which is what R ``ebal`` and ``WeightIt`` do when handed ``x**2``. Stata's ``ebalance`` instead matches the *sample* variance: it scales the centred moment ``(x - mean_treated)**p`` by ``(n / (n - 1))**(p/2)`` within each group, so the reweighted controls reproduce the treated variance with its ``n - 1`` divisor. ``dof_adjust=True`` follows Stata; with ``moments=1`` the two agree. The factor differs from one by ``O(1/n)`` and does not enter the first-order variance, so the standard error is computed the same way. Defined for the ATT only (Stata ``ebalance`` estimates nothing else).",
           "type": "boolean"
+        },
+        "estimand": {
+          "default": "ATT",
+          "description": "``'ATT'`` balances the controls to the treated moments (Hainmueller 2012; Stata ``ebalance``); ``'ATC'`` the treated to the control moments; ``'ATE'`` each arm to the moments of the pooled sample. Point estimates and the M-estimation standard errors reproduce ``WeightIt::lm_weightit(vcov = \"asympt\")`` for all three (``tests/reference_parity/test_ebalance_estimand_parity.py``).",
+          "enum": [
+            "ATT",
+            "ATE",
+            "ATC"
+          ],
+          "type": "string"
         },
         "moments": {
           "default": 1,
@@ -48808,7 +48840,7 @@
     }
   },
   {
-    "description": "Estimate heterogeneous treatment effects using Bayesian Causal Forest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "BCF-style CATE approximation (random forest + boosting), not BART/MCMC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bcf",
     "parameters": {
       "properties": {
