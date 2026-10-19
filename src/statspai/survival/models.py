@@ -697,12 +697,16 @@ def kaplan_meier(
     cluster : str, optional
         Column whose levels are independent units (subject id with several
         rows); the robust variance sums the influence within each.
-    se_method : {'greenwood', 'ij'}, optional
+    se_method : {'greenwood', 'ij', 'xie_liu'}, optional
         ``'greenwood'`` is Greenwood's formula on the (weighted) counts;
         ``'ij'`` the infinitesimal jackknife (robust) variance of R
         ``survfit(robust=TRUE)``, which treats the weights as fixed
-        sampling weights. Not given: R's default, ``'ij'`` with
-        ``cluster=`` or non-integer weights and ``'greenwood'`` otherwise.
+        sampling weights; ``'xie_liu'`` Greenwood's formula with the
+        effective number at risk ``(sum w)^2 / sum w^2`` in the denominator,
+        the variance R ``adjustedCurves`` reports for IPTW Kaplan-Meier
+        curves (``adjustedsurv(method = "iptw_km")``). Not given: R
+        survfit's default, ``'ij'`` with ``cluster=`` or non-integer weights
+        and ``'greenwood'`` otherwise.
 
     Returns
     -------

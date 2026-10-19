@@ -1650,6 +1650,20 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
     "kan_dlate": {
         "tags": ["causal"],
     },
+    "rmst": {
+        "example": (
+            'sp.rmst(df, duration="time", event="status", group="arm", tau=12, '
+            'weights="iptw")'
+        ),
+        "tags": ["survival", "causal", "rmst"],
+    },
+    "stteffects": {
+        "example": (
+            'sp.stteffects(df, duration="time", event="status", treat="arm", '
+            'covariates=["age"], method="ipwra")'
+        ),
+        "tags": ["survival", "causal", "treatment-effects"],
+    },
     "kaplan_meier": {
         "example": (
             'sp.kaplan_meier(data=df, duration="time", event="status", '

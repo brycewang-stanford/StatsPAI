@@ -149,6 +149,25 @@ All notable changes to StatsPAI will be documented in this file.
   variance of `survfit(robust=TRUE)`, R's default with non-integer weights
   or a cluster. Survival, SE and intervals match `survfit` to 1e-12 on six
   configurations.
+- `sp.stteffects(method='ra' | 'wra' | 'ipw' | 'ipwra', estimand='ATE' |
+  'ATET')`: treatment effects on mean survival time from Weibull /
+  exponential / log-normal outcome and censoring models and a logit / probit
+  treatment model, solved as stacked estimating equations with the robust
+  sandwich, as Stata's `stteffects`. Ten configurations match Stata 18 to
+  1e-9 (estimates) and 1e-7 (SEs)
+  (`tests/reference_parity/test_survival_causal_parity.py`). One
+  documented departure: Stata's `ipwra, atet` averages the outcome models'
+  predictions over the whole sample (its equations 15e-15f), which estimates
+  the ATE under a correct outcome model; `sp.stteffects` averages over the
+  treated (shown on a known-truth DGP in the same test file).
+- `sp.rmst(group=, tau=, weights=, cluster=)`: restricted mean survival time
+  per group with the difference and the RMST / RMTL ratios. Unweighted it
+  is `survRM2::rmst2` (to 1e-12); with IPT weights it is the
+  confounder-adjusted RMST with the infinitesimal-jackknife SE of R
+  `residuals(survfit, type = "rmst")` (to 1e-12).
+- `sp.kaplan_meier(se_method='xie_liu')`: the variance `adjustedCurves`
+  reports for IPTW Kaplan-Meier curves (Greenwood with the effective number
+  at risk), matching `adjustedsurv(method = "iptw_km")` to 1e-12.
 - `sp.stata` reads `stset t [pw=w], failure(d) time0(t0) id(i)` /
   `enter(time t0)` for `stcox`; `stcox, vce(robust)` and `vce(cluster)` now
   translate (`ssc='stata'`; the robust one used to be refused). `sp.from_r`

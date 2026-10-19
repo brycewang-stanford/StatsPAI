@@ -114480,10 +114480,11 @@
             "x-statspai-role": "column"
           },
           "se_method": {
-            "description": "``'greenwood'`` is Greenwood's formula on the (weighted) counts; ``'ij'`` the infinitesimal jackknife (robust) variance of R ``survfit(robust=TRUE)``, which treats the weights as fixed sampling weights. Not given: R's default, ``'ij'`` with ``cluster=`` or non-integer weights and ``'greenwood'`` otherwise.",
+            "description": "``'greenwood'`` is Greenwood's formula on the (weighted) counts; ``'ij'`` the infinitesimal jackknife (robust) variance of R ``survfit(robust=TRUE)``, which treats the weights as fixed sampling weights; ``'xie_liu'`` Greenwood's formula with the effective number at risk ``(sum w)^2 / sum w^2`` in the denominator, the variance R ``adjustedCurves`` reports for IPTW Kaplan-Meier curves (``adjustedsurv(method = \"iptw_km\")``). Not given: R survfit's default, ``'ij'`` with ``cluster=`` or non-integer weights and ``'greenwood'`` otherwise.",
             "enum": [
               "greenwood",
-              "ij"
+              "ij",
+              "xie_liu"
             ],
             "type": "string"
           },
@@ -114510,6 +114511,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survival::survfit [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance S(t) at every event time 1e-12 (observed ~3e-17); median exact -- tests/reference_parity/test_survival_km_parity.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/reference_parity/test_survival_causal_parity.py",
       "tests/reference_parity/test_survival_weighted_parity.py"
     ],
     "validation_status": "certified"
@@ -115102,6 +115104,375 @@
       "tests/reference_parity/test_competing_risks_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sp.kaplan_meier",
+      "sp.aft",
+      "sp.finegray"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Non-informative (independent) censoring conditional on covariates"
+    ],
+    "category": "survival",
+    "cost_profile": "",
+    "description": "Restricted mean survival time per group, with difference and ratios. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_survival_causal_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "res = sp.rmst(df, \"time\", \"event\", group=\"a\", tau=10, weights=\"w\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the column names.",
+        "symptom": "rmst: columns not found: <missing>"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the weight column.",
+        "symptom": "rmst: weights must be finite and non-negative."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use se_method='ij' or 'greenwood'.",
+        "symptom": "rmst: se_method='xie_liu' is a variance of the curve, not of its area."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "rmst",
+    "not_recommended_when": [
+      "competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray"
+    ],
+    "pre_conditions": [
+      "One duration column (> 0) and one event indicator (1 = event, 0 = censored) per subject; competing risks need an event-type code",
+      "Time-varying covariates need a (start, stop] counting-process layout"
+    ],
+    "provenance": {
+      "alternatives": "family",
+      "assumptions": "family",
+      "example": "docstring",
+      "failure_modes": "source",
+      "not_recommended_when": "family",
+      "pre_conditions": "family",
+      "returns": "docstring",
+      "typical_n_min": "family"
+    },
+    "reference": "",
+    "returns": {
+      "class": "RMSTResult",
+      "description": "RMSTResult: .table (per group), .contrasts (difference, RMST ratio, RMTL ratio), .estimate / .se (the difference).",
+      "fields": {
+        "alpha": "float",
+        "contrasts": "pd.DataFrame",
+        "se_method": "str",
+        "table": "pd.DataFrame",
+        "tau": "float",
+        "weighted": "bool"
+      }
+    },
+    "signature": {
+      "description": "Restricted mean survival time per group, with difference and ratios. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
+      "name": "rmst",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level of the intervals.",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Column of independent units for the robust variance.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "Input data.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "duration": {
+            "description": "Follow-up time column.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "event": {
+            "description": "Event indicator column (1 = event, 0 = censored).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "group": {
+            "description": "Group / treatment column. With two levels the contrasts are reported.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "reference": {
+            "description": "The level subtracted in the difference (default: the first level).",
+            "type": "string"
+          },
+          "se_method": {
+            "description": "``'greenwood'``: the variance of survRM2 / ``survfit``'s ``rmean`` on the (weighted) counts. ``'ij'``: the infinitesimal jackknife, ``sum`` over units of the squared weighted influence (R ``residuals(survfit, times = tau, type = \"rmst\")``), which treats the weights as sampling weights. Not given: ``'ij'`` with a cluster or non-integer weights (R survfit's rule), ``'greenwood'`` otherwise. With IPT weights estimated from a propensity model the IJ variance holds them fixed; for the ATE that is usually conservative.",
+            "enum": [
+              "greenwood",
+              "ij"
+            ],
+            "type": "string"
+          },
+          "tau": {
+            "description": "Truncation time. Default: the smallest of the groups' largest observed times (survRM2's default), so that every curve is defined up to ``tau``. A ``tau`` beyond a group's last observed time is refused.",
+            "type": "number"
+          },
+          "weights": {
+            "description": "Column of non-negative case weights.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "duration",
+          "event"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_survival_causal_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sp.kaplan_meier",
+      "sp.aft",
+      "sp.finegray"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Non-informative (independent) censoring conditional on covariates"
+    ],
+    "category": "survival",
+    "cost_profile": "",
+    "description": "Average treatment effect on survival time (Stata ``stteffects``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_survival_causal_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "r = sp.stteffects(df, \"t\", \"d\", \"a\", covariates=[\"x\"], method=\"ra\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'ra', 'wra', 'ipw' or 'ipwra'.",
+        "symptom": "stteffects: method must be one of <list(METHODS)>; got <method>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use estimand='ATE' or 'ATET'.",
+        "symptom": "stteffects: estimand must be 'ATE' or 'ATET'; got <estimand>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use treat_model='logit'.",
+        "symptom": "stteffects: treat_model must be 'logit' or 'probit'; got <treat_model>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop censor_covariates=, or use method='wra' / 'ipwra'.",
+        "symptom": "stteffects: method='ra' handles censoring through the outcome likelihood and takes no censoring model."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "stteffects",
+    "not_recommended_when": [
+      "competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray"
+    ],
+    "pre_conditions": [
+      "One duration column (> 0) and one event indicator (1 = event, 0 = censored) per subject; competing risks need an event-type code",
+      "Time-varying covariates need a (start, stop] counting-process layout"
+    ],
+    "provenance": {
+      "alternatives": "family",
+      "assumptions": "family",
+      "example": "docstring",
+      "failure_modes": "source",
+      "not_recommended_when": "family",
+      "pre_conditions": "family",
+      "returns": "docstring",
+      "typical_n_min": "family"
+    },
+    "reference": "",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult: estimate / se of the ATE (or ATET); detail holds the effect and both potential-outcome means (POmean0, POmean1); model_info['coefficients'] the nuisance models;",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Average treatment effect on survival time (Stata ``stteffects``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
+      "name": "stteffects",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level.",
+            "type": "number"
+          },
+          "censor_covariates": {
+            "description": "Censoring-model covariates; pass ``[]`` for a model with a constant only. The censoring time model may not depend on the treatment.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "censor_dist": {
+            "default": "weibull",
+            "description": "Censoring model (Stata's ``cmodel``).",
+            "enum": [
+              "weibull",
+              "exponential",
+              "lognormal"
+            ],
+            "type": "string"
+          },
+          "covariates": {
+            "description": "Outcome-model covariates (``ra`` / ``wra`` / ``ipwra``). A constant is added.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "One row per subject.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "dist": {
+            "default": "weibull",
+            "description": "Outcome model (Stata's ``omodel``).",
+            "enum": [
+              "weibull",
+              "exponential",
+              "lognormal"
+            ],
+            "type": "string"
+          },
+          "duration": {
+            "description": "Observed time (failure or censoring).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "estimand": {
+            "default": "ATE",
+            "description": "``'ATET'`` averages over the treated.",
+            "enum": [
+              "ATE",
+              "ATET"
+            ],
+            "type": "string"
+          },
+          "event": {
+            "description": "1 = failure observed, 0 = censored.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "method": {
+            "default": "ra",
+            "description": "``'ra'``: a survival model per arm fitted with the censored rows in the likelihood; the potential-outcome means average its predicted mean times (``stteffects ra``). ``'wra'``: the same models fitted on the failures weighted by the inverse probability of not being censored (``stteffects wra``; needs ``censor_covariates``). ``'ipw'``: weighted means of the observed failure times, weights the inverse of the probability of the treatment received times that of not being censored (``stteffects ipw``; needs ``censor_covariates`` when some rows are censored). ``'ipwra'``: the outcome models fitted with treatment weights; with ``censor_covariates`` the censoring is handled by weights (WAC), without it by the likelihood (LAC), as ``stteffects ipwra``.",
+            "enum": [
+              "ra",
+              "wra",
+              "ipw",
+              "ipwra"
+            ],
+            "type": "string"
+          },
+          "treat": {
+            "description": "Binary 0/1 treatment.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat_covariates": {
+            "description": "Treatment-model covariates (``ipw`` / ``ipwra``); defaults to ``covariates``.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "treat_model": {
+            "default": "logit",
+            "description": "Treatment model.",
+            "enum": [
+              "logit",
+              "probit"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "duration",
+          "event",
+          "treat"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_survival_causal_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

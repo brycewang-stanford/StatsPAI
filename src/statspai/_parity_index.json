@@ -11100,6 +11100,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/test_survival_causal_parity.py",
         "tests/reference_parity/test_survival_weighted_parity.py"
       ],
       "also_verified_by": [
@@ -19894,6 +19895,23 @@
       "tolerance": "coef / se atol 1e-6 (observed rel 8.6e-16 / 2.5e-14)"
     },
     {
+      "function": "rmst",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_survival_causal_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/external_parity/test_gow_ding_accounting.py"
       ],
@@ -22085,6 +22103,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "stteffects",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_survival_causal_parity.py"
       ],
       "tolerance": ""
     },

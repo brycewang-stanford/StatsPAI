@@ -355,6 +355,10 @@ ZH_TERMS: Tuple[Tuple[str, str], ...] = (
     ("\u7a7a\u95f4\u81ea\u76f8\u5173", "moran spatial"),
     # 空间
     ("\u7a7a\u95f4", "spatial"),
+    # 限制平均生存时间
+    ("\u9650\u5236\u5e73\u5747\u751f\u5b58\u65f6\u95f4", "rmst"),
+    # 生存时间处理效应
+    ("\u751f\u5b58\u65f6\u95f4\u5904\u7406\u6548\u5e94", "stteffects"),
     # 生存分析
     ("\u751f\u5b58\u5206\u6790", "survival"),
     # 比例风险

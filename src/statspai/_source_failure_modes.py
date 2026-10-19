@@ -1136,6 +1136,24 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "observations.",
         },
     ],
+    "rmst": [
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Check the column names.",
+            "symptom": "rmst: columns not found: <missing>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Check the weight column.",
+            "symptom": "rmst: weights must be finite and non-negative.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use se_method='ij' or 'greenwood'.",
+            "symptom": "rmst: se_method='xie_liu' is a variance of the curve, "
+            "not of its area.",
+        },
+    ],
     "robvar": [
         {
             "exception": "statspai.DataInsufficient",
@@ -1291,6 +1309,33 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Pass data=<DataFrame>, or pass y as an array.",
             "symptom": "y=<y> names a column, but data= was not given.",
         }
+    ],
+    "stteffects": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'ra', 'wra', 'ipw' or 'ipwra'.",
+            "symptom": "stteffects: method must be one of "
+            "<list(METHODS)>; got <method>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use estimand='ATE' or 'ATET'.",
+            "symptom": "stteffects: estimand must be 'ATE' or 'ATET'; got "
+            "<estimand>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use treat_model='logit'.",
+            "symptom": "stteffects: treat_model must be 'logit' or "
+            "'probit'; got <treat_model>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop censor_covariates=, or use method='wra' / " "'ipwra'.",
+            "symptom": "stteffects: method='ra' handles censoring through "
+            "the outcome likelihood and takes no censoring "
+            "model.",
+        },
     ],
     "suest": [
         {

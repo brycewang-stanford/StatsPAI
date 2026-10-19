@@ -20008,10 +20008,11 @@
           "x-statspai-role": "column"
         },
         "se_method": {
-          "description": "``'greenwood'`` is Greenwood's formula on the (weighted) counts; ``'ij'`` the infinitesimal jackknife (robust) variance of R ``survfit(robust=TRUE)``, which treats the weights as fixed sampling weights. Not given: R's default, ``'ij'`` with ``cluster=`` or non-integer weights and ``'greenwood'`` otherwise.",
+          "description": "``'greenwood'`` is Greenwood's formula on the (weighted) counts; ``'ij'`` the infinitesimal jackknife (robust) variance of R ``survfit(robust=TRUE)``, which treats the weights as fixed sampling weights; ``'xie_liu'`` Greenwood's formula with the effective number at risk ``(sum w)^2 / sum w^2`` in the denominator, the variance R ``adjustedCurves`` reports for IPTW Kaplan-Meier curves (``adjustedsurv(method = \"iptw_km\")``). Not given: R survfit's default, ``'ij'`` with ``cluster=`` or non-integer weights and ``'greenwood'`` otherwise.",
           "enum": [
             "greenwood",
-            "ij"
+            "ij",
+            "xie_liu"
           ],
           "type": "string"
         },
@@ -34874,6 +34875,65 @@
     "name": "rlassologit_effects"
   },
   {
+    "description": "Restricted mean survival time per group, with difference and ratios. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray. Assumptions: Non-informative (independent) censoring conditional on covariates. Pre-conditions: One duration column (> 0) and one event indicator (1 = event, 0 = censored) per subject; competing risks need an event-type code; Time-varying covariates need a (start, stop] counting-process layout. Failure modes: rmst: columns not found: <missing> -> Check the column names; rmst: weights must be finite and non-negative -> Check the weight column; rmst: se_method='xie_liu' is a variance of the curve, not of its area -> Use se_method='ij' or 'greenwood'. Alternatives: sp.sp.kaplan_meier, sp.sp.aft, sp.sp.finegray. Typical minimum N: 50.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level of the intervals.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Column of independent units for the robust variance.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "duration": {
+          "description": "Follow-up time column.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "event": {
+          "description": "Event indicator column (1 = event, 0 = censored).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "group": {
+          "description": "Group / treatment column. With two levels the contrasts are reported.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "reference": {
+          "description": "The level subtracted in the difference (default: the first level).",
+          "type": "string"
+        },
+        "se_method": {
+          "description": "``'greenwood'``: the variance of survRM2 / ``survfit``'s ``rmean`` on the (weighted) counts. ``'ij'``: the infinitesimal jackknife, ``sum`` over units of the squared weighted influence (R ``residuals(survfit, times = tau, type = \"rmst\")``), which treats the weights as sampling weights. Not given: ``'ij'`` with a cluster or non-integer weights (R survfit's rule), ``'greenwood'`` otherwise. With IPT weights estimated from a propensity model the IJ variance holds them fixed; for the ATE that is usually conservative.",
+          "enum": [
+            "greenwood",
+            "ij"
+          ],
+          "type": "string"
+        },
+        "tau": {
+          "description": "Truncation time. Default: the smallest of the groups' largest observed times (survRM2's default), so that every curve is defined up to ``tau``. A ``tau`` beyond a group's last observed time is refused.",
+          "type": "number"
+        },
+        "weights": {
+          "description": "Column of non-negative case weights.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "duration",
+        "event"
+      ],
+      "type": "object"
+    },
+    "name": "rmst"
+  },
+  {
     "description": "Robust regression that bounds the influence of outliers: MM (S start, 50% breakdown, 85% efficiency by default), Huber or bisquare M, and S estimators. R robustbase::lmrob / MASS::rlm, Stata robreg. Returns coefficients, a sandwich or Huber-formula covariance, the residual scale and the robustness weight of every observation. Validation: certified parity evidence. Do NOT use when: The extreme observations are the population of interest (the largest firms): downweighting them answers a different question; Clustered or serially dependent data: the covariance assumes independent observations; method='m' with outliers in the regressors: a monotone M estimate has no protection against leverage points. Assumptions: The linear model describes the majority of the observations; the rest may be arbitrary; MM and S: fewer than half of the observations are contaminated; vce='huber': errors symmetric and independent of the regressors; vce='robust' needs neither. Pre-conditions: Clearly more observations than regressors; Regressors not collinear. Failure modes: Collinear regressors -> Drop the redundant regressor(s); More than half of the rows fitted exactly (scale zero) -> An exact fit; descri...",
     "input_schema": {
       "properties": {
@@ -38353,6 +38413,111 @@
       "type": "object"
     },
     "name": "structural_break"
+  },
+  {
+    "description": "Average treatment effect on survival time (Stata ``stteffects``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray. Assumptions: Non-informative (independent) censoring conditional on covariates. Pre-conditions: One duration column (> 0) and one event indicator (1 = event, 0 = censored) per subject; competing risks need an event-type code; Time-varying covariates need a (start, stop] counting-process layout. Failure modes: stteffects: method must be one of <list(METHODS)>; got <method> -> Use 'ra', 'wra', 'ipw' or 'ipwra'; stteffects: estimand must be 'ATE' or 'ATET'; got <estimand> -> Use estimand='ATE' or 'ATET'; stteffects: treat_model must be 'logit' or 'probit'; got <treat_model> -> Use treat_model='logit'. Alternatives: sp.sp.kaplan_meier, sp.sp.aft, sp.sp.finegray. Typical minimum N: 50.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "censor_covariates": {
+          "description": "Censoring-model covariates; pass ``[]`` for a model with a constant only. The censoring time model may not depend on the treatment.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "censor_dist": {
+          "default": "weibull",
+          "description": "Censoring model (Stata's ``cmodel``).",
+          "enum": [
+            "weibull",
+            "exponential",
+            "lognormal"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Outcome-model covariates (``ra`` / ``wra`` / ``ipwra``). A constant is added.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "dist": {
+          "default": "weibull",
+          "description": "Outcome model (Stata's ``omodel``).",
+          "enum": [
+            "weibull",
+            "exponential",
+            "lognormal"
+          ],
+          "type": "string"
+        },
+        "duration": {
+          "description": "Observed time (failure or censoring).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "``'ATET'`` averages over the treated.",
+          "enum": [
+            "ATE",
+            "ATET"
+          ],
+          "type": "string"
+        },
+        "event": {
+          "description": "1 = failure observed, 0 = censored.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "method": {
+          "default": "ra",
+          "description": "``'ra'``: a survival model per arm fitted with the censored rows in the likelihood; the potential-outcome means average its predicted mean times (``stteffects ra``). ``'wra'``: the same models fitted on the failures weighted by the inverse probability of not being censored (``stteffects wra``; needs ``censor_covariates``). ``'ipw'``: weighted means of the observed failure times, weights the inverse of the probability of the treatment received times that of not being censored (``stteffects ipw``; needs ``censor_covariates`` when some rows are censored). ``'ipwra'``: the outcome models fitted with treatment weights; with ``censor_covariates`` the censoring is handled by weights (WAC), without it by the likelihood (LAC), as ``stteffects ipwra``.",
+          "enum": [
+            "ra",
+            "wra",
+            "ipw",
+            "ipwra"
+          ],
+          "type": "string"
+        },
+        "treat": {
+          "description": "Binary 0/1 treatment.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat_covariates": {
+          "description": "Treatment-model covariates (``ipw`` / ``ipwra``); defaults to ``covariates``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "treat_model": {
+          "default": "logit",
+          "description": "Treatment model.",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "duration",
+        "event",
+        "treat"
+      ],
+      "type": "object"
+    },
+    "name": "stteffects"
   },
   {
     "description": "Subcluster wild cluster bootstrap for few-treated-clusters. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff. Assumptions: Errors are independent across clusters; any within-cluster dependence is unrestricted; Clusters are defined at (or above) the level at which treatment was assigned; Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs. Pre-conditions: A fitted regression result (or its design matrix and residuals) and a cluster column with no missing values; Two-way clustering needs both dimensions to have many clusters. Failure modes: Few clusters (G < 30) or one dominant cluster -> Report wild cluster bootstrap p-values / inverted CIs (sp.wild_cluster_boot, sp.wild_cluster_ci_inv) or CR3 jackknife; Very few treated clusters -> Cluster-robust SEs are unreliable; use sp.did_few_treated or randomization inference. Alternatives: sp.sp.wild_cluster_boot, sp.sp.cr2_se, sp.sp.conley.",

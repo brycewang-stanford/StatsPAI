@@ -2245,6 +2245,9 @@ __all__ = [
     "finegray",
     "CumIncResult",
     "FineGrayResult",
+    "rmst",
+    "RMSTResult",
+    "stteffects",
     # Nonparametric
     "lpoly",
     "LPolyResult",
@@ -3841,6 +3844,9 @@ _register_lazy(
     "finegray",
     "CumIncResult",
     "FineGrayResult",
+    "rmst",
+    "RMSTResult",
+    "stteffects",
 )
 _register_lazy(
     "nonparametric",

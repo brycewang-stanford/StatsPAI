@@ -204,6 +204,8 @@ FAMILY_CARDS: Dict[str, Dict[str, Any]] = {
             "logrank_test",
             "finegray",
             "cuminc",
+            "rmst",
+            "stteffects",
             "lcsf",
             "survival_sensitivity",
         ],
