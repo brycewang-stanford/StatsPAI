@@ -31,6 +31,24 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — treatment-effect audit fixes (binary-treatment check, matching, DML, TMLE, sensemakr)
+
+- **Commits.** `0de72982` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 04, 08, 11,
+  22, 50, 71, 72, 79) and `tests/orig_parity/results/_implementation_trace.json`
+  (modules 02, 04, 04b, 06, 07, 09, 10, 11).
+- **Reason.** `core/_validate.py` (binary-treatment message),
+  `dml/_base.py` (clipping warning), `tmle/tmle.py`, `inference/ipw.py`,
+  `inference/aipw.py` (typed binary check), `matching/match.py`
+  (`exact=` / `covariate_calipers=` / `mahvars=`) and
+  `diagnostics/sensemakr.py` (result object) changed on those estimation
+  paths (commits `6c367711`, `038bf891`).
+- **Effect on the paper.** None. Each module was re-run into scratch and
+  compared with its committed `*_py.json`: largest relative difference
+  1.9e-13 (07_nhefs_ch13_gformula). `72_tmle_py.json` holds a key
+  `epsilon` where the current script writes `epsilon_vec`; that mismatch
+  predates these commits (it is on origin/main) and is not touched here.
+
 ### 2026-10-19 — shared staggered-DiD input checks
 
 - **Commits.** `d11b4b66` re-recorded
