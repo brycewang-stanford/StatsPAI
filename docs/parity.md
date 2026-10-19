@@ -27,9 +27,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 434 |
+| **Compared against R/Stata** (T2) | bit-exact | 435 |
 | | aligned | 60 |
-| | **subtotal** | **494** |
+| | **subtotal** | **495** |
 | **No external software reference** | analytical-only (T1) | 411 |
 | | external-replication (published numbers) | 62 |
 | | **subtotal** | **473** |
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 494 | 950 | 953 | 51.8% |
+| estimator callables | 495 | 951 | 954 | 51.9% |
 | infrastructure (parity N/A) | 0 | 13 | 225 | 0.0% |
 | result / exception classes | 0 | 4 | 404 | 0.0% |
-| **all registered** | 494 | 967 | 1582 | 31.2% |
+| **all registered** | 495 | 968 | 1583 | 31.3% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 154 | 347 | 347 |
+| causal | 155 | 348 | 348 |
 | regression | 45 | 59 | 59 |
 | timeseries | 24 | 52 | 53 |
 | inference | 28 | 51 | 52 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 434 functions
+## bit-exact — 435 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -387,6 +387,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `panel` | plm::plm + plm::phtest | R 4.5.2; plm 2.6.7 | rel_est<=1e-06, rel_se<=0.001 | 4.7e-14 / 1.5e-15 | [`35_panel.py`](../tests/r_parity/35_panel.py) (+2) |
 | `panel_fgls` | Stata 18 xtgls, panels(hetero) | Stata 18 MP | 6.3e-16 on every coefficient and 7.0e-16 on every standard error against the two-step default, and 4.7e-08 against `xtgls, igls` for the iterated variant. A reference-free test also asserts the two are distinct estimators, so a silent return to iterating fails. | — / — | [`test_panel_stata_parity.py`](../tests/reference_parity/test_panel_stata_parity.py) |
 | `panel_logit` | Stata 18 xtlogit, re | Stata 18 MP | Graded by CONVERGENCE rather than a fixed tolerance: Stata integrates adaptively and StatsPAI does not, so the honest claim is that agreement improves as the Gauss-Hermite rule is refined. Observed 3.8e-04 at 12 points and 2.4e-07 at 60, with the log-likelihood at 2.1e-08 -- the sharpest single check, since it is the same objective evaluated at the same optimum. sigma_u and rho at 1e-4. | — / — | [`test_panel_stata_parity.py`](../tests/reference_parity/test_panel_stata_parity.py) |
+| `panel_match` | PanelMatch::PanelMatch / PanelEstimate / get_covariate_balance / placebo_test | R 4.5.2; PanelMatch 3.1.5 | matched sets exact; refinement weights, estimates, conditional and unconditional SEs, balance and placebo estimates 1e-10 absolute | — / — | [`test_panel_match_R_parity.py`](../tests/reference_parity/test_panel_match_R_parity.py) (+1) |
 | `panel_probit` | Stata 18 xtprobit, re | Stata 18 MP | Same convergence grading: 8.0e-05 at 12 quadrature points and 4.0e-08 at 60, log-likelihood at 1.7e-09, sigma_u and rho at 1e-4. | — / — | [`test_panel_stata_parity.py`](../tests/reference_parity/test_panel_stata_parity.py) |
 | `panel_qtet` | qte::panel.qtet 1.3.1 (Callaway & Li 2019) | — | all 19 quantiles: abs < 1e-8 (observed 6.8e-12); ATT abs < 1e-6. panel.qtet composes ordinary ecdf evaluations and type-7 quantiles, both of which have exact numpy equivalents, so this is machine-precision agreement rather than a tolerance band. | — / — | [`test_panel_qtet_parity.py`](../tests/reference_parity/test_panel_qtet_parity.py) (+1) |
 | `panel_unitroot` | plm::purtest 2.6.7; Stata 18 xtunitroot | R 4.5.2; plm 2.6.7; Stata 18 | all statistics 1e-10 rel (observed 9.1e-15) | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
