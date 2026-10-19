@@ -78,7 +78,7 @@
    "result_sha256": "0770f9a37e8bc72e9f338d602037715ba70cb032401b8582095eebed942621b2"
   },
   "02_mpdta_original": {
-   "seconds": 2.15,
+   "seconds": 2.06,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -103,8 +103,8 @@
     "src/statspai/core/results.py": "b2eda02204ca94dad57c4618556d3acc64ee51a3ff1196c81ce7079260ad7312",
     "src/statspai/did/_core.py": "dad7cb1e7567dd720c9d297ae156f0dc027dd3177d21eeb8c343145813879bbc",
     "src/statspai/did/_validate.py": "6560223df00b0caf29bda2ab8b3be1193cec62469716693ca9438e8530bf8096",
-    "src/statspai/did/aggte.py": "030a990591cf7921ca448dbc01f18a33f7588fe84a9296ded1aa71d5ed58982e",
-    "src/statspai/did/callaway_santanna.py": "5e8f585c1577e72640f67d3dfb8b788e858f465d03494812182f6d7fbb1ca875",
+    "src/statspai/did/aggte.py": "bac029e3bbc74efc0c5d74c3fcf22af40cbdae361d30a9954e65055a13d49d20",
+    "src/statspai/did/callaway_santanna.py": "67df5abd4897396b118fcf20df8db3b5e3e1d8388047b73631ba7f968c9bec0c",
     "src/statspai/output/_lineage.py": "2ab1741e61b80935256e3f0505f3b008258df66adfeb7c0aef36d5210cc6f3ea",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
@@ -369,7 +369,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 94.22,
+   "seconds": 60.74,
    "error": null,
    "boundary_calls": [
     {
@@ -470,7 +470,7 @@
     "src/statspai/core/results.py": "b2eda02204ca94dad57c4618556d3acc64ee51a3ff1196c81ce7079260ad7312",
     "src/statspai/datasets/__init__.py": "35afc67fba95f72807d97c36fd13d55c3af6d1093f19c5ad63cbf92885109c61",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
-    "src/statspai/inference/aipw.py": "dc14068063d42265dc21a78c198910b2a3f59bb2ea8a7196222f4d8f7a441310",
+    "src/statspai/inference/aipw.py": "fd8bbf5415f06878ac96a3c4556030f52800cdb244c12cc45f314a66d9855c0a",
     "src/statspai/inference/basic_tests.py": "bbfcf957e14302a42ba31da82f76609748a77292e8d3241b2001a24193a577d9",
     "src/statspai/inference/g_computation.py": "45b3e7b8dbe8c91f0d5c072d2068c13462f8b94be3ea0ba7cf3558d76becf9d7",
     "src/statspai/output/_lineage.py": "2ab1741e61b80935256e3f0505f3b008258df66adfeb7c0aef36d5210cc6f3ea",
