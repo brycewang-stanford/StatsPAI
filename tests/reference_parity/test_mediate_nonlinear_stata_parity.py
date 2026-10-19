@@ -266,7 +266,7 @@ def test_linear_outcome_with_treat_values_is_the_coefficient_product(data):
 def test_requirements_are_stated(data):
     base = dict(y="yb", treat="d", mediator="m", covariates=["x1"])
     with pytest.raises(MethodIncompatibility, match="inference='robust'"):
-        sp.mediate(data, outcome_model="logit", **base)
+        sp.mediate(data, inference="delta", outcome_model="logit", **base)
     with pytest.raises(MethodIncompatibility, match="outcome_model must be"):
         sp.mediate(data, inference="robust", outcome_model="cloglog", **base)
     with pytest.raises(MethodIncompatibility, match="0/1 outcome"):

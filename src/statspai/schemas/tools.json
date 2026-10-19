@@ -22708,7 +22708,7 @@
         },
         "inference": {
           "default": "bootstrap",
-          "description": "Standard errors. 'robust' estimates potential-outcome means and takes the sandwich of the stacked estimating equations (Stata 18 mediate); it is required for interaction=True and a logit / probit mediator.",
+          "description": "Standard errors. 'robust' estimates potential-outcome means and takes the sandwich of the stacked estimating equations (Stata 18 mediate). interaction=True, a non-linear model and treat_values run that estimator under 'robust' (sandwich) or 'bootstrap' (case resampling, percentile intervals, as R mediation boot=TRUE); 'delta' refuses them.",
           "enum": [
             "bootstrap",
             "delta",
@@ -22718,7 +22718,7 @@
         },
         "interaction": {
           "default": false,
-          "description": "Treatment-by-mediator interaction in the outcome model (inference='robust'); reports NIE, NDE, PNIE, TNDE, TE.",
+          "description": "Treatment-by-mediator interaction in the outcome model (inference 'robust' or 'bootstrap'); reports NIE, NDE, PNIE, TNDE, TE.",
           "type": "boolean"
         },
         "mediator": {
@@ -22728,7 +22728,7 @@
         },
         "mediator_model": {
           "default": "linear",
-          "description": "Mediator model (inference='robust').",
+          "description": "Mediator model (inference 'robust' or 'bootstrap').",
           "enum": [
             "linear",
             "logit",
@@ -22743,7 +22743,7 @@
         },
         "outcome_model": {
           "default": "linear",
-          "description": "Outcome model (inference='robust'). Non-linear models give effects on the scale of the outcome's mean and integrate the mediator out; equal to Stata mediate.",
+          "description": "Outcome model (inference 'robust' or 'bootstrap'). Non-linear models give effects on the scale of the outcome's mean and integrate the mediator out; equal to Stata mediate.",
           "enum": [
             "linear",
             "logit",
@@ -22774,7 +22774,7 @@
           "x-statspai-role": "column"
         },
         "treat_values": {
-          "description": "(control, treated) levels to contrast when the treatment is not 0/1 (inference='robust').",
+          "description": "(control, treated) levels to contrast when the treatment is not 0/1 (inference 'robust' or 'bootstrap').",
           "items": {
             "type": "string"
           },

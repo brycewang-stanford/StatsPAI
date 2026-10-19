@@ -15219,8 +15219,11 @@ def _build_registry() -> None:
                     "bootstrap",
                     "Standard errors. 'robust' estimates potential-outcome "
                     "means and takes the sandwich of the stacked estimating "
-                    "equations (Stata 18 mediate); it is required for "
-                    "interaction=True and a logit / probit mediator.",
+                    "equations (Stata 18 mediate). interaction=True, a non-"
+                    "linear model and treat_values run that estimator under "
+                    "'robust' (sandwich) or 'bootstrap' (case resampling, "
+                    "percentile intervals, as R mediation boot=TRUE); "
+                    "'delta' refuses them.",
                     ["bootstrap", "delta", "robust"],
                 ),
                 ParamSpec(
@@ -15229,14 +15232,15 @@ def _build_registry() -> None:
                     False,
                     False,
                     "Treatment-by-mediator interaction in the outcome model "
-                    "(inference='robust'); reports NIE, NDE, PNIE, TNDE, TE.",
+                    "(inference 'robust' or 'bootstrap'); reports NIE, NDE, "
+                    "PNIE, TNDE, TE.",
                 ),
                 ParamSpec(
                     "mediator_model",
                     "str",
                     False,
                     "linear",
-                    "Mediator model (inference='robust').",
+                    "Mediator model (inference 'robust' or 'bootstrap').",
                     ["linear", "logit", "probit"],
                 ),
                 ParamSpec(
@@ -15244,7 +15248,8 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "linear",
-                    "Outcome model (inference='robust'). Non-linear models "
+                    "Outcome model (inference 'robust' or 'bootstrap'). "
+                    "Non-linear models "
                     "give effects on the scale of the outcome's mean and "
                     "integrate the mediator out; equal to Stata mediate.",
                     ["linear", "logit", "probit", "poisson"],
@@ -15255,7 +15260,7 @@ def _build_registry() -> None:
                     False,
                     None,
                     "(control, treated) levels to contrast when the treatment "
-                    "is not 0/1 (inference='robust').",
+                    "is not 0/1 (inference 'robust' or 'bootstrap').",
                 ),
             ],
             returns="MediationAnalysis with .NDE, .NIE, .total, .proportion_mediated",

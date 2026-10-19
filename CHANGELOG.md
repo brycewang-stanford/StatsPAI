@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.mediate(interaction=True)` works under the default inference
+
+#### Fixed
+
+- `sp.mediate` with `interaction=True`, a logit / probit mediator, a
+  non-linear outcome model or `treat_values=` raised
+  `MethodIncompatibility` under the default `inference='bootstrap'`. The
+  default now bootstraps the potential-outcome estimator (case resampling,
+  `n_boot`, `seed`; bootstrap standard errors, percentile intervals,
+  `pvalue_method` as before), as R `mediation::mediate(boot = TRUE)` does.
+  Point estimates equal `inference='robust'`'s; the ACMEs equal R
+  mediation 4.5.1's `d1` / `d0` to 1e-9
+  (`tests/reference_parity/test_mediate_po_bootstrap.py`). The draws are in
+  `model_info['boot_draws']`. `inference='delta'` still refuses these
+  models.
+
 ### Treatment effects: MatchIt-style matching constraints, entropy-balancing estimands, louder failures
 
 #### Added
@@ -65,6 +81,7 @@ All notable changes to StatsPAI will be documented in this file.
   -122.9 in the audit); `sp.tmle` accepted a column such as {0.5, 1}
   because it rounded the codes before checking; `sp.optimal_match` read a
   0/2 column as having no treated units.
+
 
 ### ⚠️ Correctness: `sp.ges` is Greedy Equivalence Search
 

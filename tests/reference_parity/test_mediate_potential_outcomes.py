@@ -218,12 +218,26 @@ def test_robust_coverage_under_heteroskedasticity():
     "kwargs",
     [
         {"inference": "delta", "interaction": True},
-        {"inference": "bootstrap", "mediator_model": "logit"},
+        {"inference": "delta", "mediator_model": "logit"},
     ],
 )
 def test_interaction_and_binary_mediator_need_robust(df, kwargs):
     with pytest.raises(MethodIncompatibility, match="inference='robust'"):
         sp.mediate(df, "lre78", "treat", "emp75", X, **kwargs)
+
+
+def test_bootstrap_runs_the_potential_outcome_estimator(df):
+    """Since 2026-10-19 the default inference bootstraps the same estimator
+    (it used to refuse): point estimates are the robust ones."""
+    kw = dict(mediator_model="logit", interaction=True)
+    boot = sp.mediate(df, "lre78", "treat", "emp75", X, n_boot=60, seed=1, **kw)
+    rob = sp.mediate(df, "lre78", "treat", "emp75", X, inference="robust", **kw)
+    assert boot.model_info["inference"] == "bootstrap"
+    np.testing.assert_allclose(
+        boot.detail["estimate"].to_numpy(),
+        rob.detail["estimate"].to_numpy(),
+        rtol=1e-12,
+    )
 
 
 def test_continuous_treatment_is_refused(df):
