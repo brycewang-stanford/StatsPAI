@@ -4108,7 +4108,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `466574f9`.
+- **Commits.** `6881f126` (rebased from `466574f9`).
 - **Reason.** `core/results.py` (`CausalResult.summary()` without a stored
   pre-trend test, `to_word` default precision, strict `plot(type=)`,
   `booktabs=`), `_result_serialize.py` (`tidy` / `glance` on the result
