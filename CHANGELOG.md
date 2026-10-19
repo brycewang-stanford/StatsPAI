@@ -4,6 +4,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.ml_bounds` documents what it computes
+
+#### Fixed
+
+- `sp.ml_bounds` was described as "ML-enhanced" bounds that tighten as the
+  outcome models improve, citing a counterfactual-density paper and an
+  arXiv placeholder. By iterated expectations its covariate-averaged
+  worst-case bounds are exactly the Manski (1990) interval, width
+  `y_max - y_min` for every learner; the cross-fitted midpoint differs from
+  the plain-means one only by estimation noise. Docstrings, summary and
+  `method` label (`"Worst-case (Manski) ATE bounds, cross-fitted plug-in"`)
+  now say so, the unverified references are gone, and a test pins the
+  identity. Numbers are unchanged.
+
 ### `sp.mediate(interaction=True)` works under the default inference
 
 #### Fixed

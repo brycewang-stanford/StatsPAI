@@ -23749,7 +23749,7 @@
     "name": "mixlogit"
   },
   {
-    "description": "ML-enhanced partial-identification bounds on the ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Worst-case (Manski) bounds on the ATE, estimated with cross-fitted ML. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23807,11 +23807,11 @@
           "x-statspai-role": "column"
         },
         "y_max": {
-          "description": "A priori bounds on Y. Defaults to the empirical min/max. **Tighter** external bounds (e.g. if Y is a probability, use ``[0, 1]``) give tighter ML bounds.",
+          "description": "A priori bounds on Y. Defaults to the empirical min/max. The identified interval has width ``y_max - y_min``, so these, not the learner, set how informative it is.",
           "type": "number"
         },
         "y_min": {
-          "description": "A priori bounds on Y. Defaults to the empirical min/max. **Tighter** external bounds (e.g. if Y is a probability, use ``[0, 1]``) give tighter ML bounds.",
+          "description": "A priori bounds on Y. Defaults to the empirical min/max. The identified interval has width ``y_max - y_min``, so these, not the learner, set how informative it is.",
           "type": "number"
         }
       },

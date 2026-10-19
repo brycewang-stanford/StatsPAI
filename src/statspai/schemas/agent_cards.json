@@ -145365,7 +145365,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "ML-enhanced partial-identification bounds on the ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Worst-case (Manski) bounds on the ATE, estimated with cross-fitted ML. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -145405,10 +145405,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "@manski1990nonparametric",
     "returns": {
       "class": "MLBoundsResult",
       "description": "MLBoundsResult",
@@ -145429,7 +145430,7 @@
       }
     },
     "signature": {
-      "description": "ML-enhanced partial-identification bounds on the ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Worst-case (Manski) bounds on the ATE, estimated with cross-fitted ML. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ml_bounds",
       "parameters": {
         "properties": {
@@ -145493,11 +145494,11 @@
             "x-statspai-role": "column"
           },
           "y_max": {
-            "description": "A priori bounds on Y. Defaults to the empirical min/max. **Tighter** external bounds (e.g. if Y is a probability, use ``[0, 1]``) give tighter ML bounds.",
+            "description": "A priori bounds on Y. Defaults to the empirical min/max. The identified interval has width ``y_max - y_min``, so these, not the learner, set how informative it is.",
             "type": "number"
           },
           "y_min": {
-            "description": "A priori bounds on Y. Defaults to the empirical min/max. **Tighter** external bounds (e.g. if Y is a probability, use ``[0, 1]``) give tighter ML bounds.",
+            "description": "A priori bounds on Y. Defaults to the empirical min/max. The identified interval has width ``y_max - y_min``, so these, not the learner, set how informative it is.",
             "type": "number"
           }
         },

@@ -722,3 +722,34 @@ def test_llm_annotator_correct_undoes_misclassification_attenuation():
     # True effect 1.0; the uncorrected contrast is attenuated to 0.70.
     assert abs(corrected.mean() - 1.0) <= 4 * corrected.std(ddof=1) / np.sqrt(15)
     assert np.mean(naive) == pytest.approx(0.70, abs=0.05)
+
+
+def test_ml_bounds_estimate_the_manski_interval():
+    """Iterated expectations: E[pi(X) mu_1(X)] = E[A Y], so the
+    covariate-averaged worst-case bounds ARE the Manski bounds. The width is
+    y_max - y_min exactly (an identity of the formula), and the cross-fitted
+    and plain-means estimates converge to the same endpoints: with a
+    saturated binary covariate and n = 40,000 their difference is pure
+    estimation noise of order 1/sqrt(n) (allow 0.01)."""
+    from sklearn.tree import DecisionTreeRegressor
+
+    rng = np.random.default_rng(5)
+    n = 40_000
+    x = rng.binomial(1, 0.5, n)
+    d = rng.binomial(1, np.where(x == 1, 0.7, 0.3))
+    y = np.clip(0.3 + 0.2 * d + 0.3 * x + rng.normal(0, 0.1, n), 0, 1)
+    res = sp.ml_bounds(
+        pd.DataFrame({"y": y, "d": d, "x": x}),
+        y="y",
+        treat="d",
+        covariates=["x"],
+        y_min=0,
+        y_max=1,
+        custom_learner=DecisionTreeRegressor(max_depth=1),
+        n_bootstrap=0,
+        random_state=0,
+    )
+    assert res.adaptive_upper - res.adaptive_lower == pytest.approx(1.0, abs=1e-12)
+    assert res.manski_upper - res.manski_lower == pytest.approx(1.0, abs=1e-12)
+    assert res.adaptive_lower == pytest.approx(res.manski_lower, abs=0.01)
+    assert abs(res.center_shift()) < 0.01

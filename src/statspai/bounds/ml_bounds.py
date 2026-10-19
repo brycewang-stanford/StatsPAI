@@ -1,60 +1,43 @@
 """
-ML-enhanced partial-identification bounds for the ATE under limited overlap.
+Worst-case (Manski) bounds on the ATE with cross-fitted plug-in nuisances.
 
-Classical Manski (1989, 1990) bounds on :math:`E[Y(1) - Y(0)]` under
-bounded-outcome assumptions attain their tightest form when the outcome
-regressions :math:`\\mu_a(x) = E[Y | A=a, X=x]` are estimated with the
-most flexible function class the data supports. Replacing the nominal
-outcome regressions with ML learners — random forests, gradient boosted
-trees, neural nets — gives what the 2024+ literature calls *ML-enhanced
-bounds*: finite-sample-valid, distribution-free upper/lower envelopes
-on the ATE that tighten as the outcome models improve.
+With an outcome known to lie in ``[y_min, y_max]`` and no other
+assumption, the sharp identified set for :math:`E[Y(1) - Y(0)]` is the
+Manski (1990) interval. Writing it conditionally on covariates,
 
-The estimator implemented here follows Kennedy-Balakrishnan-Wasserman
-(2024, Biometrika) and the working-paper line on "Meta-Learners for
-Partially-Identified Treatment Effects" (Padh-Oprescu-Schaar 2024):
+.. math::
 
-1. Choose a bounded-outcome assumption ``y ∈ [y_min, y_max]`` (user
-   supplied or derived from the data).
-2. Estimate flexible outcome regressions
-   :math:`\\hat μ_1(x), \\hat μ_0(x)` with cross-fitted ML.
-3. Form the sharp bounds:
+   L(x) &= π(x) μ_1(x) + (1-π(x)) y_{\\min}
+          - [π(x) y_{\\max} + (1-π(x)) μ_0(x)], \\\\
+   U(x) &= π(x) μ_1(x) + (1-π(x)) y_{\\max}
+          - [π(x) y_{\\min} + (1-π(x)) μ_0(x)],
 
-   .. math::
+with :math:`π(x) = P(A=1 | X=x)` and :math:`μ_a(x) = E[Y | A=a, X=x]`,
+and averaging over X gives back exactly the unconditional Manski bounds:
+:math:`E[π(X) μ_1(X)] = E[A Y]` by iterated expectations. Covariates
+therefore do **not** tighten worst-case bounds, and the width is
+``y_max - y_min`` for every data set (pointwise and on average).
+This function estimates the same interval through cross-fitted
+:math:`\\hat π, \\hat μ_a` (random forest or gradient boosting by default);
+the difference from the plain-means Manski estimate (``center_shift``) is
+finite-sample estimation noise that vanishes as n grows, not
+identifying information. Narrower bounds need narrower ``y_min`` /
+``y_max`` or an additional assumption (monotone treatment response,
+monotone selection, an instrument; see ``sp.manski_bounds``,
+``sp.lee_bounds``, ``sp.iv_bounds``).
 
-      L(x) &= π(x) · \\hat μ_1(x) + (1-π(x)) · y_{\\min}
-             - [π(x) · y_{\\max} + (1-π(x)) · \\hat μ_0(x)], \\\\
-      U(x) &= π(x) · \\hat μ_1(x) + (1-π(x)) · y_{\\max}
-             - [π(x) · y_{\\min}  + (1-π(x)) · \\hat μ_0(x)]
+Before 2026-10-19 this docstring described the interval as "ML-enhanced",
+adaptive and tightening as the outcome models improve, and cited two
+papers that do not support that claim; none of it was true of the
+computation.
 
-   where ``π(x) = P(A=1 | X=x)`` is the (estimated or known) propensity
-   and ``y_{\\min}, y_{\\max}`` are the a priori outcome bounds.
-4. Average over the empirical distribution of X to get bounds on the
-   marginal ATE:
-
-   .. math::
-
-      [L^*, U^*] = [\\bar L, \\bar U].
-5. Inflate by a bootstrap-derived Kennedy 2-sided band for valid
-   frequentist coverage.
-
-The resulting interval is (i) never empty (ii) tightens smoothly as
-the outcome ML fit improves (iii) collapses to a point estimate under
-perfect ignorability and strong overlap. Unlike the classical Manski
-bounds, it is **adaptive** — it uses whatever identification
-information the ML regressions can extract from the covariates.
+The reported band takes the ``alpha/2`` quantile of the bootstrapped lower
+bound and the ``1 - alpha/2`` quantile of the upper one, resampling the
+cross-fitted pointwise bounds with the nuisance fits held fixed.
 
 References
 ----------
-Kennedy, E.H., Balakrishnan, S. & Wasserman, L.A. (2024). "Semiparametric
-counterfactual density estimation." *Biometrika* 111(1), 1-20. [@kennedy2023semiparametric]
-
-Padh, K., Oprescu, M. & van der Schaar, M. (2024). "Meta-Learners for
-Partially-Identified Treatment Effects Across Multiple Environments."
-*arXiv:2409.xxxxx*.
-
-Manski, C.F. (1990). "Nonparametric bounds on treatment effects."
-*American Economic Review*, 80(2), 319-323. [@manski1990nonparametric]
+[@manski1990nonparametric]
 """
 
 from __future__ import annotations
@@ -101,17 +84,15 @@ class MLBoundsResult(ResultProtocolMixin):
     n_obs: int
     alpha: float
     learner: str
-    method: str = "ML-enhanced Manski bounds (Kennedy et al. 2024)"
+    method: str = "Worst-case (Manski) ATE bounds, cross-fitted plug-in"
 
     def center_shift(self) -> float:
-        """Midpoint shift vs the classical Manski interval.
+        """Midpoint difference from the plain-means Manski estimate.
 
-        Under bounded-outcome Manski the *width* of the identification
-        region is (y_max - y_min) by construction — ML cannot shrink
-        it without an additional structural assumption. What ML does
-        shift is the **midpoint**, because it plugs in a
-        covariate-aware estimate of the identifiable side instead of
-        a marginal mean. This method reports that midpoint shift.
+        Both estimate the same interval (by iterated expectations the
+        covariate-averaged bounds are the Manski bounds), so this is
+        finite-sample estimation noise of the cross-fitted nuisances and
+        tends to zero as n grows. It is not identifying information.
         """
         mid_manski = 0.5 * (self.manski_lower + self.manski_upper)
         mid_ml = 0.5 * (self.adaptive_lower + self.adaptive_upper)
@@ -126,20 +107,19 @@ class MLBoundsResult(ResultProtocolMixin):
             f"  Classical Manski : [{self.manski_lower:.4f}, "
             f"{self.manski_upper:.4f}]   width="
             f"{self.manski_upper - self.manski_lower:.4f}\n"
-            f"  Adaptive ML plug : [{self.adaptive_lower:.4f}, "
+            f"  Cross-fit plug-in: [{self.adaptive_lower:.4f}, "
             f"{self.adaptive_upper:.4f}]   width="
             f"{self.adaptive_upper - self.adaptive_lower:.4f}\n"
             f"  Bootstrap-inflated {100 * (1 - self.alpha):.0f}% band :\n"
             f"      [{self.lower:.4f}, {self.upper:.4f}]\n"
-            f"  Centre shift vs Manski (ML plug - Manski midpoint) : "
-            f"{self.center_shift():+.4f}\n"
-            f"  Note: under bounded-outcome Manski, the identification-"
-            f"region width equals\n"
-            f"        y_max - y_min by construction; ML shifts the "
-            f"centre, not the width.\n"
-            f"        Tighter `y_min` / `y_max` (domain knowledge) is "
-            f"the only way to\n"
-            f"        shrink the interval."
+            f"  Midpoint difference (plug-in - plain means, estimation "
+            f"noise) : {self.center_shift():+.4f}\n"
+            f"  Note: both rows estimate the same worst-case interval, whose "
+            f"width is\n"
+            f"        y_max - y_min; covariates do not narrow it. Tighter "
+            f"`y_min` / `y_max`\n"
+            f"        or an extra assumption (sp.manski_bounds, sp.lee_bounds) "
+            f"does."
         )
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -237,15 +217,17 @@ def ml_bounds(
     random_state: Optional[int] = None,
 ) -> MLBoundsResult:
     """
-    ML-enhanced partial-identification bounds on the ATE.
+    Worst-case (Manski) bounds on the ATE, estimated with cross-fitted ML.
 
-    Unlike the classical Manski bounds, which fill the unobserved
-    counterfactual with the raw ``[y_min, y_max]`` support, this
-    estimator plugs in a cross-fitted ML outcome regression for the
-    *observed* arm and only falls back to the worst-case when the
-    counterfactual is genuinely unknown. The resulting interval is
-    always a subset of the Manski interval and tightens smoothly as
-    the ML fit improves.
+    The unobserved counterfactual of each arm is filled with the
+    ``[y_min, y_max]`` support, conditionally on covariates, and the
+    pointwise bounds are averaged. By iterated expectations the result
+    estimates exactly the unconditional Manski (1990) interval: its width
+    is ``y_max - y_min`` whatever the learner, and covariates do not
+    tighten it. Use it when a covariate-conditional version of the
+    worst-case bounds is wanted for reporting; to narrow the interval,
+    narrow ``y_min`` / ``y_max`` or add an assumption
+    (``sp.manski_bounds`` with monotonicity, ``sp.lee_bounds``).
 
     Parameters
     ----------
@@ -255,9 +237,9 @@ def ml_bounds(
     covariates : list of str
         Covariates X used for the outcome / propensity regressions.
     y_min, y_max : float, optional
-        A priori bounds on Y. Defaults to the empirical min/max.
-        **Tighter** external bounds (e.g. if Y is a probability, use
-        ``[0, 1]``) give tighter ML bounds.
+        A priori bounds on Y. Defaults to the empirical min/max. The
+        identified interval has width ``y_max - y_min``, so these, not the
+        learner, set how informative it is.
     learner : {"random_forest", "gradient_boosting"}, default
         "random_forest"
         Outcome-regression learner. Ignored if ``custom_learner`` is set.
@@ -283,11 +265,14 @@ def ml_bounds(
     >>> res = sp.ml_bounds(df, y='log_wage', treat='union',
     ...                    covariates=['education', 'experience', 'tenure'],
     ...                    n_bootstrap=50, random_state=0)
-    >>> # midpoint shift vs the classical Manski interval (ML centres
-    >>> # better; the interval width is invariant by construction)
-    >>> shift = res.center_shift()
-    >>> bool(res.lower <= res.upper)
+    >>> # the identified width is y_max - y_min, learner or not
+    >>> w = res.adaptive_upper - res.adaptive_lower
+    >>> bool(abs(w - (res.y_range[1] - res.y_range[0])) < 1e-9)
     True
+
+    References
+    ----------
+    [@manski1990nonparametric]
 
     See also
     --------
@@ -335,9 +320,10 @@ def ml_bounds(
     mu0 = _cross_fit_mu(X, Y, T, a=0, base=base, n_splits=n_splits, rng=rng)
     pi_x = _cross_fit_pi(X, T, n_splits=n_splits, rng=rng)
 
-    # ── Pointwise bounds on τ(x) (Kennedy et al. 2024 Eq. 2) ─────────
-    # Observed-arm prediction is trusted; counterfactual is filled with
-    # the worst-case support.
+    # ── Pointwise worst-case bounds on τ(x) ───────────────────────────
+    # Observed-arm prediction is plugged in; the counterfactual is filled
+    # with the worst-case support. Averaged over X these estimate the
+    # unconditional Manski bounds (iterated expectations).
     L_x = pi_x * mu1 + (1 - pi_x) * y_lo - (pi_x * y_hi + (1 - pi_x) * mu0)
     U_x = pi_x * mu1 + (1 - pi_x) * y_hi - (pi_x * y_lo + (1 - pi_x) * mu0)
 
@@ -367,7 +353,7 @@ def ml_bounds(
             idx = rng.integers(0, n, size=n)
             L_boot[b] = float(np.mean(L_x[idx]))
             U_boot[b] = float(np.mean(U_x[idx]))
-        # Kennedy band: lower endpoint uses the α/2 quantile of L,
+        # Two-sided band: lower endpoint uses the α/2 quantile of L,
         # upper uses the 1-α/2 quantile of U.
         lower_ci_lo = float(np.quantile(L_boot, alpha / 2))
         lower_ci_hi = float(np.quantile(L_boot, 1 - alpha / 2))
