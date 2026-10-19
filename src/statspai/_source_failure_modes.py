@@ -1710,6 +1710,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "(engine='areg').",
         },
     ],
+    "xtivreg": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass id='<panel column>'.",
+            "symptom": "xtivreg: id= names the panel identifier.",
+        }
+    ],
     "xtoverid": [
         {
             "exception": "statspai.MethodIncompatibility",

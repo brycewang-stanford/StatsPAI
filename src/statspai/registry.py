@@ -8808,6 +8808,84 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="xtivreg",
+            category="panel",
+            description=(
+                "Instrumental variables for panel data (Stata xtivreg): "
+                "random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, "
+                "between 2SLS; unbalanced panels."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Dependent variable"),
+                ParamSpec(
+                    "x",
+                    "list",
+                    False,
+                    None,
+                    "Exogenous regressors (instrument themselves; constant added)",
+                ),
+                ParamSpec("endog", "list", True, description="Endogenous regressors"),
+                ParamSpec(
+                    "instruments",
+                    "list",
+                    True,
+                    description="Excluded instruments (at least one per endog)",
+                ),
+                ParamSpec("id", "str", True, description="Panel identifier"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "re",
+                    "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within "
+                    "2SLS) or 'be' (between 2SLS)",
+                    ["re", "fe", "be"],
+                ),
+                ParamSpec(
+                    "ec2sls",
+                    "bool",
+                    False,
+                    False,
+                    "method='re': Baltagi's EC2SLS instruments instead of G2SLS",
+                ),
+                ParamSpec(
+                    "nosa",
+                    "bool",
+                    False,
+                    False,
+                    "method='re': Baltagi-Chang variance components instead "
+                    "of Swamy-Arora",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "None (conventional), 'robust' (= cluster on id, as Stata) "
+                    "or 'cluster'",
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster column"),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.xtivreg(df, y="lwage", x=["exper"], endog="educ", '
+                'instruments=["meduc"], id="id")'
+            ),
+            tags=["panel", "iv", "random-effects", "2sls"],
+            reference="Balestra and Varadharajan-Krishnakumar (1987); Baltagi (1981)",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="xthtaylor",
             category="panel",
             description=(

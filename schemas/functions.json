@@ -7136,6 +7136,103 @@
     }
   },
   {
+    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels.",
+    "name": "xtivreg",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "ec2sls": {
+          "default": false,
+          "description": "method='re': Baltagi's EC2SLS instruments instead of G2SLS",
+          "type": "boolean"
+        },
+        "endog": {
+          "description": "Endogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "instruments": {
+          "description": "Excluded instruments (at least one per endog)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "method": {
+          "default": "re",
+          "description": "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within 2SLS) or 'be' (between 2SLS)",
+          "enum": [
+            "re",
+            "fe",
+            "be"
+          ],
+          "type": "string"
+        },
+        "nosa": {
+          "default": false,
+          "description": "method='re': Baltagi-Chang variance components instead of Swamy-Arora",
+          "type": "boolean"
+        },
+        "vce": {
+          "description": "None (conventional), 'robust' (= cluster on id, as Stata) or 'cluster'",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Exogenous regressors (instrument themselves; constant added)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "endog",
+        "instruments",
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
     "name": "xthtaylor",
     "parameters": {

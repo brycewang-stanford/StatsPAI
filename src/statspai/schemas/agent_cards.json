@@ -13889,6 +13889,162 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.xtivreg(df, y=\"lwage\", x=[\"exper\"], endog=\"educ\", instruments=[\"meduc\"], id=\"id\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass id='<panel column>'.",
+        "symptom": "xtivreg: id= names the panel identifier."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xtivreg",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "Balestra and Varadharajan-Krishnakumar (1987); Baltagi (1981)",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels.",
+      "name": "xtivreg",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "ec2sls": {
+            "default": false,
+            "description": "method='re': Baltagi's EC2SLS instruments instead of G2SLS",
+            "type": "boolean"
+          },
+          "endog": {
+            "description": "Endogenous regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "id": {
+            "description": "Panel identifier",
+            "type": "string",
+            "x-aliases": [
+              "entity"
+            ],
+            "x-statspai-role": "column"
+          },
+          "instruments": {
+            "description": "Excluded instruments (at least one per endog)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "method": {
+            "default": "re",
+            "description": "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within 2SLS) or 'be' (between 2SLS)",
+            "enum": [
+              "re",
+              "fe",
+              "be"
+            ],
+            "type": "string"
+          },
+          "nosa": {
+            "default": false,
+            "description": "method='re': Baltagi-Chang variance components instead of Swamy-Arora",
+            "type": "boolean"
+          },
+          "vce": {
+            "description": "None (conventional), 'robust' (= cluster on id, as Stata) or 'cluster'",
+            "type": "string",
+            "x-aliases": [
+              "robust"
+            ]
+          },
+          "x": {
+            "description": "Exogenous regressors (instrument themselves; constant added)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y": {
+            "description": "Dependent variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "endog",
+          "instruments",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "panel",
       "hausman"

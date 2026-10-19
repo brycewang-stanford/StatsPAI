@@ -44432,6 +44432,97 @@
     "name": "xthtaylor"
   },
   {
+    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Failure modes: xtivreg: id= names the panel identifier -> Pass id='<panel column>'.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "ec2sls": {
+          "default": false,
+          "description": "method='re': Baltagi's EC2SLS instruments instead of G2SLS",
+          "type": "boolean"
+        },
+        "endog": {
+          "description": "Endogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "instruments": {
+          "description": "Excluded instruments (at least one per endog)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "method": {
+          "default": "re",
+          "description": "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within 2SLS) or 'be' (between 2SLS)",
+          "enum": [
+            "re",
+            "fe",
+            "be"
+          ],
+          "type": "string"
+        },
+        "nosa": {
+          "default": false,
+          "description": "method='re': Baltagi-Chang variance components instead of Swamy-Arora",
+          "type": "boolean"
+        },
+        "vce": {
+          "description": "None (conventional), 'robust' (= cluster on id, as Stata) or 'cluster'",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Exogenous regressors (instrument themselves; constant added)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "endog",
+        "id",
+        "instruments",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtivreg"
+  },
+  {
     "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: certified parity evidence. Do NOT use when: T is large relative to N -- the Nickell bias that motivates GMM is O(1/T) and within estimation is fine. Assumptions: Sequential exogeneity: errors are uncorrelated with past values of the regressors (lags are valid instruments); Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0); Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain. Pre-conditions: A panel with T >= 3 (T >= 4 for AR(2) testing) and unit / time identifiers; Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded. Failure modes: Hausman test rejects RE -> Switch to fixed effects (method='fe') or correlated random effects (method='mundlak'); Few clusters (< 30) inflate Type I error with cluster-robust SEs -> Use wild-cluster bootstrap or CR2/CR3 small-sample corrections; High-dimensional fixed effects make the design singular -> Switch to method='hdfe' / feols for absorption, or drop singletons. Alternatives: sp.sp.panel,...",
     "input_schema": {
       "properties": {

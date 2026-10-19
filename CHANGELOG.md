@@ -4,6 +4,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.xtivreg`: panel IV (random-effects G2SLS / EC2SLS, within, between)
+
+#### Added
+
+- `sp.xtivreg(data, y, x, endog, instruments, id, method='re' | 'fe' |
+  'be', ec2sls=, nosa=, vce=)`, Stata's `xtivreg`: feasible-GLS 2SLS with
+  Swamy-Arora (default) or Baltagi-Chang (`nosa=True`) variance components
+  and G2SLS (default) or EC2SLS (`ec2sls=True`) instruments, within 2SLS
+  with the `(N - K) / (N - n - K + 1)` correction, between 2SLS;
+  conventional or cluster-robust variance (`vce='robust'` clusters on the
+  panel, as Stata). Coefficients, standard errors, `sigma_u`, `sigma_e`,
+  `rho` and the three R-squared match Stata 18 to 1e-12 on an unbalanced
+  panel for all eight variants (`tests/test_xtivreg_stata.py`). Three
+  conventions were pinned against Stata's output where its manual is
+  ambiguous or says otherwise (unweighted between regression, `K` in the
+  within variance, the EC2SLS constant); see
+  `docs/dev/modules/panel_multilevel.md`.
+
 ### ⚠️ Correctness: `sp.lee_bounds` estimation sample; `leebounds` translated
 
 #### Fixed
