@@ -121,6 +121,61 @@ _CLASSICAL_ONLY_KWARGS = frozenset(
     }
 )
 
+
+class _MatchArgumentError(MethodIncompatibility, TypeError):
+    """A keyword the chosen ``sp.match`` method does not take.
+
+    Also a ``TypeError``, which is what the call raised before 1.40, so
+    code that caught that keeps working.
+    """
+
+
+#: Spellings that belong to a sibling method: ``{method: {given: wanted}}``.
+_KWARG_SYNONYMS: Dict[str, Dict[str, str]] = {
+    "nnmatch": {"bias_correction": "bias_adjust", "distance": "metric"},
+    "classical": {"bias_adjust": "bias_correction", "metric": "distance"},
+}
+
+
+def _check_method_kwargs(
+    func: Any, kwargs: Dict[str, Any], method: str, kind: str
+) -> None:
+    """Refuse keywords ``func`` does not accept, with the right spelling."""
+    import difflib
+    import inspect
+
+    try:
+        params = inspect.signature(func).parameters
+    except (TypeError, ValueError):  # pragma: no cover - builtins
+        return
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return
+    accepted = set(params) | set(getattr(func, "__statspai_aliases__", {}) or {})
+    accepted -= {"data", "y", "treat", "covariates", "treatment", "outcome"}
+    unknown = [k for k in kwargs if k not in accepted]
+    if not unknown:
+        return
+    synonyms = _KWARG_SYNONYMS.get(kind, {})
+    hints = []
+    for k in unknown:
+        if k in synonyms and synonyms[k] in accepted:
+            hints.append(f"{k}= is spelled {synonyms[k]}= for method={method!r}")
+            continue
+        close = difflib.get_close_matches(k, sorted(accepted), n=1, cutoff=0.75)
+        if close:
+            hints.append(f"did you mean {close[0]}=?")
+    raise _MatchArgumentError(
+        f"sp.match(method={method!r}) got unexpected keyword argument(s) "
+        f"{unknown}" + (f" ({'; '.join(hints)})" if hints else "") + ".",
+        recovery_hint=(
+            (("; ".join(hints) + " ") if hints else "")
+            + f"The keywords method={method!r} accepts are listed in "
+            f"sp.describe_function('{getattr(func, '__name__', kind)}')."
+        ),
+        diagnostics={"unknown": unknown, "accepted": sorted(accepted)},
+    )
+
+
 _CLASSICAL_METHODS = frozenset(
     {
         "nearest",
@@ -301,6 +356,7 @@ def match(
     if canon in _CLASSICAL_METHODS:
         # Pass the canonical method name (already lowercased) plus all
         # original kwargs.  match.py knows the legacy aliases too.
+        _check_method_kwargs(_match_classical, kwargs, method, "classical")
         return _match_classical(
             data=data,
             y=y,
@@ -312,20 +368,38 @@ def match(
 
     # ── Abadie-Imbens covariate matching: its own keyword set ─────────
     if canon == "nnmatch":
+        _check_method_kwargs(_nnmatch, kwargs, method, "nnmatch")
         return _nnmatch(data=data, y=y, treat=treat, covariates=covariates, **kwargs)
 
     # ── Optimal full matching: shares distance= / caliper= ───────────
     if canon == "full":
+        _check_method_kwargs(full_match, kwargs, method, "full")
         return full_match(data=data, y=y, treat=treat, covariates=covariates, **kwargs)
 
     # ── Advanced: strip classical-only kwargs and forward ────────────
     bad = [k for k in kwargs if k in _CLASSICAL_ONLY_KWARGS]
     if bad:
-        raise TypeError(
+        raise _MatchArgumentError(
             f"method='{method}' does not accept these classical-matching "
             f"kwargs: {bad}.  See sp.{canon}() docstring for the supported "
-            f"parameter list."
+            f"parameter list.",
+            recovery_hint=(
+                f"Drop {bad}, or use method='nearest' for nearest-neighbour "
+                "matching options."
+            ),
+            diagnostics={"unknown": bad, "method": method},
         )
+    _advanced = {
+        "ebalance": ebalance,
+        "cbps": cbps,
+        "sbw": sbw,
+        "overlap": overlap_weights,
+        "genmatch": genmatch,
+        "optimal": optimal_match,
+        "cardinality": cardinality_match,
+    }
+    if canon in _advanced:
+        _check_method_kwargs(_advanced[canon], kwargs, method, canon)
 
     if canon == "ebalance":
         return ebalance(data=data, y=y, treat=treat, covariates=covariates, **kwargs)

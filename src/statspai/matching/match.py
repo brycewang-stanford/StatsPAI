@@ -45,6 +45,7 @@ from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
 from . import _metric_tree
+from . import _pair_constraints as _pc
 from ._ai2016 import abadie_imbens_2016_ate_se, abadie_imbens_2016_se, caliper_deficient
 from ._binary_fit import fit_binary_index
 from ._matched_frame import (
@@ -228,6 +229,9 @@ def match(
     tie_tolerance: float = 0.0,
     m_order: str = "smallest_min_dist",
     mahalanobis_cov: str = "pooled",
+    exact: Optional[Union[str, Sequence[str]]] = None,
+    covariate_calipers: Optional[Mapping[str, float]] = None,
+    mahvars: Optional[Union[str, Sequence[str]]] = None,
     bias_correction: bool = False,
     # --- propensity score specification ---
     ps_poly: int = 1,
@@ -314,6 +318,40 @@ def match(
     tie_tolerance : float, default 0
         With ``ties='all'``, how far apart two scaled squared distances may
         be and still count as tied.
+    exact : str or list of str, optional
+        Nearest-neighbour matching only: a unit may be matched only to units
+        with the same values of these columns (R ``MatchIt::matchit(exact =
+        ~ ...)``). The distance (propensity score, Mahalanobis, ...) then
+        picks the nearest unit inside each cell. A treated unit whose cell
+        holds no control goes unmatched and is left out of the estimate,
+        with the warning for incomplete coverage;
+        ``model_info['n_treated_without_exact_control']`` counts them. The
+        columns need not be among ``covariates``; the propensity score is
+        fitted on ``covariates`` only.
+    covariate_calipers : dict, optional
+        Nearest-neighbour matching only: ``{column: width}``. A pair is
+        allowed only when the two units are within ``width`` of each other
+        on every listed column -- the named entries of MatchIt's
+        ``caliper = c(age = 0.25)``. ``caliper_scale='sd'`` reads the widths
+        in standard deviations of each column over the matching sample
+        (MatchIt's default ``std.caliper = TRUE``); ``'raw'`` on the
+        column's own scale. ``caliper`` still applies to the distance.
+    mahvars : str or list of str, optional
+        Nearest-neighbour propensity-score matching only: match on the
+        Mahalanobis distance of these columns (pooled within-arm
+        covariance), and use the propensity score fitted on ``covariates``
+        only through ``caliper``, which then applies to the score -- R
+        ``matchit(..., mahvars = ~ ...)``. ``m_order='largest'`` /
+        ``'smallest'`` still order the treated units by the score. The
+        Abadie-Imbens conditional variances keep using the score to find
+        same-arm neighbours, and ``se_method='abadie_imbens_2016'`` (which
+        assumes matching on the score alone) is refused with any of
+        ``exact`` / ``covariate_calipers`` / ``mahvars``.
+
+        With any of these three options the distance matrix is searched
+        row by row instead of through the sorted-score or k-d tree search,
+        which is slower on large samples but gives the same matches as the
+        unconstrained search would on the allowed pairs.
     bias_correction : bool, default False
         Apply Abadie-Imbens (2011) bias correction via regression
         adjustment on the matching discrepancy. The regression of the
@@ -620,6 +658,9 @@ def match(
         tie_tolerance=tie_tolerance,
         m_order=m_order,
         mahalanobis_cov=mahalanobis_cov,
+        exact=exact,
+        covariate_calipers=covariate_calipers,
+        mahvars=mahvars,
         bias_correction=bias_correction,
         ps_poly=ps_poly,
         ps_model=ps_model,
@@ -929,6 +970,9 @@ class MatchEstimator:
         tie_tolerance: float = 0.0,
         m_order: str = "smallest_min_dist",
         mahalanobis_cov: str = "pooled",
+        exact: Optional[Union[str, Sequence[str]]] = None,
+        covariate_calipers: Optional[Mapping[str, float]] = None,
+        mahvars: Optional[Union[str, Sequence[str]]] = None,
         bias_correction: bool = False,
         ps_poly: int = 1,
         ps_model: str = "logit",
@@ -1015,6 +1059,11 @@ class MatchEstimator:
                 f"match: mahalanobis_cov must be 'pooled' or 'total', got "
                 f"{mahalanobis_cov!r}"
             )
+        self.exact_vars = _pc.column_list(exact, name="exact")
+        self.covariate_calipers = _pc.caliper_map(covariate_calipers)
+        self.mahvars = _pc.column_list(mahvars, name="mahvars")
+        self._pairs: Optional[_pc.PairConstraints] = None
+        self._X_mah: Optional[np.ndarray] = None
         self.bias_correction = bias_correction
         self.ps_poly = _positive_int(ps_poly, name="ps_poly", context=context)
         if self.ps_poly > 3:
@@ -1304,6 +1353,7 @@ class MatchEstimator:
                 ),
                 diagnostics={"distance": self.distance},
             )
+        self._validate_pair_options()
         if self.llr_stata_compat and self.method != "llr":
             raise MethodIncompatibility(
                 "match: llr_stata_compat=True only applies to method='llr'; "
@@ -1328,6 +1378,70 @@ class MatchEstimator:
                 "match: se_method='psmatch2' is only defined for estimand='ATT'"
             )
 
+    @property
+    def _has_pair_options(self) -> bool:
+        return bool(self.exact_vars or self.covariate_calipers or self.mahvars)
+
+    def _validate_pair_options(self) -> None:
+        """``exact`` / ``covariate_calipers`` / ``mahvars`` (MatchIt nearest)."""
+        if not self._has_pair_options:
+            return
+        given = [
+            name
+            for name, on in (
+                ("exact", self.exact_vars),
+                ("covariate_calipers", self.covariate_calipers),
+                ("mahvars", self.mahvars),
+            )
+            if on
+        ]
+        if self.method != "nearest" or self.distance == "exact":
+            raise MethodIncompatibility(
+                f"match: {', '.join(given)} restrict nearest-neighbour "
+                f"matching; got method={self.method!r}, "
+                f"distance={self.distance!r}.",
+                recovery_hint=(
+                    "Use method='nearest' with a propensity, Mahalanobis or "
+                    "Euclidean distance; for matching on cells alone use "
+                    "distance='exact' or method='cem'."
+                ),
+                diagnostics={"options": given, "method": self.method},
+            )
+        check_columns(
+            self.data,
+            {
+                "exact": self.exact_vars or None,
+                "covariate_calipers": list(self.covariate_calipers) or None,
+                "mahvars": self.mahvars or None,
+            },
+            function="sp.match",
+        )
+        if self.mahvars and self.distance != "propensity":
+            raise MethodIncompatibility(
+                "match: mahvars= matches on a Mahalanobis distance inside a "
+                "propensity-score caliper, so it needs distance='propensity'; "
+                f"got distance={self.distance!r}.",
+                recovery_hint=(
+                    "Drop distance= (or pass 'propensity'), or use "
+                    "distance='mahalanobis' with covariates= the variables "
+                    "to match on."
+                ),
+            )
+        if self.se_method == "abadie_imbens_2016":
+            raise MethodIncompatibility(
+                "match: se_method='abadie_imbens_2016' is the variance of "
+                "matching on the estimated propensity score alone; with "
+                f"{', '.join(given)} the matches depend on other variables.",
+                recovery_hint="Use se_method='abadie_imbens' (the default).",
+            )
+
+    def _pair_frame_columns(self) -> List[str]:
+        return list(
+            dict.fromkeys(
+                self.exact_vars + list(self.covariate_calipers) + self.mahvars
+            )
+        )
+
     # ==================================================================
     # Main fit
     # ==================================================================
@@ -1337,7 +1451,17 @@ class MatchEstimator:
         cols = [self.y, self.treat] + self.covariates
         if self.pscore_col is not None and self.pscore_col not in cols:
             cols = cols + [self.pscore_col]
+        cols = cols + [c for c in self._pair_frame_columns() if c not in cols]
         clean = self.data[cols].dropna()
+        if self._has_pair_options:
+            if self.mahvars:
+                self._X_mah = clean[self.mahvars].to_numpy(dtype=float)
+            self._pairs = _pc.build_constraints(
+                clean,
+                exact=self.exact_vars,
+                calipers=self.covariate_calipers,
+                caliper_scale=self.caliper_scale,
+            )
         if self.strata_col is not None and self.strata_col not in cols:
             cols = cols + [self.strata_col]
             clean = self.data[cols].dropna()
@@ -1427,6 +1551,12 @@ class MatchEstimator:
             "balance": balance,
             **extra_info,
         }
+        if self._has_pair_options:
+            model_info["exact"] = list(self.exact_vars)
+            model_info["covariate_calipers"] = dict(self.covariate_calipers)
+            model_info["mahvars"] = list(self.mahvars)
+            if self._pairs is not None:
+                model_info.update(self._pairs.summary(T, idx_t))
 
         # Assemble the Stata psmatch2-style matched-sample frame for the
         # assignment-producing paths (nearest / kernel / radius).  This is
@@ -1931,9 +2061,6 @@ class MatchEstimator:
         else:
             t_use = idx_t
 
-        # Build distance matrix for the (used-treated × control) block
-        dist_mat = self._compute_distance_matrix(X, t_use, idx_c, pscore)
-
         # A caliper given in 'sd' units is expressed in standard deviations
         # of the distance measure (the MatchIt `std.caliper = TRUE`
         # convention); 'raw' leaves it on the distance scale (Stata
@@ -1942,6 +2069,16 @@ class MatchEstimator:
         self._pscore_cache = pscore
         caliper = self._resolve_caliper(pscore)
         self._tie_stats = {"targets": 0, "left_out": 0}
+        if self._pairs is not None and self.mahvars:
+            # MatchIt mahvars: the caliper is on the score, the matching on
+            # the Mahalanobis distance of mahvars. Set before any distance
+            # block is built (without replacement it is built at once).
+            self._pairs.ps_caliper = caliper
+            self._pairs.pscore = None if caliper is None else pscore
+            caliper = None
+
+        # Build distance matrix for the (used-treated × control) block
+        dist_mat = self._compute_distance_matrix(X, t_use, idx_c, pscore)
 
         if self.estimand == "ATT":
             matches, weights = self._nn_match_from_dist(
@@ -2273,6 +2410,9 @@ class MatchEstimator:
                         tie_tolerance=self.tie_tolerance,
                         m_order=self.m_order,
                         mahalanobis_cov=self.mahalanobis_cov,
+                        exact=self.exact_vars or None,
+                        covariate_calipers=self.covariate_calipers or None,
+                        mahvars=self.mahvars or None,
                         bias_correction=self.bias_correction,
                         ps_poly=self.ps_poly,
                         ps_model=self.ps_model,
@@ -2572,6 +2712,21 @@ class MatchEstimator:
         replacement the processing order needs every row, so the matrix is
         built in full as before.
         """
+        if self._pairs is not None and self.method == "nearest":
+            pairs = self._pairs
+
+            def block(rows: np.ndarray) -> np.ndarray:
+                base = (
+                    self._mahvars_block(idx_from[rows], idx_to)
+                    if self.mahvars
+                    else self._distance_block(X, idx_from[rows], idx_to, pscore)
+                )
+                return pairs.apply(base, idx_from[rows], idx_to)
+
+            if self.replace:
+                # no ``points``: the k-d tree does not see the constraints
+                return _LazyDistance(block, (len(idx_from), len(idx_to)))
+            return block(np.arange(len(idx_from)))
         if self.replace and self.method not in ("kernel", "radius", "llr"):
             return _LazyDistance(
                 lambda rows: self._distance_block(X, idx_from[rows], idx_to, pscore),
@@ -2579,6 +2734,19 @@ class MatchEstimator:
                 points=lambda: self._metric_points(X, idx_from, idx_to),
             )
         return self._distance_block(X, idx_from, idx_to, pscore)
+
+    def _mahvars_block(self, idx_from: np.ndarray, idx_to: np.ndarray) -> np.ndarray:
+        """Mahalanobis distances on ``mahvars`` (pooled within-arm covariance)."""
+        X_m = self._X_mah
+        assert X_m is not None
+        cov = self._mahalanobis_cov_matrix(X_m)
+        if cov.ndim == 0:
+            cov = np.array([[cov]])
+        VI = _mahalanobis_inverse(cov)
+        return np.asarray(
+            cdist(X_m[idx_from], X_m[idx_to], metric="mahalanobis", VI=VI),
+            dtype=float,
+        )
 
     def _metric_points(
         self, X: np.ndarray, idx_from: np.ndarray, idx_to: np.ndarray
@@ -3325,7 +3493,11 @@ class MatchEstimator:
         the inverse covariance of the matching variables). Other distances are
         already standardised, so the scale is 1.
         """
-        if self.distance == "propensity" and self._pscore_cache is not None:
+        if (
+            self.distance == "propensity"
+            and not self.mahvars
+            and self._pscore_cache is not None
+        ):
             v = float(np.var(np.asarray(self._pscore_cache, dtype=float), ddof=1))
             return v if v > 0 else 1.0
         return 1.0
@@ -3586,6 +3758,7 @@ class MatchEstimator:
         counts: List[np.ndarray] = []
         on_score = (
             self.distance == "propensity"
+            and self._pairs is None
             and pscore_target is not None
             and pscore_pool is not None
             and n_pool > 0

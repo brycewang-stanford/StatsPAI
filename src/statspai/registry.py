@@ -6273,6 +6273,35 @@ def _build_registry() -> None:
                     "With method='stratify': column holding the stratum of "
                     "each row (the blocks of sp.pscore; Stata atts)",
                 ),
+                ParamSpec(
+                    "exact",
+                    "list",
+                    False,
+                    None,
+                    "method='nearest' only: match only within cells of equal "
+                    "values of these columns (MatchIt exact=~...). Treated "
+                    "units whose cell has no control go unmatched and are "
+                    "counted in model_info.",
+                ),
+                ParamSpec(
+                    "covariate_calipers",
+                    "dict",
+                    False,
+                    None,
+                    "method='nearest' only: {column: width}; a pair must be "
+                    "within width on each column (MatchIt named caliper "
+                    "entries). caliper_scale='sd' reads widths in SDs of "
+                    "each column.",
+                ),
+                ParamSpec(
+                    "mahvars",
+                    "list",
+                    False,
+                    None,
+                    "method='nearest' with the propensity distance: match on "
+                    "the Mahalanobis distance of these columns, the score "
+                    "serving only as caliper (MatchIt mahvars=~...).",
+                ),
             ],
             returns="CausalResult",
             example='sp.match(df, y="y", treat="treat", covariates=["x1","x2"])',
