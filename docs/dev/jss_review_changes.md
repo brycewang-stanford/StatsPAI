@@ -4363,6 +4363,32 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   module 08; their traces were re-recorded.
 - **Effect on the paper.** None; no estimate changes.
 - **Paths.**
+
+### 2026-10-19 — 14_ols_cluster re-run, trace re-record for the HDFE batch
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `aecae573` (artifacts), following `57e9c86f` (code).
+- **Reason.** `core/_numba_kernels.cluster_meat` now sums the cluster
+  scores in one `bincount` pass instead of sorting the rows by cluster,
+  and `inference/jackknife.two_way_vcov_ols` uses the same one-pass meat;
+  `fast/feols.py` and `panel/hdfe.py` finish unconverged projections with
+  a sparse direct solve (not triggered by any Track A module);
+  `fixest/_native.py` / `fixest/wrapper.py` gained the negative binomial
+  and the bias correction (not on any Track A row). Traces re-recorded:
+  Track A 01 03 14 15 47 51 53 54 55 56 67 68 75; original data 01 04 04b 09.
+- **Effect on the paper.** Every re-traced module was first re-run into a
+  scratch directory. All reproduce their committed `*_py.json` to
+  <= 1.6e-11 except `14_ols_cluster`, whose clustered standard errors
+  moved by up to 1.1e-9 relative (the meat's summation order on a design
+  with `year` in the thousands): intercept SE 5.065400492315133 ->
+  5.0654004970504545, `treat` 0.012220360961010073 -> 0.012220360960616895,
+  `year` 0.0025286050132379972 -> 0.002528605016004209 (R:
+  5.06540050907329, 0.0122203609644141, 0.00252860502164486). Rel. errors
+  against R stay below 3.4e-9, far inside the 1e-6 budget; the parity
+  tables change only in those digits.
+- **Paths.**
+  - `tests/r_parity/results/14_ols_cluster_py.json`
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
 
