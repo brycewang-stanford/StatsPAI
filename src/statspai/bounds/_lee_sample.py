@@ -27,12 +27,11 @@ def _require_01(values: pd.Series, name: str, role: str) -> None:
     levels = set(np.unique(values.to_numpy(dtype=float)))
     if not levels <= {0.0, 1.0}:
         shown = sorted(levels)[:6]
+        one = "treated" if role == "treatment" else "outcome observed"
         raise MethodIncompatibility(
             f"lee_bounds: {role} indicator {name!r} must be coded 0/1, "
             f"found values {shown}.",
-            recovery_hint=(
-                f"Recode {name!r} to 0/1 (1 = {'treated' if role == 'treatment' else 'outcome observed'})."
-            ),
+            recovery_hint=f"Recode {name!r} to 0/1 (1 = {one}).",
         )
 
 
