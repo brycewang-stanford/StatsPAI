@@ -36105,6 +36105,26 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
         "tests/test_v100_integration.py",
     ],
     "unified_sensitivity": ["tests/test_unified_sensitivity.py"],
+    # Added 2026-10-19; the cited files compare against Stata 18 output
+    # committed as fixtures (the LDV / panel estimators and the data
+    # layer) or check a defining identity and known-truth Monte Carlo
+    # (cuped, msprt, which have no reference implementation).
+    "heckprobit": ["tests/test_ldv_margins_stata.py"],
+    "gologit": ["tests/test_gologit_stata.py"],
+    "intreg": ["tests/test_intreg_stata.py"],
+    "xtintreg": ["tests/test_xttobit_stata.py"],
+    "xttobit": ["tests/test_xttobit_stata.py"],
+    "xtivreg": ["tests/test_xtivreg_stata.py"],
+    "xtpcse": ["tests/test_xtpcse_stata.py"],
+    "xtset": ["tests/test_data_layer.py"],
+    "lag": ["tests/test_data_layer.py"],
+    "lead": ["tests/test_data_layer.py"],
+    "diff": ["tests/test_data_layer.py"],
+    "reshape": ["tests/test_data_layer.py"],
+    "collapse": ["tests/test_data_layer.py"],
+    "cuped": ["tests/test_cuped.py"],
+    "msprt": ["tests/test_msprt.py"],
+    "msprt_lambda": ["tests/test_msprt.py"],
 }
 
 _API_STABLE_TEST_EVIDENCE: Dict[str, List[str]] = {
