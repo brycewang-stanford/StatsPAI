@@ -4640,3 +4640,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no estimate changes.
 - **Paths.**
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — trace re-records after CEM k2k and sp.l1_imbalance
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `e9c4827f`.
+- **Reason.** The `k2k=` branch in `matching/match.py` and the export of
+  `sp.l1_imbalance` from `statspai/__init__.py` touch the traced paths
+  of Track A modules 03, 11, 13, 15, 24-27, 53, 65, 66 and original-data
+  modules 04, 04b and 08. Modules 11, 04 and 04b were re-run first and
+  their committed results reproduce byte for byte; only the traces were
+  re-recorded.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
