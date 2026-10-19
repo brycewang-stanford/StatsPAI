@@ -278,7 +278,7 @@ def test_leebounds_translation_arguments():
 @pytest.mark.parametrize(
     "line",
     [
-        "leebounds y d [pw=w], select(s)",
+        "leebounds y d [iw=w], select(s)",
         "leebounds y, select(s)",
         "leebounds y d, vce(jackknife)",
     ],
@@ -299,13 +299,26 @@ def test_leebounds_untranslatable_lines_are_refused(line):
     ],
 )
 def test_leebounds_runs_like_stata(line, key):
+    _check_leebounds_line(line, key, "leebounds_missing")
+
+
+@pytest.mark.parametrize("k", [3, 4])
+def test_weighted_leebounds_runs_like_stata(k):
+    # samples 3-4 take leebounds' tied-threshold branch on both sides, where
+    # its weighted SEs equal ours (test_lee_bounds_weights_Stata_parity.py)
+    _check_leebounds_line(
+        f"leebounds y d [pw=w] if sample == {k}, select(s) cieffect",
+        f"{k}_cie",
+        "leebounds_weights",
+    )
+
+
+def _check_leebounds_line(line, key, stem):
     import json
     import warnings
 
-    ref = json.loads(
-        (_LEE_FIX / "leebounds_missing_stata.json").read_text(encoding="utf-8")
-    )[key]
-    df = pd.read_csv(_LEE_FIX / "leebounds_missing.csv", float_precision="round_trip")
+    ref = json.loads((_LEE_FIX / f"{stem}_stata.json").read_text(encoding="utf-8"))[key]
+    df = pd.read_csv(_LEE_FIX / f"{stem}.csv", float_precision="round_trip")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         res = sp.stata(line, data=df)

@@ -99,6 +99,7 @@ def lee_bounds(
     random_state: int = 42,
     se_method: str = "bootstrap",
     trimming: str = "quantile",
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Compute Lee (2009) bounds for ATE under sample selection.
@@ -152,6 +153,19 @@ def lee_bounds(
         ``'leebounds'`` reproduces Stata ``leebounds`` (Tauchmann) number
         for number, floating-point artefacts included -- use it to match a
         published ``leebounds`` table.
+    weights : str, optional
+        Sampling (probability) weights, Stata ``leebounds [pw=]``: the
+        retention rates, the trimming quantile, the kept mass, the means
+        and the analytic variance are all weighted (weights rescaled to
+        mean one). Needs ``trimming='leebounds'`` (which also stores the
+        weights in single precision, as ``leebounds`` does) or
+        ``'exact'``; not available with ``covariates``. The bootstrap
+        resamples units together with their weights. One difference from
+        ``leebounds``: without a tie at the threshold it leaves the weights
+        out of the untrimmed arm's variance term in the *upper* bound's
+        SE; here that term is weighted for both bounds
+        (``tests/reference_parity/test_lee_bounds_weights_Stata_parity.py``
+        rebuilds Stata's number).
 
     Notes
     -----
@@ -219,6 +233,17 @@ def lee_bounds(
 
     selection_arg = selection
     df, selection = lee_estimation_sample(data, y, treat, selection)
+    if weights is not None:
+        check_columns(df, {"weights": weights}, function="sp.lee_bounds")
+        n_w = int(df[weights].isna().sum())
+        if n_w:
+            warnings.warn(
+                f"lee_bounds: dropped {n_w} row(s) with a missing weight (as "
+                "Stata leebounds does).",
+                UserWarning,
+                stacklevel=2,
+            )
+            df = df[df[weights].notna()]
     covariates = list(covariates) if covariates else []
     if covariates:
         n_before = len(df)
@@ -259,105 +284,136 @@ def lee_bounds(
     Y1 = Y_obs[D_obs == 1]
     Y0 = Y_obs[D_obs == 0]
 
-    tight: Optional[Dict[str, Any]] = None
-    if covariates:
-        from ._lee_tight import cell_codes, tightened_lee_bounds
+    if weights is not None:
+        from ._lee_weighted import weighted_bounds
 
-        cells = cell_codes(df, covariates)
-        Y_all = df[y].to_numpy(dtype=float)
-        tight = tightened_lee_bounds(
-            Y_all, D, S, cells, trimming, analytic=(se_method == "analytic")
-        )
-        lb, ub = tight["lower"], tight["upper"]
-        if tight["hetero"]:
-            warnings.warn(
-                "lee_bounds: retention differs in opposite directions across "
-                "covariate cells; monotonicity is doubtful and the tightened "
-                "bounds may fail (Stata: 'heterogenous selection direction')."
-                + (
-                    " Cells where the trimmed arm is less retained are not " "trimmed."
-                    if trimming != "leebounds"
-                    else ""
-                ),
-                UserWarning,
-                stacklevel=2,
+        if covariates:
+            raise MethodIncompatibility(
+                "lee_bounds: weights with covariate-tightened bounds are not "
+                "implemented.",
+                recovery_hint="Drop covariates= or weights=.",
             )
-    else:
-        lb, ub = _compute_lee_bounds(Y1, Y0, p1, p0, trimming)
-        if trimming == "quantile" and p1 != p0:
-            _warn_quantile_ties(
-                "lee_bounds", Y1 if p1 > p0 else Y0, abs(p1 - p0) / max(p1, p0)
-            )
-
-    if se_method == "analytic" and tight is not None:
-        se_lb, se_ub = float(np.sqrt(tight["var_lower"])), float(
-            np.sqrt(tight["var_upper"])
+        W = df[weights].to_numpy(dtype=float)
+        wres = weighted_bounds(
+            df[y].to_numpy(dtype=float),
+            D,
+            S,
+            W,
+            trimming,
+            se_method,
+            n_bootstrap,
+            random_state,
         )
-    elif se_method == "analytic":
-        se_lb, se_ub = _lee_analytic_se(Y_obs, D_obs, D, S, trimming)
+        lb, ub = wres["lower"], wres["upper"]
+        se_lb, se_ub = wres["se_lower"], wres["se_upper"]
+        p1, p0 = wres["p1"], wres["p0"]
+        weighted_ties = wres["tie_branch"]
+        tight = None
     else:
-        rng = np.random.RandomState(random_state)
-        n = len(D)
-        boot_lb = np.zeros(n_bootstrap)
-        boot_ub = np.zeros(n_bootstrap)
+        tight: Optional[Dict[str, Any]] = None
+        if covariates:
+            from ._lee_tight import cell_codes, tightened_lee_bounds
 
-        for b in range(n_bootstrap):
-            idx = rng.choice(n, size=n, replace=True)
-            D_b = D[idx]
-            S_b = S[idx]
+            cells = cell_codes(df, covariates)
+            Y_all = df[y].to_numpy(dtype=float)
+            tight = tightened_lee_bounds(
+                Y_all, D, S, cells, trimming, analytic=(se_method == "analytic")
+            )
+            lb, ub = tight["lower"], tight["upper"]
+            if tight["hetero"]:
+                warnings.warn(
+                    "lee_bounds: retention differs in opposite directions across "
+                    "covariate cells; monotonicity is doubtful and the tightened "
+                    "bounds may fail (Stata: 'heterogenous selection direction')."
+                    + (
+                        " Cells where the trimmed arm is less retained are "
+                        "not trimmed."
+                        if trimming != "leebounds"
+                        else ""
+                    ),
+                    UserWarning,
+                    stacklevel=2,
+                )
+        else:
+            lb, ub = _compute_lee_bounds(Y1, Y0, p1, p0, trimming)
+            if trimming == "quantile" and p1 != p0:
+                _warn_quantile_ties(
+                    "lee_bounds", Y1 if p1 > p0 else Y0, abs(p1 - p0) / max(p1, p0)
+                )
 
-            p1_b = np.mean(S_b[D_b == 1]) if np.sum(D_b == 1) > 0 else p1
-            p0_b = np.mean(S_b[D_b == 0]) if np.sum(D_b == 0) > 0 else p0
+        if se_method == "analytic" and tight is not None:
+            se_lb, se_ub = float(np.sqrt(tight["var_lower"])), float(
+                np.sqrt(tight["var_upper"])
+            )
+        elif se_method == "analytic":
+            se_lb, se_ub = _lee_analytic_se(Y_obs, D_obs, D, S, trimming)
+        else:
+            rng = np.random.RandomState(random_state)
+            n = len(D)
+            boot_lb = np.zeros(n_bootstrap)
+            boot_ub = np.zeros(n_bootstrap)
 
-            obs_b = S_b == 1
-            Y_b_col = df[y].values[idx]
-            Y_obs_b = Y_b_col[obs_b].astype(float)
-            D_obs_b = D_b[obs_b]
+            for b in range(n_bootstrap):
+                idx = rng.choice(n, size=n, replace=True)
+                D_b = D[idx]
+                S_b = S[idx]
 
-            Y1_b = Y_obs_b[D_obs_b == 1]
-            Y0_b = Y_obs_b[D_obs_b == 0]
+                p1_b = np.mean(S_b[D_b == 1]) if np.sum(D_b == 1) > 0 else p1
+                p0_b = np.mean(S_b[D_b == 0]) if np.sum(D_b == 0) > 0 else p0
 
-            if tight is not None:
-                try:
-                    tb = tightened_lee_bounds(
-                        df[y].to_numpy(dtype=float)[idx], D_b, S_b, cells[idx], trimming
+                obs_b = S_b == 1
+                Y_b_col = df[y].values[idx]
+                Y_obs_b = Y_b_col[obs_b].astype(float)
+                D_obs_b = D_b[obs_b]
+
+                Y1_b = Y_obs_b[D_obs_b == 1]
+                Y0_b = Y_obs_b[D_obs_b == 0]
+
+                if tight is not None:
+                    try:
+                        tb = tightened_lee_bounds(
+                            df[y].to_numpy(dtype=float)[idx],
+                            D_b,
+                            S_b,
+                            cells[idx],
+                            trimming,
+                        )
+                        boot_lb[b], boot_ub[b] = tb["lower"], tb["upper"]
+                    except MethodIncompatibility:
+                        # A draw that empties a cell arm has no tightened bound.
+                        boot_lb[b] = boot_ub[b] = np.nan
+                elif len(Y1_b) > 0 and len(Y0_b) > 0 and p1_b > 0 and p0_b > 0:
+                    boot_lb[b], boot_ub[b] = _compute_lee_bounds(
+                        Y1_b, Y0_b, p1_b, p0_b, trimming
                     )
-                    boot_lb[b], boot_ub[b] = tb["lower"], tb["upper"]
-                except MethodIncompatibility:
-                    # A draw that empties a cell arm has no tightened bound.
-                    boot_lb[b] = boot_ub[b] = np.nan
-            elif len(Y1_b) > 0 and len(Y0_b) > 0 and p1_b > 0 and p0_b > 0:
-                boot_lb[b], boot_ub[b] = _compute_lee_bounds(
-                    Y1_b, Y0_b, p1_b, p0_b, trimming
-                )
-            else:
-                boot_lb[b], boot_ub[b] = lb, ub
+                else:
+                    boot_lb[b], boot_ub[b] = lb, ub
 
-        # Imbens & Manski (2004) confidence interval for the *parameter* (not
-        # the whole identified set). The critical value C_n solves
-        #     Phi(C_n + Delta / sigma_max) - Phi(-C_n) = 1 - alpha,
-        # where Delta = ub - lb is the estimated width of the identified set
-        # and sigma_max = max(se_lb, se_ub). C_n interpolates between the
-        # one-sided z_{1-alpha} (wide bounds, width >> SE) and the two-sided
-        # z_{1-alpha/2} (point-identified, width -> 0). Applying the
-        # two-sided z to *both* endpoints instead -- the previous code --
-        # yields the Horowitz-Manski CI that covers the identified SET and
-        # therefore over-covers the parameter.
-        n_failed = int(np.isnan(boot_lb).sum())
-        if n_failed:
-            warnings.warn(
-                f"lee_bounds: {n_failed} of {n_bootstrap} bootstrap draws left "
-                "a covariate cell without one arm and were skipped.",
-                UserWarning,
-                stacklevel=2,
-            )
-            if n_bootstrap - n_failed < 20:
-                raise MethodIncompatibility(
-                    "lee_bounds: too few usable bootstrap draws; use coarser "
-                    "covariates."
+            # Imbens & Manski (2004) confidence interval for the *parameter* (not
+            # the whole identified set). The critical value C_n solves
+            #     Phi(C_n + Delta / sigma_max) - Phi(-C_n) = 1 - alpha,
+            # where Delta = ub - lb is the estimated width of the identified set
+            # and sigma_max = max(se_lb, se_ub). C_n interpolates between the
+            # one-sided z_{1-alpha} (wide bounds, width >> SE) and the two-sided
+            # z_{1-alpha/2} (point-identified, width -> 0). Applying the
+            # two-sided z to *both* endpoints instead -- the previous code --
+            # yields the Horowitz-Manski CI that covers the identified SET and
+            # therefore over-covers the parameter.
+            n_failed = int(np.isnan(boot_lb).sum())
+            if n_failed:
+                warnings.warn(
+                    f"lee_bounds: {n_failed} of {n_bootstrap} bootstrap draws left "
+                    "a covariate cell without one arm and were skipped.",
+                    UserWarning,
+                    stacklevel=2,
                 )
-        se_lb = float(np.nanstd(boot_lb, ddof=1))
-        se_ub = float(np.nanstd(boot_ub, ddof=1))
+                if n_bootstrap - n_failed < 20:
+                    raise MethodIncompatibility(
+                        "lee_bounds: too few usable bootstrap draws; use coarser "
+                        "covariates."
+                    )
+            se_lb = float(np.nanstd(boot_lb, ddof=1))
+            se_ub = float(np.nanstd(boot_ub, ddof=1))
     c_n = _imbens_manski_cn(float(ub - lb), max(se_lb, se_ub), alpha)
     ci_lower = float(lb - c_n * se_lb)
     ci_upper = float(ub + c_n * se_ub)
@@ -385,7 +441,12 @@ def lee_bounds(
         "imbens_manski_cn": float(c_n),
         "se_method": se_method,
         "trimming": trimming,
+        "weights": weights,
     }
+    if weights is not None:
+        # which side found observations tied at its threshold (leebounds'
+        # fractional-weight branch)
+        model_info["threshold_tie"] = weighted_ties
     if tight is not None:
         model_info["covariates"] = covariates
         model_info["tightened"] = True
@@ -425,6 +486,7 @@ def lee_bounds(
                 "random_state": random_state,
                 "se_method": se_method,
                 "trimming": trimming,
+                "weights": weights,
             },
             data=data,
             overwrite=False,

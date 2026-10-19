@@ -4,6 +4,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.lee_bounds(weights=)`
+
+#### Added
+
+- `sp.lee_bounds(..., weights='w')`: sampling weights in the retention
+  rates, the trimming quantile (Stata `_pctile` with probability weights),
+  the mass kept at a tied threshold, the means and the analytic variance,
+  as Stata `leebounds [pw=w]` computes them. Needs `trimming='leebounds'`
+  (which also stores the weights and `y^2` in single precision, as
+  `leebounds` does) or `'exact'`; refused with `covariates=`. On four
+  settings the bounds, the trimming share and the `cieffect` interval's
+  inputs equal Stata 18 to 1e-12 and the SEs to 1e-8
+  (`tests/reference_parity/test_lee_bounds_weights_Stata_parity.py`). One
+  documented difference: without a tie at the threshold, `leebounds` leaves
+  the weights out of one variance term of its upper trimmed mean; we weight
+  it, and the test rebuilds Stata's SE from the unweighted term.
+  `model_info['threshold_tie']` says which side took the tied branch.
+  `sp.from_stata('leebounds y d [pw=w], ...')` now translates.
+
 ### `sp.gologit`: generalized ordered logit / probit (partial proportional odds)
 
 #### Added

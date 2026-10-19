@@ -21006,6 +21006,11 @@
           ],
           "type": "string"
         },
+        "weights": {
+          "description": "Sampling (probability) weights, Stata ``leebounds [pw=]``: the retention rates, the trimming quantile, the kept mass, the means and the analytic variance are all weighted (weights rescaled to mean one). Needs ``trimming='leebounds'`` (which also stores the weights in single precision, as ``leebounds`` does) or ``'exact'``; not available with ``covariates``. The bootstrap resamples units together with their weights. One difference from ``leebounds``: without a tie at the threshold it leaves the weights out of the untrimmed arm's variance term in the *upper* bound's SE; here that term is weighted for both bounds (``tests/reference_parity/test_lee_bounds_weights_Stata_parity.py`` rebuilds Stata's number).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "y": {
           "description": "Outcome variable (may have NaN for selected-out units).",
           "type": "string",
