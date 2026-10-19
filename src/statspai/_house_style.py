@@ -174,6 +174,8 @@ FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
         "avg_comparisons",
         "slopes",
         "avg_slopes",
+        "margins",
+        "margins_at",
     ),
     # Spatial weight matrix W / w — orthogonal to observation weights.
     "w": ("module:spatial", "moran", "geary", "getis_ord_g", "lisa"),

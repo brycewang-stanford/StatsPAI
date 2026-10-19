@@ -130,9 +130,11 @@ linear model does not depend on the effects and keeps its standard
 error. A prediction, or any quantity of a Poisson or logit model, does.
 The coefficient covariance does not carry the effects' uncertainty, so
 those calls need `vcov=False` (as marginaleffects' `vcov = FALSE`) and
-return estimates only. `sp.margins`
-reports delta-method standard errors that are conditional on the
-estimated effects.
+return estimates only. `sp.margins`, `sp.margins_at`, `sp.contrast` and
+`sp.pwcompare` apply the same rule (`vcov=False` on the first two). Stata's
+`margins` after `poisson y x i.g` or `ppmlhdfe ..., d` differentiates
+through the effects; to get that number fit them as `C(g)` terms, e.g.
+`sp.poisson("y ~ x + C(g)")`, whose margins match Stata's.
 
 ## Evidence
 

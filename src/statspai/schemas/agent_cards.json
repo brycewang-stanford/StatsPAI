@@ -97175,6 +97175,11 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "vcov": {
+            "default": true,
+            "description": "``False`` returns the estimates without standard errors (the ``se`` / ``z`` / ``pvalue`` / ``ci_*`` columns are dropped), as R ``marginaleffects``' ``vcov = FALSE``. After a model with absorbed fixed effects and a non-linear link (``sp.fepois`` / ``sp.feglm``) the marginal effects depend on the estimated effects, whose uncertainty the coefficient covariance does not carry, so standard errors are refused unless ``vcov=False`` (Stata's ``margins`` after ``poisson y x i.g`` includes it; fit the effects as ``C(g)`` terms to get that number).",
+            "type": "boolean"
           }
         },
         "required": [
@@ -97304,6 +97309,11 @@
           "subset": {
             "description": "Average over a subpopulation of ``data``; see :func:`margins`.",
             "type": "string"
+          },
+          "vcov": {
+            "default": true,
+            "description": "``False`` returns the margins without standard errors. After a fit with absorbed fixed effects the predictive margins depend on the estimated effects (and so do contrasts after a non-linear link); their standard errors are refused unless ``vcov=False``; see :func:`margins`.",
+            "type": "boolean"
           }
         },
         "required": [

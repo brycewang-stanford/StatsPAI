@@ -41,6 +41,7 @@ def margins(
     subset: Any = None,
     predict: Optional[str] = None,
     category: Any = None,
+    vcov: bool = True,
 ) -> pd.DataFrame:
     """
     Compute marginal effects from a fitted model.
@@ -123,6 +124,16 @@ def margins(
         Restrict a multiple-outcome prediction (``mlogit`` / ``ologit`` /
         ``oprobit``) to these outcome categories (Stata
         ``predict(outcome(#))``).
+    vcov : bool, default True
+        ``False`` returns the estimates without standard errors (the
+        ``se`` / ``z`` / ``pvalue`` / ``ci_*`` columns are dropped), as R
+        ``marginaleffects``' ``vcov = FALSE``. After a model with absorbed
+        fixed effects and a non-linear link (``sp.fepois`` / ``sp.feglm``)
+        the marginal effects depend on the estimated effects, whose
+        uncertainty the coefficient covariance does not carry, so standard
+        errors are refused unless ``vcov=False`` (Stata's ``margins`` after
+        ``poisson y x i.g`` includes it; fit the effects as ``C(g)`` terms to
+        get that number).
 
     Returns
     -------
@@ -174,7 +185,8 @@ def margins(
             ldv, data, variables, at, method, eps, alpha, subset, predict, category
         )
     _reject_ldv_options(predict, category, "margins")
-    ctx = _MarginsContext(result, data, at=at, subset=subset)
+    ctx = _MarginsContext(result, data, at=at, subset=subset, vcov=vcov)
+    ctx.check_fe("margins", ctx.link != "identity")
     design = ctx.design
     if variables is None:
         variables = [
@@ -226,6 +238,8 @@ def margins(
     out = pd.DataFrame(
         rows, columns=["variable", "dy/dx", "se", "z", "pvalue", "ci_lower", "ci_upper"]
     )
+    if not vcov:
+        out = out[["variable", "dy/dx"]]
     out.attrs.update(ctx.attrs())
     if base_levels:
         out.attrs["base_levels"] = base_levels
@@ -248,7 +262,9 @@ class _MarginsContext:
         at: Optional[Dict[str, Any]] = None,
         alpha: float = 0.05,
         subset: Any = None,
+        vcov: bool = True,
     ) -> None:
+        self.want_vcov = bool(vcov)
         if ldv_model(result) is not None:
             raise MethodIncompatibility(
                 "this margins function is not available after limited-"
@@ -396,9 +412,38 @@ class _MarginsContext:
         return X[None, :], D[None, :]
 
     # -- inference -------------------------------------------------------
+    def check_fe(self, fn: str, depends: bool) -> None:
+        """Refuse standard errors that would ignore the absorbed effects'
+        uncertainty (``depends``: the quantity varies with their estimates).
+
+        As R marginaleffects does on a fixest model. Stata's ``margins``
+        after ``poisson y x i.g`` differentiates through the effects too;
+        on ``tests/fixtures/margins_fe/fep.csv`` the conditional standard
+        error sp.margins used to report was 0.121 against Stata's 0.106
+        (cluster) after ``ppmlhdfe`` or ``poisson i.g``
+        (``tests/test_margins_fe_refusal.py``).
+        """
+        from ..fixest._fixef import has_fixed_effects
+
+        if self.want_vcov and depends and has_fixed_effects(self.result):
+            raise MethodIncompatibility(
+                f"{fn}: the fit absorbed fixed effects and this quantity "
+                "depends on their estimates, whose uncertainty the "
+                "coefficient covariance does not carry (Stata's margins after "
+                "poisson y x i.g, and R marginaleffects' refusal on a fixest "
+                "model, agree that a conditional standard error is not the "
+                "answer).",
+                recovery_hint="Pass vcov=False for the estimates without "
+                "standard errors, or fit the effects as C() terms (e.g. "
+                "sp.poisson('y ~ x + C(g)')), whose margins match Stata's.",
+                diagnostics={"link": self.link},
+            )
+
     def inference_row(
         self, name: str, est: float, grad: np.ndarray, label: Optional[str] = None
     ) -> Dict[str, Any]:
+        if not self.want_vcov:
+            return _inference_dict(float(est), float("nan"), self.df, self.alpha, name)
         grad = np.asarray(grad, dtype=float).reshape(-1)
         V = require_covariance(self.cov_source, grad.reshape(1, -1), label or "margins")
         se = float(np.sqrt(max(float(grad @ V @ grad), 0.0)))
@@ -835,6 +880,7 @@ def margins_at(
     subset: Any = None,
     predict: Optional[str] = None,
     category: Any = None,
+    vcov: bool = True,
 ) -> pd.DataFrame:
     """
     Compute predictive margins at specific covariate values.
@@ -881,6 +927,12 @@ def margins_at(
         The prediction after a limited-dependent-variable model and the
         outcome categories to report; see :func:`margins`. Multiple-outcome
         predictions add an ``outcome`` column.
+    vcov : bool, default True
+        ``False`` returns the margins without standard errors. After a fit
+        with absorbed fixed effects the predictive margins depend on the
+        estimated effects (and so do contrasts after a non-linear link);
+        their standard errors are refused unless ``vcov=False``; see
+        :func:`margins`.
 
     Returns
     -------
@@ -921,10 +973,12 @@ def margins_at(
     if ldv is not None:
         return ldv_margins_at(ldv, data, at, alpha, contrast, subset, predict, category)
     _reject_ldv_options(predict, category, "margins_at")
-    ctx = _MarginsContext(result, data, alpha=alpha, subset=subset)
+    ctx = _MarginsContext(result, data, alpha=alpha, subset=subset, vcov=vcov)
     for v in at:
         _require_model_variable(ctx, v, "margins_at")
-    V = ctx.vcov()
+    # a contrast of linear predictions is free of the absorbed effects
+    ctx.check_fe("margins_at", ctx.link != "identity" or contrast is None)
+    V = ctx.vcov() if vcov else np.full((ctx.beta.size, ctx.beta.size), np.nan)
     ppf, sf = _t_or_z(ctx.df)
     crit = ppf(1 - alpha / 2)
     points: List[Tuple[Dict[str, Any], float, np.ndarray]] = []
@@ -979,6 +1033,13 @@ def margins_at(
             )
             rows.append(row)
     out = pd.DataFrame(rows)
+    if not vcov:
+        keep = [
+            c
+            for c in out.columns
+            if c not in ("se", "z", "pvalue", "ci_lower", "ci_upper")
+        ]
+        out = out[keep]
     out.attrs.update(ctx.attrs())
     return out
 
@@ -1196,6 +1257,7 @@ def contrast(
     ['1.0 vs 0', '2.0 vs 0']
     """
     ctx = _MarginsContext(result, data, alpha=alpha, subset=subset)
+    ctx.check_fe("contrast", ctx.link != "identity")
     _require_model_variable(ctx, variable, "contrast")
     V = ctx.vcov()
     ppf, sf = _t_or_z(ctx.df)
@@ -1381,6 +1443,7 @@ def pwcompare(
     True
     """
     ctx = _MarginsContext(result, data, alpha=alpha)
+    ctx.check_fe("pwcompare", ctx.link != "identity")
     _require_model_variable(ctx, variable, "pwcompare")
     V = ctx.vcov()
     ppf, sf = _t_or_z(ctx.df)

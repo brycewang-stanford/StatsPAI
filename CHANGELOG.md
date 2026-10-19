@@ -4,6 +4,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.margins` after `fepois` / `feglm` refuses standard errors that ignore the fixed effects
+
+#### Changed
+
+- `sp.margins` / `sp.margins_at` / `sp.contrast` / `sp.pwcompare` after a
+  fit with absorbed fixed effects reported delta-method standard errors
+  holding the estimated effects fixed whenever the quantity depends on them
+  (any margin after `sp.fepois` / `sp.feglm`, predictive margins after
+  `sp.feols`). On `tests/fixtures/margins_fe/fep.csv` that gave 0.121 for
+  the AME after `fepois` with clustered errors, where Stata reports 0.106
+  after both `poisson y x i.g, vce(cluster g)` and `ppmlhdfe ..., d
+  vce(cluster g)`. They now raise `MethodIncompatibility`, as R
+  marginaleffects does on a fixest model; `vcov=False` (new on `margins` /
+  `margins_at`) returns the estimates without the standard-error columns.
+  Slopes and contrasts of linear models keep their standard errors. Fitting
+  the effects as `C(g)` terms reproduces Stata's number
+  (`tests/test_margins_fe_refusal.py`).
+
 ### Weighting for multi-category and continuous treatments: `sp.weightit`, `sp.bal_tab`
 
 #### Added

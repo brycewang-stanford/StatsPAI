@@ -5,6 +5,18 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: `sp.margins` after `fepois` / `feglm` needs `vcov=False`
+
+After a fit with absorbed fixed effects and a non-linear link
+(`sp.fepois`, `sp.feglm`), and for predictive margins after `sp.feols`,
+`sp.margins` / `sp.margins_at` / `sp.contrast` / `sp.pwcompare` now raise
+instead of reporting standard errors that hold the estimated effects fixed
+(they did not match Stata's `margins`). Pass `vcov=False` to `margins` /
+`margins_at` for the estimates, which are unchanged, or fit the effects as
+`C(g)` terms to get Stata's standard errors.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.panel(vce='wild')` re-absorbs entity effects not nested in the clusters
 
 With `method='fe', vce='wild'` and a `cluster=` column that does not nest

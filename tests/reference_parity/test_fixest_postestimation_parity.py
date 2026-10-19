@@ -118,9 +118,12 @@ def test_avg_slopes_nonlinear_include_the_effects(fits, name):
         got["estimate"], R["avg_slopes"][name]["estimate"], **TOL
     )
     assert "std_error" not in got.columns
-    # sp.margins (Stata-style) gives the same average marginal effects
-    m = _quiet(sp.margins, fits[name], DATA)
+    # sp.margins (Stata-style) gives the same average marginal effects; its
+    # standard errors would ignore the effects' uncertainty, so it refuses
+    # them unless vcov=False (tests/test_margins_fe_refusal.py)
+    m = _quiet(sp.margins, fits[name], DATA, vcov=False)
     np.testing.assert_allclose(m["dy/dx"], R["avg_slopes"][name]["estimate"], **TOL)
+    assert "se" not in m.columns
 
 
 @pytest.mark.parametrize("name", ["ols2", "pois", "logit"])
