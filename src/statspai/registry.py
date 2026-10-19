@@ -11925,12 +11925,12 @@ def _build_registry() -> None:
         ),
         ParamSpec("conf_level", "float", False, 0.95, "Confidence level"),
         ParamSpec(
-            "vce",
+            "vcov",
             "bool",
             False,
             True,
-            "False returns estimates without standard errors (alias vcov=, "
-            "marginaleffects' spelling). Required after "
+            "False returns estimates without standard errors (marginaleffects' "
+            "vcov = FALSE; a switch, not a variance type). Required after "
             "a fit with absorbed fixed effects (feols / fepois / feglm '| fe') "
             "for predictions and for any quantity of a non-linear model: the "
             "effects are held at their estimates and their uncertainty is not "

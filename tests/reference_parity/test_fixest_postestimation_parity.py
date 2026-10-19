@@ -113,7 +113,7 @@ def test_avg_slopes_linear_keeps_standard_errors(fits):
 
 @pytest.mark.parametrize("name", ["pois", "logit"])
 def test_avg_slopes_nonlinear_include_the_effects(fits, name):
-    got = sp.avg_slopes(fits[name], vce=False)
+    got = sp.avg_slopes(fits[name], vcov=False)
     np.testing.assert_allclose(
         got["estimate"], R["avg_slopes"][name]["estimate"], **TOL
     )
@@ -125,12 +125,11 @@ def test_avg_slopes_nonlinear_include_the_effects(fits, name):
 
 @pytest.mark.parametrize("name", ["ols2", "pois", "logit"])
 def test_avg_predictions(fits, name):
-    got = sp.avg_predictions(fits[name], vce=False)
+    got = sp.avg_predictions(fits[name], vcov=False)
     np.testing.assert_allclose(got["estimate"], R["avg_predictions"][name], **TOL)
 
 
 def test_avg_comparisons_poisson(fits):
-    # marginaleffects' spelling vcov= is accepted
     got = sp.avg_comparisons(fits["pois"], vcov=False)
     np.testing.assert_allclose(
         got["estimate"], R["avg_comparisons"]["pois"]["estimate"], **TOL
@@ -147,13 +146,13 @@ def test_avg_comparisons_poisson(fits):
     ],
 )
 def test_standard_errors_that_ignore_the_effects_are_refused(fits, call):
-    with pytest.raises(MethodIncompatibility, match="vce=False"):
+    with pytest.raises(MethodIncompatibility, match="vcov=False"):
         call(fits)
 
 
 def test_unseen_level_in_margins_is_refused(fits):
     with pytest.raises(MethodIncompatibility, match="never saw"):
-        sp.avg_slopes(fits["pois"], newdata=_newdata(), vce=False)
+        sp.avg_slopes(fits["pois"], newdata=_newdata(), vcov=False)
 
 
 def test_pyfixest_backend_predictions_agree():
@@ -168,7 +167,7 @@ def test_pyfixest_backend_predictions_agree():
         got = res.predict(newdata=_newdata())
     want = np.array([np.nan if v is None else v for v in R["predict"]["ols2"]])
     np.testing.assert_allclose(np.delete(got, 1), np.delete(want, 1), **tol)
-    got = sp.avg_predictions(res, vce=False)
+    got = sp.avg_predictions(res, vcov=False)
     np.testing.assert_allclose(got["estimate"], R["avg_predictions"]["ols2"], **tol)
     # identity: x'b plus the effects of the row reproduces the fitted values
     fe = res.fixef()

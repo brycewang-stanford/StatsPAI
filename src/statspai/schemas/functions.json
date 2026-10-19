@@ -9964,13 +9964,10 @@
           ],
           "type": "string"
         },
-        "vce": {
+        "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (alias vcov=, marginaleffects' spelling). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
-          "type": "boolean",
-          "x-aliases": [
-            "vcov"
-          ]
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -10021,13 +10018,10 @@
           ],
           "type": "string"
         },
-        "vce": {
+        "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (alias vcov=, marginaleffects' spelling). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
-          "type": "boolean",
-          "x-aliases": [
-            "vcov"
-          ]
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -10097,13 +10091,10 @@
           },
           "type": "array"
         },
-        "vce": {
+        "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (alias vcov=, marginaleffects' spelling). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
-          "type": "boolean",
-          "x-aliases": [
-            "vcov"
-          ]
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -10173,13 +10164,10 @@
           },
           "type": "array"
         },
-        "vce": {
+        "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (alias vcov=, marginaleffects' spelling). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
-          "type": "boolean",
-          "x-aliases": [
-            "vcov"
-          ]
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -10253,13 +10241,10 @@
           },
           "type": "array"
         },
-        "vce": {
+        "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (alias vcov=, marginaleffects' spelling). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
-          "type": "boolean",
-          "x-aliases": [
-            "vcov"
-          ]
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",
@@ -10333,13 +10318,10 @@
           },
           "type": "array"
         },
-        "vce": {
+        "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (alias vcov=, marginaleffects' spelling). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
-          "type": "boolean",
-          "x-aliases": [
-            "vcov"
-          ]
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "type": "boolean"
         },
         "wts": {
           "description": "Weights for averages: None (unweighted, marginaleffects' default), True (the fit's weights), a column name or an array",

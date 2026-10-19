@@ -33,7 +33,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .._aliases import accepts_aliases
 from ..exceptions import MethodIncompatibility
 from ._covariance import AttrArray, inference_df, require_covariance
 from ._design import design_for
@@ -148,8 +147,7 @@ class _Model:
                 "depends on their estimates, whose uncertainty the coefficient "
                 "covariance does not carry (marginaleffects refuses the same "
                 "standard errors on a fixest model).",
-                recovery_hint="Pass vce=False (marginaleffects: vcov=FALSE) for "
-                "the estimates without "
+                recovery_hint="Pass vcov=False for the estimates without "
                 "standard errors, or include the effects as C() terms in a "
                 "model without absorption.",
             )
@@ -310,7 +308,6 @@ def _check_by(model: _Model, by: Optional[Union[str, Sequence[str]]]) -> List[st
 # ---------------------------------------------------------------------------
 
 
-@accepts_aliases(vcov="vce")
 def predictions(
     result: Any,
     newdata: Optional[pd.DataFrame] = None,
@@ -320,7 +317,7 @@ def predictions(
     wts: Any = None,
     df: Any = None,
     conf_level: float = 0.95,
-    vce: bool = True,
+    vcov: bool = True,
 ) -> pd.DataFrame:
     """Unit-level predictions with delta-method standard errors.
 
@@ -349,14 +346,15 @@ def predictions(
         Reference distribution: None is normal (marginaleffects), 'model'
         the fit's own (t after ``regress``), or a number.
     conf_level : float, default 0.95
-    vce : bool, default True
-        False returns the estimates alone (no standard errors); ``vcov=``
-        (marginaleffects' spelling) is accepted. After a fit
+    vcov : bool, default True
+        False returns the estimates alone (no standard errors), as
+        marginaleffects' ``vcov = FALSE``. A switch, not a variance type:
+        the variance is the fit's own. After a fit
         with absorbed fixed effects (``sp.feols`` / ``fepois`` / ``feglm``
         with ``| fe``) the effects are held at their estimates, as
         marginaleffects does on a fixest model; a quantity that depends on
         them -- any prediction, any quantity of a non-linear model -- then
-        needs ``vce=False``, because the coefficient covariance does not
+        needs ``vcov=False``, because the coefficient covariance does not
         carry their uncertainty (marginaleffects refuses those standard
         errors too). Contrasts and slopes of a linear model do not depend
         on the effects and keep their standard errors.
@@ -377,7 +375,7 @@ def predictions(
     >>> bool(((p.estimate > 0) & (p.estimate < 1)).all())
     True
     """
-    model = _Model(result, newdata, "predictions", vce)
+    model = _Model(result, newdata, "predictions", vcov)
     by = _check_by(model, by)
     est, jac = model.predict(model.frame, type)
     dfv = _resolve_df(df, result)
@@ -391,7 +389,6 @@ def predictions(
     )
 
 
-@accepts_aliases(vcov="vce")
 def avg_predictions(
     result: Any,
     newdata: Optional[pd.DataFrame] = None,
@@ -401,7 +398,7 @@ def avg_predictions(
     wts: Any = None,
     df: Any = None,
     conf_level: float = 0.95,
-    vce: bool = True,
+    vcov: bool = True,
 ) -> pd.DataFrame:
     """Average prediction, overall or ``by=`` group (``marginaleffects::avg_predictions``).
 
@@ -418,7 +415,7 @@ def avg_predictions(
     >>> sp.avg_predictions(fit, by="g").shape[0]
     3
     """
-    model = _Model(result, newdata, "avg_predictions", vce)
+    model = _Model(result, newdata, "avg_predictions", vcov)
     by = _check_by(model, by)
     est, jac = model.predict(model.frame, type)
     e, j, meta = _average(est, jac, model.frame, by, _weights(model, wts), [])
@@ -624,7 +621,6 @@ def _variable_specs(model: _Model, variables: Any, fn: str) -> Dict[str, Any]:
     return specs
 
 
-@accepts_aliases(vcov="vce")
 def comparisons(
     result: Any,
     variables: Any = None,
@@ -636,7 +632,7 @@ def comparisons(
     wts: Any = None,
     df: Any = None,
     conf_level: float = 0.95,
-    vce: bool = True,
+    vcov: bool = True,
 ) -> pd.DataFrame:
     """Unit-level contrasts of predictions (``marginaleffects::comparisons``).
 
@@ -667,7 +663,7 @@ def comparisons(
         'lnratioavg' (ratio of the average predictions). When the contrasts
         are averaged (``avg_comparisons`` or ``by=``), 'ratio' and 'lnratio'
         mean 'ratioavg' and 'lnratioavg', as in marginaleffects.
-    type, wts, df, conf_level, vce
+    type, wts, df, conf_level, vcov
         As in :func:`predictions`.
 
     Returns
@@ -699,11 +695,10 @@ def comparisons(
         conf_level,
         average=False,
         fn="comparisons",
-        vcov=vce,
+        vcov=vcov,
     )
 
 
-@accepts_aliases(vcov="vce")
 def avg_comparisons(
     result: Any,
     variables: Any = None,
@@ -715,7 +710,7 @@ def avg_comparisons(
     wts: Any = None,
     df: Any = None,
     conf_level: float = 0.95,
-    vce: bool = True,
+    vcov: bool = True,
 ) -> pd.DataFrame:
     """Average contrasts (``marginaleffects::avg_comparisons``).
 
@@ -750,7 +745,7 @@ def avg_comparisons(
         conf_level,
         average=True,
         fn="avg_comparisons",
-        vcov=vce,
+        vcov=vcov,
     )
 
 
@@ -832,7 +827,6 @@ def _slopes(
     )
 
 
-@accepts_aliases(vcov="vce")
 def slopes(
     result: Any,
     variables: Any = None,
@@ -845,7 +839,7 @@ def slopes(
     df: Any = None,
     conf_level: float = 0.95,
     eps: float = 1e-5,
-    vce: bool = True,
+    vcov: bool = True,
 ) -> pd.DataFrame:
     """Unit-level partial derivatives (``marginaleffects::slopes``).
 
@@ -857,7 +851,7 @@ def slopes(
 
     Parameters
     ----------
-    result, variables, newdata, by, type, wts, df, conf_level, vce
+    result, variables, newdata, by, type, wts, df, conf_level, vcov
         As in :func:`comparisons`.
     slope : {'dydx', 'eyex', 'eydx', 'dyex'}, default 'dydx'
     eps : float, default 1e-5
@@ -892,11 +886,10 @@ def slopes(
         eps,
         average=False,
         fn="slopes",
-        vcov=vce,
+        vcov=vcov,
     )
 
 
-@accepts_aliases(vcov="vce")
 def avg_slopes(
     result: Any,
     variables: Any = None,
@@ -909,7 +902,7 @@ def avg_slopes(
     df: Any = None,
     conf_level: float = 0.95,
     eps: float = 1e-5,
-    vce: bool = True,
+    vcov: bool = True,
 ) -> pd.DataFrame:
     """Average partial derivatives (``marginaleffects::avg_slopes``).
 
@@ -943,7 +936,7 @@ def avg_slopes(
         eps,
         average=True,
         fn="avg_slopes",
-        vcov=vce,
+        vcov=vcov,
     )
 
 

@@ -103,8 +103,8 @@ Standard errors follow marginaleffects. A slope or a difference of a
 linear model does not depend on the effects and keeps its standard
 error. A prediction, or any quantity of a Poisson or logit model, does.
 The coefficient covariance does not carry the effects' uncertainty, so
-those calls need `vce=False` (marginaleffects' `vcov=FALSE`; `vcov=` is
-accepted too) and return estimates only. `sp.margins`
+those calls need `vcov=False` (as marginaleffects' `vcov = FALSE`) and
+return estimates only. `sp.margins`
 reports delta-method standard errors that are conditional on the
 estimated effects.
 

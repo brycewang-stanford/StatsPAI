@@ -638,9 +638,9 @@ period gave `sun_abraham` zero standard errors. The checks now live in
   `joint=True` / `joint=[names]` with `joint_test="f" | "chisq"` for one
   Wald test of several restrictions, linear or not (Stata `testnl`;
   marginaleffects' `joint=` to 1e-6).
-- `vce=False` (alias `vcov=`, marginaleffects' spelling) on
-  `sp.predictions` / `comparisons` / `slopes` and their `avg_` versions
-  (estimates without standard errors).
+- `vcov=False` (marginaleffects' spelling) on `sp.predictions` /
+  `comparisons` / `slopes` and their `avg_` versions (estimates without
+  standard errors).
 - `sp.wild_cluster_boot` tests several coefficients jointly
   (`variable=[...]`, `h0=[...]`) and clusters several ways
   (`cluster=[a, b]`, `bootcluster=`), matching Stata `boottest`
@@ -667,7 +667,7 @@ period gave `sun_abraham` zero standard errors. The checks now live in
   link is recorded and the effects enter the index, held at their
   estimates, as marginaleffects does on a fixest model. Standard errors
   that would ignore the effects' uncertainty (predictions; any quantity
-  of a non-linear model) are refused unless `vce=False`, as
+  of a non-linear model) are refused unless `vcov=False`, as
   marginaleffects refuses them.
 - ⚠️ `sp.wild_cluster_boot` refit least squares whatever the model: after
   `sp.ivreg` it bootstrapped the OLS coefficient, after `sp.logit` a linear

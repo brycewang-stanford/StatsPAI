@@ -156,7 +156,7 @@ re-run the line to get Stata's. Payloads also carry `dropped` and
   on the response scale with the effects in the index; before they
   returned the coefficients. The marginaleffects-style functions now
   raise for standard errors that depend on the effects (predictions, and
-  any quantity of a Poisson / logit / probit fit); pass `vce=False`.
+  any quantity of a Poisson / logit / probit fit); pass `vcov=False`.
 - `sp.wild_cluster_boot` runs the bootstrap of the fitted estimator (WRE
   after `sp.ivreg`, score bootstrap after `sp.logit` / `sp.probit` /
   `sp.poisson`), refuses models without one, and residualises draws on

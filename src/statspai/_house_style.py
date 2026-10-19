@@ -165,6 +165,16 @@ THEMES: Dict[str, Dict[str, object]] = {
 #: A ``module:`` entry matches when the resolved function's ``__module__``
 #: contains that substring (e.g. ``"spatial"`` matches ``statspai.spatial.*``).
 FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
+    # marginaleffects' vcov=False: a switch that drops the standard errors,
+    # not a variance type (the variance is the fit's own).
+    "vcov": (
+        "predictions",
+        "avg_predictions",
+        "comparisons",
+        "avg_comparisons",
+        "slopes",
+        "avg_slopes",
+    ),
     # Spatial weight matrix W / w — orthogonal to observation weights.
     "w": ("module:spatial", "moran", "geary", "getis_ord_g", "lisa"),
     "W": (
