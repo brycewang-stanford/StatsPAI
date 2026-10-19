@@ -10482,7 +10482,10 @@
         "properties": {
           "decimal_places": {
             "description": "Decimals for coefficients and SEs. Unset uses adaptive precision (an estimate and its own SE share a decimal place); pass an int for fixed Stata-style rendering",
-            "type": "integer"
+            "type": "integer",
+            "x-aliases": [
+              "digits"
+            ]
           },
           "filename": {
             "description": "Output file path; the extension picks the format (.xlsx, .docx, .tex, .html, .md, .txt; no extension = Excel; any other extension is refused)",
@@ -10500,6 +10503,9 @@
               "type": "string"
             },
             "type": "array",
+            "x-aliases": [
+              "model_labels"
+            ],
             "x-statspai-source": "signature"
           },
           "notes": {
@@ -10544,6 +10550,9 @@
           "variable_labels": {
             "description": "Custom variable labels (mapped to ``regtable.coef_labels``).",
             "type": "object",
+            "x-aliases": [
+              "coef_labels"
+            ],
             "x-statspai-source": "signature"
           }
         },
@@ -10664,6 +10673,9 @@
               "type": "string"
             },
             "type": "array",
+            "x-aliases": [
+              "model_labels"
+            ],
             "x-statspai-source": "signature"
           },
           "notes": {
@@ -10872,6 +10884,10 @@
           "coef_labels": {
             "description": "Rename variables: ``{\"education\": \"Years of Education\"}``.",
             "type": "object",
+            "x-aliases": [
+              "coeflabels",
+              "variable_labels"
+            ],
             "x-statspai-source": "signature"
           },
           "coef_map": {
@@ -10963,6 +10979,10 @@
               "type": "string"
             },
             "type": "array",
+            "x-aliases": [
+              "model_names",
+              "mtitles"
+            ],
             "x-statspai-source": "signature"
           },
           "multi_se": {
@@ -11279,6 +11299,9 @@
           "labels": {
             "description": "Rename coefficients ``{\"raw_name\": \"Label\"}`` (regtable's ``coef_labels``).",
             "type": "object",
+            "x-aliases": [
+              "coef_labels"
+            ],
             "x-statspai-source": "signature"
           },
           "names": {
@@ -11287,6 +11310,11 @@
               "type": "string"
             },
             "type": "array",
+            "x-aliases": [
+              "model_labels",
+              "model_names",
+              "mtitles"
+            ],
             "x-statspai-source": "signature"
           },
           "notes": {

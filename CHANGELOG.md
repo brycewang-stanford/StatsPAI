@@ -433,6 +433,11 @@ period gave `sun_abraham` zero standard errors. The checks now live in
   probit ...) show `Pseudo R²` and `Log-Lik.`; default rows that no column
   can fill (`R² / Adj. R² / F` under a logit or a causal estimate) are
   dropped. OLS tables are unchanged.
+- The table functions accept each other's argument spellings:
+  `sp.regtable(model_names=, mtitles=, coeflabels=, variable_labels=)`,
+  `sp.esttab(model_labels=, model_names=, mtitles=, coef_labels=)`,
+  `sp.modelsummary(model_labels=)`, `sp.outreg2(model_labels=,
+  coef_labels=, digits=)`. Passing both spellings raises `TypeError`.
 
 ### Singletons: the default of `fixef_rm` changes in 1.40
 

@@ -3149,7 +3149,14 @@ class _PanelData:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@accepts_aliases(vce="vcov")
+@accepts_aliases(
+    _strict=True,
+    vce="vcov",
+    model_names="model_labels",
+    mtitles="model_labels",
+    coeflabels="coef_labels",
+    variable_labels="coef_labels",
+)
 def regtable(
     *args: Any,
     panel_labels: Optional[List[str]] = None,

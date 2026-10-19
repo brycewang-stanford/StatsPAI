@@ -40,6 +40,7 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 
 if TYPE_CHECKING:
@@ -260,6 +261,12 @@ class OutReg2:
         return latex
 
 
+@accepts_aliases(
+    _strict=True,
+    model_labels="model_names",
+    coef_labels="variable_labels",
+    digits="decimal_places",
+)
 def outreg2(
     *results: EconometricResults,
     filename: str,

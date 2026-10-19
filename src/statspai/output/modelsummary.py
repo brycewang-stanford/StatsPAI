@@ -54,6 +54,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ._format import unwrap_single_sequence
 
 _DEPRECATION_MSG = (
@@ -110,6 +111,7 @@ def _translate_stats(stats: Optional[List[str]]) -> Optional[List[str]]:
     return out
 
 
+@accepts_aliases(_strict=True, model_labels="model_names")
 def modelsummary(
     *models: Any,
     model_names: Optional[List[str]] = None,

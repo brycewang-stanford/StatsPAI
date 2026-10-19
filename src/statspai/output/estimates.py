@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import attach_result_protocol, result_to_dict
 from . import _format as _format_module
 
@@ -661,6 +662,13 @@ def _resolve_se_type(se: bool, t: bool, p: bool, ci: bool) -> str:
     return "se"
 
 
+@accepts_aliases(
+    _strict=True,
+    model_labels="names",
+    model_names="names",
+    mtitles="names",
+    coef_labels="labels",
+)
 def esttab(
     *results: Any,
     names: Optional[Sequence[str]] = None,
