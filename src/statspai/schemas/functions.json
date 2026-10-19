@@ -65392,6 +65392,82 @@
     }
   },
   {
+    "description": "Spatial Durbin error model: ``y = Xb + WXt + u, u = lambda W u + e``.",
+    "name": "sdem",
+    "parameters": {
+      "properties": {
+        "W": {
+          "description": "n x n spatial weights, rows in the order of ``data``.",
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "``\"y ~ x1 + x2\"``; a constant is added, and the spatial lag of each regressor (not of the constant) enters as ``W_<name>``.",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "row_normalize": {
+          "default": true,
+          "description": "row_normalize parameter (bool).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "W",
+        "data",
+        "formula"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "General nesting spatial model (Manski-type): spatial lag of ``y``,",
+    "name": "gns",
+    "parameters": {
+      "properties": {
+        "W": {
+          "description": "Covariates, proxy variables, or weights used by this estimator.",
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "Model formula using patsy/R-style syntax.",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "row_normalize": {
+          "default": true,
+          "description": "row_normalize parameter (bool).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "W",
+        "data",
+        "formula"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Spatial Lag of X (SLX) model: ``Y = Xbeta + WXtheta + epsilon``. Validation: certified parity evidence.",
     "name": "slx",
     "parameters": {
@@ -65601,10 +65677,11 @@
         },
         "effects": {
           "default": "fe",
-          "description": "``\"fe\"`` = entity FE only. ``\"twoways\"`` = entity + time demeaning.",
+          "description": "``\"fe\"`` = entity FE only. ``\"twoways\"`` = entity + time demeaning. ``\"re\"`` = random unit effects ``c_i ~ N(0, sigma_u^2)`` by full maximum likelihood with a constant, as Stata ``spxtregress, re`` (``dvarlag`` = SAR, ``errorlag`` = SEM, both = SAC, ``dvarlag`` + ``ivarlag`` = SDM): estimates and OIM standard errors equal Stata 18 to 1e-6. ``vce`` and ``twoways_lag`` do not apply; the standard deviations ``sigma_u`` / ``sigma_e`` and their SEs are in ``result.variance_components``. Stata's ``dvarlag`` coefficient is ``rho`` here and its ``errorlag`` coefficient ``lambda``.",
           "enum": [
             "fe",
-            "twoways"
+            "twoways",
+            "re"
           ],
           "type": "string"
         },
@@ -65624,11 +65701,12 @@
         },
         "model": {
           "default": "sar",
-          "description": "Model variant or parameterisation to fit.",
+          "description": "``\"sac\"`` (spatial lag and spatial error) needs ``effects=\"re\"``.",
           "enum": [
             "sar",
             "sem",
-            "sdm"
+            "sdm",
+            "sac"
           ],
           "type": "string"
         },

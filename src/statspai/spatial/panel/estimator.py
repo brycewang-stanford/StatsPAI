@@ -9,8 +9,8 @@ gives ρ (or λ), β, σ². Log-determinant is ``T * log|I_N − ρ W|`` (small-
 eigenvalue path).
 
 Two-way fixed effects (``effects='twoways'``) demean along both dimensions.
-Random effects are not implemented here (splm's ``spreml``) — open a
-separate sub-spec if needed.
+Random effects (``effects="re"``) are fitted by full maximum likelihood
+in ``_re.py``, the model of Stata ``spxtregress, re``.
 
 References
 ----------
@@ -22,8 +22,8 @@ Lee, L.-F. & Yu, J. (2010). "Estimation of spatial autoregressive panel
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Literal
+from dataclasses import dataclass, field
+from typing import Any, Dict, Literal
 
 import numpy as np
 import pandas as pd
@@ -35,8 +35,8 @@ from ...core._call_record import records_call
 from ...exceptions import ConvergenceFailure, MethodIncompatibility
 from ..models.ml import _coerce_W
 
-EffectKind = Literal["fe", "twoways"]
-ModelKind = Literal["sar", "sem", "sdm"]
+EffectKind = Literal["fe", "twoways", "re"]
+ModelKind = Literal["sar", "sem", "sdm", "sac"]
 
 
 # --------------------------------------------------------------------- #
@@ -90,6 +90,8 @@ class SpatialPanelResult(ResultProtocolMixin):
     residuals: np.ndarray  # (N, T)
     N: int
     T: int
+    #: ``effects="re"``: ``sigma_u``, ``sigma_e`` and their standard errors
+    variance_components: Dict[str, float] = field(default_factory=dict)
 
     def summary(self) -> str:
         lines = [
@@ -146,9 +148,18 @@ def spatial_panel(
         Column names identifying entity and time dimensions.
     W : sparse matrix, ndarray, or :class:`statspai.spatial.weights.W`
         N × N spatial weights matrix aligned with ``sorted(data[entity].unique())``.
-    model : {"sar", "sem", "sdm"}
-    effects : {"fe", "twoways"}
+    model : {"sar", "sem", "sdm", "sac"}
+        ``"sac"`` (spatial lag and spatial error) needs ``effects="re"``.
+    effects : {"fe", "twoways", "re"}
         ``"fe"`` = entity FE only. ``"twoways"`` = entity + time demeaning.
+        ``"re"`` = random unit effects ``c_i ~ N(0, sigma_u^2)`` by full
+        maximum likelihood with a constant, as Stata ``spxtregress, re``
+        (``dvarlag`` = SAR, ``errorlag`` = SEM, both = SAC, ``dvarlag`` +
+        ``ivarlag`` = SDM): estimates and OIM standard errors equal Stata
+        18 to 1e-6. ``vce`` and ``twoways_lag`` do not apply; the standard
+        deviations ``sigma_u`` / ``sigma_e`` and their SEs are in
+        ``result.variance_components``. Stata's ``dvarlag`` coefficient
+        is ``rho`` here and its ``errorlag`` coefficient ``lambda``.
     row_normalize : bool, default True
         Row-standardise ``W``.
     vce : {"information", "oim"}, default "information"
@@ -230,6 +241,21 @@ def spatial_panel(
         )
     if vce not in ("information", "oim"):
         raise MethodIncompatibility(f"vce must be 'information' or 'oim'; got {vce!r}")
+    if model not in ("sar", "sem", "sdm", "sac"):
+        raise MethodIncompatibility(
+            f"model must be 'sar', 'sem', 'sdm' or 'sac'; got {model!r}",
+            recovery_hint="Pick one of the four spatial specifications.",
+        )
+    if effects not in ("fe", "twoways", "re"):
+        raise MethodIncompatibility(
+            f"effects must be 'fe', 'twoways' or 're'; got {effects!r}",
+            recovery_hint="Use 'fe' (within), 'twoways' or 're' (random effects).",
+        )
+    if model == "sac" and effects != "re":
+        raise MethodIncompatibility(
+            "model='sac' is implemented with effects='re' only.",
+            recovery_hint="Pass effects='re', or use model='sar' / 'sem'.",
+        )
     if "~" not in formula:
         raise ValueError("formula must be of the form 'y ~ x1 + x2'")
     dep, indep_str = [s.strip() for s in formula.split("~", 1)]
@@ -247,6 +273,28 @@ def spatial_panel(
     M = _coerce_W(W, n_expected=N, row_normalize=row_normalize)
     if M.shape != (N, N):
         raise ValueError(f"W shape {M.shape} does not match N entities = {N}")
+
+    if effects == "re":
+        from ._re import fit_re
+
+        fit = fit_re(Y, X_mats, list(indep), M.toarray(), model)
+        lag_name = "rho" if model != "sem" else "lambda"
+        return SpatialPanelResult(
+            params=pd.Series(fit["params"], index=fit["names"]),
+            std_errors=pd.Series(fit["se"], index=fit["names"]),
+            model=model,
+            effects=effects,
+            spatial_param=lag_name,
+            spatial_param_value=fit["rho"] if model != "sem" else fit["lambda"],
+            sigma2=fit["sigma_e"] ** 2,
+            log_likelihood=fit["loglik"],
+            residuals=fit["residuals"],
+            N=N,
+            T=T,
+            variance_components={
+                k: fit[k] for k in ("sigma_u", "sigma_e", "se_sigma_u", "se_sigma_e")
+            },
+        )
 
     # Within transform
     Y_w = _within_transform(Y, effects)

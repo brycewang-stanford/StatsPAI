@@ -52,6 +52,7 @@ from .gwr import GWRResult, MGWRResult, gwr, gwr_bandwidth, mgwr
 from .iv import SpatialIVResult, spatial_iv
 from .models import SpatialModel, sar, sdm, sem
 from .models.diagnostics import lm_tests, moran_residuals
+from .models.durbin_error import gns, sdem
 from .models.gmm import sar_gmm, sarar_gmm, sem_gmm
 from .models.impacts import impacts
 from .models.ml import sac, slx
@@ -91,6 +92,8 @@ __all__ = [
     "sdm",
     "slx",
     "sac",
+    "sdem",
+    "gns",
     "sar_gmm",
     "sem_gmm",
     "sarar_gmm",

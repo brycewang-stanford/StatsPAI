@@ -58,7 +58,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `decomposition` | 9,940 | 19 | 32 |
 | `iv` | 9,274 | 17 | 10 |
 | `fast` | 9,455 | 20 | 0 |
-| `spatial` | 7,932 | 30 | 38 |
+| `spatial` | 8,453 | 32 | 40 |
 | `dag` | 7,048 | 12 | 27 |
 | `plots` | 8,692 | 21 | 9 |
 | `causal_discovery` | 6,220 | 15 | 26 |

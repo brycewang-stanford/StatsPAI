@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Spatial: random-effects panel, SDEM and GNS
+
+#### Added
+
+- `sp.spatial_panel(..., effects='re')`: random unit effects by full
+  maximum likelihood (with a constant), for `model='sar' | 'sem' | 'sdm'`
+  and the new `model='sac'` (spatial lag and spatial error, random effects
+  only) -- the model of Stata `spxtregress, re`. Estimates, `sigma_u` /
+  `sigma_e` (`result.variance_components`) and OIM standard errors equal
+  Stata 18 to 1e-6 on all four specifications
+  (`tests/reference_parity/test_spatial_panel_re_Stata_parity.py`).
+- `sp.sdem(W, data, formula)` (spatial Durbin error) and `sp.gns(...)`
+  (general nesting: lags of `y`, `X` and the error) by maximum likelihood
+  with OIM standard errors; equal Stata 18 `spregress, ml` to 1e-6 on a
+  symmetric and an asymmetric weights matrix
+  (`tests/reference_parity/test_spatial_durbin_error_Stata_parity.py`).
+
 ### Instruments from a DAG; `sp.ida`
 
 #### Added
