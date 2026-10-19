@@ -25,6 +25,7 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._mi_result import MIEstimateResult
 
 
 class MICEResult(ResultProtocolMixin):
@@ -720,7 +721,7 @@ def mi_estimate(
     mice_result: MICEResult,
     estimator: Any,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> "MIEstimateResult":
     """
     Run an estimator on each imputed dataset and combine using Rubin's rules.
 
@@ -735,9 +736,11 @@ def mi_estimate(
 
     Returns
     -------
-    dict
-        Combined estimates (Rubin's rules), keyed as in
-        :meth:`MICEResult.combine`, plus ``var_names``. The within-imputation
+    MIEstimateResult
+        A ``dict`` of the combined estimates (Rubin's rules), keyed as in
+        :meth:`MICEResult.combine`, plus ``var_names`` and ``n_obs``; it also
+        has ``summary()`` / ``tidy()`` and labelled ``params`` /
+        ``std_errors`` ... so ``sp.regtable(result)`` takes it. The within-imputation
         covariance is the estimator's full ``var_cov`` when it exposes one
         (``data_info['var_cov']``), else the diagonal of squared standard
         errors; the complete-data df for Barnard-Rubin is its ``df_resid``
@@ -763,6 +766,7 @@ def mi_estimate(
     """
     estimates = []
     var_names: Optional[List[str]] = None
+    n_obs = None
     for i in range(mice_result.n_imputations):
         df_i = mice_result.complete(i)
         result = estimator(data=df_i, **kwargs)
@@ -779,7 +783,10 @@ def mi_estimate(
         estimates.append(est)
         if var_names is None:
             var_names = list(getattr(params, "index", range(k)))
+            n_obs = info.get("nobs")
 
     combined = _rubins_rules(estimates)
     combined["var_names"] = var_names
-    return combined
+    if n_obs is not None:
+        combined["n_obs"] = int(n_obs)
+    return MIEstimateResult(combined)

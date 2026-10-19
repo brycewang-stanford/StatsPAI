@@ -25,10 +25,24 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 
+from .._dict_result import DictResult
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
+
+
+class BaconDecompositionResult(DictResult):
+    """Result of :func:`bacon_decomposition`: a ``dict`` (keys unchanged)
+    with ``summary()`` / ``tidy()`` / ``to_latex()`` ... ``estimate`` is the
+    TWFE coefficient being decomposed."""
+
+    _title = "Goodman-Bacon decomposition of the TWFE estimate"
+    _citation_keys = ("goodmanbacon2021difference",)
+
+    @property
+    def estimate(self) -> float:
+        return float(self["beta_twfe"])
 
 
 def _summary_by_type(decomp: pd.DataFrame) -> pd.DataFrame:
@@ -57,7 +71,7 @@ def bacon_decomposition(
     id: str,
     alpha: float = 0.05,
     balance: str = "error",
-) -> Dict[str, Any]:
+) -> "BaconDecompositionResult":
     """
     Goodman-Bacon (2021) decomposition of the TWFE DID estimator.
 
@@ -89,7 +103,9 @@ def bacon_decomposition(
 
     Returns
     -------
-    dict
+    BaconDecompositionResult
+        A ``dict`` (the keys below, unchanged) that also has
+        ``summary()`` / ``glance()`` / ``to_latex()`` / ``to_word()``.
         Keys:
         - ``beta_twfe``: overall TWFE estimate
         - ``decomposition``: pd.DataFrame with columns
@@ -269,17 +285,19 @@ def bacon_decomposition(
     decomp = pd.DataFrame(comparisons)
 
     if len(decomp) == 0:
-        return {
-            "beta_twfe": beta_twfe,
-            "decomposition": decomp,
-            "summary": _summary_by_type(decomp),
-            "weighted_sum": 0.0,
-            "n_comparisons": 0,
-            "negative_weight_share": 0.0,
-            "already_treated_control_weight_share": 0.0,
-            "n_units": int(df[id].nunique()),
-            "dropped_units": dropped_units,
-        }
+        return BaconDecompositionResult(
+            {
+                "beta_twfe": beta_twfe,
+                "decomposition": decomp,
+                "summary": _summary_by_type(decomp),
+                "weighted_sum": 0.0,
+                "n_comparisons": 0,
+                "negative_weight_share": 0.0,
+                "already_treated_control_weight_share": 0.0,
+                "n_units": int(df[id].nunique()),
+                "dropped_units": dropped_units,
+            }
+        )
 
     # Normalize weights to sum to 1
     total_w = decomp["weight"].sum()
@@ -304,17 +322,19 @@ def bacon_decomposition(
     )
     forbidden_share = float(decomp.loc[forbidden, "weight"].sum())
 
-    return {
-        "beta_twfe": beta_twfe,
-        "decomposition": decomp,
-        "summary": _summary_by_type(decomp),
-        "weighted_sum": weighted_sum,
-        "n_comparisons": len(decomp),
-        "negative_weight_share": neg_share,
-        "already_treated_control_weight_share": forbidden_share,
-        "n_units": int(df[id].nunique()),
-        "dropped_units": dropped_units,
-    }
+    return BaconDecompositionResult(
+        {
+            "beta_twfe": beta_twfe,
+            "decomposition": decomp,
+            "summary": _summary_by_type(decomp),
+            "weighted_sum": weighted_sum,
+            "n_comparisons": len(decomp),
+            "negative_weight_share": neg_share,
+            "already_treated_control_weight_share": forbidden_share,
+            "n_units": int(df[id].nunique()),
+            "dropped_units": dropped_units,
+        }
+    )
 
 
 def _twfe_estimate(

@@ -43,7 +43,17 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from scipy import stats as sp_stats
 
+from .._dict_result import DictResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
+
+
+class EValueResult(DictResult):
+    """Result of :func:`evalue`: a ``dict`` (keys unchanged) with
+    ``summary()`` / ``glance()`` / ``to_latex()`` ..."""
+
+    _title = "E-value (sensitivity to unmeasured confounding)"
+    _citation_keys = ("vanderweele2017sensitivity",)
+
 
 _RATIO_MEASURES = {"RR", "OR", "HR"}
 _DIFF_MEASURES = {"MD", "SMD", "OLS", "DIFF", "RD"}
@@ -144,7 +154,7 @@ def evalue(
     true: Optional[float] = None,
     rare_outcome: Optional[bool] = None,
     alpha: float = 0.05,
-) -> Dict[str, Any]:
+) -> "EValueResult":
     """Compute the E-value for sensitivity to unmeasured confounding.
 
     Parameters
@@ -191,7 +201,9 @@ def evalue(
 
     Returns
     -------
-    dict
+    EValueResult
+        A ``dict`` (the keys below, unchanged) that also has
+        ``summary()`` / ``glance()`` / ``to_latex()`` / ``to_word()``.
         ``evalue_estimate`` (point E-value), ``evalue_ci`` (E-value for
         the confidence limit closest to ``true``; ``None`` if no CI/SE),
         ``rr_estimate`` and ``rr_ci`` (the risk ratios used), ``measure``,
@@ -323,7 +335,7 @@ def evalue(
     }
     if ci is not None:
         result["ci"] = ci
-    return result
+    return EValueResult(result)
 
 
 def evalue_rd(

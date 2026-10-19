@@ -315,3 +315,27 @@ def test_causal_to_word_digits_default_matches_markdown_precision(tmp_path):
     res.to_word(str(path), digits=2)
     cells2 = [c.text for c in docx.Document(str(path)).tables[0].rows[1].cells]
     assert cells2[1] == f"{res.estimate:.2f}"
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_tidy_and_glance_exist_on_every_result(name):
+    res = _result(name)
+    glance = res.glance()
+    assert isinstance(glance, pd.DataFrame) and len(glance) == 1
+    try:
+        tidy = res.tidy()
+    except sp.MethodIncompatibility as exc:
+        assert exc.recovery_hint
+        return
+    assert {"term", "estimate", "std_error"} <= set(tidy.columns)
+    assert len(tidy) >= 1
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_plot_rejects_an_unknown_type(name):
+    res = _result(name)
+    plot = getattr(res, "plot", None)
+    if plot is None or not isinstance(res, (CausalResult, EconometricResults)):
+        pytest.skip("result class has its own plot dispatch")
+    with pytest.raises(sp.MethodIncompatibility):
+        plot(type="nonsense")

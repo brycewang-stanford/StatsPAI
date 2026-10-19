@@ -421,6 +421,24 @@ class ResultProtocolMixin:
 
             return _result_card(self)
 
+    def tidy(self, conf_level: float | None = None) -> Any:
+        """Broom-style estimate table (``term, estimate, std_error, ...``).
+
+        Built from the result's coefficient vector, its headline estimate,
+        or its test statistic, whichever it has (see
+        :mod:`statspai._result_tidy`); a result with none of them raises
+        ``MethodIncompatibility`` and points at :meth:`glance`.
+        """
+        from ._result_tidy import tidy as _tidy
+
+        return _tidy(self, conf_level=conf_level)
+
+    def glance(self) -> Any:
+        """One-row DataFrame of the result's scalar fields (broom ``glance``)."""
+        from ._result_tidy import glance as _glance
+
+        return _glance(self)
+
     def to_json(self, indent: int | None = None) -> str:
         """``json.dumps`` of :meth:`to_dict` — the same entry point the
         core result classes offer, so agents serialise every result the
@@ -556,6 +574,8 @@ class ResultProtocolMixin:
 #: Mixin members :func:`attach_result_protocol` copies onto a class that
 #: cannot inherit (``typing.NamedTuple`` forbids extra bases).
 _PROTOCOL_MEMBERS: Tuple[str, ...] = (
+    "tidy",
+    "glance",
     "to_dict",
     "to_json",
     "to_latex",

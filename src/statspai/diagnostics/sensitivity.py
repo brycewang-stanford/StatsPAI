@@ -24,8 +24,18 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._dict_result import DictResult
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+
+
+class OsterBoundsResult(DictResult):
+    """Result of :func:`oster_bounds`: a ``dict`` (keys unchanged) with
+    ``summary()`` / ``glance()`` / ``to_latex()`` ..."""
+
+    _title = "Oster (2019) coefficient-stability bounds"
+    _citation_keys = ("oster2019unobservable",)
+
 
 # ======================================================================
 # Oster (2019) Coefficient Stability Bounds
@@ -49,7 +59,7 @@ def oster_bounds(
     absorb_controls: Optional[Union[str, List[str]]] = None,
     moments: Optional[Dict[str, float]] = None,
     cluster: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> "OsterBoundsResult":
     """
     Oster (2019) coefficient stability bounds.
 
@@ -124,7 +134,9 @@ def oster_bounds(
 
     Returns
     -------
-    dict
+    OsterBoundsResult
+        A ``dict`` (the keys below, unchanged) that also has
+        ``summary()`` / ``glance()`` / ``to_latex()`` / ``to_word()``.
         Keys:
         - ``beta_short``, ``r2_short``: short regression estimates
         - ``beta_long``, ``r2_long``: long regression estimates
@@ -311,25 +323,27 @@ def oster_bounds(
             f"Result is SENSITIVE to omitted variables."
         )
 
-    return {
-        "beta_short": b_short,
-        "r2_short": r2_s,
-        "beta_long": b_long,
-        "r2_long": r2_l,
-        "r_max": r_max,
-        "delta": delta,
-        "delta_for_zero": delta_star,
-        # psacalc / sp.oster_delta name for the same number.
-        "delta_star": delta_star,
-        "beta_adjusted": beta_adj,
-        "beta_adjusted_alternatives": beta_alternatives,
-        "method": method,
-        "r2_a_long": r2_a_long,
-        "inputs": dict(inputs) if inputs else None,
-        "identified_set": id_set,
-        "robust": robust,
-        "interpretation": interp,
-    }
+    return OsterBoundsResult(
+        {
+            "beta_short": b_short,
+            "r2_short": r2_s,
+            "beta_long": b_long,
+            "r2_long": r2_l,
+            "r_max": r_max,
+            "delta": delta,
+            "delta_for_zero": delta_star,
+            # psacalc / sp.oster_delta name for the same number.
+            "delta_star": delta_star,
+            "beta_adjusted": beta_adj,
+            "beta_adjusted_alternatives": beta_alternatives,
+            "method": method,
+            "r2_a_long": r2_a_long,
+            "inputs": dict(inputs) if inputs else None,
+            "identified_set": id_set,
+            "robust": robust,
+            "interpretation": interp,
+        }
+    )
 
 
 # ======================================================================
