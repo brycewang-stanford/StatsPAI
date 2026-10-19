@@ -91,6 +91,26 @@ All notable changes to StatsPAI will be documented in this file.
   "asympt")` for ATT / ATE / ATC with and without base weights (12
   settings; estimate 2e-9, SE 1e-7).
   `tests/reference_parity/test_ebalance_sweights_parity.py`.
+- `sp.match(sampling_weights=)`: survey weights in nearest-neighbour
+  matching, MatchIt's `s.weights`: the propensity score is the logit
+  weighted by them, matching is unchanged, and the effect is the
+  weighted difference in means of the matched sample with weights
+  `matching weight * sampling weight`; standard error clustered on
+  matched sets without replacement and HC3 with replacement (the recipe of
+  MatchIt's vignettes). Score, matched pairs, estimate and SE equal
+  MatchIt 4.7.2 + sandwich in four settings (score 5e-9: R glm's
+  tolerance; estimate and SE 1e-9).
+  `tests/reference_parity/test_match_sweights_parity.py`. `weights=` stays
+  the frequency weight it was. k:1 matching without replacement can pick
+  different sets from MatchIt when controls run short (MatchIt assigns
+  the k-th controls in a later round); that is a property of the
+  matching, unchanged here.
+- `sp.ltmle(weights=)`: observation (sampling) weights, R ltmle's
+  `observation.weights`, in every regression, the fluctuations, the
+  plug-in mean and the influence curve. Equals ltmle 1.3-0 to 1e-10 with
+  and without censoring, binary and continuous outcomes.
+  `tests/reference_parity/test_ltmle_weights_parity.py`.
+- MatchIt, sandwich and ltmle (GPL) were used as black boxes.
 
 ### `sp.mediate_paths`: path-specific effects with ordered mediators
 

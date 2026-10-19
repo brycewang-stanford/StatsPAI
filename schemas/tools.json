@@ -22197,6 +22197,11 @@
           },
           "type": "array"
         },
+        "weights": {
+          "description": "Column of observation (sampling) weights, R ``ltmle``'s ``observation.weights``: they weight every treatment, censoring and outcome regression, the targeting fluctuations (as ``weight / prod g``), the plug-in mean and the influence curve. Estimates and the influence-curve standard error equal R ``ltmle`` 1.3-0 (``tests/reference_parity/test_ltmle_weights_parity.py``).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "y": {
           "description": "Final outcome column.",
           "type": "string",

@@ -257,6 +257,7 @@ def match(
     # --- design ---
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
+    sampling_weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Estimate treatment effect using matching.
@@ -570,6 +571,24 @@ def match(
         ``x`` at all.
     alpha : float, default 0.05
         Significance level.
+    weights : str, optional
+        Frequency weights (Stata ``[fw=]``): positive integers, each row
+        standing for that many identical observations.
+    cluster : str, optional
+        Not supported; raises with pointers to estimators that are.
+    sampling_weights : str, optional
+        Sampling (survey) weights, R ``MatchIt``'s ``s.weights``, for
+        nearest-neighbour matching (ATT / ATC). The propensity score is the
+        logit weighted by them (unless ``pscore=`` is given), matching is
+        unchanged, and the effect is the weighted difference in means of
+        the matched sample with weights ``matching weight * sampling
+        weight``. Its standard error is the one MatchIt's documentation
+        prescribes: cluster-robust on matched sets
+        (``sandwich::vcovCL``) without replacement, ``HC3`` with
+        replacement; it does not account for estimating the score.
+        Equals MatchIt 4.7.2 + sandwich to 1e-9
+        (``tests/reference_parity/test_match_sweights_parity.py``). To
+        reproduce MatchIt's matches pass ``m_order='largest'``.
 
     Returns
     -------
@@ -678,6 +697,20 @@ def match(
         n_bins=n_bins,
         alpha=alpha,
     )
+    if sampling_weights is not None:
+        if weights is not None:
+            raise MethodIncompatibility(
+                "sp.match: pass frequency weights (weights=) or sampling "
+                "weights (sampling_weights=), not both.",
+                recovery_hint="Survey data: use sampling_weights= alone.",
+            )
+        from ._sampling_weights import match_sampling_weighted
+
+        def _fit(frame: pd.DataFrame, sp_: Dict[str, Any]) -> CausalResult:
+            est = MatchEstimator(data=frame, **sp_)
+            return est.fit()
+
+        return match_sampling_weighted(data, sampling_weights, spec, _fit)
     if weights is not None:
         return _match_frequency_weighted(data, weights, **spec)
     estimator = MatchEstimator(data=data, **spec)
@@ -761,8 +794,8 @@ def _match_frequency_weighted(
 
     This is Stata's ``[fw=]`` -- the only weight ``teffects nnmatch`` /
     ``psmatch`` accept -- and it is exactly an expansion of the data, which
-    is how it is computed. Sampling weights have no matching estimator with
-    a checked variance, so non-integer weights are refused.
+    is how it is computed. Non-integer weights are refused here; sampling
+    weights go to ``sampling_weights=`` (:mod:`._sampling_weights`).
     """
     check_columns(
         data,
@@ -775,13 +808,13 @@ def _match_frequency_weighted(
     if np.any(w[ok] < 1) or np.any(w[ok] != np.round(w[ok])):
         raise MethodIncompatibility(
             "sp.match: weights= are frequency weights (Stata [fw=]) and must "
-            "be positive integers. Matching has no sampling-weight estimator "
-            "with a checked variance (teffects nnmatch / psmatch refuse "
+            "be positive integers (teffects nnmatch / psmatch refuse "
             "[pw=]).",
             recovery_hint=(
-                "For survey weights use sp.ipw(..., weights=, "
-                "se_method='sandwich'), sp.aipw(..., weights=) or "
-                "sp.tmle(..., weights=), which match Stata / R to 1e-9."
+                "For survey weights pass them as sampling_weights= (MatchIt "
+                "s.weights; nearest-neighbour ATT), or use sp.ipw(..., "
+                "weights=, se_method='sandwich'), sp.aipw(..., weights=) or "
+                "sp.tmle(..., weights=)."
             ),
             alternative_functions=["sp.ipw", "sp.aipw", "sp.tmle"],
         )

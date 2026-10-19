@@ -6443,8 +6443,18 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Frequency weights (Stata [fw=], positive integers; the "
-                    "only weight teffects matching accepts). Sampling weights "
-                    "and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
+                    "only weight teffects matching accepts). For survey "
+                    "weights use sampling_weights=; cluster= is refused.",
+                ),
+                ParamSpec(
+                    "sampling_weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling (survey) weights, MatchIt s.weights, for "
+                    "nearest-neighbour ATT/ATC: weighted logit score, matching "
+                    "unchanged, effect = WLS with matching x sampling weights, "
+                    "SE clustered on matched sets (HC3 with replacement)",
                 ),
                 ParamSpec(
                     "ps_model",

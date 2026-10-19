@@ -221,20 +221,23 @@ def _fit_linear(X: np.ndarray, y: np.ndarray) -> Any:
     return lr
 
 
-def _logit_fit(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+def _logit_fit(
+    X: np.ndarray, y: np.ndarray, sw: Optional[np.ndarray] = None
+) -> np.ndarray:
     """Unpenalised (quasi-)binomial logistic MLE by Newton-Raphson.
 
     ``y`` may be fractional in [0, 1]: the quasi-binomial score equations
     are the binomial ones, so this is R's
     ``glm(family = quasibinomial())`` fit. Rank-deficient designs are
     handled with a pseudo-inverse step (R drops aliased columns; the
-    fitted values agree).
+    fitted values agree). ``sw`` are prior (observation) weights.
     """
+    sw = np.ones(len(y)) if sw is None else sw
     beta = np.zeros(X.shape[1])
     for _ in range(100):
         mu = expit(X @ beta)
-        W = mu * (1 - mu)
-        grad = X.T @ (y - mu)
+        W = sw * mu * (1 - mu)
+        grad = X.T @ (sw * (y - mu))
         info = (X * W[:, None]).T @ X
         step = np.linalg.lstsq(info, grad, rcond=None)[0]
         beta = beta + step
@@ -250,11 +253,13 @@ def _logit_fit(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     return beta
 
 
-def _logit_fit_predict(X: np.ndarray, y: np.ndarray, rows: np.ndarray) -> np.ndarray:
+def _logit_fit_predict(
+    X: np.ndarray, y: np.ndarray, rows: np.ndarray, sw: Optional[np.ndarray] = None
+) -> np.ndarray:
     """Fit on ``rows`` and return fitted probabilities for every unit."""
     if np.all(y[rows] == y[rows][0]):
         return np.full(len(y), float(y[rows][0]))
-    return expit(X @ _logit_fit(X[rows], y[rows]))
+    return expit(X @ _logit_fit(X[rows], y[rows], None if sw is None else sw[rows]))
 
 
 def _fluctuate(q_next: np.ndarray, off: np.ndarray, w: np.ndarray) -> float:
@@ -297,6 +302,7 @@ def ltmle(
     propensity_bounds: Tuple[float, float] = (0.01, 1.0),
     outcome_type: str = "auto",
     alpha: float = 0.05,
+    weights: Optional[str] = None,
 ) -> LTMLEResult:
     """
     Longitudinal TMLE for static regime contrasts.
@@ -340,6 +346,13 @@ def ltmle(
     outcome_type : {"auto", "binary", "continuous"}
         ``auto`` detects from unique values of ``y``.
     alpha : float, default 0.05
+    weights : str, optional
+        Column of observation (sampling) weights, R ``ltmle``'s
+        ``observation.weights``: they weight every treatment, censoring
+        and outcome regression, the targeting fluctuations (as
+        ``weight / prod g``), the plug-in mean and the influence curve.
+        Estimates and the influence-curve standard error equal R
+        ``ltmle`` 1.3-0 (``tests/reference_parity/test_ltmle_weights_parity.py``).
 
     Returns
     -------
@@ -541,6 +554,23 @@ def ltmle(
         y_min, y_range = 0.0, 1.0
     Y_scaled = (Y_raw - y_min) / y_range
 
+    if weights is not None:
+        if weights not in df.columns:
+            raise ColumnNotFound.from_missing(
+                {"weights": weights},
+                list(df.columns),
+                message=f"sp.ltmle: weights column {weights!r} not found",
+            )
+        obs_w = df[weights].to_numpy(dtype=float)
+        if not np.all(np.isfinite(obs_w)) or np.any(obs_w <= 0):
+            raise _ltmle_error(
+                f"ltmle: weights={weights!r} must be finite and strictly positive.",
+                diagnostics={"weights": weights},
+                recovery_hint="Drop rows with zero or missing weight first.",
+            )
+    else:
+        obs_w = np.ones(n)
+
     def _hist_cols(k: int) -> List[str]:
         cols = list(baseline)
         for j in range(k):
@@ -564,11 +594,11 @@ def ltmle(
         H = df[_hist_cols(k)].to_numpy(dtype=float)
         X_k = np.column_stack([np.ones(n), H])
         fit_rows = uncens_before[:, k]
-        prob_a1.append(_logit_fit_predict(X_k, A_obs[:, k], fit_rows))
+        prob_a1.append(_logit_fit_predict(X_k, A_obs[:, k], fit_rows, obs_w))
         if censoring:
             X_c = np.column_stack([X_k, A_obs[:, k]])
             c_k = (df[censoring[k]].to_numpy(dtype=float) == 1).astype(float)
-            prob_c1.append(_logit_fit_predict(X_c, c_k, fit_rows))
+            prob_c1.append(_logit_fit_predict(X_c, c_k, fit_rows, obs_w))
         else:
             prob_c1.append(np.ones(n))
     propensities = prob_a1
@@ -637,12 +667,12 @@ def ltmle(
                 pos = 1 + (cols + [treatments[k]]).index(treatments[j])
                 X_reg[:, pos] = regime_mat[:, j]
             fit_rows = uncens[:, k] & np.isfinite(Q_next)
-            beta = _logit_fit(X_obs[fit_rows], Q_next[fit_rows])
+            beta = _logit_fit(X_obs[fit_rows], Q_next[fit_rows], obs_w[fit_rows])
             q_pred = np.clip(expit(X_reg @ beta), 1e-4, 0.9999)
             off = logit(q_pred)
 
             subs = uncens[:, k] & follow[:, k]
-            w = np.where(subs, 1.0 / cum_g[:, k], 0.0)
+            w = np.where(subs, obs_w / cum_g[:, k], 0.0)
             try:
                 eps = _fluctuate(Q_next[subs], off[subs], w[subs])
             except (np.linalg.LinAlgError, FloatingPointError, ValueError) as exc:
@@ -657,13 +687,13 @@ def ltmle(
                 )
             q_star = expit(off + eps)
             ic = ic + np.where(
-                subs, (np.nan_to_num(Q_next) - q_star) / cum_g[:, k], 0.0
+                subs, obs_w * (np.nan_to_num(Q_next) - q_star) / cum_g[:, k], 0.0
             )
             eps_list.append(float(eps))
             Q_next = q_star
 
-        psi_scaled = float(np.mean(Q_next))
-        ic = ic + (Q_next - psi_scaled)
+        psi_scaled = float(np.sum(obs_w * Q_next) / np.sum(obs_w))
+        ic = (ic + obs_w * (Q_next - psi_scaled)) / float(np.mean(obs_w))
         return (
             y_min + y_range * psi_scaled,
             y_range * ic,
