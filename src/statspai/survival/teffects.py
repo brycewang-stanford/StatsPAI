@@ -156,7 +156,8 @@ def stteffects(
     treat_model = str(treat_model).lower()
     if treat_model not in ("logit", "probit"):
         raise MethodIncompatibility(
-            f"stteffects: treat_model must be 'logit' or 'probit'; got {treat_model!r}.",
+            "stteffects: treat_model must be 'logit' or 'probit'; got "
+            f"{treat_model!r}.",
             recovery_hint="Use treat_model='logit'.",
         )
     covariates = list(covariates or [])

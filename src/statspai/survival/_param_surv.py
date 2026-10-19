@@ -128,12 +128,9 @@ def fit(
 ) -> np.ndarray:
     """Maximise the weighted log likelihood (Newton on the analytic score,
     Hessian by central differences of it, with step halving)."""
-    k = X.shape[1]
     use = w > 0
-    if censored_term:
-        n_ev = float((w * d).sum())
-    else:
-        n_ev = float((w * d).sum())
+    n_ev = float((w * d).sum())
+    if not censored_term:
         use = use & (d == 1)
     if n_ev <= 0:
         raise ConvergenceFailure(

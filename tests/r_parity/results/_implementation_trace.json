@@ -925,7 +925,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 8.58,
+   "seconds": 1.96,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -967,18 +967,14 @@
     "src/statspai/output/_lineage.py": "a912fbc582be2dbc27206ec48cd84684ddc5a318aa469483bb89646af53180de",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
-    "src/statspai/survival/__init__.py": "5692d594499a6188f483963cb2ad2b17228f7558419a5de115574c68f947d350",
+    "src/statspai/survival/__init__.py": "56ed61de4f07175d7483bb16509c214c1b00030ba847cc5cdb4e273568d47244",
     "src/statspai/survival/_cox_core.py": "71e947df4ff976e36ad0895b4be71a762757e20c204eda2685e35079bb951bfb",
     "src/statspai/survival/_cox_inputs.py": "573bee8d031c3ea8c1cdf903a3b6ef9561a02d1dbcd6bfe805094fc8ba056d6b",
-    "src/statspai/survival/_km.py": "e1d5edfb1eabb11710280e019d04b571efc18cc78ab410f9bf68fdc2a0e4e1a0",
-    "src/statspai/survival/_param_surv.py": "a9f3d45157a89c5b22d1c32ba04d0f2721d0837ce57a93ffbbf705902003e58b",
     "src/statspai/survival/aft.py": "ffd2c54ec73fafd83d209ea922f1f6e373944507ad2e3bf1d78ae3c97a1af069",
     "src/statspai/survival/causal_forest.py": "37f1666f41e518f82dabf5122987545a29489b08ecc61623a23a16237dcf4fda",
     "src/statspai/survival/competing_risks.py": "02a1b1fee7cffcef1b7e4acb24fba5e079a4e1e656b343802b8400d76d366a53",
     "src/statspai/survival/frailty.py": "1032fad2702e4be1115b5047726fed0cd45323d9d2de8d6656cb2ec3de71523e",
     "src/statspai/survival/models.py": "997ab12627b34146fe8242ee7fa423ab893532fa8ad9745f7fcfab0dd3746dc7",
-    "src/statspai/survival/rmst.py": "191d199041394a8679736b1493105c1a5d56956c3fd45313e6c71d73e3d3e8ee",
-    "src/statspai/survival/teffects.py": "d32b03677c21a6c2f4086692b8d5cc3cd4caaae04404277ef526b1cf8e3379c5",
     "src/statspai/utils/_attrs.py": "1f02a82073a223f190963759f9a71b1fea32d03e8ce7442cc17a4647aceae958"
    },
    "dependency_versions": {
