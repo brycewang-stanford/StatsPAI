@@ -4447,3 +4447,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   reproduce their committed results.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+### 2026-10-19 — trace re-records for Stata syntax in formulas
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `ed109ae31`.
+- **Reason.** `core/utils.py` (`r_formula_idioms`, `create_design_matrices`)
+  now reads Stata factor-variable and time-series terms; it is on the
+  traced path of Track A modules 01, 02, 14, 37, 42, 44-49, 51, 53-58, 63,
+  64, 67 and original-data modules 01, 04, 04b, 09. The modules were re-run
+  and their traces re-recorded.
+- **Effect on the paper.** None; no estimate changes (formulas without
+  Stata syntax take the same path).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
