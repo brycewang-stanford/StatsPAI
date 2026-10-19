@@ -31,6 +31,20 @@ Rules:
 
 ## Entries
 
+### 2026-10-19 — R argument-name aliases on the DiD entry points; aipw propensity in `model_info`
+
+- **Commits.** `9c4c691c` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 04, 17, 38,
+  79, 83, 85) and `tests/orig_parity/results/_implementation_trace.json`
+  (modules 02, 07).
+- **Reason.** `@accepts_aliases` lines in `did/callaway_santanna.py`,
+  `did/aggte.py`, `did/event_study.py` and `did/wooldridge_did.py` gained
+  the R `did` / `DRDID` spellings; `inference/aipw.py` stores its unclipped
+  propensity in `model_info` for `violations()`. No estimate changes.
+- **Effect on the paper.** None. Each module was re-run into scratch and
+  compared with its committed `*_py.json`: largest relative difference
+  1.5e-11 (38_drdid), within the 1e-9 reproducibility tolerance.
+
 ### 2026-10-19 — survival: weighted / counting-process Cox and Kaplan-Meier
 
 - **Commits.** `1ae5ae8c` re-recorded
