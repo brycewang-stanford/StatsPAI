@@ -954,7 +954,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 2.83,
+   "seconds": 3.31,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1001,7 +1001,7 @@
     "src/statspai/survival/_cox_inputs.py": "573bee8d031c3ea8c1cdf903a3b6ef9561a02d1dbcd6bfe805094fc8ba056d6b",
     "src/statspai/survival/aft.py": "ffd2c54ec73fafd83d209ea922f1f6e373944507ad2e3bf1d78ae3c97a1af069",
     "src/statspai/survival/causal_forest.py": "37f1666f41e518f82dabf5122987545a29489b08ecc61623a23a16237dcf4fda",
-    "src/statspai/survival/competing_risks.py": "02a1b1fee7cffcef1b7e4acb24fba5e079a4e1e656b343802b8400d76d366a53",
+    "src/statspai/survival/competing_risks.py": "becead38b611784740cedbb0c7a5f83cb0c541295446812213da4ee8f1119e1d",
     "src/statspai/survival/frailty.py": "1032fad2702e4be1115b5047726fed0cd45323d9d2de8d6656cb2ec3de71523e",
     "src/statspai/survival/models.py": "a3028e2f3fe60642e64b876b384f839b89e09f0ae1faf5abbbce38574c8762f7",
     "src/statspai/utils/_attrs.py": "1f02a82073a223f190963759f9a71b1fea32d03e8ce7442cc17a4647aceae958"
@@ -2523,7 +2523,7 @@
    "result_sha256": "9997083815f5760943ac43fec429e9d1e44fd6b13454e6d0e8d8346cc9d21997"
   },
   "65_spatial": {
-   "seconds": 2.35,
+   "seconds": 2.2,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2558,7 +2558,7 @@
     "src/statspai/spatial/models/diagnostics.py": "68b048b93bff074f87efad769a6ad69b5afacd4c93732f7ee8c261bb6c809c41",
     "src/statspai/spatial/models/gmm.py": "ed88d1297ea13b18dc16c2932f8ff4afa62f48886c57634d4eb92db5ca01b43f",
     "src/statspai/spatial/models/impacts.py": "f23987c188c7ec02363f3cab1ca1eac5597e7a4cc3537d3b3d7c8b703a1f0fbc",
-    "src/statspai/spatial/models/ml.py": "17e35c94bfb4e9f700d930798fe6d958e4393687c40ce5a549dd2e68c8a76514",
+    "src/statspai/spatial/models/ml.py": "d85ac0b336ba76e1cd56e7da1d63af39f730b4aafa980c10a11c9c256d5c8c8d",
     "src/statspai/spatial/panel/__init__.py": "0a6ce6f0d93c0c5cab785cc31c406ed4fc47f2ef1ea24ec2a4ab770df46f8119",
     "src/statspai/spatial/panel/estimator.py": "fa6980d8052413dcfa7506d4a11a92a1517edff72b9f9b50645f01d3a391bba0",
     "src/statspai/spatial/utils.py": "2df41743b835f75275166a065f267eeb5fab40673750ff5809a424a0320ea97c",
@@ -2578,7 +2578,7 @@
    "result_sha256": "7b3031a8f7b095102fb4a93dfe30bfe065d8b8785e718123074364abdac16da7"
   },
   "66_spatial_gmm": {
-   "seconds": 2.34,
+   "seconds": 2.0,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2614,7 +2614,7 @@
     "src/statspai/spatial/models/diagnostics.py": "68b048b93bff074f87efad769a6ad69b5afacd4c93732f7ee8c261bb6c809c41",
     "src/statspai/spatial/models/gmm.py": "ed88d1297ea13b18dc16c2932f8ff4afa62f48886c57634d4eb92db5ca01b43f",
     "src/statspai/spatial/models/impacts.py": "f23987c188c7ec02363f3cab1ca1eac5597e7a4cc3537d3b3d7c8b703a1f0fbc",
-    "src/statspai/spatial/models/ml.py": "17e35c94bfb4e9f700d930798fe6d958e4393687c40ce5a549dd2e68c8a76514",
+    "src/statspai/spatial/models/ml.py": "d85ac0b336ba76e1cd56e7da1d63af39f730b4aafa980c10a11c9c256d5c8c8d",
     "src/statspai/spatial/panel/__init__.py": "0a6ce6f0d93c0c5cab785cc31c406ed4fc47f2ef1ea24ec2a4ab770df46f8119",
     "src/statspai/spatial/panel/estimator.py": "fa6980d8052413dcfa7506d4a11a92a1517edff72b9f9b50645f01d3a391bba0",
     "src/statspai/spatial/utils.py": "2df41743b835f75275166a065f267eeb5fab40673750ff5809a424a0320ea97c",
