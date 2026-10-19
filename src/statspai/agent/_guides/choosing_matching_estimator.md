@@ -155,6 +155,29 @@ r = sp.overlap_weights(df, y='y', treat='d', covariates=[...],
 
 Avoids extreme weights from near-zero / near-one propensities.
 
+### Multi-category and continuous treatments: `sp.weightit` + `sp.bal_tab`
+
+The estimators above take a 0/1 treatment. For three or more arms, or a
+dose, `sp.weightit` estimates the weights (R `WeightIt`) and `sp.bal_tab`
+checks them (R `cobalt`):
+
+```python
+W = sp.weightit(df, treat='arm', covariates=[...], method='ebal')   # ATE
+W = sp.weightit(df, treat='arm', covariates=[...], method='glm',
+                estimand='ATT', focal='new_drug')
+W = sp.weightit(df, treat='dose', covariates=[...], method='ebal')  # continuous
+W.balance()            # pairwise SMDs (multi-arm) / treatment-covariate correlations
+```
+
+`method='glm'` inverts a multinomial-logit (or normal-density) generalized
+propensity score; `'cbps'` is the just-identified CBPS for categorical
+treatments; `'ebal'` reaches exact mean balance (multi-arm) or exactly
+zero treatment-covariate covariance (dose). A numeric column with 3 to 10
+integer values is refused until `treat_type=` says whether it is arms or a
+dose. Pass the weights to a weighted outcome model (`sp.regress(...,
+weights=)`); the effect estimators with variance that accounts for the
+estimated weights are `sp.multi_treatment` (arms) and `sp.dose_response`.
+
 ## 5. Doubly-robust estimators
 
 AIPW combines an outcome model and a propensity-score model — correct

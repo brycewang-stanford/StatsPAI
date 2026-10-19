@@ -333,6 +333,7 @@ from .inference import (
 from .matching import (
     BalanceDiagnosticsResult,
     BalanceRandomizationResult,
+    BalTabResult,
     CardinalityMatchResult,
     FullMatchResult,
     GenMatchResult,
@@ -343,6 +344,8 @@ from .matching import (
     PSMatch2Result,
     SBWResult,
     TwoCriteriaMatchResult,
+    WeightItResult,
+    bal_tab,
     balance_diagnostics,
     balance_vs_randomization,
     balanceplot,
@@ -370,6 +373,7 @@ from .matching import (
     tighten_blocks,
     trimming,
     two_criteria_match,
+    weightit,
 )
 from .mediation import (
     FourWayResult,
@@ -1653,6 +1657,10 @@ __all__ = [
     # Matching extensions
     "overlap_weights",
     "ps_weights",
+    "weightit",
+    "WeightItResult",
+    "bal_tab",
+    "BalTabResult",
     "ess",
     "energy_distance",
     "implied_weights",

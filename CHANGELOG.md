@@ -4,6 +4,35 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Weighting for multi-category and continuous treatments: `sp.weightit`, `sp.bal_tab`
+
+#### Added
+
+- `sp.weightit(data, treat, covariates, method=, estimand=)`: balancing
+  weights for binary, multi-category and continuous treatments in one
+  call (the R `WeightIt` workflow). `method='glm'` inverts a
+  (multinomial) logit propensity score, or for a continuous treatment
+  takes the normal density ratio; `'cbps'` is the just-identified
+  covariate balancing propensity score for categorical treatments;
+  `'ebal'` is entropy balancing (each arm to the full-sample or focal
+  means; for a dose, zero weighted treatment-covariate covariance with
+  `moments=` / `interactions=` / `d_moments=`). Estimands ATE, ATT (with
+  `focal=`), ATC, ATO, ATM where defined. Weights equal WeightIt 1.7.0 to
+  1e-9 in 23 configurations; the multinomial `glm` fits to 2e-7 because
+  WeightIt's optimizer stops at a score of 1e-6 (ours is the MLE to
+  1e-11). WeightIt's continuous CBPS (a GMM criterion that does not reach
+  exact balance) is not offered.
+- `sp.bal_tab(data, treat, covariates, weights=)`: cobalt-style balance
+  for the same three treatment types: standardized mean differences on
+  unweighted standard deviations, raw differences for binary covariates,
+  variance ratios, KS statistics, pairwise (or each-versus-all)
+  comparisons for multi-category treatments with the maximum as the
+  summary, Pearson and Spearman treatment-covariate correlations for a
+  continuous treatment, and effective sample sizes. Equals cobalt 4.6.2
+  to 1e-9 on eleven settings.
+  `tests/reference_parity/test_weightit_cobalt_parity.py`.
+- WeightIt and cobalt (GPL) were used as black boxes: their
+  documentation and outputs only.
 ### `sp.mediate_paths`: path-specific effects with ordered mediators
 
 #### Added

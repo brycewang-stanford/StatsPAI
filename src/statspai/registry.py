@@ -12668,6 +12668,247 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="weightit",
+            category="causal",
+            description=(
+                "Balancing weights for a binary, multi-category or continuous "
+                "treatment in one call (R WeightIt): inverse generalized "
+                "propensity scores from a (multinomial) logit or, for a "
+                "continuous treatment, the normal density ratio (method='glm'); "
+                "just-identified covariate balancing propensity score for "
+                "categorical treatments ('cbps'); entropy balancing, which for "
+                "a continuous treatment zeroes the weighted treatment-covariate "
+                "covariances ('ebal'). Returns weights aligned to the data and "
+                ".balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 "
+                "(multinomial glm 2e-7, WeightIt's optimizer tolerance)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Analysis data"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    None,
+                    "Treatment column: text / categorical / two-valued columns "
+                    "are categorical, other numeric columns continuous",
+                ),
+                ParamSpec(
+                    "covariates", "list[str]", True, None, "Covariates to balance"
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "glm",
+                    "glm = inverse (generalized) propensity score; cbps = "
+                    "just-identified CBPS (categorical treatments); ebal = "
+                    "entropy balancing",
+                    enum=["glm", "cbps", "ebal"],
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "ATE or ATT (with focal) for every categorical method; ATC "
+                    "for a binary treatment; ATO / ATM with glm; continuous "
+                    "treatments take ATE only",
+                    enum=["ATE", "ATT", "ATC", "ATO", "ATM"],
+                ),
+                ParamSpec(
+                    "focal",
+                    "any",
+                    False,
+                    None,
+                    "Treatment level whose covariate distribution is the target "
+                    "for the ATT; required for a multi-category treatment",
+                ),
+                ParamSpec(
+                    "treat_type",
+                    "str",
+                    False,
+                    None,
+                    "Override the treatment type read from the column; required "
+                    "for a numeric column with 3-10 integer values",
+                    enum=["binary", "multinomial", "continuous"],
+                ),
+                ParamSpec(
+                    "moments",
+                    "int",
+                    False,
+                    1,
+                    "cbps / ebal: balance powers up to this order (1-3) of each "
+                    "non-binary covariate",
+                ),
+                ParamSpec(
+                    "interactions",
+                    "bool",
+                    False,
+                    False,
+                    "cbps / ebal: also balance pairwise covariate products",
+                ),
+                ParamSpec(
+                    "d_moments",
+                    "int",
+                    False,
+                    None,
+                    "Continuous ebal: also hold central moments 2..d_moments of "
+                    "the treatment and each covariate at their sample values",
+                ),
+            ],
+            returns="WeightItResult",
+            example=(
+                'W = sp.weightit(df, "dose", ["x1", "x2"], method="ebal"); '
+                "W.balance()"
+            ),
+            tags=[
+                "weighting",
+                "propensity_score",
+                "multi_treatment",
+                "continuous_treatment",
+                "entropy_balancing",
+                "cbps",
+                "balance",
+            ],
+            assumptions=[
+                "No unmeasured confounding given the covariates",
+                "Positivity: every treatment level (or dose) is possible at "
+                "every covariate value",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Very large weights; low effective sample size in a group",
+                    exception="",
+                    remedy="Target the overlap population (estimand='ATO'), "
+                    "use method='ebal', or restrict to the region of overlap",
+                    alternative="bal_tab",
+                ),
+            ],
+            not_recommended_when=[
+                "You need the effect and its standard error for a binary "
+                "treatment in one call — use sp.ipw / sp.ebalance / sp.aipw",
+            ],
+            alternatives=[
+                "bal_tab",
+                "ps_weights",
+                "ebalance",
+                "cbps",
+                "multi_treatment",
+                "dose_response",
+            ],
+            reference="greifer2026weightit",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bal_tab",
+            category="causal",
+            description=(
+                "Covariate balance before and after weighting for binary, "
+                "multi-category and continuous treatments (R cobalt bal.tab): "
+                "standardized mean differences on unweighted standard "
+                "deviations (pooled over all groups for the ATE, the focal "
+                "group's for the ATT), raw differences for binary covariates, "
+                "variance ratios and KS statistics; pairwise comparisons with "
+                "the largest absolute statistic as the summary for "
+                "multi-category treatments; treatment-covariate Pearson and "
+                "Spearman correlations for continuous treatments; effective "
+                "sample sizes. Equals cobalt 4.6.2 to 1e-9."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Analysis data"),
+                ParamSpec("treat", "str", True, None, "Treatment column"),
+                ParamSpec("covariates", "list[str]", True, None, "Covariates to check"),
+                ParamSpec(
+                    "weights",
+                    "array | str | WeightItResult",
+                    False,
+                    None,
+                    "Balancing weights: one per row, a column name, or a "
+                    "sp.weightit result (which also supplies estimand / focal); "
+                    "None reports the unadjusted sample",
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    None,
+                    "Sets the default standardization (ATT: focal group SD; "
+                    "ATC: control SD; else pooled); default ATE",
+                    enum=["ATE", "ATT", "ATC", "ATO", "ATM"],
+                ),
+                ParamSpec("focal", "any", False, None, "Focal level for the ATT"),
+                ParamSpec(
+                    "treat_type",
+                    "str",
+                    False,
+                    None,
+                    "Override the treatment type read from the column",
+                    enum=["binary", "multinomial", "continuous"],
+                ),
+                ParamSpec(
+                    "pairwise",
+                    "bool",
+                    False,
+                    True,
+                    "Multi-category: compare every pair of groups; False "
+                    "compares each group with the full sample (or the focal "
+                    "group with each other group)",
+                ),
+                ParamSpec(
+                    "binary",
+                    "str",
+                    False,
+                    "raw",
+                    "Binary covariates as raw differences in proportion or standardized",
+                    enum=["raw", "std"],
+                ),
+                ParamSpec(
+                    "continuous",
+                    "str",
+                    False,
+                    "std",
+                    "Continuous covariates as standardized or raw differences",
+                    enum=["std", "raw"],
+                ),
+                ParamSpec(
+                    "s_d_denom",
+                    "str",
+                    False,
+                    None,
+                    "Override the standardizing standard deviation",
+                    enum=["pooled", "treated", "control", "all"],
+                ),
+                ParamSpec(
+                    "threshold",
+                    "float",
+                    False,
+                    0.1,
+                    "Flag terms whose absolute adjusted difference (or "
+                    "correlation) exceeds this",
+                ),
+            ],
+            returns="BalTabResult",
+            example='sp.bal_tab(df, "treat", ["x1", "x2"], weights=W)',
+            tags=[
+                "balance",
+                "diagnostics",
+                "weighting",
+                "multi_treatment",
+                "continuous_treatment",
+            ],
+            assumptions=[
+                "Balance on the reported moments is necessary, not sufficient, "
+                "for removing confounding by these covariates",
+            ],
+            alternatives=["balance_diagnostics", "weightit", "energy_distance", "ess"],
+            reference="greifer2026weightit",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="ess",
             category="causal",
             description=(

@@ -1839,6 +1839,99 @@
     "name": "bagged_forecast"
   },
   {
+    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Assumptions: Balance on the reported moments is necessary, not sufficient, for removing confounding by these covariates. Alternatives: sp.balance_diagnostics, sp.weightit, sp.energy_distance, sp.ess.",
+    "input_schema": {
+      "properties": {
+        "binary": {
+          "default": "raw",
+          "description": "Binary covariates as raw differences in proportion or standardized",
+          "enum": [
+            "raw",
+            "std"
+          ],
+          "type": "string"
+        },
+        "continuous": {
+          "default": "std",
+          "description": "Continuous covariates as standardized or raw differences",
+          "enum": [
+            "std",
+            "raw"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Covariates to check",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "estimand": {
+          "description": "Sets the default standardization (ATT: focal group SD; ATC: control SD; else pooled); default ATE",
+          "enum": [
+            "ATE",
+            "ATT",
+            "ATC",
+            "ATO",
+            "ATM"
+          ],
+          "type": "string"
+        },
+        "focal": {
+          "description": "Focal level for the ATT",
+          "type": "string"
+        },
+        "pairwise": {
+          "default": true,
+          "description": "Multi-category: compare every pair of groups; False compares each group with the full sample (or the focal group with each other group)",
+          "type": "boolean"
+        },
+        "s_d_denom": {
+          "description": "Override the standardizing standard deviation",
+          "enum": [
+            "pooled",
+            "treated",
+            "control",
+            "all"
+          ],
+          "type": "string"
+        },
+        "threshold": {
+          "default": 0.1,
+          "description": "Flag terms whose absolute adjusted difference (or correlation) exceeds this",
+          "type": "number"
+        },
+        "treat": {
+          "description": "Treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat_type": {
+          "description": "Override the treatment type read from the column",
+          "enum": [
+            "binary",
+            "multinomial",
+            "continuous"
+          ],
+          "type": "string"
+        },
+        "weights": {
+          "description": "Balancing weights: one per row, a column name, or a sp.weightit result (which also supplies estimand / focal); None reports the unadjusted sample",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "covariates",
+        "treat"
+      ],
+      "type": "object"
+    },
+    "name": "bal_tab"
+  },
+  {
     "description": "Unified balance diagnostics for matching and weighting estimators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
@@ -43713,6 +43806,81 @@
       "type": "object"
     },
     "name": "weighted_rank_power"
+  },
+  {
+    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw. Assumptions: No unmeasured confounding given the covariates; Positivity: every treatment level (or dose) is possible at every covariate value. Failure modes: Very large weights; low effective sample size in a group -> Target the overlap population (estimand='ATO'), use method='ebal', or restrict to the region of overlap. Alternatives: sp.bal_tab, sp.ps_weights, sp.ebalance, sp.cbps.",
+    "input_schema": {
+      "properties": {
+        "covariates": {
+          "description": "Covariates to balance",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "d_moments": {
+          "description": "Continuous ebal: also hold central moments 2..d_moments of the treatment and each covariate at their sample values",
+          "type": "integer"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "ATE or ATT (with focal) for every categorical method; ATC for a binary treatment; ATO / ATM with glm; continuous treatments take ATE only",
+          "enum": [
+            "ATE",
+            "ATT",
+            "ATC",
+            "ATO",
+            "ATM"
+          ],
+          "type": "string"
+        },
+        "focal": {
+          "description": "Treatment level whose covariate distribution is the target for the ATT; required for a multi-category treatment",
+          "type": "string"
+        },
+        "interactions": {
+          "default": false,
+          "description": "cbps / ebal: also balance pairwise covariate products",
+          "type": "boolean"
+        },
+        "method": {
+          "default": "glm",
+          "description": "glm = inverse (generalized) propensity score; cbps = just-identified CBPS (categorical treatments); ebal = entropy balancing",
+          "enum": [
+            "glm",
+            "cbps",
+            "ebal"
+          ],
+          "type": "string"
+        },
+        "moments": {
+          "default": 1,
+          "description": "cbps / ebal: balance powers up to this order (1-3) of each non-binary covariate",
+          "type": "integer"
+        },
+        "treat": {
+          "description": "Treatment column: text / categorical / two-valued columns are categorical, other numeric columns continuous",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat_type": {
+          "description": "Override the treatment type read from the column; required for a numeric column with 3-10 integer values",
+          "enum": [
+            "binary",
+            "multinomial",
+            "continuous"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "covariates",
+        "treat"
+      ],
+      "type": "object"
+    },
+    "name": "weightit"
   },
   {
     "description": "Westfall-Young permutation stepdown p-values across outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",

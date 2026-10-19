@@ -43,6 +43,7 @@ from typing import Any, Dict, List, Optional
 from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import MethodIncompatibility
+from .bal_tab import BalTabResult, bal_tab
 from .balance_randomization import BalanceRandomizationResult, balance_vs_randomization
 from .cbps import cbps
 from .ebalance import ebalance
@@ -77,6 +78,7 @@ from .psmatch2 import PSMatch2Result, PSTestResult, psmatch2
 from .residual_balance import residual_balance
 from .sbw import SBWResult, sbw
 from .two_criteria import TwoCriteriaMatchResult, tighten_blocks, two_criteria_match
+from .weightit import WeightItResult, weightit
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Unified dispatcher — sp.match(..., method=...)
@@ -483,6 +485,10 @@ __all__ = [
     "GenMatchResult",
     "sbw",
     "SBWResult",
+    "weightit",
+    "WeightItResult",
+    "bal_tab",
+    "BalTabResult",
     "residual_balance",
     "psmatch2",
     "PSMatch2Result",
