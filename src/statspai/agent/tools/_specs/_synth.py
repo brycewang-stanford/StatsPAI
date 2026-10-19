@@ -81,4 +81,42 @@ SPECS: List[Dict[str, Any]] = [
         "statspai_fn": "synth",
         "serializer": _default_serializer,
     },
+    {
+        "name": "sdid",
+        "description": (
+            "Synthetic difference-in-differences (Arkhangelsky et al. "
+            "2021): unit and time weights, one treated unit or block. "
+            "Long panel; placebo / bootstrap / jackknife SEs."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "y": {"type": "string", "description": "Outcome column."},
+                "unit": {"type": "string"},
+                "time": {"type": "string"},
+                "treat_unit": {
+                    "type": ["string", "integer"],
+                    "description": "Treated unit value (or use treat=).",
+                },
+                "treat_time": {
+                    "type": ["integer", "number", "string"],
+                    "description": "First treated period.",
+                },
+                "treat": {
+                    "type": "string",
+                    "description": "0/1 treatment column (block designs).",
+                },
+                "se_method": {
+                    "type": "string",
+                    "enum": ["placebo", "bootstrap", "jackknife", "noinference"],
+                    "default": "placebo",
+                    "description": "'noinference' needs treat=.",
+                },
+                "seed": {"type": "integer"},
+            },
+            "required": ["y", "unit", "time"],
+        },
+        "statspai_fn": "sdid",
+        "serializer": _default_serializer,
+    },
 ]

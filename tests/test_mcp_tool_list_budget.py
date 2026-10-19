@@ -23,7 +23,10 @@ from statspai.agent import mcp_server as m
 # session instructions start with them); shorter shared clauses paid for
 # it. core 46,802 B with the committed snapshot, 46,991 B live
 # (STATSPAI_MCP_SCHEMA_SNAPSHOT=0); curated 73,523 / 73,758 B.
-BUDGET_BYTES = {"curated": 82 * 1024, "core": 46 * 1024}
+# 2026-10-19: curated gained feols / iv / match / sun_abraham / sdid and
+# dropped nbreg / xtnbreg (still callable by name): 81,574 -> 87,014 B live
+# (42 -> 45 tools); the budget moves with it, the per-tool cost does not.
+BUDGET_BYTES = {"curated": 88 * 1024, "core": 46 * 1024}
 
 
 def _rpc(method, params=None):

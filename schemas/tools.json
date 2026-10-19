@@ -13904,96 +13904,26 @@
     "name": "feglm"
   },
   {
-    "description": "Estimate OLS / IV with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows. Assumptions: Strict exogeneity conditional on the absorbed fixed effects; No perfect collinearity after FE absorption (within-transformation rank); Cluster structure for `vcov={'CRV1': '...'}` matches the relevant dependence. Pre-conditions: Data is a long-format DataFrame; FE columns are categorical or convertible; Every absorbed FE level has more than one observation (singleton dropping behaviour controlled by `drop_singletons`); Optional IV stage: instruments are at least as many as endogenous regressors. Failure modes: Singleton groups dropped warning -> Aggregate small categories or accept the dr...",
+    "description": "OLS with high-dimensional fixed effects (R fixest / Stata reghdfe syntax): 'y ~ x1 + x2 | unit + year'. IV as 'y ~ x | fe | d ~ z'. vcov: 'iid', 'hetero', or {'CRV1': 'cluster_col'} (two-way: 'a + b'). Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
-        "backend": {
-          "default": "auto",
-          "description": "``'auto'`` fits on StatsPAI's own engine (``sp.fast.feols``, on the Rust kernels when ``statspai-hdfe`` is installed) whenever the call is ``y ~ x1 + ... | fe1 + ...`` with numeric regressors and ``i(factor[, var], ref=value)`` terms, or the IV form ``y ~ x | fe | d1 + ... ~ z1 + ...`` with absorbed effects; ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': 'a'}`` / ``{'CRV1': 'a + b'}``; no ``ssc=`` or extra pyfixest keyword. Multiple estimation (``y1 + y2 ~``, ``sw()``, ``csw()``, ...) is native when every model is. Other calls go through pyfixest (also when regressors are absorbed or collinear, which fixest drops). ``model_info['backend']`` says which ran. The native IV first-stage F is fixest's ``ivwald1``. The native fit follows fixest's",
-          "enum": [
-            "auto",
-            "pyfixest",
-            "native"
-          ],
-          "type": "string"
-        },
         "cluster": {
-          "description": "Cluster id column for the extended ``vce=`` menu; also a shorthand for one-way ``{\"CRV1\": cluster}``.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "collin_tol": {
-          "default": 1e-06,
-          "description": "Collinearity tolerance.",
-          "type": "number"
-        },
-        "conley_cutoff": {
-          "description": "Conley distance cutoff in km for ``vce=\"conley\"``.",
-          "type": "number"
-        },
-        "conley_lat": {
-          "description": "Coordinate columns (decimal degrees) for ``vce=\"conley\"``.",
-          "type": "string"
-        },
-        "conley_lon": {
-          "description": "Coordinate columns (decimal degrees) for ``vce=\"conley\"``.",
-          "type": "string"
-        },
-        "fixef_rm": {
-          "description": "Singleton fixed-effect groups: ``\"none\"`` keeps them, ``\"singleton\"`` drops them (R ``fixest`` and Stata ``reghdfe`` do by default). Unset, they are kept, with a ``FutureWarning`` when there are any: the default becomes ``\"singleton\"`` in StatsPAI 1.40.",
-          "enum": [
-            "none",
-            "singleton"
-          ],
+          "description": "Cluster column (same as {'CRV1': col}).",
           "type": "string"
         },
         "fml": {
-          "description": "A pyfixest-style formula. Examples: - ``\"Y ~ X1 + X2\"`` -- plain OLS - ``\"Y ~ X1 | firm + year\"`` -- two-way fixed effects - ``\"Y ~ 1 | firm | X1 ~ Z1\"`` -- IV with fixed effects - ``\"Y ~ X1 | csw0(firm, year)\"`` -- multiple estimations - ``\"Y ~ X1 | firm + state[year]\"`` -- varying slopes: state fixed effects plus state-specific year trends (``state[[year]]`` for the slopes alone). pyfixest does not absorb these, so such formulas run on StatsPAI's own HDFE kernel (``model_info['backend'] == 'statspai-native'``), matching R ``fixest`` for ``vcov`` iid / hetero / ``{'CRV1': col}`` and ``weights=``.",
-          "type": "string",
-          "x-statspai-role": "formula"
-        },
-        "lean": {
-          "default": false,
-          "description": "If True, drop large intermediate arrays to save memory.",
-          "type": "boolean"
-        },
-        "seed": {
-          "description": "RNG seed for ``vce=\"wild\"``.",
-          "type": "integer"
-        },
-        "ssc": {
-          "description": "Small-sample correction via ``pyfixest.ssc()``.",
+          "description": "fixest formula, e.g. 'y ~ x | unit + year'",
           "type": "string"
         },
         "vcov": {
-          "description": "Variance-covariance estimator (``vce=`` is the canonical alias). - ``\"iid\"`` -- classical - ``\"HC1\"``, ``\"HC2\"``, ``\"HC3\"`` -- heteroskedasticity-robust - ``{\"CRV1\": \"firm\"}`` -- cluster-robust - ``{\"CRV1\": \"firm + year\"}`` -- two-way clustering - ``vce=\"CR2\"`` / ``\"CR3\"`` / ``\"jackknife\"`` (with ``cluster=``) -- Pustejovsky-Tipton bias-reduced cluster-robust on the FE-absorbed within design; matches R ``clubSandwich::vcovCR(plm)``. - ``vce=\"wild\"`` (with ``cluster=``) -- WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008); validated against Stata ``boottest``. - ``vce=\"conley\"`` (with ``conley_lat=/conley_lon=/conley_cutoff=``) -- Conley spatial HAC (Stata ``acreg`` planar-distance convention).",
-          "type": "object",
-          "x-aliases": [
-            "vce"
-          ],
-          "x-canonical": "vce"
+          "description": "'iid', 'hetero' or {'CRV1': 'col'}",
+          "type": [
+            "string",
+            "object"
+          ]
         },
         "weights": {
-          "description": "Column name for regression weights. Alone they are analytic weights (Stata ``[aw=]``, R ``fixest`` ``weights=``).",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "weights_as": {
-          "description": "What the weights are. ``'analytic'`` is what ``weights=`` alone already means. ``'sampling'`` (Stata ``[pw=]``) gives the same coefficients with ``vcov='hetero'``, unless ``vcov=``, ``vce=`` or ``cluster=`` asks for another. Saying which also silences the warning about dispersed weights under the classical variance. ``'frequency'`` is refused.",
-          "enum": [
-            "analytic",
-            "sampling"
-          ],
-          "type": "string"
-        },
-        "wild_reps": {
-          "default": 999,
-          "description": "Bootstrap replications for ``vce=\"wild\"``.",
-          "type": "integer"
-        },
-        "wild_weight_type": {
-          "default": "rademacher",
-          "description": "Wild weight distribution (``\"rademacher\"``, ``\"webb\"``, ``\"mammen\"``).",
+          "description": "Weight column.",
           "type": "string"
         }
       },
@@ -18778,85 +18708,25 @@
     "name": "its"
   },
   {
-    "description": "Unified IV estimation and the entry point for the whole IV family: k-class (2SLS, LIML, Fuller, GMM, JIVE) plus the many-weak-instrument jackknife variants (jive1, ujive, ijive, rjive, jive_mw), rigorous/post-Lasso instrument selection (lasso, rlasso, post_lasso), marginal treatment effects (mte) and their MST sharp bounds (ivmte_bounds), plausibly-exogenous sensitivity (plausibly_exog_ltz / plausibly_exog_uci), nonparametric and ML variants (npiv, kernel, ivdml, deepiv), quantile IV (ivqreg), Bayesian IV (bayes), continuous-instrument LATE (continuous_late), many-weak-IV Anderson-Rubin (many_weak_ar) and shift-share (shift_share). Includes first-stage F, Sargan/Hansen J, Kleibergen-Paap rk, Sanderson-Windmeijer per-endog F and Hausman diagnostics. Validation: certified parity evidence. Do NOT use when: the instrument is a policy cutoff on a running variable -- that is a fuzzy RD (sp.rdrobust(..., fuzzy=)), whose local inference differs. Cost: augmented_diagnostics=True adds bootstrap SEs and AR / CLR grid inversions; cost is n_boot + grid_size extra fits. Assumptions: Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb); Exclusion: instrumen...",
+    "description": "Instrumental-variables dispatcher: 2SLS, LIML, Fuller or GMM via method=, with first-stage, weak-IV (effective F) and endogeneity diagnostics. Formula 'y ~ x + (d ~ z1 + z2)'. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
-        "augmented_diagnostics": {
-          "default": true,
-          "description": "When the method returns EconometricResults, attach the Kleibergen-Paap rk statistic, Sanderson-Windmeijer per-endogenous F and Olea-Pflueger effective F to result.diagnostics.",
-          "type": "boolean"
-        },
-        "cluster": {
-          "description": "Column name for cluster-robust SEs",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
         "formula": {
-          "description": "IV formula: 'y ~ (endog ~ instruments) + exog'",
-          "type": "string",
-          "x-statspai-role": "formula"
-        },
-        "fuller_alpha": {
-          "default": 1.0,
-          "description": "Fuller constant (method='fuller' only)",
-          "type": "number"
+          "description": "'y ~ x + (d ~ z1 + z2)' style.",
+          "type": "string"
         },
         "method": {
           "default": "2sls",
-          "description": "Estimation method. The k-class methods (2sls, liml, fuller, gmm, jive) take `formula` + `data`; the rest take their own explicit arguments -- see the target function's docstring. Aliases are case-insensitive and -/_ interchangeable.",
           "enum": [
             "2sls",
             "liml",
             "fuller",
-            "gmm",
-            "jive",
-            "jive1",
-            "ujive",
-            "ijive",
-            "rjive",
-            "jive_mw",
-            "many_weak_ar",
-            "lasso",
-            "rlasso",
-            "post_lasso",
-            "mte",
-            "ivmte_bounds",
-            "plausibly_exog_ltz",
-            "plausibly_exog_uci",
-            "npiv",
-            "kernel",
-            "ivdml",
-            "deepiv",
-            "ivqreg",
-            "bayes",
-            "continuous_late",
-            "shift_share"
+            "gmm"
           ],
           "type": "string"
         },
-        "robust": {
-          "default": "nonrobust",
-          "description": "Standard error type",
-          "enum": [
-            "nonrobust",
-            "hc0",
-            "hc1",
-            "hc2",
-            "hc3"
-          ],
-          "type": "string"
-        },
-        "small": {
-          "default": true,
-          "description": "Small-sample statistics as Stata ivregress, small (N-K divisor, HC1, G/(G-1)(N-1)/(N-K) cluster factor, t/F); False gives ivregress' default large-sample statistics (N divisor, HC0, no cluster factor, z/chi2). 2SLS/LIML",
-          "type": "boolean"
-        },
-        "weights_as": {
-          "description": "What the weights are. 'analytic' (Stata [aw=]) is what weights= alone already means; 'sampling' (Stata [pw=]) gives the same coefficients with the HC1 variance, unless another variance is asked for. Saying which silences the warning about dispersed weights under the model-based variance. 'frequency' is refused",
-          "enum": [
-            "analytic",
-            "sampling"
-          ],
+        "vce": {
+          "description": "'robust', 'hc1' or 'cluster <col>'.",
           "type": "string"
         }
       },
@@ -22166,173 +22036,51 @@
     "name": "marginsplot"
   },
   {
-    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: certified evidence with scoped limitations. Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support: tr...",
+    "description": "Matching estimator dispatcher (ATT by default): nearest-neighbour on the propensity score or Mahalanobis distance, Abadie-Imbens nnmatch, CEM, optimal / full matching, kernel, radius, ... via method=. Returns balance diagnostics. Validation: certified evidence with scoped limitations. Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact.",
     "input_schema": {
       "properties": {
-        "bootstrap_reps": {
-          "default": 200,
-          "description": "Replications for se_method='bootstrap'",
-          "type": "integer"
-        },
-        "bootstrap_seed": {
-          "description": "Seed for the bootstrap resampler",
-          "type": "integer"
-        },
-        "caliper_scale": {
-          "default": "raw",
-          "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
-          "enum": [
-            "raw",
-            "sd"
-          ],
-          "type": "string"
-        },
-        "covariate_calipers": {
-          "description": "method='nearest' only: {column: width}; a pair must be within width on each column (MatchIt named caliper entries). caliper_scale='sd' reads widths in SDs of each column.",
-          "type": "object"
-        },
         "covariates": {
-          "description": "Pre-treatment covariates to balance/match on.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "x-aliases": [
-            "controls"
-          ],
-          "x-statspai-role": "columns"
-        },
-        "exact": {
-          "description": "method='nearest' only: match only within cells of equal values of these columns (MatchIt exact=~...). Treated units whose cell has no control go unmatched and are counted in model_info.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
-        "llr_stata_compat": {
-          "default": false,
-          "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) rather than genuine local linear regression.",
-          "type": "boolean"
-        },
-        "m_order": {
-          "default": "smallest_min_dist",
-          "description": "Order treated units are processed in for greedy matching without replacement. The result depends on it materially (>5x spread on lalonde with Mahalanobis distance). 'data' and 'closest' reproduce the MatchIt rules of the same name.",
+        "estimand": {
+          "default": "ATT",
           "enum": [
-            "smallest_min_dist",
-            "data",
-            "closest",
-            "farthest",
-            "smallest",
-            "largest"
+            "ATT",
+            "ATE",
+            "ATC"
           ],
           "type": "string"
-        },
-        "mahalanobis_cov": {
-          "default": "pooled",
-          "description": "Covariance defining the Mahalanobis metric: 'pooled' within-group (Rubin 1980, MatchIt) or 'total' full-sample (pre-1.21 behaviour).",
-          "enum": [
-            "pooled",
-            "total"
-          ],
-          "type": "string"
-        },
-        "mahvars": {
-          "description": "method='nearest' with the propensity distance: match on the Mahalanobis distance of these columns, the score serving only as caliper (MatchIt mahvars=~...).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         },
         "method": {
           "default": "nearest",
-          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch). 'optimal' is optimal pair matching; 'full' is optimal full matching, which uses every unit (MatchIt method='full').",
           "enum": [
             "nearest",
             "psm",
             "mahalanobis",
             "nnmatch",
-            "kernel",
-            "radius",
-            "llr",
-            "stratify",
             "cem",
             "optimal",
             "full",
-            "genmatch",
-            "cardinality",
-            "ebalance",
-            "cbps",
-            "sbw",
-            "overlap"
-          ],
-          "type": "string"
-        },
-        "ps_model": {
-          "default": "logit",
-          "description": "Propensity-score model; 'probit' is teffects psmatch (..., probit)",
-          "enum": [
-            "logit",
-            "probit"
-          ],
-          "type": "string"
-        },
-        "pscore": {
-          "description": "Column holding a fitted score to match on (Stata psmatch2, pscore()); no treatment model is fitted",
-          "type": "string"
-        },
-        "se_method": {
-          "default": "auto",
-          "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw. 'abadie_imbens_2016' is the Abadie-Imbens (2016) estimated-propensity-score variance Stata teffects psmatch reports (population ATT; the score-estimation term can be negative).",
-          "enum": [
-            "auto",
-            "ai",
-            "psmatch2",
-            "abadie_imbens",
-            "abadie_imbens_pop",
-            "abadie_imbens_2016",
-            "bootstrap"
-          ],
-          "type": "string"
-        },
-        "strata": {
-          "description": "With method='stratify': column holding the stratum of each row (the blocks of sp.pscore; Stata atts)",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "tie_tolerance": {
-          "default": 0.0,
-          "description": "With ties='all', how close squared distances (scaled by the variance of the distance measure) must be to count as tied. 1e-5 reproduces Matching::Match's distance.tolerance default.",
-          "type": "number"
-        },
-        "ties": {
-          "default": "all",
-          "description": "How equidistant controls are handled under matching with replacement. 'all' (default) pools them and splits the weight (Stata teffects, Matching::Match), so the estimate does not depend on row order; 'first' keeps the lowest-index one (psmatch2 without ties) and warns.",
-          "enum": [
-            "all",
-            "first"
+            "kernel",
+            "radius"
           ],
           "type": "string"
         },
         "treat": {
-          "description": "Binary treatment column (0/1)",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "weights": {
-          "description": "Frequency weights (Stata [fw=], positive integers; the only weight teffects matching accepts). Sampling weights and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
-          "type": "string",
-          "x-statspai-role": "column"
+          "description": "0/1 treatment.",
+          "type": "string"
         },
         "y": {
-          "description": "Outcome column",
-          "type": "string",
-          "x-statspai-role": "column"
+          "type": "string"
         }
       },
       "required": [
-        "covariates",
+        "y",
         "treat",
-        "y"
+        "covariates"
       ],
       "type": "object"
     },
@@ -36149,63 +35897,12 @@
     "name": "scpi"
   },
   {
-    "description": "Synthetic Difference-in-Differences estimator (and SC / DID variants). Validation: certified parity evidence. Do NOT use when: the parallel-trends estimand with unit weights is wanted -- sdid re-weights both units and periods and its estimand differs from CS; there is no clean pre-treatment block for every unit -- the unit and time weights are fit on the pre-period grid. Cost: Placebo / bootstrap standard errors refit the full weighting problem n_reps times; the point estimate alone is cheap. Lower n_reps while iterating. Assumptions: Parallel trends in the absence of treatment, after the synthetic/DiD weighting; No anticipation and no interference between units (SUTVA); The control pool's outcome process is stable around the intervention. Pre-conditions: Panel with treated and control units and a clear treatment date; Pre-treatment periods available to assess comparability of trends. Failure modes: se_method='jackknife' refused for a single treated unit -> Use se_method='placebo' (Stata's rule) -- the jackknife needs two treated units per cohort. Alternatives: sp.synth, sp.augsynth, sp.callaway_santanna, sp.gardner_did. Typical minimum N: 15.",
+    "description": "Synthetic difference-in-differences (Arkhangelsky et al. 2021): unit and time weights, one treated unit or block. Long panel; placebo / bootstrap / jackknife SEs. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level for confidence intervals.",
-          "type": "number"
-        },
-        "backend": {
-          "default": "native",
-          "description": "``'native'`` uses StatsPAI's Python implementation. ``'synthdid'``/``'r'`` delegates to the R ``synthdid`` package through ``Rscript`` and returns the reference package's point estimate and ``synthdid_se`` standard error. The R backend is mainly for exact cross-language parity claims; the dependency- light native implementation remains the default.",
-          "enum": [
-            "native",
-            "synthdid",
-            "r"
-          ],
-          "type": "string"
-        },
-        "covariate_method": {
-          "description": "With ``treat=`` and ``covariates=``: ``'projected'`` removes ``X beta``, ``beta`` from a unit and period fixed-effects regression on the never-treated units, before estimation (Stata's ``covariates(..., projected)``). ``'optimized'`` puts the covariates into the weight problem, as R ``synthdid_estimate(X=)`` does (single adoption date, point estimate",
-          "enum": [
-            "projected",
-            "optimized"
-          ],
-          "type": "string"
-        },
-        "covariates": {
-          "description": "Covariates, with ``treat=`` and ``covariate_method=``. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "x-statspai-role": "columns"
-        },
-        "method": {
-          "default": "sdid",
-          "description": "* ``'sdid'`` -- Synthetic DID (unit + time weights) * ``'sc'`` -- Synthetic Control (unit weights only) * ``'did'`` -- DID (uniform weights)",
-          "enum": [
-            "sdid",
-            "sc",
-            "did"
-          ],
-          "type": "string"
-        },
-        "n_reps": {
-          "default": 200,
-          "description": "Replications for placebo / bootstrap SE.",
-          "type": "integer"
-        },
-        "outcome": {
-          "description": "Outcome variable column. Alias ``y=`` accepted for R-style calls.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
         "se_method": {
           "default": "placebo",
-          "description": "Standard-error method (see Notes). ``'noinference'`` (``treat=`` only) returns the point estimate with NaN SE, as Stata's ``vce(noinference)``.",
+          "description": "'noinference' needs treat=.",
           "enum": [
             "placebo",
             "bootstrap",
@@ -36215,54 +35912,43 @@
           "type": "string"
         },
         "seed": {
-          "description": "Random seed for reproducibility.",
           "type": "integer"
         },
         "time": {
-          "description": "Time period column.",
-          "type": "string",
-          "x-statspai-role": "column"
+          "type": "string"
         },
         "treat": {
-          "description": "A 0/1 column that switches on when a unit is treated and stays on, as in Stata's ``sdid Y unit time W``; replaces ``treated_unit`` / ``treatment_time``. Units may adopt at different periods: each adoption cohort is fitted against the never-treated units and the cohort effects are averaged with weights proportional to treated units x post periods ([@clarke2024synthetic], eq. 7). This path follows Stata ``sdid`` 2.0.2, including its checks and inference rules; cohort detail is in ``model_info['tau_by_cohort']``.",
-          "type": "string",
-          "x-statspai-role": "column"
+          "description": "0/1 treatment column (block designs).",
+          "type": "string"
         },
         "treat_time": {
-          "description": "treat_time parameter.",
-          "type": "string"
+          "description": "First treated period.",
+          "type": [
+            "integer",
+            "number",
+            "string"
+          ]
         },
         "treat_unit": {
-          "description": "treat_unit parameter.",
-          "type": "string"
-        },
-        "treated_unit": {
-          "description": "Treated unit(s). Alias ``treat_unit=`` accepted.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "treatment_time": {
-          "description": "First treatment period (inclusive). Alias ``treat_time=`` accepted.",
-          "type": "string"
+          "description": "Treated unit value (or use treat=).",
+          "type": [
+            "string",
+            "integer"
+          ]
         },
         "unit": {
-          "description": "Unit identifier column.",
-          "type": "string",
-          "x-aliases": [
-            "id"
-          ],
-          "x-canonical": "id",
-          "x-statspai-role": "column"
+          "type": "string"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
-          "type": "string",
-          "x-statspai-role": "column"
+          "description": "Outcome column.",
+          "type": "string"
         }
       },
-      "required": [],
+      "required": [
+        "y",
+        "unit",
+        "time"
+      ],
       "type": "object"
     },
     "name": "sdid"
@@ -38775,40 +38461,14 @@
     "name": "suest"
   },
   {
-    "description": "Sun-Abraham (2021) interaction-weighted event-study. Fixes the contamination in dynamic event-study TWFE coefficients from other relative-time bins by using cohort-specific interaction weights. Canonical companion to Callaway-Sant'Anna for event studies. Validation: certified parity evidence. Do NOT use when: all units adopt treatment simultaneously -- the cohort x relative-time interactions collapse; use sp.did(method='2x2'); cohorts are very small (a handful of units each) -- interaction-weighted estimates become noisy and the cohort-share weights unstable. Cost: Builds a saturated cohort x relative-time interaction design: columns grow as (cohorts x event-time window), so a wide window on a many-cohort panel produces a large dense design matrix. Trim via event_window=. Assumptions: Parallel trends across cohorts; No anticipation within event_window lead horizon; Parallel trends: treated and control groups would have followed the same trajectory absent treatment. Pre-conditions: panel with unit x time x outcome; g is the first-treatment period (int), 0 / NaN for never-treated; >= 2 pre-periods per cohort for event-study leads. Failure modes: No never-treated cohort when control_...",
+    "description": "Sun-Abraham (2021) interaction-weighted event study for staggered adoption (Stata eventstudyinteract, fixest sunab). Cohort column g = first-treatment period, 0 / NaN never treated. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
-        "aggregation": {
-          "default": "event_time",
-          "description": "Headline summary convention: 'event_time' (equal weight per relative time) or 'fixest_att' (cohort-size weighted, matching fixest agg='att').",
-          "enum": [
-            "event_time",
-            "fixest_att"
-          ],
-          "type": "string"
-        },
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level.",
-          "type": "number"
-        },
-        "anticipation": {
-          "default": 0,
-          "description": "Periods before g in which units may already respond. The reference period becomes -1 - anticipation (fixest ref.p); relative times -anticipation..-1 are reported as anticipation effects and left out of the pre-trend test and the post-treatment average.",
-          "type": "integer"
-        },
         "cluster": {
-          "description": "Cluster variable (defaults to i)",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "control_cohort": {
-          "description": "Nominate the reference cohort explicitly: a 0/1 indicator column (Stata eventstudyinteract's control_cohort()) or a cohort value from g.",
           "type": "string"
         },
         "control_group": {
           "default": "nevertreated",
-          "description": "Reference cohort: never-treated units, or the last-treated cohort when there are none. A not-yet-treated comparison is not an option of this estimator (use sp.callaway_santanna).",
           "enum": [
             "nevertreated",
             "lastcohort"
@@ -38816,109 +38476,32 @@
           "type": "string"
         },
         "covariates": {
-          "description": "Additional controls (time-varying; added linearly).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "x-aliases": [
-            "controls"
-          ],
-          "x-statspai-role": "columns"
-        },
-        "event_window": {
-          "description": "(lead, lag) window for event-study coefficients",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "g": {
-          "description": "First-treatment period (0 = never-treated)",
-          "type": "string",
-          "x-aliases": [
-            "cohort",
-            "first_treat"
-          ],
-          "x-statspai-role": "column"
-        },
-        "i": {
-          "description": "Unit identifier (unit fixed effects; default cluster). None reads the rows as repeated cross sections: cohort fixed effects and HC1 SEs, fixest feols(y ~ sunab(g, t) | g + t, vcov='hetero').",
-          "type": "string",
-          "x-aliases": [
-            "id",
-            "unit"
-          ],
-          "x-canonical": "id",
-          "x-statspai-role": "column"
-        },
-        "pretest": {
-          "default": "joint",
-          "description": "Report the joint pre-trend Wald test ('joint') or skip it ('none').",
-          "enum": [
-            "joint",
-            "none"
-          ],
+          "description": "First-treatment cohort.",
           "type": "string"
         },
-        "pretest_periods": {
-          "description": "Restrict the pre-trend test to the k estimated leads closest to treatment.",
-          "type": "integer"
-        },
-        "ref_p": {
-          "description": "Omitted reference relative period(s), fixest sunab's ref.p (int or list of int). Default -1 - anticipation; every value must be below -anticipation.",
-          "items": {
-            "type": "integer"
-          },
-          "type": "array"
-        },
-        "share_variance": {
-          "default": true,
-          "description": "Carry the cohort-share estimation term of Sun & Abraham (2021, Prop. 3) in the event-study variance (True: Stata eventstudyinteract convention) or treat the interaction weights as fixed (False: fixest::sunab convention). The two coincide at single-cohort relative times; point estimates are unaffected.",
-          "type": "boolean"
+        "i": {
+          "description": "Unit ID column",
+          "type": "string"
         },
         "t": {
-          "description": "Time period column",
-          "type": "string",
-          "x-aliases": [
-            "time"
-          ],
-          "x-canonical": "time",
-          "x-statspai-role": "column"
-        },
-        "vce": {
-          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>). Any other kind raises. Omitting it gives the default: panel-unit clustered standard errors.",
-          "type": "string",
-          "x-statspai-grammar": "vce",
-          "x-statspai-vce-kinds": [
-            "cluster"
-          ]
-        },
-        "weights": {
-          "description": "Unit-level sampling/population weights omega. Enters the fixed-effect projection, the least-squares solve, the cluster-robust variance, and the interaction weights (which become shares of omega-mass). Changes the target parameter, not the precision.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "window_rule": {
-          "default": "report",
-          "description": "What event_window does to relative times outside it. 'report': the regression stays saturated and the window selects what is reported. 'bin': they are pooled into the window's end points (binned eventstudyinteract dummies). 'reference': they join the omitted category, which biases every coefficient unless their effects are zero; the behaviour before 1.39.0",
-          "enum": [
-            "report",
-            "bin",
-            "reference"
-          ],
+          "description": "Time column",
           "type": "string"
         },
         "y": {
-          "description": "Outcome variable.",
-          "type": "string",
-          "x-statspai-role": "column"
+          "type": "string"
         }
       },
       "required": [
+        "y",
         "g",
         "t",
-        "y"
+        "i"
       ],
       "type": "object"
     },

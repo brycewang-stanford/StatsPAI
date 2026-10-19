@@ -473,6 +473,8 @@ _RESERVED_ARG_NAMES = (
 
 #: Allowed values for ``detail`` (mirrors ``CausalResult.to_dict``).
 _DETAIL_LEVELS = ("minimal", "standard", "agent")
+#: Spellings accepted for ``detail`` and the level they mean.
+_DETAIL_ALIASES = {"full": "agent"}
 
 #: Tools whose underlying StatsPAI function does NOT take a DataFrame
 #: as input (they consume pre-computed statistics or string handles).
@@ -692,7 +694,9 @@ def _curated_tool_names() -> "frozenset[str]":
     from .tools._specs import TOOL_REGISTRY
     from .workflow_tools import workflow_tool_manifest
 
-    names = {t["name"] for t in TOOL_REGISTRY}
+    # A spec marked ``"profile": "full"`` keeps its hand-written schema and
+    # stays callable by name, but is listed only under the full profile.
+    names = {t["name"] for t in TOOL_REGISTRY if t.get("profile") != "full"}
     names.update(t["name"] for t in workflow_tool_manifest())
     names.update(t["name"] for t in pipeline_tool_manifest())
     return frozenset(names)
@@ -2041,6 +2045,10 @@ def _run_tools_call(
     df, data_prov, replay_comment = loaded
 
     detail = arguments.pop("detail", "agent")
+    if detail in _DETAIL_ALIASES:
+        # Agents ask for "full" by analogy with other servers; "agent" is
+        # the fullest payload here.
+        detail = _DETAIL_ALIASES[detail]
     if detail not in _DETAIL_LEVELS:
         raise _ToolCallError(
             "invalid_arguments",

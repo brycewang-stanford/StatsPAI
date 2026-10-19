@@ -115,6 +115,34 @@ SPECS: List[Dict[str, Any]] = [
         "serializer": _default_serializer,
     },
     {
+        "name": "sun_abraham",
+        "description": (
+            "Sun-Abraham (2021) interaction-weighted event study for "
+            "staggered adoption (Stata eventstudyinteract, fixest sunab). "
+            "Cohort column g = first-treatment period, 0 / NaN never "
+            "treated."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "y": {"type": "string"},
+                "g": {"type": "string", "description": "First-treatment cohort."},
+                "t": {"type": "string", "description": "Time column"},
+                "i": {"type": "string", "description": "Unit ID column"},
+                "control_group": {
+                    "type": "string",
+                    "enum": ["nevertreated", "lastcohort"],
+                    "default": "nevertreated",
+                },
+                "covariates": {"type": "array", "items": {"type": "string"}},
+                "cluster": {"type": "string"},
+            },
+            "required": ["y", "g", "t", "i"],
+        },
+        "statspai_fn": "sun_abraham",
+        "serializer": _default_serializer,
+    },
+    {
         "name": "honest_did",
         "description": (
             "Rambachan-Roth (2023) 'honest' DID sensitivity analysis. "

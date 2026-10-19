@@ -38,6 +38,36 @@ SPECS: List[Dict[str, Any]] = [
         "serializer": _default_serializer,
     },
     {
+        "name": "feols",
+        "description": (
+            "OLS with high-dimensional fixed effects (R fixest / Stata "
+            "reghdfe syntax): 'y ~ x1 + x2 | unit + year'. IV as "
+            "'y ~ x | fe | d ~ z'. vcov: 'iid', 'hetero', or "
+            "{'CRV1': 'cluster_col'} (two-way: 'a + b')."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "fml": {
+                    "type": "string",
+                    "description": "fixest formula, e.g. 'y ~ x | unit + year'",
+                },
+                "vcov": {
+                    "type": ["string", "object"],
+                    "description": "'iid', 'hetero' or {'CRV1': 'col'}",
+                },
+                "cluster": {
+                    "type": "string",
+                    "description": "Cluster column (same as {'CRV1': col}).",
+                },
+                "weights": {"type": "string", "description": "Weight column."},
+            },
+            "required": ["fml"],
+        },
+        "statspai_fn": "feols",
+        "serializer": _default_serializer,
+    },
+    {
         "name": "nbreg",
         "description": (
             "Fit a negative-binomial count model. Use this for overdispersed "
@@ -88,6 +118,10 @@ SPECS: List[Dict[str, Any]] = [
         },
         "statspai_fn": "nbreg",
         "serializer": _default_serializer,
+        # Reachable by name (tools/call, call_function) under every profile
+        # but not advertised in the curated list: count models are a niche
+        # next to the fixed-effects / IV / matching entry points.
+        "profile": "full",
     },
     {
         "name": "xtnbreg",
@@ -136,5 +170,6 @@ SPECS: List[Dict[str, Any]] = [
         },
         "statspai_fn": "xtnbreg",
         "serializer": _default_serializer,
+        "profile": "full",
     },
 ]

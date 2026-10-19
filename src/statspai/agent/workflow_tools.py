@@ -2871,9 +2871,21 @@ def _tool_describe_function(arguments: Dict[str, Any]) -> Dict[str, Any]:
         }
     out: Dict[str, Any] = dict(describe_function(name))
     try:
-        out["schema"] = _function_schema(name)
+        schema = _function_schema(name)
     except Exception as e:  # pragma: no cover - defensive
         out["schema_error"] = f"{type(e).__name__}: {e}"
+    else:
+        # The JSON-Schema parameters carry every field of the ``params``
+        # list (type, default, enum, description) plus the accepted
+        # aliases, and the schema's composed description repeats the
+        # card fields above. Sending both doubled the payload (2026-10-19
+        # audit: 5.9 KB + 6.8 KB for callaway_santanna), so the parameters
+        # are sent once, as the schema.
+        out.pop("params", None)
+        out["schema"] = {
+            "name": schema.get("name", name),
+            "parameters": schema.get("parameters", {}),
+        }
     out["call_with"] = {
         "tool": "call_function",
         "arguments": {"function": name, "arguments": {"<param>": "<value>"}},

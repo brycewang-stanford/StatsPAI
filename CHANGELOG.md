@@ -176,6 +176,17 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.search_functions(query, limit=10, category=None)`: like the MCP tool,
   the Python function returns the top 10 by default; `limit=None` returns
   every match as before.
+- MCP `curated` profile: lists `feols`, `iv`, `match`, `sun_abraham` and
+  `sdid`; `nbreg` / `xtnbreg` are no longer advertised there (still
+  callable by name with their hand-written schema, and listed under
+  `full`). `tools/list` grows from 42 to 45 tools, 81.6 KB to 87.1 KB
+  (about 20.4k to 21.8k tokens at 4 bytes a token); `core` is unchanged.
+- MCP `describe_function` sends the parameters once, as the JSON schema
+  (it sent the registry `params` list and the schema, whose composed
+  description also repeated the card): 82.4 KB to 51.0 KB over
+  `callaway_santanna` / `feols` / `rdrobust` / `dml` / `synth`.
+- MCP tools accept `detail="full"` as a spelling of `"agent"` (the fullest
+  payload); it was refused as an invalid argument.
 
 
 ### ⚠️ Correctness: `sp.rdrobust` fuzzy bandwidth with covariates
