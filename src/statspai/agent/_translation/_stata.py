@@ -33,6 +33,7 @@ import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from . import _stata_options as _opts
+from ._payload import mark_completeness
 from ._stata_lexer import StataCommand, StataParseError
 from ._stata_lexer import parse as _parse_stata
 
@@ -644,6 +645,57 @@ def _hdfe_terms(terms: List[str], command: str) -> Tuple[Optional[str], List[str
     return None, out
 
 
+def _weighted_robust_feols(
+    cmd: StataCommand,
+    command: str,
+    main: str,
+    fe_list: List[str],
+    endog: Optional[List[str]] = None,
+    instruments: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """reghdfe / ivreghdfe with weights and a robust variance -> ``sp.feols``.
+
+    ``sp.hdfe_ols`` offers the robust variance unweighted only. ``sp.feols``
+    with ``vcov='hetero'`` and ``fixef_rm='singleton'`` drops singleton
+    groups and counts the absorbed levels as reghdfe does; Stata 18
+    (reghdfe 6, ivreghdfe) agrees with it for ``[pw=]``, ``[aw=] ...,
+    vce(robust)``, one and two absorbed factors, with and without
+    singletons (``tests/test_stata_translation_pweights.py``).
+    """
+    if any("c." in term for term in fe_list):
+        return _emit_error(
+            f"{command} with weights, a robust variance and an absorbed slope "
+            f"({', '.join(t for t in fe_list if 'c.' in t)}) is not translated: "
+            "sp.hdfe_ols's robust variance is unweighted and sp.feols has no "
+            "slope fixed effects in this grammar.",
+            command=command,
+            suggestions=[],
+        )
+    keep = "keepsingletons" in cmd.options
+    fml = _pyfixest_fml(
+        main,
+        fe_list,
+        " + ".join(endog) if endog else None,
+        " + ".join(instruments) if instruments else None,
+    )
+    args: Dict[str, Any] = {
+        "fml": fml,
+        "vcov": "hetero",
+        "fixef_rm": "none" if keep else "singleton",
+    }
+    python = (
+        f"sp.feols({fml!r}, data=df, vcov='hetero', " f"fixef_rm={args['fixef_rm']!r})"
+    )
+    kind = cmd.weight[0] if cmd.weight else ""
+    notes = [
+        f"{command} with [{kind}=] and a robust variance -> sp.feols(vcov="
+        "'hetero', fixef_rm='singleton'): sp.hdfe_ols's robust variance is "
+        "unweighted; sp.feols drops singletons and applies reghdfe's "
+        "small-sample factor."
+    ]
+    return _emit("feols", args, python, notes)
+
+
 def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     """``reghdfe y x, absorb(id year#q) cluster(id)`` -> ``sp.hdfe_ols``.
 
@@ -659,6 +711,11 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     if err is not None:
         return _emit_error(err, command="reghdfe", suggestions=[])
     clusters = _cluster_vars(cmd)
+    robust = "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust")
+    if cmd.weight is not None and robust and not clusters:
+        return _weighted_robust_feols(
+            cmd, "reghdfe", _build_formula(y, list(xs)), fe_list
+        )
     err, xs = _hdfe_terms(list(xs), "reghdfe")
     if err is not None:
         return _emit_error(err, command="reghdfe", suggestions=[])
@@ -667,7 +724,7 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     args: Dict[str, Any] = {"formula": formula}
     if clusters:
         args["cluster"] = clusters[0] if len(clusters) == 1 else clusters
-    elif "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust"):
+    elif robust:
         args["vce"] = "robust"
     if "keepsingletons" in cmd.options:
         args["drop_singletons"] = False
@@ -1417,6 +1474,17 @@ def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
             command="ivreghdfe",
             suggestions=[],
         )
+    robust = "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust")
+    if cmd.weight is not None and robust and not clusters:
+        out = _weighted_robust_feols(
+            cmd, "ivreghdfe", _build_formula(y, list(exog)), fe_list, endog, instruments
+        )
+        if out.get("ok"):
+            out["notes"].append(
+                "The first-stage and weak-instrument statistics of ivreghdfe "
+                "are not part of sp.feols's result."
+            )
+        return out
     err, exog = _hdfe_terms(list(exog), "ivreghdfe")
     if err is not None:
         return _emit_error(err, command="ivreghdfe", suggestions=[])
@@ -1427,7 +1495,7 @@ def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
     args = {"formula": formula}
     if clusters:
         args["cluster"] = clusters[0]
-    elif "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust"):
+    elif robust:
         args["vce"] = "robust"
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items() if k != "formula")
     python = f"sp.hdfe_ols({formula!r}, data=df" + (f", {kw})" if kw else ")")
@@ -3694,6 +3762,13 @@ def _h_ppmlhdfe(cmd: StataCommand) -> Dict[str, Any]:
             "ppmlhdfe with no absorb() degenerates to "
             "sp.poisson — consider using that directly."
         )
+    if not cluster and (
+        "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust")
+    ):
+        # ppmlhdfe's default variance is vce(robust), and so is sp.ppmlhdfe's;
+        # written out when Stata names it (a [pw=] implies it too).
+        args["robust"] = "robust"
+        python = python[:-1] + ", robust='robust')"
     return _emit("ppmlhdfe", args, python, notes)
 
 
@@ -4983,13 +5058,91 @@ def _normalise_command(
 #: change the estimate (a ``**kwargs`` that swallowed them would not).
 _WEIGHTS_VIA_KWARGS = frozenset({"ivreg", "iv"})
 
-#: The likelihood estimators of ``_h_glm_like``: Stata's ``vce(robust)`` --
-#: and so a ``[pw=]`` -- carries N/(N-1) there, sp's ``robust='robust'``
-#: (Stata 18: ``logit yb x1 [pw=w]`` reports se .0980456, which HC1's
-#: N/(N-K) inflates by sqrt(59/58)).
-_ML_ROBUST = frozenset(
-    {"logit", "probit", "poisson", "nbreg", "cloglog", "ologit", "oprobit"}
+#: Stata estimation commands whose ``[pweight=]`` implies ``vce(robust)``
+#: (``xtreg, fe``: ``vce(cluster panelvar)``). Stata 18 reports the same
+#: e(V) for ``cmd [pw=w]`` and ``cmd [pw=w], vce(robust)`` for each of them
+#: (checked 2026-10-19 on tests/stata_translation_holdout/holdout_cross.csv;
+#: ivreg2 / ivreg take ``robust``, which the handlers read as vce(robust)).
+#: ``from_stata`` adds ``vce(robust)`` to such a command when it names no
+#: variance, so the handler's own vce(robust) mapping decides the sp
+#: argument. qreg is not listed: ``sp.qreg`` switches to the robust
+#: variance itself when given weights, as Stata's qreg does.
+_PW_IMPLIES_ROBUST = frozenset(
+    {
+        "regress",
+        "reg",
+        "areg",
+        "reghdfe",
+        "ivregress",
+        "ivreg2",
+        "ivreg",
+        "ivreghdfe",
+        "logit",
+        "probit",
+        "poisson",
+        "nbreg",
+        "cloglog",
+        "ologit",
+        "oprobit",
+        "mlogit",
+        "tobit",
+        "glm",
+        "ppmlhdfe",
+        "heckman",
+        "truncreg",
+        "ivprobit",
+        "ivpoisson",
+        "ivtobit",
+        "etregress",
+        "etpoisson",
+        "xtreg",
+        "robreg",
+    }
 )
+
+#: Commands Stata 18 refuses with ``[pweight=]`` (r(101)); translating the
+#: line would run a model Stata does not fit.
+_PW_NOT_ALLOWED = {
+    "newey": "newey takes aweights only",
+    "prais": "prais does not take pweights",
+    "rdrobust": "rdrobust takes its weights in the weights() option",
+    "xtnbreg": "xtnbreg does not take pweights",
+}
+
+_VARIANCE_OPTIONS = ("vce", "robust", "cluster")
+
+
+def _pweight_variance(
+    command: str, weight: Optional[Tuple[str, str]], options: Dict[str, Any]
+) -> Optional[str]:
+    """The ``vce()`` a ``[pw=]`` implies for ``command``, or None.
+
+    None when the command names its variance itself, the weight is not a
+    pweight, or Stata's command does not tie pweights to vce(robust).
+    ``dict.__contains__`` keeps the probe from counting as reading the
+    options.
+    """
+    if weight is None or weight[0] != "pw" or command not in _PW_IMPLIES_ROBUST:
+        return None
+    if any(dict.__contains__(options, k) for k in _VARIANCE_OPTIONS):
+        return None
+    if command == "xtreg" and not dict.__contains__(options, "fe"):
+        return None  # xtreg, re does not take pweights; refused below
+    return "robust"
+
+
+def _with_kwarg(code: str, text: str) -> str:
+    """Insert ``text`` (``"weights='w'"``) into a one-call snippet.
+
+    After ``data=df`` when the call names it so, else before the closing
+    parenthesis (``sp.qreg(df, ...)`` takes the data positionally): the
+    code must name every argument the payload carries.
+    """
+    if "data=df" in code:
+        return code.replace("data=df", f"data=df, {text}", 1)
+    if code.endswith(")"):
+        return f"{code[:-1]}, {text})"
+    return code
 
 
 def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str, Any]:
@@ -5036,28 +5189,11 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
         )
     else:
         payload["arguments"]["weights"] = var
-        code = code.replace("data=df", f"data=df, weights={var!r}", 1)
+        code = _with_kwarg(code, f"weights={var!r}")
         if kind == "aw":
             sem.append(f"[aw={var}] -> weights={var!r} (analytic weights).")
         else:
-            sem.append(
-                f"[pw={var}] -> weights={var!r}; Stata's pweights imply "
-                "robust standard errors."
-            )
-            args = payload["arguments"]
-            if (
-                "robust" in params
-                and not args.get("robust")
-                and not args.get("cluster")
-            ):
-                # what the same command's vce(robust) translates to: after a
-                # likelihood estimator that is N/(N-1) (robust='robust'),
-                # not regress's N/(N-K)
-                vce = "robust" if payload.get("tool") in _ML_ROBUST else "hc1"
-                args["robust"] = vce
-                code = code.replace(
-                    f"weights={var!r}", f"weights={var!r}, robust={vce!r}", 1
-                )
+            sem.append(f"[pw={var}] -> weights={var!r} (sampling weights).")
     payload["python_code"] = code
     return payload
 
@@ -5138,12 +5274,16 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
                 "untranslated_options": [<option name>, ...],
                 "ignored_display_options": [<option name>, ...],
                 "unapplied_sample": "<if / in qualifier>" or None,
+                "dropped": [<option name or qualifier>, ...],
+                "complete": <bool>,
             }
 
         ``untranslated_options`` lists the options the call does not carry
-        over and ``unapplied_sample`` the ``if`` / ``in`` qualifier: when
-        both are empty the call fits the same model. Options that only
-        change what Stata prints go to ``ignored_display_options``.
+        over and ``unapplied_sample`` the ``if`` / ``in`` qualifier;
+        ``dropped`` joins the two (the same key ``sp.from_r`` uses) and
+        ``complete`` is True only when it is empty, i.e. the call fits the
+        same model. Options that only change what Stata prints go to
+        ``ignored_display_options`` and do not count as dropped.
 
         On failure::
 
@@ -5237,8 +5377,26 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         err, info = _normalise_command(parsed, columns)
     if err is not None:
         return _emit_error(err, command=parsed.command, suggestions=[])
+    weight = info["weight"]
+    if weight is not None and weight[0] == "pw" and parsed.command in _PW_NOT_ALLOWED:
+        return _emit_error(
+            f"[pw={weight[1]}] is not allowed by Stata's "
+            f"{parsed.command} ({_PW_NOT_ALLOWED[parsed.command]}; r(101)).",
+            command=parsed.command,
+            suggestions=[],
+        )
+    implied = _pweight_variance(parsed.command, weight, tracked)
+    if implied is not None:
+        # Stata: pweights imply vce(robust). Give the handler the option
+        # Stata acts on, so its vce(robust) mapping sets the sp argument.
+        dict.__setitem__(tracked, "vce", implied)
+        canonical = {**canonical, "vce": implied}
+        info["semantics"].append(
+            f"[pw={weight[1]}]: Stata's pweights imply vce({implied}) for "
+            f"{parsed.command}; translated as if vce({implied}) were given."
+        )
     parsed.columns = columns
-    parsed.weight = info["weight"]
+    parsed.weight = weight
     payload = handler(parsed)
     if not payload.get("ok"):
         return payload
@@ -5257,7 +5415,7 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         payload = _report_options(
             payload, tracked, dict(canonical), expanded, prefixes, parsed
         )
-    return payload
+    return mark_completeness(payload)
 
 
 def _carry_level(payload: Dict[str, Any], level: Optional[str]) -> str:

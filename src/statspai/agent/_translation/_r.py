@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from ._payload import mark_completeness
+
 
 def _emit(
     tool: str,
@@ -53,11 +55,11 @@ def _split_top_level(s: str, delim: str = ",") -> List[str]:
             in_q = ch
             buf.append(ch)
             continue
-        if ch == "(":
+        if ch in "([":
             depth += 1
             buf.append(ch)
             continue
-        if ch == ")":
+        if ch in ")]":
             depth = max(0, depth - 1)
             buf.append(ch)
             continue
@@ -194,8 +196,137 @@ def _clean_cluster_terms(terms: List[str]) -> List[str]:
         if not t:
             continue
         t = _strip_quotes(t.strip()).lstrip("~").strip()
-        if t:
-            out.append(t)
+        # ``cluster = ~id + year`` is two clustering variables
+        out.extend(p.strip() for p in t.split("+") if p.strip())
+    return out
+
+
+_R_NAME = r"[A-Za-z.][A-Za-z0-9._]*"
+
+
+def _feols_sunab(
+    decomp: Dict[str, Any],
+    kw: Dict[str, str],
+    clusters: List[str],
+    vcov_r: Optional[str],
+) -> Dict[str, Any]:
+    """fixest ``feols(y ~ [x +] sunab(cohort, period) | unit + period)`` ->
+    ``sp.sun_abraham``.
+
+    fixest's per-relative-period coefficients are ``sp.sun_abraham``'s event
+    study with ``share_variance=False`` (fixest leaves out the variance of
+    the estimated cohort shares): on a staggered panel with three cohorts
+    and fixest 0.14.0 (``cluster = ~id``) every coefficient and standard
+    error agrees to 1e-9 (``tests/test_translation_from_r_additions.py``).
+    Only the two-way unit + period design is translated; ``sunab()``
+    options (``ref.p``, ``ref.c``, ``att``, ``bin``, ``no_agg``), other
+    fixed effects and an IV part are refused.
+    """
+    main = decomp["main"]
+    start = re.search(r"\bsunab\s*\(", main)
+    assert start is not None  # the caller checked
+    depth, end = 1, start.end()
+    while end < len(main) and depth:
+        depth += {"(": 1, ")": -1}.get(main[end], 0)
+        end += 1
+    call, inner = main[start.start() : end], main[start.end() : end - 1]
+    sun_args = [a.strip() for a in _split_top_level(inner, ",")]
+    if len(sun_args) != 2 or not all(re.fullmatch(_R_NAME, a) for a in sun_args):
+        return _emit_error(
+            f"sunab({inner}) is not translated: only sunab(cohort, period) "
+            "with two column names is (ref.p / ref.c / att / bin / no_agg "
+            "have no sp.sun_abraham argument here).",
+            command="feols",
+            suggestions=["sun_abraham"],
+        )
+    cohort, period = sun_args
+    if decomp["iv_lhs"]:
+        return _emit_error(
+            "feols with sunab() and an IV part is not translated.",
+            command="feols",
+            suggestions=["sun_abraham"],
+        )
+    fe = [t.strip() for t in decomp["fe_terms"] if t.strip()]
+    units = [t for t in fe if t != period]
+    if (
+        len(fe) != 2
+        or period not in fe
+        or len(units) != 1
+        or not re.fullmatch(_R_NAME, units[0])
+    ):
+        return _emit_error(
+            "sunab() is translated for the two-way design `| unit + "
+            f"{period}` only; got fixed effects {fe!r}. sp.sun_abraham "
+            "absorbs exactly unit and period effects.",
+            command="feols",
+            suggestions=["sun_abraham"],
+        )
+    unit = units[0]
+    lhs, _, rhs = main.partition("~")
+    y = lhs.strip()
+    rest = [t.strip() for t in rhs.replace(call, "").split("+") if t.strip()]
+    if not re.fullmatch(_R_NAME, y) or not all(re.fullmatch(_R_NAME, t) for t in rest):
+        return _emit_error(
+            "feols with sunab(): the outcome and the other regressors must be "
+            "column names to be passed as sp.sun_abraham(covariates=...).",
+            command="feols",
+            suggestions=["sun_abraham"],
+        )
+    args: Dict[str, Any] = {"y": y, "g": cohort, "t": period, "i": unit}
+    if rest:
+        args["covariates"] = rest
+    notes = [
+        "fixest's coefficients year::-k / year::k are the rows of "
+        "result.model_info['event_study']; summary(m, agg = 'att') is "
+        "model_info['att_fixest_att'] (aggregation='fixest_att' makes it the "
+        "headline). result.estimate is the average over the post-treatment "
+        "relative periods, not fixest's agg = 'att'.",
+        "Never-treated units: fixest takes any cohort outside the observed "
+        "periods (10000, Inf); sp.sun_abraham reads 0, NaN or Inf as never "
+        "treated. Recode a large sentinel such as 10000 to 0 first, or it is "
+        "read as a cohort that is treated after the sample ends.",
+    ]
+    untranslated: List[str] = []
+    if vcov_r is not None and not vcov_r.strip().startswith("~"):
+        return _emit_error(
+            f"feols(vcov = {vcov_r}) with sunab() is not translated: "
+            "sp.sun_abraham reports cluster-robust standard errors only "
+            "(cluster = ~unit is the translatable spelling).",
+            command="feols",
+            suggestions=["sun_abraham"],
+        )
+    if len(clusters) > 1:
+        return _emit_error(
+            "sunab() with multi-way clustering is not translated: "
+            "sp.sun_abraham clusters on one variable.",
+            command="feols",
+            suggestions=["sun_abraham"],
+        )
+    if clusters:
+        if clusters[0] != unit:
+            args["cluster"] = clusters[0]
+    else:
+        untranslated.append("vcov")
+        notes.append(
+            "No vcov / cluster was given: fixest then uses its default "
+            "variance (IID in fixest 0.14), which sp.sun_abraham does not "
+            "offer; the call clusters on the unit (fixest's cluster = "
+            f"~{unit}). The coefficients are the same."
+        )
+    if "weights" in kw:
+        w = _column(_strip_quotes(kw["weights"]).lstrip("~").strip())
+        if w:
+            args["weights"] = w
+        else:
+            untranslated.append("weights")
+            notes.append(
+                f"R `weights = {kw['weights']}` is an expression, not a column."
+            )
+    args["share_variance"] = False
+    pairs = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("sun_abraham", args, f"sp.sun_abraham(data=df, {pairs})", notes)
+    if untranslated:
+        out["untranslated_arguments"] = untranslated
     return out
 
 
@@ -244,6 +375,8 @@ def _h_feols(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
             else:
                 vcov_note = f"R `vcov = {v}` was not translated; see sp.feols `vcov=`."
     clusters = _clean_cluster_terms(clusters)
+    if re.search(r"\bsunab\s*\(", main):
+        return _feols_sunab(decomp, kw, clusters, vcov_r)
 
     # Target the real, registered ``sp.feols`` (there is no ``sp.fixest``
     # callable — it is a package). feols carries FE / IV inside the formula.
@@ -827,6 +960,29 @@ def _dollar_column(expr: str) -> Optional[str]:
     return _column(e)
 
 
+def _column_list(expr: str) -> Optional[List[str]]:
+    """Columns of an R matrix / data-frame expression, or None.
+
+    ``df$z``, ``cbind(df$z1, df$z2)``, ``df[, c("z1", "z2")]`` and
+    ``df[c("z1", "z2")]`` (optionally inside ``as.matrix()``) name columns;
+    anything computed does not.
+    """
+    e = expr.strip()
+    m = re.fullmatch(r"as\.matrix\s*\((.*)\)", e, flags=re.S)
+    if m:
+        e = m.group(1).strip()
+    m = re.fullmatch(r"cbind\s*\((.*)\)", e, flags=re.S)
+    if m:
+        cols = [_dollar_column(p) for p in _split_top_level(m.group(1), ",")]
+        return cols if cols and all(cols) else None  # type: ignore[return-value]
+    m = re.fullmatch(r"[A-Za-z.][\w.]*\[\s*(?:,\s*)?(c\s*\(.*\))\s*\]", e, flags=re.S)
+    if m:
+        cols = _parse_c_vector(m.group(1))
+        return cols if cols and all(_column(c) for c in cols) else None
+    one = _dollar_column(e)
+    return [one] if one else None
+
+
 def _h_pmg(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     """``plm::pmg(y ~ x, data, index = "year")`` -> ``sp.fama_macbeth``.
 
@@ -1008,6 +1164,24 @@ def _h_rdrobust(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, A
             args["cluster"] = cl
         else:
             untranslated.append("cluster")
+    if "covs" in kw:
+        read.append("covs")
+        covs = _column_list(kw["covs"])
+        if covs:
+            args["covs"] = covs
+        else:
+            untranslated.append("covs")
+            notes.append(
+                f"`covs = {kw['covs']}` does not name columns; put the "
+                "covariates in the data frame and pass covs=[...]."
+            )
+    if "weights" in kw:
+        read.append("weights")
+        wcol = _dollar_column(kw["weights"])
+        if wcol:
+            args["weights"] = wcol
+        else:
+            untranslated.append("weights")
     code = ", ".join(["df"] + [f"{k}={v!r}" for k, v in args.items()])
     out = _emit("rdrobust", args, f"sp.rdrobust({code})", notes)
     if untranslated:
@@ -1232,7 +1406,10 @@ def from_r(line: str) -> Dict[str, Any]:
     Returns
     -------
     dict
-        Same shape as :func:`from_stata`.
+        Same shape as :func:`from_stata`. R arguments the call does not
+        carry over are listed in ``untranslated_arguments`` (with a note)
+        and, under the key both translators share, in ``dropped``;
+        ``complete`` is True only when nothing was dropped.
 
     Examples
     --------
@@ -1275,7 +1452,7 @@ def from_r(line: str) -> Dict[str, Any]:
         ]
         if never_read:
             _note_untranslated(out, kw, never_read)
-    return out
+    return mark_completeness(out)
 
 
 __all__ = ["from_r", "R_FUNCTION_MAP"]

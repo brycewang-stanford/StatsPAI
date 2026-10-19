@@ -139,6 +139,41 @@ period gave `sun_abraham` zero standard errors. The checks now live in
   R `etwfe` gives 2.86 and 2.93); a stacked sub-experiment for such a
   cohort has no reference period.
 
+### Translators: `[pweight=]` implies `vce(robust)`; one `dropped` key; new mappings
+
+#### Fixed
+
+- ⚠️ `sp.from_stata` / `sp.stata`: a command with `[pweight=]` and no
+  `vce()` ran with the non-robust variance for `reghdfe`, `ivreghdfe`,
+  `ivregress`, `ivreg2`, `xtreg, fe` and `glm` (the translator only added
+  a robust variance where the sp function has a `robust=` argument).
+  Stata gives these commands the variance of `vce(robust)` (`xtreg, fe`:
+  `vce(cluster panelvar)`); `reghdfe y x1 x2 [pw=w], absorb(g)` had an x1
+  standard error 7% too large, `xtreg y x [pw=w], fe` one 21% too small.
+  The translator now adds `vce(robust)` to such commands before
+  translating them, so each command's own `vce(robust)` mapping applies;
+  weighted robust `reghdfe` / `ivreghdfe` go to
+  `sp.feols(vcov='hetero', fixef_rm='singleton')`, since `sp.hdfe_ols`'s
+  robust variance is unweighted. `glm [pw=]` now uses Stata's N/(N-1)
+  (`robust='robust'`, was HC1). Checked against Stata 18 (reghdfe 6,
+  ivreghdfe, ivreg2); three `[pweight=]` rows added to the translation
+  holdout. `newey` / `prais` / `rdrobust` / `xtnbreg` with `[pw=]`, which
+  Stata refuses, are refused. `qreg [pw=]` printed a call without the
+  weights (`arguments` had them).
+- `sp.from_r`: `feols(y ~ sunab(cohort, period) | unit + period)` produced
+  a call that crashed; it now maps to
+  `sp.sun_abraham(share_variance=False)`, which reproduces fixest 0.14's
+  coefficients and clustered standard errors to 1e-9. `rdrobust(covs =
+  cbind(df$z1, df$z2))` (and `df[, c(...)]`) was dropped; it is translated.
+  `cluster = ~a + b` is two clustering variables.
+
+#### Added
+
+- Both translators return `dropped` (everything the call leaves out:
+  options or arguments, and an unapplied `if` / `in`) and `complete`
+  (`True` only when nothing was dropped). `untranslated_options`,
+  `unapplied_sample` (Stata) and `untranslated_arguments` (R) stay.
+
 ### Singletons: the default of `fixef_rm` changes in 1.40
 
 - `sp.feols` / `sp.fepois`: `fixef_rm` defaults to `None`, which keeps

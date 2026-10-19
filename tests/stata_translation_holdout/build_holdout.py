@@ -60,6 +60,12 @@ CORPUS = [
     ("qreg", "cross", "qreg y x1 x2", "run"),
     ("areg", "cross", "areg y x1 x2, absorb(g)", "run"),
     ("reghdfe_cluster", "cross", "reghdfe y x1 x2, absorb(g) vce(cluster g)", "run"),
+    # Added 2026-10-19 after the fix they test (a regression set, not a
+    # holdout): pweights imply vce(robust), which the translator used to
+    # drop for these three commands.
+    ("reghdfe_pweight", "cross", "reghdfe y x1 x2 [pweight=w], absorb(g)", "run"),
+    ("iv_2sls_pweight", "cross", "ivregress 2sls y x1 (x2 = z) [pweight=w]", "run"),
+    ("glm_pweight", "cross", "glm cnt x1 x2 [pweight=w], family(poisson)", "run"),
     ("xtreg_fe", "panel", "xtreg y x, fe", "run"),
     ("xtreg_fe_cluster", "panel", "xtreg y x, fe vce(cluster id)", "run"),
     ("xtreg_re", "panel", "xtreg y x, re", "run"),

@@ -1040,12 +1040,12 @@ Fixtures under `tests/stata_parity/option_parity/` pin option switches within an
 
 ## Stata translation holdout
 
-A frozen corpus of 39 Stata commands and the numbers Stata 18 MP gives for the 33 that run, scored on five layers by `tests/test_stata_translation_holdout.py`. Hashed here so the corpus cannot drift towards what the translator already handles.
+A frozen corpus of 42 Stata commands and the numbers Stata 18 MP gives for the 36 that run, scored on five layers by `tests/test_stata_translation_holdout.py`. Hashed here so the corpus cannot drift towards what the translator already handles.
 
 | File | SHA-256 (first 16) |
 | --- | --- |
-| `tests/stata_translation_holdout/corpus.json` | `7b7c3f6704a5fceb` |
-| `tests/stata_translation_holdout/holdout_Stata.json` | `d7b73504feee42a6` |
+| `tests/stata_translation_holdout/corpus.json` | `88e8f103d0d65361` |
+| `tests/stata_translation_holdout/holdout_Stata.json` | `4023297b3cd0b260` |
 | `tests/stata_translation_holdout/holdout_cross.csv` | `5eca4a3640048a41` |
 | `tests/stata_translation_holdout/holdout_panel.csv` | `f5f2b30439c32471` |
 

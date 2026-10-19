@@ -1,9 +1,11 @@
 """Five-layer score of the Stata translator on a frozen holdout corpus.
 
-``tests/stata_translation_holdout/`` holds 39 commands written against
-Stata's documented grammar, none taken from a replication package and
-none used to develop the translator, with the numbers Stata 18 MP
-produced for the 33 that are meant to run (double precision). For each
+``tests/stata_translation_holdout/`` holds 42 commands written against
+Stata's documented grammar, none taken from a replication package, with
+the numbers Stata 18 MP produced for the 36 that are meant to run (double
+precision). The first 39 were not used to develop the translator; the
+three ``[pweight=]`` rows of ``ADDED_AFTER_FIX`` were added with the fix
+they test. For each
 command the translator is scored on
 
 1. **recognised** -- ``sp.from_stata`` names a StatsPAI call;
@@ -18,7 +20,7 @@ error**: every command either reproduces Stata or is refused out loud.
 A command the translator cannot honour (a prefix that changes the
 estimator, an undefined macro, an unknown option) is scored correct when
 it is refused. The first run found four gaps, all loud refusals; all four
-are closed, and every one of the 33 runnable commands now reproduces
+are closed, and every one of the 36 runnable commands now reproduces
 Stata. A new gap goes in ``KNOWN_GAPS`` only if it is refused out loud.
 """
 
@@ -63,6 +65,13 @@ CLOSED_AFTER_HOLDOUT = {"ols_noconstant", "qreg", "ols_fweight", "xtreg_re"}
 #: (it used to be translated to dummy variables, whose `Intercept` is the
 #: first group's level and not areg's _cons).
 CONSTANT_DIFFERS: set = set()
+
+#: Rows added on 2026-10-19 together with the fix they test, so a regression
+#: set rather than a holdout: before it, ``reghdfe`` / ``ivregress`` / ``glm``
+#: with ``[pweight=]`` and no ``vce()`` ran with the wrong variance (pweights
+#: imply vce(robust) in Stata). Their Stata numbers come from the same
+#: ``holdout.do`` run; the other rows were left as frozen.
+ADDED_AFTER_FIX = {"reghdfe_pweight", "iv_2sls_pweight", "glm_pweight"}
 
 
 @pytest.fixture(scope="module")
@@ -157,7 +166,7 @@ def scores(frames):
 
 
 def test_corpus_and_gold_are_the_frozen_set():
-    assert len(CORPUS) == 39
+    assert len(CORPUS) == 42
     runnable = [c["id"] for c in CORPUS if c["expect"] == "run"]
     assert sorted(runnable) == sorted(k for k in GOLD if k != "_meta")
     assert all(
@@ -213,7 +222,7 @@ def test_commands_that_must_be_refused_say_why(scores):
 
 
 def test_layer_counts(scores):
-    """The five-layer baseline on the 33 runnable commands."""
+    """The five-layer baseline on the 36 runnable commands."""
     pytest.importorskip("pyfixest")  # two holdout commands run on sp.feols
     runnable = [layers for entry, layers in scores.values() if entry["expect"] == "run"]
     counts = {
@@ -226,13 +235,13 @@ def test_layer_counts(scores):
             "same_numbers",
         )
     }
-    assert len(runnable) == 33
+    assert len(runnable) == 36
     assert counts == {
-        "recognised": 32,  # [fweight=] is translated by the runner only
-        "translated": 32,
-        "executed": 33,
-        "same_sample": 33,
-        "same_numbers": 33,
+        "recognised": 35,  # [fweight=] is translated by the runner only
+        "translated": 35,
+        "executed": 36,
+        "same_sample": 36,
+        "same_numbers": 36,
     }
     refusals = [e for e, _ in scores.values() if e["expect"] == "refuse"]
     assert len(refusals) == 6

@@ -114,6 +114,12 @@ capture noisily areg y x1 x2, absorb(g)
 _dump `fh' "areg" ","
 capture noisily reghdfe y x1 x2, absorb(g) vce(cluster g)
 _dump `fh' "reghdfe_cluster" ","
+capture noisily reghdfe y x1 x2 [pweight=w], absorb(g)
+_dump `fh' "reghdfe_pweight" ","
+capture noisily ivregress 2sls y x1 (x2 = z) [pweight=w]
+_dump `fh' "iv_2sls_pweight" ","
+capture noisily glm cnt x1 x2 [pweight=w], family(poisson)
+_dump `fh' "glm_pweight" ","
 import delimited "holdout_panel.csv", clear asdouble case(preserve)
 xtset id t
 capture noisily xtreg y x, fe

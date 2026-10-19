@@ -68,6 +68,22 @@ from `statspai.did._validate`).
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `[pweight=]` in `sp.from_stata` / `sp.stata`
+
+**What changed.** A Stata command with `[pweight=]` and no `vce()` is
+translated as if `vce(robust)` were given, as Stata fits it (`xtreg, fe`:
+clustered on the panel variable). Before, `reghdfe`, `ivreghdfe`,
+`ivregress`, `ivreg2`, `xtreg, fe` and `glm` kept the non-robust variance,
+so their standard errors differed from Stata's (7% for the x1 SE of a
+`reghdfe` example, 21% for `xtreg, fe`). Weighted robust `reghdfe` /
+`ivreghdfe` now emit `sp.feols(..., vcov='hetero', fixef_rm='singleton')`.
+
+**What to do.** Nothing, unless you relied on the old standard errors:
+re-run the line to get Stata's. Payloads also carry `dropped` and
+`complete`; the old keys are unchanged.
+
+---
+
 ## 1.39.6 → 1.40: `sp.feols` / `sp.fepois` will drop fixed-effect singletons by default
 
 **What changes.** `fixef_rm` of `sp.feols` and `sp.fepois` defaults to

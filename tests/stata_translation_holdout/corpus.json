@@ -180,6 +180,24 @@
     "expect": "run"
   },
   {
+    "id": "reghdfe_pweight",
+    "dataset": "cross",
+    "command": "reghdfe y x1 x2 [pweight=w], absorb(g)",
+    "expect": "run"
+  },
+  {
+    "id": "iv_2sls_pweight",
+    "dataset": "cross",
+    "command": "ivregress 2sls y x1 (x2 = z) [pweight=w]",
+    "expect": "run"
+  },
+  {
+    "id": "glm_pweight",
+    "dataset": "cross",
+    "command": "glm cnt x1 x2 [pweight=w], family(poisson)",
+    "expect": "run"
+  },
+  {
     "id": "xtreg_fe",
     "dataset": "panel",
     "command": "xtreg y x, fe",

@@ -578,12 +578,14 @@ def render(inv: Dict[str, Any]) -> str:
         consumers = "<br>".join(f"`{c}`" for c in fx["consumers"])
         lines.append(f"| `{fx['fixture']}` | {consumers} | `{fx['sha256'][:16]}` |")
     if inv.get("translation_holdout"):
+        corpus = json.loads((HOLDOUT_DIR / "corpus.json").read_text(encoding="utf-8"))
+        n_run = sum(1 for c in corpus if c["expect"] == "run")
         lines += [
             "",
             "## Stata translation holdout",
             "",
-            "A frozen corpus of 39 Stata commands and the numbers Stata 18 MP "
-            "gives for the 33 that run, scored on five layers by "
+            f"A frozen corpus of {len(corpus)} Stata commands and the numbers "
+            f"Stata 18 MP gives for the {n_run} that run, scored on five layers by "
             "`tests/test_stata_translation_holdout.py`. Hashed here so the "
             "corpus cannot drift towards what the translator already handles.",
             "",
