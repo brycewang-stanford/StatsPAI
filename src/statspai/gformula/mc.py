@@ -49,7 +49,9 @@ import pandas as pd
 from scipy import stats as _stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 
 @dataclass
@@ -116,22 +118,41 @@ class MCGFormulaResult(ResultProtocolMixin):
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _fit_ols(X: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """OLS coefficients with an intercept column assumed in X."""
-    return np.asarray(np.linalg.lstsq(X, y, rcond=None)[0])
+def _fit_ols(
+    X: np.ndarray, y: np.ndarray, w: Optional[np.ndarray] = None
+) -> np.ndarray:
+    """OLS (WLS with ``w``) coefficients with an intercept column in X."""
+    if w is None:
+        return np.asarray(np.linalg.lstsq(X, y, rcond=None)[0])
+    r = np.sqrt(w)
+    return np.asarray(np.linalg.lstsq(X * r[:, None], y * r, rcond=None)[0])
+
+
+def _resid_sd(resid: np.ndarray, k: int, w: Optional[np.ndarray]) -> float:
+    """Residual SD; with weights ``sum w r^2 / sum w`` times ``n / (n - k)``."""
+    if w is None:
+        return float(np.std(resid, ddof=max(1, k)))
+    n = len(resid)
+    dof = n / max(n - max(1, k), 1)
+    return float(np.sqrt(np.sum(w * resid**2) / np.sum(w) * dof))
 
 
 def _fit_logit(
-    X: np.ndarray, y: np.ndarray, max_iter: int = 50, tol: float = 1e-7
+    X: np.ndarray,
+    y: np.ndarray,
+    max_iter: int = 50,
+    tol: float = 1e-7,
+    w: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Newton-Raphson MLE for binary logistic regression."""
+    """Newton-Raphson MLE for binary logistic regression (weighted with ``w``)."""
     n, p = X.shape
+    ow = np.ones(n) if w is None else w
     beta = np.zeros(p)
     for _ in range(max_iter):
         eta = X @ beta
         mu = 1.0 / (1.0 + np.exp(-np.clip(eta, -35.0, 35.0)))
-        W = mu * (1.0 - mu) + 1e-8
-        grad = X.T @ (y - mu)
+        W = ow * (mu * (1.0 - mu) + 1e-8) if w is not None else mu * (1.0 - mu) + 1e-8
+        grad = X.T @ (ow * (y - mu)) if w is not None else X.T @ (y - mu)
         H = -(X.T * W) @ X
         try:
             step = np.linalg.solve(H, -grad)
@@ -206,8 +227,12 @@ def _fit_models(
     treatment_cols: Sequence[str],
     conf_cols_by_t: Sequence[Sequence[str]],
     outcome_col: str,
+    w: Optional[np.ndarray] = None,
 ) -> _FittedModels:
-    """Fit conditional confounder and outcome models time by time."""
+    """Fit conditional confounder and outcome models time by time.
+
+    ``w`` (sampling weights) makes every model a weighted fit.
+    """
     K = len(treatment_cols)
 
     # conf_models[t][j] = (kind, beta, sd, feature_cols) for j-th confounder at time t
@@ -226,12 +251,12 @@ def _fit_models(
                 else np.ones((len(df), 1))
             )
             if _is_binary(y):
-                beta = _fit_logit(X, y)
+                beta = _fit_logit(X, y, w=w)
                 per_t.append(("binary", beta, None, feat_cols))
             else:
-                beta = _fit_ols(X, y)
+                beta = _fit_ols(X, y, w)
                 resid = y - _predict_ols(beta, X)
-                sd = float(np.std(resid, ddof=max(1, X.shape[1])))
+                sd = _resid_sd(resid, X.shape[1], w)
                 per_t.append(("gaussian", beta, sd, feat_cols))
             history_cols.append(cname)
         conf_models.append(per_t)
@@ -244,12 +269,12 @@ def _fit_models(
     X_out = _design(*(df[c].values.astype(float) for c in history_cols))
     outcome_model: tuple
     if _is_binary(Y):
-        beta_o = _fit_logit(X_out, Y)
+        beta_o = _fit_logit(X_out, Y, w=w)
         outcome_model = ("binary", beta_o, None, list(history_cols))
     else:
-        beta_o = _fit_ols(X_out, Y)
+        beta_o = _fit_ols(X_out, Y, w)
         resid = Y - _predict_ols(beta_o, X_out)
-        sd_o = float(np.std(resid, ddof=max(1, X_out.shape[1])))
+        sd_o = _resid_sd(resid, X_out.shape[1], w)
         outcome_model = ("gaussian", beta_o, sd_o, list(history_cols))
 
     return _FittedModels(
@@ -274,11 +299,17 @@ def _simulate(
     n_sim: int,
     rng: np.random.Generator,
     return_trajectories: bool = False,
+    w: Optional[np.ndarray] = None,
 ) -> tuple:
     """Draw ``n_sim`` trajectories and return (E[Y], trajectory DataFrame or None)."""
     # Resample row indices from observed data to approximate the baseline
-    # covariate distribution f(L_0).
-    idx = rng.integers(0, len(seed_df), size=n_sim)
+    # covariate distribution f(L_0); with sampling weights each row is
+    # drawn with probability proportional to its weight (the population
+    # distribution of L_0).
+    if w is None:
+        idx = rng.integers(0, len(seed_df), size=n_sim)
+    else:
+        idx = rng.choice(len(seed_df), size=n_sim, p=w / w.sum())
 
     # history_values is a dict from column name -> vector of length n_sim
     history: dict = {}
@@ -350,6 +381,7 @@ def gformula_mc(
     alpha: float = 0.05,
     return_trajectories: bool = False,
     seed: Optional[int] = None,
+    weights: Optional[str] = None,
 ) -> MCGFormulaResult:
     r"""
     Monte-Carlo parametric g-formula estimate of :math:`E[Y(g)]`.
@@ -394,6 +426,14 @@ def gformula_mc(
     return_trajectories : bool, default False
         Attach the simulated trajectories DataFrame to the result.
     seed : int, optional
+    weights : str, optional
+        Column of sampling (survey) weights, strictly positive. Every
+        confounder and outcome model is a weighted fit (weighted residual
+        SD for the gaussian ones) and the baseline covariates are drawn
+        with probability proportional to the weight, so the simulated
+        trajectories follow the weighted (population) distribution. The
+        bootstrap resamples rows with their weights. ``None`` leaves the
+        computation unchanged.
 
     Returns
     -------
@@ -467,15 +507,27 @@ def gformula_mc(
         + [c for lst in conf_cols_by_t for c in lst]
         + [outcome_col]
     )
-    df = data[req].dropna().copy()
+    if weights is not None:
+        check_columns(data, {"weights": weights}, function="sp.gformula_mc")
+        req = req + [weights]
+    df = data[list(dict.fromkeys(req))].dropna().copy()
     n = len(df)
     if n < 2:
         raise ValueError("Need at least 2 complete observations.")
+    sw: Optional[np.ndarray] = None
+    if weights is not None:
+        sw = df[weights].to_numpy(dtype=float)
+        if not np.all(np.isfinite(sw)) or np.any(sw <= 0):
+            raise MethodIncompatibility(
+                "gformula_mc: weights must be finite and strictly positive.",
+                recovery_hint="Drop the rows with a zero or missing weight.",
+                diagnostics={"weights": weights},
+            )
 
     rng = np.random.default_rng(seed)
 
     # Point estimate
-    fitted = _fit_models(df, treatment_cols, conf_cols_by_t, outcome_col)
+    fitted = _fit_models(df, treatment_cols, conf_cols_by_t, outcome_col, sw)
     val_t, traj_t = _simulate(
         fitted,
         strategy,
@@ -483,6 +535,7 @@ def gformula_mc(
         n_simulations,
         rng,
         return_trajectories=return_trajectories,
+        w=sw,
     )
     if control_strategy is not None:
         val_c, _ = _simulate(
@@ -492,6 +545,7 @@ def gformula_mc(
             n_simulations,
             rng,
             return_trajectories=False,
+            w=sw,
         )
         contrast = val_t - val_c
     else:
@@ -505,9 +559,16 @@ def gformula_mc(
         for b in range(bootstrap):
             b_idx = rng.integers(0, n, size=n)
             df_b = df.iloc[b_idx].reset_index(drop=True)
-            fit_b = _fit_models(df_b, treatment_cols, conf_cols_by_t, outcome_col)
+            sw_b = None if sw is None else sw[b_idx]
+            fit_b = _fit_models(df_b, treatment_cols, conf_cols_by_t, outcome_col, sw_b)
             mt, _ = _simulate(
-                fit_b, strategy, df_b, max(n_simulations // 4, 500), rng, False
+                fit_b,
+                strategy,
+                df_b,
+                max(n_simulations // 4, 500),
+                rng,
+                False,
+                w=sw_b,
             )
             boot_t[b] = mt
             if control_strategy is not None:
@@ -519,6 +580,7 @@ def gformula_mc(
                     max(n_simulations // 4, 500),
                     rng,
                     False,
+                    w=sw_b,
                 )
                 boot_c[b] = mc
         se_t = float(np.std(boot_t, ddof=1))
@@ -573,6 +635,7 @@ def gformula_mc(
                 "bootstrap": bootstrap,
                 "alpha": alpha,
                 "seed": seed,
+                "weights": weights,
             },
             data=data,
             overwrite=False,

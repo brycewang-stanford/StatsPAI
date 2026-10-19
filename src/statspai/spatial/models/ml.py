@@ -311,6 +311,7 @@ def sar(
     formula: str,
     row_normalize: bool = True,
     alpha: float = 0.05,
+    weights: Optional[Any] = None,
 ) -> EconometricResults:
     """Spatial Autoregressive (Lag) Model: ``Y = ρWY + Xβ + ε``.
 
@@ -325,6 +326,11 @@ def sar(
     row_normalize : bool, default True
         Divide each row of ``W`` by its sum before fitting (rows that sum
         to zero are left as they are).
+    weights : None
+        Not supported, and refused with ``MethodIncompatibility`` rather
+        than ignored: the likelihood is a joint one over all areas linked
+        by ``W``, not a sum over independently sampled units, so sampling
+        weights do not define a weighted version of it.
 
     Examples
     --------
@@ -347,6 +353,20 @@ def sar(
     ----------
     anselin1988spatial
     """
+    if weights is not None:
+        from ...exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            "sar: weights= is not supported. The spatial lag model is a joint "
+            "model of every area linked by W (its likelihood has the "
+            "log|I - rho W| term), not a sum over independently sampled "
+            "units, so sampling weights do not define a weighted likelihood "
+            "of it.",
+            recovery_hint="Fit on all areas without weights; under "
+            "heteroskedasticity use sp.sar_gmm, or enter the area size as a "
+            "covariate.",
+            diagnostics={"weights": repr(weights)[:80]},
+        )
     y, X, dep_var, indep = _parse_formula(formula, data)
     n, k = X.shape
     M = _coerce_W(W, n_expected=n, row_normalize=row_normalize)

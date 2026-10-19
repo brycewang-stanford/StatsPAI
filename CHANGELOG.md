@@ -36,6 +36,26 @@ All notable changes to StatsPAI will be documented in this file.
   of the same design gave p = 0.0625 / 0.117 against boottest's 0.078 /
   0.180. Point estimates and CR1 standard errors are unchanged; so is the
   default (clustering on the entity).
+### `weights=` where it was missing
+
+#### Added
+
+- `sp.finegray(weights=)`: sampling weights in the Fine-Gray model. The
+  censoring Kaplan-Meier, the risk sets and the event counts are weighted,
+  and the robust variance uses the weighted score residuals including the
+  censoring term. With `small_sample=True`, coefficients, covariance and log
+  pseudo-likelihood equal Stata 18 `stcrreg` after `stset ... [pw=]` (both
+  causes, two weight vectors; `tests/reference_parity/
+  test_finegray_weighted_stata_parity.py`, Stata used as a black box).
+  `vce='model'` is refused with weights.
+- `sp.gformula_mc(weights=)`: weighted confounder and outcome models and
+  baseline draws proportional to the weight. On an informative sample whose
+  unweighted g-formula is 0.76 too high, the weighted one recovers the
+  population mean within one bootstrap SE (known-truth test).
+- `sp.causal_impact(weights=)` and `sp.sar(weights=)` raise
+  `MethodIncompatibility` with the reason instead of `TypeError`: one time
+  series has no sample of units to weight, and the spatial-lag likelihood is
+  a joint one over all areas.
 
 ### ⚠️ Correctness: `sp.mi_estimate` complete-data df; `binscatter(method='binsreg')`; labels in `sp.sumstats`
 

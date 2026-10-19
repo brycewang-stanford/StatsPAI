@@ -35,6 +35,7 @@ from scipy import stats
 
 from .._input_validation import check_columns
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 
 
 def causal_impact(
@@ -45,6 +46,7 @@ def causal_impact(
     covariates: Optional[List[str]] = None,
     alpha: float = 0.05,
     n_seasons: Optional[int] = None,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Estimate the causal impact of an intervention on a time series.
@@ -67,6 +69,13 @@ def causal_impact(
     n_seasons : int, optional
         Accepted for API compatibility but currently not used: the model
         has no seasonal component.
+    weights : None
+        Not supported, and refused with ``MethodIncompatibility`` rather
+        than ignored: the data are one series, one row per period, so
+        there is no sample of units for sampling weights to describe, and
+        the forecast-error variance has no weighted form. To weight the
+        units that make up an aggregate series, build the series as a
+        weighted mean first.
 
     Returns
     -------
@@ -120,6 +129,17 @@ def causal_impact(
     ----------
     brodersen2015inferring
     """
+    if weights is not None:
+        raise MethodIncompatibility(
+            "causal_impact: weights= is not supported -- the data are a single "
+            "time series (one row per period), so sampling weights have "
+            "nothing to weight and the forecast-error variance has no "
+            "weighted form.",
+            recovery_hint="Aggregate the units into the outcome series with "
+            "their weights first (a weighted mean per period), then call "
+            "causal_impact on that series.",
+            diagnostics={"weights": weights},
+        )
     estimator = CausalImpactEstimator(
         data=data,
         y=y,

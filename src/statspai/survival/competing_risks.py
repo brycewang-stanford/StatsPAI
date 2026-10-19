@@ -712,7 +712,9 @@ def cuminc(
 # --------------------------------------------------------------------------- #
 #  Public: finegray
 # --------------------------------------------------------------------------- #
-def _censoring_km_left(time: np.ndarray, event: np.ndarray) -> np.ndarray:
+def _censoring_km_left(
+    time: np.ndarray, event: np.ndarray, w: Optional[np.ndarray] = None
+) -> np.ndarray:
     """KM of the censoring distribution evaluated just before each ``time``.
 
     Returns ``Ĝ(T_i-)`` for every subject: the product over censoring times
@@ -722,13 +724,30 @@ def _censoring_km_left(time: np.ndarray, event: np.ndarray) -> np.ndarray:
     down-weight that event's own risk set.
     """
     utimes = np.sort(np.unique(time))
-    n_risk = len(time) - np.searchsorted(np.sort(time), utimes, side="left")
-    c_cnt = np.bincount(
-        np.searchsorted(utimes, time[event == 0]), minlength=len(utimes)
-    ).astype(float)
+    if w is None:
+        n_risk = len(time) - np.searchsorted(np.sort(time), utimes, side="left")
+        c_cnt = np.bincount(
+            np.searchsorted(utimes, time[event == 0]), minlength=len(utimes)
+        ).astype(float)
+    else:
+        # case weights: weighted censorings over the weighted number at risk
+        n_risk = _weighted_at_risk(time, w, utimes)
+        c_cnt = np.bincount(
+            np.searchsorted(utimes, time[event == 0]),
+            weights=w[event == 0],
+            minlength=len(utimes),
+        )
     g_right = np.cumprod(1.0 - c_cnt / n_risk)
     g_left = np.concatenate([[1.0], g_right[:-1]])
     out: np.ndarray = g_left[np.searchsorted(utimes, time)]
+    return out
+
+
+def _weighted_at_risk(time: np.ndarray, w: np.ndarray, at: np.ndarray) -> np.ndarray:
+    """``sum_i w_i 1(time_i >= u)`` for each ``u`` in ``at``."""
+    order = np.argsort(time, kind="mergesort")
+    cw = np.concatenate([[0.0], np.cumsum(w[order])])
+    out: np.ndarray = cw[-1] - cw[np.searchsorted(time[order], at, side="left")]
     return out
 
 
@@ -744,6 +763,7 @@ def finegray(
     tol: float = 1e-10,
     vce: str = "robust",
     small_sample: bool = False,
+    weights: Optional[str] = None,
 ) -> FineGrayResult:
     """Fine & Gray (1999) proportional subdistribution hazards model.
 
@@ -778,6 +798,18 @@ def finegray(
     small_sample : bool, default False
         Multiply the robust variance by ``n / (n - 1)``, as Stata's
         ``stcrreg`` does.
+    weights : str, optional
+        Column of sampling weights (strictly positive), Stata ``stset
+        [pw=]``. Every sum of the fit is weighted: the censoring
+        distribution Ĝ is the weighted Kaplan-Meier, the risk sets and
+        event counts carry the weights, and the robust variance uses the
+        weighted score residuals, including the term for estimating Ĝ.
+        The weights are rescaled to mean one (their scale does not change
+        the estimate or the variance; the log pseudo-likelihood is then
+        Stata's). With ``small_sample=True`` coefficients and standard
+        errors equal Stata ``stcrreg`` after ``stset ... [pw=w]``.
+        ``vce='model'`` is refused with weights (it is not a variance for
+        sampling weights).
 
     Returns
     -------
@@ -824,7 +856,21 @@ def finegray(
     """
     if vce not in ("robust", "model"):
         raise MethodIncompatibility("vce must be 'robust' or 'model'")
+    if weights is not None and vce == "model":
+        raise MethodIncompatibility(
+            "finegray: vce='model' is the inverse information of the "
+            "weighted partial likelihood and is not a variance for sampling "
+            "weights.",
+            recovery_hint="Use vce='robust' (Stata stcrreg's variance with " "[pw=]).",
+        )
     cols = [duration, event] + list(x)
+    if weights is not None:
+        if weights not in data.columns:
+            raise MethodIncompatibility(
+                f"finegray: weights column {weights!r} is not in the data.",
+                recovery_hint="Pass the name of a column of sampling weights.",
+            )
+        cols = cols + [weights]
     data = data.dropna(subset=cols)
     time = np.asarray(data[duration], dtype=float)
     ev = np.asarray(data[event], dtype=int)
@@ -832,8 +878,18 @@ def finegray(
     n, p = X.shape
     if (ev == cause).sum() == 0:
         raise ValueError(f"No events for cause={cause}.")
+    cw: Optional[np.ndarray] = None
+    if weights is not None:
+        cw = np.asarray(data[weights], dtype=float)
+        if not np.all(np.isfinite(cw)) or np.any(cw <= 0):
+            raise MethodIncompatibility(
+                "finegray: weights must be finite and strictly positive.",
+                recovery_hint="Drop the rows with a zero or missing weight.",
+                diagnostics={"weights": weights},
+            )
+        cw = cw / cw.mean()
 
-    g_self = _censoring_km_left(time, ev)  # Ĝ(T_i-)
+    g_self = _censoring_km_left(time, ev, cw)  # Ĝ(T_i-)
     competing = (ev != 0) & (ev != cause)
     is_event = ev == cause
 
@@ -841,9 +897,16 @@ def finegray(
     # weight matrix W[m, i] = w_i(t_m) of every subject in each risk set.
     event_times = np.sort(np.unique(time[is_event]))
     m_of_event = np.searchsorted(event_times, time[is_event])
-    d_counts = np.bincount(m_of_event, minlength=len(event_times)).astype(float)
-    event_x_sum = np.zeros((len(event_times), p))
-    np.add.at(event_x_sum, m_of_event, X[is_event])
+    if cw is None:
+        d_counts = np.bincount(m_of_event, minlength=len(event_times)).astype(float)
+        event_x_sum = np.zeros((len(event_times), p))
+        np.add.at(event_x_sum, m_of_event, X[is_event])
+    else:
+        d_counts = np.bincount(
+            m_of_event, weights=cw[is_event], minlength=len(event_times)
+        )
+        event_x_sum = np.zeros((len(event_times), p))
+        np.add.at(event_x_sum, m_of_event, X[is_event] * cw[is_event][:, None])
     # Ĝ(t_m-) is Ĝ(T_j-) of any subject j failing at t_m.
     g_evt = np.empty(len(event_times))
     g_evt[m_of_event] = g_self[is_event]
@@ -852,6 +915,8 @@ def finegray(
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio = np.where(g_self[None, :] > 0, g_evt[:, None] / g_self[None, :], 0.0)
     W = np.where(at_risk, 1.0, np.where(comp_before, ratio, 0.0))
+    if cw is not None:
+        W = W * cw[None, :]
 
     def _risk_sums(b: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         ew = W * np.exp(X @ b)[None, :]
@@ -913,6 +978,7 @@ def finegray(
             event_times,
             d_counts,
             W,
+            cw,
         )
         cov = inv_info @ (resid.T @ resid) @ inv_info
         if small_sample:
@@ -944,6 +1010,7 @@ def _finegray_score_residuals(
     event_times: np.ndarray,
     d_counts: np.ndarray,
     W: np.ndarray,
+    cw: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Per-subject influence terms ``eta_i + psi_i`` of Fine & Gray (1999).
 
@@ -957,6 +1024,11 @@ def _finegray_score_residuals(
 
     Reimplemented from the published formula; see the module's
     "Implementation provenance" section.
+
+    With case weights ``cw`` (already inside ``W`` and ``d_counts``) the
+    counting-process terms of subject ``i`` carry ``cw_i``, the censoring
+    counts and the number at risk in ``psi`` are weighted sums; Stata
+    ``stcrreg`` under ``[pw=]`` reproduces this (matched on outputs).
     """
     n, p = X.shape
     risk = np.exp(X @ beta)
@@ -969,6 +1041,8 @@ def _finegray_score_residuals(
     eta = np.zeros((n, p))
     m_of_event = np.searchsorted(event_times, time[is_event])
     eta[is_event] = X[is_event] - xbar[m_of_event]
+    if cw is not None:
+        eta[is_event] *= cw[is_event][:, None]
     comp_w = ew * dlam[:, None]  # (M, n)
     eta -= X * comp_w.sum(axis=0)[:, None] - comp_w.T @ xbar
 
@@ -977,10 +1051,18 @@ def _finegray_score_residuals(
     if not np.any(cens):
         return eta
     c_times = np.sort(np.unique(time[cens]))
-    c_cnt = np.bincount(
-        np.searchsorted(c_times, time[cens]), minlength=len(c_times)
-    ).astype(float)
-    pi_u = (n - np.searchsorted(np.sort(time), c_times, side="left")).astype(float)
+    if cw is None:
+        c_cnt = np.bincount(
+            np.searchsorted(c_times, time[cens]), minlength=len(c_times)
+        ).astype(float)
+        pi_u = (n - np.searchsorted(np.sort(time), c_times, side="left")).astype(float)
+    else:
+        c_cnt = np.bincount(
+            np.searchsorted(c_times, time[cens]),
+            weights=cw[cens],
+            minlength=len(c_times),
+        )
+        pi_u = _weighted_at_risk(time, cw, c_times)
     q = np.zeros((len(c_times), p))
     comp_idx = np.where(competing)[0]
     if len(comp_idx):
@@ -1010,5 +1092,7 @@ def _finegray_score_residuals(
     psi = np.where(pos[:, None] >= 0, -cum[np.clip(pos, 0, None)], 0.0)
     ci = np.searchsorted(c_times, time[cens])
     psi[cens] += q[ci] / pi_u[ci][:, None]
+    if cw is not None:
+        psi = psi * cw[:, None]
     out: np.ndarray = eta + psi
     return out

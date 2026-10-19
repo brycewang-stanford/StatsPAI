@@ -7828,7 +7828,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_competing_risks_parity.py"
+        "tests/reference_parity/test_competing_risks_parity.py",
+        "tests/reference_parity/test_finegray_weighted_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"

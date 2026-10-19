@@ -10537,6 +10537,12 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "weights": {
+            "description": "Not supported, and refused with ``MethodIncompatibility`` rather than ignored: the data are one series, one row per period, so there is no sample of units for sampling weights to describe, and the forecast-error variance has no weighted form. To weight the units that make up an aggregate series, build the series as a weighted mean first.",
+            "type": "string",
+            "x-statspai-role": "column",
+            "x-statspai-source": "signature"
+          },
           "y": {
             "description": "Outcome time-series column",
             "type": "string",
@@ -28198,6 +28204,11 @@
             "default": true,
             "description": "Divide each row of ``W`` by its sum before fitting (rows that sum to zero are left as they are).",
             "type": "boolean",
+            "x-statspai-source": "signature"
+          },
+          "weights": {
+            "description": "Not supported, and refused with ``MethodIncompatibility`` rather than ignored: the likelihood is a joint one over all areas linked by ``W``, not a sum over independently sampled units, so sampling weights do not define a weighted version of it.",
+            "type": "string",
             "x-statspai-source": "signature"
           }
         },
@@ -117381,6 +117392,11 @@
             ],
             "type": "string"
           },
+          "weights": {
+            "description": "Column of sampling weights (strictly positive), Stata ``stset [pw=]``. Every sum of the fit is weighted: the censoring distribution G is the weighted Kaplan-Meier, the risk sets and event counts carry the weights, and the robust variance uses the weighted score residuals, including the term for estimating G. The weights are rescaled to mean one (their scale does not change the estimate or the variance; the log pseudo-likelihood is then Stata's). With ``small_sample=True`` coefficients and standard errors equal Stata ``stcrreg`` after ``stset ... [pw=w]``. ``vce='model'`` is refused with weights (it is not a variance for sampling weights).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "x": {
             "description": "Covariate column names.",
             "items": {
@@ -117402,7 +117418,8 @@
     "typical_n_min": 50,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R cmprsk::crr (coef, var, invinf, loglik); Stata stcrreg [R version 4.5.2 (2025-10-31), Stata 18 MP, cmprsk 2.2.12]; tolerance R 1e-10 rel (observed 6e-15); Stata coefficients 1e-7 and SEs 1e-8 (Stata's ml stops 5e-9 away), log likelihood 1e-10 -- tests/reference_parity/test_survival_epi_R_parity.py",
-      "tests/reference_parity/test_competing_risks_parity.py"
+      "tests/reference_parity/test_competing_risks_parity.py",
+      "tests/reference_parity/test_finegray_weighted_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -146332,6 +146349,11 @@
             },
             "type": "array",
             "x-statspai-role": "columns"
+          },
+          "weights": {
+            "description": "Column of sampling (survey) weights, strictly positive. Every confounder and outcome model is a weighted fit (weighted residual SD for the gaussian ones) and the baseline covariates are drawn with probability proportional to the weight, so the simulated trajectories follow the weighted (population) distribution. The bootstrap resamples rows with their weights. ``None`` leaves the computation unchanged.",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
