@@ -1301,6 +1301,7 @@ from .tmle import (
     tmle,
 )
 from .utils import (
+    collapse,
     decode,
     describe,
     dgp_bartik,
@@ -1318,15 +1319,19 @@ from .utils import (
     dgp_rd_multi,
     dgp_rdit,
     dgp_synth,
+    diff,
     get_label,
     get_labels,
     label_values,
     label_var,
     label_vars,
+    lag,
+    lead,
     outlier_indicator,
     pwcorr,
     rank,
     read_data,
+    reshape,
     rowcount,
     rowmax,
     rowmean,
@@ -1336,10 +1341,8 @@ from .utils import (
     scalar_iv_projection,
     winsor,
     write_data,
+    xtset,
 )
-from .utils.collapse import collapse
-from .utils.reshape import reshape
-from .utils.tsops import diff, lag, lead, xtset
 from .validation import (
     ReproductionResult,
     ReproductionStep,
