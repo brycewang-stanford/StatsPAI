@@ -209,3 +209,48 @@ def test_weighted_robust_with_absorbed_slope_is_refused():
     out = sp.from_stata("reghdfe y x [pw=w], absorb(id##c.t)")
     assert out["ok"] is False
     assert "slope" in out["error"]
+
+
+#: Stata 18 MP, reghdfe 6, ``set type double``, holdout_cross.csv (k has
+#: three levels, so G_min - 1 = 2 residual degrees of freedom)::
+#:
+#:     reghdfe y x1 x2, absorb(g) cluster(g k)
+#:     reghdfe y x1 x2 [aw=w], absorb(g) vce(cluster g k)
+TWO_WAY = {
+    "reghdfe y x1 x2, absorb(g) cluster(g k)": {
+        "x1": (8.07375845263603e-01, 6.52460487619247e-02),
+        "x2": (-6.90360520336466e-02, 4.27578576246684e-02),
+    },
+    "reghdfe y x1 x2 [aw=w], absorb(g) vce(cluster g k)": {
+        "x1": (8.38634040328086e-01, 6.26862432972909e-02),
+        "x2": (-5.20913452513669e-02, 3.62175205413508e-02),
+    },
+}
+
+
+@pytest.mark.parametrize("command", sorted(TWO_WAY))
+def test_two_way_clustered_reghdfe_reproduces_stata(frames, command):
+    """reghdfe scales every term of the two-way sum by G_min/(G_min - 1);
+    the translation passes ``cluster_df='min'`` (before 2026-10-19 it used
+    sp.hdfe_ols's per-term default: x1 SE 0.0615 against Stata's 0.0652)."""
+    out = sp.from_stata(command)
+    assert out["arguments"]["cluster_df"] == "min"
+    assert "cluster_df='min'" in out["python_code"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        result = sp.stata(command, data=frames["cross"])
+    assert _nobs(result) == 400
+    params, ses = dict(result.params), dict(result.std_errors)
+    for name, (b, se) in TWO_WAY[command].items():
+        assert np.isclose(params[name], b, rtol=RTOL, atol=0), name
+        assert np.isclose(ses[name], se, rtol=RTOL, atol=0), name
+    # t reference with G_min - 1 = 2 degrees of freedom, as reghdfe
+    from scipy import stats
+
+    b, se = TWO_WAY[command]["x1"]
+    assert np.isclose(result.pvalues["x1"], 2 * stats.t.sf(abs(b / se), 2), rtol=1e-7)
+
+
+def test_one_way_clustered_reghdfe_keeps_default_factor():
+    out = sp.from_stata("reghdfe y x, absorb(id) cluster(id)")
+    assert "cluster_df" not in out["arguments"]

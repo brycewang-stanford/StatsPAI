@@ -4,6 +4,18 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: `sp.from_stata` / `sp.stata` two-way clustered `reghdfe`
+
+#### Fixed
+
+- `reghdfe ..., absorb(...) cluster(a b)` was translated to
+  `sp.hdfe_ols(cluster=['a', 'b'])`, whose multi-way variance scales each
+  term by its own G/(G - 1); reghdfe scales every term by G_min/(G_min - 1).
+  The translation now passes `cluster_df='min'` and reproduces Stata 18
+  reghdfe 6 to 1e-8 (x1 standard error 0.06525, previously 0.06151, on the
+  holdout data with a three-level second cluster). One-way clustering is
+  unchanged. `tests/test_stata_translation_pweights.py`.
+
 ### `sp.didregress(aggregate=)`: Donald-Lang and standard aggregation
 
 #### Added

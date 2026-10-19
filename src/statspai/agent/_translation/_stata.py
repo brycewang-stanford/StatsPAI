@@ -724,6 +724,10 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     args: Dict[str, Any] = {"formula": formula}
     if clusters:
         args["cluster"] = clusters[0] if len(clusters) == 1 else clusters
+        if len(clusters) > 1 and fe_list:
+            # reghdfe scales every term of the multi-way sum by
+            # G_min/(G_min - 1); sp.hdfe_ols's default is per term.
+            args["cluster_df"] = "min"
     elif robust:
         args["vce"] = "robust"
     if "keepsingletons" in cmd.options:
@@ -731,6 +735,12 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items() if k != "formula")
     python = f"sp.hdfe_ols({formula!r}, data=df" + (f", {kw})" if kw else ")")
     notes: List[str] = []
+    if len(clusters) > 1 and not fe_list:
+        notes.append(
+            "Multi-way clusters without absorb(): sp.hdfe_ols scales each "
+            "term by its own G/(G - 1), reghdfe by G_min/(G_min - 1); the "
+            "standard errors differ by that factor."
+        )
     if not fe_list:
         notes.append(
             "reghdfe with no absorb() collapses to OLS — "

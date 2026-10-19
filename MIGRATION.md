@@ -5,6 +5,15 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ translated two-way clustered `reghdfe` uses reghdfe's factor
+
+`sp.from_stata('reghdfe y x, absorb(id) cluster(a b)')` now emits
+`sp.hdfe_ols(..., cluster=['a', 'b'], cluster_df='min')`, so the standard
+errors `sp.stata` reports for such a line equal reghdfe's. To get the old
+per-term numbers, call `sp.hdfe_ols` directly without `cluster_df=`.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.augsynth(covariates=...)` now uses the covariates
 
 `sp.augsynth` ignored `covariates=` on the native path. It now balances
