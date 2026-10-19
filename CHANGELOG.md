@@ -4,6 +4,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness: `sp.causal_impact` intervals include parameter uncertainty
+
+- ⚠️ `sp.causal_impact`'s standard error, interval and p-value treated the
+  regression coefficients and the plug-in variance parameters as known.
+  In 200 null replications per design its 95% interval covered 79.5%
+  (n_pre 40, AR(1) error rho 0.6), 70.5% (n_pre = n_post = 30), 57.5%
+  (rho 0.9), 90.5% (rho 0.2, n_pre 80) and 65% (four covariates). The
+  standard error is now that of the error of the forecast actually made,
+  `u_post - L u_pre` (the regression coefficients cancel exactly), under
+  an AR(1)-plus-noise error covariance fitted by REML on the pre-period,
+  with a t quantile (`model_info['df']`): 93.5%, 94%, 89.5%, 92% and 94% on
+  the same draws (`tests/reference_parity/test_causal_impact_uncertainty.py`).
+  Point estimates and the KFAS-pinned filter are unchanged; the old values
+  are kept as `model_info['se_avg_conditional']` /
+  `['se_total_conditional']`; `detail['effect_se']` and the pointwise
+  bands use the new variance; `model_info['error_model']` holds the REML
+  fit. The separate `synth/bsts.py` implementation (a local-level model,
+  `sp.bsts_synth`) is a different model and was not changed.
+
 ### `sp.spillover` says which contrasts it computes
 
 #### Fixed

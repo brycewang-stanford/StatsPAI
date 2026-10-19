@@ -7186,8 +7186,12 @@ def _build_registry() -> None:
                 "Causal impact of an intervention on a time series: pre-period OLS on "
                 "the covariate series with an AR(1) latent state (Kalman filter), "
                 "post-period counterfactual forecasts and frequentist prediction "
-                "intervals for pointwise, average and cumulative effects. Not the "
-                "Bayesian structural time-series model of R CausalImpact."
+                "intervals for pointwise, average and cumulative effects. The "
+                "intervals include the estimation of the regression (REML "
+                "AR(1)+noise error model, t quantile); ~92-94% coverage at "
+                "nominal 95% in simulations, less with few pre-periods and a "
+                "persistent error. Not the Bayesian structural time-series "
+                "model of R CausalImpact."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),

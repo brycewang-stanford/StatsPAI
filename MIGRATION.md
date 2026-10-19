@@ -23,6 +23,21 @@ Internal version-to-version migrations are at the top; the long-form
 - `sp.match(..., unknown_keyword=...)` raises `MethodIncompatibility`, which
   is still a `TypeError`.
 
+---
+
+## 1.39.6 → unreleased: ⚠️ `sp.causal_impact` standard errors are wider
+
+**What changed.** The standard error, confidence interval and p-value of
+`sp.causal_impact` now include the estimation of the regression and of the
+error process (REML AR(1)-plus-noise model, t quantile). They are wider,
+most of all when the pre-period is short and the error persistent. Point
+estimates are unchanged.
+
+**What to do.** Nothing. The old (conditional) values are in
+`model_info['se_avg_conditional']` and `model_info['se_total_conditional']`.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.ges` returns the GES equivalence class
 
 **What changed.** `sp.ges` runs Greedy Equivalence Search over CPDAGs

@@ -15,7 +15,8 @@ The model (frequentist, plug-in parameters):
 OLS residuals, ``sigma_obs`` their standard deviation and
 ``sigma_state = sigma_obs * sqrt(1 - rho^2)``; the Kalman filter then
 forecasts the post period. The filter step is pinned to ``KFAS::KFS`` in
-``tests/reference_parity/test_did_synth_misc_parity.py``.
+``tests/reference_parity/test_did_synth_misc_parity.py``. The standard
+errors add parameter uncertainty (``_uncertainty.py``).
 
 This is NOT the model of R ``CausalImpact`` (Brodersen et al., 2015), which
 fits a Bayesian local-level + spike-and-slab regression by MCMC on
@@ -26,7 +27,7 @@ so the two do not agree numerically and are not expected to.
 """
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -73,10 +74,21 @@ def causal_impact(
 
     Notes
     -----
-    ``estimate`` is the average post-period effect and ``se`` its standard
-    error from the joint covariance of the post-period forecast errors
-    (they share the latent state, so they are correlated). Parameter
-    uncertainty is not propagated. This is a frequentist regression +
+    ``estimate`` is the average post-period effect and ``se`` the standard
+    deviation of the error of the forecast actually made,
+    ``u_post - L u_pre``, which accounts for estimating the regression
+    coefficients exactly; the error covariance is an AR(1)-plus-noise model
+    fitted by REML on the pre-period, and intervals and p-values use a t
+    distribution with ``n_pre - p - 3`` degrees of freedom
+    (``model_info['df']``). Uncertainty in that covariance is not
+    propagated, so intervals stay somewhat short with few pre-periods and
+    a persistent error (89.5% for a nominal 95% at n_pre = 40, rho = 0.9;
+    92%-94% in the other designs tried). Until 2026-10-19 the SE took all
+    parameters as known and covered 57.5%-90.5% in the same designs; that
+    number is kept as ``model_info['se_avg_conditional']``. The
+    ``detail`` column ``effect_se`` carries the pointwise version
+    (``predicted_se`` stays the filter's conditional one-step value).
+    This is a frequentist regression +
     AR(1) state-space model, not the Bayesian local-level + spike-and-slab
     model of R ``CausalImpact``; the numbers are not comparable one for one.
 
@@ -274,12 +286,6 @@ class CausalImpactEstimator:
         # Point estimates
         Y_actual = self.Y
         pointwise_effect = Y_actual - Y_pred
-        pointwise_lower = Y_actual - (
-            Y_pred + stats.norm.ppf(1 - self.alpha / 2) * Y_pred_se
-        )
-        pointwise_upper = Y_actual - (
-            Y_pred - stats.norm.ppf(1 - self.alpha / 2) * Y_pred_se
-        )
 
         # Cumulative effect (post-period only)
         post_effect = pointwise_effect[self.post_mask]
@@ -295,9 +301,26 @@ class CausalImpactEstimator:
         # P_t the forecast variance of the state at t; the diagonal adds
         # the observation noise. (Up to StatsPAI 1.28.0 the errors were
         # treated as independent, which understates the SE when rho > 0.)
-        cov_post = self._post_forecast_cov(model)
+        cov_post_cond = self._post_forecast_cov(model)
+        se_total_cond = float(np.sqrt(max(cov_post_cond.sum(), 0.0)))
+
+        # Parameter uncertainty (2026-10-19): the conditional covariance
+        # above treats beta and the plug-in variances as known, and its 95%
+        # intervals covered 57%-90% of null effects. The error of the
+        # forecast actually made is u_post - L u_pre (beta cancels); its
+        # variance under a REML-fitted AR(1)+noise error covariance is what
+        # the interval now uses. See _uncertainty.py.
+        cov_post, error_model, se_method = self._post_error_cov(model, Y_pre, X_pre)
         se_total = float(np.sqrt(max(cov_post.sum(), 0.0)))
         se_avg = se_total / self.n_post
+        n_beta = 1 + (self.X.shape[1] if self.X is not None else 0)
+        df_t = max(self.n_pre - n_beta - 3, 1)
+        crit = float(stats.t.ppf(1 - self.alpha / 2, df_t))
+
+        point_se = Y_pred_se.copy()
+        point_se[self.post_mask] = np.sqrt(np.clip(np.diag(cov_post), 0.0, None))
+        pointwise_lower = pointwise_effect - crit * point_se
+        pointwise_upper = pointwise_effect + crit * point_se
 
         # Relative effect
         post_pred_mean = float(np.mean(Y_pred[self.post_mask]))
@@ -305,12 +328,10 @@ class CausalImpactEstimator:
             avg_effect / post_pred_mean if abs(post_pred_mean) > 1e-10 else np.nan
         )
 
-        # P-value (two-sided test against zero effect)
-        z_stat = avg_effect / se_avg if se_avg > 0 else 0
-        pvalue = float(2 * stats.norm.sf(abs(z_stat)))
-
-        z_crit = stats.norm.ppf(1 - self.alpha / 2)
-        ci = (avg_effect - z_crit * se_avg, avg_effect + z_crit * se_avg)
+        # P-value (two-sided t test against zero effect)
+        t_stat = avg_effect / se_avg if se_avg > 0 else 0.0
+        pvalue = float(2 * stats.t.sf(abs(t_stat), df_t))
+        ci = (avg_effect - crit * se_avg, avg_effect + crit * se_avg)
 
         # Build detail table (time series)
         detail = pd.DataFrame(
@@ -320,6 +341,7 @@ class CausalImpactEstimator:
                 "predicted": Y_pred,
                 "predicted_se": Y_pred_se,
                 "effect": pointwise_effect,
+                "effect_se": point_se,
                 "effect_lower": pointwise_lower,
                 "effect_upper": pointwise_upper,
                 "post_intervention": self.post_mask,
@@ -334,6 +356,11 @@ class CausalImpactEstimator:
             "total_effect": total_effect,
             "se_avg": se_avg,
             "se_total": se_total,
+            "se_avg_conditional": se_total_cond / self.n_post,
+            "se_total_conditional": se_total_cond,
+            "se_method": se_method,
+            "error_model": error_model,
+            "df": df_t,
             "relative_effect": relative_effect,
             "relative_effect_pct": (
                 relative_effect * 100 if not np.isnan(relative_effect) else np.nan
@@ -422,6 +449,54 @@ class CausalImpactEstimator:
             "n_covariates": X_pre.shape[1] if X_pre is not None else 0,
         }
 
+    #: above this many periods the dense n x n error covariance is skipped
+    _DENSE_MAX = 5000
+
+    def _post_error_cov(
+        self,
+        model: Dict[str, Any],
+        Y_pre: np.ndarray,
+        X_pre: Optional[np.ndarray],
+    ) -> Tuple[np.ndarray, Optional[Dict[str, float]], str]:
+        """Post-period forecast-error covariance with parameter uncertainty."""
+        from ._uncertainty import (
+            error_covariance,
+            forecast_error_cov,
+            predictor_map,
+            reml_ar1_noise,
+        )
+
+        n = len(self.Y)
+        if n > self._DENSE_MAX:
+            from ..exceptions import AssumptionWarning
+
+            warnings.warn(
+                AssumptionWarning(
+                    f"causal_impact: {n} periods exceed the {self._DENSE_MAX} "
+                    "for which the forecast-error covariance with parameter "
+                    "uncertainty is formed; the interval is conditional on "
+                    "the fitted parameters and will be too narrow.",
+                    recovery_hint="Aggregate to a coarser frequency.",
+                    diagnostics={"n_periods": n},
+                ),
+                stacklevel=4,
+            )
+            return self._post_forecast_cov(model), None, "conditional"
+        Xo = (
+            np.column_stack([np.ones(len(Y_pre)), X_pre])
+            if X_pre is not None and X_pre.shape[1] > 0
+            else np.ones((len(Y_pre), 1))
+        )
+        X_aug = (
+            np.column_stack([np.ones(n), self.X])
+            if self.X is not None and self.X.shape[1] > 0
+            else np.ones((n, 1))
+        )
+        err = reml_ar1_noise(Y_pre, Xo)
+        L = predictor_map(X_aug, self.pre_mask, model)
+        V = forecast_error_cov(L, error_covariance(n, err), self.pre_mask)
+        return V, err, "reml_error_model"
+
     def _post_forecast_cov(self, model: Dict[str, Any]) -> np.ndarray:
         """Joint covariance of the post-period forecast errors.
 
@@ -430,7 +505,8 @@ class CausalImpactEstimator:
         the intervention, ``s_u - a_u = rho^(u-t) (s_t - a_t) + noise`` for
         ``u > t``, so ``Cov(e_t, e_u) = rho^(u-t) P_t`` and
         ``Var(e_t) = P_t + sigma_obs^2``. Parameter uncertainty (beta, rho,
-        the variances) is not propagated.
+        the variances) is not propagated; this conditional variance is kept
+        for reference (``se_total_conditional``).
         """
         P = np.asarray(model["_post_state_var"], dtype=float)
         rho = float(model["rho"])

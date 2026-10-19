@@ -279,8 +279,15 @@ def test_causal_impact_se_is_dense_gaussian_conditional(impact):
         (X @ mp["beta"])[~pre] + cond_mean,
         rtol=1e-10,
     )
-    _close(res.model_info["se_total"] ** 2, cond_cov.sum(), rtol=1e-10)
-    _close(res.se, np.sqrt(cond_cov.sum()) / (~pre).sum(), rtol=1e-10)
+    # The conditional variance is kept as se_total_conditional; the headline
+    # SE adds parameter uncertainty since 2026-10-19
+    # (tests/reference_parity/test_causal_impact_uncertainty.py).
+    _close(res.model_info["se_total_conditional"] ** 2, cond_cov.sum(), rtol=1e-10)
+    _close(
+        res.model_info["se_avg_conditional"],
+        np.sqrt(cond_cov.sum()) / (~pre).sum(),
+        rtol=1e-10,
+    )
 
 
 def test_causal_impact_reference_is_a_different_model():
