@@ -4656,3 +4656,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — module 72 result key renamed; trace and fixture lock
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `ba964a6b9`, `c3ed2441a`.
+- **Reason.** The committed `72_tmle_py.json` named a metadata key
+  `epsilon` while `72_tmle.py` writes `epsilon_vec`, so the committed file
+  was not exactly reproducible from the script. The module was re-run on
+  the no-Rust path: every value is identical (maximum relative difference
+  0); only the key name changed. The trace and the Tier A fixture lock were
+  re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/72_tmle_py.json`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
