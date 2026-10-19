@@ -32,6 +32,14 @@ km.plot()                     # step survival curves with at-risk counts
 `event` is the standard 1 = event observed, 0 = right-censored coding.
 Pass `group=` to stratify; omit it for a single pooled curve.
 
+`weights=` gives weighted curves (with inverse-probability-of-treatment
+weights, the confounder-adjusted curve of each arm), `start=` delayed
+entry, and `cluster=` a subject id for repeated rows. The variance
+follows R `survfit`: the infinitesimal jackknife (`se_method="ij"`) with
+a cluster or non-integer weights, Greenwood otherwise;
+`se_method="xie_liu"` is the variance `adjustedCurves` reports for IPTW
+curves.
+
 ---
 
 ## 2. Cox proportional hazards
@@ -46,13 +54,28 @@ print(cox.summary())
 ```
 
 The reported coefficients are **log hazard ratios**; exponentiate for
-the hazard ratio (pass `hazard_ratio=True` to print HRs directly). The
-counting-process internals mean Cox accepts **time-varying covariates**
-via `(start, stop, event)` rows, and you can add:
+the hazard ratio (pass `hazard_ratio=True` to print HRs directly). You
+can add:
 
 - `strata=` for a stratified baseline hazard,
-- `robust="hc1"` or `cluster=` for robust / clustered standard errors,
-- `ties="efron"` (default) / `"breslow"` for tie handling.
+- `robust="hc0"` or `cluster=` for robust / clustered standard errors,
+  with `ssc="r"` (no small-sample factor, as `coxph`) or `ssc="stata"`
+  (`N/(N-1)` robust, `G/(G-1)` clustered, as `stcox`),
+- `ties="efron"` (default) / `"breslow"` for tie handling,
+- `start=` for counting-process rows `(start, stop]`: delayed entry and
+  **time-varying covariates** split into intervals (R `Surv(start, stop,
+  event)`, Stata `stset, time0()`); pass `cluster=<subject id>` with
+  several rows per subject,
+- `weights=` for case weights; with IPT or survey weights also
+  `weights_as="sampling"`, which gives the robust variance R reports for
+  such weights and Stata `stcox [pw=]` always uses.
+
+```python
+msm_cox = sp.cox(data=df, duration="time", event="event", x=["arm"],
+                 weights="iptw", weights_as="sampling", ssc="r")
+tv_cox = sp.cox(data=long, duration="tstop", start="tstart", event="event",
+                x=["cd4", "arm"], cluster="id", ssc="r")
+```
 
 Always sanity-check the proportional-hazards assumption (Schoenfeld
 residuals) before trusting a single HR over long follow-up.
@@ -133,13 +156,49 @@ grf, and `sp.survival_forest` for conditional survival curves.
 
 ---
 
-## 6. What is *not* here yet
+## 6. Average effects on survival time
 
-- **Competing risks**: there is no Fine–Gray subdistribution-hazard
-  model or cumulative-incidence-function / Aalen–Johansen estimator yet.
-  In a setting with competing events (e.g. death from other causes),
-  cause-specific Cox is available (model each cause with censoring on
-  the others), but the subdistribution approach is on the roadmap.
+**Restricted mean survival time.** `sp.rmst` integrates the
+Kaplan–Meier curve of each group up to `tau` and reports the difference
+and the RMST / RMTL ratios (R `survRM2::rmst2`). With IPT weights it is
+the confounder-adjusted RMST difference, with the infinitesimal-jackknife
+standard error (which holds the weights fixed):
+
+```python
+r = sp.rmst(df, duration="time", event="event", group="arm", tau=36,
+            weights="iptw")
+r.contrasts        # difference, RMST ratio, RMTL ratio
+```
+
+**Effects on mean survival time from parametric models.**
+`sp.stteffects` is Stata's `stteffects`: regression adjustment
+(`method="ra"`), weighted RA (`"wra"`), inverse-probability weighting
+(`"ipw"`) and IPW regression adjustment (`"ipwra"`), for the ATE or the
+ATET, with Weibull / exponential / log-normal outcome and censoring
+models and the stacked-estimating-equation standard errors.
+
+```python
+te = sp.stteffects(df, duration="time", event="event", treat="arm",
+                   covariates=["age", "sex"], method="ipwra")
+te.detail          # ATE, POmean0, POmean1
+```
+
+For `ipwra` with `estimand="ATET"` StatsPAI averages over the treated;
+Stata averages the same models over the whole sample (see
+`docs/dev/modules/survival.md`).
+
+**Dropout in a marginal structural model.** `sp.msm(censor=...)` adds
+stabilized inverse-probability-of-censoring weights for person-period
+data (R `ipw::ipwtm(type = "first")`).
+
+---
+
+## 7. What is *not* here yet
+
+- **Competing risks** are covered by `sp.cuminc` (Aalen–Johansen
+  cumulative incidence) and `sp.finegray`; weighted versions are not.
+- `CoxResult.ph_test()` does not yet handle weighted or counting-process
+  fits (it refuses them); use R `cox.zph` for those.
 - **Time-dependent ROC / net-benefit / decision-curve analysis**.
 
 If your analysis depends on these, validate carefully and consider
