@@ -31,7 +31,7 @@ coefficients and, for a normal mediator, its variance.
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Tuple
 
 import numpy as np
 
