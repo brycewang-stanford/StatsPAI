@@ -37,7 +37,19 @@ MAX_UNDIRECTED_GLOBAL = 18
 
 @dataclass
 class IDAResult(ResultProtocolMixin):
-    """Possible effects of ``x`` on ``y`` across a Markov equivalence class."""
+    """Possible effects of ``x`` on ``y`` across a Markov equivalence class.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> cov = pd.DataFrame([[1.0, 0.5], [0.5, 1.0]], index=["a", "b"],
+    ...                    columns=["a", "b"])
+    >>> cp = pd.DataFrame([[0, 1], [1, 0]], index=["a", "b"], columns=["a", "b"])
+    >>> r = sp.ida(cov, cp, x="a", y="b")
+    >>> [round(e, 2) for e in r.effects]   # a -> b, or b -> a (no effect)
+    [0.5, 0.0]
+    """
 
     x: str
     y: str
