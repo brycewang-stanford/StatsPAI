@@ -82,7 +82,10 @@ def test_supplement_holds_only_names_the_translators_lack():
     from statspai.agent._translation import _stata
 
     known = {k.lower() for k in STATA_COMMAND_MAP} | {k.lower() for k in R_FUNCTION_MAP}
+    from statspai.agent._translation import _r
+
     known |= {k.lower() for k in getattr(_stata, "_UNTRANSLATED_GUIDANCE", {})}
+    known |= {k.lower() for k in getattr(_r, "R_GUIDANCE", {})}
     assert not (set(dc.SUPPLEMENT) & known), sorted(set(dc.SUPPLEMENT) & known)
     _ensure_full_registry()
     for name, (_lang, targets) in dc.SUPPLEMENT.items():

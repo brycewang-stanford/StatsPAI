@@ -9,17 +9,19 @@ for ``ivreg2`` / ``bacondecomp`` / ``boottest``, and ``sp.csdid`` suggested
 **Single source.** The index is read from the translators
 (:mod:`statspai.agent._translation`): every Stata command in
 ``STATA_COMMAND_MAP``, every R function in ``R_FUNCTION_MAP`` and every
-command the Stata translator answers with guidance instead of a translation
-(``honestdid``, ``ddml``, ``weakivtest`` ...). The ``sp.*`` target of a
-command is what :func:`statspai.translation_coverage` parses from its
+command the translators answer with guidance instead of a translation
+(Stata ``honestdid`` / ``ddml`` / ``weakivtest``, R ``CausalImpact`` ...).
+The ``sp.*`` target of a command is what
+:func:`statspai.translation_coverage` parses from its
 handler; for handlers that pick the tool at run time (``logit`` /
 ``probit`` / ``areg`` ...) the translator is run on a minimal command line
 and the tool it emits is taken. Nothing here restates a mapping the
 translators already hold.
 
 :data:`SUPPLEMENT` lists the few names users type that the translators do
-not recognise at all (``csdid2``, fixest's ``sunab``). ``tests/test_discovery_commands.py`` fails as soon as a
-translator learns one of them, so the entry moves to the translator and is
+not recognise at all (``csdid2``, fixest's ``sunab``).
+``tests/test_discovery_commands.py`` fails as soon as a translator learns
+one of them, so the entry moves to the translator and is
 deleted here.
 """
 
@@ -38,7 +40,6 @@ SUPPLEMENT: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     # R functions without a translator handler.
     "sunab": ("r", ("sun_abraham",)),
     "bacon": ("r", ("bacon_decomposition",)),
-    "causalimpact": ("r", ("causal_impact",)),
     "lm_robust": ("r", ("regress",)),
 }
 
@@ -119,11 +120,17 @@ def _build() -> Dict[str, List[Tuple[str, Tuple[str, ...]]]]:
                         targets = [tool] + [t for t in targets if t != tool]
                         break
                 add(command, lang, targets)
-    guidance = getattr(_stata, "_UNTRANSLATED_GUIDANCE", {}) or {}
-    for command, entry in guidance.items():
-        funcs = entry[1] if isinstance(entry, tuple) and len(entry) > 1 else []
-        if command.lower() not in index:
-            add(command, "stata", list(funcs))
+    from .agent._translation import _r
+
+    guidance_tables = (
+        ("stata", getattr(_stata, "_UNTRANSLATED_GUIDANCE", {}) or {}),
+        ("r", getattr(_r, "R_GUIDANCE", {}) or {}),
+    )
+    for lang, guidance in guidance_tables:
+        for command, entry in guidance.items():
+            funcs = entry[1] if isinstance(entry, tuple) and len(entry) > 1 else []
+            if not any(row[0] == lang for row in index.get(command.lower(), [])):
+                add(command, lang, list(funcs))
     for name, (lang, targets) in SUPPLEMENT.items():
         if name not in index:
             add(name, lang, list(targets))
