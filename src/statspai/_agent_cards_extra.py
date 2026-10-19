@@ -4491,4 +4491,415 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         "alternatives": ["regress", "sumstats", "partial_corr_pvalue"],
         "typical_n_min": 30,
     },
+    # ------------------------------------------------------------------
+    # Estimators added 2026-10-19 (content read off each function's code:
+    # the conditions it raises on, the warnings it issues, its docstring).
+    # ------------------------------------------------------------------
+    "heckprobit": {
+        "assumptions": [
+            "The outcome and selection errors are bivariate normal with "
+            "correlation rho; with rho = 0 the selected-sample probit is "
+            "consistent, otherwise it is not",
+            "Identification relies on the normality of the errors unless "
+            "z contains a variable excluded from x (an exclusion "
+            "restriction)",
+            "The selection equation is a probit on z for every row",
+        ],
+        "pre_conditions": [
+            "A 0/1 outcome on the selected rows and a 0/1 selection "
+            "indicator that varies (or select omitted: selected = y "
+            "observed)",
+            "z= is given (the selection equation's variables)",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "No variable in z that is not in x",
+                "exception": "(none — informational)",
+                "remedy": "The model is identified only by the bivariate "
+                "normal functional form; add an exclusion restriction and "
+                "read the Wald test of rho = 0 with care",
+                "alternative": "probit",
+            },
+            {
+                "symptom": "Continuous outcome",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "heckprobit needs a 0/1 outcome; use the Heckman "
+                "selection model",
+                "alternative": "heckman",
+            },
+        ],
+        "alternatives": ["heckman", "probit"],
+        "typical_n_min": 200,
+    },
+    "gologit": {
+        "assumptions": [
+            "Pr(Y > c_j) = F(a_j + x'b_j): a logit (or probit) link for "
+            "each cut of an ordinal outcome",
+            "Variables constrained by pl= meet the parallel-lines "
+            "assumption (a common coefficient across cuts); the others "
+            "have a coefficient per cut",
+            "Independent observations unless vce='cluster'",
+        ],
+        "pre_conditions": [
+            "An ordinal outcome with at least three categories, ordered " "by value",
+            "pl= or npl=, not both",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Some rows get a negative predicted probability",
+                "exception": "statspai.StatsPAIWarning",
+                "remedy": "The unconstrained cuts cross; constrain "
+                "variables to parallel lines with pl= / npl=, or merge "
+                "sparse outcome categories",
+                "alternative": "ologit",
+            },
+            {
+                "symptom": "Outcome with two categories",
+                "exception": "statspai.DataInsufficient",
+                "remedy": "Two categories have one cut, so the model is a "
+                "binary logit / probit",
+                "alternative": "logit",
+            },
+        ],
+        "alternatives": ["ologit", "oprobit", "mlogit"],
+        "typical_n_min": 200,
+    },
+    "intreg": {
+        "assumptions": [
+            "A linear model for a latent outcome with normal, " "homoskedastic errors",
+            "The bounds code the observation: equal bounds an exact "
+            "value, a missing lower bound left-censoring, a missing upper "
+            "bound right-censoring, otherwise an interval",
+            "Censoring is uninformative given the regressors",
+        ],
+        "pre_conditions": [
+            "Two bound columns with lower <= upper on every row",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Rows with the lower bound above the upper bound",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Swap or fix the bounds (they are refused rather "
+                "than dropped)",
+                "alternative": "intreg",
+            },
+            {
+                "symptom": "One censoring point for every row",
+                "exception": "(none — informational)",
+                "remedy": "That is the tobit model",
+                "alternative": "tobit",
+            },
+        ],
+        "alternatives": ["tobit", "xtintreg", "regress"],
+        "typical_n_min": 100,
+    },
+    "xtivreg": {
+        "assumptions": [
+            "The excluded instruments are relevant for the endogenous "
+            "regressors and uncorrelated with both error components "
+            "(with method='re', also with the panel effect)",
+            "method='re': the panel effect is uncorrelated with the "
+            "regressors and instruments; method='fe' drops that "
+            "requirement for time-invariant heterogeneity",
+            "Order condition: at least as many excluded instruments as "
+            "endogenous regressors",
+        ],
+        "pre_conditions": [
+            "id= names the panel identifier; at least two panels",
+            "ec2sls= / nosa= only with method='re'",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Fewer independent instruments than regressors",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Add excluded instruments, at least one per "
+                "endogenous regressor",
+                "alternative": "xtivreg",
+            },
+            {
+                "symptom": "Regressor constant within panels with " "method='fe'",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "The within transformation removes it; drop it "
+                "or use method='re'",
+                "alternative": "xtivreg",
+            },
+            {
+                "symptom": "Cluster-robust inference with method='be'",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "The between estimator has the conventional " "variance only",
+                "alternative": "ivreg",
+            },
+        ],
+        "alternatives": ["ivreg", "panel", "xtabond"],
+        "typical_n_min": 100,
+    },
+    "xtpcse": {
+        "assumptions": [
+            "Disturbances may be heteroskedastic across panels and "
+            "contemporaneously correlated between them (Beck-Katz "
+            "panel-corrected standard errors)",
+            "Within-panel autocorrelation is none, a common AR(1) or a "
+            "panel-specific AR(1) (correlation=)",
+            "Long panels: the panel covariance is estimated from the "
+            "periods the panels share",
+        ],
+        "pre_conditions": [
+            "Integer-spaced time with no repeated period within a panel; "
+            "at least two panels",
+            "Every pair of panels shares a period (pairwise=True), or "
+            "some period is observed for every panel (casewise default)",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Repeated time values within a panel",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "De-duplicate the panel-time pairs",
+                "alternative": "xtpcse",
+            },
+            {
+                "symptom": "No period is observed for every panel",
+                "exception": "statspai.DataInsufficient",
+                "remedy": "Pass pairwise=True, or hetonly=True to skip the "
+                "cross-panel covariance",
+                "alternative": "xtpcse",
+            },
+        ],
+        "alternatives": ["panel", "feols", "prais"],
+        "typical_n_min": 100,
+    },
+    "xtintreg": {
+        "assumptions": [
+            "A linear model for a latent outcome with a normal panel "
+            "effect and normal idiosyncratic errors, independent of each "
+            "other and of the regressors (random effects)",
+            "The bounds code the observation as in intreg",
+            "The panel-effect integral is approximated by adaptive "
+            "Gauss-Hermite quadrature with intpoints nodes",
+        ],
+        "pre_conditions": [
+            "id= with at least two panels; lower <= upper on every row",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Rows with the lower bound above the upper bound",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Swap or fix the bounds",
+                "alternative": "xtintreg",
+            },
+            {
+                "symptom": "Panel effect correlated with the regressors",
+                "exception": "(none — informational)",
+                "remedy": "Random effects are then inconsistent; the "
+                "likelihood-ratio test of sigma_u = 0 does not test this",
+                "alternative": "intreg",
+            },
+        ],
+        "alternatives": ["intreg", "xttobit", "panel"],
+        "typical_n_min": 100,
+    },
+    "xttobit": {
+        "assumptions": [
+            "A linear model for a latent outcome censored at ll and / or "
+            "ul, with a normal random panel effect independent of the "
+            "regressors",
+            "Normal idiosyncratic errors",
+        ],
+        "pre_conditions": [
+            "id= with at least two panels; ll= and / or ul=",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "No censoring limit given",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Pass ll= and / or ul=",
+                "alternative": "xttobit",
+            },
+        ],
+        "alternatives": ["tobit", "xtintreg", "panel"],
+        "typical_n_min": 100,
+    },
+    "sdem": {
+        "assumptions": [
+            "y = Xb + WX theta + u with u = lambda W u + e: spillovers run "
+            "through the neighbours' regressors and the error, not "
+            "through the neighbours' outcome",
+            "Normal errors (maximum likelihood with observed-information "
+            "standard errors)",
+            "W is known and exogenous; every unit of data is a row of W",
+        ],
+        "pre_conditions": [
+            "No missing or infinite values (every unit enters W)",
+            "X and WX are not collinear",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "A regressor whose spatial lag is (nearly) "
+                "constant, so X and WX are collinear",
+                "exception": "statspai.NumericalInstability",
+                "remedy": "Drop that regressor",
+                "alternative": "sem",
+            },
+            {
+                "symptom": "Missing values in y or X",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Impute or drop the units and their rows and " "columns of W",
+                "alternative": "sdem",
+            },
+        ],
+        "alternatives": ["sem", "sdm", "gns", "lm_tests"],
+        "typical_n_min": 100,
+    },
+    "gns": {
+        "assumptions": [
+            "y = rho W y + Xb + WX theta + u with u = lambda W u + e: the "
+            "model nesting SAR, SEM, SDM, SDEM and SAC",
+            "Normal errors; W known and exogenous",
+            "rho and lambda are weakly identified in small samples and "
+            "trade off against each other",
+        ],
+        "pre_conditions": [
+            "No missing or infinite values; X and WX not collinear",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Large standard errors on both rho and lambda",
+                "exception": "(none — informational)",
+                "remedy": "The two spatial parameters are not separately "
+                "identified on these data; fit the nested models and "
+                "compare them",
+                "alternative": "sdm",
+            },
+            {
+                "symptom": "The concentrated likelihood has no interior " "maximum",
+                "exception": "statspai.ConvergenceFailure",
+                "remedy": "Check W (row-normalised, no isolated units)",
+                "alternative": "sdem",
+            },
+        ],
+        "alternatives": ["sdm", "sdem", "sac", "lm_tests"],
+        "typical_n_min": 200,
+    },
+    "ida": {
+        "assumptions": [
+            "Linear-Gaussian structural model: an effect is the "
+            "coefficient of x in the regression of y on x and a parent "
+            "set of x",
+            "The CPDAG is the true Markov equivalence class (causal "
+            "sufficiency and faithfulness, as in the discovery step that "
+            "produced it)",
+            "The output is a set of possible effects, one per admissible "
+            "parent set (local) or per DAG (global), not one estimate",
+        ],
+        "pre_conditions": [
+            "A CPDAG adjacency (A[i, j] = 1 for i -> j, both entries for "
+            "an undirected edge) over the data's columns",
+            "x and y are different variables",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "More than 18 undirected edges with " "method='global'",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Use method='local', which gives the same " "distinct values",
+                "alternative": "ida",
+            },
+            {
+                "symptom": "The graph has no consistent DAG extension",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Pass a CPDAG from causal discovery",
+                "alternative": "pc_algorithm",
+            },
+        ],
+        "alternatives": ["pc_algorithm", "ges", "identify"],
+        "typical_n_min": 100,
+    },
+    "mediate_paths": {
+        "assumptions": [
+            "No unmeasured confounding of the treatment-outcome, "
+            "treatment-mediator and mediator-outcome relations given the "
+            "covariates and earlier mediators",
+            "The mediators are listed in causal order; no post-treatment "
+            "confounder of the mediators other than earlier mediators",
+            "The outcome models (linear or logistic) are correctly " "specified",
+        ],
+        "pre_conditions": [
+            "A 0/1 treatment with both values; a 0/1 outcome for "
+            "outcome_model='logistic'",
+            "Each mediator column in one block",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "An exposure-induced confounder of a later "
+                "mediator is left out",
+                "exception": "(none — informational)",
+                "remedy": "Enter it as an earlier mediator",
+                "alternative": "mediate_paths",
+            },
+            {
+                "symptom": "Too few rows for the outcome model's terms",
+                "exception": "statspai.DataInsufficient",
+                "remedy": "Use fewer covariates or mediators, or " "interaction=False",
+                "alternative": "mediate",
+            },
+        ],
+        "alternatives": ["mediate"],
+        "typical_n_min": 200,
+    },
+    "lmtp": {
+        "assumptions": [
+            "Sequential exchangeability: no unmeasured confounding of "
+            "each treatment given the measured history",
+            "Positivity for the policy: the shifted treatment value has "
+            "support under the natural treatment distribution given the "
+            "history",
+            "Correctly specified or consistently estimated outcome "
+            "regressions or density ratios (sequential doubly robust "
+            "TMLE)",
+        ],
+        "pre_conditions": [
+            "Wide data, one row per unit, treatments in time order",
+            "covariates_time has one list per time point",
+            "At least 20 complete rows",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "A shift that moves treatments outside their "
+                "observed support",
+                "exception": "(none — informational)",
+                "remedy": "Density ratios explode and are trimmed at the "
+                "trim quantile; choose a smaller shift or inspect the "
+                "density ratios in model_info",
+                "alternative": "lmtp",
+            },
+            {
+                "symptom": "A static policy on a binary treatment " "(set A = 1)",
+                "exception": "(none — informational)",
+                "remedy": "That is a longitudinal TMLE target",
+                "alternative": "ltmle",
+            },
+        ],
+        "alternatives": ["ltmle", "tmle"],
+        "typical_n_min": 200,
+    },
+    "l1_imbalance": {
+        "assumptions": [
+            "Imbalance is measured on a coarsening: numeric covariates "
+            "with more than n_bins values are cut into equal-width bins",
+            "The value depends on the coarsening, so two L1 numbers are "
+            "comparable only under the same n_bins",
+        ],
+        "pre_conditions": [
+            "A 0/1 treatment column and the covariates to compare",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Comparing L1 with R cem's imbalance()",
+                "exception": "(none — informational)",
+                "remedy": "R uses a different histogram-based coarsening; "
+                "compare only under the same bins",
+                "alternative": "balance_diagnostics",
+            },
+        ],
+        "alternatives": ["balance_diagnostics", "bal_tab", "match"],
+        "typical_n_min": 50,
+    },
 }

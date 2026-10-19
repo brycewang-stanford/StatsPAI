@@ -644,19 +644,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "glmnet: the outcome and predictors must be numeric.",
         },
     ],
-    "gologit": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass formula='y ~ x1 + x2', or y= and x=.",
-            "symptom": "gologit: the outcome and the regressors are needed.",
-        },
-        {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "With two categories use sp.logit / sp.probit.",
-            "symptom": "gologit: the outcome needs at least three "
-            "categories; got <M>.",
-        },
-    ],
     "hausman": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -674,21 +661,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "sp.hausman: sigmamore / sigmaless need the "
             "disturbance variance of both models, which a result "
             "does not store.",
-        },
-    ],
-    "heckprobit": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass z=[...]; include at least one variable that "
-            "is not in x (an exclusion restriction).",
-            "symptom": "heckprobit: z= lists the variables of the "
-            "selection equation.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "For a continuous outcome use sp.heckman.",
-            "symptom": "heckprobit: the outcome <y> must be 0/1 on the "
-            "selected rows.",
         },
     ],
     "hierarchy": [
@@ -763,30 +735,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "menbreg / meglm gamma).",
         },
     ],
-    "ida": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use method='local' (fast) or 'global'.",
-            "symptom": "ida: method must be 'local' or 'global', got <method>.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Name two nodes.",
-            "symptom": "ida: x and y are the same variable.",
-        },
-        {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "Use more observations or fewer variables.",
-            "symptom": "ida: <len(frame)> complete rows for <len(nodes)> " "variables.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use method='local'.",
-            "symptom": "ida: <len(und)> undirected edges; method='global' "
-            "enumerates 2^<len(und)> orientations and stops at "
-            "<MAX_UNDIRECTED_GLOBAL> edges.",
-        },
-    ],
     "influence_measures": [
         {
             "exception": "statspai.DataInsufficient",
@@ -802,20 +750,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "editor's methods without any interface.",
             "symptom": "ui must be 'auto', 'jupyter', 'window' or " "'none', got <ui>",
         }
-    ],
-    "intreg": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass y_lower=, y_upper= and x=, or formula='lo + hi ~ "
-            "x1 + x2'.",
-            "symptom": "intreg: the two bounds and the regressors are " "needed.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Swap or fix the bounds; Stata drops these rows with a "
-            "note, which hides a data error.",
-            "symptom": "intreg: <int(bad.sum())> row(s) have <y_lower> > " "<y_upper>.",
-        },
     ],
     "jackknife": [
         {
@@ -912,13 +846,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "ljungbox: the series is constant.",
         },
     ],
-    "lmtp": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass [] for a time point without new covariates.",
-            "symptom": "lmtp: covariates_time needs one list per time point.",
-        }
-    ],
     "logit_gof": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -975,30 +902,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Drop adjust=True or set demean=True.",
             "symptom": "sp.lrvar: adjust=True corrects for the estimated mean "
             "and needs demean=True.",
-        },
-    ],
-    "mediate_paths": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use 'logistic' for a 0/1 outcome.",
-            "symptom": "outcome_model must be 'linear' or 'logistic', "
-            "got <outcome_model>",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Both are reported in result.detail.",
-            "symptom": "decomposition must be 'type1' or 'type2', got "
-            "<decomposition>",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass mediators=['m1', 'm2', ...] in causal " "order.",
-            "symptom": "mediate_paths needs at least one mediator.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Each mediator column belongs to one block.",
-            "symptom": "mediate_paths: a column appears in two " "mediator blocks.",
         },
     ],
     "mmhc": [
@@ -1869,13 +1772,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "(engine='areg').",
         },
     ],
-    "xtivreg": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Pass id='<panel column>'.",
-            "symptom": "xtivreg: id= names the panel identifier.",
-        }
-    ],
     "xtoverid": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1890,25 +1786,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "<len(varying)> restriction(s): the cluster-robust "
             "covariance has rank at most <G - 1>, so the "
             "statistic would divide by zero.",
-        },
-    ],
-    "xtpcse": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Each (id, time) pair must appear once.",
-            "symptom": "xtpcse: repeated time values within a panel.",
-        },
-        {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "Use hetonly=True or drop the panels that do not " "overlap.",
-            "symptom": "xtpcse: two panels share no period, so their "
-            "covariance cannot be estimated (pairwise).",
-        },
-        {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "Pass pairwise=True or hetonly=True.",
-            "symptom": "xtpcse: no period is observed for every panel, so the "
-            "casewise covariance has no data.",
         },
     ],
     "xtserial": [
@@ -1940,14 +1817,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.DataInsufficient",
             "remedy": "Drop the variable.",
             "symptom": "sp.xtsum: <name> has no observed value.",
-        }
-    ],
-    "xttobit": [
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Without limits the model is a random-effects linear "
-            "regression: use sp.panel(method='re') or sp.mixed.",
-            "symptom": "xttobit: give a censoring limit, ll= and/or ul=.",
         }
     ],
     "zivot_andrews": [
