@@ -844,7 +844,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
 | `geolift` | [`test_geolift_parity.py`](../tests/reference_parity/test_geolift_parity.py) |
-| `ges` | [`test_ges_parity.py`](../tests/reference_parity/test_ges_parity.py) |
+| `ges` | [`test_ges_parity.py`](../tests/reference_parity/test_ges_parity.py) (+1) |
 | `get_scores` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |
 | `gformula_mc` | [`test_gformula_family_parity.py`](../tests/reference_parity/test_gformula_family_parity.py) (+1) |
 | `gnn_causal` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |

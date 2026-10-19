@@ -63711,8 +63711,8 @@
       "Cross-language parity (bit-exact) vs fixest::sunab [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=0.03; parity module 05_sunab -- tests/r_parity/05_sunab.py",
       "tests/external_parity/test_dcdh_did_textbook.py",
       "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
-      "tests/reference_parity/test_event_study_vcov_R_parity.py",
-      "tests/reference_parity/test_sunab_control_cohort_parity.py"
+      "tests/reference_parity/test_did_validation_parity.py",
+      "tests/reference_parity/test_event_study_vcov_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -80104,9 +80104,9 @@
       "Stata parity module 88_rdbwselect",
       "Cross-language parity (bit-exact) vs rdrobust::rdbwselect; Stata side uses the authors' rdbwselect ado. certwo is R-only: Stata rdbwselect 10.0.0 exits r(3200) on it, including on the package's own rdrobust_senate.dta [R version 4.5.2 (2025-10-31), rdrobust 4.0.0]; tolerance rel_est<=1e-06; parity module 88_rdbwselect -- tests/r_parity/88_rdbwselect.py",
       "tests/reference_parity/test_rd_cluster_cer_parity.py",
+      "tests/reference_parity/test_rd_fuzzy_covs_level_R_parity.py",
       "tests/reference_parity/test_rd_masspoints_R_parity.py",
-      "tests/reference_parity/test_rdbwselect_comb_rules.py",
-      "tests/reference_parity/test_rdbwselect_iqr_pilot.py"
+      "tests/reference_parity/test_rdbwselect_comb_rules.py"
     ],
     "validation_status": "certified"
   },
@@ -139461,7 +139461,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_ges_parity.py"
+        "tests/reference_parity/test_ges_parity.py",
+        "tests/reference_parity/test_ges_pcalg_parity.py"
       ],
       "tolerance": ""
     },

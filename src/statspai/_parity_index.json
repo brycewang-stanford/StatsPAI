@@ -5510,6 +5510,7 @@
         "tests/reference_parity/test_bjs_options_parity.py",
         "tests/reference_parity/test_bjs_project_parity.py",
         "tests/reference_parity/test_did_imputation_autosample_Stata_parity.py",
+        "tests/reference_parity/test_did_validation_parity.py",
         "tests/reference_parity/test_did_variants_parity.py",
         "tests/reference_parity/test_event_study_vcov_Stata_parity.py",
         "tests/reference_parity/test_oct2026_second_pass.py",
@@ -8788,7 +8789,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_ges_parity.py"
+        "tests/reference_parity/test_ges_parity.py",
+        "tests/reference_parity/test_ges_pcalg_parity.py"
       ],
       "tolerance": ""
     },
@@ -18463,6 +18465,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_rd_cluster_cer_parity.py",
+        "tests/reference_parity/test_rd_fuzzy_covs_level_R_parity.py",
         "tests/reference_parity/test_rd_masspoints_R_parity.py",
         "tests/reference_parity/test_rdbwselect_comb_rules.py",
         "tests/reference_parity/test_rdbwselect_iqr_pilot.py",
@@ -18969,6 +18972,7 @@
         "tests/reference_parity/test_rd_cluster_cer_parity.py",
         "tests/reference_parity/test_rd_covs_cluster_parity.py",
         "tests/reference_parity/test_rd_diff_in_disc_Stata_parity.py",
+        "tests/reference_parity/test_rd_fuzzy_covs_level_R_parity.py",
         "tests/reference_parity/test_rd_iv_rd_R_parity.py",
         "tests/reference_parity/test_rd_masspoints_R_parity.py",
         "tests/reference_parity/test_rd_open_R_parity.py",
@@ -22174,6 +22178,7 @@
       "additional_tests": [
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+        "tests/reference_parity/test_did_validation_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_sunab_control_cohort_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
