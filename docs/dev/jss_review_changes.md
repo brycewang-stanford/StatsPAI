@@ -4250,3 +4250,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   for byte.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record for the design guardrails
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `59ae2b20`.
+- **Reason.** `regression/ols.py`, `fixest/wrapper.py`,
+  `panel/panel_reg.py` and `core/_agent_summary.py` now call (or read)
+  the shared design guardrails (`core/_design_guardrails.py`,
+  `core/_spec_counter.py`), which run after the fit and write only
+  diagnostics. The traces of 18 Track A modules (01 02 03 14 15 24 35 42
+  48 51 53 54 55 56 57 58 67 69) and 4 original-data modules (01 04 04b
+  09) were re-recorded.
+- **Effect on the paper.** None. Every re-traced module was first re-run
+  into a scratch directory and reproduces its committed `*_py.json`
+  (all numbers within 1e-9, in fact identical); the guardrails never
+  change an estimate or standard error.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
