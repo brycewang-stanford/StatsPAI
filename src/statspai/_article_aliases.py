@@ -1117,6 +1117,7 @@ def dml(
     external_predictions: Optional["OOFPredictions"] = None,
     store_oof: bool = False,
     observation_ids: Optional[Sequence[str]] = None,
+    design: Optional[Any] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """Double/Debiased Machine Learning — article-facing alias.
@@ -1140,7 +1141,10 @@ def dml(
     alignment. Its ``caller_declared`` records are auditable declarations, not
     proof that nuisance training avoided data leakage. ``store_oof=True`` keeps
     every repeat for ``get_oof()`` and ``get_residuals()``; ordinary result
-    serialization omits these individual-level records. Retained internal fits
+    serialization omits these individual-level records. ``design=`` takes a
+    :func:`sp.svydesign` survey design (weights, strata, PSUs, fpc): weighted
+    score, folds over PSUs, survey linearisation SE (see
+    :func:`statspai.dml.dml`). Retained internal fits
     require at least 10 rows per treatment arm in every training fold, and
     otherwise raise ``DataInsufficient`` instead of using the legacy subgroup-mean
     fallback. For retained calls, internal explicit fold_indices require n_rep=1;
@@ -1221,10 +1225,10 @@ def dml(
             kwargs.setdefault("ml_g", model_y)
         if model_d is not None:
             kwargs.setdefault("ml_m", model_d)
-        if store_oof or external_predictions is not None:
+        if store_oof or external_predictions is not None or design is not None:
             raise MethodIncompatibility(
                 "dml with several treatments does not support store_oof / "
-                "external_predictions."
+                "external_predictions / design=."
             )
         return dml_multi_treatment(
             data, y, treats, list(cov_multi), dict(kwargs, model=model)
@@ -1287,5 +1291,6 @@ def dml(
         external_predictions=external_predictions,
         store_oof=store_oof,
         observation_ids=observation_ids,
+        design=design,
         **kwargs,
     )

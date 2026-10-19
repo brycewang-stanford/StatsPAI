@@ -279,6 +279,7 @@ def callaway_santanna(
     pretest_periods: Optional[int] = None,
     se_method: Optional[str] = None,
     balance: Optional[str] = None,
+    design: Optional[Any] = None,
 ) -> CausalResult:
     """
     Callaway & Sant'Anna (2021) estimator for staggered DID.
@@ -521,6 +522,22 @@ def callaway_santanna(
 
         .. versionadded:: 1.23.0
 
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on the
+        long ``data`` (same rows), with the panel unit as the sampled
+        element: its weight, stratum and PSU must be the same in every
+        period. The design weights are the unit weights ``omega`` (as
+        ``weights=``), and every analytic standard error -- ATT(g, t),
+        the simple aggregate, the event study and the pre-trend Wald test
+        -- is the survey linearisation of the unit-level influence
+        functions over strata, PSUs and the finite population correction
+        (R ``survey::svyrecvar`` on ``psi / n``), with t intervals on the
+        design degrees of freedom (#PSU - #strata). Balanced panels only
+        (no ``panel=False`` / unbalanced path), analytic SEs only (no
+        multiplier bootstrap), and not with ``weights=`` or
+        ``clustervars=``. ``sp.aggte`` / ``sp.honest_did`` on such a fit
+        are refused rather than rebuilt without the design.
+
     Returns
     -------
     CausalResult
@@ -567,7 +584,6 @@ def callaway_santanna(
         does so on one fixed sample at the price of discarding the
         incomplete units (with 30% of cells missing at random over eight
         periods, about 6% of units are complete).
-
     References
     ----------
     Callaway, B. and Sant'Anna, P. H. C. (2021). Difference-in-differences
@@ -578,6 +594,39 @@ def callaway_santanna(
     g = _require_column_name(g, argument="g")
     t = _require_column_name(t, argument="t")
     i = _require_column_name(i, argument="i")
+    svy: Any = None
+    svy_data: Optional[pd.DataFrame] = None
+    if design is not None:
+        from ..survey.linearization import check_design
+
+        svy = check_design(
+            design,
+            data,
+            function="callaway_santanna",
+            weights=weights,
+            cluster=clustervars or None,
+            allow_calibrated=False,
+        )
+        if not panel or bstrap or cband or se_method not in (None, "analytic"):
+            raise MethodIncompatibility(
+                "callaway_santanna: design= is implemented for the panel "
+                "estimator with analytic standard errors (survey "
+                "linearisation of the unit influence functions); not with "
+                "panel=False or the multiplier bootstrap.",
+                recovery_hint="Use panel=True and drop bstrap= / cband= / "
+                "se_method=.",
+                diagnostics={"panel": panel, "bstrap": bstrap},
+            )
+        from ..survey.linearization import unit_design_rows
+
+        _require_columns(data, (i,), function="callaway_santanna")
+        # the unit must be the sampled element (raises otherwise)
+        unit_design_rows(
+            svy, data, i, list(pd.unique(data[i])), function="callaway_santanna"
+        )
+        svy_data = data
+        data = data.assign(__svy_weight__=svy.weights)
+        weights = "__svy_weight__"
     # R-style one-sided covariate formula, for `did`/`csdid` migrations:
     # x="~ lpop + I(lpop**2)" is materialised into real columns here so the
     # rest of the estimator keeps seeing a plain list of column names. A
@@ -870,6 +919,14 @@ def callaway_santanna(
             _n_units_seen * _n_periods_seen
         )
 
+    if svy is not None and use_unbalanced:
+        raise MethodIncompatibility(
+            "callaway_santanna: design= needs a balanced panel; this one is "
+            "unbalanced and allow_unbalanced_panel / balance='none' would "
+            "use the observation-level estimator.",
+            recovery_hint="Pass balance='full' to keep the complete units "
+            "(the others then contribute zero but keep their PSUs).",
+        )
     if (not panel) or use_unbalanced:
         return _callaway_santanna_rcs(
             data=data,
@@ -1005,10 +1062,20 @@ def callaway_santanna(
     # 3.5 Optional multiplier-bootstrap inference (R did::att_gt bstrap
     # path).  Replaces the analytic SEs of each ATT(g,t) with bootstrap
     # SEs and, when cband=True, adds uniform (sup-t) confidence bands.
-    cluster_ids: Optional[np.ndarray] = None
+    cluster_ids: Any = None
     if extra_cluster is not None:
         cluster_ids = (
             data.groupby(i)[extra_cluster].first().reindex(unit_info.index).to_numpy()
+        )
+    if svy is not None:
+        from ..survey.linearization import DesignVariance, unit_design_rows
+
+        assert svy_data is not None
+        cluster_ids = DesignVariance(
+            svy,
+            unit_design_rows(
+                svy, svy_data, i, unit_info.index, function="callaway_santanna"
+            ).rows,
         )
     boot_cfg: Optional[Dict[str, Any]] = None
     crit_val_uniform: Optional[float] = None
@@ -1145,6 +1212,14 @@ def callaway_santanna(
             stacklevel=2,
         )
 
+    if svy is not None:
+        from ..survey.linearization import design_inference, t_inference_frame
+
+        _svy_df = float(cluster_ids.df)
+        detail = t_inference_frame(detail, alpha, _svy_df)
+        event_study = t_inference_frame(event_study, alpha, _svy_df)
+        agg_ci, agg_pval = design_inference(agg_est, agg_se, _svy_df, alpha)
+
     # 8. Build result
     model_info: Dict[str, Any] = {
         "estimator": estimator.upper(),
@@ -1197,6 +1272,15 @@ def callaway_santanna(
         # from ω-mass, not head counts, once ω is in play.
         "_unit_weights": unit_weights,
     }
+    if svy is not None:
+        model_info["weights"] = None
+        model_info["_cluster_ids"] = None
+        model_info["se_method"] = "survey_linearization"
+        model_info["inference_note"] = (
+            "Survey linearisation of the unit influence functions "
+            "(strata / PSU / fpc); t intervals on the design df."
+        )
+        model_info["survey_design"] = cluster_ids.info()
 
     # Which unbalanced-panel rule produced the sample (csdid 2.0.0's bal()).
     model_info["balance"] = "full" if balance_info is not None else "pair"
@@ -2578,7 +2662,7 @@ def _aggregate_simple(
     boot_cfg: Optional[Dict[str, Any]] = None,
     unit_cohorts: Optional[np.ndarray] = None,
     unit_weights: Optional[np.ndarray] = None,
-    cluster_ids: Optional[np.ndarray] = None,
+    cluster_ids: Any = None,
 ) -> Tuple[float, float, float, Tuple[float, float]]:
     """Simple aggregation: group-size-weighted average of post-treatment ATTs.
 
@@ -2643,7 +2727,7 @@ def _aggregate_event_study(
     boot_cfg: Optional[Dict[str, Any]] = None,
     unit_cohorts: Optional[np.ndarray] = None,
     unit_weights: Optional[np.ndarray] = None,
-    cluster_ids: Optional[np.ndarray] = None,
+    cluster_ids: Any = None,
 ) -> pd.DataFrame:
     """Event study aggregation: average ATT by relative time e = t − g.
 
@@ -2736,7 +2820,7 @@ def _pretrend_test(
     n_total: int,
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
-    cluster_ids: Optional[np.ndarray] = None,
+    cluster_ids: Any = None,
 ) -> Optional[Dict[str, Any]]:
     """Joint Wald test for H0: all pre-treatment ATT(g,t) = 0.
 
@@ -2768,15 +2852,21 @@ def _pretrend_test(
     if inf_matrix is not None:
         col_idx = np.where(pre_mask.values)[0]
         inf_pre = inf_matrix[:, col_idx]
-        if cluster_ids is not None:
-            # Cluster sums replace the rows (csdid, cluster()).
-            codes = pd.factorize(np.asarray(cluster_ids))[0]
-            sums = np.zeros((codes.max() + 1, inf_pre.shape[1]))
-            np.add.at(sums, codes, inf_pre)
-            inf_pre = sums
-        # Variance-covariance: V = (1/n²) IF' IF
-        V = inf_pre.T @ inf_pre / (n_total**2)
-        G = int(inf_pre.shape[0])  # number of IF contributions (units)
+        if getattr(cluster_ids, "is_survey_design", False):
+            # design= fits: survey linearisation of psi / n; the design
+            # degrees of freedom play the role of G - 1
+            V = cluster_ids.vcov(inf_pre, n_total)  # type: ignore[union-attr]
+            G = int(cluster_ids.df) + 1  # type: ignore[union-attr]
+        else:
+            if cluster_ids is not None:
+                # Cluster sums replace the rows (csdid, cluster()).
+                codes = pd.factorize(np.asarray(cluster_ids))[0]
+                sums = np.zeros((codes.max() + 1, inf_pre.shape[1]))
+                np.add.at(sums, codes, inf_pre)
+                inf_pre = sums
+            # Variance-covariance: V = (1/n²) IF' IF
+            V = inf_pre.T @ inf_pre / (n_total**2)
+            G = int(inf_pre.shape[0])  # number of IF contributions (units)
     else:
         V = np.diag(pre["se"].values ** 2)
 

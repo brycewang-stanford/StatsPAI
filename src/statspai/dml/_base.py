@@ -191,6 +191,7 @@ class _DoubleMLBase:
         normalize_ipw: bool = False,
         trimming_threshold: float = 1e-2,
         cluster: Optional[str] = None,
+        design: Optional[Any] = None,
     ):
         context = f"dml.{self._MODEL_TAG.lower() or 'base'}"
         if not isinstance(data, pd.DataFrame):
@@ -347,6 +348,23 @@ class _DoubleMLBase:
                 diagnostics={"cluster": repr(cluster)},
             )
         self._cluster_codes: Optional[np.ndarray] = None
+        self._design: Any = None
+        self._design_rows: Optional[np.ndarray] = None
+        if design is not None:
+            from ..survey.linearization import check_design
+
+            self._design = check_design(
+                design,
+                data,
+                function=context,
+                weights=None if sample_weight is None else "sample_weight",
+                cluster=cluster,
+            )
+            if not self._SUPPORTS_SAMPLE_WEIGHT:  # pragma: no cover
+                raise MethodIncompatibility(
+                    f"{context}: design= needs a weighted score, which this "
+                    "model does not have."
+                )
         if self._sample_weight_input is not None and not self._SUPPORTS_SAMPLE_WEIGHT:
             raise MethodIncompatibility(  # pragma: no cover
                 f"{context}: sample_weight is not yet supported for "
@@ -539,6 +557,33 @@ class _DoubleMLBase:
         gamma /= K
         G = int(codes.max()) + 1
         return theta, float(np.sqrt(gamma / (J**2 * G)))
+
+    def _design_theta_se(self, score: Dict[str, Any]) -> Tuple[float, float]:
+        """Design-weighted DML estimate and its survey linearisation SE.
+
+        ``theta = -sum w psi_b / sum w psi_a`` (the weighted DML2 solution
+        each model already returns) and the contributions
+        ``u_i = -w_i psi_i(theta) / sum_j w_j psi_a_j`` -- the influence
+        function of the weighted moment with the cross-fitted nuisances
+        held fixed (the DML convention) -- go to the design variance over
+        strata, PSUs and the fpc (R ``survey::svyrecvar``).
+        """
+        from ..survey.linearization import design_vcov
+
+        assert self._design is not None and self._design_rows is not None
+        psi_a = np.asarray(score["psi_a"], dtype=float)
+        psi_b = np.asarray(score["psi_b"], dtype=float)
+        w = np.asarray(score["weights"], dtype=float)
+        den = float(np.sum(w * psi_a))
+        if abs(den) < 1e-12 * max(float(np.sum(w * np.abs(psi_a))), 1e-300):
+            raise DataInsufficient(  # pragma: no cover
+                "DML design: the weighted score denominator is ~0.",
+                recovery_hint="Check the treatment residual variation.",
+            )
+        theta = float(-np.sum(w * psi_b) / den)
+        u = -w * (psi_a * theta + psi_b) / den
+        V = design_vcov(u, self._design, self._design_rows)
+        return theta, float(np.sqrt(V[0, 0]))
 
     def _sensitivity_rep(self, theta: float, se: float) -> Dict[str, Any]:
         """Elements of the omitted-variable-bias bound for one repetition.
@@ -898,6 +943,12 @@ class _DoubleMLBase:
             )
         collector = None
         self._cluster_codes = None
+        if external_predictions is not None and self._design is not None:
+            raise MethodIncompatibility(
+                "DML design= is not supported with external_predictions: the "
+                "design weights enter the nuisance fits and the folds are "
+                "formed over PSUs here."
+            )
         if external_predictions is not None and self.cluster is not None:
             raise MethodIncompatibility(
                 "DML cluster= is not supported with external_predictions: the "
@@ -980,6 +1031,11 @@ class _DoubleMLBase:
                     )
             if self.cluster is not None:
                 work["__cl__"] = self.data[self.cluster].values
+            if self._design is not None:
+                work["__sw__"] = self._design.weights
+                work["__svy_row__"] = np.arange(len(work))
+                if self._design.cluster_col is not None:
+                    work["__cl__"] = self._design._psu_codes
             if store_oof:
                 identity = _retention.internal_analysis_identity(
                     n_input=len(self.data),
@@ -987,6 +1043,8 @@ class _DoubleMLBase:
                     observation_ids=observation_ids,
                 )
             clean = work.dropna()
+            if "__svy_row__" in clean.columns:
+                self._design_rows = clean["__svy_row__"].to_numpy()
             Y = clean[self.y].values.astype(float)
             D = _treatment_as_float(clean[self.treat], function="dml")
             X = clean[self.covariates].values.astype(float)
@@ -1095,7 +1153,9 @@ class _DoubleMLBase:
                     )
             finally:
                 self.__dict__.pop("_oof_rep_capture", None)
-            if self._cluster_codes is not None:
+            if self._design is not None:
+                theta_r, se_r = self._design_theta_se(self._last_rep_score)
+            elif self._cluster_codes is not None:
                 theta_r, se_r = self._cluster_theta_se(self._last_rep_score)
             if collector is not None:
                 assert isinstance(capture, _retention.OOFRepCapture)
@@ -1123,6 +1183,12 @@ class _DoubleMLBase:
         pvalue = float(2 * stats.norm.sf(abs(t_stat)))
         z_crit = stats.norm.ppf(1 - self.alpha / 2)
         ci = (theta - z_crit * se, theta + z_crit * se)
+        svy_df: Optional[float] = None
+        if self._design is not None:
+            from ..survey.linearization import design_df, design_inference
+
+            svy_df = design_df(self._design, self._design_rows)
+            ci, pvalue = design_inference(theta, se, svy_df, self.alpha)
         model_info = {
             "dml_model": self._MODEL_TAG,
             "n_folds": self.n_folds,
@@ -1139,6 +1205,11 @@ class _DoubleMLBase:
             # A warning on every default call would be noise: the evidence
             # is one design, and the docstring gives the full account.
             model_info["learner_note"] = _DEFAULT_PLR_LEARNER_NOTE
+        if svy_df is not None:
+            from ..survey.linearization import design_info
+
+            model_info["se_method"] = "survey_linearization"
+            model_info["survey_design"] = design_info(self._design, svy_df)
         if self.cluster is not None:
             model_info["cluster"] = self.cluster
             model_info["n_clusters"] = (

@@ -78,6 +78,7 @@ def ipw(
     se_method: str = "bootstrap",
     ps_model: str = "logit",
     propensity: Optional[Union[float, str]] = None,
+    design: Optional[Any] = None,
 ) -> CausalResult:
     """
     Inverse Probability Weighting estimator for treatment effects.
@@ -165,6 +166,19 @@ def ipw(
         known one when the design-based estimator is what is wanted, or
         use ``sp.aipw(propensity=)``, whose variance does not depend on
         the choice.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). The propensity model and the IPW means are
+        fitted with the design weights, and the standard error is the
+        Taylor-linearisation variance of the stacked influence function
+        (the ``'sandwich'`` rows) over strata, PSUs and the finite
+        population correction -- R ``survey::svyrecvar`` applied to
+        ``-A^{-1} w_i psi_i`` (Binder's method). The interval and p-value
+        use the t distribution with the design degrees of freedom
+        (#PSU - #strata), as Stata ``svy``. ``se_method`` and
+        ``n_bootstrap`` are then not used (a bootstrap of a complex design
+        needs replicate weights), and ``weights=`` / ``cluster=`` must not
+        be given. ``design=None`` leaves every other path unchanged.
 
     Returns
     -------
@@ -237,6 +251,14 @@ def ipw(
             f"ps_model must be 'logit' or 'probit', got {ps_model!r}"
         )
     _check_alpha(alpha, "ipw")
+    svy: Any = None
+    if design is not None:
+        from ..survey.linearization import check_design
+
+        svy = check_design(
+            design, data, function="ipw", weights=weights, cluster=cluster
+        )
+        se_method = "sandwich"
     trim_is_number = isinstance(trim, numbers.Real) and not isinstance(trim, bool)
     if not (trim_is_number and 0.0 <= float(trim) < 0.5):
         # at trim >= 0.5 the interval [trim, 1 - trim] is empty or a point
@@ -276,7 +298,8 @@ def ipw(
             context="ipw",
             extra_diagnostics={"missing": list(missing_cols.values())},
         )
-    df = data[list(dict.fromkeys([y, treat] + list(covariates) + extra))].dropna()
+    used_cols = list(dict.fromkeys([y, treat] + list(covariates) + extra))
+    df = data[used_cols].dropna()
     Y = df[y].values.astype(np.float64)
     T = _treatment_as_float(df[treat], function="ipw")
     X = df[covariates].values.astype(np.float64)
@@ -284,7 +307,13 @@ def ipw(
     # Sampling weights normalised to mean one; None keeps the unweighted
     # path byte-identical to earlier releases.
     sw: Optional[np.ndarray] = None
-    if weights is not None:
+    svy_rows = None
+    if svy is not None:
+        from ..survey.linearization import design_rows
+
+        svy_rows = design_rows(svy, data, used_cols)
+        sw = svy_rows.weights * (n / svy_rows.weights.sum())
+    elif weights is not None:
         wv = df[weights].to_numpy(dtype=float)
         if not np.all(np.isfinite(wv)) or np.any(wv <= 0):
             raise MethodIncompatibility(
@@ -374,7 +403,29 @@ def ipw(
             stacklevel=3,
         )
 
-    if se_method == "sandwich":
+    svy_df: Optional[float] = None
+    if svy_rows is not None:
+        from ..survey.linearization import design_df, design_vcov
+
+        u_rows = _ipw_sandwich_se(
+            X,
+            T,
+            Y,
+            pscore,
+            estimand,
+            sw,
+            None,
+            ps_model,
+            normalize=normalize,
+            e_fit=pscore_raw if trim > 0 else None,
+            ps_known=ps_known,
+            rows_only=True,
+        )
+        se = float(np.sqrt(design_vcov(u_rows / n, svy, svy_rows.rows)[0, 0]))
+        svy_df = design_df(svy, svy_rows.rows)
+        boot_estimates = None
+        n_boot_failed = 0
+    elif se_method == "sandwich":
         se = _ipw_sandwich_se(
             X,
             T,
@@ -450,7 +501,11 @@ def ipw(
         se = float("nan") if point_only else float(np.std(boot_estimates, ddof=1))
     t_crit = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (estimate - t_crit * se, estimate + t_crit * se)
-    if point_only:
+    if svy_df is not None:
+        from ..survey.linearization import design_inference
+
+        ci, pvalue = design_inference(estimate, se, svy_df, alpha)
+    elif point_only:
         pvalue = float("nan")
     else:
         pvalue = float(2 * sp_stats.norm.sf(abs(estimate / se))) if se > 0 else 1.0
@@ -479,7 +534,7 @@ def ipw(
         "trimming_threshold": trim,
         "normalized": normalize,
         "n_bootstrap": n_bootstrap if se_method == "bootstrap" else None,
-        "se_method": se_method,
+        "se_method": "linearization" if svy is not None else se_method,
         "ps_model": None if ps_known else ps_model,
         "propensity": "known" if ps_known else "estimated",
         "weights": weights,
@@ -492,6 +547,11 @@ def ipw(
         model_info["n_bootstrap_failed"] = n_boot_failed
     if separation is not None:
         model_info["separation"] = separation
+    if svy is not None:
+        from ..survey.linearization import design_info
+
+        assert svy_df is not None
+        model_info["survey_design"] = design_info(svy, svy_df)
 
     _result = CausalResult(
         method=f"IPW ({estimand})",
@@ -525,6 +585,7 @@ def ipw(
                 "se_method": se_method,
                 "ps_model": ps_model,
                 "propensity": propensity,
+                "design": None if design is None else repr(design),
             },
             data=data,
             overwrite=False,
@@ -692,7 +753,8 @@ def _ipw_sandwich_se(
     ps_known: bool = False,
     normalize: bool = True,
     e_fit: Optional[np.ndarray] = None,
-) -> float:
+    rows_only: bool = False,
+) -> Any:
     """M-estimation SE of the IPW contrast (Stata ``teffects ipw``).
 
     ``normalize=False`` is the Horvitz-Thompson estimator
@@ -725,6 +787,10 @@ def _ipw_sandwich_se(
 
     With ``ps_known`` the propensity is a design quantity, there is no
     first-stage score to stack, and the ``G_k' IF_gamma`` term is dropped.
+
+    ``rows_only=True`` returns the influence rows ``u`` themselves
+    (``tau_hat - tau ~= sum(u) / n``, sampling weight inside) instead of
+    the SE, for the design-based variance of ``design=``.
     """
     n = len(Y)
     w = np.ones(n) if sw is None else sw
@@ -779,6 +845,8 @@ def _ipw_sandwich_se(
             G_ht = (Xc * (w * Y * (da1 - da0))[:, None]).mean(axis=0)
             u_ht = u_ht + if_gamma @ G_ht
         u_ht = u_ht / size
+        if rows_only:
+            return u_ht
         if groups is not None:
             u_ht = np.bincount(groups, weights=u_ht)
         return float(np.sqrt(np.sum(u_ht**2)) / n)
@@ -793,6 +861,8 @@ def _ipw_sandwich_se(
         return rows
 
     u = _if(a1, da1) - _if(a0, da0)
+    if rows_only:
+        return u
     if groups is not None:
         u = np.bincount(groups, weights=u)
     return float(np.sqrt(np.sum(u**2)) / n)

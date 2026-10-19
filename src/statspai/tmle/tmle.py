@@ -88,6 +88,7 @@ def tmle(
     cluster: Optional[str] = None,
     se_method: str = "influence",
     n_boot: int = 200,
+    design: Optional[Any] = None,
 ) -> CausalResult:
     """
     Estimate causal effects using TMLE with Super Learner.
@@ -209,6 +210,17 @@ def tmle(
         is R ``tmle``'s ``id=`` variance when clusters are of equal size
         (``tmle`` averages the influence function within ``id`` instead, a
         repeated-measures convention that differs with unequal sizes).
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). The design weights are the observation
+        weights (as ``weights=``) and every standard error -- the
+        estimate's and those in ``result.detail`` -- is the
+        Taylor-linearisation variance of the weighted efficient influence
+        function over strata, PSUs and the finite population correction
+        (R ``survey::svyrecvar`` on ``w_i EIF_i / sum(w)``). Intervals and
+        p-values use the t distribution with the design degrees of
+        freedom (#PSU - #strata). Not with ``weights=``, ``cluster=``,
+        ``fold_indices`` or ``se_method='bootstrap'``.
 
     Returns
     -------
@@ -298,6 +310,7 @@ def tmle(
         cluster=cluster,
         se_method=se_method,
         n_boot=n_boot,
+        design=design,
     )
     _result = est.fit()
     if se_method == "bootstrap":
@@ -326,6 +339,7 @@ def tmle(
                 "fluctuation": est.fluctuation,
                 "se_method": se_method,
                 "n_boot": n_boot if se_method == "bootstrap" else None,
+                "design": None if design is None else repr(design),
                 "outcome_library": (
                     [type(m).__name__ for m in outcome_library]
                     if outcome_library
@@ -448,6 +462,7 @@ class TMLE:
         cluster: Optional[str] = None,
         se_method: str = "influence",
         n_boot: int = 200,
+        design: Optional[Any] = None,
     ):
         if not (0 < q_bound < 0.5):
             raise MethodIncompatibility(
@@ -513,6 +528,21 @@ class TMLE:
             )
         self.weights = weights
         self.cluster = cluster
+        self.design: Any = None
+        if design is not None:
+            from ..survey.linearization import check_design
+
+            self.design = check_design(
+                design, data, function="tmle", weights=weights, cluster=cluster
+            )
+            if fold_indices is not None or se_method == "bootstrap":
+                raise MethodIncompatibility(
+                    "tmle: design= gives the survey linearisation variance of "
+                    "the influence function; it is not implemented with "
+                    "fold_indices or se_method='bootstrap' (a bootstrap of a "
+                    "complex design needs replicate weights).",
+                    recovery_hint="Drop fold_indices / se_method='bootstrap'.",
+                )
         if se_method not in ("influence", "bootstrap"):
             raise MethodIncompatibility(
                 f"tmle: se_method must be 'influence' or 'bootstrap', got "
@@ -559,7 +589,13 @@ class TMLE:
         # Observation weights normalised to mean one (R tmle's obsWeights);
         # None keeps the unweighted path byte-identical.
         obs_w: "Optional[np.ndarray]" = None
-        if self.weights is not None:
+        svy_rows = None
+        if self.design is not None:
+            from ..survey.linearization import design_rows
+
+            svy_rows = design_rows(self.design, self.data, cols)
+            obs_w = svy_rows.weights * (n / svy_rows.weights.sum())
+        elif self.weights is not None:
             obs_w = clean[self.weights].to_numpy(dtype=np.float64)
             if not np.all(np.isfinite(obs_w)) or np.any(obs_w <= 0):
                 raise MethodIncompatibility(
@@ -772,6 +808,13 @@ class TMLE:
         # ---------------------------------------------------------------
 
         se_of = cluster_se(cl_codes, n)
+        svy_df: Optional[float] = None
+        if svy_rows is not None:
+            from ..survey.linearization import design_df, design_se_of
+
+            _svy = self.design
+            se_of = design_se_of(_svy, svy_rows.rows, n)
+            svy_df = design_df(_svy, svy_rows.rows)
         detail: "Optional[pd.DataFrame]" = None
         # The effect on the controls is minus the effect on the treated of
         # the relabelled treatment: swap the arms, run the same targeting,
@@ -919,6 +962,7 @@ class TMLE:
                 self.alpha,
                 nonnegative_outcome=bool(Y.min() >= 0.0),
                 unit_interval_outcome=bool(Y.min() >= 0.0 and Y.max() <= 1.0),
+                df=svy_df,
             )
 
         if flip:
@@ -932,6 +976,10 @@ class TMLE:
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
         ci = (psi - z_crit * se, psi + z_crit * se)
         pvalue = float(2 * sp_stats.norm.sf(abs(psi / se))) if se > 0 else 0.0
+        if svy_df is not None:
+            from ..survey.linearization import design_inference
+
+            ci, pvalue = design_inference(psi, se, svy_df, self.alpha)
         eif_scale = "estimate"
 
         if self.estimand in _ARM_ESTIMANDS:
@@ -1058,6 +1106,12 @@ class TMLE:
             "influence_function": np.asarray(EIF, dtype=float),
             "influence_function_scale": eif_scale,
         }
+
+        if svy_df is not None:
+            from ..survey.linearization import design_info
+
+            model_info["se_method"] = "survey_linearization"
+            model_info["survey_design"] = design_info(_svy, svy_df)
 
         # One fitted Super Learner, or one per fold under CV-TMLE.
         self._sl_Q: Any

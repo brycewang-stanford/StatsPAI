@@ -96,6 +96,7 @@ def msm(
     outcome_rows: str = "all",
     censor: Optional[str] = None,
     censor_covariates: Optional[List[str]] = None,
+    design: Optional[Any] = None,
 ) -> CausalResult:
     """
     Estimate a Marginal Structural Model via stabilized IPTW.
@@ -188,6 +189,17 @@ def msm(
         The time-varying ``L`` of the censoring model's denominator
         (default: ``time_varying``). They must be present on the censored
         rows.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on the
+        long ``data`` (same rows), with the unit as the sampled element:
+        its weight, stratum and PSU are the same on all its rows. The
+        outcome model is weighted by the design weight times the
+        stabilized weight, and its covariance is the survey linearisation
+        sandwich over strata, PSUs and the fpc, holding the IP weights
+        fixed -- R ``ipw::ipwtm`` + ``survey::svyglm(design =
+        svydesign(ids = ~psu, strata = ~stratum, weights = ~ w * ipw))``,
+        with t inference on the design degrees of freedom. The treatment
+        (and censoring) models stay unweighted, as in that recipe.
 
     Returns
     -------
@@ -241,6 +253,16 @@ def msm(
 
     baseline = list(baseline or [])
     required = [y, treat, id, time] + time_varying + baseline
+    svy: Any = None
+    if design is not None:
+        from ..survey.linearization import check_design, unit_design_rows
+
+        svy = check_design(design, data, function="sp.msm", allow_calibrated=False)
+        check_columns(data, {"id": id}, function="sp.msm")
+        # the unit must be the sampled element (raises otherwise)
+        unit_design_rows(svy, data, id, list(pd.unique(data[id])), function="sp.msm")
+        data = data.assign(__svy_row__=np.arange(len(data)), __svy_weight__=svy.weights)
+        required = required + ["__svy_row__", "__svy_weight__"]
     cens_diag: Optional[Dict[str, Any]] = None
     cw_all = None
     data_fit = data
@@ -365,8 +387,18 @@ def msm(
     X_mat = np.column_stack([np.ones(len(df)), df[feat].values.astype(float)])[rows]
     y_vec = df[y].values.astype(float)[rows]
     cluster_ids = df[id].values[rows]
+    svy_rows: Optional[np.ndarray] = None
+    svy_w: Optional[np.ndarray] = None
+    if svy is not None:
+        svy_rows = df["__svy_row__"].to_numpy()[rows]
+        svy_w = df["__svy_weight__"].to_numpy(dtype=float)[rows]
 
     def _outcome_fit(weights_rows: np.ndarray):
+        if svy is not None:
+            assert svy_rows is not None and svy_w is not None
+            return _design_outcome_fit(
+                X_mat, y_vec, svy_w * weights_rows, family, svy, svy_rows
+            )
         if family == "gaussian":
             return _wls_cluster(X_mat, y_vec, weights_rows, cluster_ids)
         return _weighted_logit_cluster(X_mat, y_vec, weights_rows, cluster_ids)
@@ -419,6 +451,12 @@ def msm(
     pvalue = float(2 * stats.norm.sf(abs(z)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (coef - z_crit * se_coef, coef + z_crit * se_coef)
+    svy_df: Optional[float] = None
+    if svy is not None:
+        from ..survey.linearization import design_df, design_inference
+
+        svy_df = design_df(svy, svy_rows)
+        ci, pvalue = design_inference(coef, se_coef, svy_df, alpha)
 
     # Coefficient table (detail)
     param_names = ["const", exposure_label] + baseline
@@ -452,6 +490,13 @@ def msm(
         "n_outcome_rows": int(rows.sum()),
         "censoring": cens_diag,
     }
+    if svy is not None:
+        from ..survey.linearization import design_info
+
+        assert svy_df is not None
+        model_info["cluster_var"] = None
+        model_info["se_method"] = "survey_linearization"
+        model_info["survey_design"] = design_info(svy, svy_df)
 
     _result = CausalResult(
         method="Marginal Structural Model (IPTW)",
@@ -489,6 +534,7 @@ def msm(
                 "outcome_rows": outcome_rows,
                 "censor": censor,
                 "censor_covariates": censor_covariates,
+                "design": None if design is None else repr(design),
             },
             data=data,
             overwrite=False,
@@ -769,6 +815,37 @@ def _gauss_density(X: np.ndarray, y: np.ndarray, ml: bool = False) -> np.ndarray
             np.clip(stats.norm.pdf(y, loc=mean, scale=sigma), 1e-12, None),
             dtype=float,
         )
+
+
+def _design_outcome_fit(
+    X: np.ndarray,
+    y: np.ndarray,
+    w: np.ndarray,
+    family: str,
+    design: Any,
+    rows: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Weighted outcome model with the survey linearisation covariance.
+
+    ``w`` is the design weight times the IP weight. Coefficients as in
+    :func:`_wls_cluster` / :func:`_weighted_logit_cluster`; the covariance
+    is ``B M B`` with ``M`` the design covariance of the score rows
+    ``w_i (y_i - mu_i) x_i`` (R ``svyglm``).
+    """
+    from ..survey.linearization import design_vcov
+
+    if family == "gaussian":
+        beta = _wls_cluster(X, y, w, np.zeros(len(y)))[0]
+        mu = X @ beta
+        h = w
+    else:
+        beta = _weighted_logit_cluster(X, y, w, np.zeros(len(y)))[0]
+        mu = 1 / (1 + np.exp(-np.clip(X @ beta, -30, 30)))
+        h = w * mu * (1 - mu)
+    bread = np.linalg.pinv((X * h[:, None]).T @ X)
+    scores = (w * (y - mu))[:, None] * X
+    vcov = bread @ design_vcov(scores, design, rows) @ bread
+    return beta, np.sqrt(np.maximum(np.diag(vcov), 0.0))
 
 
 def _wls_cluster(

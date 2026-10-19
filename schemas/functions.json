@@ -38,6 +38,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The coefficients are weighted least squares with the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction -- R ``svyglm`` and Stata ``svy: regress``. t statistics, p-values and intervals use the design degrees of freedom (#PSU - #strata, Stata's convention; R ``summary.svyglm`` uses that minus #coefficients plus one). Cannot be combined with ``weights=``, ``cluster=`` or another variance option.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "dfadjust": {
           "default": false,
           "description": "With robust='hc2', or vce='cr2' and cluster=: each coefficient's own Bell-McCaffrey degrees of freedom for p-values and intervals, as Stata 18 vce(hc2 [clustvar], dfadjust). Standard errors are unchanged",
@@ -1754,6 +1759,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on the long ``data`` (same rows), with the panel unit as the sampled",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "estimator": {
           "default": "dr",
           "description": "2x2 estimator",
@@ -2376,6 +2386,11 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The design weights are the sample weights (nuisance fits and the score), cross-fitting folds are formed over whole PSUs when the design has them, and the standard error is the survey linearisation of the weighted score, ``u_i = -w_i psi_i / sum(w psi_a)``, over strata, PSUs and the finite population correction (R ``survey::svyrecvar``), with t inference on the design degrees of freedom (#PSU - #strata). The nuisance fits are held fixed, as in every DML variance. Not with ``sample_weight=``, ``cluster=``, ``external_predictions`` or ``store_oof``; with ``model='irm'`` only the unnormalised ATE score is weighted.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "fold_indices": {
           "description": "Explicit cross-fitting folds: one label per row (array or column name), or scikit-learn style splits, a list of (train, test) positional index pairs whose test sets partition the rows and whose training sets are their complements. Requires n_rep=1. With a shared partition the estimate is reproducible across implementations.",
@@ -4777,6 +4792,11 @@
           "description": "Input data.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The design weights are the observation weights (as ``weights=``) and every standard error -- the estimate's and those in ``result.detail`` -- is the Taylor-linearisation variance of the weighted efficient influence function over strata, PSUs and the finite population correction (R ``survey::svyrecvar`` on ``w_i EIF_i / sum(w)``). Intervals and p-values use the t distribution with the design degrees of freedom (#PSU - #strata). Not with ``weights=``, ``cluster=``, ``fold_indices`` or ``se_method='bootstrap'``.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "estimand": {
           "default": "ATE",
@@ -12560,6 +12580,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The propensity model and the IPW means are fitted with the design weights, and the standard error is the Taylor-linearisation variance of the stacked influence function (the ``'sandwich'`` rows) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` applied to ``-A^{-1} w_i psi_i`` (Binder's method). The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``se_method`` and ``n_bootstrap`` are then not used (a bootstrap of a complex design needs replicate weights), and ``weights=`` / ``cluster=`` must not be given. ``design=None`` leaves every other path unchanged.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "estimand": {
           "default": "ATE",
           "description": "Target estimand",
@@ -13249,6 +13274,11 @@
             "ml"
           ],
           "type": "string"
+        },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on the long ``data`` (same rows), with the unit as the sampled element: its weight, stratum and PSU are the same on all its rows. The outcome model is weighted by the design weight times the stabilized weight, and its covariance is the survey linearisation sandwich over strata, PSUs and the fpc, holding the IP weights fixed -- R ``ipw::ipwtm`` + ``survey::svyglm(design = svydesign(ids = ~psu, strata = ~stratum, weights = ~ w * ipw))``, with t inference on the design degrees of freedom. The treatment (and censoring) models stay unweighted, as in that recipe.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "exposure": {
           "default": "cumulative",
@@ -28704,6 +28734,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The DID regression is fitted with the design weights and its covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm`` on ``y ~ treat * time``, Stata ``svy: regress``), with t inference on the design degrees of freedom. With panel rows, the unit (or a coarser unit containing it) must be the design's PSU so that a unit's two periods fall in one PSU. Not with ``weights=``, ``cluster=``, ``vce=`` or ``engine='bayes'``.",
+          "type": "string",
+          "x-statspai-source": "signature"
+        },
         "engine": {
           "default": "ols",
           "description": "Inference backend for the same 2x2 design. ``'ols'`` (default) is the frequentist OLS estimator above. ``'bayes'`` routes to :func:`statspai.bayes.bayes_did` (``treat`` -> group, ``time`` -> post), returning a :class:`~statspai.bayes.BayesianDIDResult` with the full posterior + HDI (requires the ``bayes`` extra). ``cluster`` / ``weights`` are OLS-only and raise under ``engine='bayes'``; for full prior / sampler control call ``sp.bayes_did`` directly.",
@@ -32671,6 +32706,11 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The nuisance models and the AIPW mean are fitted with the design weights, and every standard error is the Taylor-linearisation variance of the influence rows the chosen ``se_method`` uses (the efficient influence function, or the stacked sandwich rows with ``se_method='sandwich'``) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` on those rows. The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``weights=`` and ``cluster=`` must not be given; ``design=None`` changes nothing.",
+          "type": "string",
+          "x-statspai-source": "signature"
         },
         "estimand": {
           "default": "ATE",
@@ -45245,6 +45285,10 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: logit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``.",
+          "type": "string"
+        },
         "formula": {
           "description": "Formula like ``\"y ~ x1 + x2\"``.",
           "type": "string",
@@ -45340,6 +45384,10 @@
           "description": "Data containing the variables.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: probit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``.",
+          "type": "string"
         },
         "formula": {
           "description": "Formula like ``\"y ~ x1 + x2\"``.",
@@ -55042,6 +55090,10 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The partial likelihood is weighted by the design weights and the covariance is ``I^-1 M I^-1`` with ``M`` the survey linearisation covariance of the weighted score residuals over strata, PSUs and the finite population correction -- R ``survey::svycoxph`` (Binder 1992). Inference uses t with the design degrees of freedom. With counting-process rows (``start=``) the subject's rows must lie in one PSU. Not with ``weights=``, ``cluster=``, ``robust=`` or ``ssc=``.",
+          "type": "string"
+        },
         "duration": {
           "description": "Column name for follow-up time (overrides formula LHS).",
           "type": "string",
@@ -55150,6 +55202,10 @@
           "description": "Input data.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The curve is weighted by the design weights and ``std_err`` is the survey linearisation of the influence of each row on ``S(t)`` over strata, PSUs and the finite population correction (R ``survey::svyrecvar`` applied to the weighted infinitesimal-jackknife influence that ``survival``'s ``resid(survfit, type = \"surv\")`` reports), with intervals on the t distribution with the design degrees of freedom. R ``svykm(se = TRUE)`` is not this estimator: its curve differs from the product-limit one. Each ``group``'s curve is a domain: its standard errors keep every PSU of the design. Not with ``weights=``, ``cluster=`` or ``se_method=``.",
+          "type": "string"
         },
         "duration": {
           "description": "Column name for duration / follow-up time.",

@@ -360,6 +360,47 @@ All notable changes to StatsPAI will be documented in this file.
   where R's output is wrong are documented, two of them pinned by identities
   (`docs/dev/modules/did.md`).
 
+### Complex survey designs on the causal estimators (`design=`)
+
+#### Added
+
+- `design=SurveyDesign` (from `sp.svydesign`: weights, strata, PSUs, fpc,
+  lonely-PSU rule) on `sp.ipw`, `sp.aipw`, `sp.tmle`, `sp.dml`,
+  `sp.did_2x2`, `sp.callaway_santanna`, `sp.msm`, `sp.cox`,
+  `sp.kaplan_meier`, `sp.regress`, `sp.logit` and `sp.probit`. The fit uses
+  the design weights and every standard error is the Taylor linearisation
+  of the estimator's influence function over strata, PSUs and the finite
+  population correction, through one shared helper
+  (`statspai.survey.linearization.design_vcov`, R `survey::svyrecvar` for a
+  one-stage design, calibration included); intervals use t with the design
+  degrees of freedom (#PSU - #strata), as Stata `svy`.
+- Evidence against R survey 4.5 on frozen fixtures
+  (`tests/reference_parity/test_survey_causal_parity.py`,
+  `test_survey_did_parity.py`): the helper equals `svyrecvar` on ten
+  designs and a raked one; `ipw` / `aipw(se_method='sandwich')` equal the
+  Binder linearisation of the stacked estimating equations written out in
+  R (closed-form Jacobian checked against `numDeriv`); `regress` / `logit`
+  equal `svyglm`; `cox` equals `svycoxph`; `kaplan_meier` equals
+  `svyrecvar` of `resid(survfit, type = "surv")`; `callaway_santanna`
+  equals `svyrecvar` of R `did`'s `inffunc` (cells, simple and dynamic
+  aggregates); `msm` equals the `ipw::ipwtm` + `svyglm` recipe; all to
+  1e-13 or better. `tmle` (R `tmle` influence curves) and `dml` with an
+  IRM logit propensity agree to 1e-8 (glm convergence).
+- `sp.dml(design=)` forms its cross-fitting folds over whole PSUs.
+  `design=` is refused with a typed `MethodIncompatibility` together with
+  `weights=` / `cluster=`, with a bootstrap (that needs replicate weights),
+  on the unbalanced / repeated-cross-section CS paths, and when the panel
+  unit's weight, stratum or PSU varies over time. `sp.aggte` and the
+  event-study covariance behind `sp.honest_did` refuse a `design=` CS fit
+  rather than rebuild its variance without the design.
+- `design=None` leaves every estimator's output unchanged.
+
+#### Changed
+
+- `docs/guides/survey_ph.md`: section 4 documents `design=`; the scope note
+  that called the survey estimators "not parity-certified against
+  svyglm" and the "no survey-weighted Cox" gap are removed (both have R
+  parity tests).
 
 ### Design guardrails on `sp.feols` / `fepois` / `regress` / `hdfe_ols` / `panel`
 

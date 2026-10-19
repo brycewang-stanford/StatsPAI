@@ -318,3 +318,75 @@ def resolve_km_se(se_method: Any, w: Optional[np.ndarray], cluster: Any) -> str:
             recovery_hint="Use se_method='ij' (or leave it unset) with cluster=.",
         )
     return key
+
+
+def km_table_design(
+    T: np.ndarray,
+    E: np.ndarray,
+    start: Optional[np.ndarray],
+    design: Any,
+    rows: np.ndarray,
+    alpha: float,
+    conf_type: str,
+) -> pd.DataFrame:
+    """Kaplan-Meier on a survey design: design-weighted curve, survey
+    linearisation variance of ``S(t)`` (R ``survey::svyrecvar`` of the
+    weighted influence ``resid(survfit, type = "surv")`` reports).
+
+    The influence of row ``i`` on ``S(t)`` is ``w_i U_i(t)`` (module
+    docstring); its PSU totals, accumulated in the same sweep as the
+    infinitesimal jackknife, are placed on one row of their PSU and passed
+    to the design variance over strata, PSUs and the fpc. ``t`` intervals
+    use the design degrees of freedom.
+    """
+    from scipy import stats
+
+    from ..survey.linearization import design_df, design_var_diag
+
+    T = np.asarray(T, dtype=float)
+    rows = np.asarray(rows)
+    w = design.weights[rows]
+    times, n_risk, d, c, surv = km_weighted_curve(T, E, w, start)
+    psu = design._psu_codes
+    G = int(psu.max()) + 1
+    first_row = np.unique(psu, return_index=True)[1]  # one design row per PSU
+    totals = np.zeros((G, len(times)))
+    for j, acc in _ij_sweep(T, E, w, times, n_risk, d, start, psu[rows], G):
+        totals[:, j] = acc * surv[j]
+    var = design_var_diag(totals, design, first_row)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        var_log = np.where(surv > 0, var / surv**2, 0.0)
+    se = np.sqrt(var)
+    crit = float(stats.t.ppf(1 - alpha / 2, design_df(design, rows)))
+    ci_lo, ci_hi = _km_ci(surv, se, var_log, crit, conf_type)
+    body = pd.DataFrame(
+        {
+            "time": times,
+            "n_risk": n_risk,
+            "n_event": d,
+            "n_censor": c,
+            "survival": surv,
+            "std_err": se,
+            "ci_lower": ci_lo,
+            "ci_upper": ci_hi,
+        }
+    )
+    t0 = pd.DataFrame(
+        [
+            {
+                "time": 0.0,
+                "n_risk": (
+                    float(w.sum())
+                    if start is None
+                    else float(n_risk[0]) if len(n_risk) else 0.0
+                ),
+                "n_event": 0.0,
+                "n_censor": 0.0,
+                "survival": 1.0,
+                "std_err": 0.0,
+                "ci_lower": 1.0,
+                "ci_upper": 1.0,
+            }
+        ]
+    )
+    return pd.concat([t0, body], ignore_index=True)

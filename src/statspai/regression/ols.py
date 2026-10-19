@@ -1802,6 +1802,7 @@ def regress(
     ewc_df: Optional[int] = None,
     dfadjust: bool = False,
     weights_as: Optional[str] = None,
+    design: Optional[Any] = None,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1900,6 +1901,16 @@ def regress(
         With ``vce='conley'``: the distance cutoff in km for the Conley
         spatial HAC standard errors (uniform kernel, Stata ``acreg``'s
         planar 111 km-per-degree distance). Required for that ``vce``.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). The coefficients are weighted least squares
+        with the design weights and the covariance is the survey
+        linearisation sandwich over strata, PSUs and the finite population
+        correction -- R ``svyglm`` and Stata ``svy: regress``. t statistics,
+        p-values and intervals use the design degrees of freedom
+        (#PSU - #strata, Stata's convention; R ``summary.svyglm`` uses
+        that minus #coefficients plus one). Cannot be combined with
+        ``weights=``, ``cluster=`` or another variance option.
     **kwargs
         Additional options. Unrecognised keywords raise ``TypeError``
         rather than being ignored — a misspelled option must not
@@ -1930,6 +1941,30 @@ def regress(
     >>> "education" in results.params.index
     True
     """
+    if design is not None:
+        from ..survey._regression_design import (
+            refuse_design_options,
+            regress_with_design,
+        )
+
+        refuse_design_options(
+            "regress",
+            robust=robust,
+            cluster=cluster,
+            weights=weights,
+            vce=vce,
+            vcov=vcov,
+            weights_as=weights_as,
+            hac_lags=hac_lags,
+            hac_small=hac_small,
+            hac_panel=hac_panel,
+            ewc_df=ewc_df,
+            dfadjust=dfadjust,
+            conley_cutoff=conley_cutoff,
+            **{k: v for k, v in kwargs.items()},
+        )
+        return regress_with_design(formula, data, design, collinear)
+
     # --- vcov= (pyfixest spelling) -> native robust=/cluster=/vce= ---
     # Accepted as a canonical cross-estimator alias; previously it fell
     # through **kwargs and was dropped, silently returning default SEs.

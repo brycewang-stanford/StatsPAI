@@ -84,6 +84,9 @@ def event_study_moments(result) -> Optional[tuple]:
     inf_matrix = getattr(result, "_influence_funcs", None)
     detail = getattr(result, "detail", None)
     model_info = getattr(result, "model_info", None) or {}
+    from ..survey.linearization import refuse_design_result
+
+    refuse_design_result(result, "event-study covariance")
 
     # 1. An ``aggte(type='dynamic')`` result already carries the joint
     #    covariance of its event-time cells, built from the *corrected*

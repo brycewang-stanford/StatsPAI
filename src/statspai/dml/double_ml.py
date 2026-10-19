@@ -65,6 +65,7 @@ def dml(
     external_predictions: Optional["OOFPredictions"] = None,
     store_oof: bool = False,
     observation_ids: Optional[Sequence[str]] = None,
+    design: Optional[Any] = None,
 ) -> CausalResult:
     """
     Estimate causal effect using Double/Debiased Machine Learning.
@@ -179,6 +180,19 @@ def dml(
     observation_ids : sequence of str, optional
         Python-only stable row IDs. Internal IDs are checked before complete-case
         filtering; external IDs must match the prediction record exactly.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). The design weights are the sample weights
+        (nuisance fits and the score), cross-fitting folds are formed over
+        whole PSUs when the design has them, and the standard error is the
+        survey linearisation of the weighted score,
+        ``u_i = -w_i psi_i / sum(w psi_a)``, over strata, PSUs and the
+        finite population correction (R ``survey::svyrecvar``), with t
+        inference on the design degrees of freedom (#PSU - #strata). The
+        nuisance fits are held fixed, as in every DML variance. Not with
+        ``sample_weight=``, ``cluster=``, ``external_predictions`` or
+        ``store_oof``; with ``model='irm'`` only the unnormalised ATE score
+        is weighted.
 
     Returns
     -------
@@ -324,7 +338,13 @@ def dml(
         normalize_ipw=normalize_ipw,
         trimming_threshold=trimming_threshold,
         cluster=cluster,
+        design=design,
     )
+    if design is not None and store_oof:
+        raise MethodIncompatibility(
+            "dml: store_oof is not supported with design=.",
+            recovery_hint="Drop store_oof, or fit without the design.",
+        )
     oof_provenance = build_oof_provenance_payload(
         external_predictions=external_predictions,
         store_oof=store_oof,

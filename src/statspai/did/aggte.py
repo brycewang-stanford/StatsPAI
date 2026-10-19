@@ -197,6 +197,9 @@ def aggte(
     detail = result.detail
     inf_matrix = result._influence_funcs
     model_info = result.model_info or {}
+    from ..survey.linearization import refuse_design_result
+
+    refuse_design_result(result, "aggte")
 
     # Inference settings follow the fit unless overridden (R did::aggte's
     # bstrap = NULL / cband = NULL / biters from att_gt).

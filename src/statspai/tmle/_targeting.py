@@ -7,7 +7,7 @@
   function, with or without clusters.
 """
 
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -23,6 +23,7 @@ def parameter_table(
     alpha: float,
     nonnegative_outcome: bool,
     unit_interval_outcome: bool,
+    df: Optional[float] = None,
 ) -> pd.DataFrame:
     """Treatment-specific means and the contrasts built from them.
 
@@ -37,21 +38,23 @@ def parameter_table(
     are omitted: the ratio needs a non-negative outcome with positive means
     (a ratio of means of a variable that changes sign has no stable
     interpretation), the odds ratio an outcome in the unit interval.
+
+    ``df`` (a survey design's degrees of freedom) puts intervals and
+    p-values on the t distribution; ``None`` is the normal.
     """
-    z = float(sp_stats.norm.ppf(1 - alpha / 2))
+    ref: Any = sp_stats.norm if df is None else sp_stats.t(df)
+    z = float(ref.ppf(1 - alpha / 2))
     rows = []
 
     def linear(name: str, est: float, ic: np.ndarray) -> None:
         se = se_of(ic)
-        pv = float(2 * sp_stats.norm.sf(abs(est / se))) if se > 0 else np.nan
+        pv = float(2 * ref.sf(abs(est / se))) if se > 0 else np.nan
         rows.append((name, est, se, est - z * se, est + z * se, pv, np.nan, np.nan))
 
     def on_log_scale(name: str, est: float, ic_log: np.ndarray) -> None:
         se_log = se_of(ic_log)
         log_est = float(np.log(est))
-        pv = (
-            float(2 * sp_stats.norm.sf(abs(log_est / se_log))) if se_log > 0 else np.nan
-        )
+        pv = float(2 * ref.sf(abs(log_est / se_log))) if se_log > 0 else np.nan
         rows.append(
             (
                 name,

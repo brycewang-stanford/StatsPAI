@@ -37329,6 +37329,7 @@ PARAM_DOC_FORWARDS: Dict[str, Dict[str, str]] = {
     "dml": {
         "model_y": "statspai.dml.double_ml.dml:ml_g",
         "model_d": "statspai.dml.double_ml.dml:ml_m",
+        "design": "statspai.dml.double_ml.dml",
     },
 }
 # The PyMC estimators hand their sampler controls to one shared sampler.

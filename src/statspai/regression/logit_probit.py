@@ -653,10 +653,26 @@ def _fit_binary(
     at_values: Optional[Dict[str, float]] = None,
     perfect_prediction: str = "drop",
     weights_as: Optional[str] = None,
+    design: Optional[Any] = None,
 ) -> EconometricResults:
     """
     Internal workhorse for logit / probit / cloglog estimation.
     """
+    svy = None
+    if design is not None:
+        from ..survey._regression_design import refuse_design_options
+        from ..survey.linearization import check_design
+
+        refuse_design_options(
+            link,
+            robust=robust,
+            cluster=cluster,
+            weights=weights,
+            weights_as=weights_as,
+        )
+        if data is None:
+            raise MethodIncompatibility(f"{link}: design= needs data=.")
+        svy = check_design(design, data, function=link)
     if marginal_effects is not None and marginal_effects not in (
         "average",
         "mean",
@@ -769,6 +785,13 @@ def _fit_binary(
 
     # Weights
     w = None
+    svy_rows = None
+    if svy is not None:
+        from ..survey._regression_design import positions
+
+        assert data is not None
+        svy_rows = positions(data, row_index, link)
+        w = svy.weights[svy_rows]
     if weights is not None and data is not None:
         w = data.loc[row_index, weights].values.astype(float)
         # Same rules as sp.glm / sp.regress: a missing weight is refused
@@ -833,7 +856,16 @@ def _fit_binary(
     # Stata conventions (core._vcov.ml_vcov): vce(robust) carries N/(N-1),
     # vce(cluster) carries G/(G-1) only.
     s_obs = _score_obs(beta, y_vec, X_mat, cdf_func, pdf_func, w)
-    vcov = ml_vcov(_mle_vcov(H), s_obs, kind=se_req.kind, clusters=cluster_arr)
+    svy_df: Optional[float] = None
+    if svy is not None:
+        from ..survey._regression_design import design_sandwich
+        from ..survey.linearization import design_df
+
+        assert svy_rows is not None
+        vcov = design_sandwich(s_obs, _mle_vcov(H), svy, svy_rows)
+        svy_df = design_df(svy, svy_rows)
+    else:
+        vcov = ml_vcov(_mle_vcov(H), s_obs, kind=se_req.kind, clusters=cluster_arr)
     se_type = {
         "nonrobust": "MLE (observed information)",
         "robust": "Robust (sandwich, N/(N-1))",
@@ -841,6 +873,8 @@ def _fit_binary(
         "hc1": "HC1 (sandwich, N/(N-K))",
         "cluster": f"Clustered ({cluster})",
     }[se_req.kind]
+    if svy is not None:
+        se_type = "Survey linearisation (strata / PSU / fpc; R svyglm)"
 
     std_errors = np.sqrt(np.maximum(np.diag(vcov), 0.0))
 
@@ -967,7 +1001,7 @@ def _fit_binary(
     # sp.regress / sp.panel.
     if cluster_arr is not None:
         model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
-    if w is not None:
+    if w is not None and svy is None:
         from ..core._agent_summary import note_weight_diagnostics
 
         note_weight_diagnostics(
@@ -996,6 +1030,17 @@ def _fit_binary(
         model_info["formula"] = formula
     if isinstance(weights, str):
         model_info["weights"] = weights
+    if svy is not None:
+        from ..survey.linearization import design_info
+
+        assert svy_df is not None
+        model_info["robust"] = "survey"
+        model_info["vcov_type"] = se_type
+        model_info["survey_design"] = design_info(svy, svy_df)
+        # Stata svy: t with the design degrees of freedom
+        data_info.pop("inference", None)
+        data_info["df_inference"] = svy_df
+        data_info["sample_index"] = row_index
     result = EconometricResults(
         params=params,
         std_errors=se_series,
@@ -1174,6 +1219,7 @@ def logit(
     at_values: Optional[Dict[str, float]] = None,
     perfect_prediction: str = "drop",
     weights_as: Optional[str] = None,
+    design: Optional[Any] = None,
 ) -> EconometricResults:
     """
     Logit (logistic) regression via maximum likelihood.
@@ -1227,6 +1273,15 @@ def logit(
         predicts failure perfectly"); the omitted names and row count are
         in ``model_info``. ``'keep'`` is the pre-1.33 behaviour.
 
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows): the likelihood is weighted by the design
+        weights and the covariance is the survey linearisation sandwich
+        over strata, PSUs and the finite population correction (R
+        ``svyglm``, Stata ``svy: logit``), with t inference on the design
+        degrees of freedom (#PSU - #strata). Cannot be combined with
+        ``weights=``, ``cluster=`` or ``robust=``.
+
     Returns
     -------
     EconometricResults
@@ -1267,6 +1322,7 @@ def logit(
         at_values=at_values,
         perfect_prediction=perfect_prediction,
         weights_as=weights_as,
+        design=design,
     )
 
 
@@ -1289,6 +1345,7 @@ def probit(
     at_values: Optional[Dict[str, float]] = None,
     perfect_prediction: str = "drop",
     weights_as: Optional[str] = None,
+    design: Optional[Any] = None,
 ) -> EconometricResults:
     """
     Probit regression via maximum likelihood.
@@ -1340,6 +1397,15 @@ def probit(
         predicts failure perfectly"); the omitted names and row count are
         in ``model_info``. ``'keep'`` is the pre-1.33 behaviour.
 
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows): the likelihood is weighted by the design
+        weights and the covariance is the survey linearisation sandwich
+        over strata, PSUs and the finite population correction (R
+        ``svyglm``, Stata ``svy: probit``), with t inference on the design
+        degrees of freedom (#PSU - #strata). Cannot be combined with
+        ``weights=``, ``cluster=`` or ``robust=``.
+
     Returns
     -------
     EconometricResults
@@ -1376,6 +1442,7 @@ def probit(
         at_values=at_values,
         perfect_prediction=perfect_prediction,
         weights_as=weights_as,
+        design=design,
     )
 
 

@@ -653,6 +653,7 @@ def kaplan_meier(
     start: Optional[str] = None,
     cluster: Optional[str] = None,
     se_method: Optional[str] = None,
+    design: Optional[Any] = None,
 ) -> KMResult:
     """
     Kaplan-Meier non-parametric survival function estimator.
@@ -707,6 +708,20 @@ def kaplan_meier(
         curves (``adjustedsurv(method = "iptw_km")``). Not given: R
         survfit's default, ``'ij'`` with ``cluster=`` or non-integer weights
         and ``'greenwood'`` otherwise.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). The curve is weighted by the design weights
+        and ``std_err`` is the survey linearisation of the influence of
+        each row on ``S(t)`` over strata, PSUs and the finite population
+        correction (R ``survey::svyrecvar`` applied to the weighted
+        infinitesimal-jackknife influence that ``survival``'s
+        ``resid(survfit, type = "surv")`` reports), with intervals on
+        the t distribution with the design degrees of freedom. R
+        ``svykm(se = TRUE)`` is not this estimator: its curve differs
+        from the product-limit one. Each
+        ``group``'s curve is a domain: its standard errors keep every PSU
+        of the design. Not with ``weights=``, ``cluster=`` or
+        ``se_method=``.
 
     Returns
     -------
@@ -748,6 +763,25 @@ def kaplan_meier(
         raise ValueError(
             f"conf_type must be 'plain', 'log' or 'log-log', got {conf_type!r}"
         )
+    svy: Any = None
+    if design is not None:
+        from ..survey.linearization import check_design
+
+        svy = check_design(
+            design,
+            data,
+            function="kaplan_meier",
+            weights=weights,
+            cluster=cluster,
+            allow_calibrated=False,
+        )
+        if se_method is not None:
+            raise MethodIncompatibility(
+                "kaplan_meier: design= gives the survey linearisation "
+                "variance; se_method= cannot be combined with it.",
+                recovery_hint="Drop se_method=.",
+            )
+        data = data.assign(__svy_row__=np.arange(len(data)))
     extra = [c for c in (weights, start, cluster) if c is not None]
     data = data.dropna(subset=[duration, event] + extra)
 
@@ -769,8 +803,22 @@ def kaplan_meier(
         )
     se_kind = resolve_km_se(se_method, w_all, cluster)
     plain_path = weights is None and start is None and se_kind == "greenwood"
+    if svy is not None:
+        se_kind = "survey_linearization"
 
     def _table(gdf: pd.DataFrame) -> pd.DataFrame:
+        if svy is not None:
+            from ._km import km_table_design
+
+            return km_table_design(
+                gdf[duration].values.astype(float),
+                gdf[event].values,
+                gdf[start].values.astype(float) if start is not None else None,
+                svy,
+                gdf["__svy_row__"].to_numpy(),
+                alpha,
+                conf_type,
+            )
         if plain_path:
             return _km_table(gdf[duration].values, gdf[event].values, alpha, conf_type)
         return km_table_weighted(
@@ -807,6 +855,7 @@ def kaplan_meier(
                 "start": start,
                 "cluster": cluster,
                 "se_method": se_kind,
+                "design": None if design is None else repr(design),
             },
             data=data,
             overwrite=False,
@@ -1102,6 +1151,7 @@ def cox(
     start: Optional[str] = None,
     ssc: Optional[str] = None,
     weights_as: Optional[str] = None,
+    design: Optional[Any] = None,
 ) -> CoxResult:
     """
     Cox Proportional Hazards model via partial likelihood.
@@ -1163,6 +1213,16 @@ def cox(
         How to read ``weights=``. ``'frequency'`` keeps the model-based
         variance; ``'sampling'`` (Stata ``[pw=]``) asks for the robust one
         when neither ``robust=`` nor ``cluster=`` chose a variance.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). The partial likelihood is weighted by the
+        design weights and the covariance is ``I^-1 M I^-1`` with ``M`` the
+        survey linearisation covariance of the weighted score residuals
+        over strata, PSUs and the finite population correction -- R
+        ``survey::svycoxph`` (Binder 1992). Inference uses t with the
+        design degrees of freedom. With counting-process rows (``start=``)
+        the subject's rows must lie in one PSU. Not with ``weights=``,
+        ``cluster=``, ``robust=`` or ``ssc=``.
 
     Returns
     -------
@@ -1198,6 +1258,19 @@ def cox(
     >>> bool(isinstance(res.summary(), str))
     True
     """
+    svy: Any = None
+    if design is not None:
+        from ..survey._regression_design import refuse_design_options
+        from ..survey.linearization import check_design
+
+        refuse_design_options("cox", robust=robust, ssc=ssc, weights_as=weights_as)
+        svy = check_design(
+            design, data, function="cox", weights=weights, cluster=cluster
+        )
+        data = data.assign(__svy_row__=np.arange(len(data)), __svy_weight__=svy.weights)
+        weights = "__svy_weight__"
+        weights_as = "sampling"
+
     # ---- Parse inputs -------------------------------------------------
     if formula is not None:
         dur_name, x_names = _parse_formula(formula)
@@ -1324,7 +1397,16 @@ def cox(
     except np.linalg.LinAlgError:
         info_inv = np.linalg.pinv(neg_H)
 
-    if cluster is not None or robust in ("hc0", "HC0", "robust"):
+    svy_df: Optional[float] = None
+    if svy is not None:
+        from ..survey.linearization import design_df, design_vcov
+
+        assert w_arr is not None
+        svy_rows = data["__svy_row__"].to_numpy()
+        score_i = kern.score_residuals(beta) * w_arr[:, None]
+        var_beta = info_inv @ design_vcov(score_i, svy, svy_rows) @ info_inv
+        svy_df = design_df(svy, svy_rows)
+    elif cluster is not None or robust in ("hc0", "HC0", "robust"):
         from ._cox_inputs import cox_robust_vcov
 
         score_i = kern.score_residuals(beta)
@@ -1351,6 +1433,8 @@ def cox(
     # Hazard ratios
     hr = np.exp(beta)
     z_crit = stats.norm.ppf(1 - alpha / 2)
+    if svy_df is not None:
+        z_crit = stats.t.ppf(1 - alpha / 2, svy_df)
     hr_ci = np.column_stack([np.exp(beta - z_crit * se), np.exp(beta + z_crit * se)])
 
     # ---- Build result -------------------------------------------------
@@ -1372,6 +1456,15 @@ def cox(
         model_info["start"] = start
     if ssc is not None:
         model_info["ssc"] = ssc
+    if svy is not None:
+        from ..survey.linearization import design_info
+
+        assert svy_df is not None
+        model_info["robust"] = "survey"
+        model_info["weights"] = None
+        model_info["weights_as"] = None
+        model_info["vcov_type"] = "Survey linearisation (R svycoxph)"
+        model_info["survey_design"] = design_info(svy, svy_df)
 
     data_info = {
         "nobs": n,
@@ -1383,6 +1476,8 @@ def cox(
             int(pd.Series(cluster_arr).nunique()) if cluster is not None else None
         ),
     }
+    if svy_df is not None:
+        data_info["df_inference"] = svy_df
 
     # The other two tests of beta = 0 that survival::coxph prints. The Wald
     # statistic uses the reported covariance (robust when one was asked
@@ -1468,6 +1563,7 @@ def cox(
                 "start": start,
                 "ssc": ssc,
                 "weights_as": weights_as,
+                "design": None if design is None else repr(design),
             },
             data=data,
             overwrite=False,

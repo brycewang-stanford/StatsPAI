@@ -232,6 +232,9 @@ def influence_se_did(
     analytic variance (and ``csdid2``'s clustering step).  With every row
     its own cluster the two coincide.
     """
+    if getattr(cluster_ids, "is_survey_design", False):
+        # design= fits: the survey linearisation variance of psi / n
+        return np.asarray(cluster_ids.se(psi, n))  # type: ignore[union-attr]
     psi = np.asarray(psi, dtype=float)
     squeeze = psi.ndim == 1
     if squeeze:

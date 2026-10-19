@@ -24,7 +24,7 @@ from .._aliases import accepts_aliases
 from ..core._call_record import records_call
 from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
-from ..exceptions import AssumptionWarning
+from ..exceptions import AssumptionWarning, MethodIncompatibility
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import require_bool
 
@@ -95,6 +95,7 @@ def did_2x2(
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
     d: Optional[str] = None,
+    design: Optional[Any] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -135,6 +136,16 @@ def did_2x2(
         Column name for analytical weights (e.g. population weights).
         Observations are weighted proportionally — equivalent to Stata's
         ``[aweight=...]`` or R's ``weights=`` in ``lm()``.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). The DID regression is fitted with the design
+        weights and its covariance is the survey linearisation sandwich
+        over strata, PSUs and the finite population correction (R
+        ``svyglm`` on ``y ~ treat * time``, Stata ``svy: regress``), with t
+        inference on the design degrees of freedom. With panel rows, the
+        unit (or a coarser unit containing it) must be the design's PSU so
+        that a unit's two periods fall in one PSU. Not with ``weights=``,
+        ``cluster=``, ``vce=`` or ``engine='bayes'``.
     engine : {'ols', 'bayes'}, default 'ols'
         Inference backend for the same 2×2 design. ``'ols'`` (default) is the
         frequentist OLS estimator above. ``'bayes'`` routes to
@@ -183,6 +194,21 @@ def did_2x2(
     if time is None:
         raise TypeError("did_2x2() missing required argument: 'time'")
     robust = require_bool(robust, argument="robust")
+    svy: Any = None
+    if design is not None:
+        from ..survey.linearization import check_design
+
+        svy = check_design(
+            design, data, function="did_2x2", weights=weights, cluster=cluster
+        )
+        if vce is not None or engine != "ols":
+            raise MethodIncompatibility(
+                "did_2x2: design= gives the survey linearisation variance; "
+                "it cannot be combined with vce= or engine='bayes'.",
+                recovery_hint="Drop vce= / engine=.",
+            )
+        data = data.assign(__svy_weight__=svy.weights, __svy_row__=np.arange(len(data)))
+        weights = "__svy_weight__"
     if engine not in ("ols", "bayes"):
         raise ValueError(f"engine must be 'ols' or 'bayes'; got {engine!r}.")
     if engine == "bayes":
@@ -215,8 +241,6 @@ def did_2x2(
     )
 
     # Validate binary variables
-    from statspai.exceptions import MethodIncompatibility
-
     treat_vals = sorted(df[treat].dropna().unique())
     time_vals = sorted(df[time].dropna().unique())
     if len(treat_vals) != 2:
@@ -377,6 +401,16 @@ def did_2x2(
             sigma2 = np.sum(resid**2) / (n - k)
         vcov = sigma2 * XtX_inv
 
+    svy_df: Optional[float] = None
+    if svy is not None:
+        from ..survey.linearization import design_df, design_vcov
+
+        assert w is not None
+        svy_rows = df.loc[valid, "__svy_row__"].to_numpy()
+        scores = (w * resid)[:, None] * X
+        vcov = XtX_inv @ design_vcov(scores, svy, svy_rows) @ XtX_inv
+        svy_df = design_df(svy, svy_rows)
+
     se = np.sqrt(np.diag(vcov))
 
     # DID coefficient is the interaction term
@@ -384,7 +418,7 @@ def did_2x2(
     att = float(beta[did_idx])
     att_se = float(se[did_idx])
     t_stat = att / att_se if att_se > 0 else np.nan
-    df_resid = n - k
+    df_resid = n - k if svy_df is None else svy_df
     pvalue = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att - t_crit * att_se, att + t_crit * att_se)
@@ -398,8 +432,6 @@ def did_2x2(
     _vce = vce.lower() if isinstance(vce, str) else None
     wild_note: Optional[str] = None
     if _vce in ("wild", "wildbootstrap", "wild_cluster", "wcr", "boottest"):
-        from ..exceptions import MethodIncompatibility
-
         if cluster is None:
             raise MethodIncompatibility(
                 "did_2x2(vce='wild') requires cluster=... — the wild "
@@ -436,8 +468,6 @@ def did_2x2(
             f"{wild_reps} reps, {wild_weight_type})"
         )
     elif _vce is not None:
-        from ..exceptions import MethodIncompatibility
-
         raise MethodIncompatibility(
             f"did_2x2 vce={vce!r} not recognised; use vce='wild' (or the "
             "cluster=/robust= parameters for analytic SEs).",
@@ -476,6 +506,14 @@ def did_2x2(
         "cluster": cluster,
         "weights": weights,
     }
+    if svy is not None:
+        from ..survey.linearization import design_info
+
+        assert svy_df is not None
+        model_info["weights"] = None
+        model_info["robust_se"] = None
+        model_info["se_method"] = "survey_linearization"
+        model_info["survey_design"] = design_info(svy, svy_df)
     if wild_note is not None:
         model_info["inference"] = wild_note
         model_info["n_boot"] = wild_reps

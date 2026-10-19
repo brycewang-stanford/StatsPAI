@@ -25,7 +25,7 @@ Hansen, C., Newey, W. and Robins, J. (2018).
 """
 
 import warnings
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -70,6 +70,7 @@ def aipw(
     propensity: Optional[Union[float, str]] = None,
     trim: float = 0.01,
     outcome_model: str = "linear",
+    design: Optional[Any] = None,
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -180,6 +181,18 @@ def aipw(
         the AIPW estimate itself is still not a plug-in and is not
         confined to the range (``sp.tmle`` is). ``se_method='sandwich'``
         stacks the score of the chosen model.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). The nuisance models and the AIPW mean are
+        fitted with the design weights, and every standard error is the
+        Taylor-linearisation variance of the influence rows the chosen
+        ``se_method`` uses (the efficient influence function, or the
+        stacked sandwich rows with ``se_method='sandwich'``) over strata,
+        PSUs and the finite population correction -- R
+        ``survey::svyrecvar`` on those rows. The interval and p-value use
+        the t distribution with the design degrees of freedom
+        (#PSU - #strata), as Stata ``svy``. ``weights=`` and ``cluster=``
+        must not be given; ``design=None`` changes nothing.
 
     Returns
     -------
@@ -274,6 +287,13 @@ def aipw(
             "to fit the nuisance models on the full sample.",
         )
     rng = np.random.default_rng(seed)
+    svy: Any = None
+    if design is not None:
+        from ..survey.linearization import check_design
+
+        svy = check_design(
+            design, data, function="aipw", weights=weights, cluster=cluster
+        )
 
     extra = [c for c in (weights, cluster) if c is not None]
     if isinstance(propensity, str):
@@ -294,7 +314,8 @@ def aipw(
             context="aipw",
             extra_diagnostics={"missing": list(missing_cols.values())},
         )
-    df = data[list(dict.fromkeys([y, treat] + list(covariates) + extra))].dropna()
+    used_cols = list(dict.fromkeys([y, treat] + list(covariates) + extra))
+    df = data[used_cols].dropna()
     Y = df[y].values.astype(float)
     D = _treatment_as_float(df[treat], function="aipw")
     X = df[covariates].values.astype(float)
@@ -323,7 +344,13 @@ def aipw(
     # Sampling weights normalised to mean one (their scale is irrelevant);
     # ``None`` keeps the unweighted path byte-identical to earlier releases.
     omega: Optional[np.ndarray] = None
-    if weights is not None:
+    svy_rows = None
+    if svy is not None:
+        from ..survey.linearization import design_rows
+
+        svy_rows = design_rows(svy, data, used_cols)
+        omega = svy_rows.weights * (n / svy_rows.weights.sum())
+    elif weights is not None:
         wv = df[weights].to_numpy(dtype=float)
         if not np.all(np.isfinite(wv)) or np.any(wv <= 0):
             raise MethodIncompatibility(
@@ -422,6 +449,10 @@ def aipw(
         ``sqrt(sum u_i^2) / n``, or with clusters the sum over clusters of
         the within-cluster totals squared (Stata ``vce(cluster)``).
         """
+        if svy_rows is not None:
+            from ..survey.linearization import design_vcov
+
+            return float(np.sqrt(design_vcov(u / n, svy, svy_rows.rows)[0, 0]))
         if groups is not None:
             u = np.bincount(groups, weights=u)
         return float(np.sqrt(np.sum(u**2)) / n)
@@ -504,6 +535,12 @@ def aipw(
     z = tau / se if se > 0 else 0
     pvalue = float(2 * stats.norm.sf(abs(z)))
     ci = (tau - z_crit * se, tau + z_crit * se)
+    svy_df: Optional[float] = None
+    if svy_rows is not None:
+        from ..survey.linearization import design_df, design_inference
+
+        svy_df = design_df(svy, svy_rows.rows)
+        ci, pvalue = design_inference(tau, se, svy_df, alpha)
 
     model_info = {
         "estimator": "AIPW (Doubly Robust)",
@@ -532,6 +569,11 @@ def aipw(
         # estimate is not reproducible by re-running.
         "seed": seed,
     }
+    if svy is not None:
+        from ..survey.linearization import design_info
+
+        assert svy_df is not None
+        model_info["survey_design"] = design_info(svy, svy_df)
 
     _result = CausalResult(
         method="AIPW (Doubly Robust)",
@@ -565,6 +607,7 @@ def aipw(
                 "cluster": cluster,
                 "propensity": propensity,
                 "outcome_model": outcome_model,
+                "design": None if design is None else repr(design),
             },
             data=data,
             overwrite=False,
