@@ -4202,3 +4202,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-19 — trace re-record for module 18 (augsynth extensions)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `3db1686c`.
+- **Reason.** `synth/augsynth.py` (several treated units, `progfunc`,
+  `scm`, `fixedeff`, covariates; the R bridge moved to
+  `synth/_augsynth_r.py`) is on the estimation path of module 18; its trace
+  was re-recorded.
+- **Effect on the paper.** None. The default single-unit Ridge path is
+  arithmetically unchanged and module 18 reproduces its committed result
+  byte for byte.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
