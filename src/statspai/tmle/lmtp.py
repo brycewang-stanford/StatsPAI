@@ -34,6 +34,7 @@ import pandas as pd
 from scipy import stats
 from scipy.special import expit, logit
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -101,6 +102,7 @@ def _apply_shift(shift: Shift, a: np.ndarray) -> np.ndarray:
     return a + float(shift)
 
 
+@accepts_aliases(seed="random_state")
 def lmtp(
     data: pd.DataFrame,
     y: str,
@@ -155,7 +157,8 @@ def lmtp(
     ratio_learner : sklearn classifier, optional
         Classifier for the density ratios (default: logistic regression).
     random_state : int, default 42
-        Seed of the cross-fitting split.
+        Seed of the cross-fitting split (``seed=`` is accepted as the
+        same argument).
     alpha : float, default 0.05
 
     Returns

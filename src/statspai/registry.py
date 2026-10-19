@@ -32830,6 +32830,18 @@ def _build_registry() -> None:
                     ["linear", "logit", "probit", "poisson"],
                 ),
                 ParamSpec(
+                    "design",
+                    "SurveyDesign",
+                    False,
+                    None,
+                    "A survey design from sp.svydesign on the same rows: the "
+                    "nuisance models and the AIPW mean use the design weights, "
+                    "and the SE is the Taylor-linearisation variance of the "
+                    "influence rows over strata / PSUs / fpc (R "
+                    "survey::svyrecvar), t with #PSU - #strata df as Stata "
+                    "svy. Not with weights= or cluster=.",
+                ),
+                ParamSpec(
                     "ps_learner",
                     "estimator",
                     False,
