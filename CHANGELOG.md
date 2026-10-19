@@ -4,6 +4,33 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Stata data layer: `sp.xtset`, `sp.lag` / `lead` / `diff`, `sp.reshape`, `sp.collapse`
+
+#### Added
+
+- `sp.xtset(df, id=, time=, delta=)` declares the panel and time variables
+  (stored in `df.attrs`) and returns Stata's description: strongly / weakly
+  balanced or unbalanced, gaps, first and last period (`r(balanced)`,
+  `r(gaps)`, `r(tmin)`, `r(tmax)` of Stata 18 on the same rows).
+- `sp.lag` / `sp.lead` / `sp.diff` are Stata's `L.` / `F.` / `D.`: read from
+  the time variable within panel, missing where a period is absent, for any
+  row order; `delta=` and pandas `Period` time columns are supported. Checked
+  against Stata 18 on an unsorted, unbalanced panel with gaps.
+- `sp.reshape(df, 'wide' | 'long', stubs=, id=, j=, string=)` and
+  `sp.collapse(df, "(mean) x (sum) t=y", by=, weights=, weight_type=, cw=)`
+  follow Stata's row and column order, statistics, weight definitions and
+  refusals (Stata 18 reference numbers in `tests/test_data_layer.py`).
+- `sp.stata(..., return_data=True)` returns `StataRun(output, data)`, the
+  dataset as the commands left it; data still preserved at the end are
+  restored first, as at the end of a Stata do-file.
+
+#### Changed
+
+- The `reshape`, `collapse` and time-series-operator code of `sp.stata` now
+  lives in `statspai.utils` (`reshape.py`, `collapse.py`, `tsops.py`); the
+  translator imports it, so there is one implementation. `sp.stata` output
+  is unchanged.
+
 ### `sp.xtpcse`: panel-corrected standard errors (Beck-Katz)
 
 #### Added

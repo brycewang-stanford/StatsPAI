@@ -32,11 +32,13 @@ reproduces Stata's digits. ``generate double`` keeps full precision.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 import numpy as np
 import pandas as pd
 
+from ...exceptions import StatsPAIError
+from ...utils.collapse import COLLAPSE_STATS, collapse_frame
 from ._stata_expr import (
     StataExprError,
     evaluate,
@@ -246,46 +248,9 @@ def _generate_option(options: dict) -> Optional[str]:
     return None
 
 
-#: collapse statistics -> the pandas reduction (missing values are skipped,
-#: and an all-missing group gives missing, as in Stata)
-_COLLAPSE = {
-    "mean": "mean",
-    "median": "median",
-    "p50": "median",
-    "sd": "std",
-    "sum": "sum",
-    "rawsum": "rawsum",
-    "count": "count",
-    "max": "max",
-    "min": "min",
-    # pandas' first / last skip missing values, which is Stata's firstnm /
-    # lastnm; Stata's first / last take the row whatever it holds
-    "firstnm": "first",
-    "lastnm": "last",
-    "first": "_row_first",
-    "last": "_row_last",
-}
-
-
-def _frequency_rows(
-    data: pd.DataFrame, keep: np.ndarray, w: np.ndarray
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """The rows a frequency weight stands for, and the rows themselves
-    (those with a positive weight)."""
-    held = keep & ~np.isnan(w)
-    if np.any(w[held] < 0):
-        raise StataExprError("collapse: negative weights")
-    if np.any(w[held] != np.round(w[held])):
-        raise StataExprError("may not use noninteger frequency weights")
-    held &= w > 0
-    rows = data.loc[held]
-    counts = w[held].astype(np.int64)
-    return rows.loc[rows.index.repeat(counts)], rows
-
-
-def _row_end(how: str) -> Any:
-    position = 0 if how == "_row_first" else -1
-    return lambda s: s.iloc[position] if len(s) else np.nan
+#: collapse statistics -> the pandas reduction; the collapse itself is
+#: :mod:`statspai.utils.collapse` (``sp.collapse``)
+_COLLAPSE = COLLAPSE_STATS
 
 
 def row_mask(
@@ -1691,68 +1656,22 @@ class DataSteps:
         if len(set(names)) != len(names) or set(names) & set(by):
             raise StataExprError("collapse: a result name is used twice")
         keep = row_mask(self.data, if_cond, in_range, self.stored)
-        raw = None
-        if weight is not None and weight[0] == "fw":
-            # a frequency weight stands for that many identical rows
-            # (Stata 18: rows with a zero or missing weight drop out, and
-            # (rawsum) sums the rows themselves)
-            frame, raw = _frequency_rows(self.data, keep, weight[1])
-        elif weight is not None:
-            out = self._collapse_weighted(targets, by, keep, weight)
+        try:
+            out = collapse_frame(
+                self.data,
+                targets,
+                by,
+                keep,
+                weight,
+                check_groups=lambda frame: self._missing_by_groups(by, frame),
+            )
+        except StatsPAIError as exc:
+            raise StataExprError(exc.message) from None
+        if weight is not None and weight[0] != "fw":
             self._own()
             self.data = out
             self._float = set()
             return
-        else:
-            frame = self.data.loc[keep]
-        if raw is None:
-            raw = frame
-        if by:
-            # the rows with a missing by-value are a group too, listed last
-            self._missing_by_groups(by, frame)
-            grouped = frame.groupby(by, sort=True, dropna=False)
-            cols = {}
-            for new, source, how in targets:
-                if how == "rawsum":
-                    cols[new] = raw.groupby(by, sort=True, dropna=False)[source].sum(
-                        min_count=0
-                    )
-                elif how == "sum":
-                    cols[new] = grouped[source].sum(min_count=0)
-                elif how.startswith("_row_"):
-                    cols[new] = grouped[source].agg(_row_end(how))
-                else:
-                    cols[new] = getattr(grouped[source], how)()
-            out = pd.DataFrame(cols).reset_index()
-        else:
-            out = pd.DataFrame(
-                {
-                    new: [
-                        (
-                            frame[source].sum()
-                            if how == "sum"
-                            else (
-                                raw[source].sum()
-                                if how == "rawsum"
-                                else (
-                                    _row_end(how)(frame[source])
-                                    if how.startswith("_row_")
-                                    else (
-                                        _row_end(
-                                            "_row_first"
-                                            if how == "first"
-                                            else "_row_last"
-                                        )(frame[source].dropna())
-                                        if how in ("first", "last")
-                                        else getattr(frame[source], how)()
-                                    )
-                                )
-                            )
-                        )
-                    ]
-                    for new, source, how in targets
-                }
-            )
         # Stata stores a mean, median or sd as a float unless its source is
         # a long or a double (checked against `collapse` in Stata 18), so
         # the collapsed value carries single precision into what follows.
@@ -1791,70 +1710,6 @@ class DataSteps:
                     "(.a-.z); Stata makes a group of each kind, and the data "
                     "keep them as one. Drop the missing rows first"
                 )
-
-    def _collapse_weighted(
-        self, targets: List[tuple], by: List[str], keep: np.ndarray, weight: tuple
-    ) -> pd.DataFrame:
-        """``collapse ... [weight]``. With weights w on the rows where the
-        variable is observed (n of them): the mean is ``sum(w x) /
-        sum(w)``; ``sum`` is ``sum(w x)``, for analytic weights after
-        scaling them to add up to n; ``count`` is ``sum(w)`` and n for
-        analytic weights; ``sd`` uses n - 1, with n = ``sum(w)`` for
-        frequency weights; the median is the weighted one."""
-        from ...output.sumstats import weighted_percentile
-
-        kind, w_all = weight
-        ok = keep & ~np.isnan(w_all) & (w_all != 0)
-        if np.any(w_all[ok] < 0):
-            raise StataExprError("collapse: negative weights")
-        frame = self.data.loc[ok].copy()
-        frame["__w"] = w_all[ok]
-        if by:
-            self._missing_by_groups(by, frame)
-
-        def one(part: pd.DataFrame, source: str, how: str) -> float:
-            x = part[source].to_numpy(dtype=float, na_value=np.nan)
-            w = part["__w"].to_numpy(dtype=float)
-            held = ~np.isnan(x)
-            x, w = x[held], w[held]
-            n = float(x.size)
-            if how == "count":
-                return n if kind == "aw" else float(w.sum())
-            if n == 0:
-                return np.nan
-            if how in ("min", "max"):
-                return float(x.min() if how == "min" else x.max())
-            total = float(w.sum())
-            mean = float(np.sum(w * x) / total)
-            if how == "mean":
-                return mean
-            if how == "sum":
-                return mean * n if kind == "aw" else float(np.sum(w * x))
-            if how == "median":
-                return weighted_percentile(x, w, 50.0)
-            if how == "std":
-                if kind in ("pw", "iw"):
-                    raise StataExprError("collapse: (sd) is not allowed with pweights")
-                size = total if kind == "fw" else n
-                if size <= 1:
-                    return np.nan
-                return float(
-                    np.sqrt(np.sum(w * (x - mean) ** 2) / total * size / (size - 1))
-                )
-            raise StataExprError(f"collapse: ({how}) with weights is not implemented")
-
-        if by:
-            rows = []
-            for level, part in frame.groupby(by, sort=True, dropna=False):
-                level = level if isinstance(level, tuple) else (level,)
-                row = dict(zip(by, level))
-                for new, source, how in targets:
-                    row[new] = one(part, source, how)
-                rows.append(row)
-            return pd.DataFrame(rows, columns=by + [t[0] for t in targets])
-        return pd.DataFrame(
-            {new: [one(frame, source, how)] for new, source, how in targets}
-        )
 
     def _ipolate(self, varlist: List[str], options: dict, qualifier: Any) -> None:
         """``ipolate y x, generate(new) [epolate]``: linear interpolation of

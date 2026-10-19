@@ -7,6 +7,7 @@ Provides Stata-style data manipulation tools:
 - Winsorization (winsor)
 """
 
+from .collapse import collapse
 from .data_tools import pwcorr, winsor
 from .dgp import (
     dgp_bartik,
@@ -46,6 +47,8 @@ from .labels import (
     label_var,
     label_vars,
 )
+from .reshape import reshape
+from .tsops import diff, get_xtset, lag, lead, xtset
 
 __all__ = [
     "label_var",
@@ -57,6 +60,13 @@ __all__ = [
     "describe",
     "pwcorr",
     "winsor",
+    "xtset",
+    "get_xtset",
+    "lag",
+    "lead",
+    "diff",
+    "reshape",
+    "collapse",
     "rowmean",
     "rowtotal",
     "rowmax",

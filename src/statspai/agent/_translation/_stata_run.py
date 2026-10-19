@@ -15,7 +15,7 @@ import inspect
 import re
 import warnings
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -514,6 +514,7 @@ def stata(
     *,
     result: Any = None,
     files: Optional[Dict[str, pd.DataFrame]] = None,
+    return_data: bool = False,
 ) -> Any:
     """Execute Stata estimation / post-estimation commands on a DataFrame.
 
@@ -574,12 +575,22 @@ def stata(
         ``append using wave2`` and ``use wages`` look ``wages`` up here
         (the file name without folder and ``.dta``). Nothing is read from
         disk.
+    return_data : bool, default False
+        Also return the dataset as the commands left it (after
+        ``generate``, ``reshape``, ``collapse``, ``merge`` ...), as a
+        :class:`StataRun` ``(output, data)``. The caller's ``data`` is never
+        changed; the returned frame is a copy. Variables made by
+        ``generate`` hold single-precision values, as in Stata, and data
+        still preserved at the end are restored first, as at the end of a
+        do-file.
 
     Returns
     -------
     object
         The output of the last command: a fitted result for estimation
-        commands, the post-estimation output otherwise.
+        commands, the post-estimation output otherwise. With
+        ``return_data=True``, a :class:`StataRun` named tuple ``(output,
+        data)``.
 
     Raises
     ------
@@ -617,6 +628,10 @@ def stata(
     >>> out = sp.stata("regress y x1 x2; lincom x1 + x2", data=df)
     >>> out == sp.lincom(sp.regress("y ~ x1 + x2", data=df), "x1 + x2")
     True
+    >>> run = sp.stata("generate double z = x1 + x2; keep if z > 0",
+    ...                data=df, return_data=True)
+    >>> bool((run.data["z"] > 0).all()), len(df) == 200
+    (True, True)
     """
     from ._stata_script import split_commands
 
@@ -632,7 +647,24 @@ def stata(
         session.run(line)
     # the end of the do-file: its `tempvar` variables go
     drop_temporaries(session)
+    if return_data:
+        steps = session._steps
+        frame = None
+        if steps is not None:
+            # a do-file that ends with the data preserved gets them back
+            # (Stata restores at the end of the do-file)
+            frame = (steps._stack[0][0] if steps._stack else steps.data).copy()
+        return StataRun(session.output, frame)
     return session.output
+
+
+class StataRun(NamedTuple):
+    """What ``sp.stata(..., return_data=True)`` returns."""
+
+    #: the output of the last command
+    output: Any
+    #: the dataset as the commands left it (``None`` without data)
+    data: Optional[pd.DataFrame]
 
 
 _FACTOR_ARGUMENT = re.compile(

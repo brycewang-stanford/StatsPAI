@@ -1337,6 +1337,9 @@ from .utils import (
     winsor,
     write_data,
 )
+from .utils.collapse import collapse
+from .utils.reshape import reshape
+from .utils.tsops import diff, lag, lead, xtset
 from .validation import (
     ReproductionResult,
     ReproductionStep,
@@ -1744,6 +1747,12 @@ __all__ = [
     "describe",
     "pwcorr",
     "winsor",
+    "xtset",
+    "lag",
+    "lead",
+    "diff",
+    "reshape",
+    "collapse",
     "rowmean",
     "rowtotal",
     "rowmax",

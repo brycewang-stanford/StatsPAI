@@ -21871,6 +21871,226 @@ def _build_registry() -> None:
         )
     )
 
+    # --- Stata data layer: one implementation shared with sp.stata ------
+    _ts_params = [
+        ParamSpec("data", "DataFrame", True),
+        ParamSpec("var", "str | list", True, description="Variable(s) to operate on"),
+        ParamSpec(
+            "n",
+            "int | list",
+            False,
+            1,
+            "Order; a list such as [1, 2, 3] is Stata's L(1/3).x",
+        ),
+        ParamSpec(
+            "id",
+            "str",
+            False,
+            None,
+            "Panel variable (default: the sp.xtset declaration)",
+        ),
+        ParamSpec(
+            "time",
+            "str",
+            False,
+            None,
+            "Time variable, integer periods or pandas Period (default: "
+            "the sp.xtset declaration)",
+        ),
+        ParamSpec("delta", "float", False, None, "Length of one period (default 1)"),
+    ]
+    _ts_failures = [
+        FailureMode(
+            symptom="No time variable given or declared",
+            exception="MethodIncompatibility",
+            remedy="Pass time= (and id=), or call sp.xtset(data, id=, time=) " "first.",
+        ),
+        FailureMode(
+            symptom="Time variable with missing, non-integer or repeated "
+            "values within a panel, or a datetime column",
+            exception="MethodIncompatibility",
+            remedy="Drop rows with a missing period; convert datetimes with "
+            ".dt.to_period(); aggregate duplicates with sp.collapse.",
+        ),
+    ]
+    for _ts_name, _op, _what in (
+        ("lag", "L", "x at t - n*delta"),
+        ("lead", "F", "x at t + n*delta"),
+        ("diff", "D", "the n-th difference (D2.x = x - 2 L.x + L2.x)"),
+    ):
+        register(
+            FunctionSpec(
+                name=_ts_name,
+                category="utils",
+                description=(
+                    f"Stata's {_op}. operator read from the time variable: "
+                    f"{_what} in the same panel, missing where that period "
+                    "is absent (gaps), whatever the row order. Not "
+                    "shift(): shift() reads the row above."
+                ),
+                params=list(_ts_params),
+                returns=f"Series named '{_op}.x' / '{_op}2.x' (DataFrame for "
+                "several variables or orders)",
+                example=f'sp.{_ts_name}(df, "x", id="firm", time="year")',
+                tags=["panel", "time series", "lag", "stata", "data"],
+                assumptions=[
+                    "The time variable counts whole periods (Stata dates "
+                    "are integers)",
+                ],
+                failure_modes=list(_ts_failures),
+                alternatives=["xtset", "lag", "lead", "diff"],
+            )
+        )
+
+    register(
+        FunctionSpec(
+            name="xtset",
+            category="utils",
+            description=(
+                "Declare the panel and time variables (Stata xtset id t / "
+                "tsset t): stored in data.attrs and read by sp.lag / "
+                "sp.lead / sp.diff and by L.x / F.x / D.x in formulas. "
+                "Returns Stata's description: balance (strongly / weakly / "
+                "unbalanced), gaps, first and last period."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("id", "str", False, None, "Panel variable"),
+                ParamSpec(
+                    "time",
+                    "str",
+                    False,
+                    None,
+                    "Time variable: integer periods or pandas Period",
+                ),
+                ParamSpec(
+                    "delta", "float", False, 1.0, "Length of one period (delta())"
+                ),
+            ],
+            returns="PanelDeclaration (id, time, delta, balanced, gaps, "
+            "n_units, t_min, t_max)",
+            example='sp.xtset(df, id="firm", time="year")',
+            tags=["panel", "time series", "declaration", "stata", "data"],
+            failure_modes=[
+                FailureMode(
+                    symptom="Repeated time values within a panel, "
+                    "non-integer periods, or periods closer than delta",
+                    exception="MethodIncompatibility",
+                    remedy="One row per panel and period; integer periods; "
+                    "a delta no larger than the smallest step (Stata r(451)).",
+                ),
+            ],
+            alternatives=["lag", "lead", "diff"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="reshape",
+            category="utils",
+            description=(
+                "Stata's reshape wide / reshape long with i() and j(): the "
+                "same column order and rows as Stata, and its refusals (j "
+                "not unique within i, a non-stub variable that varies "
+                "within i)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "direction",
+                    "str",
+                    True,
+                    None,
+                    "'wide' (long -> wide) or 'long'",
+                    ["wide", "long"],
+                ),
+                ParamSpec(
+                    "stubs",
+                    "str | list",
+                    True,
+                    None,
+                    "Variables that vary with j (long: the name before the " "suffix)",
+                ),
+                ParamSpec("id", "str | list", True, None, "Stata's i()"),
+                ParamSpec("j", "str", True, None, "Stata's j()"),
+                ParamSpec(
+                    "string",
+                    "bool",
+                    False,
+                    False,
+                    "j takes text values (Stata's string option)",
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.reshape(df, "wide", stubs="inc", id="hid", j="year")',
+            tags=["reshape", "pivot", "long", "wide", "stata", "data"],
+            failure_modes=[
+                FailureMode(
+                    symptom="j not unique within id, or a variable that is "
+                    "not a stub varies within id",
+                    exception="MethodIncompatibility",
+                    remedy="Aggregate duplicates (sp.collapse); list the "
+                    "varying variable as a stub or drop it.",
+                ),
+            ],
+            alternatives=["collapse"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="collapse",
+            category="utils",
+            description=(
+                "Stata's collapse: a dataset of summary statistics by "
+                "group, written '(mean) x (sum) total=y' or as a dict; "
+                "missing by-values form their own group; aweight / fweight "
+                "/ pweight / iweight as Stata defines them; cw."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "stats",
+                    "str | dict",
+                    True,
+                    None,
+                    "'(mean) x y (sd) sdx=x' or {new: stat} / {new: (stat, "
+                    "source)}; stats mean median p50 sd sum rawsum count "
+                    "min max first last firstnm lastnm",
+                ),
+                ParamSpec("by", "str | list", False, None, "Group variables"),
+                ParamSpec("weights", "str", False, None, "Weight column"),
+                ParamSpec(
+                    "weight_type",
+                    "str",
+                    False,
+                    "aweight",
+                    "Stata weight type",
+                    ["aweight", "fweight", "pweight", "iweight"],
+                ),
+                ParamSpec(
+                    "cw",
+                    "bool",
+                    False,
+                    False,
+                    "Casewise deletion over all source variables",
+                ),
+            ],
+            returns="DataFrame (by-variables, then one column per statistic)",
+            example='sp.collapse(df, "(mean) wage (count) n=wage", by="state")',
+            tags=["aggregate", "group by", "summary", "stata", "data"],
+            failure_modes=[
+                FailureMode(
+                    symptom="Non-integer frequency weights, negative weights, "
+                    "or sd with pweights",
+                    exception="MethodIncompatibility",
+                    remedy="Use aweights, or drop the offending rows.",
+                ),
+            ],
+            alternatives=["reshape"],
+        )
+    )
+
     register(
         FunctionSpec(
             name="poststratify",
