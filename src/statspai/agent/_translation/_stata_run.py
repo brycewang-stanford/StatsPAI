@@ -1283,12 +1283,7 @@ class StataSession:
         from ._stata_models import constraint_line, constraints_written_out, rotate_line
         from ._stata_programs import run_simulate
         from ._stata_resample import estat_bootstrap_line, resample_line
-        from ._stata_script import (
-            ScriptError,
-            control_flow,
-            panel_declaration,
-            survival_declaration,
-        )
+        from ._stata_script import ScriptError, control_flow, survival_declaration
 
         handled_program = program_line(self, line)
         if handled_program is not None:
