@@ -101,20 +101,59 @@ class MICEResult(ResultProtocolMixin):
 def _barnard_rubin_df(m: int, b: np.ndarray, t: np.ndarray, dfcom: float) -> np.ndarray:
     """Barnard & Rubin (1999) small-sample degrees of freedom.
 
-    ``lambda = (1 + 1/m) b / t``; ``nu_old = (m - 1) / lambda^2`` (Rubin
-    1987) and, for finite ``dfcom``,
-    ``nu = (m - 1) tmp / ((dfcom + 3)(m - 1) + lambda^2 tmp)`` with
-    ``tmp = (1 - lambda)(1 + dfcom) dfcom`` -- algebraically
-    ``1 / (1/nu_old + 1/nu_obs)``, written as R ``mice:::barnard.rubin``
-    writes it so that ``b = 0`` (no between-imputation variance) gives
-    ``nu_obs`` instead of ``inf / inf``.
+    Clean-room implementation from the published formula; R sensemakr /
+    mice used only as black boxes (docs/dev/cleanroom/sensemakr_mice_helpers.md).
+
+    With ``lambda = (1 + 1/m) b / t`` (fraction of missing information),
+    ``nu_old = (m - 1) / lambda^2`` [@rubin1987multiple] and
+    ``nu_obs = (dfcom + 1) / (dfcom + 3) * dfcom * (1 - lambda)``, the
+    adjusted degrees of freedom are
+    ``nu = nu_old nu_obs / (nu_old + nu_obs)`` [@barnard1999small].
+    It is computed as the reciprocal of ``1/nu_old + 1/nu_obs`` so that
+    ``b = 0`` returns ``nu_obs`` and ``dfcom = inf`` returns ``nu_old``
+    (``inf`` when also ``b = 0``).
+
+    Parameters
+    ----------
+    m : int
+        Number of imputations.
+    b : np.ndarray
+        Between-imputation variance (elementwise).
+    t : np.ndarray
+        Total variance (elementwise).
+    dfcom : float
+        Complete-data degrees of freedom; ``np.inf`` for large samples.
+
+    Returns
+    -------
+    np.ndarray
+        Degrees of freedom, elementwise (a float for scalar inputs).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from statspai.imputation.mice import _barnard_rubin_df
+    >>> _barnard_rubin_df(5, np.array([0.0]), np.array([1.0]), np.inf)
+    array([inf])
+
+    References
+    ----------
+    [@barnard1999small]
     """
-    lam = (1.0 + 1.0 / m) * b / t
+    b_arr = np.asarray(b, dtype=float)
+    t_arr = np.asarray(t, dtype=float)
+    lam = (1.0 + 1.0 / m) * b_arr / t_arr
     with np.errstate(divide="ignore", invalid="ignore"):
-        if not np.isfinite(dfcom):
-            return (m - 1) / lam**2
-        tmp = (1.0 - lam) * (1.0 + dfcom) * dfcom
-        return (m - 1) * tmp / ((dfcom + 3.0) * (m - 1) + lam**2 * tmp)
+        inv_old = lam**2 / (m - 1.0)
+        if np.isinf(dfcom):
+            inv_obs = np.zeros_like(lam)
+        else:
+            nu_obs = (dfcom + 1.0) / (dfcom + 3.0) * dfcom * (1.0 - lam)
+            inv_obs = 1.0 / nu_obs
+        nu = 1.0 / (inv_old + inv_obs)
+    if nu.ndim == 0:
+        return float(nu)
+    return nu
 
 
 def _rubins_rules(

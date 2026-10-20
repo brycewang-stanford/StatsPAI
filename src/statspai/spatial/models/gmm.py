@@ -296,7 +296,7 @@ def sar_gmm(
 
 
 def _tsls(y: np.ndarray, Z: np.ndarray, Q: np.ndarray, robust: bool, sig2n_k: bool):
-    """2SLS of ``y`` on ``Z`` with instrument matrix ``Q`` (``spatialreg:::tsls``).
+    """Two-stage least squares of ``y`` on ``Z`` with instrument matrix ``Q``.
 
     Returns ``(coef, vcov, resid)``. Homoskedastic variance
     ``s2 (Zp'Zp)^{-1}`` with ``s2 = e'e / n`` (``/ (n - k)`` when
@@ -322,9 +322,10 @@ def _tsls(y: np.ndarray, Z: np.ndarray, Q: np.ndarray, robust: bool, sig2n_k: bo
 def _kp_gm_lambda(u: np.ndarray, M: Any):
     """Kelejian-Prucha (1999) GM estimate of ``(lambda, sigma^2)`` from residuals.
 
-    Unweighted nonlinear least squares on the three moment conditions, in
-    the ``G [lambda, lambda^2, sigma^2]' - g`` form of
-    ``spatialreg:::.kpwuwu`` / ``.kpgm``.
+    Unweighted nonlinear least squares on the three moment conditions of
+    Kelejian and Prucha (1999), written as ``G [lambda, lambda^2, sigma^2]'
+    - g`` with ``G`` and ``g`` the sample moments of ``u``, ``M u`` and
+    ``M M u`` given in that paper.
 
     The minimisation is exact rather than iterative: for fixed ``lambda``
     the objective is linear least squares in ``sigma^2``, and profiling it
@@ -333,9 +334,10 @@ def _kp_gm_lambda(u: np.ndarray, M: Any):
     outside the parameter space (on the Columbus data it sits at
     ``lambda = 4.07`` with a *lower* objective than the admissible one), so
     the minimiser is taken over stationary points with ``|lambda| < 1``,
-    the Kelejian-Prucha parameter space. ``gstsls`` runs ``nlminb`` from
-    the residual autocorrelation instead, which finds the same admissible
-    minimum but stops a few 1e-9 short of it on a flat objective.
+    the Kelejian-Prucha parameter space. R ``spatialreg::gstsls`` minimises
+    numerically (``nlminb`` by default, started, per its help page, from
+    the residual autocorrelation coefficient); on a flat objective its
+    reported ``lambda`` differs from this exact minimiser by a few 1e-9.
     """
     n = u.shape[0]
     wu = M @ u
@@ -403,8 +405,8 @@ def sarar_gmm(
     """SARAR (spatial lag + spatial error) by generalized spatial 2SLS.
 
     The Kelejian-Prucha (1998) GS2SLS estimator for
-    ``y = rho W y + X beta + u,  u = lambda W u + e``, computed step for
-    step as ``spatialreg::gstsls``:
+    ``y = rho W y + X beta + u,  u = lambda W u + e``, in the three steps
+    of Kelejian and Prucha (1998):
 
     1. 2SLS of ``y`` on ``[W y, X]`` with instruments
        ``H = [X, W X, W^2 X]`` (lags of the non-constant columns).
@@ -412,12 +414,15 @@ def sarar_gmm(
        2SLS residuals (unweighted nonlinear least squares).
     3. Spatial Cochrane-Orcutt: 2SLS of ``y - lambda W y`` on
        ``[(I - lambda W) W y, (I - lambda W) X]``, instruments
-       ``[(I - lambda W) X, W X, W^2 X]`` (the spatial-lag instruments
-       are *not* filtered, as in ``gstsls``).
+       ``[(I - lambda W) X, W X, W^2 X]``. With a row-standardised ``W``
+       these span the same space as ``H``, the instruments Kelejian and
+       Prucha (1998) use in the third step; only the regressors are
+       filtered.
 
     ``beta``, ``rho`` and their standard errors come from step 3. The GM
     step does not deliver a standard error for ``lambda``; it is reported
-    as NaN (as ``gstsls`` reports ``lambda.se = NULL``).
+    as NaN (R ``spatialreg::gstsls`` likewise reports no standard error
+    for ``lambda``).
 
     Parameters
     ----------
@@ -439,9 +444,11 @@ def sarar_gmm(
         in the homoskedastic variance (``gstsls(sig2n_k = TRUE)``).
     w_lags : int, default 2
         Spatial lags of ``X`` used as instruments: ``[W X, ..., W^w_lags X]``.
-        ``2`` is Kelejian-Prucha's ``H = [X, WX, W^2 X]`` and the only
-        choice ``gstsls`` offers (its ``W2X`` argument is not used by the
-        code); ``1`` is PySAL ``spreg.GM_Combo``'s default.
+        ``2`` is Kelejian-Prucha's ``H = [X, WX, W^2 X]`` and what R
+        ``spatialreg::gstsls`` uses (run as a black box on the columbus
+        data, its estimates and standard errors are identical with
+        ``W2X = TRUE`` and ``W2X = FALSE``); ``1`` is PySAL
+        ``spreg.GM_Combo``'s default.
 
     Returns
     -------
@@ -509,7 +516,7 @@ def sarar_gmm(
     names = ["const"] + list(indep) + ["rho", "lambda"]
     params = np.concatenate([beta, [rho_hat, lam_hat]])
     se = np.concatenate([se_all[1:], [se_all[0], float("nan")]])
-    fitted = y - e  # gstsls convention: fit = y - (filtered-model residual)
+    fitted = y - e  # fitted = y minus the residual of the filtered model
 
     return EconometricResults(
         params=pd.Series(params, index=names),

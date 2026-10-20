@@ -534,8 +534,14 @@ def qqsynth(
 
 
 def _quant7_sorted(xs: np.ndarray, probs: np.ndarray) -> np.ndarray:
-    """Type-7 quantiles of a sorted sample, operation-for-operation as
-    R ``DiSCos:::quant7_sorted`` (``stats::quantile(type = 7)``)."""
+    """Type-7 sample quantiles of a sorted sample.
+
+    ``Q(p) = (1 - g) x[j] + g x[j+1]`` with ``j = floor(n p + 1 - p)`` and
+    ``g = n p + 1 - p - j``, the definition documented for ``type = 7`` in
+    R's ``?quantile``. The floating-point order follows the helper of the
+    MIT-licensed R package DiSCos (notice in ``THIRD_PARTY_NOTICES.md``), so
+    the DiSCos parity tests agree to the last digit.
+    """
     n = xs.shape[0]
     if n == 1:
         return np.full(probs.shape[0], xs[0])

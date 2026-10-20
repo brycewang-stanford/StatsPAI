@@ -22,6 +22,7 @@ import numpy as np
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _grf_engine as engine
+from ._grf_family import observation_weights as _family_observation_weights
 from ._grf_family import with_stream
 
 
@@ -79,13 +80,13 @@ def _validate_clusters(clusters: Any, n: int) -> Optional[np.ndarray]:
 def observation_weights(
     clusters: Optional[np.ndarray], equalize_cluster_weights: bool, n: int
 ) -> np.ndarray:
-    """``grf:::observation_weights`` (no sample weights), normalised to 1."""
-    if clusters is None or not equalize_cluster_weights:
-        raw = np.ones(n)
-    else:
-        counts = np.bincount(clusters)
-        raw = 1.0 / counts[clusters]
-    return np.asarray(raw / raw.sum(), dtype=float)
+    """Observation weights of the averages without sample weights, summing to 1.
+
+    The documented grf rule (see
+    :func:`statspai.forest._grf_family.observation_weights`): ``1 / cluster
+    size`` with equalized clusters, equal weights otherwise.
+    """
+    return _family_observation_weights(clusters, equalize_cluster_weights, None, n)
 
 
 def _crossfit(

@@ -1008,7 +1008,9 @@ def gelbach(
             )
     const = np.empty((n, 0)) if fe_terms else np.ones((n, 1))
 
-    # ── Contributions and their joint covariance (port of b1x2) ──────
+    # ── Contributions and their joint covariance (Gelbach 2016) ──────
+    # The covariance is Gelbach's (2016) consistent estimator; the numbers
+    # are checked against his Stata command b1x2 run as a black box.
     # Stata order: base variables, added variables, constant.
     X_b1 = np.column_stack([X_base_raw, const])  # x1 (k1 cols)
     X_long = np.column_stack([X_base_raw, X_full_raw[:, len(base_x) :], const])

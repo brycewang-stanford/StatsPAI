@@ -1355,14 +1355,23 @@ def conley_vcov_matrix(
 
 
 def _matrix_power_sym(mat: np.ndarray, power: float, tol: float = -12.0) -> np.ndarray:
-    """Symmetric matrix power via eigendecomposition (clubSandwich ``matrix_power``).
+    """Power of a symmetric matrix through its eigendecomposition.
 
-    Eigenvalues at or below ``10**tol`` are zeroed (generalised inverse), matching
-    R ``clubSandwich:::matrix_power``.
+    Eigenvalues at or below ``10**tol`` (an absolute threshold) are treated
+    as zero and dropped, so a negative ``power`` returns the Moore-Penrose
+    inverse of the positive power on the non-null subspace. This is what
+    the CR2 adjustment matrices of Bell and McCaffrey (2002) and
+    Pustejovsky and Tipton (2018) need when a cluster block is singular
+    [@bell2002bias; @pustejovsky2018small]. The input is symmetrised first,
+    so rounding asymmetry does not depend on which triangle is read. The
+    default threshold matches the outputs of R ``clubSandwich`` 0.6.2, used
+    as a black box.
     """
-    vals, vecs = np.linalg.eigh((mat + mat.T) / 2)
-    val_p = np.where(vals > 10.0**tol, vals**power, 0.0)
-    return (vecs * val_p) @ vecs.T
+    mat = np.asarray(mat, dtype=float)
+    vals, vecs = np.linalg.eigh(0.5 * (mat + mat.T))
+    keep = vals > 10.0**tol
+    vecs = vecs[:, keep]
+    return (vecs * vals[keep] ** power) @ vecs.T
 
 
 def glm_cr_vcov(

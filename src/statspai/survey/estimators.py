@@ -2,8 +2,9 @@
 Survey estimation routines: means, totals, and GLM with design-corrected
 variance estimation (linearisation / Taylor series).
 
-Implements the same variance formulas as R ``survey::svymean``,
-``survey::svytotal``, and ``survey::svyglm``.
+The variances are the standard design-based (linearisation) ones; the
+parity tests compare them with the outputs of R ``survey::svymean``,
+``survey::svytotal`` and ``survey::svyglm``.
 """
 
 from __future__ import annotations
@@ -100,8 +101,10 @@ def _design_vcov(scores: np.ndarray, design: "SurveyDesign") -> np.ndarray:
     """
     First-stage Taylor-linearisation (ultimate-cluster) covariance.
 
-    Mirrors R ``survey:::onestage`` / ``onestrat`` for a single-stage
-    design: within stratum *h* with ``n_h`` sampled PSUs, PSU score totals
+    The with-replacement ultimate-cluster estimator (the default variance
+    of R ``survey::svydesign`` and Stata ``svy``, which the parity tests
+    compare against): within stratum *h* with ``n_h`` sampled PSUs, PSU
+    score totals
     ``t_hj`` are centred at their stratum mean and
 
         V = sum_h (1 - f_hj) * n_h / (n_h - 1) * sum_j d_hj d_hj'
@@ -302,7 +305,7 @@ def svymean(
     """
     Survey-weighted mean with design-corrected standard errors.
 
-    Uses Taylor-series linearisation identical to R ``survey::svymean``.
+    Uses Taylor-series linearisation; matches R ``survey::svymean`` output.
 
     Parameters
     ----------
@@ -528,7 +531,8 @@ def svyglm(
         ``"gaussian"``, ``"binomial"`` (logistic), or ``"poisson"``.
         Canonical links; the sandwich is ``A^{-1} B A^{-1}`` with
         ``A = X' diag(w V(mu)) X`` and ``B`` the design covariance of the
-        score totals ``w (y - mu) x`` (R ``survey:::svy.varcoef``).
+        score totals ``w (y - mu) x`` (the linearisation sandwich of a
+        design-weighted estimating equation).
     alpha : float
     dof : {"design", "residual"}
         Degrees of freedom for t statistics, p-values and CIs.
@@ -629,7 +633,7 @@ def svyglm(
             f"Unknown family: {family}. Use 'gaussian', 'binomial', or 'poisson'."
         )
 
-    # Sandwich (R survey:::svy.varcoef): bread = (X' diag(w V(mu)) X)^{-1},
+    # Linearisation sandwich: bread = (X' diag(w V(mu)) X)^{-1},
     # score contributions z_i = w_i (y_i - mu_i) x_i (canonical link).
     scores_used = w[:, None] * working_residuals[:, None] * X
     scores = np.zeros((design.n, k))

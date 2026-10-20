@@ -385,15 +385,28 @@ def observation_weights(
     weights: Optional[np.ndarray],
     n: int,
 ) -> np.ndarray:
-    """Weights of the averages (grf ``observation_weights``), summing to 1:
-    sample weights, or ``1 / cluster size`` with equalized clusters."""
+    """Weights of the forest averages (ATE, BLP, calibration), summing to 1.
+
+    The rule documented for R ``grf`` (help page of ``causal_forest``,
+    arguments ``sample.weights`` and ``equalize.cluster.weights``):
+    supplied sample weights are used as given; otherwise, with clusters and
+    ``equalize=True``, "each observation is given weight 1/cluster size, so
+    that the total weight of each cluster is the same"; otherwise every
+    observation has the same weight. Supplied sample weights take
+    precedence over ``equalize``. Written from that documentation;
+    StatsPAI's forest code is not derived from grf's source (see
+    ``_grf_engine``).
+    """
     if weights is not None:
-        raw = np.asarray(weights, dtype=float)
+        raw = np.asarray(weights, dtype=float).reshape(-1)
     elif clusters is not None and equalize:
-        raw = 1.0 / np.bincount(clusters)[clusters]
+        _, code, size = np.unique(
+            np.asarray(clusters).reshape(-1), return_inverse=True, return_counts=True
+        )
+        raw = 1.0 / size[code]
     else:
-        raw = np.ones(n)
-    return np.asarray(raw / raw.sum(), dtype=float)
+        raw = np.ones(int(n), dtype=float)
+    return raw / raw.sum()
 
 
 # --------------------------------------------------------------------------- #

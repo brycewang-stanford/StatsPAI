@@ -206,7 +206,9 @@ class SurveyDesign:
             )
         self.lonely_psu = lonely_psu
 
-        # Finite population correction (R survey:::as.fpc semantics):
+        # Finite population correction, given either as the population size
+        # or as the sampled fraction (both forms documented for the fpc
+        # argument of R survey::svydesign):
         # fpc_values holds the first-stage sampling fraction n_h / N_h per row.
         self.fpc_col = fpc
         if fpc is not None:

@@ -101,15 +101,21 @@ def _mad(x: np.ndarray) -> float:
 
 
 def _mbe_bandwidth(ratios: np.ndarray, phi: float) -> float:
-    """Hartwig et al.'s bandwidth, as ``MendelianRandomization:::mbe_est``.
+    """Bandwidth of the mode-based estimate, Hartwig et al. (2017), eq. (7).
 
-    ``0.9 * min(sd, mad) / n^(1/5) * phi`` on the UNWEIGHTED ratios. The
-    helper this replaces used a weighted SD and IQR / 1.34, a different
-    rule, which on the package's LDL-C / CHD example moved the estimate 7%.
+    ``h = phi * s`` with the modified Silverman rule
+    ``s = 0.9 * min(sd, 1.4826 * mad) / L^(1/5)`` computed on the
+    UNWEIGHTED ratio estimates (``sd`` with divisor ``L - 1``, ``mad`` the
+    median absolute deviation from the median) [@hartwig2017robust]. The
+    weighted mode-based estimate uses this same bandwidth; only its
+    kernel density is weighted. The helper this replaced in 2026-09 used a
+    weighted SD and IQR / 1.34, a different rule, which on the LDL-C / CHD
+    example of R ``MendelianRandomization`` moved the estimate 7%.
     """
-    n = len(ratios)
-    s = 0.9 * min(float(np.std(ratios, ddof=1)), _mad(ratios)) / n ** (1 / 5)
-    return float(s * phi)
+    r = np.asarray(ratios, dtype=float).reshape(-1)
+    sd = float(np.std(r, ddof=1))
+    mad = 1.4826 * float(np.median(np.abs(r - np.median(r))))
+    return float(phi) * 0.9 * min(sd, mad) / r.size**0.2
 
 
 def _mbe_estimate(

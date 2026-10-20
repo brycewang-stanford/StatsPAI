@@ -480,10 +480,11 @@ def bauer_sinning(
     p_b_obs = predict(beta_b, X_b).mean()
     gap = p_a_obs - p_b_obs
 
-    # Port of mvdcmp (Powers, Yoshioka & Yun 2011). Group "0" supplies the
-    # reference coefficients: A for reference=0, B for reference=1, in which
-    # case every mvdcmp term is the negative of this function's (the gap
-    # stays A - B).
+    # Yun (2004, 2005) detailed decomposition; the outputs are checked
+    # against Stata mvdcmp (Powers, Yoshioka & Yun 2011) run as a black box.
+    # Group "0" supplies the reference coefficients: A for reference=0, B for
+    # reference=1, in which case every mvdcmp term is the negative of this
+    # function's (the gap stays A - B).
     if reference == 0:
         x0, b0, V0, x1, b1, V1, sign = X_a, beta_a, V_a, X_b, beta_b, V_b, 1.0
     else:

@@ -243,7 +243,7 @@ def sensemakr(
     partial_r2_yd = 1 - rss_full / rss_no_d  # partial R² of D on Y|X
 
     # --- Robustness Value ---
-    # Mirrors sensemakr::robustness_value.numeric. ``rv_q`` sets alpha=1
+    # Cinelli and Hazlett (2020) eqs. (18)-(20). ``rv_q`` sets alpha=1
     # (point estimate only); ``rv_qa`` uses the caller's alpha threshold.
     df_resid = n - k_full
     rv_q = _robustness_value(t_treat, df_resid, q=1.0, alpha=1.0)
@@ -275,7 +275,7 @@ def sensemakr(
             "regression; add it to controls= or correct the name.",
             diagnostics={"unknown": unknown, "controls": list(controls)},
         )
-    # sensemakr uses the regression's own degrees of freedom here
+    # The regression's own residual degrees of freedom (as R sensemakr)
     t_crit = float(stats.t.ppf(1 - alpha / 2.0, df=df_resid))
     bench_rows = []
     for var, members in groups.items():
@@ -292,7 +292,8 @@ def sensemakr(
                     "it is set to 1. Try lower kd / ky.",
                     stacklevel=2,
                 )
-            # sensemakr::adjusted_estimate / adjusted_se with reduce = TRUE
+            # Adjusted estimate and SE, Cinelli and Hazlett (2020) eqs.
+            # (12)-(13), bias taken towards zero
             bias = float(
                 np.sqrt(r2yz_dx * r2dz_x / (1.0 - r2dz_x))
                 * se_treat
@@ -407,29 +408,36 @@ def _sensemakr_bound_scale(
     kd: float = 1.0,
     ky: float = 1.0,
 ) -> Tuple[float, float]:
-    """Map raw benchmark partial R² values to sensemakr's bound scale.
+    """Bounds on a confounder ``kd`` / ``ky`` times as strong as a covariate.
 
-    This mirrors ``sensemakr::ovb_partial_r2_bound`` for the default
-    ``kd = ky = 1`` used by :func:`sensemakr` benchmark covariates.
+    Cinelli and Hazlett (2020), eq. (22) and Supplement B, eqs. (73)-(84)
+    [@cinelli2020making]: with ``R2_D = r2dxj_x`` and ``R2_Y = r2yxj_dx`` the
+    benchmark covariate's partial R2 with the treatment and with the
+    outcome,
+
+    * ``R2_{D~Z|X} = kd R2_D / (1 - R2_D)``;
+    * ``R2_{Y~Z|D,X} <= eta^2 R2_Y / (1 - R2_Y)`` with
+      ``eta = (sqrt(ky) + f_KD f_D) / sqrt(1 - f_KD^2 f_D^2)``,
+      ``f_D = R_D / sqrt(1 - R2_D)`` and
+      ``f_KD = sqrt(kd) R_D / sqrt(1 - kd R2_D)``.
+
+    Each bound is capped at 1 (a partial R2); a bound the data rule out
+    (``kd R2_D >= 1``, or a non-real ``eta``) is reported as 1. Clean-room
+    implementation from the paper; R ``sensemakr`` used as a black box.
     """
-    r2dxj_x = float(np.clip(r2dxj_x, 0.0, 1.0 - 1e-15))
-    r2yxj_dx = float(np.clip(r2yxj_dx, 0.0, 1.0 - 1e-15))
-    r2dz_x = kd * (r2dxj_x / (1.0 - r2dxj_x))
-    if r2dz_x >= 1.0:
-        r2dz_x = 1.0
+    r2d, r2y = float(r2dxj_x), float(r2yxj_dx)
+    r2dz_x = kd * r2d / (1.0 - r2d)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        r_d = np.sqrt(r2d)
+        f_d = r_d / np.sqrt(1.0 - r2d)
+        f_kd = np.sqrt(kd) * r_d / np.sqrt(1.0 - kd * r2d)
+        eta = (np.sqrt(ky) + f_kd * f_d) / np.sqrt(1.0 - (f_kd * f_d) ** 2)
+        r2yz_dx = eta**2 * r2y / (1.0 - r2y)
 
-    denom = (1.0 - kd * r2dxj_x) * (1.0 - r2dxj_x)
-    if denom <= 0:
-        r2zxj_xd = 1.0
-    else:
-        r2zxj_xd = kd * (r2dxj_x**2) / denom
-    r2zxj_xd = float(np.clip(r2zxj_xd, 0.0, 1.0 - 1e-15))
+    def _cap(v: float) -> float:
+        return 1.0 if not np.isfinite(v) or v > 1.0 else float(v)
 
-    r2yz_dx = ((np.sqrt(ky) + np.sqrt(r2zxj_xd)) / np.sqrt(1.0 - r2zxj_xd)) ** 2 * (
-        r2yxj_dx / (1.0 - r2yxj_dx)
-    )
-    r2yz_dx = float(np.clip(r2yz_dx, 0.0, 1.0))
-    return float(r2dz_x), r2yz_dx
+    return _cap(r2dz_x), _cap(r2yz_dx)
 
 
 def _robustness_value(
@@ -442,25 +450,82 @@ def _robustness_value(
 ) -> float:
     """Compute the Cinelli-Hazlett robustness value.
 
-    Port of ``sensemakr::robustness_value.numeric`` for the OLS case.
+    Clean-room implementation from the published formula; R sensemakr /
+    mice used only as black boxes (docs/dev/cleanroom/sensemakr_mice_helpers.md).
+
+    The partial Cohen's f of the treatment with the outcome is
+    ``f = |t| / sqrt(dof)`` and ``f_q = q f`` [@cinelli2020making, eqs. 14
+    and 18]. With ``alpha = 1`` the robustness value is
+    ``RV_q = (sqrt(f_q^4 + 4 f_q^2) - f_q^2) / 2`` (eq. 18). With
+    ``alpha < 1`` the critical value enters through
+    ``f* = |t*_{alpha, dof-1}| / sqrt(dof - 1)`` and
+    ``f_{q,alpha} = f_q - f*`` (eq. 19); the robustness value is 0 when
+    ``f_{q,alpha} <= 0``, eq. (20) applied to ``f_{q,alpha}`` otherwise,
+    and ``(f_q^2 - f*^2) / (1 + f_q^2)`` when eq. (20) gives a value at
+    or below ``1 - 1/f_q^2`` (text after eq. 20).
+
+    ``invert=True`` returns the strength of confounding (equal partial
+    R2 with treatment and outcome) needed to make a non-significant
+    estimate significant. The bias algebra of eqs. (12)-(14) gives the
+    same expressions with the roles of ``f_q`` and ``f*`` exchanged:
+    ``f_{q,alpha} = f* - f_q``, eq. (20) on that, and
+    ``(f*^2 - f_q^2) / (1 + f*^2)`` when eq. (20) gives a value at or
+    below ``1 - 1/f*^2``. With ``alpha = 1`` (``f* = 0``) it is 0.
+
+    Parameters
+    ----------
+    t_statistic : float
+        t-value of the treatment coefficient.
+    dof : int
+        Residual degrees of freedom of the regression.
+    q : float, default 1.0
+        Fraction of the estimate to be explained away (``q = 1``: bring
+        it to zero).
+    alpha : float, default 0.05
+        Significance level; ``alpha = 1`` ignores sampling uncertainty.
+    invert : bool, default False
+        Compute the inverted robustness value (is the estimate
+        insignificant?).
+
+    Returns
+    -------
+    float
+        Robustness value in ``[0, 1]``.
+
+    Examples
+    --------
+    >>> from statspai.diagnostics.sensemakr import _robustness_value
+    >>> round(_robustness_value(4.18445, 783, alpha=1.0), 6)
+    0.138776
+
+    References
+    ----------
+    [@cinelli2020making]
     """
-    if dof <= 1:
-        return 0.0
-    fq = q * abs(float(t_statistic) / np.sqrt(dof))
-    f_crit = abs(stats.t.ppf(alpha / 2.0, df=dof - 1)) / np.sqrt(dof - 1)
-    f1, f2 = (f_crit, fq) if invert else (fq, f_crit)
-    fqa = f1 - f2
-    if fqa < 0:
+
+    def _rv_from_f(f: float) -> float:
+        # eq. (18) / (20): positive root of r^2 + f^2 r - f^2 = 0
+        f2 = f * f
+        return float((np.sqrt(f2 * f2 + 4.0 * f2) - f2) / 2.0)
+
+    f_q = float(q) * abs(float(t_statistic)) / np.sqrt(float(dof))
+
+    if alpha >= 1 and not invert:
+        return _rv_from_f(f_q)
+
+    df_crit = float(dof) - 1.0
+    f_crit = abs(float(stats.t.ppf(1.0 - alpha / 2.0, df_crit))) / np.sqrt(df_crit)
+
+    # roles of f_q and f* swap under invert
+    f_big, f_small = (f_crit, f_q) if invert else (f_q, f_crit)
+    f_q_alpha = f_big - f_small
+    if f_q_alpha <= 0:
         return 0.0
 
-    rv_binding = 0.0 if fqa == 0 else 2.0 / (1.0 + np.sqrt(1.0 + 4.0 / (fqa**2)))
-
-    fq2 = fq**2
-    f_crit2 = f_crit**2
-    xf1, xf2 = (f_crit2, fq2) if invert else (fq2, f_crit2)
-    xrv = (xf1 - xf2) / (1.0 + xf1) if xf1 > xf2 else 0.0
-    is_xrv = f2 != 0 and fqa > 0 and f1 > 1.0 / f2
-    return float(xrv if is_xrv else rv_binding)
+    rv = _rv_from_f(f_q_alpha)
+    if rv <= 1.0 - 1.0 / (f_big * f_big):
+        rv = float((f_big * f_big - f_small * f_small) / (1.0 + f_big * f_big))
+    return rv
 
 
 # Citation
