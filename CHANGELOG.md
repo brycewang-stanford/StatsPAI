@@ -4,6 +4,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
+
+No existing number changes.
+
+- **Fixed**: `sp.aipw(ps_learner=)`, `sp.ipw(ps_learner=)`, `sp.ltmle(g_learner=)` raised `IndexError` and `sp.lmtp(ratio_learner=, outcome_learner=)` raised scikit-learn's clone `TypeError` when the learner was `sp.SuperLearner`, whose `predict_proba` returns the `(n,)` vector of P(Y = 1) and which had no `get_params`. The probability of class 1 is now read in one place (`core/_learners.py`): an `(n,)` vector as is, an `(n, 2)` array by its `classes_`, anything else refused with a typed error. `sp.SuperLearner` gains `get_params` / `set_params` / `classes_`, so `sklearn.base.clone` works on it; learners without `get_params` are deep-copied in every estimator (lmtp used to refuse them). Test: a SuperLearner with a one-learner library equals that learner in all four estimators (`tests/test_learner_types_te.py`). scikit-learn's `StackingClassifier`, pipelines, `sp.HALClassifier` and `sp.RlassoClassifier` already worked.
+- **Fixed**: `sp.bart_causal` with a label-coded treatment (`'ctl'` / `'trt'`) raised numpy's `could not convert string to float`; it now raises the same `MethodIncompatibility` as `sp.aipw` / `sp.ipw` / `sp.dml` / `sp.tmle`. Boolean treatments give the 0/1 result.
+- **Fixed**: `GroupSequentialResult.decision([nan])` returned `'continue'` (NaN compares false with every bound) and `[inf]` returned `'stop: efficacy'`; a non-finite or non-numeric z is now refused.
+- **Fixed**: `sp.xttobit(ll=, ul=)` accepted `ll >= ul` (Stata 18 runs `ll(2) ul(1)` to "convergence not achieved" with a meaningless table and stops `ll(2) ul(2)` with r(504)); it now refuses.
+- **Fixed**: `sp.xttobit` / `sp.xtintreg` raised `IndexError` on a perfectly collinear regressor. They now omit the later member of the dependent set with Stata's note (`core/_collinear.py`, as `sp.tobit` / `sp.intreg`) and list it in `model_info['omitted']`; estimates, log-likelihood and (for xttobit) standard errors equal Stata 18's `xttobit y x1 x2 x3` / `xtintreg lo hi x1 x4 x2` with `x3 = x1 + x2`, `x4 = 2*x1` at 1e-6 (`tests/test_xttobit_stata.py`, fixture do-file extended).
+- **Changed**: `sp.xtintreg` is about 2.3 times faster (2.8 s to 1.2 s on the 540-row test panel; xttobit 0.4 s): each interval row evaluates only the tail form it keeps instead of both. Outputs are byte-identical to before on the Stata fixture and a second panel.
+
 ### Stata translation: `stteffects`, `didregress aggregate()`, classical `wyoung`; `sp.egen`
 
 #### Added

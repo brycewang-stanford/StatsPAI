@@ -36,4 +36,13 @@ dumpe tobit_ll_q40
 * quadrature the reported standard errors equal that curvature
 xtintreg lo hi x1 x2, intmethod(ghermite) intpoints(100)
 dumpe intreg_gh100
+* perfectly collinear regressors: Stata omits the later member of the
+* dependent set ("note: x3 omitted because of collinearity") and reports
+* the fit without it
+gen double x3 = x1 + x2
+gen double x4 = 2*x1
+xttobit y x1 x2 x3, ll(0) ul(4) intpoints(40)
+dumpe tobit_col_q40
+xtintreg lo hi x1 x4 x2, intpoints(40)
+dumpe intreg_col_q40
 file close fh

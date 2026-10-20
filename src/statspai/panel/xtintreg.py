@@ -26,6 +26,7 @@ from scipy import optimize, special, stats
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core._call_record import records_call
+from ..core._collinear import drop_collinear_names
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ..regression._optim_helpers import (
@@ -35,11 +36,32 @@ from ..regression._optim_helpers import (
     robust_convergence,
     se_from_vcov,
 )
-from ..regression.intreg import _log_prob_between
 
 __all__ = ["xtintreg", "xttobit"]
 
 _HALF_LOG_2PI = 0.5 * np.log(2 * np.pi)
+
+
+def _log_prob_between_split(a: Any, b: Any) -> Any:
+    """``ln(Phi(b) - Phi(a))`` for ``a < b``, element for element the value
+    of :func:`statspai.regression.intreg._log_prob_between`.
+
+    That function evaluates both the lower-tail and the upper-tail form on
+    every element and keeps one; here each element gets only the form it
+    keeps. The complex ``log_ndtr`` calls of the complex-step scores
+    dominate the xtintreg fit, so this halves them without changing a bit
+    of the result (each element goes through the same operations).
+    """
+    up = np.real(a) > 0
+    out = np.empty(np.shape(a), dtype=np.result_type(a, b))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        lo_a, lo_b = a[~up], b[~up]
+        lb = special.log_ndtr(lo_b)
+        out[~up] = lb + np.log1p(-np.exp(special.log_ndtr(lo_a) - lb))
+        up_a, up_b = a[up], b[up]
+        la = special.log_ndtr(-up_a)
+        out[up] = la + np.log1p(-np.exp(special.log_ndtr(-up_b) - la))
+    return out
 
 
 class _Panel:
@@ -73,7 +95,7 @@ class _Panel:
         if rgt.any():
             out[rgt] = special.log_ndtr((idx[rgt] - lo[rgt]) / s)
         if itv.any():
-            out[itv] = _log_prob_between(
+            out[itv] = _log_prob_between_split(
                 (lo[itv] - idx[itv]) / s, (hi[itv] - idx[itv]) / s
             )
         return out
@@ -224,14 +246,29 @@ def xtintreg(
     >>> round(float(fit.params["x"]), 1)  # doctest: +SKIP
     1.0
     """
+    return _xtintreg(data, y_lower, y_upper, x, id, intpoints, alpha, "xtintreg")
+
+
+def _xtintreg(
+    data: pd.DataFrame,
+    y_lower: str,
+    y_upper: str,
+    x: Union[str, Sequence[str]],
+    id: str,
+    intpoints: int,
+    alpha: float,
+    who: str,
+) -> EconometricResults:
+    """The fit behind :func:`xtintreg` and :func:`xttobit` (``who`` names
+    the caller in messages)."""
     xs = [x] if isinstance(x, str) else list(x)
     check_columns(
         data,
         {"y_lower": y_lower, "y_upper": y_upper, "x": xs, "id": id},
-        function="xtintreg",
+        function=who,
     )
     if int(intpoints) < 2:
-        raise MethodIncompatibility("xtintreg: intpoints must be at least 2.")
+        raise MethodIncompatibility(f"{who}: intpoints must be at least 2.")
     df = data.loc[data[xs + [id]].notna().all(axis=1)]
     lo = df[y_lower].to_numpy(dtype=float)
     hi = df[y_upper].to_numpy(dtype=float)
@@ -240,12 +277,15 @@ def xtintreg(
     bad = ~np.isnan(lo) & ~np.isnan(hi) & (lo > hi)
     if bad.any():
         raise MethodIncompatibility(
-            f"xtintreg: {int(bad.sum())} row(s) have {y_lower} > {y_upper}.",
+            f"{who}: {int(bad.sum())} row(s) have {y_lower} > {y_upper}.",
             diagnostics={"n_inverted": int(bad.sum())},
         )
     codes, uniq = pd.factorize(df[id], sort=True)
     if len(uniq) < 2:
-        raise DataInsufficient("xtintreg: needs at least two panels.")
+        raise DataInsufficient(f"{who}: needs at least two panels.")
+    # Stata: "note: x3 omitted because of collinearity" (the later member
+    # of a dependent set goes; the remaining coefficients are identified)
+    xs, omitted = drop_collinear_names(df, xs, who, stacklevel=4)
     N = len(df)
     X = np.column_stack([df[v].to_numpy(dtype=float) for v in xs] + [np.ones(N)])
     k = X.shape[1]
@@ -296,6 +336,7 @@ def xtintreg(
         "ln_sigma_e": float(theta[k + 1]),
         "id": id,
         "alpha": alpha,
+        "omitted": omitted,
     }
     out_names = names + ["sigma_u", "sigma_e"]
     return EconometricResults(
@@ -373,6 +414,16 @@ def xttobit(
             recovery_hint="Without limits the model is a random-effects "
             "linear regression: use sp.panel(method='re') or sp.mixed.",
         )
+    if ll is not None and ul is not None and not float(ll) < float(ul):
+        # Stata 18 runs xttobit with ll(2) ul(1) to "convergence not
+        # achieved" and a meaningless table (ll(2) ul(2) stops with
+        # r(504)); every observation is then censored on some side.
+        raise MethodIncompatibility(
+            f"xttobit: the lower limit ll={ll} must be below the upper "
+            f"limit ul={ul}.",
+            recovery_hint="Swap the limits, or give only the one that applies.",
+            diagnostics={"ll": ll, "ul": ul},
+        )
     check_columns(data, {"y": y}, function="xttobit")
     yv = data[y].to_numpy(dtype=float)
     lo, hi = yv.copy(), yv.copy()
@@ -387,15 +438,7 @@ def xttobit(
     lo = np.where(np.isnan(yv), np.nan, lo)
     hi = np.where(np.isnan(yv), np.nan, hi)
     tmp = data.assign(_xt_lo=lo, _xt_hi=hi)
-    res = xtintreg(
-        tmp,
-        y_lower="_xt_lo",
-        y_upper="_xt_hi",
-        x=x,
-        id=id,
-        intpoints=intpoints,
-        alpha=alpha,
-    )
+    res = _xtintreg(tmp, "_xt_lo", "_xt_hi", x, id, intpoints, alpha, "xttobit")
     res.model_info["model_type"] = "Random-effects tobit"
     res.model_info["lower_limit"] = ll
     res.model_info["upper_limit"] = ul

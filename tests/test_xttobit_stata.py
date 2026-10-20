@@ -113,3 +113,49 @@ def test_xttobit_is_xtintreg_with_tobit_coding(df):
 def test_without_limits_is_refused(df):
     with pytest.raises(MethodIncompatibility, match="ll="):
         sp.xttobit(df, y="y", x=["x1"], id="id")
+
+
+@pytest.mark.parametrize(
+    "fn,tag,eq,extra,kw",
+    [
+        ("xttobit", "tobit_col_q40", "y", "x3", {"y": "y", "ll": 0, "ul": 4}),
+        ("xtintreg", "intreg_col_q40", "lo", "x4", {"y_lower": "lo", "y_upper": "hi"}),
+    ],
+)
+def test_collinear_regressor_omitted_as_stata(df, fn, tag, eq, extra, kw):
+    # Stata 18: "note: x3 omitted because of collinearity", and the fit is
+    # the one without it (o.x3 = 0 in e(b)); this used to raise IndexError
+    d = df.assign(x3=df["x1"] + df["x2"], x4=2 * df["x1"])
+    xs = ["x1", "x2", "x3"] if extra == "x3" else ["x1", "x4", "x2"]
+    with pytest.warns(UserWarning, match=f"{extra} omitted because of collinearity"):
+        fit = getattr(sp, fn)(d, x=xs, id="id", **kw)
+    assert extra not in fit.params.index
+    assert [o["variable"] for o in fit.model_info["omitted"]] == [extra]
+    r = STATA[tag]
+    assert r[f"{eq}:o.{extra}"] == [0.0, 0.0]
+    # standard errors: xtintreg's default fit carries Stata's adaptive-d2
+    # gap documented in test_xtintreg_matches_stata
+    _check(fit, tag, eq, rtol_b=1e-6, rtol_se=1e-6 if fn == "xttobit" else 1e-2)
+
+
+@pytest.mark.parametrize("ll,ul", [(2, 1), (1, 1)])
+def test_lower_limit_not_below_upper_is_refused(df, ll, ul):
+    # Stata 18 runs ll(2) ul(1) to "convergence not achieved" with a
+    # meaningless table and stops ll(2) ul(2) with r(504)
+    with pytest.raises(MethodIncompatibility, match="must be below"):
+        sp.xttobit(df, y="y", x=["x1"], id="id", ll=ll, ul=ul)
+
+
+def test_split_interval_term_is_bitwise_the_shared_one():
+    # the xtintreg speed-up evaluates each element's tail form only; every
+    # element must still be the bits of regression.intreg._log_prob_between
+    from statspai.panel.xtintreg import _log_prob_between_split
+    from statspai.regression.intreg import _log_prob_between
+
+    rng = np.random.default_rng(0)
+    a = 3 * rng.normal(size=5000)
+    b = a + rng.uniform(0.01, 3, size=5000)
+    assert np.array_equal(_log_prob_between_split(a, b), _log_prob_between(a, b))
+    za = a + 1e-30j * rng.normal(size=5000)
+    zb = b + 1e-30j * rng.normal(size=5000)
+    assert np.array_equal(_log_prob_between_split(za, zb), _log_prob_between(za, zb))
