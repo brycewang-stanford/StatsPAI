@@ -189,6 +189,16 @@ def xtpcse(
     if corr == "independent":
         Xs, ys = X, yv
     else:
+        if not gap_free.any():
+            # rho is estimated from consecutive periods (t, t + 1); none
+            # exist when time steps by more than 1 (years coded 2000, 2002 ..)
+            raise DataInsufficient(
+                f"xtpcse(correlation={corr!r}): no two consecutive periods "
+                "(t and t + 1) in any panel, so the autocorrelation cannot be "
+                "estimated.",
+                recovery_hint="Code time in unit steps (e.g. rank the "
+                "periods) or use correlation='independent'.",
+            )
         b_ols = np.linalg.lstsq(X, yv, rcond=None)[0]
         e = yv - X @ b_ols
         rho_i = np.zeros(m)
@@ -216,7 +226,15 @@ def xtpcse(
         Xs = np.where(
             gap_free[:, None], X - r[:, None] * lagX, np.sqrt(1 - r * r)[:, None] * X
         )
-    XtX_inv = np.linalg.inv(Xs.T @ Xs)
+    XtX = Xs.T @ Xs
+    if np.linalg.matrix_rank(Xs) < k:
+        raise MethodIncompatibility(
+            "xtpcse: the regressors are perfectly collinear (rank "
+            f"{np.linalg.matrix_rank(Xs)} < {k} columns).",
+            recovery_hint="Drop the redundant regressor(s); Stata xtpcse "
+            "omits them.",
+        )
+    XtX_inv = np.linalg.inv(XtX)
     beta = XtX_inv @ (Xs.T @ ys)
     e = ys - Xs @ beta
     denom_adj = (N - k) if nmk else N

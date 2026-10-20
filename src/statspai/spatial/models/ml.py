@@ -26,6 +26,7 @@ from scipy import (  # noqa: F401  (sp_stats reserved for future SE work)
 from scipy.optimize import minimize_scalar
 
 from ...core.results import EconometricResults
+from ...exceptions import MethodIncompatibility
 from ..weights.core import W as _W
 from ._logdet import log_det_approx
 
@@ -83,6 +84,30 @@ def _parse_formula(
     dep, indep = formula.split("~", 1)
     dep_var = dep.strip()
     indep_vars = [v.strip() for v in indep.split("+") if v.strip()]
+    terms = [dep_var] + indep_vars
+    unknown = [t for t in terms if t not in data.columns]
+    if unknown:
+        if all(t.isidentifier() for t in unknown):
+            from ...exceptions import ColumnNotFound
+
+            raise ColumnNotFound.from_missing(
+                unknown, list(data.columns), context="spatial model"
+            )
+        raise MethodIncompatibility(
+            f"spatial model formula: {unknown} are not columns. The spatial "
+            "fits take plain column names joined by '+' (no C(), I(), "
+            "interactions or transformations).",
+            recovery_hint="Create the columns first (e.g. dummies with "
+            "pd.get_dummies(df['g'], drop_first=True)) and list them.",
+        )
+    bad = [t for t in terms if data[t].isna().any()]
+    if bad:
+        raise MethodIncompatibility(
+            f"spatial model: missing values in {bad}. Rows cannot be dropped "
+            "because W is indexed by row.",
+            recovery_hint="Impute the values, or drop the units from both the "
+            "data and W before fitting.",
+        )
     y = np.asarray(data[dep_var].values, dtype=np.float64)
     X_raw = np.asarray(data[indep_vars].values, dtype=np.float64)
     n = y.shape[0]

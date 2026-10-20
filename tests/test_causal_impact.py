@@ -4,10 +4,11 @@ Tests for Causal Impact module.
 Uses simulated time-series data with known intervention effects.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
-from statspai.causal_impact import causal_impact, CausalImpactEstimator
+import pytest
+
+from statspai.causal_impact import CausalImpactEstimator, causal_impact
 from statspai.core.results import CausalResult
 
 
@@ -238,3 +239,36 @@ class TestCausalImpactErrors:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestInputChecksOct20:
+    """2026-10-20 probe: invalid inputs surfaced as LinAlgError,
+    UFuncTypeError or a silent NaN effect."""
+
+    @staticmethod
+    def _df():
+        rng = np.random.default_rng(0)
+        T = 100
+        x = np.cumsum(rng.normal(size=T))
+        y = 1 + 0.8 * x + rng.normal(size=T)
+        y[70:] += 2
+        return pd.DataFrame({"t": np.arange(T), "y": y, "x": x})
+
+    @pytest.mark.parametrize(
+        "mutate, kwargs, match",
+        [
+            (lambda d: d.assign(x=d.x.where(d.t != 5)), {}, "missing values"),
+            (lambda d: d.assign(y=d.y.where(d.t != 80)), {}, "missing values"),
+            (lambda d: pd.concat([d, d.iloc[[3]]]), {}, "unique"),
+            (lambda d: d.assign(x2=2 * d.x), {"covariates": ["x", "x2"]}, "collinear"),
+            (lambda d: d, {"intervention_time": "a"}, "cannot be compared"),
+        ],
+        ids=["nan-covariate", "nan-outcome", "duplicate-time", "collinear", "bad-time"],
+    )
+    def test_refused_with_a_typed_error(self, mutate, kwargs, match):
+        from statspai.exceptions import MethodIncompatibility
+
+        kw = {"covariates": ["x"], "intervention_time": 70, **kwargs}
+        it = kw.pop("intervention_time")
+        with pytest.raises(MethodIncompatibility, match=match):
+            causal_impact(mutate(self._df()), "y", "t", it, **kw)

@@ -115,6 +115,9 @@ def match_sampling_weighted(
         raise MethodIncompatibility(
             f"sp.match: sampling_weights column {sampling_weights!r} not found."
         )
+    from ..core._validate import warn_missing_weight_rows
+
+    warn_missing_weight_rows(data, sampling_weights, function="sp.match")
     s_all = data[sampling_weights].to_numpy(dtype=float)
     ok = np.isfinite(s_all)
     if (s_all[ok] <= 0).any():

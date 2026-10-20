@@ -214,6 +214,9 @@ def ebalance(
     for extra in (base_weights, weights):
         if extra is not None and extra not in cols:
             cols = cols + [extra]
+    from ..core._validate import warn_missing_weight_rows
+
+    warn_missing_weight_rows(data, weights, function="ebalance")
     df = data[cols].dropna()
     D = _treatment_as_float(df[treat], function="ebalance")
     require_binary_treatment(D, function="ebalance", argument=treat)

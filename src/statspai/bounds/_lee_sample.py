@@ -24,7 +24,11 @@ SELECTED_COL = "__lee_selected__"
 
 
 def _require_01(values: pd.Series, name: str, role: str) -> None:
-    levels = set(np.unique(values.to_numpy(dtype=float)))
+    from ..core._validate import treatment_as_float
+
+    levels = set(
+        np.unique(treatment_as_float(values, function="lee_bounds", argument=name))
+    )
     if not levels <= {0.0, 1.0}:
         shown = sorted(levels)[:6]
         one = "treated" if role == "treatment" else "outcome observed"

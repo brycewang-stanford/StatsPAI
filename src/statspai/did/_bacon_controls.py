@@ -64,6 +64,19 @@ def bacon_with_controls(
     treat_time: str,
 ) -> Dict[str, Any]:
     """Within component, Omega and the between-group 2x2 terms."""
+    nonnum = [
+        c
+        for c in covariates
+        if not (
+            pd.api.types.is_numeric_dtype(df[c]) or pd.api.types.is_bool_dtype(df[c])
+        )
+    ]
+    if nonnum:
+        raise MethodIncompatibility(
+            f"bacon_decomposition: covariates {nonnum} are not numeric.",
+            recovery_hint="Add dummy columns for a categorical covariate "
+            "(pd.get_dummies(df[col], drop_first=True)) and list those.",
+        )
     X = df[covariates].to_numpy(dtype=float)
     if not np.isfinite(X).all():
         raise DataInsufficient(
@@ -81,6 +94,27 @@ def bacon_with_controls(
     # treatment net of covariates and both sets of effects (FWL)
     Xd = _dd(X, unit, per)
     Dd = _dd(D, unit, per)
+    scale = np.maximum(np.abs(X).max(axis=0), 1.0)
+    flat = [
+        c
+        for j, c in enumerate(covariates)
+        if np.abs(Xd[:, j]).max() <= 1e-10 * scale[j]
+    ]
+    if flat:
+        # used to be reported as "the treatment is collinear" (2026-10-20)
+        raise MethodIncompatibility(
+            f"bacon_decomposition: covariates {flat} do not vary once unit "
+            "and period effects are removed (time-invariant, or common to "
+            "all units in each period); the two-way effects absorb them.",
+            recovery_hint="Drop them; they do not change the TWFE estimate.",
+            diagnostics={"absorbed": flat},
+        )
+    if np.linalg.matrix_rank(Xd) < Xd.shape[1]:
+        raise MethodIncompatibility(
+            "bacon_decomposition: the covariates are collinear with each "
+            "other once unit and period effects are removed.",
+            recovery_hint="Drop the redundant covariate(s).",
+        )
     if np.linalg.matrix_rank(np.column_stack([Xd, Dd])) < Xd.shape[1] + 1:
         raise MethodIncompatibility(
             "bacon_decomposition: the treatment is collinear with the "

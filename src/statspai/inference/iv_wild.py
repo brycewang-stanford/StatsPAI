@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._psd import psd_diagnostics, se_from_vcov
 from .wild_bootstrap import _wild_weight_matrix
 
@@ -305,6 +305,43 @@ def _absorber(fe_codes: Any) -> Any:
     return lambda M: absorb_columns(M, codes)
 
 
+def _check_row_alignment(result: Any, data: pd.DataFrame, y: np.ndarray) -> None:
+    """Refuse ``data`` whose rows are not the fit's rows in the fit's order.
+
+    Only the length used to be checked, so a shuffled frame
+    (``df.sample(frac=1)``) paired every residual with another row's
+    cluster and moved the p-value silently (2026-10-20 probe). The stored
+    sample index decides when the fit recorded one; otherwise the outcome
+    column must reproduce the stored outcome (unweighted fits only reach
+    here).
+    """
+    di = getattr(result, "data_info", None) or {}
+    kept = di.get("sample_index")
+    if kept is not None and len(kept) == len(data):
+        ok = bool(pd.Index(kept).equals(data.index))
+    else:
+        dep = di.get("dependent_var") or getattr(result, "model_info", {}).get(
+            "dependent_var"
+        )
+        if not isinstance(dep, str) or dep not in data.columns:
+            return  # nothing to compare against; the length check stands
+        if di.get("iv", {}).get("fe_codes"):
+            return  # residualised outcome; no raw column to compare
+        try:
+            col = data[dep].to_numpy(dtype=float)
+        except (TypeError, ValueError):
+            return
+        ok = bool(np.allclose(col, y, rtol=1e-10, atol=1e-12, equal_nan=False))
+    if not ok:
+        raise MethodIncompatibility(
+            "iv_wild_bootstrap: the rows of `data` are not the rows of the "
+            "fit in the fit's order, so the cluster labels would be paired "
+            "with other observations' residuals.",
+            recovery_hint="Pass the same frame (same row order, same rows) "
+            "that the IV model was fitted on.",
+        )
+
+
 def iv_wild_bootstrap(
     result: Any,
     data: pd.DataFrame,
@@ -406,8 +443,16 @@ def iv_wild_bootstrap(
             "iv_wild_bootstrap needs the cluster column row-aligned to the "
             "fitted sample with no missing values."
         )
+    _check_row_alignment(result, data, y)
     cl_codes = pd.Categorical(cl_series).codes
     n_clusters = int(cl_codes.max()) + 1
+    if n_clusters < 2:
+        raise DataInsufficient(
+            f"iv_wild_bootstrap: {cluster!r} has one cluster; the wild "
+            "cluster bootstrap needs at least two.",
+            recovery_hint="Cluster on a coarser-than-one variable with two or "
+            "more groups, or use a heteroskedasticity-robust test.",
+        )
 
     rng = np.random.default_rng(seed)
     # Absorbed fixed effects (sp.feols IV): the stored columns are already

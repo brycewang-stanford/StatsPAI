@@ -52,8 +52,9 @@ class FourWayResult(ResultProtocolMixin):
 
     Examples
     --------
-    >>> import statspai as sp
+    >>> import numpy as np
     >>> import pandas as pd
+    >>> import statspai as sp
     >>> treat = np.tile([0.0, 1.0], 50)
     >>> mediator = 0.5 + 0.4 * treat + np.repeat(np.linspace(-1, 1, 50), 2)
     >>> y = 1 + 2 * treat + 3 * mediator + 4 * treat * mediator
@@ -179,8 +180,9 @@ def four_way_decomposition(
 
     Examples
     --------
-    >>> import statspai as sp
+    >>> import numpy as np
     >>> import pandas as pd
+    >>> import statspai as sp
     >>> treat = np.tile([0.0, 1.0], 50)
     >>> mediator = 0.5 + 0.4 * treat + np.repeat(np.linspace(-1, 1, 50), 2)
     >>> y = 1 + 2 * treat + 3 * mediator + 4 * treat * mediator
@@ -224,7 +226,9 @@ def four_way_decomposition(
     )
     n = len(df)
 
-    A = df[treat].to_numpy(dtype=float)
+    from ..core._validate import treatment_as_float
+
+    A = treatment_as_float(df[treat], function="sp.four_way_decomposition")
     M = df[mediator].to_numpy(dtype=float)
     Y = df[y].to_numpy(dtype=float)
     Xc = df[cov].to_numpy(dtype=float) if cov else np.zeros((n, 0))

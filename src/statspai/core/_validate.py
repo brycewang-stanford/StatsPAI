@@ -284,3 +284,29 @@ def require_numeric_columns(
         ),
         diagnostics={"non_numeric_columns": bad, "argument": argument},
     )
+
+
+def warn_missing_weight_rows(data: Any, weights: Any, *, function: str) -> int:
+    """Warn that rows with a missing weight will be dropped; return the count.
+
+    Several estimators dropped such rows together with rows missing the
+    outcome or a covariate, without saying so, although their own error
+    messages say weights "must be finite" (2026-10-20 probe: ebalance,
+    match(sampling_weights=), finegray, cox, kaplan_meier, rmst).
+    """
+    import warnings
+
+    import pandas as pd
+
+    if not isinstance(weights, str) or not isinstance(data, pd.DataFrame):
+        return 0
+    if weights not in data.columns:
+        return 0
+    n = int(data[weights].isna().sum())
+    if n:
+        warnings.warn(
+            f"{function}: dropped {n} row(s) with a missing weight.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return n

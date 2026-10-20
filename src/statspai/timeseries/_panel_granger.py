@@ -111,6 +111,14 @@ def panel_granger(
         cols += [x[K - k : n_t - k] for k in range(1, K + 1)]
         X = np.column_stack(cols)
         yy = y[K:]
+        if np.linalg.matrix_rank(X) < X.shape[1]:
+            raise DataInsufficient(
+                f"granger_causality: the lag regression of unit {unit!r} is "
+                "singular (a series is constant, or its lags are collinear, "
+                "within that unit).",
+                recovery_hint="Drop units whose series do not vary over time.",
+                diagnostics={"unit": unit},
+            )
         xtx_inv = np.linalg.inv(X.T @ X)
         b = xtx_inv @ (X.T @ yy)
         e = yy - X @ b

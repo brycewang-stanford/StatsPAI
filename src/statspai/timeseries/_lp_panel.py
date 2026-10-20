@@ -122,6 +122,19 @@ def lp_panel(
             recovery_hint="Each unit must have one row per period.",
         )
     unit = df[id].to_numpy()
+    n_units = int(pd.unique(unit).size)
+    if vce == "cluster" and n_units < 2:
+        # With one cluster the unit-clustered meat is the outer product of
+        # a score sum that the normal equations set to zero: SE ~ 1e-16
+        # and a zero-width interval (2026-10-20 probe).
+        raise DataInsufficient(
+            "sp.local_projections: vce='cluster' clusters by unit and the "
+            f"panel has {n_units} unit; a one-cluster variance is zero by "
+            "construction.",
+            recovery_hint="Use vce='driscoll_kraay' or 'ols', or drop id= / "
+            "time= and run the single-unit time-series projection "
+            "(vce='hac').",
+        )
     tcode = _codes(df[time].to_numpy())
     # Position of each row's period among the unit's own periods is not what
     # a lead means: a lead is the row whose time code is t + h in the same

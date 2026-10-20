@@ -671,6 +671,9 @@ def _wild_multi_or_joint(
     if isinstance(bootcluster, str):
         bootcluster = [bootcluster]
     names = list(dict.fromkeys(clusters + list(bootcluster or [])))
+    missing = [c for c in names if c not in data.columns]
+    if missing:
+        raise ColumnNotFound.from_missing(missing, list(data.columns), context=who)
     X = Y = None
     cols: Dict[str, np.ndarray] = {}
     for c in names:

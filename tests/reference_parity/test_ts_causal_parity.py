@@ -268,6 +268,18 @@ def test_panel_needs_both_id_and_time():
         sp.local_projections(PANEL, outcome="y", shock="x", horizons=1, id="id")
 
 
+def test_panel_cluster_vce_needs_two_units():
+    # 2026-10-20 probe: one unit gave SE ~ 3e-16 and a zero-width interval
+    # under the default unit clustering.
+    from statspai.exceptions import DataInsufficient
+
+    one = PANEL[PANEL["id"] == PANEL["id"].iloc[0]]
+    with pytest.raises(DataInsufficient, match="one-cluster"):
+        sp.local_projections(
+            one, outcome="y", shock="x", horizons=1, id="id", time="time"
+        )
+
+
 # -------------------------------------------------- Dumitrescu-Hurlin test
 @pytest.mark.parametrize("K", [1, 2])
 def test_panel_granger_matches_plm_and_xtgcause(K):

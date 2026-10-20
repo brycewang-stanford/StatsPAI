@@ -90,3 +90,29 @@ def test_missing_covariate_refused(panel):
         sp.bacon_decomposition(
             bad, y="y", treat="d", time="t", id="id", covariates=["x1"]
         )
+
+
+@pytest.mark.parametrize(
+    "extra, match",
+    [
+        (lambda p: p.assign(cat=np.where(p["x1"] > 0, "a", "b")), "not numeric"),
+        (lambda p: p.assign(cat=p["id"] * 0.5), "do not vary"),
+        (lambda p: p.assign(cat=2 * p["x1"]), "collinear with each other"),
+    ],
+    ids=["categorical", "time-invariant", "duplicate"],
+)
+def test_bad_covariates_get_the_right_diagnosis(panel, extra, match):
+    # 2026-10-20 probe: a string covariate raised a raw ValueError, and a
+    # time-invariant or duplicated one was refused as "the treatment is
+    # collinear with the covariates".
+    from statspai.exceptions import MethodIncompatibility
+
+    with pytest.raises(MethodIncompatibility, match=match):
+        sp.bacon_decomposition(
+            extra(panel),
+            y="y",
+            treat="d",
+            time="t",
+            id="id",
+            covariates=["x1", "cat"],
+        )

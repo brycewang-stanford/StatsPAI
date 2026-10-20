@@ -183,7 +183,9 @@ def stteffects(
     df = data[cols].dropna()
     t = df[duration].to_numpy(dtype=float)
     d = df[event].to_numpy(dtype=float)
-    tr = df[treat].to_numpy(dtype=float)
+    from ..core._validate import treatment_as_float
+
+    tr = treatment_as_float(df[treat], function="sp.stteffects")
     if not set(np.unique(tr)) <= {0.0, 1.0} or len(np.unique(tr)) < 2:
         raise MethodIncompatibility(
             "stteffects: the treatment must be binary 0/1 with both levels " "present.",

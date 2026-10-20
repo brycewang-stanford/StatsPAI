@@ -97,6 +97,13 @@ def _tsls(y: np.ndarray, Z: np.ndarray, X: np.ndarray) -> Dict[str, np.ndarray]:
 def _cluster_vcov(
     fit: Dict[str, np.ndarray], codes: np.ndarray, n_groups: int, N: int, K: int
 ) -> np.ndarray:
+    if n_groups < 2:
+        raise DataInsufficient(
+            f"xtivreg: the cluster variable has {n_groups} group; a "
+            "cluster-robust variance needs at least two.",
+            recovery_hint="Cluster on a variable with two or more groups, or "
+            "use vce='robust'.",
+        )
     S = fit["Zhat"] * fit["e"][:, None]
     G = np.zeros((n_groups, S.shape[1]))
     np.add.at(G, codes, S)

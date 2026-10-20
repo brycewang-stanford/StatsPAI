@@ -204,7 +204,11 @@ def rmst(
             f"rmst: columns not found: {missing}",
             recovery_hint="Check the column names.",
         )
+    from ._validate import check_duration_event, warn_missing_weights
+
+    warn_missing_weights(data, weights, "rmst")
     df = data.dropna(subset=cols)
+    check_duration_event(df[duration], df[event], "rmst")
     T_all = df[duration].to_numpy(dtype=float)
     E_all = df[event].to_numpy()
     w_all = df[weights].to_numpy(dtype=float) if weights else None

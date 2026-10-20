@@ -445,7 +445,12 @@ def coefplot(
     coef_data = [_extract_coefs(m) for m in models]
     _warn_mixed_scales(models, model_names)
 
-    # Variables to plot
+    # Variables to plot. A bare string is one name (set("Intercept") would
+    # be a set of letters, and the intercept stayed in the plot).
+    if isinstance(variables, str):
+        variables = [variables]
+    if isinstance(drop, str):
+        drop = [drop]
     if variables is None:
         all_v: set = set()
         for cd in coef_data:

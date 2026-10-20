@@ -265,7 +265,9 @@ def mediate_paths(
             UserWarning,
             stacklevel=2,
         )
-    A = df[treat].to_numpy(dtype=float)
+    from ..core._validate import treatment_as_float
+
+    A = treatment_as_float(df[treat], function="sp.mediate_paths")
     if not np.isin(A, (0.0, 1.0)).all() or len(np.unique(A)) < 2:
         raise MethodIncompatibility(
             f"mediate_paths: treatment {treat!r} must be 0/1 with both values.",

@@ -261,9 +261,39 @@ class CausalImpactEstimator:
         )
 
         times = self.data[self.time].values
+        if self.data[self.time].isna().any() or self.data[self.time].duplicated().any():
+            raise MethodIncompatibility(
+                "sp.causal_impact: the time column must be unique and complete "
+                "(one row per period).",
+                recovery_hint="Aggregate to one row per period first.",
+            )
+        cols = [self.y] + list(self.covariates)
+        bad = [c for c in cols if not pd.api.types.is_numeric_dtype(self.data[c])]
+        if bad:
+            raise MethodIncompatibility(
+                f"sp.causal_impact: {bad} must be numeric.",
+                recovery_hint="Convert or drop those columns.",
+            )
+        miss = [c for c in cols if self.data[c].isna().any()]
+        if miss:
+            # NaN in the outcome made the effect NaN without a word; in a
+            # covariate it surfaced as LinAlgError (2026-10-20 probe).
+            raise MethodIncompatibility(
+                f"sp.causal_impact: missing values in {miss}.",
+                recovery_hint="Interpolate or drop the periods before calling; "
+                "the state-space fit here needs a complete series.",
+            )
+        try:
+            inside = times.min() < self.intervention_time <= times.max()
+        except TypeError as exc:
+            raise MethodIncompatibility(
+                f"sp.causal_impact: intervention_time={self.intervention_time!r} "
+                f"cannot be compared with the time column ({times.dtype}).",
+                recovery_hint="Pass a value of the time column's type.",
+            ) from exc
         if self.intervention_time not in times:
             # Check if intervention_time is between min and max
-            if not (times.min() < self.intervention_time <= times.max()):
+            if not inside:
                 raise ValueError(
                     f"intervention_time={self.intervention_time} outside data range "
                     f"[{times.min()}, {times.max()}]"
@@ -289,6 +319,13 @@ class CausalImpactEstimator:
 
         if self.covariates:
             self.X = self.data[self.covariates].values.astype(float)
+            Xa = np.column_stack([np.ones(self.n_pre), self.X[self.pre_mask]])
+            if np.linalg.matrix_rank(Xa) < Xa.shape[1]:
+                raise MethodIncompatibility(
+                    "sp.causal_impact: the covariates are collinear (with each "
+                    "other or the constant) over the pre-period.",
+                    recovery_hint="Drop the redundant covariate(s).",
+                )
         else:
             self.X = None
 

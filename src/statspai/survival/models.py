@@ -807,7 +807,11 @@ def kaplan_meier(
             )
         data = data.assign(__svy_row__=np.arange(len(data)))
     extra = [c for c in (weights, start, cluster) if c is not None]
+    from ._validate import check_duration_event, warn_missing_weights
+
+    warn_missing_weights(data, weights, "kaplan_meier")
     data = data.dropna(subset=[duration, event] + extra)
+    check_duration_event(data[duration], data[event], "kaplan_meier")
 
     from ._km import km_table_weighted, resolve_km_se
 
@@ -936,6 +940,9 @@ def logrank_test(
     mantel1959statistical
     """
     data = data.dropna(subset=[duration, event, group])
+    from ._validate import check_duration_event
+
+    check_duration_event(data[duration], data[event], "logrank_test")
     groups = data[group].unique()
     K = len(groups)
     if K < 2:
@@ -1334,7 +1341,11 @@ def cox(
         cols_needed.append(weights)
     if start is not None:
         cols_needed.append(start)
+    from ._validate import check_duration_event, warn_missing_weights
+
+    warn_missing_weights(data, weights, "sp.cox")
     data = data.dropna(subset=cols_needed).copy()
+    check_duration_event(data[duration], data[event], "sp.cox")
 
     from ..core._agent_summary import resolve_weights_as
     from ._cox_inputs import check_cox_inputs, resolve_cox_ssc

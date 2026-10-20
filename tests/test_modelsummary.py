@@ -203,6 +203,20 @@ class TestCoefplot:
         fig, ax = coefplot(r1, r2, model_names=["Base", "Full"])
         assert fig is not None
 
+    def test_drop_as_a_string_equals_a_list(self, ols_models):
+        # 2026-10-20 probe: drop="Intercept" was read as set("Intercept"),
+        # a set of letters, and the intercept stayed in the plot.
+        import matplotlib.pyplot as plt
+
+        r1, _, _, _ = ols_models
+        labels = []
+        for drop in ("Intercept", ["Intercept"]):
+            fig, ax = coefplot(r1, drop=drop)
+            labels.append([t.get_text() for t in ax.get_yticklabels()])
+            plt.close(fig)
+        assert labels[0] == labels[1]
+        assert "Intercept" not in labels[0] and labels[0]
+
     def test_mixed_models(self, ols_models, did_model):
         r1, _, _, _ = ols_models
         fig, ax = coefplot(r1, did_model, model_names=["OLS", "DID"])

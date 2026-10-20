@@ -393,16 +393,15 @@ def binscatter(
 
         # CI error bars
         if ci and "ci_lower" in bin_df.columns:
-            ax.errorbar(
+            # Interval segments, not errorbar(yerr=): the binsreg intervals
+            # are bias-corrected and need not contain the dot, and a
+            # negative yerr made matplotlib raise (about 1 dataset in 10 at
+            # n_bins=10, 2026-10-20 probe).
+            ax.vlines(
                 bin_df["x_mean"],
-                bin_df["y_mean"],
-                yerr=[
-                    bin_df["y_mean"] - bin_df["ci_lower"],
-                    bin_df["ci_upper"] - bin_df["y_mean"],
-                ],
-                fmt="none",
+                bin_df["ci_lower"],
+                bin_df["ci_upper"],
                 color=color,
-                capsize=2,
                 linewidth=0.8,
                 alpha=0.6,
                 zorder=3,

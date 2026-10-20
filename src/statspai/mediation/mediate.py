@@ -510,6 +510,11 @@ def mediate(
         po_only = True
     if weights is not None:
         check_columns(data, {"weights": weights}, function="sp.mediate")
+    if isinstance(data, pd.DataFrame) and treat in data.columns:
+        from ..core._validate import treatment_as_float
+
+        # every path reads the treatment as numbers; say so by name here
+        treatment_as_float(data[treat], function="sp.mediate")
     if inference == "bootstrap" and po_only:
         if pvalue_method not in ("bootstrap_sign", "wald"):
             raise ValueError(
@@ -725,7 +730,9 @@ class MediationAnalysis:
         n = len(clean)
 
         Y = clean[self.y].values.astype(float)
-        T = clean[self.treat].values.astype(float)
+        from ..core._validate import treatment_as_float
+
+        T = treatment_as_float(clean[self.treat], function="sp.mediate")
         M = clean[self.mediator].values.astype(float)
 
         if self.covariates:

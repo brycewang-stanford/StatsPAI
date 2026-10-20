@@ -871,6 +871,9 @@ def finegray(
                 recovery_hint="Pass the name of a column of sampling weights.",
             )
         cols = cols + [weights]
+    from ..core._validate import warn_missing_weight_rows
+
+    warn_missing_weight_rows(data, weights, function="finegray")
     data = data.dropna(subset=cols)
     time = np.asarray(data[duration], dtype=float)
     ev = np.asarray(data[event], dtype=int)

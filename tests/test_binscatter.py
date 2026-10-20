@@ -5,10 +5,10 @@ Validates both the computation (residualization, binning) and the
 plotting output.
 """
 
-import pytest
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+import pytest
 
 matplotlib.use("Agg")
 
@@ -223,3 +223,27 @@ class TestIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_binsreg_intervals_that_exclude_the_dot_are_drawn():
+    # 2026-10-20 probe: the bias-corrected binsreg interval need not
+    # contain the dot; errorbar(yerr=) then got a negative length and
+    # matplotlib raised (seed 7 here). Every interval is drawn as given.
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    rng = np.random.default_rng(7)
+    x = rng.uniform(0, 1, 1000)
+    w = x + rng.normal(scale=0.3, size=1000)
+    df = pd.DataFrame(
+        {"x": x, "w": w, "y": np.sin(3 * x) + w + rng.normal(scale=0.5, size=1000)}
+    )
+    out = binscatter(
+        df, y="y", x="x", controls=["w"], method="binsreg", ci=True, n_bins=10
+    )
+    plt.close("all")
+    bins = out[-1]
+    outside = (bins["ci_lower"] > bins["y_mean"]) | (bins["ci_upper"] < bins["y_mean"])
+    assert outside.any()  # the case that used to crash
