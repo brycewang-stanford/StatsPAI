@@ -79,6 +79,9 @@ def ipw(
     ps_model: str = "logit",
     propensity: Optional[Union[float, str]] = None,
     design: Optional[Any] = None,
+    ps_learner: Optional[Any] = None,
+    cross_fit: bool = True,
+    n_folds: int = 5,
 ) -> CausalResult:
     """
     Inverse Probability Weighting estimator for treatment effects.
@@ -179,6 +182,27 @@ def ipw(
         ``n_bootstrap`` are then not used (a bootstrap of a complex design
         needs replicate weights), and ``weights=`` / ``cluster=`` must not
         be given. ``design=None`` leaves every other path unchanged.
+    ps_learner : classifier, optional
+        Any estimator with ``fit`` / ``predict_proba`` (scikit-learn style,
+        e.g. ``GradientBoostingClassifier()`` or
+        ``sp.SuperLearner(task='classification')``) for the propensity
+        score in place of ``ps_model``, fitted with ``sample_weight`` when
+        ``weights`` is given. The standard error is the bootstrap one, and
+        every replicate refits the learner. ``se_method='sandwich'`` (it
+        stacks the logit score), ``design=`` and ``propensity=`` are
+        refused. Weighting alone is not doubly robust and a flexible score
+        converges more slowly than ``1/sqrt(n)``, so the estimate carries
+        the learner's bias into the contrast; ``sp.aipw(ps_learner=)`` is
+        the estimator whose error is second order in the nuisance errors.
+    cross_fit : bool, default True
+        Used with ``ps_learner`` only: predict each unit's score from a
+        learner trained on the other folds. ``False`` trains and predicts
+        on the same rows and warns (an overfitted score pushes the weights
+        of the training units towards one and the contrast towards the raw
+        difference in means). In a bootstrap replicate every copy of a unit
+        stays in that unit's fold.
+    n_folds : int, default 5
+        Number of cross-fitting folds (at least 2), drawn from ``seed``.
 
     Returns
     -------
@@ -251,6 +275,12 @@ def ipw(
             f"ps_model must be 'logit' or 'probit', got {ps_model!r}"
         )
     _check_alpha(alpha, "ipw")
+    if ps_learner is not None:
+        from ._ps_learner import check_learner_options
+
+        check_learner_options(
+            se_method, design, propensity, ps_model, cross_fit, n_folds
+        )
     svy: Any = None
     if design is not None:
         from ..survey.linearization import check_design
@@ -339,6 +369,7 @@ def ipw(
 
     # --- Estimate propensity scores (or take the design's) ---
     ps_known = propensity is not None
+    fold_ids: Optional[np.ndarray] = None
     if ps_known:
         if isinstance(propensity, str):
             pscore = df[propensity].to_numpy(dtype=float)
@@ -352,9 +383,20 @@ def ipw(
                     "max": float(np.nanmax(pscore)),
                 },
             )
+    elif ps_learner is not None:
+        from ._ps_learner import learner_pscore
+
+        fold_ids = rng.choice(n_folds, size=n) if cross_fit else None
+        pscore = learner_pscore(ps_learner, X, T, sw, fold_ids)
     else:
         pscore = _estimate_propensity(X, T, sw, ps_model)
-    separation = None if ps_known else _check_separation(pscore, T, covariates)
+    # in-sample learner scores separate the arms by overfitting, which is
+    # not the absence of overlap the refusal speaks of
+    separation = (
+        None
+        if ps_known or (ps_learner is not None and not cross_fit)
+        else _check_separation(pscore, T, covariates)
+    )
     pscore_raw = np.asarray(pscore, dtype=float).copy()  # pre-trim, for overlap
 
     # --- Trim ---
@@ -461,6 +503,14 @@ def ipw(
             sw_b = None if sw is None else sw[idx]
             if ps_known:
                 ps_b = pscore[idx]
+            elif ps_learner is not None:
+                ps_b = learner_pscore(
+                    ps_learner,
+                    X_b,
+                    T_b,
+                    sw_b,
+                    None if fold_ids is None else fold_ids[idx],
+                )
             else:
                 ps_b = _estimate_propensity(X_b, T_b, sw_b, ps_model)
             if trim > 0:
@@ -535,7 +585,11 @@ def ipw(
         "normalized": normalize,
         "n_bootstrap": n_bootstrap if se_method == "bootstrap" else None,
         "se_method": "linearization" if svy is not None else se_method,
-        "ps_model": None if ps_known else ps_model,
+        "ps_model": (
+            None
+            if ps_known
+            else (ps_model if ps_learner is None else type(ps_learner).__name__)
+        ),
         "propensity": "known" if ps_known else "estimated",
         "weights": weights,
         "cluster": cluster,
@@ -545,6 +599,9 @@ def ipw(
     # unchanged.
     if n_boot_failed:
         model_info["n_bootstrap_failed"] = n_boot_failed
+    if ps_learner is not None:
+        model_info["cross_fit"] = bool(cross_fit)
+        model_info["n_folds"] = n_folds if cross_fit else None
     if separation is not None:
         model_info["separation"] = separation
     if svy is not None:
@@ -586,6 +643,11 @@ def ipw(
                 "ps_model": ps_model,
                 "propensity": propensity,
                 "design": None if design is None else repr(design),
+                "ps_learner": (
+                    None if ps_learner is None else type(ps_learner).__name__
+                ),
+                "cross_fit": cross_fit,
+                "n_folds": n_folds,
             },
             data=data,
             overwrite=False,

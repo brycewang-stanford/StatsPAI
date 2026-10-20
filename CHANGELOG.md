@@ -47,6 +47,21 @@ All notable changes to StatsPAI will be documented in this file.
   with `design=` are refused. Weighted fits now also carry
   `model_info['ph_test']`, so `result.violations()` can flag them.
 
+### `sp.ipw(ps_learner=)`
+
+#### Added
+
+- `sp.ipw(..., ps_learner=, cross_fit=True, n_folds=5)`: any scikit-learn
+  style classifier (or `sp.SuperLearner(task='classification')`) for the
+  propensity score, cross-fitted by default; every bootstrap replicate
+  refits it and keeps each copy of a unit in that unit's fold. The
+  stacked sandwich, `design=` and `propensity=` are refused with a
+  learner, and `cross_fit=False` warns. An unpenalised logistic learner
+  reproduces the default to 1e-6 (estimate and bootstrap SE); a spline
+  logit recovers a constant effect the linear logit misses
+  (`tests/test_ipw_ps_learner.py`). Weighting alone is not doubly robust;
+  the docstring points to `sp.aipw(ps_learner=)`.
+
 ### `sp.mediate(design=)`
 
 #### Added

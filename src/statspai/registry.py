@@ -15251,6 +15251,32 @@ def _build_registry() -> None:
                     "fitted; the sandwich drops the first-stage term. Fitting "
                     "the propensity is more precise even when it is known.",
                 ),
+                ParamSpec(
+                    "ps_learner",
+                    "estimator",
+                    False,
+                    None,
+                    "Classifier with fit / predict_proba (e.g. "
+                    "GradientBoostingClassifier, sp.SuperLearner(task="
+                    "'classification')) for the propensity score in place of "
+                    "ps_model; bootstrap SE refits it per replicate; sandwich, "
+                    "design= and propensity= are refused",
+                ),
+                ParamSpec(
+                    "cross_fit",
+                    "bool",
+                    False,
+                    True,
+                    "With ps_learner: out-of-fold propensity scores "
+                    "(False warns: in-sample scores overfit)",
+                ),
+                ParamSpec(
+                    "n_folds",
+                    "int",
+                    False,
+                    5,
+                    "Cross-fitting folds for ps_learner (>= 2), drawn from seed",
+                ),
             ],
             returns="CausalResult",
             example='sp.ipw(df, y="wage", treat="training", covariates=["age","edu"], estimand="ATT")',
