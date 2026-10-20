@@ -92,6 +92,17 @@ All notable changes to StatsPAI will be documented in this file.
   `scripts/generate_stub.py --check` and a test in
   `tests/test_type_stub.py` now compare the stub's declarations with
   `sp.__all__`, so it cannot drift silently again.
+- ⚠️ Correctness: `sp.wild_cluster_boot(cluster='firm', bootcluster='st')`
+  with bootstrap clusters that cut across the one-way error clusters drew
+  the weights per `st` (2^8 = 256 draws on the probe data, p = 0.047)
+  where Stata `boottest` draws them per firm-by-state cell (p = 0.000):
+  its `bootcluster(st)` and `bootcluster(st firm)` give the same p-value.
+  The weights are now drawn for the intersections, with a warning; a
+  bootstrap clustering nested in one of the error clusterings is used as
+  given (the multi-way case was already right), and one nested in none of
+  them that is coarser, where boottest fails with a Mata error, is refused
+  (`MethodIncompatibility`). Nine enumerated (2^9) p-values match boottest
+  exactly (`tests/reference_parity/test_wcb_bootcluster_parity.py`).
 
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 

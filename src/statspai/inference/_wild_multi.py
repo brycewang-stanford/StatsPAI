@@ -24,6 +24,7 @@ Every draw is linear in its weights (the algebra of ``_wcr_t_stats``): with
 
 from __future__ import annotations
 
+import warnings
 from itertools import combinations
 from typing import Any, Dict, List, Sequence
 
@@ -38,6 +39,47 @@ def _codes(columns: Sequence[np.ndarray]) -> np.ndarray:
         return pd.factorize(np.asarray(columns[0]))[0].astype(np.int64)
     frame = pd.DataFrame({i: np.asarray(c) for i, c in enumerate(columns)})
     return frame.groupby(list(frame.columns), sort=False).ngroup().to_numpy(np.int64)
+
+
+def _nested(inner: np.ndarray, outer: np.ndarray) -> bool:
+    """Every group of ``inner`` lies within one group of ``outer``."""
+    pairs = np.unique(np.column_stack([inner, outer]), axis=0)
+    return len(pairs) == len(np.unique(inner))
+
+
+def _bootcluster_codes(
+    boot: np.ndarray, error: List[np.ndarray], who: str
+) -> np.ndarray:
+    """The groups the bootstrap weights are drawn for, as Stata boottest.
+
+    Checked against boottest on the same data (2026-10-20): a bootstrap
+    clustering nested in one of the error clusterings is used as given; with
+    one-way clustering, a bootstrap clustering that cuts across the error
+    clusters is replaced by its intersection with them (boottest's
+    ``bootcluster(st)`` and ``bootcluster(st firm)`` after ``cluster(firm)``
+    give the same p-value); a coarser one (or, with multi-way clustering,
+    one nested in none of them) makes boottest fail, and is refused here.
+    """
+    if any(_nested(boot, e) for e in error):
+        return boot
+    if len(error) == 1 and not _nested(error[0], boot):
+        warnings.warn(
+            f"{who}: the bootstrap clusters cut across the error clusters; "
+            "the weights are drawn for their intersections (a subcluster "
+            "bootstrap), as Stata boottest does.",
+            UserWarning,
+            stacklevel=4,
+        )
+        return _codes([boot, error[0]])
+    raise MethodIncompatibility(
+        f"{who}: the bootstrap clusters are not nested in any of the error "
+        "clusterings (they are coarser, or cut across all of them); the wild "
+        "cluster bootstrap is not defined for that here, and Stata boottest "
+        "fails on it.",
+        recovery_hint="Pass a bootcluster= nested in one of the cluster= "
+        "variables (with multi-way clustering, usually the one with the "
+        "fewest clusters).",
+    )
 
 
 def wild_wald(

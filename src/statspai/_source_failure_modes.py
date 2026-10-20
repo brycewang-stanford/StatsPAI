@@ -1816,6 +1816,21 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "xtevent: proxy= is fitted as Stata xtivreg, fe "
             "(engine='areg').",
         },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "The policy must vary within units over and above the "
+            "common period shocks; check the policy column.",
+            "symptom": "xtevent: the policy <policy> is collinear with the "
+            "unit and period effects (and controls); its effect "
+            "is not identified.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "E.g. proxy_iv=1, proxy_iv=[1, 2] or proxy_iv=['x2'].",
+            "symptom": "xtevent: proxy_iv must be 'select', a lead (int), a "
+            "variable name, or a list of them (got "
+            "<type(proxy_iv).__name__>).",
+        },
     ],
     "xtevent_smpath": [
         {

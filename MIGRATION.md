@@ -5,6 +5,17 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.wild_cluster_boot(bootcluster=)` across one-way clusters
+
+With one-way `cluster=` and a `bootcluster=` that cuts across it, the
+bootstrap weights are drawn for the intersections of the two (Stata
+`boottest`'s behaviour) instead of for `bootcluster` alone; p-values change.
+A `bootcluster` coarser than the error clusters now raises
+`MethodIncompatibility` (boottest fails there too). To get the old draws,
+there is no switch: they did not correspond to a defined bootstrap.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.binscatter(method='binsreg')` on a discrete `x`
 
 With `n_bins` left to the selector and an `x` that takes at most about

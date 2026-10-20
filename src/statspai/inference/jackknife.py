@@ -406,10 +406,13 @@ def wild_cluster_boot(
         same bootstrap weights (a few hundred times), so it is off by
         default. One coefficient, one-way clustering.
     bootcluster : str or list of str, optional
-        With multi-way ``cluster=[a, b]`` (least squares): the variable(s)
-        whose clusters the bootstrap weights are drawn for (Stata
-        ``boottest, bootcluster()``). Default: the intersection of the
-        cluster variables, boottest's default.
+        Least squares: the variable(s) whose clusters the bootstrap weights
+        are drawn for (Stata ``boottest, bootcluster()``). Default: the
+        intersection of the cluster variables, boottest's default. As in
+        boottest, bootstrap clusters that cut across one-way error
+        clusters are replaced by their intersections with them (a
+        subcluster bootstrap, with a warning); ones nested in no error
+        clustering and coarser are refused.
 
     Notes on multi-way and joint tests
     ----------------------------------
@@ -690,9 +693,11 @@ def _wild_multi_or_joint(
     assert X is not None and Y is not None
     require_least_squares(result, X, Y, var_names)
     from ._wild_dispatch import absorbed_fe_codes
-    from ._wild_multi import _codes
+    from ._wild_multi import _bootcluster_codes, _codes
 
     boot = _codes([cols[c] for c in (bootcluster or clusters)])
+    if bootcluster:
+        boot = _bootcluster_codes(boot, [_codes([cols[c]]) for c in clusters], who)
     return wild_wald(
         X,
         Y,
