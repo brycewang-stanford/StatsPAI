@@ -420,6 +420,9 @@ def did_analysis(
             covariates=covariates,
             cluster=cluster,
             alpha=alpha,
+            # Pin today's default: no FutureWarning users cannot act on.
+            # Switch with sun_abraham's default (planned 1.41).
+            aggregation="event_time",
         )
         method_label = "Sun-Abraham (IW)"
     elif method in ("bjs", "did_imputation", "borusyak_jaravel_spiess"):

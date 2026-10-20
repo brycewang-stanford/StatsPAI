@@ -386,3 +386,30 @@ def test_balance_table_level_smd_separating_level_uses_whole_sample_sd():
     np.testing.assert_allclose(
         float(bt.loc["g: b", "SMD"]), 2.12132034355964, rtol=1e-13
     )
+
+
+def test_internal_sun_abraham_wrappers_do_not_leak_the_futurewarning():
+    """did_summary / did_analysis / auto_did call sun_abraham for the user,
+    who cannot pass aggregation= through them, so they pin today's default
+    and must not surface the headline FutureWarning."""
+    import warnings
+
+    import numpy as np
+    import pandas as pd
+
+    import statspai as sp
+
+    rng = np.random.default_rng(0)
+    n, T = 60, 8
+    df = pd.DataFrame({"i": np.repeat(np.arange(n), T), "t": np.tile(np.arange(T), n)})
+    df["g"] = np.repeat(rng.choice([0, 4, 6], n), T)
+    df["y"] = rng.normal(size=len(df)) + ((df.t >= df.g) & (df.g > 0)) * 1.0
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        sp.did_summary(df, y="y", time="t", first_treat="g", group="i")
+    leaked = [
+        x
+        for x in w
+        if issubclass(x.category, FutureWarning) and "aggregation" in str(x.message)
+    ]
+    assert leaked == []

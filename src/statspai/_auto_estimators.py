@@ -390,6 +390,9 @@ def auto_did(
             i=i,
             covariates=x_list or None,
             alpha=alpha,
+            # Pin today's default: no FutureWarning users cannot act on.
+            # Switch with sun_abraham's default (planned 1.41).
+            aggregation="event_time",
         ),
         # did_imputation is the BJS name in statspai; keep the mapping
         # explicit here so the leaderboard label stays 'bjs'.
