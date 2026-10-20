@@ -5,6 +5,21 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.xtivreg(method='re')` on balanced panels with time-invariant variables
+
+On a balanced panel, `sp.xtivreg(method='re')` now follows Stata 18's
+`xtivreg, re` where a regressor or an excluded instrument does not vary
+within panels: the degrees of freedom behind `sigma_e` count only the
+regressors the within regression uses, and the between regression behind
+`sigma_u` leaves out the excluded instruments that are constant within
+panels. `sigma_e`, `sigma_u`, theta, the coefficients and their SEs change
+(by about 0.1% for `sigma_e` with one time-invariant regressor). Unbalanced
+panels, and balanced ones where every variable varies within panels, are
+unchanged. With no excluded instrument varying within panels the fit used
+to raise; it now runs as Stata does, with a warning.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.honest_did` smoothness test-inverted sets no longer empty for large effects
 
 `sp.honest_did(method='smoothness', honestdid_method='Conditional' or

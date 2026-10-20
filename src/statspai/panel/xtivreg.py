@@ -17,12 +17,15 @@ exogenous regressors) and instruments ``X = [X1, X2]``:
   Varadharajan-Krishnakumar, the default) or ``X`` within-transformed plus
   its panel means (``ec2sls=True``, Baltagi's EC2SLS).
 
-The formulas are those of Stata's documentation for ``xtivreg``; the
+The formulas are those of Stata's documentation for ``xtivreg``, with the
+conventions its output shows where the manual is silent (balanced panels
+with time-invariant variables; no time-varying excluded instrument); the
 evidence is ``tests/test_xtivreg_stata.py``.
 """
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
@@ -92,6 +95,48 @@ def _tsls(y: np.ndarray, Z: np.ndarray, X: np.ndarray) -> Dict[str, np.ndarray]:
         ) from exc
     d = bread @ (Zhat.T @ y)
     return {"d": d, "bread": bread, "e": y - Z @ d, "Zhat": Zhat}
+
+
+def _re_within_unidentified(
+    df: pd.DataFrame,
+    codes: np.ndarray,
+    n: int,
+    en: List[str],
+    iv: List[str],
+    keep: List[int],
+    Xw: np.ndarray,
+    n_endog: int,
+) -> List[str]:
+    """Endogenous regressors the within 2SLS of ``method='re'`` cannot use.
+
+    When no excluded instrument varies within panels, Stata's ``xtivreg,
+    re`` estimates ``sigma_e`` from the within regression without the
+    endogenous regressors (checked against Stata 18). When some do but too
+    few, which regressor Stata leaves out is not documented; that case is
+    refused.
+    """
+    if not en or _span(Xw).shape[1] >= len(keep):
+        return []
+    varies = [
+        v
+        for v in iv
+        if np.ptp(
+            (
+                df[v].to_numpy(dtype=float)
+                - _gmean(df[v].to_numpy(dtype=float), codes, n)[codes]
+            )
+        )
+        > 1e-12
+    ]
+    if varies:
+        raise MethodIncompatibility(
+            f"xtivreg: method='re' estimates sigma_e from the within 2SLS, and "
+            f"the instruments that vary within panels ({varies}) are fewer than "
+            f"the endogenous regressors that do ({en}).",
+            recovery_hint="Add a time-varying excluded instrument per "
+            "endogenous regressor, or use method='be'.",
+        )
+    return [en[j] for j in keep if j < n_endog]
 
 
 def _cluster_vcov(
@@ -269,12 +314,38 @@ def xtivreg(
             dropped = [names[j] for j in range(len(names)) if j not in keep]
             Z, Zw, Zbar = Z[:, keep], Zw[:, keep], Zbar[:, keep]
             names = [names[j] for j in keep]
-        fw = _tsls(yw, Zw[:, keep] if m == "re" else Zw, Xw)
-        # K counts every regressor of the model being fitted: after
-        # method='re' that includes the time-invariant ones the within
-        # regression cannot use (Stata's xtivreg, re does the same).
+        within_omitted: List[str] = []
+        balanced = bool(np.ptp(Ti) == 0)
+        if m == "re":
+            within_omitted = _re_within_unidentified(
+                df, codes, n, en, iv, keep, Xw, len(en)
+            )
+            wkeep = [j for j in keep if names[j] not in within_omitted]
+        fw = _tsls(yw, Zw[:, wkeep] if m == "re" else Zw, Xw)
+        # K counts every regressor of the model being fitted. On an
+        # unbalanced panel Stata's xtivreg, re counts the time-invariant
+        # ones the within regression cannot use (its manual's formula); on
+        # a balanced panel it counts only the regressors the within
+        # regression uses, and an endogenous regressor left out of it for
+        # lack of a time-varying instrument counts only with the
+        # cluster-robust variance (Stata 18, tests/test_xtivreg_stata.py).
         Kw = len(keep) if m == "fe" else Z.shape[1]
+        if m == "re" and balanced:
+            Kw = len(keep) - (len(within_omitted) if se_kind != "cluster" else 0)
         s2_nu = float(fw["e"] @ fw["e"]) / (N - n - Kw + 1)
+        if within_omitted:
+            warnings.warn(
+                f"xtivreg: no excluded instrument varies within panels, so the "
+                f"within regression that estimates sigma_e leaves out "
+                f"{within_omitted} (as Stata's xtivreg, re does). That sigma_e "
+                "absorbs their effect, so the variance components and theta "
+                "are not consistent; the coefficients remain a consistent IV "
+                "estimator, but the conventional SEs assume the components "
+                "are right: prefer vce='robust' (clustered on the panel).",
+                UserWarning,
+                stacklevel=2,
+            )
+            info["within_omitted"] = within_omitted
     K = Z.shape[1]
     if m == "fe":
         fit = fw
@@ -304,8 +375,21 @@ def xtivreg(
                 "xtivreg: method='be' has the conventional variance only.",
             )
     else:
-        # between 2SLS for sigma_mu
-        fb = _tsls(ybar, Zbar, Xbar)  # unweighted, as method='be'
+        # between 2SLS for sigma_mu, unweighted as method='be'. On a
+        # balanced panel Stata leaves out the excluded instruments that do
+        # not vary within panels (unless none is left), as checked against
+        # Stata 18 on a balanced panel.
+        Xb = Xbar
+        if balanced and iv:
+            n_x = len(xs)
+            drop = [
+                n_x + k
+                for k in range(len(iv))
+                if np.ptp(X[:, n_x + k] - Xbar[codes, n_x + k]) <= 1e-12
+            ]
+            if drop and len(drop) < len(iv):
+                Xb = np.delete(Xbar, drop, axis=1)
+        fb = _tsls(ybar, Zbar, Xb)
         ub = ybar - Zbar @ fb["d"]
         ssb = float(np.sum(Ti * ub * ub))
         if nosa:

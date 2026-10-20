@@ -47,6 +47,25 @@ All notable changes to StatsPAI will be documented in this file.
   `synthdid_estimate` guidance now names `sp.synthdid_estimate`. The other
   `R_GUIDANCE` and Stata `_UNTRANSLATED_GUIDANCE` entries were audited: none
   has a translation handler or names a missing function.
+- ⚠️ Correctness: `sp.xtivreg(method='re')` refused an excluded instrument
+  that does not vary within panels, which Stata accepts. With no
+  time-varying excluded instrument Stata estimates `sigma_e` from the
+  within regression without the endogenous regressors; this now does the
+  same, with a warning that the variance components are then not
+  consistent (the coefficients remain a consistent IV estimator; prefer
+  `vce='robust'`) and `model_info['within_omitted']`. Too few time-varying
+  instruments for the endogenous regressors is refused (which one Stata
+  drops is not documented). Checking against Stata 18 found two balanced-
+  panel conventions the unbalanced fixture had not exercised: the
+  `sigma_e` degrees of freedom count only the regressors the within
+  regression uses, and the `sigma_u` between regression leaves out excluded
+  instruments constant within panels. Balanced panels with a time-invariant
+  regressor or instrument change (`sigma_e` by ~0.1% per time-invariant
+  regressor). Twelve new Stata 18 cases on a balanced and the unbalanced
+  panel agree to 1e-11 (`tests/test_xtivreg_stata.py`). One Stata artifact
+  is documented, not copied: with `vce(robust)` / `vce(cluster)` its `K`
+  counts a continuous time-invariant regressor (rounding noise in its
+  within transform) but not a dyadic one.
 
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 

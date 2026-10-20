@@ -25,6 +25,33 @@ def make_panel(seed: int = 20261019) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["id", "t", "y", "d", "x1", "w", "z1", "z2", "c"])
 
 
+def make_balanced_panel(seed: int = 20261020) -> pd.DataFrame:
+    """80 panels x 6 periods with a time-invariant regressor ``w``, its
+    dyadic rounding ``wd`` (multiples of 1/8, so a panel mean of it is
+    exact) and instrument ``zb`` (the panel mean of ``z1``), for the
+    balanced-panel conventions of ``xtivreg, re``."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(80):
+        mu = rng.normal()
+        w = rng.normal()
+        z1 = rng.normal(size=6)
+        for t in range(6):
+            z2, x1, v = rng.normal(size=3)
+            d = 0.8 * z1[t] + 0.5 * z2 + 0.3 * mu + 0.6 * v + rng.normal()
+            y = 1.0 + 0.7 * d + 0.5 * x1 - 0.4 * w + mu + v
+            rows.append((i + 1, t + 1, y, d, x1, w, z1[t], z2, i % 20 + 1))
+    df = pd.DataFrame(rows, columns=["id", "t", "y", "d", "x1", "w", "z1", "z2", "c"])
+    df["wd"] = np.round(df["w"] * 8) / 8
+    return add_panel_mean(df)
+
+
+def add_panel_mean(df: pd.DataFrame) -> pd.DataFrame:
+    """``zb``: the panel mean of ``z1`` (a time-invariant instrument)."""
+    return df.assign(zb=df.groupby("id")["z1"].transform("mean"))
+
+
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "."
-    make_panel().to_csv(f"{out}/panel.csv", index=False)
+    add_panel_mean(make_panel()).to_csv(f"{out}/panel.csv", index=False)
+    make_balanced_panel().to_csv(f"{out}/balanced.csv", index=False)
