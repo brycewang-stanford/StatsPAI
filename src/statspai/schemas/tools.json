@@ -25254,7 +25254,7 @@
     "name": "mlogit"
   },
   {
-    "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors. Assumptions: Location-scale model: y = x'b + a_g + (x'g + d_g) e with e independent of x; Fitted scale positive for every observation. Failure modes: mmqreg: give at least one regressor -> Pass x='col' or a list of columns; mmqreg: quantile=<quantile> is not strictly between 0 and 1 -> Pass e.g. quantile=0.25 (not 25); mmqreg: vce=<vce> -> Use 'gls', 'robust' or 'cluster'. Alternatives: sp.qreg, sp.sqreg.",
+    "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors. Assumptions: Location-scale model: y = x'b + a_g + (x'g + d_g) e with e independent of x; Fitted scale positive for every observation. Failure modes: mmqreg: give at least one regressor -> Pass x='col' or a list of columns; mmqreg: quantile=<quantile> is not strictly between 0 and 1 -> Pass e.g. quantile=0.25 (not 25); mmqreg: vce=<vce> -> Use 'gls', 'robust', 'cluster' or 'cluster <var>'. Alternatives: sp.qreg, sp.sqreg.",
     "input_schema": {
       "properties": {
         "absorb": {
@@ -25282,7 +25282,7 @@
         },
         "vce": {
           "default": "gls",
-          "description": "Variance: 'gls' (valid under the location-scale model; Stata mmqreg's default, kept for comparability), 'robust' or 'cluster' (the method paper's preference: GLS SEs are unstable when fitted scales near zero)",
+          "description": "Variance: 'gls' (valid under the location-scale model; Stata mmqreg's default, kept for comparability), 'robust' or 'cluster' (the method paper's preference: GLS SEs are unstable when fitted scales near zero); 'cluster <var>' is vce='cluster', cluster='<var>'",
           "enum": [
             "gls",
             "robust",
@@ -35997,13 +35997,15 @@
     "name": "replicate"
   },
   {
-    "description": "Forget the session's specification-search count (the 'specification_search' violation that sp.regress / feols / fepois / hdfe_ols / panel / spec_curve results report). Call it before a new, pre-specified analysis in the same Python process or MCP server. Returns how much was forgotten. Failure modes: reset_spec_counter(outcome=<outcome>): outcome must be a column name (str) or None -> Pass the outcome's column name, or None to reset every outcome. Alternatives: sp.spec_curve, sp.romano_wolf, sp.adjust_pvalues.",
+    "description": "Forget the session's specification-search count (the 'specification_search' violation that sp.regress / feols / fepois / hdfe_ols / panel / spec_curve results report). Call it before a new, pre-specified analysis in the same Python process or MCP server. Returns how much was forgotten. Assumptions: The specification count is held in this Python process only (an MCP server included); it is not written to disk and starts empty in a new process; Only the specification-search counts behind violations(test='specification_search') are forgotten; fitted results, data and settings are untouched. Pre-conditions: Call it when a new, pre-specified analysis starts in the same session, so earlier exploration is not counted against it. Failure modes: reset_spec_counter(y=<outcome>): the outcome must be a column name (str) or None -> Pass the outcome's column name, or None to reset every outcome. Alternatives: sp.spec_curve, sp.romano_wolf, sp.adjust_pvalues.",
     "input_schema": {
       "properties": {
-        "outcome": {
-          "description": "Forget only this outcome's specifications (None = all).",
+        "y": {
+          "description": "Forget only this outcome's specifications (None = all); outcome= is accepted as an alias.",
           "type": "string",
-          "x-canonical": "y",
+          "x-aliases": [
+            "outcome"
+          ],
           "x-statspai-role": "column"
         }
       },
@@ -45357,7 +45359,7 @@
     "name": "weightit"
   },
   {
-    "description": "Westfall-Young permutation stepdown p-values across outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: sp.westfall_young: robust=False (classical OLS standard errors) cannot be combined with cluster= -> Drop robust=False to use CR1 by cluster, or drop cluster= for the classical t.",
+    "description": "Westfall-Young permutation stepdown p-values across outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The treatment is binary (0/1) and was randomized as described by strata= / cluster=: the permutation re-draws it that way, keeping the number of treated units (clusters) per stratum; The same re-randomization is applied to every outcome, so the adjusted p-values use the dependence between the outcomes; The test statistic is the t-statistic of treat in an OLS regression (HC1, CR1 by cluster, or classical with robust=False). Pre-conditions: robust=False is not combined with cluster=; A seed for reproducible permutation p-values unless the design is small enough to enumerate. Failure modes: sp.westfall_young: robust=False (classical OLS standard errors) cannot be combined with cluster= -> Drop robust=False to use CR1 by cluster, or drop cluster= for the classical t. Alternatives: sp.romano_wolf, sp.adjust_pvalues.",
     "input_schema": {
       "properties": {
         "cluster": {

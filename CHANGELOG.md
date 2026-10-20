@@ -4,6 +4,12 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Gate repairs on main: `sp.mmqreg` call record, `sp.reset_spec_counter(y=)`, agent cards
+
+- **Added**: `sp.mmqreg` records its call, so `sp.vcov(fit, 'robust')` / `sp.vcov(fit, 'cluster id')` refit it (the refit equals Stata `mmqreg`'s `e(V)` for that `vce` to 1e-10), and it accepts Stata's `vce='cluster id'` spelling as `vce='cluster', cluster='id'`.
+- **Changed**: `sp.reset_spec_counter`'s argument is now `y=` (the house-style outcome name); `outcome=` stays accepted as an alias. Neither has been released.
+- **Docs**: agent cards (assumptions, pre-conditions) for `sp.reset_spec_counter`, `sp.xtset`, `sp.reshape`, `sp.collapse`, `sp.egen`, `sp.msprt_lambda`, `sp.hpd_interval`, `sp.gelman_rubin` and `sp.westfall_young`, read from their code and docstrings.
+
 ### Honest RD (`sp.rd_honest`, `sp.rd_discrete`, `sp.rd_bias_aware_fuzzy`): clean-room rewrite
 
 - **Changed**: `rd/_rdhonest.py`, `rd/bias_aware.py` and `rd/rd_discrete.py`

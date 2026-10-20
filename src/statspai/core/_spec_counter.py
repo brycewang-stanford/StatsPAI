@@ -29,6 +29,8 @@ from typing import Any, Dict, Iterable, Optional, Set, Tuple
 
 import pandas as pd
 
+from .._aliases import accepts_aliases
+
 __all__ = [
     "record_specifications",
     "specification_count",
@@ -108,7 +110,8 @@ def reset_specification_counter(outcome: Optional[str] = None) -> None:
             del _FAMILIES[key]
 
 
-def reset_spec_counter(outcome: Optional[str] = None) -> Dict[str, Any]:
+@accepts_aliases(outcome="y")
+def reset_spec_counter(y: Optional[str] = None) -> Dict[str, Any]:
     """Forget the specifications this session has recorded.
 
     Every fit of ``sp.regress`` / ``sp.feols`` / ``sp.fepois`` /
@@ -122,14 +125,15 @@ def reset_spec_counter(outcome: Optional[str] = None) -> Dict[str, Any]:
 
     Parameters
     ----------
-    outcome : str, optional
+    y : str, optional
         Forget only the specifications of this outcome (every frame layout
-        it was fitted on). ``None`` forgets all of them.
+        it was fitted on). ``None`` forgets all of them. ``outcome=`` is
+        accepted as an alias.
 
     Returns
     -------
     dict
-        ``{"outcome": outcome, "families_cleared": k,
+        ``{"outcome": y, "families_cleared": k,
         "specifications_cleared": m}``: how many (outcome, column set)
         families and distinct specifications were forgotten.
 
@@ -142,11 +146,12 @@ def reset_spec_counter(outcome: Optional[str] = None) -> Dict[str, Any]:
     >>> sp.reset_spec_counter()["specifications_cleared"]
     0
     """
+    outcome = y
     if outcome is not None and not isinstance(outcome, str):
         from ..exceptions import MethodIncompatibility
 
         raise MethodIncompatibility(
-            f"reset_spec_counter(outcome={outcome!r}): outcome must be a "
+            f"reset_spec_counter(y={outcome!r}): the outcome must be a "
             "column name (str) or None.",
             recovery_hint="Pass the outcome's column name, or None to reset "
             "every outcome.",

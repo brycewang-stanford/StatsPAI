@@ -9264,7 +9264,8 @@ def _build_registry() -> None:
                     "Variance: 'gls' (valid under the location-scale model; "
                     "Stata mmqreg's default, kept for comparability), "
                     "'robust' or 'cluster' (the method paper's preference: "
-                    "GLS SEs are unstable when fitted scales near zero)",
+                    "GLS SEs are unstable when fitted scales near zero); "
+                    "'cluster <var>' is vce='cluster', cluster='<var>'",
                     ["gls", "robust", "cluster"],
                 ),
                 ParamSpec("cluster", "str", False, None, "Cluster column"),
@@ -15406,14 +15407,18 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec(
-                    "outcome",
+                    "y",
                     "str",
                     False,
                     None,
-                    "Forget only this outcome's specifications (None = all).",
+                    "Forget only this outcome's specifications (None = all); "
+                    "outcome= is accepted as an alias.",
                 ),
             ],
             returns=("dict {outcome, families_cleared, specifications_cleared}"),
+            validation_notes=[
+                "API/unit contract evidence: " "tests/test_owner_decisions_oct20.py",
+            ],
             example="sp.reset_spec_counter()",
             tags=["robustness", "specification", "multiplicity", "session"],
             alternatives=["spec_curve", "romano_wolf", "adjust_pvalues"],

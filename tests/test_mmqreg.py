@@ -166,3 +166,22 @@ def test_singletons_are_dropped(df):
     assert r.model_info["n_singletons_dropped"] == 1 and r.nobs == 396
     pd.testing.assert_series_equal(r.params, ref.params, rtol=1e-12)
     pd.testing.assert_series_equal(r.std_errors, ref.std_errors, rtol=1e-12)
+
+
+def test_vcov_refit_reproduces_the_stata_variances(df):
+    """sp.vcov replays the recorded call: the refit under each vce equals
+    Stata mmqreg's e(V) for that vce, and the point estimates do not move."""
+    fit = sp.mmqreg(df, "y", XS, absorb="id", quantile=0.5)
+    for vce, tag in (("robust", "robust"), ("cluster id", "cluster")):
+        new = sp.vcov(fit, vce)
+        V, _, _ = _mat(f"fe1_{tag}_50", "e(V)")
+        np.testing.assert_allclose(new.vcov().to_numpy(), V[8:, 8:], rtol=1e-10)
+        pd.testing.assert_series_equal(new.params, fit.params, rtol=0, atol=0)
+    # Stata's vce(cluster id) spelling is the same call as cluster=
+    a = sp.mmqreg(df, "y", XS, absorb="id", vce="cluster id")
+    b = sp.mmqreg(df, "y", XS, absorb="id", vce="cluster", cluster="id")
+    pd.testing.assert_series_equal(a.std_errors, b.std_errors, rtol=0, atol=0)
+    with pytest.raises(MethodIncompatibility, match="disagree"):
+        sp.mmqreg(df, "y", XS, vce="cluster id", cluster="t")
+    with pytest.raises(MethodIncompatibility, match="one"):
+        sp.mmqreg(df, "y", XS, vce="cluster id t")

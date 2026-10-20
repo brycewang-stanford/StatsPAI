@@ -44,6 +44,7 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core._collinear import independent_columns
 from ..core.results import EconometricResults
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
@@ -130,6 +131,7 @@ def _hs_density(e: np.ndarray, tau: float) -> Dict[str, float]:
     return {"density": float(2 * h / width), "bandwidth": float(h)}
 
 
+@records_call("mmqreg")
 def mmqreg(
     data: pd.DataFrame,
     y: str,
@@ -154,7 +156,7 @@ def mmqreg(
         ``xtqreg`` / ``mmqreg, absorb(id)``.
     quantile : float, default 0.5
         The quantile, strictly between 0 and 1.
-    vce : {'gls', 'robust', 'cluster'}, default 'gls'
+    vce : {'gls', 'robust', 'cluster'} or 'cluster <var>', default 'gls'
         ``'gls'`` is valid when the location-scale model is right (Stata
         ``mmqreg``'s default, kept here so results match it); ``'robust'``
         and ``'cluster'`` use the influence functions without that
@@ -164,6 +166,9 @@ def mmqreg(
         robust ones better behaved even under a correct model (if somewhat
         small in small samples), and recommends ``'cluster'`` when errors
         are correlated within groups and the sample is large. See Notes.
+        Stata's ``vce(cluster id)`` is ``vce='cluster id'``, the same as
+        ``vce='cluster', cluster='id'`` (so ``sp.vcov(fit, 'cluster id')``
+        works).
     cluster : str, optional
         Cluster variable for ``vce='cluster'``.
     alpha : float, default 0.05
@@ -229,9 +234,24 @@ def mmqreg(
             f"mmqreg: quantile={quantile} is not strictly between 0 and 1.",
             recovery_hint="Pass e.g. quantile=0.25 (not 25).",
         )
+    if isinstance(vce, str) and vce.split()[:1] == ["cluster"] and len(vce.split()) > 1:
+        words = vce.split()
+        if len(words) != 2:
+            raise MethodIncompatibility(
+                f"mmqreg: vce={vce!r} names {len(words) - 1} cluster variables; "
+                "mmqreg clusters on one.",
+                recovery_hint="Pass vce='cluster <one column>'.",
+            )
+        if cluster is not None and cluster != words[1]:
+            raise MethodIncompatibility(
+                f"mmqreg: vce={vce!r} and cluster={cluster!r} disagree.",
+                recovery_hint="Name the cluster variable once.",
+            )
+        vce, cluster = "cluster", words[1]
     if vce not in _VCE:
         raise MethodIncompatibility(
-            f"mmqreg: vce={vce!r}.", recovery_hint="Use 'gls', 'robust' or 'cluster'."
+            f"mmqreg: vce={vce!r}.",
+            recovery_hint="Use 'gls', 'robust', 'cluster' or 'cluster <var>'.",
         )
     if (vce == "cluster") != (cluster is not None):
         raise MethodIncompatibility(

@@ -4951,4 +4951,141 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         "alternatives": ["panel", "prais"],
         "typical_n_min": 30,
     },
+    "reset_spec_counter": {
+        "assumptions": [
+            "The specification count is held in this Python process only "
+            "(an MCP server included); it is not written to disk and starts "
+            "empty in a new process",
+            "Only the specification-search counts behind "
+            "violations(test='specification_search') are forgotten; fitted "
+            "results, data and settings are untouched",
+        ],
+        "pre_conditions": [
+            "Call it when a new, pre-specified analysis starts in the same "
+            "session, so earlier exploration is not counted against it",
+        ],
+        "alternatives": ["spec_curve"],
+    },
+    "xtset": {
+        "assumptions": [
+            "The time variable holds whole numbers of periods (or a pandas "
+            "Period column); datetimes are refused, as Stata needs integer "
+            "dates",
+            "At most one row per (panel, period), and no two periods of a "
+            "panel closer than delta",
+            "The declaration is stored in data.attrs, in place (as Stata "
+            "changes the data in memory); the rows keep their order",
+        ],
+        "pre_conditions": [
+            "The id and time columns exist in data",
+            "Call it before lag / lead / diff or formulas with L. / F. / D. "
+            "that should read the panel structure",
+        ],
+        "alternatives": ["lag"],
+    },
+    "reshape": {
+        "assumptions": [
+            "Wide: j is unique within id, and every column that is not a "
+            "stub is constant within id (Stata refuses otherwise)",
+            "Long: id identifies the wide rows; the suffixes are whole "
+            "numbers unless string=True",
+        ],
+        "pre_conditions": [
+            "direction is 'wide' or 'long'; the stubs, id= (Stata i()) and "
+            "j= are all given and id exists in data",
+        ],
+        "alternatives": ["collapse"],
+    },
+    "collapse": {
+        "assumptions": [
+            "Each statistic uses the rows where its own source is observed "
+            "unless cw=True; rows with a missing by-value form a group of "
+            "their own",
+            "Frequency weights are whole numbers standing for identical "
+            "rows; weights are non-negative, and rows with a zero or "
+            "missing weight drop out",
+        ],
+        "pre_conditions": [
+            "At least one row takes part after weights and cw are applied",
+            "Result names are unique and differ from the by-variables",
+        ],
+        "alternatives": ["egen"],
+    },
+    "egen": {
+        "assumptions": [
+            "Statistics skip missing values; a group with no value gets "
+            "missing (count 0, total 0 unless missing=True)",
+            "Rows not selected by where (Stata's if) get missing; missing "
+            "by-values form a group of their own",
+            "The result is double precision, where Stata's egen stores "
+            "float unless the variable is declared double",
+        ],
+        "pre_conditions": [
+            "fcn is one of the documented egen functions and the options "
+            "passed are ones it takes",
+            "by= is not combined with std, group, tag or the row functions",
+        ],
+        "alternatives": ["collapse"],
+    },
+    "msprt_lambda": {
+        "assumptions": [
+            "Each estimate is approximately normal with the given (known) "
+            "variance at that look",
+            "The effect has a normal mixing distribution N(theta0, tau^2); "
+            "tau is in the units of the estimate",
+            "Under the null the returned Lambda is a nonnegative martingale "
+            "with mean one, so 1/Lambda bounds an always-valid p-value",
+        ],
+        "pre_conditions": [
+            "Variances are strictly positive; the inputs are not checked, "
+            "and a zero or negative variance gives a non-finite Lambda",
+        ],
+        "alternatives": ["msprt"],
+    },
+    "hpd_interval": {
+        "assumptions": [
+            "The draws come from a converged chain (post burn-in) and "
+            "represent the posterior",
+            "The shortest interval holding prob of the draws is the HPD "
+            "region only for a unimodal posterior; a multimodal one gets a "
+            "single interval that may cover low-density gaps",
+        ],
+        "pre_conditions": [
+            "0 < prob < 1",
+            "At least two draws per parameter",
+        ],
+        "alternatives": ["mcmc_summary"],
+    },
+    "gelman_rubin": {
+        "assumptions": [
+            "At least two chains of equal length, started from dispersed "
+            "values, after burn-in (autoburnin=False assumes the draws are "
+            "already post burn-in)",
+            "The factor compares between- and within-chain variance; a "
+            "value near 1 is necessary, not sufficient, for convergence",
+        ],
+        "pre_conditions": [
+            "Two or more chains, or one chain with split=True",
+            "Each chain has at least two draws",
+        ],
+        "alternatives": ["mcmc_ess", "geweke_diag"],
+    },
+    "westfall_young": {
+        "assumptions": [
+            "The treatment is binary (0/1) and was randomized as described "
+            "by strata= / cluster=: the permutation re-draws it that way, "
+            "keeping the number of treated units (clusters) per stratum",
+            "The same re-randomization is applied to every outcome, so the "
+            "adjusted p-values use the dependence between the outcomes",
+            "The test statistic is the t-statistic of treat in an OLS "
+            "regression (HC1, CR1 by cluster, or classical with "
+            "robust=False)",
+        ],
+        "pre_conditions": [
+            "robust=False is not combined with cluster=",
+            "A seed for reproducible permutation p-values unless the design "
+            "is small enough to enumerate",
+        ],
+        "alternatives": ["romano_wolf", "adjust_pvalues"],
+    },
 }

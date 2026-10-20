@@ -7706,7 +7706,7 @@
         },
         "vce": {
           "default": "gls",
-          "description": "Variance: 'gls' (valid under the location-scale model; Stata mmqreg's default, kept for comparability), 'robust' or 'cluster' (the method paper's preference: GLS SEs are unstable when fitted scales near zero)",
+          "description": "Variance: 'gls' (valid under the location-scale model; Stata mmqreg's default, kept for comparability), 'robust' or 'cluster' (the method paper's preference: GLS SEs are unstable when fitted scales near zero); 'cluster <var>' is vce='cluster', cluster='<var>'",
           "enum": [
             "gls",
             "robust",
@@ -13399,10 +13399,12 @@
     "name": "reset_spec_counter",
     "parameters": {
       "properties": {
-        "outcome": {
-          "description": "Forget only this outcome's specifications (None = all).",
+        "y": {
+          "description": "Forget only this outcome's specifications (None = all); outcome= is accepted as an alias.",
           "type": "string",
-          "x-canonical": "y",
+          "x-aliases": [
+            "outcome"
+          ],
           "x-statspai-role": "column"
         }
       },

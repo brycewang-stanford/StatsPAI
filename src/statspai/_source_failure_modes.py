@@ -971,7 +971,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use 'gls', 'robust' or 'cluster'.",
+            "remedy": "Use 'gls', 'robust', 'cluster' or 'cluster <var>'.",
             "symptom": "mmqreg: vce=<vce>.",
         },
         {
@@ -1310,7 +1310,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass the outcome's column name, or None to "
             "reset every outcome.",
-            "symptom": "reset_spec_counter(outcome=<outcome>): "
+            "symptom": "reset_spec_counter(y=<outcome>): the "
             "outcome must be a column name (str) or "
             "None.",
         }

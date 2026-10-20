@@ -763,6 +763,7 @@ from .interference.randomization_test import (
 from .interference.randomization_test import interference_test as interference_test
 from .interference.spillover import SpilloverEstimator as SpilloverEstimator
 from .interference.spillover import spillover as spillover
+from .interference.two_stage import two_stage_interference as two_stage_interference
 from .iv.continuous_late import ContinuousLATEResult as ContinuousLATEResult
 from .iv.continuous_late import continuous_iv_late as continuous_iv_late
 from .iv.iv_diag import IVDiagResult as IVDiagResult
@@ -1113,6 +1114,7 @@ from .panel.hdfe import SlopeSpec as SlopeSpec
 from .panel.hdfe import absorb_ols as absorb_ols
 from .panel.hdfe import demean as demean
 from .panel.interactive_fe import interactive_fe as interactive_fe
+from .panel.mmqreg import mmqreg as mmqreg
 from .panel.panel_binary import panel_logit as panel_logit
 from .panel.panel_binary import panel_probit as panel_probit
 from .panel.panel_fgls import panel_fgls as panel_fgls
