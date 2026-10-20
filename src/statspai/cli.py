@@ -122,6 +122,8 @@ def _add_schema_args(parser: argparse.ArgumentParser, name: str) -> List[str]:
         if pname == "data":
             continue
         typ = prop.get("type")
+        if typ is None and "anyOf" in prop:
+            typ = [b.get("type") for b in prop["anyOf"]]
         types = typ if isinstance(typ, list) else [typ]
         desc = prop.get("description", "")
         kwargs: Dict[str, Any] = {"help": desc, "default": argparse.SUPPRESS}

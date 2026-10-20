@@ -93,10 +93,16 @@ def test_option_parameters_carry_enums():
     for s in _CALLABLES:
         props = s.to_openai_schema()["parameters"]["properties"]
         for pname, prop in props.items():
-            typ = prop["type"] if isinstance(prop["type"], list) else [prop["type"]]
+            # ``str | list[str]`` parameters are exported as anyOf branches
+            branches = prop.get("anyOf") or [prop]
+            typ = [
+                t
+                for b in branches
+                for t in (b["type"] if isinstance(b["type"], list) else [b["type"]])
+            ]
             if pname in OPTION_PARAM_NAMES and "string" in typ:
                 total += 1
-                with_enum += bool(prop.get("enum"))
+                with_enum += any(bool(b.get("enum")) for b in branches)
     assert with_enum / total >= OPTION_ENUM_FLOOR
 
 
@@ -138,9 +144,16 @@ def test_schema_parameters_are_internally_consistent():
     bad = []
     for schema in sp.all_schemas():
         for pname, prop in schema["parameters"]["properties"].items():
-            typ = prop.get("type")
-            types = typ if isinstance(typ, list) else [typ]
-            enum = prop.get("enum")
+            # ``str | list[str]``: anyOf branches carry the types (and the
+            # scalar enum sits on the string branch)
+            branches = prop.get("anyOf") or [prop]
+            types = [
+                t
+                for b in branches
+                for t in (b["type"] if isinstance(b["type"], list) else [b["type"]])
+            ]
+            typ = types
+            enum = next((b["enum"] for b in branches if b.get("enum")), None)
             default = prop.get("default")
             if enum is not None:
                 for v in enum:

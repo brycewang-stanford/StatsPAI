@@ -5117,11 +5117,18 @@
       "parameters": {
         "properties": {
           "cluster": {
-            "description": "Cluster column, or a list of two for two-way clustering: folds over whole clusters (two-way: the K x K product of the two cluster partitions, training on units sharing no cluster with the test cell) and the Chiang-Kato-Ma-Sasaki cluster variance (DoubleML DoubleMLClusterData, all four models).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster column, or a list of two for two-way clustering: folds over whole clusters (two-way: the K x K product of the two cluster partitions, training on units sharing no cluster with the test cell) and the Chiang-Kato-Ma-Sasaki cluster variance (DoubleML DoubleMLClusterData, all four models)."
           },
           "covariates": {
             "description": "List of control variable names",
@@ -6350,15 +6357,19 @@
             "x-statspai-role": "column"
           },
           "covariates": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "none",
             "description": "fe= forests: covariates in the untreated outcome model ('none' = did_imputation, 'auto' = time-varying x/w, or names). controls= is accepted as an alias.",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ],
             "x-aliases": [
               "controls"
             ],
@@ -6505,15 +6516,19 @@
             "type": "number"
           },
           "covariates": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "none",
             "description": "Covariates in the untreated outcome model; controls= is accepted as an alias.",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ],
             "x-aliases": [
               "controls"
             ],
@@ -8066,15 +8081,19 @@
             "x-statspai-role": "column"
           },
           "covariates": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "none",
             "description": "fe= forests: covariates in the untreated outcome model.",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ],
             "x-aliases": [
               "controls"
             ],
@@ -8370,15 +8389,19 @@
             "type": "number"
           },
           "covariates": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "none",
             "description": "Time-varying covariates added linearly, as in the imputation model",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ],
             "x-aliases": [
               "controls"
             ],
@@ -11512,19 +11535,23 @@
             "type": "object"
           },
           "notation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "enum": [
+                    "stars",
+                    "symbols"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "stars",
-            "description": "Significance marker family",
-            "items": {
-              "enum": [
-                "stars",
-                "symbols"
-              ],
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "Significance marker family"
           },
           "notes": {
             "description": "Additional notes beneath the table.",
@@ -12436,11 +12463,18 @@
             "type": "string"
           },
           "x": {
-            "description": "Other predictors; omit for AR(p)",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Other predictors; omit for AR(p)"
           },
           "x_lags": {
             "default": 1,
@@ -12847,11 +12881,18 @@
             "type": "number"
           },
           "break_point": {
-            "description": "Start of the second regime: the number of rows in the first regime, or a value of time= / of the index whose row opens the new regime; a list tests several breaks",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Start of the second regime: the number of rows in the first regime, or a value of time= / of the index whose row opens the new regime; a list tests several breaks"
           },
           "break_vars": {
             "description": "Coefficients allowed to change, names from x plus 'const'; default all",
@@ -13420,11 +13461,18 @@
             "x-statspai-role": "column"
           },
           "constraints": {
-            "description": "Linear restrictions, e.g. 'x1 + x2 = 1' or ['x1 = x2', 'x3 = 0']",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Linear restrictions, e.g. 'x1 + x2 = 1' or ['x1 = x2', 'x3 = 0']"
           },
           "data": {
             "description": "The data",
@@ -13881,11 +13929,18 @@
             "type": "string"
           },
           "case_vars": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Case-specific regressors",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "chid": {
@@ -13929,11 +13984,18 @@
             "type": "string"
           },
           "x": {
-            "description": "Alternative-specific regressors",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Alternative-specific regressors"
           },
           "y": {
             "description": "1 on the chosen alternative",
@@ -16444,11 +16506,18 @@
             "type": "integer"
           },
           "period": {
-            "description": "Seasonal period(s)",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Seasonal period(s)"
           },
           "robust": {
             "default": false,
@@ -16707,11 +16776,18 @@
             "x-statspai-role": "dataframe"
           },
           "lags": {
-            "description": "Lag(s) of the test; default 10 or 2 x period",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Lag(s) of the test; default 10 or 2 x period"
           },
           "method": {
             "default": "ljung-box",
@@ -17392,11 +17468,18 @@
             "type": "string"
           },
           "middle": {
-            "description": "middle_out: the level the forecasts start from (a key of Hierarchy.tags or its series)",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "middle_out: the level the forecasts start from (a key of Hierarchy.tags or its series)"
           },
           "proportions": {
             "default": "average",
@@ -18971,26 +19054,34 @@
             "type": "boolean"
           },
           "gamma": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1.0,
-            "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test"
           },
           "phi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "u868",
-            "description": "Block weight as a function of the block's dispersion rank: 'wilcoxon', 'quade', 'u868', 'u878', 'u888', 'u858', 'mixed', a triple (m, m1, m2), or a callable. A list of two or more requests the adaptive test",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "Block weight as a function of the block's dispersion rank: 'wilcoxon', 'quade', 'u868', 'u878', 'u888', 'u858', 'mixed', a triple (m, m1, m2), or a callable. A list of two or more requests the adaptive test"
           },
           "scores": {
             "description": "Within-block scores replacing the ranks 1..J",
@@ -19125,15 +19216,19 @@
             "type": "array"
           },
           "phi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "u868",
-            "description": "Block weights",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "Block weights"
           },
           "sample_ratio": {
             "default": 1.0,
@@ -19279,15 +19374,19 @@
             "x-statspai-role": "dataframe"
           },
           "gamma": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1.0,
-            "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test"
           },
           "score": {
             "default": "rank",
@@ -19430,15 +19529,19 @@
             "type": "number"
           },
           "gamma": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1.0,
-            "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test"
           },
           "treated": {
             "description": "Treated outcomes, or pair differences when control is omitted",
@@ -19725,11 +19828,18 @@
             "type": "number"
           },
           "treatment_odds": {
-            "description": "Lambda: effect on the odds of treatment, each > gamma",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Lambda: effect on the odds of treatment, each > gamma"
           }
         },
         "required": [
@@ -19862,11 +19972,18 @@
             "type": "array"
           },
           "ps": {
-            "description": "Propensity score column, or covariates of a logit fitted to make one; terms refer to it as 'pscore'",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Propensity score column, or covariates of a logit fitted to make one; terms refer to it as 'pscore'"
           },
           "ratio": {
             "default": 1,
@@ -22821,11 +22938,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Average within groups of these columns",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Average within groups of these columns"
           },
           "conf_level": {
             "default": 0.95,
@@ -22938,11 +23062,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Average within groups of these columns",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Average within groups of these columns"
           },
           "conf_level": {
             "default": 0.95,
@@ -23055,11 +23186,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Average within groups of these columns",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Average within groups of these columns"
           },
           "comparison": {
             "default": "difference",
@@ -23100,11 +23238,21 @@
             "type": "string"
           },
           "variables": {
-            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair"
           },
           "vcov": {
             "default": true,
@@ -23190,11 +23338,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Average within groups of these columns",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Average within groups of these columns"
           },
           "comparison": {
             "default": "difference",
@@ -23235,11 +23390,21 @@
             "type": "string"
           },
           "variables": {
-            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair"
           },
           "vcov": {
             "default": true,
@@ -23326,11 +23491,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Average within groups of these columns",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Average within groups of these columns"
           },
           "conf_level": {
             "default": 0.95,
@@ -23375,11 +23547,21 @@
             "type": "string"
           },
           "variables": {
-            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair"
           },
           "vcov": {
             "default": true,
@@ -23466,11 +23648,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Average within groups of these columns",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Average within groups of these columns"
           },
           "conf_level": {
             "default": 0.95,
@@ -23515,11 +23704,21 @@
             "type": "string"
           },
           "variables": {
-            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variables (default all); a dict maps a numeric variable to its change: a number, 'sd', '2sd', 'iqr', 'minmax' or a (low, high) pair"
           },
           "vcov": {
             "default": true,
@@ -23623,11 +23822,18 @@
             "type": "number"
           },
           "hypothesis": {
-            "description": "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2', or a list of such strings (one row each, or one joint test with joint=True); may be omitted when joint names the estimates",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "E.g. 'b1 - b2 = 0', 'b2 / b3 = 1', 'x1 = 2 * x2', or a list of such strings (one row each, or one joint test with joint=True); may be omitted when joint names the estimates"
           },
           "joint": {
             "default": false,
@@ -25206,11 +25412,18 @@
             "x-statspai-role": "dataframe"
           },
           "variables": {
-            "description": "Columns to test; every numeric column when omitted",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Columns to test; every numeric column when omitted"
           }
         },
         "required": [
@@ -25303,11 +25516,18 @@
             "x-statspai-role": "dataframe"
           },
           "variables": {
-            "description": "Columns to test; every numeric column when omitted",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Columns to test; every numeric column when omitted"
           }
         },
         "required": [
@@ -25445,11 +25665,18 @@
             "type": "string"
           },
           "variables": {
-            "description": "Columns; every numeric column when omitted",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Columns; every numeric column when omitted"
           }
         },
         "required": [
@@ -25808,11 +26035,18 @@
             "type": "integer"
           },
           "lambda_": {
-            "description": "Fixed smoothing parameter(s), one per smooth; chosen by method when omitted",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Fixed smoothing parameter(s), one per smooth; chosen by method when omitted"
           },
           "link": {
             "description": "Link; canonical if omitted",
@@ -26899,11 +27133,21 @@
             "x-statspai-role": "formula"
           },
           "lambda_": {
-            "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted. 'gcv', 'hkb' or 'lw' is the default grid with that selection rule",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted. 'gcv', 'hkb' or 'lw' is the default grid with that selection rule"
           },
           "select": {
             "default": "gcv",
@@ -27629,11 +27873,18 @@
             "type": "string"
           },
           "n_components": {
-            "description": "pcr: number of principal components, or candidates",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "pcr: number of principal components, or candidates"
           },
           "n_folds": {
             "default": 10,
@@ -27641,11 +27892,18 @@
             "type": "integer"
           },
           "penalty": {
-            "description": "Ridge / lasso penalty: one value, candidates for cross-validation, or None for a default grid",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Ridge / lasso penalty: one value, candidates for cross-validation, or None for a default grid"
           },
           "seed": {
             "description": "Seed for shuffle=True",
@@ -32362,11 +32620,18 @@
             "type": "string"
           },
           "eligibility": {
-            "description": "eligibility parameter (str | list | callable).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "eligibility parameter (str | list | callable)."
           },
           "followup_end": {
             "description": "followup_end parameter (str).",
@@ -32825,22 +33090,36 @@
             "type": "string"
           },
           "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Set of outcome variables Y.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-aliases": [
               "y"
             ],
             "x-canonical": "y"
           },
           "treatment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Set of variables X being intervened on.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-aliases": [
               "treat"
             ],
@@ -33748,11 +34027,18 @@
             "type": "string"
           },
           "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Outcome set Y.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-aliases": [
               "y"
             ],
@@ -33766,11 +34052,18 @@
             "type": "array"
           },
           "treatment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Intervention set X.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-aliases": [
               "treat"
             ],
@@ -36606,15 +36899,19 @@
             "x-statspai-role": "column"
           },
           "regime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "always_treat",
-            "description": "Treatment regime to evaluate. See :class:`Regime` for forms.",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "Treatment regime to evaluate. See :class:`Regime` for forms."
           },
           "time": {
             "description": "Required column names.",
@@ -36888,11 +37185,18 @@
             "type": "string"
           },
           "rule": {
-            "description": "- ``\"if cd4 < 200 then 1 else 0\"`` -- string DSL (safely evaluated). - ``[1, 1, 0]`` -- static sequence of treatment values per period. - ``lambda h, t: int(h['cd4'] < 200)`` -- explicit callable. - ``1`` -- scalar, interpreted as always-1 for ``K`` periods.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "- ``\"if cd4 < 200 then 1 else 0\"`` -- string DSL (safely evaluated). - ``[1, 1, 0]`` -- static sequence of treatment values per period. - ``lambda h, t: int(h['cd4'] < 200)`` -- explicit callable. - ``1`` -- scalar, interpreted as always-1 for ``K`` periods."
           }
         },
         "required": [
@@ -38286,11 +38590,18 @@
             "x-statspai-source": "signature"
           },
           "cluster": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Structured model specification (see :class:`EstimandSpec`).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-source": "signature"
           },
           "covariates": {
@@ -38314,15 +38625,19 @@
             "x-statspai-role": "columns"
           },
           "engines": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "auto",
-            "description": "'auto' (all installed, applicable) or a list e.g. ['statspai','R::fixest','pyfixest','Stata']",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "'auto' (all installed, applicable) or a list e.g. ['statspai','R::fixest','pyfixest','Stata']"
           },
           "estimand": {
             "description": "ols / feols / iv / poisson / dml / did (Callaway-Sant'Anna; and aliases)",
@@ -41214,22 +41529,33 @@
             "type": "string"
           },
           "prior_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "Prior mean of the coefficients (scalar or one per column)",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Prior mean of the coefficients (scalar or one per column)"
           },
           "prior_var": {
-            "description": "Prior variance: scalar, vector or covariance matrix. Default 1000 (100 for logit / probit / oprobit)",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Prior variance: scalar, vector or covariance matrix. Default 1000 (100 for logit / probit / oprobit)"
           },
           "quantile": {
             "default": 0.5,
@@ -41452,22 +41778,33 @@
             "type": "number"
           },
           "prior_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "Normal prior of the fixed effects, as in :func:`statspai.bayes_regress`. Default variance 1000 (100 for logit).",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Normal prior of the fixed effects, as in :func:`statspai.bayes_regress`. Default variance 1000 (100 for logit)."
           },
           "prior_var": {
-            "description": "Prior variance of the fixed effects; default 1000 (100 for logit)",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Prior variance of the fixed effects; default 1000 (100 for logit)"
           },
           "random": {
             "description": "Columns with a random slope",
@@ -41623,15 +41960,19 @@
       "parameters": {
         "properties": {
           "C0": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 10000000.0,
-            "description": "Prior covariance of the coefficients (diffuse by default)",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Prior covariance of the coefficients (diffuse by default)"
           },
           "burnin": {
             "default": 1000,
@@ -41666,15 +42007,19 @@
             "type": "number"
           },
           "m0": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "Prior mean of the coefficients",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Prior mean of the coefficients"
           },
           "method": {
             "default": "mle",
@@ -41705,11 +42050,18 @@
             "type": "integer"
           },
           "state_var": {
-            "description": "Fix the state variances (one number or one per term)",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Fix the state variances (one number or one per term)"
           },
           "state_var_prior": {
             "default": [
@@ -42217,26 +42569,34 @@
             "type": "number"
           },
           "prior_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "Normal prior of the stacked coefficients on the unrestricted latent scale.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Normal prior of the stacked coefficients on the unrestricted latent scale."
           },
           "prior_var": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 100.0,
-            "description": "Normal prior of the stacked coefficients on the unrestricted latent scale.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Normal prior of the stacked coefficients on the unrestricted latent scale."
           },
           "seed": {
             "description": "As in :func:`statspai.bayes_regress`.",
@@ -42377,26 +42737,34 @@
             "type": "number"
           },
           "prior_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "Normal prior of the stacked coefficients on the unrestricted latent scale.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Normal prior of the stacked coefficients on the unrestricted latent scale."
           },
           "prior_var": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 100.0,
-            "description": "Normal prior of the stacked coefficients on the unrestricted latent scale.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Normal prior of the stacked coefficients on the unrestricted latent scale."
           },
           "seed": {
             "description": "As in :func:`statspai.bayes_regress`.",
@@ -42705,11 +43073,18 @@
             "type": "string"
           },
           "length_scale": {
-            "description": "Starting values, or the values used when ``optimize_hyper=False``.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Starting values, or the values used when ``optimize_hyper=False``."
           },
           "level": {
             "default": 0.95,
@@ -42847,11 +43222,21 @@
             "type": "number"
           },
           "factors": {
-            "description": "Number of factors, their names, or {name: (lower, upper)}",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Number of factors, their names, or {name: (lower, upper)}"
           },
           "iterations": {
             "description": "Swaps tried per search",
@@ -43194,11 +43579,21 @@
             "type": "integer"
           },
           "factors": {
-            "description": "Number of factors, names, or {name: [level values]}",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Number of factors, names, or {name: [level values]}"
           },
           "generators": {
             "description": "Generators of a two-level fraction, e.g. ['E = ABC']",
@@ -43208,15 +43603,19 @@
             "type": "array"
           },
           "levels": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
             "default": 2,
-            "description": "Levels per factor",
-            "items": {
-              "type": "integer"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Levels per factor"
           },
           "n_runs": {
             "description": "Size of a fraction: a power of two (minimum aberration), 12 / 20 / 24 (Plackett-Burman), a power of 3, 5 or 7 for factors at that many levels, or 18 (L18)",
@@ -43518,11 +43917,18 @@
       "parameters": {
         "properties": {
           "components": {
-            "description": "Number or names",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Number or names"
           },
           "constraint": {
             "description": "Feasibility of candidate blends (space_filling only)",
@@ -43810,11 +44216,21 @@
             "type": "string"
           },
           "factors": {
-            "description": "Inputs: number, names, or {name: (lower, upper) | scipy distribution}",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Inputs: number, names, or {name: (lower, upper) | scipy distribution}"
           },
           "func": {
             "description": "The model: receives the runs, returns one number per run",
@@ -44053,11 +44469,21 @@
             "type": "string"
           },
           "factors": {
-            "description": "Inputs: number, names, or {name: (lower, upper)}",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Inputs: number, names, or {name: (lower, upper)}"
           },
           "func": {
             "description": "The model (None with design and y)",
@@ -44676,15 +45102,19 @@
             "type": "number"
           },
           "scale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "mad",
-            "description": "scale parameter (str | list).",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "scale parameter (str | list)."
           },
           "seed": {
             "description": "Random seed for reproducible stochastic steps.",
@@ -45231,26 +45661,34 @@
             "type": "number"
           },
           "prior_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "Normal prior of the stacked coefficients (equation by equation, in the order of ``formulas``): scalars, a vector or a matrix.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Normal prior of the stacked coefficients (equation by equation, in the order of ``formulas``): scalars, a vector or a matrix."
           },
           "prior_var": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1000.0,
-            "description": "Normal prior of the stacked coefficients (equation by equation, in the order of ``formulas``): scalars, a vector or a matrix.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Normal prior of the stacked coefficients (equation by equation, in the order of ``formulas``): scalars, a vector or a matrix."
           },
           "seed": {
             "description": "As in :func:`statspai.bayes_regress`.",
@@ -45613,11 +46051,18 @@
             "type": "string"
           },
           "ar_order": {
-            "description": "Fixed AR order(s)",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Fixed AR order(s)"
           },
           "data": {
             "description": "Frame holding x and y",
@@ -45823,11 +46268,18 @@
             "type": "number"
           },
           "y": {
-            "description": "Column(s) of data",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Column(s) of data"
           }
         },
         "required": [
@@ -46008,11 +46460,18 @@
             "type": "string"
           },
           "spans": {
-            "description": "Daniell spans",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Daniell spans"
           },
           "taper": {
             "default": 0.1,
@@ -46458,18 +46917,32 @@
             "type": "string"
           },
           "max_order": {
-            "description": "Largest order considered when ``order`` is not given. For the autoregression, default ``min(8, (T - 1) // 4)``. With ``arma=True`` the search is over every ``(p, q)`` with ``0 <= p <= P`` and ``0 <= q <= Q``; an integer sets ``P = Q``, default ``min(3, (T - 1) // 10)``.",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Largest order considered when ``order`` is not given. For the autoregression, default ``min(8, (T - 1) // 4)``. With ``arma=True`` the search is over every ``(p, q)`` with ``0 <= p <= P`` and ``0 <= q <= Q``; an integer sets ``P = Q``, default ``min(3, (T - 1) // 10)``."
           },
           "order": {
-            "description": "AR order (OLS), or (p, q) for an ARMA by exact ML",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "AR order (OLS), or (p, q) for an ARMA by exact ML"
           },
           "y": {
             "description": "Level",
@@ -47377,11 +47850,18 @@
             "type": "string"
           },
           "obs_var": {
-            "description": "Fix error variances",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Fix error variances"
           },
           "prior": {
             "default": "diffuse",
@@ -47416,11 +47896,18 @@
             "type": "string"
           },
           "state_var": {
-            "description": "Fix innovation variances",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Fix innovation variances"
           },
           "time": {
             "description": "Column to sort and label by",
@@ -47610,11 +48097,18 @@
             "type": "integer"
           },
           "switch": {
-            "description": "Regressors whose coefficients depend on the regime",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Regressors whose coefficients depend on the regime"
           },
           "switch_ar": {
             "default": false,
@@ -47641,11 +48135,18 @@
             "type": "string"
           },
           "x": {
-            "description": "Regressors with the same coefficient in every regime",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Regressors with the same coefficient in every regime"
           },
           "y": {
             "description": "Dependent variable",
@@ -48028,11 +48529,18 @@
             "type": "integer"
           },
           "switch": {
-            "description": "The model, as in :func:`mswitch`.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "The model, as in :func:`mswitch`."
           },
           "switch_ar": {
             "default": false,
@@ -48050,11 +48558,18 @@
             "type": "number"
           },
           "x": {
-            "description": "The model, as in :func:`mswitch`.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "The model, as in :func:`mswitch`."
           },
           "y": {
             "description": "Dependent variable",
@@ -48195,15 +48710,19 @@
             "type": "integer"
           },
           "first_stage_prior_var": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1000.0,
-            "description": "Prior variance of the first-stage coefficients",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Prior variance of the first-stage coefficients"
           },
           "formula": {
             "description": "'y ~ x1 + (d ~ z1 + z2)'",
@@ -48216,26 +48735,34 @@
             "type": "number"
           },
           "prior_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "Prior mean of the structural coefficients (exogenous terms, then the endogenous regressor)",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Prior mean of the structural coefficients (exogenous terms, then the endogenous regressor)"
           },
           "prior_var": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1000.0,
-            "description": "Prior variance of the structural coefficients",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Prior variance of the structural coefficients"
           },
           "seed": {
             "description": "As in :func:`statspai.bayes_regress`.",
@@ -49641,11 +50168,18 @@
             "type": "number"
           },
           "effect": {
-            "description": "Hypothesised true effect, from outside information, never the estimate under review",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Hypothesised true effect, from outside information, never the estimate under review"
           },
           "method": {
             "default": "exact",
@@ -49657,11 +50191,18 @@
             "type": "string"
           },
           "se": {
-            "description": "Standard error",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Standard error"
           }
         },
         "required": [
@@ -49989,15 +50530,19 @@
             "x-statspai-role": "column"
           },
           "n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1,
-            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x",
-            "items": {
-              "type": "integer"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x"
           },
           "time": {
             "description": "Time variable, integer periods or pandas Period (default: the sp.xtset declaration)",
@@ -50005,11 +50550,18 @@
             "x-statspai-role": "column"
           },
           "var": {
-            "description": "Variable(s) to operate on",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variable(s) to operate on"
           }
         },
         "required": [
@@ -50105,15 +50657,19 @@
             "x-statspai-role": "column"
           },
           "n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1,
-            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x",
-            "items": {
-              "type": "integer"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x"
           },
           "time": {
             "description": "Time variable, integer periods or pandas Period (default: the sp.xtset declaration)",
@@ -50121,11 +50677,18 @@
             "x-statspai-role": "column"
           },
           "var": {
-            "description": "Variable(s) to operate on",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variable(s) to operate on"
           }
         },
         "required": [
@@ -50221,15 +50784,19 @@
             "x-statspai-role": "column"
           },
           "n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1,
-            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x",
-            "items": {
-              "type": "integer"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Order; a list such as [1, 2, 3] is Stata's L(1/3).x"
           },
           "time": {
             "description": "Time variable, integer periods or pandas Period (default: the sp.xtset declaration)",
@@ -50237,11 +50804,18 @@
             "x-statspai-role": "column"
           },
           "var": {
-            "description": "Variable(s) to operate on",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variable(s) to operate on"
           }
         },
         "required": [
@@ -50423,11 +50997,18 @@
             "type": "string"
           },
           "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Stata's i()",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-aliases": [
               "i"
             ]
@@ -50442,11 +51023,18 @@
             "type": "boolean"
           },
           "stubs": {
-            "description": "Variables that vary with j (long: the name before the suffix)",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variables that vary with j (long: the name before the suffix)"
           }
         },
         "required": [
@@ -50520,11 +51108,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Group variables",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Group variables"
           },
           "cw": {
             "default": false,
@@ -50639,11 +51234,18 @@
             "type": "integer"
           },
           "by": {
-            "description": "Group variables (by()); not with std, group, tag or row functions",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Group variables (by()); not with std, group, tag or row functions"
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -50747,11 +51349,18 @@
             "type": "boolean"
           },
           "x": {
-            "description": "The variable (statistics, std, rank, cut) as a column name or aligned values; the variable list for group / tag / row functions; none for seq",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "The variable (statistics, std, rank, cut) as a column name or aligned values; the variable list for group / tag / row functions; none for seq"
           }
         },
         "required": [
@@ -50846,11 +51455,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Also report within these columns",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Also report within these columns"
           },
           "cells": {
             "description": "One row per population cell: the model's columns and the cell count",
@@ -56376,11 +56992,18 @@
             "type": "number"
           },
           "by": {
-            "description": "Grouping keys, typically the panel index",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Grouping keys, typically the panel index"
           },
           "count": {
             "description": "Abundance column; omit when one row is one record",
@@ -56392,25 +57015,29 @@
             "x-statspai-role": "dataframe"
           },
           "index": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "enum": [
+                    "shannon",
+                    "richness",
+                    "pielou",
+                    "simpson",
+                    "gini_simpson",
+                    "inv_simpson",
+                    "hill",
+                    "all"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "shannon",
-            "description": "Index/indices to compute, or 'all'",
-            "items": {
-              "enum": [
-                "shannon",
-                "richness",
-                "pielou",
-                "simpson",
-                "gini_simpson",
-                "inv_simpson",
-                "hill",
-                "all"
-              ],
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "Index/indices to compute, or 'all'"
           },
           "min_records": {
             "default": 0,
@@ -56549,11 +57176,18 @@
       "parameters": {
         "properties": {
           "absorb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Fixed effects absorbed in every component regression",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "alpha": {
@@ -56562,11 +57196,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Clustering for the component regressions and for the bootstrap, which resamples whole clusters.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Clustering for the component regressions and for the bootstrap, which resamples whole clusters."
           },
           "data": {
             "description": "Full sample: main and zero-first-stage observations together.",
@@ -56579,11 +57220,18 @@
             "x-statspai-role": "columns"
           },
           "exog": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Controls entering every component regression.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "instrument": {
@@ -56762,11 +57410,18 @@
       "parameters": {
         "properties": {
           "absorb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "High-dimensional fixed effects to partial out before the bundle is computed, so every statistic describes the absorbed specification (ivreghdfe-equivalent)",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "alpha": {
@@ -56800,11 +57455,18 @@
             "x-statspai-role": "columns"
           },
           "exog": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Optional included exogenous controls",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "grid_size": {
@@ -56828,11 +57490,18 @@
             "type": "boolean"
           },
           "instruments": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Excluded instruments.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "ltz_gamma_sd": {
@@ -67287,11 +67956,18 @@
             "type": "integer"
           },
           "ref_p": {
-            "description": "Omitted reference relative period(s), fixest sunab's ref.p (int or list of int). Default -1 - anticipation; every value must be below -anticipation.",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Omitted reference relative period(s), fixest sunab's ref.p (int or list of int). Default -1 - anticipation; every value must be below -anticipation."
           },
           "share_variance": {
             "default": true,
@@ -80517,15 +81193,19 @@
             "type": "number"
           },
           "bw_grid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 30,
-            "description": "interflex ``grid``: an integer gives that many candidates log-spaced from ``range(x)/100`` to ``range(x)``; a sequence is used as the grid.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "interflex ``grid``: an integer gives that many candidates log-spaced from ``range(x)/100`` to ``range(x)``; a sequence is used as the grid."
           },
           "cutoffs": {
             "description": "cutoffs parameter (Optional[Sequence[float]]).",
@@ -82892,11 +83572,18 @@
             "x-statspai-role": "dataframe"
           },
           "exovar": {
-            "description": "``exovar()``: covariates that enter without interactions. Stata factor terms work, e.g. ``\"i.year#i.nodecity\"``.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "``exovar()``: covariates that enter without interactions. Stata factor terms work, e.g. ``\"i.year#i.nodecity\"``."
           },
           "gvar": {
             "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
@@ -82969,11 +83656,18 @@
             ]
           },
           "x": {
-            "description": "``indepvars`` of ``jwdid y x``: covariates that moderate each treatment effect. ``\"i.region\"`` marks a categorical covariate -- the per-level ATTs of ``estat simple, over(region)`` are ``sp.etwfe_emfx(result, type='simple', by_xvar=True)``.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "``indepvars`` of ``jwdid y x``: covariates that moderate each treatment effect. ``\"i.region\"`` marks a categorical covariate -- the per-level ATTs of ``estat simple, over(region)`` are ``sp.etwfe_emfx(result, type='simple', by_xvar=True)``."
           },
           "y": {
             "description": "Outcome (``depvar``).",
@@ -83158,15 +83852,19 @@
             "type": "boolean"
           },
           "methods": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "auto",
-            "description": "Methods to run. Valid keys: ``'cs'``, ``'sa'``, ``'bjs'``, ``'etwfe'``, ``'stacked'``, or ``'all'`` / ``'auto'`` for all.",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "Methods to run. Valid keys: ``'cs'``, ``'sa'``, ``'bjs'``, ``'etwfe'``, ``'stacked'``, or ``'all'`` / ``'auto'`` for all."
           },
           "time": {
             "description": "Time / period variable (integer-valued).",
@@ -84008,11 +84706,18 @@
             "type": "array"
           },
           "h": {
-            "description": "Bandwidths ``(h_left, h_right)``; by default those of :func:`sp.rddensity` at the same ``c`` and ``p``.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Bandwidths ``(h_left, h_right)``; by default those of :func:`sp.rddensity` at the same ``c`` and ``p``."
           },
           "hist": {
             "default": true,
@@ -86332,11 +87037,18 @@
             "type": "string"
           },
           "h": {
-            "description": "Bandwidth, or ``(h_left, h_right)``. Default: ``rdrobust``'s ``rdbwselect`` (``bwselect``) on the running variable -- separately in each subgroup for a binary ``z``, as R does.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Bandwidth, or ``(h_left, h_right)``. Default: ``rdrobust``'s ``rdbwselect`` (``bwselect``) on the running variable -- separately in each subgroup for a binary ``z``, as R does."
           },
           "kernel": {
             "default": "triangular",
@@ -86384,11 +87096,18 @@
             "x-statspai-role": "column"
           },
           "z": {
-            "description": "Covariate(s) the effect varies with. A single 0/1 column is treated as two subgroups (R's factor rule).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Covariate(s) the effect varies with. A single 0/1 column is treated as two subgroups (R's factor rule)."
           }
         },
         "required": [
@@ -86567,11 +87286,18 @@
             "x-statspai-role": "column"
           },
           "z": {
-            "description": "Instrument, proxy, or auxiliary variable used by this estimator.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Instrument, proxy, or auxiliary variable used by this estimator."
           }
         },
         "required": [
@@ -90434,15 +91160,19 @@
             "type": "string"
           },
           "moments": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
             "default": 1,
-            "description": "Number of moments to balance: - 1: means only - 2: means and variances - 3: means, variances, and skewness A sequence gives the order covariate by covariate, in the order of ``covariates`` (Stata ``ebalance ..., targets(2 2 1)``). A moment that repeats another one in the sample is balanced by it and is left out of the problem: the square of a 0/1 indicator is the indicator, so asking for its variance adds nothing. Such moments are listed in ``model_info['redundant_moments']``.",
-            "items": {
-              "type": "integer"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Number of moments to balance: - 1: means only - 2: means and variances - 3: means, variances, and skewness A sequence gives the order covariate by covariate, in the order of ``covariates`` (Stata ``ebalance ..., targets(2 2 1)``). A moment that repeats another one in the sample is balanced by it and is left out of the problem: the square of a 0/1 indicator is the indicator, so asking for its variance adds nothing. Such moments are listed in ``model_info['redundant_moments']``."
           },
           "treat": {
             "description": "Binary treatment indicator (0/1).",
@@ -90975,11 +91705,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Cluster identifier column for clustered standard errors.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster identifier column for clustered standard errors."
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -90999,11 +91736,18 @@
             "type": "string"
           },
           "instrument": {
-            "description": "instrument parameter (Union[str, List[str], NoneType]).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "instrument parameter (Union[str, List[str], NoneType])."
           },
           "ml_g": {
             "description": "ml_g parameter (Optional[Any]).",
@@ -91172,11 +91916,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Cluster identifier column for clustered standard errors.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster identifier column for clustered standard errors."
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -91200,11 +91951,18 @@
             "type": "string"
           },
           "instrument": {
-            "description": "instrument parameter (Union[str, List[str], NoneType]).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "instrument parameter (Union[str, List[str], NoneType])."
           },
           "ml_g": {
             "description": "ml_g parameter (Optional[Any]).",
@@ -91366,11 +92124,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Cluster identifier column for clustered standard errors.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster identifier column for clustered standard errors."
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -91394,11 +92159,18 @@
             "type": "string"
           },
           "instrument": {
-            "description": "instrument parameter (Union[str, List[str], NoneType]).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "instrument parameter (Union[str, List[str], NoneType])."
           },
           "ml_g": {
             "description": "ml_g parameter (Optional[Any]).",
@@ -91560,11 +92332,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Cluster identifier column for clustered standard errors.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster identifier column for clustered standard errors."
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -91588,11 +92367,18 @@
             "type": "string"
           },
           "instrument": {
-            "description": "instrument parameter (Union[str, List[str], NoneType]).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "instrument parameter (Union[str, List[str], NoneType])."
           },
           "ml_g": {
             "description": "ml_g parameter (Optional[Any]).",
@@ -91754,11 +92540,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Cluster identifier column for clustered standard errors.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster identifier column for clustered standard errors."
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -91782,11 +92575,18 @@
             "type": "string"
           },
           "instrument": {
-            "description": "instrument parameter (Union[str, List[str], NoneType]).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "instrument parameter (Union[str, List[str], NoneType])."
           },
           "ml_g": {
             "description": "ml_g parameter (Optional[Any]).",
@@ -94525,11 +95325,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "One-way or multi-way cluster column(s).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "One-way or multi-way cluster column(s)."
           },
           "cluster_df": {
             "description": "Small-sample factor of a multi-way cluster variance (the inclusion-exclusion sum ``V_a + V_b - V_ab``). ``None`` (the default) is ``'per_term'`` in this release and warns (``FutureWarning``) when two or more cluster variables are given: the default will become ``'min'`` in a later minor release. Pass either value to silence the warning. ``'per_term'`` scales each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does; ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to reproduce their numbers. The two differ by a few percent with few clusters in one dimension (0.00935 against 0.00856 on one 40 x 15 panel); one-way clustering is the same either way. The choice is recorded in ``cluster_info['cluster_df']``. OLS with fixed effects only. .. deprecated:: 1.40.0 The implicit ``'per_term'`` default for multi-way clustering; it becomes ``'min'`` (see MIGRATION.md).",
@@ -95250,15 +96057,19 @@
             "x-statspai-role": "dataframe"
           },
           "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.02,
-            "description": "Balance tolerance. With ``tolerance_scale='sd'`` the constraint is ``|mean_T(X_j) - weighted mean_C(X_j)| <= delta_j * sd(X_j)``.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Balance tolerance. With ``tolerance_scale='sd'`` the constraint is ``|mean_T(X_j) - weighted mean_C(X_j)| <= delta_j * sd(X_j)``."
           },
           "estimand": {
             "default": "att",
@@ -97576,11 +98387,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Compute the cutoffs within groups, as ``winsor2 ..., by(g)``.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Compute the cutoffs within groups, as ``winsor2 ..., by(g)``."
           },
           "cuts": {
             "default": [
@@ -98755,11 +99573,18 @@
             "type": "string"
           },
           "x": {
-            "description": "Names of independent variables (alternative to formula).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Names of independent variables (alternative to formula)."
           },
           "y": {
             "description": "Name of the dependent variable (alternative to formula).",
@@ -99077,11 +99902,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Variable name for clustered standard errors (recommended for gravity models, e.g. cluster on country-pair). A pair ``cluster=[\"a\", \"b\"]`` requests two-way clustering (Cameron-Gelbach-Miller 2011 inclusion-exclusion with the single ``G_min/(G_min-1)`` small-sample factor -- byte-identical to Stata ``ppmlhdfe ..., cluster(a b)``). ``cluster=\"city^year\"`` (or ``\"city#year\"``) clusters on the level combination.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Variable name for clustered standard errors (recommended for gravity models, e.g. cluster on country-pair). A pair ``cluster=[\"a\", \"b\"]`` requests two-way clustering (Cameron-Gelbach-Miller 2011 inclusion-exclusion with the single ``G_min/(G_min-1)`` small-sample factor -- byte-identical to Stata ``ppmlhdfe ..., cluster(a b)``). ``cluster=\"city^year\"`` (or ``\"city#year\"``) clusters on the level combination."
           },
           "conley_cutoff": {
             "description": "conley_cutoff parameter (Optional[float]).",
@@ -99801,11 +100633,18 @@
       "parameters": {
         "properties": {
           "hypothesis": {
-            "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 = 0, x2 + x3 = 1\"`` -- the same, in the comma-separated spelling of statsmodels' ``f_test`` - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 = 0, x2 + x3 = 1\"`` -- the same, in the comma-separated spelling of statsmodels' ``f_test`` - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``)."
           },
           "result": {
             "description": "Fitted model with ``.params`` and ``.std_errors``; restrictions that involve several coefficients also need its covariance matrix.",
@@ -100674,18 +101513,32 @@
             "type": "number"
           },
           "bino_w": {
-            "description": "Half-width of the first window of the binomial tests (two values: below and above the cutoff). By default it is the smallest half-width holding ``bino_n`` observations.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Half-width of the first window of the binomial tests (two values: below and above the cutoff). By default it is the smallest half-width holding ``bino_n`` observations."
           },
           "bino_wstep": {
-            "description": "Increment in half-width between windows. Defaults to the first window's half-width.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Increment in half-width between windows. Defaults to the first window's half-width."
           },
           "c": {
             "default": 0,
@@ -100701,11 +101554,18 @@
             "x-statspai-role": "dataframe"
           },
           "h": {
-            "description": "Bandwidth. A scalar applies the same bandwidth on both sides; a length-2 sequence is interpreted as ``(h_left, h_right)``.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Bandwidth. A scalar applies the same bandwidth on both sides; a length-2 sequence is interpreted as ``(h_left, h_right)``."
           },
           "p": {
             "default": 2,
@@ -100974,11 +101834,18 @@
       "parameters": {
         "properties": {
           "absorb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "High-dimensional fixed effects to partial out of ``y``, the endogenous regressor, the instruments and the controls before the test -- the same residualisation ``sp.iv(absorb=...)`` performs.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "alpha": {
@@ -100999,11 +101866,18 @@
             "type": "string"
           },
           "cluster": {
-            "description": "Cluster the AR statistic. Switches from the homoskedastic F-form to the (multiway) cluster-robust quadratic form ``(Z'e)' Omega^-1 (Z'e)`` with ``Omega`` the cluster-sum variance of the moment vector, referred to ``F(k_z, G-1)``. Without this, a panel AR test over-rejects exactly as a homoskedastic t-test",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster the AR statistic. Switches from the homoskedastic F-form to the (multiway) cluster-robust quadratic form ``(Z'e)' Omega^-1 (Z'e)`` with ``Omega`` the cluster-sum variance of the moment vector, referred to ``F(k_z, G-1)``. Without this, a panel AR test over-rejects exactly as a homoskedastic t-test"
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -101011,11 +101885,18 @@
             "x-statspai-role": "dataframe"
           },
           "endog": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Endogenous regressor(s). With a list of two or more, the test is the joint AR F test of ``beta = h0`` for all of them (at ``h0 = 0`` Stata ``ivreg2``'s ``e(arf)``), in the same ``ar_vcov`` / ``cluster`` / ``absorb`` forms; no confidence set, effective F or tF value is returned then (the AR set is a region in R^p -- use ``sp.weakrobust(..., project=[...])`` for intervals on single coefficients).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "exog": {
@@ -101027,15 +101908,22 @@
             "x-statspai-role": "columns"
           },
           "h0": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0,
-            "description": "Null hypothesis value for the endogenous coefficient(s): one per endogenous regressor, or one number used for all.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Null hypothesis value for the endogenous coefficient(s): one per endogenous regressor, or one number used for all."
           },
           "instruments": {
             "description": "Excluded instruments.",
@@ -101200,11 +102088,18 @@
       "parameters": {
         "properties": {
           "absorb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "High-dimensional fixed effects to partial out of the endogenous regressor, the instruments and the controls before the first stage -- the same residualisation ``sp.iv(absorb=...)`` performs, so the effective F describes the specification actually fitted. The absorbed degrees of freedom are charged to ``df_resid``.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "alpha": {
@@ -101213,11 +102108,18 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Cluster the first-stage moment variance. ``Omega`` becomes the (multiway, Cameron-Gelbach-Miller) cluster-sum meat with the ``ivreg2`` finite-sample factor ``G_min/(G_min-1) * (n-1)/(n-K)``. This is the right diagnostic whenever the second stage is",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster the first-stage moment variance. ``Omega`` becomes the (multiway, Cameron-Gelbach-Miller) cluster-sum meat with the ``ivreg2`` finite-sample factor ``G_min/(G_min-1) * (n-1)/(n-K)``. This is the right diagnostic whenever the second stage is"
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -101567,11 +102469,18 @@
             "type": "integer"
           },
           "cluster": {
-            "description": "Cluster variable for the weak-IV-robust tests (one-way, as Stata ``weakiv ..., cluster()``); implies ``test_vcov='cluster'``. The effective F is clustered on it too.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Cluster variable for the weak-IV-robust tests (one-way, as Stata ``weakiv ..., cluster()``); implies ``test_vcov='cluster'``. The effective F is clustered on it too."
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -101579,11 +102488,18 @@
             "x-statspai-role": "dataframe"
           },
           "endog": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Endogenous regressor(s). With two or more the tests are joint tests of ``beta = h0`` in Stata ``weakiv``'s form (see Notes); ``subset=`` / ``project=`` give intervals for single coefficients.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "exog": {
@@ -101600,15 +102516,19 @@
             "type": "integer"
           },
           "h0": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "Null value(s) for the endogenous coefficient(s): one per endogenous regressor, or one number used for all. All under-H0 tests (AR, CLR, K) are evaluated at ``beta = h0``.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Null value(s) for the endogenous coefficient(s): one per endogenous regressor, or one number used for all. All under-H0 tests (AR, CLR, K) are evaluated at ``beta = h0``."
           },
           "include_clr": {
             "default": true,
@@ -101629,11 +102549,18 @@
             "x-statspai-role": "columns"
           },
           "project": {
-            "description": "With several endogenous regressors: names whose coefficient gets the projection of the joint AR set (``weakiv ..., project()``): ``b1`` is in the set if *some* value of the other coefficients is not rejected by the joint AR test, ``chi2(k)``. Conservative. Computed in closed form (LIML root) over the whole real line, where Stata searches a user-bounded grid. i.i.d. errors only.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "With several endogenous regressors: names whose coefficient gets the projection of the joint AR set (``weakiv ..., project()``): ``b1`` is in the set if *some* value of the other coefficients is not rejected by the joint AR test, ``chi2(k)``. Conservative. Computed in closed form (LIML root) over the whole real line, where Stata searches a user-bounded grid. i.i.d. errors only."
           },
           "random_state": {
             "description": "Random seed or RandomState for reproducible stochastic steps.",
@@ -101644,11 +102571,18 @@
             "x-canonical": "seed"
           },
           "subset": {
-            "description": "With several endogenous regressors: names whose coefficient gets a subset AR test (``weakiv ..., subset()``) at its ``h0`` value and a confidence set, the other coefficients concentrated out by LIML. Referred to ``chi2(k - p + 1)``. i.i.d. errors only, as in Stata.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "With several endogenous regressors: names whose coefficient gets a subset AR test (``weakiv ..., subset()``) at its ``h0`` value and a confidence set, the other coefficients concentrated out by LIML. Referred to ``chi2(k - p + 1)``. i.i.d. errors only, as in Stata."
           },
           "test_vcov": {
             "description": "Variance behind the AR / K / J / CLR tests, in Stata ``weakiv``'s form (see Notes). ``'robust'`` is heteroskedasticity-robust (``weakiv ..., robust``). Default: ``'cluster'`` when ``cluster`` is given, else ``'classic'``; leaving it unset with one endogenous regressor and no ``cluster`` keeps the ``ivmodel`` convention.",
@@ -102505,11 +103439,18 @@
       "parameters": {
         "properties": {
           "absorb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Fixed effects for ``stat='ols'`` / ``'ols_t'``, as ``reghdfe``'s ``absorb()`` (column names, ``\"a^b\"`` for combinations; singletons dropped). They are swept out by the ``sp.hdfe_ols`` absorber (Frisch-Waugh-Lovell). Under ``cluster`` the regressor of any permutation is ``R v`` with ``R`` the swept cluster indicators (times ``interact``) and ``v`` the permuted cluster values, so only ``G`` columns are swept once and each permutation is a small matrix product -- the statistic equals the ``sp.hdfe_ols`` coefficient (or its cluster t) refitted on the permuted treatment. Without ``cluster`` every permutation re-sweeps the regressor.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "alpha": {
@@ -103744,18 +104685,32 @@
             "type": "number"
           },
           "bootcluster": {
-            "description": "Least squares: the variable(s) whose clusters the bootstrap weights are drawn for (Stata ``boottest, bootcluster()``). Default: the intersection of the cluster variables, boottest's default. As in boottest, bootstrap clusters that cut across one-way error clusters are replaced by their intersections with them (a subcluster bootstrap, with a warning); ones nested in no error clustering and coarser are refused.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Least squares: the variable(s) whose clusters the bootstrap weights are drawn for (Stata ``boottest, bootcluster()``). Default: the intersection of the cluster variables, boottest's default. As in boottest, bootstrap clusters that cut across one-way error clusters are replaced by their intersections with them (a subcluster bootstrap, with a warning); ones nested in no error clustering and coarser are refused."
           },
           "cluster": {
-            "description": "Name of the cluster variable.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Name of the cluster variable."
           },
           "confidence_set": {
             "default": false,
@@ -103768,15 +104723,19 @@
             "x-statspai-role": "dataframe"
           },
           "h0": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.0,
-            "description": "The value of the coefficient under the null, imposed when the bootstrap samples are generated (Stata ``boottest x = h0``).",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "The value of the coefficient under the null, imposed when the bootstrap samples are generated (Stata ``boottest x = h0``)."
           },
           "n_boot": {
             "default": 999,
@@ -103792,11 +104751,18 @@
             "type": "integer"
           },
           "variable": {
-            "description": "Name of the coefficient to test (H0: beta = ``h0``). Required except after ``sp.did``, where the ATT is tested.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Name of the coefficient to test (H0: beta = ``h0``). Required except after ``sp.did``, where the ATT is tested."
           },
           "weight_type": {
             "default": "rademacher",
@@ -107121,11 +108087,18 @@
             "type": "string"
           },
           "instrument": {
-            "description": "Same semantics as :func:`bayes_iv`.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Same semantics as :func:`bayes_iv`."
           },
           "prior_coef_sigma": {
             "default": 10.0,
@@ -112047,11 +113020,18 @@
             "type": "string"
           },
           "variables": {
-            "description": "Column name(s) in the design's data.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Column name(s) in the design's data."
           }
         },
         "required": [
@@ -112178,11 +113158,18 @@
             "type": "string"
           },
           "variables": {
-            "description": "variables parameter (Union[str, List[str]]).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "variables parameter (Union[str, List[str]])."
           }
         },
         "required": [
@@ -114023,11 +115010,18 @@
       "parameters": {
         "properties": {
           "absorb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Fixed effects kept in both the base and the full regression, as ``reghdfe``'s ``absorb()``: column names, ``\"a^b\"`` for one effect per combination. They are swept out of every variable by the ``sp.hdfe_ols`` absorber (singletons dropped), so the decomposition is of the within coefficients -- the same numbers as ``b1x2`` with the FE dummies among ``x1all()``. The absorbed degrees of freedom enter the long-regression small-sample factor as in ``reghdfe``.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "added_x": {
@@ -114573,11 +115567,18 @@
             "type": "string"
           },
           "foldid": {
-            "description": "Fold label of each row (or a column holding it). Without it rows are assigned at random with ``seed``.",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Fold label of each row (or a column holding it). Without it rows are assigned at random with ``seed``."
           },
           "intercept": {
             "default": true,
@@ -114585,11 +115586,18 @@
             "type": "boolean"
           },
           "lambda_": {
-            "description": "Penalties to fit. ``None`` builds ``glmnet``'s path: ``n_lambda`` values, log-spaced from the smallest penalty that sets every penalised coefficient to zero down to ``lambda_min_ratio`` of it, stopped early once the deviance explained no longer improves.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Penalties to fit. ``None`` builds ``glmnet``'s path: ``n_lambda`` values, log-spaced from the smallest penalty that sets every penalised coefficient to zero down to ``lambda_min_ratio`` of it, stopped early once the deviance explained no longer improves."
           },
           "lambda_min_ratio": {
             "description": "Default ``1e-4`` with more rows than predictors, else ``0.01``.",
@@ -114786,11 +115794,18 @@
             ]
           },
           "x": {
-            "description": "Treatment / regressor(s) of interest. The adjusted p-value corresponds to the *first* element of ``x``.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Treatment / regressor(s) of interest. The adjusted p-value corresponds to the *first* element of ``x``."
           },
           "y": {
             "description": "Outcome variable names (one regression per outcome).",
@@ -116413,11 +117428,18 @@
             "x-statspai-role": "dataframe"
           },
           "endog": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Endogenous regressor(s) ``D``.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "exog": {
@@ -116429,11 +117451,18 @@
             "x-statspai-role": "columns"
           },
           "instruments": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Instrument(s) ``Z``. Must be at least as many as ``endog``.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "n_grid": {
@@ -116456,15 +117485,19 @@
             "type": "boolean"
           },
           "tau": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.5,
-            "description": "Quantile(s) of interest in ``(0, 1)``.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "number"
-            ]
+            "description": "Quantile(s) of interest in ``(0, 1)``."
           },
           "verbose": {
             "default": false,
@@ -123634,19 +124667,26 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "enum": [
+                    "optimal",
+                    "every"
+                  ],
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
             "default": "optimal",
-            "description": "The design the assignment was drawn from: a design name or block length as in :func:`switchback_design`, a boolean vector, or the name of a boolean column of ``data`` marking the randomization points. This must be the design that was actually run; the estimator's weights are its probabilities.",
-            "items": {
-              "enum": [
-                "optimal",
-                "every"
-              ],
-              "type": "integer"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "The design the assignment was drawn from: a design name or block length as in :func:`switchback_design`, a boolean vector, or the name of a boolean column of ``data`` marking the randomization points. This must be the design that was actually run; the estimator's weights are its probabilities."
           },
           "m": {
             "default": 0,
@@ -124006,11 +125046,18 @@
             "type": "boolean"
           },
           "terms": {
-            "description": "Coefficient names tested jointly equal to zero (``var_names``).",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Coefficient names tested jointly equal to zero (``var_names``)."
           }
         },
         "required": [
@@ -124896,15 +125943,19 @@
             "type": "string"
           },
           "binselect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "default": "esmv",
-            "description": "Bin selection rule, as in :func:`statspai.rdplot`.",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "Bin selection rule, as in :func:`statspai.rdplot`."
           },
           "ci_level": {
             "default": 0.95,
@@ -124940,11 +125991,18 @@
             "type": "array"
           },
           "h": {
-            "description": "Bandwidth of the polynomial fit; the full support when omitted.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Bandwidth of the polynomial fit; the full support when omitted."
           },
           "hide_ci": {
             "default": true,
@@ -124957,22 +126015,33 @@
             "type": "string"
           },
           "nbins": {
-            "description": "Bins on each side, the same for every cutoff or one per cutoff. Chosen by ``binselect`` when omitted.",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Bins on each side, the same for every cutoff or one per cutoff. Chosen by ``binselect`` when omitted."
           },
           "p": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
             "default": 4,
-            "description": "Order of the global polynomial on each side. A sequence gives one order per cutoff.",
-            "items": {
-              "type": "integer"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Order of the global polynomial on each side. A sequence gives one order per cutoff."
           },
           "title": {
             "description": "title parameter (Optional[str]).",
@@ -125115,26 +126184,40 @@
             "type": "number"
           },
           "cutoff1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0,
-            "description": "Cutoff for x1.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Cutoff for x1."
           },
           "cutoff2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0,
-            "description": "Cutoff for x2.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Cutoff for x2."
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -125448,26 +126531,40 @@
             "type": "number"
           },
           "cutoff1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0,
-            "description": "Cutoff for x1.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Cutoff for x1."
           },
           "cutoff2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0,
-            "description": "Cutoff for x2.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "integer"
-            ]
+            "description": "Cutoff for x2."
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -126137,15 +127234,22 @@
             "type": "number"
           },
           "bandwidth": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": "mse-dpi",
-            "description": "Bandwidth for the local polynomial fit at dose zero. Either a selector name, matching Stata's ``bw_method()``: - ``'mse-dpi'`` (default) -- MSE-optimal direct plug-in at dose 0 - ``'mse-rot'`` -- the cheaper rule of thumb - ``'imse-dpi'`` / ``'imse-rot'`` -- *integrated* MSE, i.e. one global bandwidth rather than one optimal at dose 0 - ``'ce-rot'`` -- coverage-error-optimal; undersmooths ``mse-dpi``, giving a narrower window and better interval coverage ...or an explicit value: one, or one per reported horizon (placebos first, then effects). ``'ce-dpi'`` is accepted by Stata but not ported, and raises :class:`NotImplementedError` rather than silently substituting another selector.",
-            "items": {
-              "type": "number"
-            },
-            "type": [
-              "array",
-              "string"
-            ]
+            "description": "Bandwidth for the local polynomial fit at dose zero. Either a selector name, matching Stata's ``bw_method()``: - ``'mse-dpi'`` (default) -- MSE-optimal direct plug-in at dose 0 - ``'mse-rot'`` -- the cheaper rule of thumb - ``'imse-dpi'`` / ``'imse-rot'`` -- *integrated* MSE, i.e. one global bandwidth rather than one optimal at dose 0 - ``'ce-rot'`` -- coverage-error-optimal; undersmooths ``mse-dpi``, giving a narrower window and better interval coverage ...or an explicit value: one, or one per reported horizon (placebos first, then effects). ``'ce-dpi'`` is accepted by Stata but not ported, and raises :class:`NotImplementedError` rather than silently substituting another selector."
           },
           "data": {
             "description": "Long panel, one row per group-period.",
@@ -129637,11 +130741,18 @@
             "x-statspai-role": "dataframe"
           },
           "group": {
-            "description": "Grouping variable. Pass a list like ``[\"school\", \"class\"]`` to estimate a three-level nested model -- the innermost level is used as the cluster for the random slopes/intercept; the outer levels enter as additional random-intercept blocks.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Grouping variable. Pass a list like ``[\"school\", \"class\"]`` to estimate a three-level nested model -- the innermost level is used as the cluster for the random slopes/intercept; the outer levels enter as additional random-intercept blocks."
           },
           "maxiter": {
             "default": 1000,
@@ -138091,18 +139202,32 @@
             "type": "number"
           },
           "bw_max": {
-            "description": "Per-covariate search bounds (``mgwr``'s ``multi_bw_min`` / ``multi_bw_max``); a scalar applies to every covariate.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Per-covariate search bounds (``mgwr``'s ``multi_bw_min`` / ``multi_bw_max``); a scalar applies to every covariate."
           },
           "bw_min": {
-            "description": "Per-covariate search bounds (``mgwr``'s ``multi_bw_min`` / ``multi_bw_max``); a scalar applies to every covariate.",
-            "items": {
-              "type": "number"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Per-covariate search bounds (``mgwr``'s ``multi_bw_min`` / ``multi_bw_max``); a scalar applies to every covariate."
           },
           "bws": {
             "description": "Fixed covariate-specific bandwidths (length ``k``, intercept first when ``add_constant=True``). No bandwidth is searched; the result is the additive-model fit at these bandwidths.",
@@ -142744,11 +143869,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Column(s) identifying the stratum of each row, used to pair the rows of ``data_a`` and ``data_b``. Both frames must contain the same strata. Without ``by`` the rows are paired by position, which requires equal lengths.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Column(s) identifying the stratum of each row, used to pair the rows of ``data_a`` and ``data_b``. Both frames must contain the same strata. Without ``by`` the rows are paired by position, which requires equal lengths."
           },
           "data_a": {
             "description": "One row per stratum (e.g. age group). The aggregate for each population is ``R = sum_i prod_f factor_{f,i}``; with a single row it is simply ``prod_f factor_f``.",
@@ -143075,11 +144207,18 @@
       "parameters": {
         "properties": {
           "by": {
-            "description": "Category variable(s) defining cells.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Category variable(s) defining cells."
           },
           "data": {
             "description": "Tidy data. Either individual-level (aggregated internally) or pre-aggregated cell-level with columns: `group`, `by`, `rate`, optional `weights` (population size in each cell).",
@@ -144481,11 +145620,18 @@
             "type": "boolean"
           },
           "lags": {
-            "description": "Lags of the ``endog_order`` variables included as controls; an int ``p`` means lags 1..p (``lpirfs`` ``lags_endog_lin``, Stata ``lpirf, lags(1/p)``). Passing ``lags``, ``instruments``, ``vce``, ``trend``, ``common_sample`` or ``dfk`` selects this explicit design in place of ``auto_lag`` (``lags=1`` with the default ``endog_order`` is the ``auto_lag=True`` design), and the default Newey-West lag becomes the ``lpirfs`` rule ``h + 1`` at horizon ``h``. Unset, it is 1 if ``auto_lag`` else 0.",
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Lags of the ``endog_order`` variables included as controls; an int ``p`` means lags 1..p (``lpirfs`` ``lags_endog_lin``, Stata ``lpirf, lags(1/p)``). Passing ``lags``, ``instruments``, ``vce``, ``trend``, ``common_sample`` or ``dfk`` selects this explicit design in place of ``auto_lag`` (``lags=1`` with the default ``endog_order`` is the ``auto_lag=True`` design), and the default Newey-West lag becomes the ``lpirfs`` rule ``h + 1`` at horizon ``h``. Unset, it is 1 if ``auto_lag`` else 0."
           },
           "nw_lags": {
             "description": "Newey-West truncation lag, used at every horizon (for ``identification='direct'``). Defaults to ``round(1.5 * horizons)`` per Kilian & Kim (2011) recommendation.",
@@ -157564,11 +158710,18 @@
             "type": "number"
           },
           "covariates": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
             "description": "Covariate matrix, DataFrame, or column names.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
             "x-statspai-role": "columns"
           },
           "data": {

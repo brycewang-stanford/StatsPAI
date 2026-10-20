@@ -327,6 +327,8 @@ class FunctionSpec:
                 prop["x-statspai-role"] = role
                 if role == "dataframe":
                     prop["type"] = "object"
+            if role != "dataframe":
+                _union_with_scalars(prop, p.type)
             key = p.name
             facts = spelling.get(p.name)
             if facts:
@@ -38191,6 +38193,87 @@ def _array_item_type(type_text: str) -> str:
         if rx.search(inner):
             return jt
     return "string"
+
+
+#: A top-level union member that is a JSON scalar the call accepts as is.
+_SCALAR_MEMBER_TYPES = {
+    "str": "string",
+    "string": "string",
+    "int": "integer",
+    "float": "number",
+    "number": "number",
+    "bool": "boolean",
+}
+
+
+def _union_members(type_text: str) -> List[str]:
+    """Top-level members of ``A | B`` / ``Union[A, B]`` / ``Optional[A]``."""
+    t = (type_text or "").replace("typing.", "").strip().strip("'\"")
+    m = re.fullmatch(r"(Union|Optional)\[(.*)\]", t)
+    body, seps = (m.group(2), ",") if m else (t, "|")
+    out, depth, cur = [], 0, ""
+    for ch in body:
+        if ch in "[(":
+            depth += 1
+        elif ch in "])":
+            depth -= 1
+        if depth == 0 and ch in seps:
+            out.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    out.append(cur.strip())
+    if m and m.group(1) == "Optional":
+        out.append("None")
+    flat: List[str] = []
+    for member in out:
+        inner = (
+            _union_members(member) if re.match(r"(Union|Optional)\[", member) else None
+        )
+        flat.extend(inner if inner else [member])
+    return [x for x in flat if x]
+
+
+def _union_with_scalars(prop: Dict[str, Any], type_text: str) -> None:
+    """``str | list[str]``: export ``anyOf`` string / array, not array only.
+
+    The type map collapses a union containing a sequence to ``array``, so a
+    caller (or an MCP client validating arguments) was told a single column
+    name is invalid although the function takes it. Only explicit scalar
+    members (``str``, ``int``, ``float``, ``bool``) are added; ``None``,
+    arrays, frames and callables are not JSON alternatives.
+    """
+    types = prop.get("type")
+    declared = types if isinstance(types, list) else [types]
+    if "array" not in declared:
+        return
+    members = _union_members(type_text)
+    if len(members) < 2:
+        return
+    scalars: List[str] = []
+    for member in members:
+        jt = _SCALAR_MEMBER_TYPES.get(member.strip().lower())
+        if jt and jt not in scalars:
+            scalars.append(jt)
+    if not scalars:
+        return
+    if any(re.match(r"(dict|mapping)\b", m.strip().lower()) for m in members):
+        scalars.append("object")
+    for extra in declared:
+        if extra not in ("array", None) and extra not in scalars:
+            scalars.append(extra)
+    branches: List[Dict[str, Any]] = []
+    for jt in scalars:
+        branch: Dict[str, Any] = {"type": jt}
+        if jt == "string" and prop.get("enum"):
+            branch["enum"] = prop.pop("enum")
+        branches.append(branch)
+    array_branch: Dict[str, Any] = {"type": "array"}
+    if "items" in prop:
+        array_branch["items"] = prop.pop("items")
+    branches.append(array_branch)
+    prop.pop("type", None)
+    prop["anyOf"] = branches
 
 
 def _json_type_of(value: Any) -> Optional[str]:
