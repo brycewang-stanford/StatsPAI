@@ -249,6 +249,46 @@ All notable changes to StatsPAI will be documented in this file.
   (`tests/test_ipw_ps_learner.py`). Weighting alone is not doubly robust;
   the docstring points to `sp.aipw(ps_learner=)`.
 
+### Honest DiD: `sp.breakdown_m` for every restriction; module split
+
+#### Added
+
+- `sp.breakdown_m(..., honestdid_method=, bias_direction=,
+  monotonicity_direction=)` and `method='smoothness_relative_magnitude'`:
+  the breakdown value of every restriction set `sp.honest_did` offers (sign
+  and shape restrictions, `Delta^SDRM`, and the test-inverted intervals
+  under smoothness). It is the first `M` at which the set `sp.honest_did`
+  reports contains zero, found by a log-grid scan and bisection, because
+  these sets are not nested in `M` (R `HonestDiD`'s own `Delta^RMNB` set
+  contains zero at `Mbar = 0.0026`, excludes it at `0.0052` and contains it
+  again at `0.01` on the test input). R `HonestDiD` has no breakdown
+  function; with `method = "Conditional"` its sensitivity grid excludes
+  zero at `0.997 M*` and contains it at `1.003 M*` for all ten restrictions
+  tested (`tests/reference_parity/test_honest_breakdown_R_parity.py`);
+  near-noiseless designs recover the identified-set crossing
+  (`tests/test_honest_breakdown_restrictions.py`). Where the pre-period
+  coefficients reject the restriction at small `M` (empty set), it warns.
+  The default paths (the FLCI under smoothness, C-LF under relative
+  magnitudes) are unchanged.
+
+#### Changed
+
+- `did/honest_did.py` (1,944 lines) and `did/_arp.py` (895) are split by
+  concern into `_honest_common` / `_honest_r` / `_honest_breakdown` /
+  `_honest_moments` and `_arp_sets`; every name is still importable from
+  its old module. Outputs are byte-identical (Track A 10 / 16 / 21 / 84 and
+  a 375-call probe).
+
+#### ⚠️ Correctness
+
+- `sp.honest_did(method='smoothness', honestdid_method='Conditional' |
+  'C-LF')` (and the sign / shape variants) reported an empty set (`NaN`
+  bounds, `rejects_zero=False`) when the estimate lay more than the
+  identified set's half-width plus 20 standard deviations from zero:
+  HonestDiD's default grid is centred at zero and accepted nothing (R
+  returns `NA` there). The grid now moves to the estimate in that case, as
+  the relative-magnitude family already did; every other set is unchanged.
+
 ### `sp.mediate(design=)`
 
 #### Added

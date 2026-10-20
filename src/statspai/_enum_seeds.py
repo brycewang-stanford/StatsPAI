@@ -46,6 +46,11 @@ DIRECT: Dict[Key, List[str]] = {
         "relative_magnitude",
         "smoothness_relative_magnitude",
     ],
+    ("breakdown_m", "method"): [
+        "smoothness",
+        "relative_magnitude",
+        "smoothness_relative_magnitude",
+    ],
     ("mr_ivw", "model"): ["default", "fixed", "random"],
     ("etregress", "method"): ["mle", "twostep"],
     ("rlasso_effect", "method"): ["partialling out", "double selection"],

@@ -257,7 +257,9 @@ def sd_family_confidence_set(
     level-``alpha/10`` FLCI, which is its grid, so it is never extended; the
     others start from the identified set at ``beta = 0`` widened by
     ``+/- 20`` standard deviations of the target and are extended at an
-    accepted end up to ``max_expand`` times.
+    accepted end up to ``max_expand`` times; when that grid accepts nothing
+    because the estimate lies outside it, the same span is moved around the
+    estimate (HonestDiD reports an empty set there).
     """
     from ._flci import flci_delta_sd
 
@@ -277,9 +279,11 @@ def sd_family_confidence_set(
         lb = centre - flci[1] if grid_lb is None else float(grid_lb)
         ub = centre + flci[1] if grid_ub is None else float(grid_ub)
         expand_lo = expand_hi = False
+        recentre = None
     else:
         lb = grid_lb
         ub = grid_ub
+        recentre = None
         if grid_lb is None or grid_ub is None:
             id_lb, id_ub = _identified_set_at_zero(a, d, n_pre, l_vec)
             if bias == "negative" and n_post > 1:
@@ -290,6 +294,14 @@ def sd_family_confidence_set(
             sd = _sd_theta(sigma, n_pre, l_vec)
             lb = id_lb - 20.0 * sd if grid_lb is None else float(grid_lb)
             ub = id_ub + 20.0 * sd if grid_ub is None else float(grid_ub)
+            if grid_lb is None and grid_ub is None:
+                # HonestDiD centres this grid on the identified set at
+                # beta = 0. An estimate further out than its half-width plus
+                # 20 sd lies outside it, nothing is accepted and the set would
+                # be reported as empty (R returns NA); test the same span
+                # around the estimate instead, as the relative-magnitude
+                # family does.
+                recentre = max(abs(id_lb), abs(id_ub)) + 20.0 * sd
         expand_lo, expand_hi = grid_lb is None, grid_ub is None
     return union_confidence_set(
         [(a, d)],
@@ -309,6 +321,7 @@ def sd_family_confidence_set(
         expand_lo=expand_lo,
         expand_hi=expand_hi,
         max_expand=max_expand,
+        recentre_sd=recentre,
     )
 
 

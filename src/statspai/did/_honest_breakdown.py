@@ -5,6 +5,7 @@ the largest ``M`` (or ``Mbar``) at which it still excludes zero.
 """
 
 import warnings
+from typing import Optional
 
 import numpy as np
 from scipy import stats
@@ -14,10 +15,12 @@ from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._arp_sets import rm_confidence_set
 from ._flci import breakdown_m_sd, event_study_moments
 from ._honest_common import (
+    _HYBRID_OF_HM,
     _extract_event_study,
     _require_alpha,
     _require_int,
     _require_string,
+    _resolve_restriction,
     _rm_inputs,
 )
 
@@ -27,6 +30,9 @@ def breakdown_m(
     e: int = 0,
     method: str = "smoothness",
     alpha: float = 0.05,
+    honestdid_method: Optional[str] = None,
+    bias_direction: Optional[str] = None,
+    monotonicity_direction: Optional[str] = None,
 ) -> float:
     """
     Compute the breakdown value of M.
@@ -41,15 +47,33 @@ def breakdown_m(
         DID result with event study.
     e : int, default 0
         Relative time period.
-    method : {'smoothness', 'relative_magnitude'}, default 'smoothness'
-        The restriction whose confidence set is inverted; the same meaning
-        as in :func:`honest_did`.
+    method : str, default 'smoothness'
+        The restriction whose confidence set is inverted, as in
+        :func:`honest_did`: ``'smoothness'``, ``'relative_magnitude'`` or
+        ``'smoothness_relative_magnitude'`` (alias ``'sdrm'``: HonestDiD's
+        "deviation from linear trend", ``Delta^SDRM``; needs two or more
+        pre-periods).
     alpha : float, default 0.05
+    honestdid_method : {'C-LF', 'Conditional', 'FLCI', 'C-F'}, optional
+        Confidence set to invert, with :func:`honest_did`'s defaults: the
+        FLCI for plain smoothness, ``'C-F'`` for smoothness with a sign or
+        shape restriction, ``'C-LF'`` for the relative-magnitude families.
+        ``'Conditional'`` involves no simulation.
+    bias_direction : {'positive', 'negative'}, optional
+        Sign restriction on the post-treatment violation (HonestDiD's
+        ``biasDirection``), as in :func:`honest_did`. Not together with
+        ``monotonicity_direction``. Needs the joint event-study covariance.
+    monotonicity_direction : {'increasing', 'decreasing'}, optional
+        Shape restriction on the violation (HonestDiD's
+        ``monotonicityDirection``), as in :func:`honest_did`. Needs the joint
+        event-study covariance.
 
     Returns
     -------
     float
         Breakdown value M*. The effect is significant for all M < M*.
+        ``inf`` when the set excludes zero however large M is (a sign
+        restriction can bound the violation on the side that matters).
 
     Examples
     --------
@@ -96,6 +120,18 @@ def breakdown_m(
     * ``method='relative_magnitude'`` without it: the worst-case-bias
       approximation ``theta_hat +/- (Mbar max|pre| + z SE)``, giving
       ``(|theta_hat| - z SE) / max|pre|``, with a warning.
+    * every other restriction set -- a sign or shape restriction,
+      ``Delta^SDRM``, or a test-inverted interval (``'Conditional'``,
+      ``'C-LF'``, ``'C-F'``) under smoothness: the same test-inverted set
+      :func:`honest_did` reports, bisected in ``M`` (``Mbar``) to 1e-3
+      (``M``: 1e-3 standard deviations of the target). These sets are
+      nested in ``M``, so the crossing is unique; the value is the largest
+      ``M`` at which the reported set excludes zero, so ``honest_did`` at
+      that ``M`` has ``rejects_zero=True`` and just above it ``False``.
+      They need the joint covariance; without it this raises, as
+      :func:`honest_did` does. R ``HonestDiD`` has no breakdown function:
+      its sensitivity grid under ``method = "Conditional"`` brackets this
+      value (``tests/reference_parity/test_honest_breakdown_R_parity.py``).
 
     Through 1.28.0 this function returned ``(|theta_hat| - z SE) / (e + 1)``
     for every input: ``method`` was validated and then ignored, and the
@@ -111,15 +147,19 @@ def breakdown_m(
     e = _require_int(e, argument="e")
     alpha = _require_alpha(alpha)
     method = _require_string(method, argument="method")
-    method_norm = method.lower()
-    if method_norm == "relative_magnitudes":
-        method_norm = "relative_magnitude"
-    if method_norm not in {"smoothness", "relative_magnitude"}:
-        raise MethodIncompatibility(
-            f"method must be 'smoothness' or 'relative_magnitude', got '{method}'",
-            recovery_hint="Use method='smoothness' or method='relative_magnitude'.",
-            diagnostics={"method": method},
+    family, hm, bias, mono = _resolve_restriction(
+        method, honestdid_method, bias_direction, monotonicity_direction
+    )
+    if hm == "FLCI" and (bias is not None or mono is not None):
+        warnings.warn(
+            "breakdown_m: honestdid_method='FLCI' does not use the sign or "
+            "shape restriction (honest_did warns the same); this inverts the "
+            "FLCI under smoothness alone. Use honestdid_method='C-F' (the "
+            "default with a restriction), 'Conditional' or 'C-LF'.",
+            UserWarning,
+            stacklevel=2,
         )
+        bias = mono = None
     es = _extract_event_study(result)
 
     target = es[es["relative_time"] == e]
@@ -134,7 +174,15 @@ def breakdown_m(
     se = float(target["se"].iloc[0])
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
-    if method_norm == "smoothness":
+    plain_rm_clf = family == "rm" and bias is None and mono is None and hm == "C-LF"
+    if hm != "FLCI" and not plain_rm_clf:
+        # Every set other than the two defaults (the FLCI under smoothness,
+        # C-LF under relative magnitudes), which keep their original paths.
+        return _breakdown_restricted(
+            _rm_inputs(event_study_moments(result), e), family, hm, bias, mono, alpha
+        )
+
+    if family == "smoothness":
         moments = event_study_moments(result)
         if moments is not None:
             beta, sigma, times = moments
@@ -184,8 +232,75 @@ def breakdown_m(
     return float(max((abs(theta) - z_crit * se) / scale, 0.0))
 
 
+def _bisect_breakdown(excludes_zero, unit: float = 1.0, tol: float = 1e-3) -> float:
+    """Largest ``M`` with ``excludes_zero(M)``, for a set nested in ``M``.
+
+    Brackets from ``unit`` by doubling (``inf`` past ``1e4 * unit``) and
+    bisects to ``tol * unit``.
+    """
+    if not excludes_zero(0.0):
+        return 0.0
+    hi = unit
+    while excludes_zero(hi):
+        hi *= 2.0
+        if hi > 1e4 * unit:
+            return float("inf")
+    lo = hi / 2.0 if hi > unit else 0.0
+    while hi - lo > tol * unit:
+        mid = 0.5 * (lo + hi)
+        if excludes_zero(mid):
+            lo = mid
+        else:
+            hi = mid
+    return float(lo)
+
+
+def _first_inclusion(excludes_zero, unit: float = 1.0, rtol: float = 1e-3) -> float:
+    """Smallest ``M`` at which the set contains zero, for sets not nested in M.
+
+    HonestDiD's test-inverted sets under a sign or shape restriction are not
+    always nested in ``M``: on the fixture of
+    ``test_honest_breakdown_R_parity.py`` R's own ``Delta^RMNB`` set contains
+    zero at ``Mbar = 0.0068``, excludes it at ``0.007`` and contains it again
+    at ``0.01``. Bisection on a doubling bracket would then return some
+    crossing, not the first one. Scan ``M`` upwards on a log grid (four
+    points per octave from ``unit / 1024`` to ``1e4 * unit``) and bisect the
+    first bracket in which the set comes to contain zero, to ``rtol``
+    relative to its upper end (absolute floor ``1e-6 * unit``). An
+    inclusion interval narrower than the grid step before that bracket is
+    not seen.
+    """
+    if not excludes_zero(0.0):
+        return 0.0
+    prev = 0.0
+    for m in unit * 2.0 ** (np.arange(-40, 54) / 4.0):
+        if not excludes_zero(float(m)):
+            lo, hi = prev, float(m)
+            while hi - lo > max(rtol * hi, 1e-6 * unit):
+                mid = 0.5 * (lo + hi)
+                if excludes_zero(mid):
+                    lo = mid
+                else:
+                    hi = mid
+            return float(lo)
+        prev = float(m)
+    return float("inf")
+
+
+def _excludes_zero(lo: float, hi: float) -> bool:
+    # The same verdict as honest_did's ``rejects_zero`` column.
+    return bool(np.isfinite(lo) and not (lo <= 0 <= hi))
+
+
 def _breakdown_rm(
-    b, s, n_pre, n_post, l_post, *, alpha: float, tol: float = 1e-3
+    b,
+    s,
+    n_pre,
+    n_post,
+    l_post,
+    *,
+    alpha: float,
+    tol: float = 1e-3,
 ) -> float:
     """Largest Mbar whose C-LF Delta^RM set excludes zero (bisection).
 
@@ -197,20 +312,108 @@ def _breakdown_rm(
         lo, hi, _, _ = rm_confidence_set(
             b, s, n_pre, n_post, m_bar, l_vec=l_post, alpha=alpha, method="C-LF"
         )
-        return bool(np.isfinite(lo) and not (lo <= 0 <= hi))
+        return _excludes_zero(lo, hi)
 
-    if not excludes_zero(0.0):
-        return 0.0
-    hi = 1.0
-    while excludes_zero(hi):
-        hi *= 2.0
-        if hi > 1e4:
-            return float("inf")
-    lo = hi / 2.0 if hi > 1.0 else 0.0
-    while hi - lo > tol:
-        mid = 0.5 * (lo + hi)
-        if excludes_zero(mid):
-            lo = mid
-        else:
-            hi = mid
-    return float(lo)
+    return _bisect_breakdown(excludes_zero, 1.0, tol)
+
+
+def _breakdown_restricted(
+    inputs: Optional[tuple],
+    family: str,
+    hm: str,
+    bias: Optional[str],
+    mono: Optional[str],
+    alpha: float,
+) -> float:
+    """Breakdown value of the test-inverted sets of :mod:`._honest_sets`.
+
+    The same sets ``honest_did``'s native path reports for this restriction
+    and method (default grid, extended at an accepted end); the first ``M``
+    at which they contain zero is located by :func:`_first_inclusion`. Mbar
+    is unitless; the smoothness ``M`` is in the target's units, so its scan
+    is scaled by the target's standard deviation.
+    """
+    from ._honest_sets import (
+        delta_name,
+        rm_family_confidence_set,
+        sd_family_confidence_set,
+    )
+
+    if inputs is None:
+        raise MethodIncompatibility(
+            f"breakdown_m: {delta_name(family, bias, mono)} with "
+            f"honestdid_method={hm!r} needs the joint covariance of the "
+            "event-study coefficients, which this result does not expose.",
+            recovery_hint="Refit with an estimator that stores it (see "
+            "sp.event_study_vcov), or pass the coefficients and covariance to "
+            "sp.event_study_from_moments first.",
+            diagnostics={"restriction": delta_name(family, bias, mono)},
+        )
+    b, s, n_pre, n_post, l_post = inputs
+    hybrid = _HYBRID_OF_HM[hm]
+    empty_at: list = []
+
+    def _outside(m: float, lo: float, hi: float) -> bool:
+        # "Zero is not in the set": an empty set (every grid point rejected,
+        # i.e. the pre-period coefficients reject the restriction at this M)
+        # does not contain zero, so the scan moves on to larger M.
+        if not np.isfinite(lo):
+            empty_at.append(float(m))
+            return True
+        return not (lo <= 0 <= hi)
+
+    def _finish(m_star: float) -> float:
+        below = [m for m in empty_at if m <= m_star]
+        if below:
+            warnings.warn(
+                f"breakdown_m ({delta_name(family, bias, mono)}, {hm}): the "
+                f"confidence set is empty at M = {min(below):.6g}"
+                + (f" .. {max(below):.6g}" if len(below) > 1 else "")
+                + ": the pre-period coefficients reject the restriction "
+                "there. The breakdown value is the first M at which the set "
+                "contains zero; below it the set excludes zero or is empty.",
+                UserWarning,
+                stacklevel=3,
+            )
+        return m_star
+
+    if family == "smoothness":
+
+        def excludes_zero(m: float) -> bool:
+            lo, hi, _, _ = sd_family_confidence_set(
+                b,
+                s,
+                n_pre,
+                n_post,
+                float(m),
+                l_post,
+                alpha=alpha,
+                hybrid=hybrid,
+                bias=bias,
+                mono=mono,
+                max_expand=10,
+            )
+            return _outside(m, lo, hi)
+
+        post = np.asarray(s, dtype=float)[n_pre:, n_pre:]
+        sd_theta = float(np.sqrt(l_post @ post @ l_post))
+        return _finish(_first_inclusion(excludes_zero, sd_theta))
+
+    def excludes_zero_rm(m_bar: float) -> bool:
+        lo, hi, _, _ = rm_family_confidence_set(
+            b,
+            s,
+            n_pre,
+            n_post,
+            float(m_bar),
+            l_post,
+            alpha=alpha,
+            hybrid=hybrid,
+            base=family,
+            bias=bias,
+            mono=mono,
+            max_expand=10,
+        )
+        return _outside(m_bar, lo, hi)
+
+    return _finish(_first_inclusion(excludes_zero_rm, 1.0))

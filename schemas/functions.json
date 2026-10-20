@@ -36644,17 +36644,44 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "bias_direction": {
+          "description": "Sign restriction on the post-treatment violation (HonestDiD's ``biasDirection``), as in :func:`honest_did`. Not together with ``monotonicity_direction``. Needs the joint event-study covariance.",
+          "enum": [
+            "positive",
+            "negative"
+          ],
+          "type": "string"
+        },
         "e": {
           "default": 0,
           "description": "Relative time period.",
           "type": "integer"
         },
+        "honestdid_method": {
+          "description": "Confidence set to invert, with :func:`honest_did`'s defaults: the FLCI for plain smoothness, ``'C-F'`` for smoothness with a sign or shape restriction, ``'C-LF'`` for the relative-magnitude families. ``'Conditional'`` involves no simulation.",
+          "enum": [
+            "C-LF",
+            "Conditional",
+            "FLCI",
+            "C-F"
+          ],
+          "type": "string"
+        },
         "method": {
           "default": "smoothness",
-          "description": "The restriction whose confidence set is inverted; the same meaning as in :func:`honest_did`.",
+          "description": "The restriction whose confidence set is inverted, as in :func:`honest_did`: ``'smoothness'``, ``'relative_magnitude'`` or ``'smoothness_relative_magnitude'`` (alias ``'sdrm'``: HonestDiD's \"deviation from linear trend\", ``Delta^SDRM``; needs two or more pre-periods).",
           "enum": [
             "smoothness",
-            "relative_magnitude"
+            "relative_magnitude",
+            "smoothness_relative_magnitude"
+          ],
+          "type": "string"
+        },
+        "monotonicity_direction": {
+          "description": "Shape restriction on the violation (HonestDiD's ``monotonicityDirection``), as in :func:`honest_did`. Needs the joint event-study covariance.",
+          "enum": [
+            "increasing",
+            "decreasing"
           ],
           "type": "string"
         },

@@ -5,6 +5,20 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.honest_did` smoothness test-inverted sets no longer empty for large effects
+
+`sp.honest_did(method='smoothness', honestdid_method='Conditional' or
+'C-LF')`, with or without `bias_direction` / `monotonicity_direction`,
+returned `NaN` bounds and `rejects_zero=False` when the estimate was far
+from zero relative to its standard error: the default grid (the identified
+set at `beta = 0` widened by 20 standard deviations) did not reach it. Such
+rows now carry the confidence set computed on the same span centred at the
+estimate. Rows that already had finite bounds are unchanged, and a grid you
+pass through `grid_lb` / `grid_ub` is used as given. R `HonestDiD` still
+returns `NA` for these rows.
+
+---
+
 ## 1.39.6 → unreleased: `sp.margins` after `fepois` / `feglm` needs `vcov=False`
 
 After a fit with absorbed fixed effects and a non-linear link
