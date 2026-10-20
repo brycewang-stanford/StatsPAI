@@ -4954,3 +4954,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces 65 / 66 re-record after the `sp.sac` OIM fix
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `cff32842d`.
+- **Reason.** `spatial/models/ml.py` (`sp.sac` rewritten), `durbin_error.py`
+  and the new `_fiml.py` are imported on the traced path of Track A modules
+  65 and 66. Both modules were re-run first: their committed results
+  reproduce byte for byte (SAR / SEM / SDM / GMM code unchanged); only the
+  trace was re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
