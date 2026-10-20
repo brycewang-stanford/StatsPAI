@@ -115,6 +115,13 @@ instead of reporting standard errors that hold the estimated effects fixed
 `margins_at` for the estimates, which are unchanged, or fit the effects as
 `C(g)` terms to get Stata's standard errors.
 
+Update (same release): after a Poisson fit (`sp.fepois`,
+`sp.feglm(family='poisson')`) averages no longer raise. Their standard
+errors count the effects as parameters, as Stata's `margins` after
+`poisson y x i.g` / `ppmlhdfe ..., d`, with the fit's own small-sample
+factor. Logit / probit with absorbed effects, OLS predictive margins,
+`method='mem'`, unit-level tables and two-way clustering still raise.
+
 ---
 
 ## 1.39.6 → unreleased: ⚠️ `sp.panel(vce='wild')` re-absorbs entity effects not nested in the clusters

@@ -10619,7 +10619,7 @@
         },
         "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). After a fit with absorbed fixed effects, averages that depend on the effects after a Poisson fit (fepois) count them as parameters, as Stata margins after poisson y x i.g; unit-level quantities and other models (logit / probit / OLS predictions with '| fe') need vcov=False",
           "type": "boolean"
         },
         "wts": {
@@ -10673,7 +10673,7 @@
         },
         "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). After a fit with absorbed fixed effects, averages that depend on the effects after a Poisson fit (fepois) count them as parameters, as Stata margins after poisson y x i.g; unit-level quantities and other models (logit / probit / OLS predictions with '| fe') need vcov=False",
           "type": "boolean"
         },
         "wts": {
@@ -10746,7 +10746,7 @@
         },
         "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). After a fit with absorbed fixed effects, averages that depend on the effects after a Poisson fit (fepois) count them as parameters, as Stata margins after poisson y x i.g; unit-level quantities and other models (logit / probit / OLS predictions with '| fe') need vcov=False",
           "type": "boolean"
         },
         "wts": {
@@ -10819,7 +10819,7 @@
         },
         "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). After a fit with absorbed fixed effects, averages that depend on the effects after a Poisson fit (fepois) count them as parameters, as Stata margins after poisson y x i.g; unit-level quantities and other models (logit / probit / OLS predictions with '| fe') need vcov=False",
           "type": "boolean"
         },
         "wts": {
@@ -10896,7 +10896,7 @@
         },
         "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). After a fit with absorbed fixed effects, averages that depend on the effects after a Poisson fit (fepois) count them as parameters, as Stata margins after poisson y x i.g; unit-level quantities and other models (logit / probit / OLS predictions with '| fe') need vcov=False",
           "type": "boolean"
         },
         "wts": {
@@ -10973,7 +10973,7 @@
         },
         "vcov": {
           "default": true,
-          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). Required after a fit with absorbed fixed effects (feols / fepois / feglm '| fe') for predictions and for any quantity of a non-linear model: the effects are held at their estimates and their uncertainty is not in the coefficient covariance (marginaleffects refuses the same)",
+          "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). After a fit with absorbed fixed effects, averages that depend on the effects after a Poisson fit (fepois) count them as parameters, as Stata margins after poisson y x i.g; unit-level quantities and other models (logit / probit / OLS predictions with '| fe') need vcov=False",
           "type": "boolean"
         },
         "wts": {
@@ -47141,7 +47141,7 @@
         },
         "vcov": {
           "default": true,
-          "description": "``False`` returns the estimates without standard errors (the ``se`` / ``z`` / ``pvalue`` / ``ci_*`` columns are dropped), as R ``marginaleffects``' ``vcov = FALSE``. After a model with absorbed fixed effects and a non-linear link (``sp.fepois`` / ``sp.feglm``) the marginal effects depend on the estimated effects, whose uncertainty the coefficient covariance does not carry, so standard errors are refused unless ``vcov=False`` (Stata's ``margins`` after ``poisson y x i.g`` includes it; fit the effects as ``C(g)`` terms to get that number).",
+          "description": "``False`` returns the estimates without standard errors (the ``se`` / ``z`` / ``pvalue`` / ``ci_*`` columns are dropped), as R ``marginaleffects``' ``vcov = FALSE``. After a model with absorbed fixed effects and a non-linear link the marginal effects depend on the estimated effects. After a Poisson fit (``sp.fepois``, ``sp.feglm(family='poisson')``) the standard errors count them as parameters, as Stata's ``margins`` after ``poisson y x i.g`` or ``ppmlhdfe ..., d`` (with the fit's own small-sample factor; iid, robust or one-way clustered fits, ``method='ame'``). Other links (logit / probit with absorbed effects) and two-way clustering refuse standard errors unless ``vcov=False``.",
           "type": "boolean"
         }
       },
@@ -47317,7 +47317,7 @@
         },
         "vcov": {
           "default": true,
-          "description": "``False`` returns the margins without standard errors. After a fit with absorbed fixed effects the predictive margins depend on the estimated effects (and so do contrasts after a non-linear link); their standard errors are refused unless ``vcov=False``; see :func:`margins`.",
+          "description": "``False`` returns the margins without standard errors. After a fit with absorbed fixed effects the predictive margins depend on the estimated effects (and so do contrasts after a non-linear link); after a Poisson fit their standard errors count the effects as parameters (Stata), otherwise they are refused unless ``vcov=False``; see :func:`margins`.",
           "type": "boolean"
         }
       },

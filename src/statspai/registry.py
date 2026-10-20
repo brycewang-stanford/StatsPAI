@@ -12505,11 +12505,12 @@ def _build_registry() -> None:
             False,
             True,
             "False returns estimates without standard errors (marginaleffects' "
-            "vcov = FALSE; a switch, not a variance type). Required after "
-            "a fit with absorbed fixed effects (feols / fepois / feglm '| fe') "
-            "for predictions and for any quantity of a non-linear model: the "
-            "effects are held at their estimates and their uncertainty is not "
-            "in the coefficient covariance (marginaleffects refuses the same)",
+            "vcov = FALSE; a switch, not a variance type). After a fit with "
+            "absorbed fixed effects, averages that depend on the effects "
+            "after a Poisson fit (fepois) count them as parameters, as "
+            "Stata margins after poisson y x i.g; unit-level quantities and "
+            "other models (logit / probit / OLS predictions with '| fe') "
+            "need vcov=False",
         ),
     ]
     _me_variables = ParamSpec(

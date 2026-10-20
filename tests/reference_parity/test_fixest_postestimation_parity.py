@@ -118,9 +118,9 @@ def test_avg_slopes_nonlinear_include_the_effects(fits, name):
         got["estimate"], R["avg_slopes"][name]["estimate"], **TOL
     )
     assert "std_error" not in got.columns
-    # sp.margins (Stata-style) gives the same average marginal effects; its
-    # standard errors would ignore the effects' uncertainty, so it refuses
-    # them unless vcov=False (tests/test_margins_fe_refusal.py)
+    # sp.margins (Stata-style) gives the same average marginal effects
+    # (their standard errors count the effects as parameters after a
+    # Poisson fit and are refused otherwise: tests/test_margins_fe_delta.py)
     m = _quiet(sp.margins, fits[name], DATA, vcov=False)
     np.testing.assert_allclose(m["dy/dx"], R["avg_slopes"][name]["estimate"], **TOL)
     assert "se" not in m.columns
@@ -142,7 +142,11 @@ def test_avg_comparisons_poisson(fits):
 @pytest.mark.parametrize(
     "call",
     [
-        lambda f: sp.avg_slopes(f["pois"]),
+        # unit-level quantities, and averages of a non-Poisson fit, still
+        # refuse; averages after fepois count the effects as parameters
+        # (tests/test_margins_fe_delta.py)
+        lambda f: sp.slopes(f["pois"]),
+        lambda f: sp.avg_slopes(f["logit"]),
         lambda f: sp.avg_predictions(f["ols2"]),
         lambda f: sp.predictions(f["logit"]),
         lambda f: sp.avg_slopes(f["int"], slope="eyex"),

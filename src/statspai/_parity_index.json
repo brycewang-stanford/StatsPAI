@@ -21584,6 +21584,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_fixest_postestimation_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

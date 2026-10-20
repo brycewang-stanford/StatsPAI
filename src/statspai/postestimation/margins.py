@@ -128,12 +128,14 @@ def margins(
         ``False`` returns the estimates without standard errors (the
         ``se`` / ``z`` / ``pvalue`` / ``ci_*`` columns are dropped), as R
         ``marginaleffects``' ``vcov = FALSE``. After a model with absorbed
-        fixed effects and a non-linear link (``sp.fepois`` / ``sp.feglm``)
-        the marginal effects depend on the estimated effects, whose
-        uncertainty the coefficient covariance does not carry, so standard
-        errors are refused unless ``vcov=False`` (Stata's ``margins`` after
-        ``poisson y x i.g`` includes it; fit the effects as ``C(g)`` terms to
-        get that number).
+        fixed effects and a non-linear link the marginal effects depend on
+        the estimated effects. After a Poisson fit (``sp.fepois``,
+        ``sp.feglm(family='poisson')``) the standard errors count them as
+        parameters, as Stata's ``margins`` after ``poisson y x i.g`` or
+        ``ppmlhdfe ..., d`` (with the fit's own small-sample factor; iid,
+        robust or one-way clustered fits, ``method='ame'``). Other links
+        (logit / probit with absorbed effects) and two-way clustering
+        refuse standard errors unless ``vcov=False``.
 
     Returns
     -------
@@ -187,7 +189,7 @@ def margins(
         return out if vcov else _without_inference(out)
     _reject_ldv_options(predict, category, "margins")
     ctx = _MarginsContext(result, data, at=at, subset=subset, vcov=vcov)
-    ctx.check_fe("margins", ctx.link != "identity")
+    ctx.check_fe("margins", ctx.link != "identity", method=method)
     design = ctx.design
     if variables is None:
         variables = [
@@ -223,7 +225,9 @@ def margins(
                 l_eta, l_X = ctx.index_at({var: lev}, method)
                 mu_l, f_l = _mu_and_slope(ctx.link, l_eta)
                 est = ctx.mean(mu_l - mu_b)
-                grad = ctx.mean(f_l[:, None] * l_X - f_b[:, None] * b_X)
+                grad = ctx.ext(
+                    ctx.mean(f_l[:, None] * l_X - f_b[:, None] * b_X), f_l - f_b
+                )
                 rows.append(ctx.inference_row(f"{_level_label(lev)}.{var}", est, grad))
             continue
 
@@ -233,7 +237,10 @@ def margins(
         d_eta = D @ ctx.beta
         est = ctx.mean(f * d_eta)
         # Delta method: d AME / d beta = mean(f'(eta) X d_eta + f(eta) D).
-        grad = ctx.mean(f_prime[:, None] * X * d_eta[:, None] + f[:, None] * D)
+        grad = ctx.ext(
+            ctx.mean(f_prime[:, None] * X * d_eta[:, None] + f[:, None] * D),
+            f_prime * d_eta,
+        )
         rows.append(ctx.inference_row(var, est, grad, label=f"margins({var!r})"))
 
     out = pd.DataFrame(
@@ -266,6 +273,8 @@ class _MarginsContext:
         vcov: bool = True,
     ) -> None:
         self.want_vcov = bool(vcov)
+        self.fe_delta: Any = None
+        self._V: Optional[np.ndarray] = None
         if ldv_model(result) is not None:
             raise MethodIncompatibility(
                 "this margins function is not available after limited-"
@@ -284,6 +293,7 @@ class _MarginsContext:
             self.beta = np.log(self.beta)
             self.cov_source = _IndexScaleView(result)
         frame = _margins_frame(result, data)
+        self.data = data
         self.design = design_for(result, frame)
         frame, self.n_dropped = _estimation_sample(
             result, frame, self.design, restrict=data is not None
@@ -413,32 +423,52 @@ class _MarginsContext:
         return X[None, :], D[None, :]
 
     # -- inference -------------------------------------------------------
-    def check_fe(self, fn: str, depends: bool) -> None:
-        """Refuse standard errors that would ignore the absorbed effects'
-        uncertainty (``depends``: the quantity varies with their estimates).
+    def check_fe(self, fn: str, depends: bool, method: str = "ame") -> None:
+        """Count the absorbed effects as parameters when the quantity
+        depends on their estimates (``depends``), as Stata's ``margins``
+        after ``poisson y x i.g`` does (``_fe_delta.py``); refuse where that
+        is not available.
 
-        As R marginaleffects does on a fixest model. Stata's ``margins``
-        after ``poisson y x i.g`` differentiates through the effects too;
-        on ``tests/fixtures/margins_fe/fep.csv`` the conditional standard
-        error sp.margins used to report was 0.121 against Stata's 0.106
-        (cluster) after ``ppmlhdfe`` or ``poisson i.g``
-        (``tests/test_margins_fe_refusal.py``).
+        Holding the effects fixed is not an answer: on
+        ``tests/fixtures/margins_fe/fep.csv`` it gave 0.121 against Stata's
+        0.106 (cluster) after ``ppmlhdfe`` or ``poisson i.g``.
         """
         from ..fixest._fixef import has_fixed_effects
 
-        if self.want_vcov and depends and has_fixed_effects(self.result):
-            raise MethodIncompatibility(
-                f"{fn}: the fit absorbed fixed effects and this quantity "
-                "depends on their estimates, whose uncertainty the "
-                "coefficient covariance does not carry (Stata's margins after "
-                "poisson y x i.g, and R marginaleffects' refusal on a fixest "
-                "model, agree that a conditional standard error is not the "
-                "answer).",
-                recovery_hint="Pass vcov=False for the estimates without "
-                "standard errors, or fit the effects as C() terms (e.g. "
-                "sp.poisson('y ~ x + C(g)')), whose margins match Stata's.",
-                diagnostics={"link": self.link},
-            )
+        if not (self.want_vcov and depends and has_fixed_effects(self.result)):
+            return
+        if method != "ame":
+            from ._fe_delta import _refuse
+
+            raise _refuse(fn, "only average margins (method='ame') are supported")
+        from ._fe_delta import build_fe_delta
+
+        self.fe_delta = build_fe_delta(self.result, self.data, self.design, fn)
+        self._D_eval = self.fe_delta.eval_codes(self.frame, fn)
+
+    def ext(self, grad_b: np.ndarray, eta_slope: np.ndarray) -> np.ndarray:
+        """The gradient, extended (when the effects count as parameters) by
+        the averaged derivative with respect to each row's linear index."""
+        grad_b = np.asarray(grad_b, dtype=float).reshape(-1)
+        if self.fe_delta is None:
+            return grad_b
+        from ._fe_delta import eval_weights
+
+        w = self.weights if isinstance(self.weights, np.ndarray) else None
+        u = eval_weights(w, len(self.frame)) * np.asarray(eta_slope, dtype=float)
+        return np.concatenate([grad_b, u])
+
+    def quad(self, g: np.ndarray) -> float:
+        """Delta-method variance of a quantity with gradient ``g``."""
+        if not self.want_vcov:
+            return float("nan")
+        g = np.asarray(g, dtype=float).reshape(-1)
+        if self.fe_delta is not None:
+            k = self.beta.size
+            return float(self.fe_delta.cov(g[:k], g[k:], self._D_eval)[0, 0])
+        if self._V is None:
+            self._V = self.vcov()
+        return float(g @ self._V @ g)
 
     def inference_row(
         self, name: str, est: float, grad: np.ndarray, label: Optional[str] = None
@@ -446,6 +476,9 @@ class _MarginsContext:
         if not self.want_vcov:
             return _inference_dict(float(est), float("nan"), self.df, self.alpha, name)
         grad = np.asarray(grad, dtype=float).reshape(-1)
+        if self.fe_delta is not None:
+            se = float(np.sqrt(max(self.quad(grad), 0.0)))
+            return _inference_dict(float(est), se, self.df, self.alpha, name)
         V = require_covariance(self.cov_source, grad.reshape(1, -1), label or "margins")
         se = float(np.sqrt(max(float(grad @ V @ grad), 0.0)))
         return _inference_dict(float(est), se, self.df, self.alpha, name)
@@ -713,6 +746,17 @@ def _margins_frame(result: Any, data: Optional[pd.DataFrame]) -> pd.DataFrame:
 
 
 def _offset(result: Any, frame: pd.DataFrame) -> np.ndarray:
+    """Offset / log-exposure in the linear predictor, when the fit had one,
+    plus the absorbed fixed effects of the rows' levels."""
+    from ..fixest._fixef import fe_offset
+
+    # Absorbed fixed effects (sp.feols / fepois / feglm) enter at their
+    # estimates; for standard errors that count them as parameters see
+    # _fe_delta.py.
+    return _offset_without_fe(result, frame) + fe_offset(result, frame, unseen="raise")
+
+
+def _offset_without_fe(result: Any, frame: pd.DataFrame) -> np.ndarray:
     """Offset / log-exposure in the linear predictor, when the fit had one."""
     total = np.zeros(len(frame))
     for key, transform in (("offset", lambda v: v), ("exposure", np.log)):
@@ -737,11 +781,7 @@ def _offset(result: Any, frame: pd.DataFrame) -> np.ndarray:
                 "the data passed to margins.",
                 recovery_hint="Pass data= containing the offset/exposure column.",
             )
-    from ..fixest._fixef import fe_offset
-
-    # Absorbed fixed effects (sp.feols / fepois / feglm) are held fixed at
-    # their estimates, as marginaleffects does on a fixest model.
-    return total + fe_offset(result, frame, unseen="raise")
+    return total
 
 
 def _get_vcov(result: Any) -> np.ndarray:
@@ -852,7 +892,7 @@ def _level_margins(
         eta, X = ctx.index_at({variable: lev})
         mu, slope = _mu_and_slope(ctx.link, eta)
         margins_[lev] = float(ctx.mean(mu))
-        grads[lev] = np.asarray(ctx.mean(slope[:, None] * X), dtype=float)
+        grads[lev] = ctx.ext(ctx.mean(slope[:, None] * X), slope)
     return margins_, grads
 
 
@@ -932,8 +972,9 @@ def margins_at(
         ``False`` returns the margins without standard errors. After a fit
         with absorbed fixed effects the predictive margins depend on the
         estimated effects (and so do contrasts after a non-linear link);
-        their standard errors are refused unless ``vcov=False``; see
-        :func:`margins`.
+        after a Poisson fit their standard errors count the effects as
+        parameters (Stata), otherwise they are refused unless
+        ``vcov=False``; see :func:`margins`.
 
     Returns
     -------
@@ -980,7 +1021,6 @@ def margins_at(
         _require_model_variable(ctx, v, "margins_at")
     # a contrast of linear predictions is free of the absorbed effects
     ctx.check_fe("margins_at", ctx.link != "identity" or contrast is None)
-    V = ctx.vcov() if vcov else np.full((ctx.beta.size, ctx.beta.size), np.nan)
     ppf, sf = _t_or_z(ctx.df)
     crit = ppf(1 - alpha / 2)
     points: List[Tuple[Dict[str, Any], float, np.ndarray]] = []
@@ -993,8 +1033,8 @@ def margins_at(
         eta, X = ctx.index_at(point_dict)
         mu, slope = _mu_and_slope(ctx.link, eta)
         margin = float(ctx.mean(mu))
-        gradient = np.asarray(ctx.mean(slope[:, None] * X), dtype=float)
-        se = float(np.sqrt(max(float(gradient @ V @ gradient), 0.0)))
+        gradient = ctx.ext(ctx.mean(slope[:, None] * X), slope)
+        se = float(np.sqrt(max(ctx.quad(gradient), 0.0)))
         points.append((point_dict, margin, gradient))
         row = dict(point_dict)
         row.update(
@@ -1019,7 +1059,7 @@ def margins_at(
             ]
             diff = margin - ref_margin
             g = gradient - ref_gradient
-            se = float(np.sqrt(max(float(g @ V @ g), 0.0)))
+            se = float(np.sqrt(max(ctx.quad(g), 0.0)))
             z = diff / se if se > 0 else 0.0
             row = dict(point_dict)
             row.update(
@@ -1268,7 +1308,6 @@ def contrast(
     ctx = _MarginsContext(result, data, alpha=alpha, subset=subset)
     ctx.check_fe("contrast", ctx.link != "identity")
     _require_model_variable(ctx, variable, "contrast")
-    V = ctx.vcov()
     ppf, sf = _t_or_z(ctx.df)
     crit = ppf(1 - alpha / 2)
 
@@ -1313,7 +1352,7 @@ def contrast(
                 level_grads[lev] = level_grads[lev] / (m * (1 - m))
 
     def _row(label: str, diff: float, grad_diff: np.ndarray) -> Dict[str, Any]:
-        se = float(np.sqrt(max(float(grad_diff @ V @ grad_diff), 0.0)))
+        se = float(np.sqrt(max(ctx.quad(grad_diff), 0.0)))
         z = diff / se if se > 0 else 0.0
         lo, hi = diff - crit * se, diff + crit * se
         if effect != "difference":
@@ -1454,7 +1493,6 @@ def pwcompare(
     ctx = _MarginsContext(result, data, alpha=alpha)
     ctx.check_fe("pwcompare", ctx.link != "identity")
     _require_model_variable(ctx, variable, "pwcompare")
-    V = ctx.vcov()
     ppf, sf = _t_or_z(ctx.df)
 
     levels = sorted(ctx.frame[variable].dropna().unique())
@@ -1470,7 +1508,7 @@ def pwcompare(
     for lev_a, lev_b in pairs:
         diff = level_margins[lev_b] - level_margins[lev_a]
         grad_diff = level_grads[lev_b] - level_grads[lev_a]
-        se = float(np.sqrt(max(float(grad_diff @ V @ grad_diff), 0.0)))
+        se = float(np.sqrt(max(ctx.quad(grad_diff), 0.0)))
         z = diff / se if se > 0 else 0.0
         rows.append(
             {

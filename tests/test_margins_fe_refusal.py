@@ -5,9 +5,10 @@ effects. sp.margins used to report a delta-method standard error holding
 them fixed: 0.121 (cluster) on ``fixtures/margins_fe/fep.csv``, where Stata
 reports 0.106 after both ``poisson y x i.g, vce(cluster g)`` and
 ``ppmlhdfe y x, a(g) d vce(cluster g)`` + ``margins, dydx(x)``
-(``stata_margins_fe.do``). It now refuses those standard errors, as R
-marginaleffects does on a fixest model, and returns the estimates with
-``vcov=False``. Fitting the effects as ``C(g)`` terms gives Stata's number.
+(``stata_margins_fe.do``). It then refused those standard errors; it now
+counts the effects as parameters, as Stata does
+(``tests/test_margins_fe_delta.py`` has the full comparison), and still
+returns the estimates alone with ``vcov=False``.
 """
 
 from pathlib import Path
@@ -29,9 +30,18 @@ def fe_fit():
     return sp.fepois("y ~ x | g", data=DATA)
 
 
-def test_standard_errors_are_refused(fe_fit):
+def test_standard_errors_count_the_effects(fe_fit):
+    # Stata 18: margins, dydx(x) after poisson y x i.g (oim); the fit's
+    # own small-sample factor is the ratio of the coefficient SEs
+    m = sp.margins(fe_fit, data=DATA)
+    b_se_stata = 0.0617633276670713
+    scale = b_se_stata / fe_fit.std_errors["x"]
+    np.testing.assert_allclose(m["se"] * scale, [STATA_DUMMY_OIM[1]], rtol=1e-8)
+
+
+def test_atmeans_with_absorbed_effects_is_refused(fe_fit):
     with pytest.raises(MethodIncompatibility, match="vcov=False"):
-        sp.margins(fe_fit, data=DATA)
+        sp.margins(fe_fit, data=DATA, method="mem")
 
 
 def test_estimates_without_standard_errors(fe_fit):

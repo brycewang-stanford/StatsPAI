@@ -110,6 +110,8 @@ class _Model:
         # whether the estimates are free of the absorbed fixed effects (set
         # by the caller; a contrast or slope of a linear index is)
         self.fe_free = False
+        # set by prepare_fe when the effects count as parameters
+        self.fe_delta: Any = None
         self.link = _response_link(result)
         params = getattr(result, "params", None)
         if not isinstance(params, pd.Series):
@@ -123,8 +125,10 @@ class _Model:
         if (getattr(result, "model_info", None) or {}).get("irr"):
             self.beta = np.log(self.beta)
             self.cov_source = _IndexScaleView(result)
+        self._source = _fitted_frame(result)
+        self._newdata = newdata
         if newdata is None:
-            frame = _fitted_frame(result)
+            frame = self._source
             if frame is None:
                 raise MethodIncompatibility(
                     f"{fn}: the data the model was fitted on is no longer "
@@ -151,7 +155,7 @@ class _Model:
         effects, whose sampling variance the coefficient covariance does
         not carry. Contrasts and slopes of a linear index do not.
         """
-        if self.fe and self.vcov and not self.fe_free:
+        if self.fe and self.vcov and not self.fe_free and self.fe_delta is None:
             raise MethodIncompatibility(
                 f"{self.fn}: the fit absorbed fixed effects, and this quantity "
                 "depends on their estimates, whose uncertainty the coefficient "
@@ -162,15 +166,36 @@ class _Model:
                 "model without absorption.",
             )
 
+    def prepare_fe(self, averaged: bool) -> None:
+        """Count the absorbed effects as parameters for an average that
+        depends on them, as Stata's ``margins`` after ``poisson y x i.g``
+        (``_fe_delta.py``). The Jacobian then carries one more column, the
+        derivative with respect to the row's linear index, which
+        :func:`_average` spreads over the evaluation rows."""
+        if not (self.fe and self.vcov and not self.fe_free):
+            return
+        if not averaged:
+            self.check_fe_inference()
+        from ._fe_delta import build_fe_delta
+
+        source = self._source if self._source is not None else self._newdata
+        self.fe_delta = build_fe_delta(self.result, source, self.design, self.fn)
+        self._D_eval = self.fe_delta.eval_codes(self.frame, self.fn)
+
+    def _with_index(self, jac: np.ndarray, slope: np.ndarray) -> np.ndarray:
+        if self.fe_delta is None:
+            return jac
+        return np.column_stack([jac, np.broadcast_to(slope, (jac.shape[0],))])
+
     # -- predictions on the response or link scale -----------------------
     def predict(self, frame: pd.DataFrame, type: str) -> Tuple[np.ndarray, np.ndarray]:
         """Unit predictions and their Jacobian wrt the coefficients (n x k)."""
         X = self.design.build(frame)
         eta = X @ self.beta + _offset(self.result, frame)
         if type == "link":
-            return eta, X
+            return eta, self._with_index(X, np.ones(len(eta)))
         mu, dmu = _mu_and_slope(self.link, eta)
-        return mu, dmu[:, None] * X
+        return mu, self._with_index(dmu[:, None] * X, dmu)
 
     def dydx(
         self, frame: pd.DataFrame, var: str, eps: float, type: str
@@ -181,11 +206,11 @@ class _Model:
         eta = X @ self.beta + _offset(self.result, frame)
         deta = D @ self.beta
         if type == "link":
-            return deta, D
+            return deta, self._with_index(D, np.zeros(len(deta)))
         f1, f2 = _link_derivatives(self.link, eta)
         value = f1 * deta
         jac = (f2 * deta)[:, None] * X + f1[:, None] * D
-        return value, jac
+        return value, self._with_index(jac, f2 * deta)
 
 
 # ---------------------------------------------------------------------------
@@ -221,7 +246,15 @@ def _table(
         )
         return out
     model.check_fe_inference()
-    se = np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", jac, model.V, jac), 0.0))
+    V_coef = model.V
+    if model.fe_delta is not None:
+        from ._fe_delta import factor
+
+        k = model.beta.size
+        cov = model.fe_delta.cov(jac[:, :k], jac[:, k:], model._D_eval)
+        # the hypotheses() attrs: a factor of the estimates' covariance
+        jac, V_coef = factor(cov), np.eye(cov.shape[0])
+    se = np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", jac, V_coef, jac), 0.0))
     with np.errstate(divide="ignore", invalid="ignore"):
         stat = est / se
     dist = stats.norm if not np.isfinite(df) else stats.t(df)
@@ -239,7 +272,7 @@ def _table(
             "function": fn,
             # wrapped: a bare ndarray in attrs breaks print / pd.concat
             "jacobian": AttrArray(jac),
-            "vcov_coefficients": AttrArray(model.V),
+            "vcov_coefficients": AttrArray(V_coef),
             # the rows the Jacobian describes, so a subset of the table
             # is tested with its own rows
             "jacobian_index": tuple(out.index),
@@ -282,20 +315,35 @@ def _average(
     by: Optional[Sequence[str]],
     w: Optional[np.ndarray],
     keys: Sequence[str],
+    fe: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame]:
-    """Average unit quantities within ``keys`` (+ ``by``) groups."""
+    """Average unit quantities within ``keys`` (+ ``by``) groups.
+
+    With ``fe`` the last Jacobian column is the derivative with respect to
+    each row's linear index; it is returned per evaluation row (weighted),
+    so the averaged Jacobian has ``k + n`` columns (``_fe_delta.py``).
+    """
     groups = list(keys) + list(by or [])
     frame = meta[groups].copy() if groups else pd.DataFrame(index=meta.index)
     weights = np.ones(len(meta)) if w is None else w
+
+    def avg(ww: np.ndarray, idx: Any) -> np.ndarray:
+        if not fe:
+            return np.asarray(ww @ jac[idx])
+        u = np.zeros(len(meta))
+        u[idx] = ww * jac[idx, -1]
+        return np.concatenate([ww @ jac[idx, :-1], u])
+
     if not groups:
         ww = weights / weights.sum()
-        return np.array([ww @ est]), (ww @ jac)[None, :], pd.DataFrame(index=[0])
+        idx_all = np.arange(len(meta))
+        return np.array([ww @ est]), avg(ww, idx_all)[None, :], pd.DataFrame(index=[0])
     rows_e, rows_j, rows_m = [], [], []
     for key, idx in frame.groupby(groups, sort=True, dropna=False).groups.items():
         idx = np.asarray(list(idx))
         ww = weights[idx] / weights[idx].sum()
         rows_e.append(ww @ est[idx])
-        rows_j.append(ww @ jac[idx])
+        rows_j.append(avg(ww, idx))
         key = key if isinstance(key, tuple) else (key,)
         rows_m.append(dict(zip(groups, key)))
     return np.array(rows_e), np.vstack(rows_j), pd.DataFrame(rows_m)
@@ -361,13 +409,14 @@ def predictions(
         marginaleffects' ``vcov = FALSE``. A switch, not a variance type:
         the variance is the fit's own. After a fit
         with absorbed fixed effects (``sp.feols`` / ``fepois`` / ``feglm``
-        with ``| fe``) the effects are held at their estimates, as
-        marginaleffects does on a fixest model; a quantity that depends on
-        them -- any prediction, any quantity of a non-linear model -- then
-        needs ``vcov=False``, because the coefficient covariance does not
-        carry their uncertainty (marginaleffects refuses those standard
-        errors too). Contrasts and slopes of a linear model do not depend
-        on the effects and keep their standard errors.
+        with ``| fe``) the effects enter at their estimates. An average
+        (or ``by=`` average) that depends on them after a Poisson fit
+        (``sp.fepois``) has standard errors that count the effects as
+        parameters, as Stata's ``margins`` after ``poisson y x i.g``;
+        unit-level quantities and other models then need ``vcov=False``
+        (marginaleffects refuses all of them on a fixest model).
+        Contrasts and slopes of a linear model do not depend on the
+        effects and keep their standard errors.
 
     Returns
     -------
@@ -387,10 +436,14 @@ def predictions(
     """
     model = _Model(result, newdata, "predictions", vcov)
     by = _check_by(model, by)
+    model.prepare_fe(averaged=bool(by))
     est, jac = model.predict(model.frame, type)
     dfv = _resolve_df(df, result)
     if by:
-        e, j, meta = _average(est, jac, model.frame, by, _weights(model, wts), [])
+        fe = model.fe_delta is not None
+        e, j, meta = _average(
+            est, jac, model.frame, by, _weights(model, wts), [], fe=fe
+        )
         return _table(
             model, e, j, meta, df=dfv, conf_level=conf_level, fn="predictions"
         )
@@ -427,8 +480,10 @@ def avg_predictions(
     """
     model = _Model(result, newdata, "avg_predictions", vcov)
     by = _check_by(model, by)
+    model.prepare_fe(averaged=True)
     est, jac = model.predict(model.frame, type)
-    e, j, meta = _average(est, jac, model.frame, by, _weights(model, wts), [])
+    fe = model.fe_delta is not None
+    e, j, meta = _average(est, jac, model.frame, by, _weights(model, wts), [], fe=fe)
     return _table(
         model,
         e,
@@ -574,6 +629,8 @@ def _comparisons(
     by = _check_by(model, by)
     specs = _variable_specs(model, variables, fn)
     w = _weights(model, wts)
+    model.prepare_fe(averaged=bool(average or by))
+    fe = model.fe_delta is not None
     if average or by:
         # Averaged ratios are ratios of average predictions, as in
         # marginaleffects (the mean of unit ratios is rarely the target).
@@ -589,8 +646,8 @@ def _comparisons(
             if comparison in ("ratioavg", "lnratioavg"):
                 m0, j0 = model.predict(lo, type)
                 m1, j1 = model.predict(hi, type)
-                a0, ja0, gm = _average(m0, j0, meta, by, w, ["term", "contrast"])
-                a1, ja1, _ = _average(m1, j1, meta, by, w, ["term", "contrast"])
+                a0, ja0, gm = _average(m0, j0, meta, by, w, ["term", "contrast"], fe)
+                a1, ja1, _ = _average(m1, j1, meta, by, w, ["term", "contrast"], fe)
                 if comparison == "ratioavg":
                     e = a1 / a0
                     j = (ja1 * a0[:, None] - ja0 * a1[:, None]) / (a0**2)[:, None]
@@ -601,7 +658,7 @@ def _comparisons(
                 continue
             est, jac = _contrast(model, lo, hi, comparison, type)
             if average or by:
-                pieces.append(_average(est, jac, meta, by, w, ["term", "contrast"]))
+                pieces.append(_average(est, jac, meta, by, w, ["term", "contrast"], fe))
             else:
                 pieces.append((est, jac, meta))
     est = np.concatenate([p[0] for p in pieces])
@@ -788,6 +845,8 @@ def _slopes(
     by = _check_by(model, by)
     specs = _variable_specs(model, variables, fn)
     w = _weights(model, wts)
+    model.prepare_fe(averaged=bool(average or by))
+    fe = model.fe_delta is not None
     pieces = []
     for var in specs:
         if _variable_kind(model, var) in ("factor", "binary"):
@@ -799,7 +858,7 @@ def _slopes(
                 meta.insert(0, "contrast", label)
                 meta.insert(0, "term", var)
                 pieces.append(
-                    _average(est, jac, meta, by, w, ["term", "contrast"])
+                    _average(est, jac, meta, by, w, ["term", "contrast"], fe)
                     if (average or by)
                     else (est, jac, meta)
                 )
@@ -825,7 +884,7 @@ def _slopes(
         )
         meta.insert(0, "term", var)
         pieces.append(
-            _average(s, js, meta, by, w, ["term", "contrast"])
+            _average(s, js, meta, by, w, ["term", "contrast"], fe)
             if (average or by)
             else (s, js, meta)
         )

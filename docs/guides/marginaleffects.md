@@ -125,16 +125,22 @@ fixest model. `fit.fixef()` returns them (normalised as fixest reports
 them) and `fit.predict(newdata=...)` adds them; a level the fit never saw
 predicts NaN with a warning.
 
-Standard errors follow marginaleffects. A slope or a difference of a
-linear model does not depend on the effects and keeps its standard
-error. A prediction, or any quantity of a Poisson or logit model, does.
-The coefficient covariance does not carry the effects' uncertainty, so
-those calls need `vcov=False` (as marginaleffects' `vcov = FALSE`) and
-return estimates only. `sp.margins`, `sp.margins_at`, `sp.contrast` and
-`sp.pwcompare` apply the same rule (`vcov=False` on the first two). Stata's
-`margins` after `poisson y x i.g` or `ppmlhdfe ..., d` differentiates
-through the effects; to get that number fit them as `C(g)` terms, e.g.
-`sp.poisson("y ~ x + C(g)")`, whose margins match Stata's.
+A slope or a difference of a linear model does not depend on the effects
+and keeps its standard error. A prediction, or any quantity of a Poisson
+or logit model, does. After a Poisson fit (`sp.fepois`,
+`sp.feglm(family="poisson")`) averages count the effects as parameters,
+as Stata's `margins` after `poisson y x i.g` or `ppmlhdfe ..., d` does:
+`sp.avg_slopes` / `avg_predictions` / `avg_comparisons` (and their `by=`
+averages), `sp.margins`, `sp.margins_at`, `sp.contrast` and
+`sp.pwcompare` report that standard error, with the fit's own small-sample
+factor (iid, robust or one-way clustered fits). It equals Stata's once that
+factor is accounted for (`tests/test_margins_fe_delta.py`). Unit-level
+tables, `method="mem"`, two-way clustering and absorbed logit / probit /
+OLS predictive margins still need `vcov=False`, which returns the
+estimates alone (marginaleffects refuses all of these on a fixest model).
+For a logit or probit with group effects, Stata's `margins` after
+`logit y x i.g` is the incidental-parameter estimator; fit `C(g)` terms if
+that is the target.
 
 ## Evidence
 
