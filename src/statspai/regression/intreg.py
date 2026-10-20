@@ -45,13 +45,16 @@ def _log_prob_between(a: Any, b: Any) -> Any:
     """``ln(Phi(b) - Phi(a))`` for ``a < b``, accurate in both tails and
     complex-step safe (the branch is chosen on the real part)."""
     upper = np.real(a) > 0
-    # lower tail: Phi(b) [1 - Phi(a)/Phi(b)]; upper tail: by symmetry
-    lo_side = special.log_ndtr(b) + np.log1p(
-        -np.exp(special.log_ndtr(a) - special.log_ndtr(b))
-    )
-    up_side = special.log_ndtr(-a) + np.log1p(
-        -np.exp(special.log_ndtr(-b) - special.log_ndtr(-a))
-    )
+    # lower tail: Phi(b) [1 - Phi(a)/Phi(b)]; upper tail: by symmetry.
+    # Both sides are evaluated and the unused one may hit log1p(-1); the
+    # side kept is finite whenever Phi(b) - Phi(a) is representable.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        lo_side = special.log_ndtr(b) + np.log1p(
+            -np.exp(special.log_ndtr(a) - special.log_ndtr(b))
+        )
+        up_side = special.log_ndtr(-a) + np.log1p(
+            -np.exp(special.log_ndtr(-b) - special.log_ndtr(-a))
+        )
     return np.where(upper, up_side, lo_side)
 
 

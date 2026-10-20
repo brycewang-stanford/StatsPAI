@@ -8,6 +8,9 @@ and so do we (30 nodes by default, centred at the mode). Both converge to
 the exact integral, so the comparison is against Stata with 40 nodes,
 where its quadrature error is far below the tolerance; the 12-node default
 is compared at the looser tolerance its own quadrature error allows.
+xtintreg's standard errors are compared with Stata's non-adaptive fit
+(``intmethod(ghermite) intpoints(100)``), because its adaptive-quadrature
+Hessian is not the curvature of its own likelihood (see the test).
 """
 
 import importlib.util
@@ -77,12 +80,25 @@ def test_xttobit_stata_default_quadrature(df):
 
 def test_xtintreg_matches_stata(df):
     fit = sp.xtintreg(df, y_lower="lo", y_upper="hi", x=["x1", "x2"], id="id")
-    # estimates and log-likelihood to 1e-6; Stata's standard errors after
-    # xtintreg differ from ours by up to 0.5% (sigma_e), and ours agree
-    # with an independent finite-difference Hessian of the fully
-    # re-adapted 60-node likelihood to 1e-7 (checked while building this
-    # test), so the SE tolerance is 1e-2
+    # Estimates and log-likelihood against the default (mvaghermite) fit.
+    # Its reported standard errors come from xtintreg's analytic Hessian,
+    # which under adaptive quadrature is not the curvature of its own
+    # likelihood: central differences of Stata's e(ll) (from() iterate(0),
+    # 40 mvaghermite nodes) give se(sigma_e) = 0.0385837, the reported value
+    # is 0.0387655 (+0.47%). The curvature itself is checked below.
     _check(fit, "intreg_q40", "lo", rtol_b=1e-6, rtol_se=1e-2)
+
+
+def test_xtintreg_se_matches_stata_nonadaptive(df):
+    # With non-adaptive quadrature Stata's reported standard errors equal
+    # the curvature of its likelihood, and match ours (estimates to 1e-10
+    # because 100 plain nodes are accurate here, where 40 adaptive ones
+    # leave a 1e-7 quadrature error in Stata's default fit)
+    fit = sp.xtintreg(df, y_lower="lo", y_upper="hi", x=["x1", "x2"], id="id")
+    _check(fit, "intreg_gh100", "lo", rtol_b=1e-9, rtol_se=1e-8)
+    r = STATA["intreg_gh100"]
+    for ours, theirs in [("sigma_u", "/sigma_u"), ("sigma_e", "/sigma_e")]:
+        np.testing.assert_allclose(fit.std_errors[ours], r[theirs][1], rtol=1e-8)
 
 
 def test_xttobit_is_xtintreg_with_tobit_coding(df):

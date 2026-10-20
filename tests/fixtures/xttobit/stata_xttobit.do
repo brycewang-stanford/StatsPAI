@@ -30,4 +30,10 @@ foreach q in 12 40 {
 }
 xttobit y x1 x2, ll(0) intpoints(40)
 dumpe tobit_ll_q40
+* xtintreg's analytic (d2) Hessian under adaptive quadrature disagrees with
+* the curvature of its own likelihood (finite differences of e(ll) at
+* from() iterate(0) reproduce our standard errors); with non-adaptive
+* quadrature the reported standard errors equal that curvature
+xtintreg lo hi x1 x2, intmethod(ghermite) intpoints(100)
+dumpe intreg_gh100
 file close fh
