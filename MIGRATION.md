@@ -57,6 +57,16 @@ calling code.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.match(method='radius', caliper_scale='sd')`
+
+Radius matching ignored `caliper_scale='sd'` and used `caliper` as a raw
+radius. It now uses `caliper * sd(score)`, as nearest-neighbour matching
+does. Code that passed `caliper_scale='sd'` with `method='radius'` gets a
+different (correct) estimate; to keep the old number pass
+`caliper_scale='raw'`, which is what those calls actually ran.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.grapple(loss='tukey')` standard errors; `sp.mr_raps` robust log-likelihood
 
 - `sp.grapple` with the Tukey loss (its default) now evaluates the whole

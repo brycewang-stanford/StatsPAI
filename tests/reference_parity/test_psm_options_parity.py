@@ -348,3 +348,36 @@ def test_no_replacement_in_data_order_matches_matching_package(df, rref):
     res = _fit(df, replace=False, m_order="data")
     assert res.estimate == pytest.approx(ref["est"], rel=RTOL)
     assert ref["se"] is None
+
+
+# ------------------------------------------- radius caliper in SD units ----
+@pytest.fixture(scope="module")
+def stata_radius_sd():
+    return json.loads((_FIX / "psm_radius_sd_Stata.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("c, tag", [(0.1, "0p1"), (0.25, "0p25")])
+def test_radius_caliper_sd_is_radius_at_c_times_score_sd(df, stata_radius_sd, c, tag):
+    """⚠️ correctness fix: method='radius' used to read caliper on the raw
+    scale whatever caliper_scale said. With caliper_scale='sd' the radius is
+    caliper * sd(score) over the full sample (ddof 1), as for nearest-
+    neighbour matching. psmatch2 has no SD caliper; the reference runs
+    ``psmatch2 , radius caliper(c * sd(_pscore))`` (black box)."""
+    ref = stata_radius_sd[f"radius_sd{tag}"]
+    res = _fit(df, method="radius", caliper=c, caliper_scale="sd")
+    assert res.estimate == pytest.approx(ref["est"], rel=RTOL)
+    assert res.se == pytest.approx(ref["se"], rel=RTOL)
+    # the same call on the raw scale at Stata's width is the same estimator
+    raw = _fit(df, method="radius", caliper=ref["width"])
+    assert res.estimate == pytest.approx(raw.estimate, rel=1e-12)
+    # the fixture width is c times the score SD Stata reports
+    assert ref["width"] == pytest.approx(c * stata_radius_sd["pscore_sd"], rel=1e-15)
+
+
+def test_psmatch2_kernel_ignores_caliper(df, stata_radius_sd):
+    """psmatch2 kernel matching does not read caliper() (black box: the ATT
+    is unchanged at caliper(0.001)); sp.match kernel matching agrees."""
+    ref = stata_radius_sd["kernel_epan_bw0p06"]
+    assert ref["est_with_caliper0p001"] == ref["est"]
+    res = _fit(df, method="kernel", bwidth=0.06)
+    assert res.estimate == pytest.approx(ref["est"], rel=RTOL)

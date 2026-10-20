@@ -313,8 +313,11 @@ def match(
     caliper_scale : {'raw', 'sd'}, default 'raw'
         ``'raw'`` reads ``caliper`` on the scale of the distance (Stata
         ``psmatch2 , caliper()``); ``'sd'`` in standard deviations of the
-        propensity score (``MatchIt``'s ``std.caliper = TRUE``), which
-        needs ``distance='propensity'``.
+        propensity score over the full sample (``MatchIt``'s
+        ``std.caliper = TRUE``), which needs ``distance='propensity'``.
+        It applies to nearest-neighbour matching and to the radius of
+        ``method='radius'`` (Stata has no SD caliper; the result equals
+        ``psmatch2 , radius caliper()`` at the width ``caliper * sd``).
     replace : bool, default True
         Match with replacement (nearest-neighbor only).
     ties : {'all', 'first'}, default 'all'
@@ -2668,7 +2671,9 @@ class MatchEstimator:
 
         if self.method == "radius":
             kernel_name = "uniform"
-            bandwidth = float(self.caliper)
+            # caliper_scale='sd' reads the radius in standard deviations of
+            # the full-sample score, as nearest-neighbour matching does.
+            bandwidth = float(self._resolve_caliper(pscore))
         else:
             kernel_name = self.kernel
             bandwidth = float(self.bwidth)
