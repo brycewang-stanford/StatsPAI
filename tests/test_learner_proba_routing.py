@@ -248,3 +248,25 @@ def test_proba_or_predict_regressor_uses_predict():
     y = 2.0 * X.ravel() + 1.0
     reg = LinearRegression().fit(X, y)
     np.testing.assert_allclose(proba_or_predict(reg, X, context="t"), y, rtol=1e-12)
+
+
+def test_overlap_weighted_did_reads_superlearner_proba():
+    """sp.overlap_weighted_did(ps_model=<user classifier>) goes through the
+    shared helper: a one-learner SuperLearner equals that learner."""
+    rng = np.random.default_rng(5)
+    n = 400
+    x = rng.normal(size=n)
+    d = rng.binomial(1, _expit(0.8 * x))
+    df = pd.DataFrame(
+        {
+            "id": np.repeat(np.arange(n), 2),
+            "post": np.tile([0, 1], n),
+            "x": np.repeat(x, 2),
+            "d": np.repeat(d, 2),
+        }
+    )
+    df["y"] = df.x + df.post + 2.0 * df.d * df.post + rng.normal(size=2 * n)
+    kw = dict(y="y", treat="d", time="post", covariates=["x"], id="id")
+    a = sp.overlap_weighted_did(df, ps_model=_lr(), **kw)
+    b = sp.overlap_weighted_did(df, ps_model=_sl1(), **kw)
+    np.testing.assert_allclose(b.estimate, a.estimate, rtol=1e-9)

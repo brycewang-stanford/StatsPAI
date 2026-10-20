@@ -177,8 +177,10 @@ def overlap_weighted_did(
         elif ps_model == "dl":
             e = dl_propensity_score(df, treatment=treat, covariates=list(covariates))
         else:
+            from ..core._learners import positive_class_proba
+
             ps_model.fit(X, T)
-            e = ps_model.predict_proba(X)[:, 1]
+            e = positive_class_proba(ps_model, X, context="overlap_did(ps_model=)")
         e = np.clip(e, 0.02, 0.98)
         w = e * (1.0 - e)  # Overlap weight
     else:
