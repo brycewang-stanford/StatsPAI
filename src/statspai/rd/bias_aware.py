@@ -88,7 +88,7 @@ def rd_bias_aware_fuzzy(
     fuzzy : str
         Treatment received.
     c : float, default 0
-        Cutoff.
+        RD cutoff.
     M_y, M_d : float, optional
         Bounds on the second derivatives of the outcome and treatment means
         on either side. When omitted, the rule of thumb of Armstrong and
@@ -100,7 +100,9 @@ def rd_bias_aware_fuzzy(
         effect of zero) and a preliminary covariance of ``(Y, D)`` that is
         homoskedastic on each side.
     kernel : {'triangular', 'uniform', 'epanechnikov'}
+        Kernel of the local linear fits.
     alpha : float, default 0.05
+        One minus the confidence level of the bias-aware set.
     cluster : str, optional
         Cluster identifier. Standard errors become cluster-robust sums of the
         weighted local linear residuals, and the bandwidth search adds a
@@ -219,6 +221,9 @@ def rd_bias_aware_fuzzy(
     naive = (tau - z * se_tau, tau + z * se_tau)
     F = float(dD**2 / V[1, 1]) if V[1, 1] > 0 else np.inf
 
+    level = int(round((1 - alpha) * 100))
+    src_y = "rule of thumb" if My_est else "supplied"
+    src_d = "rule of thumb" if Md_est else "supplied"
     summary = (
         "\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -229,12 +234,12 @@ def rd_bias_aware_fuzzy(
         f"  Δ̂_D (denominator jump):   {dD:.4f}\n"
         f"  First-stage F:            {F:.2f}\n"
         "\n"
-        f"  Naive {int(round((1 - alpha) * 100))}% CI:       [{naive[0]:.4f}, {naive[1]:.4f}]\n"
-        f"  Bias-aware {int(round((1 - alpha) * 100))}% CI:  [{lo:.4f}, {hi:.4f}]"
+        f"  Naive {level}% CI:       [{naive[0]:.4f}, {naive[1]:.4f}]\n"
+        f"  Bias-aware {level}% CI:  [{lo:.4f}, {hi:.4f}]"
         + ("  (not a single interval)" if len(pieces) > 1 else "")
         + "\n\n"
-        f"  M_y:                      {My:.4g} ({'rule of thumb' if My_est else 'supplied'})\n"
-        f"  M_d:                      {Md:.4g} ({'rule of thumb' if Md_est else 'supplied'})\n"
+        f"  M_y:                      {My:.4g} ({src_y})\n"
+        f"  M_d:                      {Md:.4g} ({src_d})\n"
         f"  Bandwidth h:              {h:.4f}\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     )

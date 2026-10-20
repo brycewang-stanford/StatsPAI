@@ -71,7 +71,7 @@ def rd_discrete(
         Outcome and (discrete) running variable. Units with ``x >= c`` are
         treated.
     c : float, default 0
-        Cutoff.
+        RD cutoff.
     M : float, optional
         ``'bsd'``: bound on the second derivative of the conditional mean on
         either side. If omitted, the rule of thumb of Armstrong and Kolesar
@@ -91,7 +91,7 @@ def rd_discrete(
         ``'bme'``: order of the polynomial fitted on each side (0 compares
         side means).
     kernel : {'triangular', 'uniform', 'epanechnikov'}
-        ``'bsd'`` kernel.
+        Kernel of the ``'bsd'`` local linear fit.
     opt_criterion : {'MSE', 'FLCI', 'OCI'}
         ``'bsd'`` bandwidth criterion when ``h`` is omitted.
 

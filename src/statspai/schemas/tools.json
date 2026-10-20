@@ -32237,7 +32237,7 @@
         },
         "alpha": {
           "default": 0.05,
-          "description": "Significance level.",
+          "description": "One minus the confidence level of the bias-aware set.",
           "type": "number"
         },
         "c": {
@@ -32246,7 +32246,7 @@
           "type": "number"
         },
         "cluster": {
-          "description": "Cluster variable. The variance of the jump estimator is then the cluster-sum form RDHonest uses (EHW residuals, no finite-sample factor); without clusters it is RDHonest's nearest-neighbour variance (``J = 3``).",
+          "description": "Cluster identifier. Standard errors become cluster-robust sums of the weighted local linear residuals, and the bandwidth search adds a common within-cluster covariance.",
           "type": "string",
           "x-statspai-role": "column",
           "x-statspai-source": "signature"
@@ -32256,12 +32256,12 @@
           "type": "string"
         },
         "h": {
-          "description": "Bandwidth. If ``None``, R ``RDHonest``'s default for a fuzzy",
+          "description": "Bandwidth. When omitted, the bandwidth minimising the worst-case MSE of ``Delta_Y_hat - tau_h Delta_D_hat`` (``tau_h`` the Wald ratio at that bandwidth), with worst-case bias ``M_y B_1(h)`` (an initial effect of zero) and a preliminary covariance of ``(Y, D)`` that is homoskedastic on each side.",
           "type": "number"
         },
         "kernel": {
           "default": "triangular",
-          "description": "Kernel.",
+          "description": "Kernel of the local linear fits.",
           "enum": [
             "triangular",
             "epanechnikov",
@@ -32271,7 +32271,7 @@
         },
         "n_grid": {
           "default": 401,
-          "description": "Grid resolution for the AR-style test inversion.",
+          "description": "Points of the diagnostic rejection grid returned in ``model_info['bias_aware']['rejection_grid']``. The endpoints of the confidence set are solved exactly, not read off the grid.",
           "type": "integer",
           "x-statspai-source": "signature"
         },
@@ -32284,12 +32284,12 @@
           ]
         },
         "x": {
-          "description": "Running variable column.",
+          "description": "Running variable; units with ``x >= c`` are assigned to treatment.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome column.",
+          "description": "Outcome.",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -32656,16 +32656,16 @@
         },
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "One minus the confidence level.",
           "type": "number"
         },
         "c": {
           "default": 0.0,
-          "description": "Cutoff. Treatment assigned for ``x >= c``.",
+          "description": "RD cutoff.",
           "type": "number"
         },
         "h": {
-          "description": "``'bsd'``: bandwidth (``None``: RDHonest's optimal bandwidth). ``'bme'``: half-width of the window of support points used (``None``: all, RDHonest's ``h = Inf``).",
+          "description": "Bandwidth. ``'bsd'``: chosen by ``opt_criterion`` when omitted. ``'bme'``: the window ``|x - c| <= h``; all data when omitted.",
           "type": "number"
         },
         "kernel": {
@@ -32708,7 +32708,7 @@
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome column.",
+          "description": "Outcome and (discrete) running variable. Units with ``x >= c`` are treated.",
           "type": "string",
           "x-statspai-role": "column"
         }
