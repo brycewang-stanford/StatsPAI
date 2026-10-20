@@ -41,6 +41,15 @@ All notable changes to StatsPAI will be documented in this file.
   behaviour is unchanged. 42 commands match Stata 18 to 1e-12
   (`tests/test_egen_public.py`).
 
+- `sp.stata` reads the panel declaration `sp.xtset` stores on the data
+  (`df.attrs`), as Stata's `use` restores a dataset's `xtset`: `L.x` /
+  `F.x` / `D.x` work without an `xtset` line, and the data are sorted by
+  panel and time as `xtset` sorts them (`_n` is Stata's). `use` of a frame
+  passed in `files=` restores its declaration; a declaration naming
+  columns the data no longer have is ignored with a warning. Lags, `_n` and
+  `regress y L.x D.x` match Stata 18 on an unsorted gapped panel
+  (`tests/test_stata_xtset_attrs.py`).
+
 #### Fixed
 
 - `sp.rank` docstring: Stata's `field` is `method='min', ascending=False`

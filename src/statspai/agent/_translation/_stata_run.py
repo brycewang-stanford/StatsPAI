@@ -563,7 +563,9 @@ def stata(
         ``files``. ``use`` of a file that is neither is refused: pass the
         data in.
 
-        After ``tsset time`` (or ``xtset id time``) the time-series
+        After ``tsset time`` (or ``xtset id time``), or when ``data``
+        carries a declaration made by ``sp.xtset`` (read as if the snippet
+        began with that ``xtset`` line, including its sort), the time-series
         operators ``L.x``, ``L2.x``, ``F.x``, ``D.x``, ``L(1/4).x`` are
         resolved against the time variable, within panel, as Stata does: a
         lag is missing where the earlier period is absent. The term
@@ -901,9 +903,69 @@ class StataSession:
             self._steps.adopt_missing_codes(self._steps.data)
         if result is not None:
             self._store_estimates(result)
+        if data is not None:
+            self._adopt_xtset(data)
 
     def warn(self, message: str) -> None:
         warnings.warn(message, UserWarning, stacklevel=4)
+
+    def _declare_panel(self, line: str) -> bool:
+        """Run a ``tsset`` / ``xtset`` line; False when ``line`` is neither."""
+        from ._stata_script import panel_declaration
+
+        declared = panel_declaration(line)
+        if declared is None:
+            return False
+        try:
+            delta = _declared_delta(line)
+            if self._steps is not None and declared[1] is not None:
+                check_delta(self._steps.data, declared[0], declared[1], delta)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Declare the step the time variable has.",
+                diagnostics={"command": line},
+            ) from exc
+        self.stored["ts_delta"] = delta
+        self.panel = declared
+        self.stored["time_var"] = declared[1]
+        self.stored["panel_var"] = declared[0]
+        if self._steps is not None:
+            # tsset / xtset leave the data sorted by panel and time
+            keys = [k for k in declared if k and k in self._steps.data.columns]
+            if keys and not self._steps.data.empty:
+                self._steps._sort(keys, None)
+        return True
+
+    def _adopt_xtset(self, data: pd.DataFrame) -> None:
+        """Take the panel declaration ``sp.xtset`` stored on ``data``.
+
+        A Stata dataset carries its ``xtset`` with it, so ``use`` restores
+        it; ``sp.xtset`` stores it in ``data.attrs``, which ``sp.stata``
+        reads the same way: as if the snippet began with ``xtset id time,
+        delta(#)`` (or ``tsset time``), including the sort by panel and
+        time. A declaration naming columns the data no longer has (attrs
+        travel with column subsets) is ignored with a warning.
+        """
+        from ...utils.tsops import get_xtset
+
+        decl = get_xtset(data)
+        if not decl:
+            return
+        unit, time = decl.get("id"), decl.get("time")
+        names = [v for v in (unit, time) if v]
+        absent = [v for v in names if v not in data.columns]
+        if not names or absent:
+            self.warn(
+                f"sp.stata: the sp.xtset declaration names {absent or names}, "
+                "which the data do not have; it is ignored."
+            )
+            return
+        delta = float(decl.get("delta") or 1.0)
+        line = f"xtset {unit} {time or ''}" if unit else f"tsset {time}"
+        if delta != 1.0:
+            line = f"{line.strip()}, delta({delta:.17g})"
+        self._declare_panel(line.strip())
 
     def use(self, data: pd.DataFrame) -> None:
         """Replace the data in memory, as Stata's ``use file, clear`` does.
@@ -924,6 +986,7 @@ class StataSession:
         self.stored.pop("time_var", None)
         self.stored.pop("ts_delta", None)
         self.stored.pop("panel_var", None)
+        self._adopt_xtset(data)
 
     def append(self, other: pd.DataFrame) -> None:
         """Add the rows of ``other`` below the data (``append using``).
@@ -1307,27 +1370,7 @@ class StataSession:
             ) from exc
         if matrix is not None:
             return matrix
-        declared = panel_declaration(line)
-        if declared is not None:
-            try:
-                delta = _declared_delta(line)
-                if self._steps is not None and declared[1] is not None:
-                    check_delta(self._steps.data, declared[0], declared[1], delta)
-            except StataExprError as exc:
-                raise MethodIncompatibility(
-                    f"sp.stata: cannot run {line!r}: {exc}.",
-                    recovery_hint="Declare the step the time variable has.",
-                    diagnostics={"command": line},
-                ) from exc
-            self.stored["ts_delta"] = delta
-            self.panel = declared
-            self.stored["time_var"] = declared[1]
-            self.stored["panel_var"] = declared[0]
-            if self._steps is not None:
-                # tsset / xtset leave the data sorted by panel and time
-                keys = [k for k in declared if k and k in self._steps.data.columns]
-                if keys and not self._steps.data.empty:
-                    self._steps._sort(keys, None)
+        if self._declare_panel(line):
             return False
         if self._steps is not None:
             try:
