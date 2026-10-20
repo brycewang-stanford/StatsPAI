@@ -14637,9 +14637,16 @@
   },
   {
     "alias_of": null,
-    "alternatives": [],
+    "alternatives": [
+      "panel",
+      "prais"
+    ],
     "api_contract": "deprecation-cycle",
-    "assumptions": [],
+    "assumptions": [
+      "The idiosyncratic error follows a stationary AR(1) within each panel with a common |rho| < 1; a gap of d periods enters as rho^d",
+      "method='re': the panel effect is uncorrelated with the regressors (Baltagi-Wu feasible GLS); method='fe': it may be correlated, and only within-panel variation identifies the slopes",
+      "Regressors are strictly exogenous with respect to the AR(1) disturbance"
+    ],
     "category": "panel",
     "cost_profile": "",
     "description": "Fixed- or random-effects linear regression with an AR(1) disturbance on unbalanced, unequally spaced panels (Stata xtregar): rho from the demeaned regression (dw, regress, freg, tscorr, theil, nagar, onestep) or fixed, Baltagi-Wu transformation, within estimator or Baltagi-Wu GLS, and the modified Bhargava et al. Durbin-Watson and LBI statistics.",
@@ -14658,40 +14665,47 @@
     "example": "sp.xtregar(df, y=\"invest\", x=[\"mvalue\", \"kstock\"], id=\"firm\", time=\"year\", method=\"fe\")",
     "failure_modes": [
       {
-        "alternative": "",
+        "alternative": "xtregar",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "method='re' (random effects, Stata's default) or 'fe'.",
-        "symptom": "xtregar: method=<method> is not 're' or 'fe'."
+        "remedy": "Use rhotype='tscorr', which is bounded by one, or fix rho with rhof=",
+        "symptom": "The chosen rhotype gives |rho| >= 1"
       },
       {
-        "alternative": "",
+        "alternative": "xtset",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "rhotype='dw' is Stata's default; 'tscorr' is bounded by one.",
-        "symptom": "xtregar: rhotype=<rhotype> is not one of <', '.join(_RHOTYPES)>."
+        "remedy": "Map dates to consecutive integers and keep one row per panel and period",
+        "symptom": "Non-integer time index or repeated (id, time) rows"
       },
       {
-        "alternative": "",
+        "alternative": "xtregar",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Drop twostep=True; onestep is not iterated.",
-        "symptom": "xtregar: twostep does not apply to rhotype='onestep'."
+        "remedy": "Use method='re' for time-invariant regressors",
+        "symptom": "method='fe' with no regressor that varies within panels"
       },
       {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Pass |rhof| < 1, or omit it to estimate rho.",
-        "symptom": "xtregar: rhof=<rhof> must lie strictly between -1 and 1."
+        "alternative": "xtregar",
+        "exception": "statspai.ConvergenceWarning",
+        "remedy": "Use twostep=True or fix rho with rhof=",
+        "symptom": "Iterated rho does not converge"
       }
     ],
     "inherits_from": null,
     "limitations": [],
     "name": "xtregar",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "An integer-valued time index (one unit = one period) and at most one row per (id, time)",
+      "At least two panels and at least two pairs of consecutive periods to estimate rho"
+    ],
     "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
-      "failure_modes": "source",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
       "reference": "curated",
-      "returns": "curated"
+      "returns": "curated",
+      "typical_n_min": "curated"
     },
     "reference": "baltagi1999unequally",
     "returns": {
@@ -14786,7 +14800,7 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
+    "typical_n_min": 30,
     "validation_notes": [],
     "validation_status": "api_stable"
   },

@@ -4902,4 +4902,53 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         "alternatives": ["balance_diagnostics", "bal_tab", "match"],
         "typical_n_min": 50,
     },
+    "xtregar": {
+        "assumptions": [
+            "The idiosyncratic error follows a stationary AR(1) within each "
+            "panel with a common |rho| < 1; a gap of d periods enters as "
+            "rho^d",
+            "method='re': the panel effect is uncorrelated with the "
+            "regressors (Baltagi-Wu feasible GLS); method='fe': it may be "
+            "correlated, and only within-panel variation identifies the "
+            "slopes",
+            "Regressors are strictly exogenous with respect to the AR(1) "
+            "disturbance",
+        ],
+        "pre_conditions": [
+            "An integer-valued time index (one unit = one period) and at "
+            "most one row per (id, time)",
+            "At least two panels and at least two pairs of consecutive "
+            "periods to estimate rho",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "The chosen rhotype gives |rho| >= 1",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Use rhotype='tscorr', which is bounded by one, "
+                "or fix rho with rhof=",
+                "alternative": "xtregar",
+            },
+            {
+                "symptom": "Non-integer time index or repeated (id, time) " "rows",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Map dates to consecutive integers and keep one "
+                "row per panel and period",
+                "alternative": "xtset",
+            },
+            {
+                "symptom": "method='fe' with no regressor that varies " "within panels",
+                "exception": "statspai.MethodIncompatibility",
+                "remedy": "Use method='re' for time-invariant regressors",
+                "alternative": "xtregar",
+            },
+            {
+                "symptom": "Iterated rho does not converge",
+                "exception": "statspai.ConvergenceWarning",
+                "remedy": "Use twostep=True or fix rho with rhof=",
+                "alternative": "xtregar",
+            },
+        ],
+        "alternatives": ["panel", "prais"],
+        "typical_n_min": 30,
+    },
 }
