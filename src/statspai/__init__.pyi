@@ -889,14 +889,12 @@ from .mediation.paths import mediate_paths as mediate_paths
 from .mediation.sensitivity import mediate_sensitivity as mediate_sensitivity
 from .mendelian.diagnostics import HeterogeneityResult as HeterogeneityResult
 from .mendelian.diagnostics import LeaveOneOutResult as LeaveOneOutResult
-from .mendelian.diagnostics import MRPressoResult as MRPressoResult
 from .mendelian.diagnostics import PleiotropyResult as PleiotropyResult
 from .mendelian.diagnostics import RadialResult as RadialResult
 from .mendelian.diagnostics import SteigerResult as SteigerResult
 from .mendelian.diagnostics import mr_heterogeneity as mr_heterogeneity
 from .mendelian.diagnostics import mr_leave_one_out as mr_leave_one_out
 from .mendelian.diagnostics import mr_pleiotropy_egger as mr_pleiotropy_egger
-from .mendelian.diagnostics import mr_presso as mr_presso
 from .mendelian.diagnostics import mr_radial as mr_radial
 from .mendelian.diagnostics import mr_steiger as mr_steiger
 from .mendelian.dispatcher import available_methods as mr_available_methods
@@ -928,6 +926,8 @@ from .mendelian.multivariable import MVMRResult as MVMRResult
 from .mendelian.multivariable import mr_bma as mr_bma
 from .mendelian.multivariable import mr_mediation as mr_mediation
 from .mendelian.multivariable import mr_multivariable as mr_multivariable
+from .mendelian.presso import MRPressoResult as MRPressoResult
+from .mendelian.presso import mr_presso as mr_presso
 from .metalearners.auto_cate import AutoCATEResult as AutoCATEResult
 from .metalearners.auto_cate import auto_cate as auto_cate
 from .metalearners.auto_cate_tuned import auto_cate_tuned as auto_cate_tuned

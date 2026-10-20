@@ -33883,13 +33883,16 @@
         },
         "vce": {
           "default": "nn",
-          "description": "Variance estimator inside the bandwidth cascade, R ``rdbwselect(vce=)``: ``'nn'`` uses nearest-neighbour residuals, the ``hc*`` family regression residuals. With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``. The bandwidths equal ``sp.rdrobust``'s with the same ``vce``. Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also inside ``'vce(...)'``) are read as ``cluster='v'`` with that variance.",
+          "description": "Variance estimator inside the bandwidth cascade, R ``rdbwselect(vce=)``: ``'nn'`` uses nearest-neighbour residuals, the ``hc*`` family regression residuals. With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'`` and ``'hc2'`` / ``'hc3'`` R 4.0.0's ``'cr2'`` / ``'cr3'``; ``'cr*'`` without ``cluster=`` fall back to ``'hc*'`` (with a warning). The bandwidths equal ``sp.rdrobust``'s with the same ``vce``. Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also inside ``'vce(...)'``) are read as ``cluster='v'`` with that variance.",
           "enum": [
             "nn",
             "hc0",
             "hc1",
             "hc2",
-            "hc3"
+            "hc3",
+            "cr1",
+            "cr2",
+            "cr3"
           ],
           "type": "string"
         },

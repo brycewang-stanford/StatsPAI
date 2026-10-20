@@ -18949,6 +18949,7 @@
       "additional_tests": [
         "tests/reference_parity/test_rddensity_all_stata.py",
         "tests/reference_parity/test_rddensity_bandwidth_regimes.py",
+        "tests/reference_parity/test_rddensity_not_computable_R.py",
         "tests/reference_parity/test_rddensity_parity.py",
         "tests/reference_parity/test_rdlocrand_extensions_parity.py"
       ],
@@ -19316,6 +19317,7 @@
         "tests/reference_parity/test_oct2026_third_pass.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_rd_cluster_cer_parity.py",
+        "tests/reference_parity/test_rd_cluster_cr23_R_parity.py",
         "tests/reference_parity/test_rd_covs_cluster_parity.py",
         "tests/reference_parity/test_rd_diff_in_disc_Stata_parity.py",
         "tests/reference_parity/test_rd_fuzzy_covs_level_R_parity.py",

@@ -4338,13 +4338,16 @@
           },
           "vce": {
             "default": "nn",
-            "description": "Variance estimator, matching R ``rdrobust``'s argument of the same name. ``'nn'`` uses nearest-neighbour residuals (``nnmatch=3``); the ``hc*`` family uses regression residuals with the usual heteroskedasticity corrections. Supplying ``cluster`` promotes ``'nn'``/``'hc0'``/``'hc1'`` to R's ``'cr1'``, whose residuals are ``hc1``'s -- nearest-neighbour differencing removes exactly the within-cluster correlation a clustered variance exists to capture, and pairing the two understates the SE by roughly 10x. This mirrors R, which makes the same substitution silently. Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also inside ``'vce(...)'``) are read as ``cluster='v'`` with that variance.",
+            "description": "Variance estimator, matching R ``rdrobust``'s argument of the same name. ``'nn'`` uses nearest-neighbour residuals (``nnmatch=3``); the ``hc*`` family uses regression residuals with the usual heteroskedasticity corrections. Supplying ``cluster`` promotes ``'nn'``/``'hc0'``/``'hc1'`` to R's ``'cr1'``, whose residuals are ``hc1``'s -- nearest-neighbour differencing removes exactly the within-cluster correlation a clustered variance exists to capture, and pairing the two understates the SE by roughly 10x. This mirrors R, which makes the same substitution. With ``cluster``, ``'hc2'`` / ``'hc3'`` are R 4.0.0's ``'cr2'`` / ``'cr3'`` (Bell-McCaffrey and jackknife leverage corrections of each cluster's residuals, no small-sample factor; a warning says so), and ``'cr1'`` / ``'cr2'`` / ``'cr3'`` may be named directly; without ``cluster`` they fall back to ``'hc1'`` / ``'hc2'`` / ``'hc3'`` with a warning, as in R. Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also inside ``'vce(...)'``) are read as ``cluster='v'`` with that variance.",
             "enum": [
               "nn",
               "hc0",
               "hc1",
               "hc2",
-              "hc3"
+              "hc3",
+              "cr1",
+              "cr2",
+              "cr3"
             ],
             "type": "string",
             "x-statspai-source": "signature"
@@ -85385,13 +85388,16 @@
           },
           "vce": {
             "default": "nn",
-            "description": "Variance estimator inside the bandwidth cascade, R ``rdbwselect(vce=)``: ``'nn'`` uses nearest-neighbour residuals, the ``hc*`` family regression residuals. With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``. The bandwidths equal ``sp.rdrobust``'s with the same ``vce``. Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also inside ``'vce(...)'``) are read as ``cluster='v'`` with that variance.",
+            "description": "Variance estimator inside the bandwidth cascade, R ``rdbwselect(vce=)``: ``'nn'`` uses nearest-neighbour residuals, the ``hc*`` family regression residuals. With ``cluster=``, ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'`` and ``'hc2'`` / ``'hc3'`` R 4.0.0's ``'cr2'`` / ``'cr3'``; ``'cr*'`` without ``cluster=`` fall back to ``'hc*'`` (with a warning). The bandwidths equal ``sp.rdrobust``'s with the same ``vce``. Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also inside ``'vce(...)'``) are read as ``cluster='v'`` with that variance.",
             "enum": [
               "nn",
               "hc0",
               "hc1",
               "hc2",
-              "hc3"
+              "hc3",
+              "cr1",
+              "cr2",
+              "cr3"
             ],
             "type": "string"
           },
@@ -102025,8 +102031,8 @@
       "Cross-language parity (bit-exact) vs rddensity::rddensity [R version 4.5.2 (2025-10-31), rddensity 2.6]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 09_rddensity -- tests/r_parity/09_rddensity.py",
       "tests/reference_parity/test_rddensity_all_stata.py",
       "tests/reference_parity/test_rddensity_bandwidth_regimes.py",
+      "tests/reference_parity/test_rddensity_not_computable_R.py",
       "tests/reference_parity/test_rddensity_parity.py",
-      "tests/reference_parity/test_rdlocrand_extensions_parity.py",
       "Track A rddensity module 09 is native Python reference parity: StatsPAI implements the rdbwdensity combination bandwidths, mass-point ECDF handling and jackknife CJM local-polynomial density inference clean-room from Cattaneo, Jansson and Ma (2018, 2020), matching rddensity::rddensity (used as a black box) on the same CSV bytes."
     ],
     "validation_status": "certified"
