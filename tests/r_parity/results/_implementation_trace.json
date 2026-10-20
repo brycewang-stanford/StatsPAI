@@ -506,7 +506,7 @@
    "result_sha256": "d095da079310d603a430d6ac5877f6149aa70f8438aa4e3feeb03d2e57aa06a0"
   },
   "11_psm": {
-   "seconds": 2.27,
+   "seconds": 2.18,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -534,7 +534,7 @@
     "src/statspai/matching/_binary_fit.py": "ae31d313c5053aed85da5de466edd85f06e1083b133f9951a34b3cf146b9666f",
     "src/statspai/matching/_matched_frame.py": "ede84a6c6bc6bed235e0561b93c9ee3ede828ce4a43ddc05710d86800e0bd260",
     "src/statspai/matching/_pair_constraints.py": "683b1a712b8ea64f9d4ec9bbd84cc5c06cde0ad859dc63d613707452f91c00da",
-    "src/statspai/matching/match.py": "acec58d740d1cf316b7a33ecbac7e0d53da5b279706349efe6732dfbb004d95a",
+    "src/statspai/matching/match.py": "736d0b277e4270e69ee5fc0f472780fae5ce5a65d50f3a2a5d9d4a483a3a00ad",
     "src/statspai/output/_lineage.py": "a912fbc582be2dbc27206ec48cd84684ddc5a318aa469483bb89646af53180de",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/regression/logit_probit.py": "09be11591feecb2df3f86fcb9e2bee653bf07f0a552b63f7ddd093100ab21a0b"
