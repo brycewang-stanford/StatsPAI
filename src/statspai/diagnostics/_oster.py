@@ -1,9 +1,12 @@
 """Oster (2019) coefficient-stability estimator -- the exact solution.
 
-Shared by :func:`sp.oster_bounds` and :func:`sp.oster_delta`. A port of the
-Mata code of Oster's Stata ``psacalc`` 2.1 (functions ``bound``,
-``d1quadsol`` and ``dnot1cubsol``), which R ``robomit`` also ports. The
-inputs are those ``psacalc`` computes from the data:
+Shared by :func:`sp.oster_bounds` and :func:`sp.oster_delta`. The exact
+delta and beta* (:func:`oster_delta_exact`, :func:`oster_beta_exact`) solve
+the equations of Oster (2019) [@oster2019unobservable] in closed form; they
+were rewritten clean-room from the paper and the MIT-licensed R package
+``robomit`` (notice in ``THIRD_PARTY_NOTICES.md``), with Oster's Stata
+``psacalc`` 2.1 used only as a black box (``docs/dev/cleanroom/oster.md``).
+The inputs are those ``psacalc`` computes from the data (checked on its output):
 
 * ``beta_o``, ``r_o`` -- treatment coefficient and R-squared of the short
   regression of ``y`` on the treatment and the "unrelated" controls
@@ -234,29 +237,64 @@ def resolve_r_max(r_max: object, r2_long: float, r2_a: float = float("nan")) -> 
     raise MethodIncompatibility(f"r_max={r_max!r} not understood.")
 
 
+def _oster_moments(inp: Dict[str, float], r_max: float) -> Dict[str, float]:
+    """The scaled moments that enter Oster's (2019) bias equations."""
+    syy = float(inp["sigma_yy"])
+    return {
+        "b_o": float(inp["beta_o"]),
+        "b_t": float(inp["beta_t"]),
+        "sxx": float(inp["sigma_xx"]),
+        "tx": float(inp["t_x"]),
+        "gap": float(inp["beta_o"]) - float(inp["beta_t"]),
+        "r_move": (float(inp["r_t"]) - float(inp["r_o"])) * syy,
+        "r_room": (float(r_max) - float(inp["r_t"])) * syy,
+    }
+
+
 def oster_delta_exact(inp: Dict[str, float], r_max: float, beta: float = 0.0) -> float:
     """delta such that the bias-adjusted coefficient equals ``beta``.
 
-    This is psacalc's ``bound``.
+    Oster's (2019) Proposition 2 solved for delta: with the bias
+    ``nu = beta_t - beta`` that the unobservables would have to explain,
+    delta is a ratio of two cubic polynomials in ``nu`` whose coefficients
+    are the moments of :func:`_oster_moments`. Written from the paper and
+    the MIT-licensed R package ``robomit`` (notice in
+    ``THIRD_PARTY_NOTICES.md``); matches Stata ``psacalc`` 2.1 output,
+    used as a black box (``docs/dev/cleanroom/oster.md``).
     """
-    bo_m_bt = inp["beta_o"] - inp["beta_t"]
-    rt_m_ro_t_syy = (inp["r_t"] - inp["r_o"]) * inp["sigma_yy"]
-    rm_m_rt_t_syy = (r_max - inp["r_t"]) * inp["sigma_yy"]
-    sxx, tx = inp["sigma_xx"], inp["t_x"]
-    bt_m_b = inp["beta_t"] - beta
-    num = (
-        bt_m_b * rt_m_ro_t_syy * tx
-        + bt_m_b * sxx * tx * bo_m_bt**2
-        + 2.0 * bt_m_b**2 * (tx * bo_m_bt * sxx)
-        + bt_m_b**3 * (tx * sxx - tx**2)
+    k = _oster_moments(inp, r_max)
+    sxx, tx, gap = k["sxx"], k["tx"], k["gap"]
+    nu = k["b_t"] - float(beta)
+    cubic = nu**3 * (tx * sxx - tx**2)
+    numer = (
+        nu * k["r_move"] * tx
+        + nu * sxx * tx * gap**2
+        + 2.0 * nu**2 * tx * gap * sxx
+        + cubic
     )
-    den = (
-        rm_m_rt_t_syy * bo_m_bt * sxx
-        + bt_m_b * rm_m_rt_t_syy * (sxx - tx)
-        + bt_m_b**2 * (tx * bo_m_bt * sxx)
-        + bt_m_b**3 * (tx * sxx - tx**2)
+    denom = (
+        k["r_room"] * gap * sxx
+        + nu * k["r_room"] * (sxx - tx)
+        + nu**2 * tx * gap * sxx
+        + cubic
     )
-    return float(num / den) if den != 0 else float(np.inf)
+    return float(numer / denom)
+
+
+def _rank_roots(candidates: Sequence[float], b_t: float, b_o: float) -> list:
+    """Candidates ordered by squared distance to ``beta_t``.
+
+    A candidate whose bias ``candidate - beta_t`` does not have the sign of
+    the observed movement ``beta_t - beta_o`` (Oster's assumption 3) is
+    pushed behind the others; each such candidate, taken in the order
+    given, is assigned one more than the largest distance so far.
+    """
+    dist = [(c - b_t) ** 2 for c in candidates]
+    for i, c in enumerate(candidates):
+        if np.sign(c - b_t) != np.sign(b_t - b_o):
+            dist[i] = max(dist) + 1.0
+    order = sorted(range(len(candidates)), key=lambda i: dist[i])
+    return [candidates[i] for i in order]
 
 
 def oster_beta_exact(
@@ -264,78 +302,64 @@ def oster_beta_exact(
 ) -> Dict[str, object]:
     """Bias-adjusted coefficient beta*(delta, R_max) and its alternative roots.
 
-    delta = 1 solves psacalc's quadratic, any other delta its cubic. The
-    reported root is the one closest to the controlled coefficient among the
-    roots whose bias has the same sign as the observed coefficient movement
-    (Oster's assumption 3) -- psacalc's selection rule, reproduced exactly,
-    including its handling when no root satisfies the sign condition.
-    Returns ``{"beta": ..., "alternatives": [...], "roots": [...]}``.
+    The bias ``nu = beta_t - beta*`` solves Oster's (2019) equation: a
+    quadratic when ``delta = 1`` and a cubic otherwise (solved in closed
+    form, trigonometrically when it has three real roots and by Cardano's
+    formula when it has one). The reported root is the one closest to the
+    controlled coefficient among the roots whose bias has the same sign as
+    the observed coefficient movement (Oster's assumption 3); with
+    ``delta = 1`` the closer root is swapped for the other when it has the
+    wrong sign. A negative quadratic discriminant gives NaN. Written from
+    the paper and the MIT-licensed R package ``robomit`` (notice in
+    ``THIRD_PARTY_NOTICES.md``); matches Stata ``psacalc`` 2.1 output,
+    used as a black box (``docs/dev/cleanroom/oster.md``).
+
+    Returns ``{"beta": ..., "alternatives": [...], "roots": [...]}``:
+    ``roots`` in solution order, ``alternatives`` the other roots in the
+    order of the selection rule.
     """
-    bo = inp["beta_o"]
-    bt = inp["beta_t"]
-    bo_m_bt = bo - bt
-    rt_m_ro_t_syy = (inp["r_t"] - inp["r_o"]) * inp["sigma_yy"]
-    rm_m_rt_t_syy = (r_max - inp["r_t"]) * inp["sigma_yy"]
-    sxx, tx = inp["sigma_xx"], inp["t_x"]
-
-    if delta == 1:
-        cap_theta = (
-            rm_m_rt_t_syy * (sxx - tx) - rt_m_ro_t_syy * tx - sxx * tx * bo_m_bt**2
+    k = _oster_moments(inp, r_max)
+    b_o, b_t, sxx, tx, gap = k["b_o"], k["b_t"], k["sxx"], k["tx"], k["gap"]
+    if delta == 1.0:
+        mid = k["r_room"] * (sxx - tx) - k["r_move"] * tx - sxx * tx * gap**2
+        disc = mid**2 + 4.0 * k["r_room"] * gap**2 * sxx**2 * tx
+        lead = -2.0 * tx * gap * sxx
+        with np.errstate(invalid="ignore"):
+            half = np.sqrt(disc)
+        roots = [b_t - (-mid - half) / lead, b_t - (-mid + half) / lead]
+        near, far = (
+            roots if (roots[0] - b_t) ** 2 < (roots[1] - b_t) ** 2 else roots[::-1]
         )
-        d1_1 = 4.0 * rm_m_rt_t_syy * bo_m_bt**2 * sxx**2 * tx
-        d1_2 = -2.0 * tx * bo_m_bt * sxx
-        disc = np.sqrt(cap_theta**2 + d1_1)
-        beta1 = bt - (-cap_theta - disc) / d1_2
-        beta2 = bt - (-cap_theta + disc) / d1_2
-        if (beta1 - bt) ** 2 < (beta2 - bt) ** 2:
-            betax, alt = beta1, beta2
-        else:
-            betax, alt = beta2, beta1
-        if np.sign(betax - bt) != np.sign(bt - bo):
-            betax, alt = alt, betax
+        if np.sign(near - b_t) != np.sign(b_t - b_o):
+            near, far = far, near
         return {
-            "beta": float(betax),
-            "alternatives": [float(alt)],
-            "roots": [float(beta1), float(beta2)],
+            "beta": float(near),
+            "alternatives": [float(far)],
+            "roots": [float(r) for r in roots],
         }
-
-    denom = (delta - 1.0) * (tx * sxx - tx**2)
-    A = tx * bo_m_bt * sxx * (delta - 2.0) / denom
-    B = (
-        delta * rm_m_rt_t_syy * (sxx - tx) - rt_m_ro_t_syy * tx - sxx * tx * bo_m_bt**2
-    ) / denom
-    C = (rm_m_rt_t_syy * delta * bo_m_bt * sxx) / denom
-    Q = (A**2 - 3.0 * B) / 9.0
-    R = (2.0 * A**3 - 9.0 * A * B + 27.0 * C) / 54.0
-    D = R**2 - Q**3
-    if D < 0:
-        theta = np.arccos(R / np.sqrt(Q**3))
-        sols = np.array(
-            [
-                -2.0 * np.sqrt(Q) * np.cos(theta / 3.0) - A / 3.0,
-                -2.0 * np.sqrt(Q) * np.cos((theta + 2.0 * np.pi) / 3.0) - A / 3.0,
-                -2.0 * np.sqrt(Q) * np.cos((theta - 2.0 * np.pi) / 3.0) - A / 3.0,
-            ]
-        )
-        betas = bt - sols
-        dists = (betas - bt) ** 2
-        for i in range(3):
-            if np.sign(betas[i] - bt) != np.sign(bt - bo):
-                dists[i] = dists.max() + 1.0
-        order = np.argsort(dists, kind="stable")
+    # delta != 1: nu^3 + a nu^2 + b nu + c = 0.
+    scale = (delta - 1.0) * (tx * sxx - tx**2)
+    a = tx * gap * sxx * (delta - 2.0) / scale
+    b = (
+        delta * k["r_room"] * (sxx - tx) - k["r_move"] * tx - sxx * tx * gap**2
+    ) / scale
+    c = k["r_room"] * delta * gap * sxx / scale
+    q = (a**2 - 3.0 * b) / 9.0
+    r = (2.0 * a**3 - 9.0 * a * b + 27.0 * c) / 54.0
+    if r**2 - q**3 < 0:
+        angle = np.arccos(r / np.sqrt(q**3))
+        shifts = (0.0, 2.0 * np.pi, -2.0 * np.pi)
+        nus = [-2.0 * np.sqrt(q) * np.cos((angle + s) / 3.0) - a / 3.0 for s in shifts]
+        roots = [b_t - nu for nu in nus]
+        ranked = _rank_roots(roots, b_t, b_o)
         return {
-            "beta": float(betas[order[0]]),
-            "alternatives": [float(betas[order[1]]), float(betas[order[2]])],
-            "roots": [float(b) for b in betas],
+            "beta": float(ranked[0]),
+            "alternatives": [float(x) for x in ranked[1:]],
+            "roots": [float(x) for x in roots],
         }
-    t1 = -R + np.sqrt(D)
-    t2 = -R - np.sqrt(D)
-    sol = (
-        np.sign(t1) * abs(t1) ** (1.0 / 3.0)
-        + np.sign(t2) * abs(t2) ** (1.0 / 3.0)
-        - A / 3.0
-    )
-    return {"beta": float(bt - sol), "alternatives": [], "roots": [float(bt - sol)]}
+    s = np.sqrt(r**2 - q**3)
+    nu = np.cbrt(-r + s) + np.cbrt(-r - s) - a / 3.0
+    return {"beta": float(b_t - nu), "alternatives": [], "roots": [float(b_t - nu)]}
 
 
 def oster_approx_beta(
