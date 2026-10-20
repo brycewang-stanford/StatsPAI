@@ -22481,6 +22481,10 @@
           },
           "type": "array"
         },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). Its weights are the observation weights (as ``weights=``) and the standard error of the difference is the Taylor-linearisation variance of the influence-curve rows over strata / PSUs / fpc (R ``survey::svyrecvar`` of ``IC / n``), with t intervals on the design df (#PSU - #strata). Not with ``weights=``. Equals R ``ltmle`` + ``svyrecvar`` (``tests/reference_parity/test_ltmle_design_parity.py``). .. versionadded:: 1.40.0",
+          "type": "string"
+        },
         "g_learner": {
           "description": "Learner with ``predict_proba`` for the treatment and censoring models, e.g. ``sp.SuperLearner(task='classification')``.",
           "type": "string"

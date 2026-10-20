@@ -9033,6 +9033,10 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "design": {
+            "description": "A survey design from sp.svydesign on the same rows, for nearest-neighbour ATT/ATC: design weights as MatchIt s.weights, SE by survey linearisation of the matched-sample regression with the matched rows as a domain of the full design (R svyglm on subset(design, matched)), t on the design df. Other methods are refused (no influence function); use sp.ipw / aipw / tmle(design=).",
+            "type": "string"
+          },
           "exact": {
             "description": "method='nearest' only: match only within cells of equal values of these columns (MatchIt exact=~...). Treated units whose cell has no control go unmatched and are counted in model_info.",
             "items": {
@@ -10910,8 +10914,8 @@
       "Cross-language parity (bit-exact) vs survey::svydesign + svymean/svytotal/svyglm/degf (strata, nested PSUs, fpc, survey.lonely.psu); Stata svyset + svy: mean/total/regress/logit/poisson + estat effects [R version 4.5.2 (2025-10-31), Stata 18 MP, survey 4.5]; tolerance estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel (observed <= 4e-14; p 6e-13) -- tests/reference_parity/test_survey_design_R_parity.py",
       "tests/external_parity/test_gelman_ros_examples.py",
       "tests/reference_parity/test_cox_zph_weighted_parity.py",
-      "tests/reference_parity/test_mediate_design_Stata_parity.py",
-      "tests/reference_parity/test_survey_calib_R_parity.py",
+      "tests/reference_parity/test_ltmle_design_parity.py",
+      "tests/reference_parity/test_match_design_parity.py",
       "API/unit contract evidence: tests/test_survey.py"
     ],
     "validation_status": "certified"
@@ -160154,6 +160158,10 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "design": {
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). Its weights are the observation weights (as ``weights=``) and the standard error of the difference is the Taylor-linearisation variance of the influence-curve rows over strata / PSUs / fpc (R ``survey::svyrecvar`` of ``IC / n``), with t intervals on the design df (#PSU - #strata). Not with ``weights=``. Equals R ``ltmle`` + ``svyrecvar`` (``tests/reference_parity/test_ltmle_design_parity.py``). .. versionadded:: 1.40.0",
+            "type": "string"
+          },
           "g_learner": {
             "description": "Learner with ``predict_proba`` for the treatment and censoring models, e.g. ``sp.SuperLearner(task='classification')``.",
             "type": "string"
@@ -160230,6 +160238,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs ltmle::ltmle 1.3-0 (glm, gbounds c(0.01, 1), variance.method = 'ic') [R version 4.5.2 (2025-10-31), ltmle 1.3.0]; tolerance psi1 / psi0 / ATE / SE 1e-9 rel without censoring (observed 5e-13); 1e-8 with censoring nodes (observed 5e-10) -- tests/reference_parity/test_teffects_R_parity.py",
+      "tests/reference_parity/test_ltmle_design_parity.py",
       "tests/reference_parity/test_ltmle_weights_parity.py",
       "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
     ],

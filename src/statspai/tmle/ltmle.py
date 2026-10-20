@@ -329,6 +329,7 @@ def ltmle(
     weights: Optional[str] = None,
     q_learner: Any = None,
     g_learner: Any = None,
+    design: Any = None,
 ) -> LTMLEResult:
     """
     Longitudinal TMLE for static regime contrasts.
@@ -390,6 +391,17 @@ def ltmle(
     g_learner : classifier, optional
         Learner with ``predict_proba`` for the treatment and censoring
         models, e.g. ``sp.SuperLearner(task='classification')``.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows). Its weights are the observation weights
+        (as ``weights=``) and the standard error of the difference is the
+        Taylor-linearisation variance of the influence-curve rows over
+        strata / PSUs / fpc (R ``survey::svyrecvar`` of ``IC / n``), with t
+        intervals on the design df (#PSU - #strata). Not with
+        ``weights=``. Equals R ``ltmle`` + ``svyrecvar``
+        (``tests/reference_parity/test_ltmle_design_parity.py``).
+
+        .. versionadded:: 1.40.0
 
     Returns
     -------
@@ -545,6 +557,11 @@ def ltmle(
             recovery_hint="Pass a static regime with one value per time point.",
         )
 
+    svy: Any = None
+    if design is not None:
+        from ..survey.linearization import check_design
+
+        svy = check_design(design, data, function="ltmle", weights=weights)
     df = data.copy().reset_index(drop=True)
     n = len(df)
     if n < 2:
@@ -605,8 +622,11 @@ def ltmle(
                 diagnostics={"weights": weights},
                 recovery_hint="Drop rows with zero or missing weight first.",
             )
+    elif svy is not None:
+        obs_w = np.asarray(svy.weights, dtype=float)
     else:
         obs_w = np.ones(n)
+    weighted = weights is not None or svy is not None
 
     def _hist_cols(k: int) -> List[str]:
         cols = list(baseline)
@@ -632,17 +652,13 @@ def ltmle(
         X_k = np.column_stack([np.ones(n), H])
         fit_rows = uncens_before[:, k]
         prob_a1.append(
-            _logit_fit_predict(
-                X_k, A_obs[:, k], fit_rows, obs_w, g_learner, weights is not None
-            )
+            _logit_fit_predict(X_k, A_obs[:, k], fit_rows, obs_w, g_learner, weighted)
         )
         if censoring:
             X_c = np.column_stack([X_k, A_obs[:, k]])
             c_k = (df[censoring[k]].to_numpy(dtype=float) == 1).astype(float)
             prob_c1.append(
-                _logit_fit_predict(
-                    X_c, c_k, fit_rows, obs_w, g_learner, weights is not None
-                )
+                _logit_fit_predict(X_c, c_k, fit_rows, obs_w, g_learner, weighted)
             )
         else:
             prob_c1.append(np.ones(n))
@@ -717,7 +733,7 @@ def ltmle(
                 q_pred = np.clip(expit(X_reg @ beta), 1e-4, 0.9999)
             else:
                 qm = _clone_learner(q_learner)
-                kw = {"sample_weight": obs_w[fit_rows]} if weights is not None else {}
+                kw = {"sample_weight": obs_w[fit_rows]} if weighted else {}
                 qm.fit(X_obs[fit_rows][:, 1:], Q_next[fit_rows], **kw)
                 q_pred = np.clip(
                     np.asarray(qm.predict(X_reg[:, 1:]), dtype=float), 1e-4, 0.9999
@@ -758,11 +774,32 @@ def ltmle(
     psi0, ic0, eps0, fail0 = _run_regime(regime_control)
     ate = psi1 - psi0
     diff_ic = ic1 - ic0
-    se = float(np.std(diff_ic, ddof=1) / np.sqrt(n))
-    z_stat = ate / se if se > 0 else 0.0
-    pval = float(2 * stats.norm.sf(abs(z_stat)))
-    crit = float(stats.norm.ppf(1 - alpha / 2))
-    ci = (ate - crit * se, ate + crit * se)
+    svy_detail: Dict[str, Any] = {}
+    if svy is None:
+        se = float(np.std(diff_ic, ddof=1) / np.sqrt(n))
+        z_stat = ate / se if se > 0 else 0.0
+        pval = float(2 * stats.norm.sf(abs(z_stat)))
+        crit = float(stats.norm.ppf(1 - alpha / 2))
+        ci = (ate - crit * se, ate + crit * se)
+    else:
+        from ..survey.linearization import (
+            design_df,
+            design_inference,
+            design_info,
+            design_vcov,
+        )
+
+        # theta_hat - theta ~= mean(IC): the contributions are IC / n
+        V = design_vcov(np.column_stack([diff_ic, ic1, ic0]) / n, svy)
+        se = float(np.sqrt(max(V[0, 0], 0.0)))
+        svy_df = design_df(svy)
+        ci, pval = design_inference(ate, se, svy_df, alpha)
+        svy_detail = {
+            "survey_design": design_info(svy, svy_df),
+            "se_psi_treated": float(np.sqrt(max(V[1, 1], 0.0))),
+            "se_psi_control": float(np.sqrt(max(V[2, 2], 0.0))),
+            "inference": "survey linearisation of the influence curve, t(df)",
+        }
 
     def _serialise_regime(r: Regime) -> Any:
         return "dynamic-callable" if callable(r) else tuple(r)
@@ -788,6 +825,7 @@ def ltmle(
             # steps where the binary fluctuation failed (eps forced to 0).
             "epsilons": {"treated": eps1, "control": eps0},
             "targeting_failures": {"treated": fail1, "control": fail0},
+            **svy_detail,
         },
     )
     try:

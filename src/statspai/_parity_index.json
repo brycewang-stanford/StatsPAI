@@ -12693,6 +12693,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_ltmle_design_parity.py",
         "tests/reference_parity/test_ltmle_weights_parity.py",
         "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
       ],
@@ -12980,6 +12981,7 @@
         "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_cem_k2k_parity.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
+        "tests/reference_parity/test_match_design_parity.py",
         "tests/reference_parity/test_match_fw_stata_parity.py",
         "tests/reference_parity/test_match_sweights_parity.py",
         "tests/reference_parity/test_matching_parity.py",
@@ -22783,6 +22785,8 @@
       "additional_tests": [
         "tests/external_parity/test_gelman_ros_examples.py",
         "tests/reference_parity/test_cox_zph_weighted_parity.py",
+        "tests/reference_parity/test_ltmle_design_parity.py",
+        "tests/reference_parity/test_match_design_parity.py",
         "tests/reference_parity/test_mediate_design_Stata_parity.py",
         "tests/reference_parity/test_survey_calib_R_parity.py",
         "tests/reference_parity/test_survey_calibrated_design_parity.py",

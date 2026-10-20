@@ -64,30 +64,50 @@ def weighted_logit(X: np.ndarray, t: np.ndarray, s: np.ndarray) -> np.ndarray:
 
 
 def match_sampling_weighted(
-    data: pd.DataFrame, sampling_weights: str, spec: Dict[str, Any], fit: Any
+    data: pd.DataFrame,
+    sampling_weights: str,
+    spec: Dict[str, Any],
+    fit: Any,
+    design: Any = None,
 ) -> CausalResult:
     """Run :func:`sp.match` with MatchIt-style sampling weights.
 
-    ``fit(data, spec)`` runs the ordinary matching estimator.
+    ``fit(data, spec)`` runs the ordinary matching estimator. With a
+    ``design`` (``sp.match(design=)``) the weights are the design's and the
+    standard error is the survey linearisation of the matched-sample
+    regression over the full design.
     """
+    arg = "design=" if design is not None else "sampling_weights="
     method = str(spec.get("method", "nearest")).lower()
     if method not in ("nearest", "psm", "nn", "nearest_neighbor"):
         raise MethodIncompatibility(
-            "sp.match: sampling_weights= is implemented for nearest-neighbour "
-            f"matching (MatchIt's method='nearest'); got method={method!r}.",
+            f"sp.match: {arg} is implemented for nearest-neighbour "
+            f"matching (MatchIt's method='nearest'); got method={method!r}."
+            + (
+                " The other matching estimators have no influence function "
+                "here, so there is nothing to linearise over the design."
+                if design is not None
+                else ""
+            ),
             recovery_hint="Use method='nearest', or a weighting estimator: "
-            "sp.ipw / sp.aipw / sp.ebalance accept weights=.",
+            + (
+                "sp.ipw / sp.aipw / sp.tmle accept design=."
+                if design is not None
+                else "sp.ipw / sp.aipw / sp.ebalance accept weights=."
+            ),
+            diagnostics={"method": method},
+            alternative_functions=["sp.ipw", "sp.aipw", "sp.tmle"],
         )
     estimand = str(spec.get("estimand", "ATT")).upper()
     if estimand not in ("ATT", "ATC"):
         raise MethodIncompatibility(
-            "sp.match: sampling_weights= supports estimand='ATT' or 'ATC' "
+            f"sp.match: {arg} supports estimand='ATT' or 'ATC' "
             "(nearest-neighbour matching keeps one arm whole).",
             recovery_hint="Use estimand='ATT'.",
         )
     if spec.get("bias_correction") or str(spec.get("se_method", "auto")) != "auto":
         raise MethodIncompatibility(
-            "sp.match: with sampling_weights= the standard error is the "
+            f"sp.match: with {arg} the standard error is the "
             "MatchIt regression one; bias_correction / se_method do not apply.",
             recovery_hint="Drop bias_correction= and se_method=.",
         )
@@ -142,6 +162,11 @@ def match_sampling_weighted(
     tau = float(coef[1])
     e = y - X @ coef
     replace = bool(spec.get("replace", True))
+    alpha = float(spec.get("alpha", 0.05))
+    if design is not None:
+        return _design_result(
+            base, md, data, design, X, bread, w, e, tau, estimand, alpha, uses_ps, spec
+        )
     if replace:
         h = np.einsum("ij,jk,ik->i", X, bread, X) * w
         score = X * (w * e / (1.0 - h))[:, None]
@@ -160,7 +185,6 @@ def match_sampling_weighted(
         vce = "cluster(matched set)"
         n_sets = G
     se = float(np.sqrt(V[1, 1]))
-    alpha = float(spec.get("alpha", 0.05))
     zc = stats.norm.ppf(1 - alpha / 2)
     info = dict(base.model_info)
     info.update(
@@ -180,6 +204,69 @@ def match_sampling_weighted(
         se=se,
         pvalue=float(2 * stats.norm.sf(abs(tau / se))) if se > 0 else float("nan"),
         ci=(tau - zc * se, tau + zc * se),
+        alpha=alpha,
+        n_obs=base.n_obs,
+        detail=base.detail,
+        model_info=info,
+    )
+
+
+def _design_result(
+    base: CausalResult,
+    md: pd.DataFrame,
+    data: pd.DataFrame,
+    design: Any,
+    X: np.ndarray,
+    bread: np.ndarray,
+    w: np.ndarray,
+    e: np.ndarray,
+    tau: float,
+    estimand: str,
+    alpha: float,
+    uses_ps: bool,
+    spec: Dict[str, Any],
+) -> CausalResult:
+    """Survey linearisation of the matched-sample regression ``y ~ d``.
+
+    The influence rows of the coefficient on ``d`` (matching weights
+    fixed) are placed at the matched rows' positions in the full design,
+    the other rows contributing zero (a domain): R ``svyglm`` on
+    ``subset(design, matched)``.
+    """
+    from ..survey.linearization import (
+        design_df,
+        design_inference,
+        design_info,
+        design_vcov,
+    )
+
+    rows = data.index.get_indexer(md.index)
+    if (rows < 0).any():  # pragma: no cover - md rows come from data
+        raise MethodIncompatibility("sp.match: matched rows not found in data.")
+    u = (X * (w * e)[:, None]) @ bread  # (n_matched, 2)
+    V = design_vcov(u, design, rows)
+    se = float(np.sqrt(max(V[1, 1], 0.0)))
+    df = design_df(design, rows)
+    ci, pval = design_inference(tau, se, df, alpha)
+    info = dict(base.model_info)
+    info.update(
+        {
+            "sampling_weights": None,
+            "sampling_weight_vce": "survey linearisation (matched rows as a domain)",
+            "ps_uses_sampling_weights": uses_ps
+            and spec.get("pscore") == "__ps_sampling__",
+            "unweighted_estimate": float(base.estimate),
+            "survey_design": design_info(design, df),
+            "se_method": "survey_linearization",
+        }
+    )
+    return CausalResult(
+        method=f"{base.method} (survey design)",
+        estimand=estimand,
+        estimate=tau,
+        se=se,
+        pvalue=pval,
+        ci=ci,
         alpha=alpha,
         n_obs=base.n_obs,
         detail=base.detail,

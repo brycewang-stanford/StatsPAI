@@ -6475,6 +6475,19 @@ def _build_registry() -> None:
                     "SE clustered on matched sets (HC3 with replacement)",
                 ),
                 ParamSpec(
+                    "design",
+                    "SurveyDesign",
+                    False,
+                    None,
+                    "A survey design from sp.svydesign on the same rows, for "
+                    "nearest-neighbour ATT/ATC: design weights as MatchIt "
+                    "s.weights, SE by survey linearisation of the matched-"
+                    "sample regression with the matched rows as a domain of "
+                    "the full design (R svyglm on subset(design, matched)), "
+                    "t on the design df. Other methods are refused (no "
+                    "influence function); use sp.ipw / aipw / tmle(design=).",
+                ),
+                ParamSpec(
                     "k2k",
                     "bool",
                     False,

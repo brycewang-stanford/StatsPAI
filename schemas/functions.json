@@ -4472,6 +4472,10 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A survey design from sp.svydesign on the same rows, for nearest-neighbour ATT/ATC: design weights as MatchIt s.weights, SE by survey linearisation of the matched-sample regression with the matched rows as a domain of the full design (R svyglm on subset(design, matched)), t on the design df. Other methods are refused (no influence function); use sp.ipw / aipw / tmle(design=).",
+          "type": "string"
+        },
         "exact": {
           "description": "method='nearest' only: match only within cells of equal values of these columns (MatchIt exact=~...). Treated units whose cell has no control go unmatched and are counted in model_info.",
           "items": {
@@ -75385,6 +75389,10 @@
           "description": "Wide-format panel: one row per unit.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "design": {
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). Its weights are the observation weights (as ``weights=``) and the standard error of the difference is the Taylor-linearisation variance of the influence-curve rows over strata / PSUs / fpc (R ``survey::svyrecvar`` of ``IC / n``), with t intervals on the design df (#PSU - #strata). Not with ``weights=``. Equals R ``ltmle`` + ``svyrecvar`` (``tests/reference_parity/test_ltmle_design_parity.py``). .. versionadded:: 1.40.0",
+          "type": "string"
         },
         "g_learner": {
           "description": "Learner with ``predict_proba`` for the treatment and censoring models, e.g. ``sp.SuperLearner(task='classification')``.",

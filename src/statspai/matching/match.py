@@ -259,6 +259,7 @@ def match(
     cluster: Optional[str] = None,
     sampling_weights: Optional[str] = None,
     k2k: bool = False,
+    design: Any = None,
 ) -> CausalResult:
     """
     Estimate treatment effect using matching.
@@ -590,6 +591,24 @@ def match(
         Equals MatchIt 4.7.2 + sandwich to 1e-9
         (``tests/reference_parity/test_match_sweights_parity.py``). To
         reproduce MatchIt's matches pass ``m_order='largest'``.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on
+        ``data`` (same rows), for nearest-neighbour matching (ATT / ATC).
+        The design weights play the role of ``sampling_weights=`` (weighted
+        propensity score, effect = weighted difference in means of the
+        matched sample with weights ``matching weight * design weight``);
+        the standard error is the survey linearisation of that regression
+        over strata / PSUs / fpc, with the matched rows as a domain of the
+        full design and the matching weights treated as fixed -- R
+        ``svyglm(y ~ d, subset(design, matched))`` after ``MatchIt`` with
+        ``s.weights``, the recipe of MatchIt's documentation (equal to it,
+        ``tests/reference_parity/test_match_design_parity.py``). t
+        intervals on the design df. Like ``sampling_weights=``, it does
+        not account for estimating the score or for the matching. Other
+        methods have no influence function here and are refused; use
+        ``sp.ipw`` / ``sp.aipw`` / ``sp.tmle`` with ``design=``.
+
+        .. versionadded:: 1.40.0
     k2k : bool, default False
         ``method='cem'`` only: after the coarsening, match 1:1 without
         replacement inside each cell on the Mahalanobis distance of the
@@ -722,6 +741,37 @@ def match(
             return MatchEstimator(data=frame, **sp_).fit()
 
         return match_cem_k2k(data, spec, _fit_k2k)
+    if design is not None:
+        from ..survey.linearization import check_design
+        from ._sampling_weights import match_sampling_weighted
+
+        svy = check_design(
+            design, data, function="sp.match", weights=weights, cluster=cluster
+        )
+        if sampling_weights is not None or k2k:
+            raise MethodIncompatibility(
+                "sp.match: design= already carries the sampling weights; "
+                "sampling_weights= / k2k= cannot be given as well.",
+                recovery_hint="Drop sampling_weights= (the design weights "
+                "are used as MatchIt s.weights).",
+            )
+        if not data.index.is_unique:
+            raise MethodIncompatibility(
+                "sp.match: design= needs a unique data index to place the "
+                "matched rows in the design.",
+                recovery_hint="reset_index() the data before sp.svydesign.",
+            )
+
+        def _fit_d(frame: pd.DataFrame, sp_: Dict[str, Any]) -> CausalResult:
+            return MatchEstimator(data=frame, **sp_).fit()
+
+        return match_sampling_weighted(
+            data.assign(__svy_weight__=svy.weights),
+            "__svy_weight__",
+            spec,
+            _fit_d,
+            design=svy,
+        )
     if sampling_weights is not None:
         if weights is not None:
             raise MethodIncompatibility(

@@ -4,6 +4,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `design=` on `sp.ltmle` and `sp.match`
+
+#### Added
+
+- `sp.ltmle(..., design=sp.svydesign(...))`: the design weights as
+  observation weights and the survey linearisation of the influence curve
+  (`IC / n`) over strata / PSUs / fpc, with t intervals on the design df;
+  `detail` also carries the design SEs of the two regime means. Equals R
+  `ltmle` 1.3-0 influence curves + `survey::svyrecvar` on 12 configurations
+  (`tests/reference_parity/test_ltmle_design_parity.py`).
+- `sp.match(..., design=)` for nearest-neighbour ATT / ATC: the design
+  weights as MatchIt `s.weights` and the survey linearisation of the
+  matched-sample regression with the matched rows as a domain of the full
+  design -- R `MatchIt` 4.7.2 + `svyglm(y ~ d, subset(design, matched))`,
+  equal to 1e-8 on 12 configurations
+  (`tests/reference_parity/test_match_design_parity.py`). Other matching
+  methods have no influence function and are refused with a typed error
+  pointing to `sp.ipw` / `sp.aipw` / `sp.tmle(design=)`.
+
 ### Survey designs reach `sp.did`; PH test for weighted Cox fits
 
 #### Added
