@@ -4,7 +4,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
-### Stata translation: `stteffects`, `didregress aggregate()`
+### Stata translation: `stteffects`, `didregress aggregate()`, classical `wyoung`
 
 #### Added
 
@@ -24,6 +24,15 @@ All notable changes to StatsPAI will be documented in this file.
   `sp.stata` to 1e-10 (`tests/test_stata_translation_didregress_aggregate.py`).
   `aggregate(dlang)` with `vce(cluster)` or `wildbootstrap` is refused, as
   Stata refuses it.
+- `sp.westfall_young(robust=False)` (or `vce='ols'`): the classical OLS
+  t-statistic, as Stata `regress` without options; the default (HC1 / CR1)
+  is unchanged. `wyoung ..., cmd(regress OUTCOMEVAR d x)` with no SE option
+  now translates (`robust=False`) instead of being refused. Coefficients,
+  t and analytic p-values equal Stata `wyoung` to 1e-12 on a stratified and
+  a completely randomized design; the adjusted p-values agree within Monte
+  Carlo error of wyoung's 20,000 draws
+  (`tests/reference_parity/test_westfall_young_wyoung_parity.py`; wyoung
+  used as a black box).
 
 ### `design=` on `sp.ltmle` and `sp.match`
 

@@ -83,3 +83,61 @@ def test_translation_runs_the_same_call():
     out = sp.westfall_young(data, **tr["arguments"])
     ref = np.array(REF["strata"], dtype=float)
     np.testing.assert_allclose(out["p_analytic"], ref[:, 2], rtol=1e-12)
+
+
+# ----------------------------------------------------------------------
+# Classical (non-robust) t: wyoung with cmd(regress OUTCOMEVAR treat x
+# [i.stratum]) and no SE option (_generate_wyoung_classical_Stata.do).
+# Same evidence levels: coefficients / t / analytic p T2 (1e-12), adjusted
+# p-values an S-level screen within 4 Monte Carlo SEs of wyoung's 20,000
+# draws (sp.westfall_young enumerates 4,900 / 12,870 assignments).
+# ----------------------------------------------------------------------
+REF_CL = json.loads((_FIX / "wyoung_classical_Stata.json").read_text(encoding="utf-8"))
+CLASSICAL = {
+    "strata": dict(kw=dict(strata="stratum"), n=4900),
+    "complete": dict(kw={}, n=12870),
+}
+
+
+@pytest.fixture(scope="module", params=sorted(CLASSICAL))
+def fit_classical(request):
+    name = request.param
+    data = pd.read_csv(_FIX / "wyoung_strata.csv")
+    out = sp.westfall_young(
+        data,
+        y=["y1", "y2", "y3"],
+        treat="treat",
+        covariates=["x"],
+        n_perms=100_000,
+        robust=False,
+        **CLASSICAL[name]["kw"],
+    )
+    return name, out, np.array(REF_CL[name], dtype=float)
+
+
+def test_classical_statistics_match_wyoung(fit_classical):
+    name, out, ref = fit_classical
+    assert out.attrs["exact"] is True
+    assert out.attrs["n_perms"] == CLASSICAL[name]["n"]
+    np.testing.assert_allclose(out["coef"], ref[:, 0], rtol=1e-12)
+    np.testing.assert_allclose(out["t"], ref[:, 0] / ref[:, 1], rtol=1e-12)
+    np.testing.assert_allclose(out["p_analytic"], ref[:, 2], rtol=1e-12)
+
+
+def test_classical_adjusted_p_within_monte_carlo_error(fit_classical):
+    _, out, ref = fit_classical
+    p_stata = ref[:, 3]
+    mc_se = np.sqrt(np.maximum(p_stata * (1 - p_stata), 1e-4) / REF_CL["reps"])
+    assert np.all(np.abs(out["p_wy"].to_numpy() - p_stata) <= 4 * mc_se)
+
+
+def test_classical_translation_runs_the_same_call():
+    data = pd.read_csv(_FIX / "wyoung_strata.csv")
+    out = sp.stata(
+        "wyoung y1 y2 y3, cmd(regress OUTCOMEVAR treat x i.stratum) "
+        "familyp(treat) permute(treat) strata(stratum) reps(100000)",
+        data=data,
+    )
+    ref = np.array(REF_CL["strata"], dtype=float)
+    np.testing.assert_allclose(out["p_analytic"], ref[:, 2], rtol=1e-12)
+    np.testing.assert_allclose(out["t"], ref[:, 0] / ref[:, 1], rtol=1e-12)

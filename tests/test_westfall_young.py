@@ -128,3 +128,43 @@ def test_each_outcome_uses_its_own_rows():
         "outcome"
     )
     assert out.loc["y1", "n_obs"] == 12 and out.loc["y2", "n_obs"] == 10
+
+
+def test_classical_t_is_the_ols_t_and_refuses_clusters():
+    """robust=False: the t of each outcome is the classical OLS t
+    (identity with sp.regress without vce), and clusters are refused."""
+    import statspai as sp
+    from statspai.exceptions import MethodIncompatibility
+
+    rng = np.random.default_rng(3)
+    n = 40
+    d = pd.DataFrame({"d": rng.permutation([0, 1] * (n // 2)), "x": rng.normal(size=n)})
+    d["y1"] = 0.5 * d.d + d.x + rng.normal(size=n) * (1 + d.d)
+    d["y2"] = rng.normal(size=n)
+    out = sp.westfall_young(
+        d,
+        y=["y1", "y2"],
+        treat="d",
+        covariates=["x"],
+        n_perms=500,
+        seed=0,
+        robust=False,
+    ).set_index("outcome")
+    for y in ("y1", "y2"):
+        fit = sp.regress(f"{y} ~ d + x", data=d)
+        np.testing.assert_allclose(
+            out.loc[y, "t"], fit.params["d"] / fit.std_errors["d"], rtol=1e-10
+        )
+    same = sp.westfall_young(
+        d,
+        y=["y1", "y2"],
+        treat="d",
+        covariates=["x"],
+        n_perms=500,
+        seed=0,
+        vce="ols",
+    )
+    np.testing.assert_array_equal(same["t"].to_numpy(), out["t"].to_numpy())
+    d["c"] = np.repeat(np.arange(n // 2), 2)
+    with pytest.raises(MethodIncompatibility, match="cluster"):
+        sp.westfall_young(d, y=["y1"], treat="d", cluster="c", robust=False)

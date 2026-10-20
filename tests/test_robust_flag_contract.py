@@ -107,6 +107,9 @@ CALLS = {
     "xtdpdsys": lambda f, v: f(
         _dynpanel(), y="n", id="id", time="year", lags=1, robust=v
     ),
+    "westfall_young": lambda f, v: f(
+        _two_period(), y=["y"], treat="treat", n_perms=200, seed=0, robust=v
+    ),
 }
 
 

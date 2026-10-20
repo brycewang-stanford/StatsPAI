@@ -1736,6 +1736,16 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "at least three blocks.",
         }
     ],
+    "westfall_young": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop robust=False to use CR1 by cluster, or "
+            "drop cluster= for the classical t.",
+            "symptom": "sp.westfall_young: robust=False (classical "
+            "OLS standard errors) cannot be combined with "
+            "cluster=.",
+        }
+    ],
     "xcorr": [
         {
             "exception": "statspai.MethodIncompatibility",

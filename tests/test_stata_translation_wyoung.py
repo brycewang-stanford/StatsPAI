@@ -31,7 +31,15 @@ def test_cluster_form_maps_every_argument():
     "line, reason",
     [
         ("wyoung y1 y2, cmd(regress OUTCOMEVAR d, r) familyp(d)", "bootstraps"),
-        ("wyoung y1 y2, cmd(regress OUTCOMEVAR d) familyp(d) permute(d)", "HC1"),
+        (
+            "wyoung y1 y2, cmd(regress OUTCOMEVAR d, vce(hc3)) familyp(d) permute(d)",
+            "classical, HC1",
+        ),
+        (
+            "wyoung y1 y2, cmd(regress OUTCOMEVAR d) familyp(d) permute(d) "
+            "cluster(g)",
+            "cluster",
+        ),
         (
             "wyoung y1 y2, cmd(regress OUTCOMEVAR d, r) familyp(d) permute(d) "
             "strata(s)",
@@ -62,3 +70,13 @@ def test_refusals_name_the_reason_and_the_function(line, reason):
     assert out["ok"] is False
     assert reason in out["error"]
     assert "westfall_young" in out["statspai_functions"]
+
+
+@pytest.mark.parametrize("opts", ["", ", vce(ols)"])
+def test_regress_without_se_option_is_the_classical_t(opts):
+    out = sp.from_stata(
+        f"wyoung y1 y2, cmd(regress OUTCOMEVAR d x{opts}) familyp(d) "
+        "permute(d) reps(2000)"
+    )
+    assert out["ok"] and out["complete"]
+    assert out["arguments"]["robust"] is False

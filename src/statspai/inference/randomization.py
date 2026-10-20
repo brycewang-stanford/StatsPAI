@@ -944,13 +944,22 @@ def _ols_stat_factory(
     strata: Optional[np.ndarray],
     clusters: Optional[np.ndarray],
     t_stat: bool,
+    vce: str = "robust",
 ) -> StatFn:
     """Treatment coefficient (or its t) after partialling out the controls.
 
     By Frisch-Waugh-Lovell only ``M_W d`` changes across permutations, so the
     projection onto the controls ``W`` (intercept, covariates, stratum
     dummies) is factored once.
+
+    The t uses CR1 with ``clusters``, otherwise HC1 (``vce='robust'``) or
+    the classical OLS variance ``s^2 / d~'d~`` with ``s^2 = e'e / (n - k)``
+    (``vce='classical'``, Stata ``regress`` without options).
     """
+    if vce not in ("robust", "classical"):
+        raise ValueError(f"vce must be 'robust' or 'classical', got {vce!r}")
+    if vce == "classical" and clusters is not None:
+        raise ValueError("the classical variance does not take clusters")
     n = len(df)
     parts = [np.ones((n, 1))]
     if covariates:
@@ -974,7 +983,9 @@ def _ols_stat_factory(
         if not t_stat:
             return b
         e = yt - b * dt
-        if cl_codes is None:
+        if vce == "classical":
+            var = float(e @ e) / (n - k) / dd
+        elif cl_codes is None:
             var = (n / (n - k)) * float(np.sum((dt * e) ** 2)) / dd**2
         else:
             G = int(cl_codes.max()) + 1

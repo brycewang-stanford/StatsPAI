@@ -10,8 +10,9 @@ p-values of ``d``. ``sp.westfall_young`` computes the same statistics
 p-values, exactly when the re-randomizations can be enumerated and in
 distribution otherwise.
 
-Translated only when the two compute the same thing: robust or clustered
-SEs (``sp.westfall_young`` has no classical-SE statistic), stratum effects
+Translated only when the two compute the same thing: classical, robust or
+clustered SEs (``cmd(regress OUTCOMEVAR d x)`` without an SE option is
+``robust=False``, the classical OLS t), stratum effects
 ``i.s`` in the model exactly when ``strata(s)`` is given (``sp.westfall_young``
 adds them), and ``permute()`` of the familyp variable (without it ``wyoung``
 bootstraps).
@@ -63,11 +64,12 @@ def _strip_quotes(text: str) -> str:
     return t
 
 
-def _se_spec(opts: str) -> Optional[Dict[str, Optional[str]]]:
-    """``{'kind': 'robust' | 'cluster', 'var': ...}`` from regress options."""
+def _se_spec(opts: str) -> Dict[str, Optional[str]]:
+    """``{'kind': 'classical' | 'robust' | 'cluster', 'var': ...}`` from
+    regress options (none, or ``vce(ols)``, is the classical variance)."""
     o = opts.strip().lower()
-    if not o:
-        return None
+    if not o or re.fullmatch(r"vce\(\s*ols\s*\)", o):
+        return {"kind": "classical", "var": None}
     m = re.fullmatch(
         r"(?:vce\(\s*)?(cl|clu|clus|clust|cluste|cluster)\s*\(?\s*("
         + _NAME
@@ -138,11 +140,13 @@ def _h_wyoung(cmd: StataCommand) -> Dict[str, Any]:
             "familyp() must be a regressor of cmd(); covariates must be variables."
         )
     se = _se_spec(reg_opts)
-    if se is None or se["kind"] == "other":
+    if se["kind"] == "other":
         return _refuse(
-            "sp.westfall_young uses HC1 (robust) or CR1 (cluster) t-statistics; "
-            "a cmd() with classical or other SEs is not translated."
+            "sp.westfall_young uses classical, HC1 (robust) or CR1 (cluster) "
+            f"t-statistics; cmd() options {se['var']!r} are not translated."
         )
+    if se["kind"] == "classical" and cluster:
+        return _refuse("with cluster() the regression must cluster on it too.")
     if se["kind"] == "cluster" and se["var"] != cluster:
         return _refuse("cluster() must name the variable the regression clusters on.")
     if se["kind"] == "robust" and cluster:
@@ -154,6 +158,8 @@ def _h_wyoung(cmd: StataCommand) -> Dict[str, Any]:
         args["strata"] = strata
     if cluster:
         args["cluster"] = cluster
+    if se["kind"] == "classical":
+        args["robust"] = False
     reps = opts.get("reps")
     try:
         args["n_perms"] = int(str(reps).strip()) if reps is not None else 100

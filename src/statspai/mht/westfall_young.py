@@ -22,6 +22,7 @@ from scipy import stats
 
 from .._input_validation import check_columns
 from ..core._call_record import records_call
+from ..core._validate import require_bool_flag
 from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
 from ..inference.randomization import _enumerate_assignments, _ols_stat_factory
@@ -53,7 +54,7 @@ def _stepdown_maxt(t_obs: np.ndarray, t_perm: np.ndarray) -> np.ndarray:
 
 
 @records_call("westfall_young")
-@accepts_vce(default=("hc1", "robust"))
+@accepts_vce(default=("hc1", "robust"), native={"nonrobust": {"robust": False}})
 def westfall_young(
     data: pd.DataFrame,
     y: Sequence[str],
@@ -63,12 +64,14 @@ def westfall_young(
     cluster: Optional[str] = None,
     n_perms: int = 10_000,
     seed: Optional[int] = None,
+    robust: bool = True,
 ) -> pd.DataFrame:
     """Westfall-Young permutation stepdown p-values across outcomes.
 
     For each outcome in ``y`` the statistic is the t-statistic of ``treat``
     in the OLS regression of the outcome on ``treat``, ``covariates`` and
-    (with ``strata``) stratum fixed effects -- HC1, or CR1 by ``cluster``.
+    (with ``strata``) stratum fixed effects -- HC1, CR1 by ``cluster``, or
+    the classical OLS standard error with ``robust=False``.
     The treatment is re-randomized as the experiment assigned it: within
     ``strata`` when given, at the ``cluster`` level when given, keeping the
     number of treated units (clusters) per stratum. The same re-randomization
@@ -94,6 +97,11 @@ def westfall_young(
     n_perms : int, default 10000
         Re-randomizations (all of them when there are no more).
     seed : int, optional
+    robust : bool, default True
+        ``False`` uses the classical (homoskedastic) OLS standard error in
+        the t-statistic, as Stata ``regress`` without options (``wyoung``
+        with ``cmd(regress OUTCOMEVAR d ...)``); not with ``cluster``.
+        ``vce='ols'`` is the same.
 
     Returns
     -------
@@ -124,6 +132,14 @@ def westfall_young(
     """
     ys = [y] if isinstance(y, str) else list(y)
     covariates = list(covariates or [])
+    robust = require_bool_flag(robust, argument="robust")
+    if not robust and cluster:
+        raise MethodIncompatibility(
+            "sp.westfall_young: robust=False (classical OLS standard errors) "
+            "cannot be combined with cluster=.",
+            recovery_hint="Drop robust=False to use CR1 by cluster, or drop "
+            "cluster= for the classical t.",
+        )
     base_cols = [treat] + covariates + [c for c in (strata, cluster) if c]
     check_columns(
         data,
@@ -156,6 +172,7 @@ def westfall_young(
             None if st is None else st[r],
             None if cl is None else cl[r],
             t_stat=True,
+            vce="robust" if robust else "classical",
         )
         fn_b = _ols_stat_factory(
             sub,
