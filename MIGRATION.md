@@ -40,6 +40,9 @@ names will then fail or change meaning.
 The dispatcher's default `design` changes from `"partial"` to
 `"spillover"` (same estimator), so calls without a design neither warn now
 nor change target later.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` / `sp.rdbwselect` bandwidths with mass points
 
 With `masspoints='adjust'` (the default) and 20% or more tied values of the
