@@ -4743,3 +4743,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   result was kept; only the source hashes in the trace changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after sp.match(design=)
+
+- **Commits.** `8e46917bb` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (module 11) and
+  `tests/orig_parity/results/_implementation_trace.json` (04, 04b).
+- **Reason.** `matching/match.py` gained the `design=` branch (the
+  survey-design path lives in `matching/_sampling_weights.py`, which these
+  modules do not execute); the three modules run `match.py`.
+- **Effect on the paper.** None. Modules 11, 04 and 04b were re-run and
+  their committed results are byte-identical; only the source hashes in the
+  traces changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
