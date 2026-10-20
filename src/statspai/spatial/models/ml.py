@@ -156,6 +156,11 @@ def _make_results(
         "nobs": n,
         "df_model": len(var_names) - 1,
         "df_resid": n - len(var_names),
+        # Maximum-likelihood fits report z statistics and normal intervals,
+        # as Stata spregress, ml and R spatialreg do (they used t(n - k):
+        # on a 40-unit ring the SDEM _cons interval was [0.979, 1.645]
+        # against Stata's [0.990, 1.634]). SLX is least squares and keeps t.
+        **({} if model_type == "slx" else {"inference": "z"}),
         "dependent_var": dep_var,
         "fitted_values": fitted,
         "residuals": resid,
