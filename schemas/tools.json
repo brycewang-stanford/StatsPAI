@@ -37094,6 +37094,21 @@
           "description": "L2 bound for ``'L1-L2'``. Default: R's ridge rule.",
           "type": "number"
         },
+        "anticipation": {
+          "default": 0,
+          "description": "With ``treat=``: number of periods before adoption that may already respond; they are moved out of the pre-treatment window.",
+          "type": "integer"
+        },
+        "effect": {
+          "default": "unit-time",
+          "description": "With ``treat=``: which summary of the post-treatment gaps is in ``effects``. ``'unit-time'`` every unit-period gap, ``'unit'`` each unit's average over its post-treatment periods, ``'time'`` the average across treated units at horizons ``1..min_i T1_i``.",
+          "enum": [
+            "unit-time",
+            "unit",
+            "time"
+          ],
+          "type": "string"
+        },
         "lasso_lambda": {
           "description": "Deprecated and ignored (emit ``DeprecationWarning``). Before 1.28.x these set L1 / L2 *penalties* of a different estimator; R ``scpi`` constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.",
           "type": "number"
@@ -37116,12 +37131,17 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "treat": {
+          "description": "0/1 treatment column (1 from a unit's adoption period on): several treated units with staggered adoption (R ``scdataMulti``). Each treated unit gets its own weights, fitted on its periods before adoption with the never-treated units as donors; units treated later are never donors.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "treated_unit": {
-          "description": "Identifier of the treated unit.",
+          "description": "Identifier of the treated unit. With ``treat=``, optionally the subset of treated units to estimate (R ``units.est``); default all.",
           "type": "string"
         },
         "treatment_time": {
-          "description": "First treatment period.",
+          "description": "First treatment period of the single treated unit. Not used with ``treat=``, where each unit's adoption period is read from the treatment column.",
           "type": "string"
         },
         "unit": {
@@ -37142,8 +37162,6 @@
       "required": [
         "outcome",
         "time",
-        "treated_unit",
-        "treatment_time",
         "unit"
       ],
       "type": "object"

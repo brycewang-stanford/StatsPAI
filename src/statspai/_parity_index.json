@@ -20808,6 +20808,9 @@
       "tolerance": "A, B, P matrices identical (0 difference) on scpi_germany; donor order = R sort(B.names)."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_scest_multi_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

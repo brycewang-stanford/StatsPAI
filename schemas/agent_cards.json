@@ -132849,7 +132849,7 @@
       ],
       "tolerance": "ols and lasso weights at 1e-9 abs; ridge Q / lambda and L1-L2 Q2 at 1e-10. simplex / ridge / L1-L2 weights are bounded by the conic solver: R's objective exceeds StatsPAI's exact optimum by <= 1e-7 relative (CLARABEL gap 1e-8), R's point is feasible, and ||w_R - w_py|| <= sqrt(gap / lambda_min(B'B)) (observed 2.0e-6 / 1.4e-5 / 2.9e-7)."
     },
-    "example": "est = sp.scest(df, outcome='packspercapita', unit='state',\n time='year', treated_unit='California', treatment_time=1989)",
+    "example": "multi = sp.scest(panel, outcome=\"y\", unit=\"unit\", time=\"t\",\n treat=\"d\", effect=\"time\")",
     "failure_modes": [
       {
         "alternative": "sp.sdid",
@@ -132883,10 +132883,10 @@
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "@cattaneo2021prediction",
+    "reference": "@cattaneo2021prediction; @cattaneo2025scpi",
     "returns": {
       "class": "dict",
-      "description": "dict: Keys: - weights : np.ndarray (J,) of estimated donor weights - w_constr : constraint name - w_constr_spec : dict(name, p, dir, Q, Q2, lb,",
+      "description": "dict: With treat= the keys are weights (DataFrame, donors by treated unit), w_constr, w_constr_spec (per unit), effect, effects (DataFrame of the chosen summary with outcome, synthetic and effect columns),",
       "fields": {}
     },
     "signature": {
@@ -132902,10 +132902,25 @@
             "description": "L2 bound for ``'L1-L2'``. Default: R's ridge rule.",
             "type": "number"
           },
+          "anticipation": {
+            "default": 0,
+            "description": "With ``treat=``: number of periods before adoption that may already respond; they are moved out of the pre-treatment window.",
+            "type": "integer"
+          },
           "data": {
             "description": "Long-format panel data.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "effect": {
+            "default": "unit-time",
+            "description": "With ``treat=``: which summary of the post-treatment gaps is in ``effects``. ``'unit-time'`` every unit-period gap, ``'unit'`` each unit's average over its post-treatment periods, ``'time'`` the average across treated units at horizons ``1..min_i T1_i``.",
+            "enum": [
+              "unit-time",
+              "unit",
+              "time"
+            ],
+            "type": "string"
           },
           "lasso_lambda": {
             "description": "Deprecated and ignored (emit ``DeprecationWarning``). Before 1.28.x these set L1 / L2 *penalties* of a different estimator; R ``scpi`` constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.",
@@ -132929,12 +132944,17 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "treat": {
+            "description": "0/1 treatment column (1 from a unit's adoption period on): several treated units with staggered adoption (R ``scdataMulti``). Each treated unit gets its own weights, fitted on its periods before adoption with the never-treated units as donors; units treated later are never donors.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "treated_unit": {
-            "description": "Identifier of the treated unit.",
+            "description": "Identifier of the treated unit. With ``treat=``, optionally the subset of treated units to estimate (R ``units.est``); default all.",
             "type": "string"
           },
           "treatment_time": {
-            "description": "First treatment period.",
+            "description": "First treatment period of the single treated unit. Not used with ``treat=``, where each unit's adoption period is read from the treatment column.",
             "type": "string"
           },
           "unit": {
@@ -132956,9 +132976,7 @@
           "data",
           "outcome",
           "unit",
-          "time",
-          "treated_unit",
-          "treatment_time"
+          "time"
         ],
         "type": "object"
       }
@@ -132966,7 +132984,8 @@
     "stability": "stable",
     "typical_n_min": 15,
     "validation_notes": [
-      "Cross-language parity (aligned) vs R scpi::scest (w.constr simplex / lasso / ridge / ols / L1-L2, V = 'separate') [CVXR 1.9.2, clarabel 0.11.2, osqp 1.0.0, scpi 4.0.1]; tolerance ols and lasso weights at 1e-9 abs; ridge Q / lambda and L1-L2 Q2 at 1e-10. simplex / ridge / L1-L2 weights are bounded by the conic solver: R's objective exceeds StatsPAI's exact optimum by <= 1e-7 relative (CLARABEL gap 1e-8), R's point is feasible, and ||w_R - w_py|| <= sqrt(gap / lambda_min(B'B)) (observed 2.0e-6 / 1.4e-5 / 2.9e-7). -- tests/reference_parity/test_did_synth_scpi_parity.py"
+      "Cross-language parity (aligned) vs R scpi::scest (w.constr simplex / lasso / ridge / ols / L1-L2, V = 'separate') [CVXR 1.9.2, clarabel 0.11.2, osqp 1.0.0, scpi 4.0.1]; tolerance ols and lasso weights at 1e-9 abs; ridge Q / lambda and L1-L2 Q2 at 1e-10. simplex / ridge / L1-L2 weights are bounded by the conic solver: R's objective exceeds StatsPAI's exact optimum by <= 1e-7 relative (CLARABEL gap 1e-8), R's point is feasible, and ||w_R - w_py|| <= sqrt(gap / lambda_min(B'B)) (observed 2.0e-6 / 1.4e-5 / 2.9e-7). -- tests/reference_parity/test_did_synth_scpi_parity.py",
+      "tests/reference_parity/test_scest_multi_parity.py"
     ],
     "validation_status": "certified"
   },

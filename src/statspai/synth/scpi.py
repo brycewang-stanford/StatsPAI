@@ -203,13 +203,16 @@ def scest(
     outcome: str,
     unit: str,
     time: str,
-    treated_unit: Any,
-    treatment_time: Any,
+    treated_unit: Any = None,
+    treatment_time: Any = None,
     w_constr: str = "simplex",
     lasso_lambda: Optional[float] = None,
     ridge_lambda: Optional[float] = None,
     Q: Optional[float] = None,
     Q2: Optional[float] = None,
+    treat: Optional[str] = None,
+    effect: str = "unit-time",
+    anticipation: int = 0,
 ) -> Dict[str, Any]:
     """
     Estimate synthetic control weights (R ``scpi::scest``).
@@ -227,10 +230,13 @@ def scest(
         Unit identifier column name.
     time : str
         Time period column name.
-    treated_unit : scalar
-        Identifier of the treated unit.
-    treatment_time : scalar
-        First treatment period.
+    treated_unit : scalar, optional
+        Identifier of the treated unit. With ``treat=``, optionally the
+        subset of treated units to estimate (R ``units.est``); default all.
+    treatment_time : scalar, optional
+        First treatment period of the single treated unit. Not used with
+        ``treat=``, where each unit's adoption period is read from the
+        treatment column.
     w_constr : str, default 'simplex'
         Weight constraint, as in R ``w.constr = list(name = ...)``:
 
@@ -250,11 +256,34 @@ def scest(
         Default: R's data-driven value.
     Q2 : float, optional
         L2 bound for ``'L1-L2'``.  Default: R's ridge rule.
+    treat : str, optional
+        0/1 treatment column (1 from a unit's adoption period on): several
+        treated units with staggered adoption (R ``scdataMulti``). Each
+        treated unit gets its own weights, fitted on its periods before
+        adoption with the never-treated units as donors; units treated
+        later are never donors.
+    effect : {'unit-time', 'unit', 'time'}, default 'unit-time'
+        With ``treat=``: which summary of the post-treatment gaps is in
+        ``effects``. ``'unit-time'`` every unit-period gap, ``'unit'``
+        each unit's average over its post-treatment periods, ``'time'``
+        the average across treated units at horizons ``1..min_i T1_i``.
+    anticipation : int, default 0
+        With ``treat=``: number of periods before adoption that may already
+        respond; they are moved out of the pre-treatment window.
 
     Returns
     -------
     dict
-        Keys:
+        With ``treat=`` the keys are ``weights`` (DataFrame, donors by
+        treated unit), ``w_constr``, ``w_constr_spec`` (per unit),
+        ``effect``, ``effects`` (DataFrame of the chosen summary with
+        ``outcome``, ``synthetic`` and ``effect`` columns),
+        ``Y_synth_post`` (its ``synthetic`` column, R ``Y.post.fit``),
+        ``unit_time_effects`` (every gap, with ``horizon``), ``pre_fit``,
+        ``pre_rmspe`` (per unit), ``treated_units``, ``adoption_times``,
+        ``treatment_times`` (first post-treatment period after
+        anticipation), ``anticipation``, ``donor_names`` and ``unit_fits``
+        (each unit's single-unit result). Otherwise the keys are:
 
         - ``weights``       : np.ndarray (J,) of estimated donor weights
         - ``w_constr``      : constraint name
@@ -278,11 +307,62 @@ def scest(
     >>> est['Y_synth_post'].shape  # 12 post-treatment years (1989-2000)
     (12,)
 
+    Several treated units adopting at different dates:
+
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = [(f"u{i}", t, i + 0.1 * t + rng.normal(0, 0.1),
+    ...          int((i, t) in {(0, 5), (0, 6), (1, 6)}))
+    ...         for i in range(6) for t in range(7)]
+    >>> panel = pd.DataFrame(rows, columns=["unit", "t", "y", "d"])
+    >>> multi = sp.scest(panel, outcome="y", unit="unit", time="t",
+    ...                  treat="d", effect="time")
+    >>> list(multi["effects"].columns)
+    ['horizon', 'n_units', 'outcome', 'synthetic', 'effect']
+
     References
     ----------
-    [@cattaneo2021prediction]
+    [@cattaneo2021prediction], [@cattaneo2025scpi]
     """
     _warn_deprecated_lambdas(lasso_lambda, ridge_lambda)
+    if treat is not None:
+        if treatment_time is not None:
+            raise MethodIncompatibility(
+                "sp.scest: with treat= each unit's adoption period comes "
+                "from the treatment column; treatment_time= is not used.",
+                recovery_hint="Drop treatment_time=, or drop treat= for one "
+                "treated unit.",
+            )
+        from ._scest_multi import scest_multi
+
+        return scest_multi(
+            data,
+            outcome=outcome,
+            unit=unit,
+            time=time,
+            treat=treat,
+            treated_unit=treated_unit,
+            effect=effect,
+            anticipation=anticipation,
+            single=scest,
+            fit_kw={"w_constr": w_constr, "Q": Q, "Q2": Q2},
+        )
+    if effect != "unit-time" or anticipation != 0:
+        raise MethodIncompatibility(
+            "sp.scest: effect= and anticipation= apply to several treated "
+            "units (treat=); with one treated unit every post-treatment gap "
+            "is reported and treatment_time= sets the window.",
+            recovery_hint="Pass treat='<0/1 column>' or drop effect= / "
+            "anticipation=.",
+        )
+    if treated_unit is None or treatment_time is None:
+        raise MethodIncompatibility(
+            "sp.scest: name the treated unit and its first treatment period "
+            "(treated_unit=, treatment_time=), or pass a 0/1 treatment "
+            "column as treat= for several treated units.",
+            recovery_hint="e.g. treated_unit='California', "
+            "treatment_time=1989, or treat='treated'.",
+        )
     sc = scdata(data, outcome, unit, time, treated_unit, treatment_time)
     w, spec = _fit_weights(sc["A"], sc["B"], w_constr, Q=Q, Q2=Q2)
 
