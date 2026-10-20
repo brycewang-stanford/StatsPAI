@@ -1,104 +1,116 @@
-"""Bandwidth selection for GWR — golden-section search as in ``GWmodel``.
+"""Bandwidth selection for geographically weighted regression.
 
-Criteria (each evaluated exactly as ``GWmodel`` does, see
-``tests/reference_parity/test_spatial_survey_R_parity.py``):
+``gwr_bandwidth`` minimises an information criterion (AICc, AIC, BIC) or the
+leave-one-out cross-validation score of :func:`statspai.spatial.gwr.gwr`
+over the bandwidth by golden-section search (Kiefer 1953,
+``kiefer1953sequential``), the selection method of Brunsdon, Fotheringham
+and Charlton (1996, ``brunsdon1996geographically``) as implemented in R
+``GWmodel``'s ``bw.gwr`` (Gollini et al. 2015, ``gollini2015gwmodel``).
 
-- ``"AICc"`` (default) — ``GWmodel::gwr.aic`` (which, despite its name and
-  ``bw.gwr(approach = "AIC")``, returns the *corrected* AIC); also mgwr's
-  default criterion.
-- ``"CV"`` — leave-one-out score ``sum_i (e_i / (1 - S_ii))^2``, equal to
-  ``GWmodel::gwr.cv``'s refit-with-``W_ii = 0`` sum of squared residuals.
-- ``"AIC"``, ``"BIC"`` — the uncorrected AIC and the BIC of
-  ``gwr.basic``'s diagnostics.
-
-The search is ``GWmodel``'s ``gold()`` routine, reproduced step for step:
-default bounds ``[20, n]`` (adaptive) or ``[D / 5000, D]`` with ``D`` the
-largest inter-point distance (fixed); integer probes use ``floor`` for the
-upper and ``round`` for the lower golden point; iteration stops when the
-bracket step or the criterion difference falls to ``tol`` (GWmodel's
-hard-coded ``1e-4`` by default). The criterion
-is generally *not* unimodal on the neighbour-count lattice, so any golden
-search returns a search-path-dependent local minimum; reproducing the
-reference's path is what makes the selected bandwidth comparable.
+Clean-room implementation (2026-10-20), written from the papers, the
+``GWmodel`` help pages and black-box runs of ``GWmodel`` 2.4-1; no
+``GWmodel`` source was read (spec: ``docs/dev/cleanroom/gwr_bandwidth.md``).
+The criterion is not unimodal on the integer lattice of adaptive bandwidths,
+so the selected bandwidth depends on the search path; the path below
+reproduces the probes that ``GWmodel``'s search evaluates, which were
+recorded from the reference by passing it an instrumented objective
+(``tests/reference_parity/test_gwr_golden_search_blackbox.py``).
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional
+import warnings
+from typing import Any, Callable, List, Literal, Optional, Tuple, get_args
 
 import numpy as np
 
-from ...exceptions import MethodIncompatibility
+from ...exceptions import MethodIncompatibility, NumericalInstability
 from .gwr import GWRResult, KernelName, gwr
 
 Criterion = Literal["AICc", "AIC", "BIC", "CV"]
 
+_GOLDEN = (np.sqrt(5.0) - 1.0) / 2.0  # 0.618..., the golden-section ratio
+_CRITERIA = {"AICc": "aicc", "AIC": "aic", "BIC": "bic", "CV": "cv"}
+_ADAPTIVE_MIN = 20.0
+_FIXED_MIN_FRACTION = 1.0 / 5000.0
+
 
 def _criterion(result: GWRResult, criterion: Criterion) -> float:
-    if criterion == "AICc":
-        return float(result.aicc)
-    if criterion == "AIC":
-        return float(result.aic)
-    if criterion == "BIC":
-        return float(result.bic)
-    if criterion == "CV":
-        return float(result.cv)
-    raise ValueError(f"unknown criterion {criterion!r}")
+    """Value of ``criterion`` for a fitted GWR (smaller is better)."""
+    return float(getattr(result, _CRITERIA[criterion]))
 
 
-def _gold(
-    fun: Callable[[float], float],
-    xL: float,
-    xU: float,
-    adapt_bw: bool,
-    eps: float = 1e-4,
-) -> float:
-    """Golden-section minimiser of ``GWmodel:::gold`` (GWmodel 2.4).
+def _golden_section_search(
+    objective: Callable[[float], float],
+    lower: float,
+    upper: float,
+    integer: bool,
+    tol: float = 1e-4,
+) -> Tuple[float, List[float]]:
+    """Golden-section minimisation of ``objective`` on ``[lower, upper]``.
 
-    Transcribed from the R source, including its stopping rule
-    (``|d| <= 1e-4`` or ``|f2 - f1| <= 1e-4``) and its integer probes
-    (``floor`` / ``round``) for adaptive bandwidths. R's ``round`` and
-    NumPy's both round half to even.
+    The two interior points sit a golden fraction ``d = 0.618 (upper -
+    lower)`` from either end. Each step keeps the sub-interval around the
+    better point, shrinks ``d`` by the golden ratio and evaluates one new
+    point at distance ``d`` from the end that moved. The search stops when
+    the two interior values differ by at most ``tol`` or when ``d`` itself
+    has fallen to ``tol``; it returns the better interior point (the lower
+    one on a tie) and the list of evaluated points.
+
+    With ``integer=True`` (adaptive bandwidths, counted in neighbours) the
+    evaluated points are integers: the first upper point is rounded down
+    and the first lower point to the nearest integer; afterwards a new upper
+    point is rounded to the nearest integer and a new lower point down, and
+    the integer values are what the search keeps. These rounding rules are
+    the ones that reproduce, probe for probe, the points evaluated by the
+    reference implementation on 40 recorded searches.
     """
-    R = (np.sqrt(5.0) - 1.0) / 2.0
-    d = R * (xU - xL)
-    if adapt_bw:
-        x1 = float(np.floor(xL + d))
-        x2 = float(np.round(xU - d))
-    else:
-        x1 = xL + d
-        x2 = xU - d
-    f1 = fun(x1)
-    f2 = fun(x2)
-    d1 = f2 - f1
-    xopt = x1 if f1 < f2 else x2
-    while abs(d) > eps and abs(d1) > eps:
-        d = R * d
-        if f1 < f2:
-            xL = x2
-            x2 = x1
-            x1 = float(np.round(xL + d)) if adapt_bw else xL + d
-            f2 = f1
-            f1 = fun(x1)
+    probes: List[float] = []
+
+    def evaluate(x: float) -> float:
+        probes.append(x)
+        return float(objective(x))
+
+    step = _GOLDEN * (upper - lower)
+    hi_pt = lower + step
+    lo_pt = upper - step
+    if integer:
+        hi_pt = float(np.floor(hi_pt))
+        lo_pt = float(np.rint(lo_pt))
+    f_hi = evaluate(hi_pt)
+    f_lo = evaluate(lo_pt)
+    while abs(f_hi - f_lo) > tol and step > tol:
+        step *= _GOLDEN
+        if f_hi < f_lo:
+            # Minimum lies above lo_pt: drop [lower, lo_pt].
+            lower = lo_pt
+            lo_pt, f_lo = hi_pt, f_hi
+            hi_pt = lower + step
+            if integer:
+                hi_pt = float(np.rint(hi_pt))
+            f_hi = evaluate(hi_pt)
         else:
-            xU = x1
-            x1 = x2
-            x2 = float(np.floor(xU - d)) if adapt_bw else xU - d
-            f1 = f2
-            f2 = fun(x2)
-        xopt = x1 if f1 < f2 else x2
-        d1 = f2 - f1
-    return float(xopt)
+            # Minimum lies below hi_pt: drop [hi_pt, upper].
+            upper = hi_pt
+            hi_pt, f_hi = lo_pt, f_lo
+            lo_pt = upper - step
+            if integer:
+                lo_pt = float(np.floor(lo_pt))
+            f_lo = evaluate(lo_pt)
+    best = hi_pt if f_hi < f_lo else lo_pt
+    return best, probes
 
 
 def _max_pairwise_distance(coords: np.ndarray) -> float:
-    n = coords.shape[0]
-    if n <= 5000:
-        diff = coords[:, None, :] - coords[None, :, :]
-        return float(np.sqrt((diff**2).sum(axis=2)).max())
-    # GWmodel switches to the bounding-box diagonal when it does not build
-    # the distance matrix (dp.n + dp.n > 10000).
-    return float(np.linalg.norm(coords.max(axis=0) - coords.min(axis=0)))
+    """Largest Euclidean distance between two points."""
+    c = np.asarray(coords, dtype=float)
+    best = 0.0
+    # Row blocks keep memory at O(block * n) for large n.
+    block = max(1, int(2_000_000 // max(len(c), 1)))
+    for start in range(0, len(c), block):
+        diff = c[start : start + block, None, :] - c[None, :, :]
+        best = max(best, float(np.sqrt(np.max(np.einsum("ijk,ijk->ij", diff, diff)))))
+    return best
 
 
 def gwr_bandwidth(
@@ -113,97 +125,135 @@ def gwr_bandwidth(
     add_constant: bool = True,
     tol: float = 1e-4,
 ) -> float:
-    """Select a GWR bandwidth by golden-section search (``GWmodel::bw.gwr``).
+    """Select a GWR bandwidth by golden-section search.
+
+    Minimises ``criterion`` of :func:`statspai.spatial.gwr.gwr` over the
+    bandwidth, as R ``GWmodel::bw.gwr`` does.
 
     Parameters
     ----------
     coords : (n, 2) array-like
         Projected point coordinates.
     y : (n,) array-like
+        Outcome.
     X : (n, p) array-like
-        Regressors, without a constant unless ``add_constant=False``.
-    kernel : {"bisquare", "gaussian", "exponential"}
+        Regressors (without a constant unless ``add_constant=False``).
+    kernel : {'bisquare', 'gaussian', 'exponential'}
+        Kernel passed to :func:`gwr`.
     fixed : bool, default False
-        False: the bandwidth is a nearest-neighbour count (integer probes).
-        True: a distance.
-    criterion : {"AICc", "AIC", "BIC", "CV"}, default "AICc"
-        ``"AICc"`` is ``bw.gwr(approach = "AICc")`` (and mgwr's default);
-        ``"CV"`` is ``bw.gwr(approach = "CV")``, GWmodel's default.
+        ``False``: adaptive bandwidth, a number of nearest neighbours
+        (searched over integers). ``True``: a fixed distance.
+    criterion : {'AICc', 'AIC', 'BIC', 'CV'}
+        Score to minimise; ``'CV'`` is the leave-one-out residual sum of
+        squares. ``GWmodel`` offers ``'AICc'`` and ``'CV'``.
     bw_min, bw_max : float, optional
-        Search bounds. Defaults are GWmodel's: ``[20, n]`` for an adaptive
-        bandwidth (``[k + 2, n]`` when ``n <= 20``, where GWmodel's bounds
-        would be empty) and ``[D / 5000, D]`` for a fixed one, ``D`` being
-        the largest inter-point distance.
+        Search interval. Defaults: ``[20, n]`` neighbours (adaptive) or
+        ``[bw_max / 5000, bw_max]`` with ``bw_max`` defaulting to the
+        largest distance between two points (fixed), the reference's
+        interval. With ``n <= 20`` observations the adaptive interval
+        ``[20, n]`` would be empty and starts at ``k + 2`` instead (``k``
+        local coefficients, the constant included). Adaptive searches can
+        end one or two neighbours outside the interval, as the reference's
+        do, because their points are rounded.
     add_constant : bool, default True
+        Passed to :func:`gwr`.
     tol : float, default 1e-4
-        Stopping threshold of the golden-section search, applied (as in
-        GWmodel, where it is hard-coded to ``1e-4``) both to the bracket
-        step and to the difference of the two probed criterion values.
+        The search stops when two interior criterion values differ by at
+        most ``tol`` or the golden step falls to ``tol``.
+
+    A probed bandwidth that admits no GWR fit (one neighbour or less) scores
+    ``+inf``, with a ``RuntimeWarning``; if no probe can be fitted the first
+    error is raised.
 
     Returns
     -------
     float
         The selected bandwidth.
 
-    Notes
-    -----
-    The criterion is generally not unimodal in the bandwidth, so the
-    result is the local minimum reached by the golden-section path, not
-    necessarily the global minimum. To scan globally, evaluate
-    ``sp.gwr(...).aicc`` / ``.cv`` over a grid.
-
     Examples
     --------
     >>> import numpy as np
     >>> import statspai as sp
     >>> rng = np.random.default_rng(0)
-    >>> n = 80
-    >>> coords = rng.uniform(0, 10, size=(n, 2))
-    >>> x = rng.normal(size=n)
-    >>> beta = 0.5 + 0.1 * coords[:, 1]  # spatially varying slope
-    >>> y = 1.0 + beta * x + rng.normal(0, 0.3, n)
-    >>> bw = sp.gwr_bandwidth(coords, y, x.reshape(-1, 1), criterion="AICc")
+    >>> coords = rng.uniform(0, 10, size=(60, 2))
+    >>> X = rng.normal(size=(60, 1))
+    >>> y = 1 + (0.5 + 0.1 * coords[:, 0]) * X[:, 0] + rng.normal(0, 0.3, 60)
+    >>> bw = sp.gwr_bandwidth(coords, y, X)
     >>> bool(bw > 0)
     True
-    >>> res = sp.gwr(coords, y, x.reshape(-1, 1), bw=bw, fixed=False)
-    >>> type(res).__name__
-    'GWRResult'
+
+    References
+    ----------
+    brunsdon1996geographically; gollini2015gwmodel; kiefer1953sequential.
     """
-    coords = np.asarray(coords, dtype=float)
-    y = np.asarray(y, dtype=float).ravel()
-    X = np.asarray(X, dtype=float)
-    n = coords.shape[0]
-    k = X.shape[1] + (1 if add_constant else 0)
-    if criterion not in ("AICc", "AIC", "BIC", "CV"):
-        raise MethodIncompatibility(f"unknown criterion {criterion!r}")
+    if criterion not in _CRITERIA:
+        raise MethodIncompatibility(
+            f"criterion must be one of {sorted(_CRITERIA)}, got {criterion!r}",
+            recovery_hint="Use criterion='AICc', 'AIC', 'BIC' or 'CV'.",
+            diagnostics={"criterion": criterion},
+        )
+    if kernel not in get_args(KernelName):
+        raise MethodIncompatibility(
+            f"kernel must be one of {list(get_args(KernelName))}, got {kernel!r}",
+            recovery_hint="Use kernel='bisquare', 'gaussian' or 'exponential'.",
+            diagnostics={"kernel": kernel},
+        )
+    coords_arr = np.asarray(coords, dtype=float)
+    y_arr = np.asarray(y, dtype=float).ravel()
+    n = y_arr.size
     if fixed:
-        if bw_max is None:
-            bw_max = _max_pairwise_distance(coords)
-        if bw_min is None:
-            bw_min = bw_max / 5000.0
+        upper = _max_pairwise_distance(coords_arr) if bw_max is None else float(bw_max)
+        lower = upper * _FIXED_MIN_FRACTION if bw_min is None else float(bw_min)
     else:
-        if bw_min is None:
-            bw_min = 20.0 if n > 20 else float(k + 2)
-        if bw_max is None:
-            bw_max = float(n)
+        X_arr = np.asarray(X, dtype=float)
+        n_coef = (X_arr.shape[1] if X_arr.ndim == 2 else 1) + int(add_constant)
+        # [20, n] is empty for n <= 20; start just above the local model size.
+        default_lower = _ADAPTIVE_MIN if n > _ADAPTIVE_MIN else float(n_coef + 2)
+        lower = default_lower if bw_min is None else float(bw_min)
+        upper = float(n) if bw_max is None else float(bw_max)
+    if not upper > lower:
+        raise MethodIncompatibility(
+            f"empty bandwidth search interval [{lower}, {upper}]",
+            recovery_hint="Pass bw_min < bw_max (for adaptive bandwidths, "
+            "bw_max defaults to the number of observations).",
+            diagnostics={"bw_min": lower, "bw_max": upper, "n": n},
+        )
+
+    failures: List[BaseException] = []
 
     def objective(bw: float) -> float:
+        # A probe can fall where no GWR exists (a bandwidth of one neighbour
+        # or less, or below zero once an integer search has drifted past
+        # its lower end); it scores +inf so the search moves away from it.
         try:
-            res = gwr(
-                coords,
-                y,
+            fit = gwr(
+                coords_arr,
+                y_arr,
                 X,
-                bw,
+                bw=bw,
                 kernel=kernel,
                 fixed=fixed,
                 add_constant=add_constant,
             )
-        except (np.linalg.LinAlgError, ValueError):
-            # GWmodel's gwr.aic / gwr.cv return Inf when a local fit fails.
-            return np.inf
-        val = _criterion(res, criterion)
-        return np.inf if np.isnan(val) else val
+        except (
+            NumericalInstability,
+            MethodIncompatibility,
+            np.linalg.LinAlgError,
+        ) as exc:
+            failures.append(exc)
+            return float("inf")
+        return _criterion(fit, criterion)
 
-    return _gold(
-        objective, float(bw_min), float(bw_max), adapt_bw=not fixed, eps=float(tol)
+    best, probes = _golden_section_search(
+        objective, lower, upper, integer=not fixed, tol=tol
     )
+    if failures:
+        if len(failures) == len(probes):
+            raise failures[0]
+        warnings.warn(
+            f"gwr_bandwidth: {len(failures)} of {len(probes)} probed bandwidths "
+            f"admit no GWR fit (first: {failures[0]}); they were scored +inf.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return float(best)

@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._binned_kde import binned_density_at, silverman_bandwidth
 from ..exceptions import (
     ColumnNotFound,
     ConvergenceFailure,
@@ -485,88 +486,34 @@ def weighted_quantile_hmisc(
 
 
 def _bw_nrd0(y: np.ndarray) -> float:
-    """Port of R ``stats::bw.nrd0`` for Gaussian kernel density."""
-    y = np.asarray(y, dtype=float).ravel()
-    y = y[np.isfinite(y)]
-    if len(y) < 2:
-        return 1.0
-    hi = float(np.std(y, ddof=1))
-    q75, q25 = np.quantile(y, [0.75, 0.25])
-    iqr = float(q75 - q25)
-    lo = min(hi, iqr / 1.34)
-    if not np.isfinite(lo) or lo == 0:
-        lo = hi
-    if not np.isfinite(lo) or lo == 0:
-        lo = abs(float(y[0]))
-    if not np.isfinite(lo) or lo == 0:
-        lo = 1.0
-    return float(0.9 * lo * len(y) ** (-0.2))
+    """Silverman's rule-of-thumb bandwidth (see :mod:`statspai.core._binned_kde`)."""
+    return silverman_bandwidth(y)
 
 
 def kde_at_dineq(y: np.ndarray, point: float, w: Optional[np.ndarray] = None) -> float:
-    """dineq-compatible Gaussian density at ``point``.
+    """Gaussian kernel density of ``y`` at ``point``, as R ``dineq`` uses it.
 
-    ``dineq::rif`` calls R ``density(..., bw="nrd0", kernel="gaussian")`` with
-    normalised weights. R's ``density.default`` does not evaluate the Gaussian
-    kernel sum directly: it bins observations on a 512-point grid, performs an
-    FFT convolution, then interpolates back to the requested point. Mirroring
-    that path removes the small but visible RIF-regression drift from using the
-    closed-form kernel average.
+    The density behind the R packages ``dineq`` (``rif``) and ``rifreg``
+    for the quantile RIF: observation masses ``w / sum(w)`` (equal masses
+    when ``w`` is ``None``), Silverman's rule-of-thumb bandwidth on the
+    observations, and the binned estimator of
+    :func:`statspai.core._binned_kde.binned_density_at` with its output
+    range collapsed onto ``point``. Observations with non-positive weight
+    are dropped before anything is computed. ``dineq`` keeps them in the
+    bandwidth (it returns ``NA`` for their RIF); with no such observations
+    the two agree to about 1e-15 (black-box check in
+    ``tests/reference_parity/test_binned_kde_blackbox.py``).
     """
     y = np.asarray(y, dtype=float).ravel()
     if w is None:
-        w = np.ones_like(y)
-    w = np.asarray(w, dtype=float).ravel()
-    if y.shape[0] != w.shape[0]:
-        raise MethodIncompatibility(
-            "y and w must have the same length",
-            recovery_hint="Pass one positive weight per outcome observation.",
-            diagnostics={"n_y": y.shape[0], "n_w": w.shape[0]},
-        )
-    mask = np.isfinite(y) & np.isfinite(w) & (w > 0)
-    if not np.any(mask):
-        raise DataInsufficient("at least one positive finite weight is required")
-    y_pos = y[mask]
-    w_pos = w[mask]
-    h = max(_bw_nrd0(y_pos), 1e-12)
-    w_norm = w_pos / w_pos.sum()
-
-    # Port of stats::density.default(..., from=point, to=point, n=1,
-    # kernel="gaussian") plus C_BinDist from R's stats package.
-    n_grid = 512
-    lo = point - 4.0 * h
-    up = point + 4.0 * h
-    xdelta = (up - lo) / (n_grid - 1)
-    bins = np.zeros(2 * n_grid, dtype=float)
-    ixmin = 0
-    ixmax = n_grid - 2
-    int_min = np.iinfo(np.int32).min
-    int_max = np.iinfo(np.int32).max
-    for xi, wi in zip(y_pos, w_norm):
-        xpos = (xi - lo) / xdelta
-        if xpos > int_max or xpos < int_min:
-            continue
-        ix = int(np.floor(xpos))
-        fx = xpos - ix
-        if ixmin <= ix <= ixmax:
-            bins[ix] += (1.0 - fx) * wi
-            bins[ix + 1] += fx * wi
-        elif ix == -1:
-            bins[0] += fx * wi
-        elif ix == ixmax + 1:
-            bins[ix] += (1.0 - fx) * wi
-
-    kords = np.linspace(
-        0.0,
-        ((2 * n_grid - 1) / (n_grid - 1)) * (up - lo),
-        2 * n_grid,
-    )
-    kords[n_grid + 1 :] = -kords[n_grid - 1 : 0 : -1]
-    kernel = np.exp(-0.5 * (kords / h) ** 2) / (h * np.sqrt(2 * np.pi))
-    conv = np.fft.ifft(np.fft.fft(bins) * np.conj(np.fft.fft(kernel))).real
-    density_grid = np.maximum(0.0, conv[:n_grid])
-    x_grid = np.linspace(lo, up, n_grid)
-    return float(np.interp(point, x_grid, density_grid))
+        keep = y
+        mass = np.full(y.size, 1.0 / y.size)
+    else:
+        w = np.asarray(w, dtype=float).ravel()
+        positive = w > 0
+        keep = y[positive]
+        mass = w[positive] / w[positive].sum()
+    return binned_density_at(keep, float(point), weights=mass)
 
 
 def weighted_ecdf(

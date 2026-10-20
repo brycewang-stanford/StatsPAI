@@ -67091,25 +67091,25 @@
     }
   },
   {
-    "description": "Select a GWR bandwidth by golden-section search (``GWmodel::bw.gwr``). Validation: certified parity evidence.",
+    "description": "Select a GWR bandwidth by golden-section search. Validation: certified parity evidence.",
     "name": "gwr_bandwidth",
     "parameters": {
       "properties": {
         "X": {
-          "description": "Regressors, without a constant unless ``add_constant=False``.",
+          "description": "Regressors (without a constant unless ``add_constant=False``).",
           "type": "string"
         },
         "add_constant": {
           "default": true,
-          "description": "add_constant parameter (bool).",
+          "description": "Passed to :func:`gwr`.",
           "type": "boolean"
         },
         "bw_max": {
-          "description": "Search bounds. Defaults are GWmodel's: ``[20, n]`` for an adaptive bandwidth (``[k + 2, n]`` when ``n <= 20``, where GWmodel's bounds would be empty) and ``[D / 5000, D]`` for a fixed one, ``D`` being the largest inter-point distance.",
+          "description": "Search interval. Defaults: ``[20, n]`` neighbours (adaptive) or ``[bw_max / 5000, bw_max]`` with ``bw_max`` defaulting to the largest distance between two points (fixed), the reference's interval. With ``n <= 20`` observations the adaptive interval ``[20, n]`` would be empty and starts at ``k + 2`` instead (``k`` local coefficients, the constant included). Adaptive searches can end one or two neighbours outside the interval, as the reference's do, because their points are rounded.",
           "type": "number"
         },
         "bw_min": {
-          "description": "Search bounds. Defaults are GWmodel's: ``[20, n]`` for an adaptive bandwidth (``[k + 2, n]`` when ``n <= 20``, where GWmodel's bounds would be empty) and ``[D / 5000, D]`` for a fixed one, ``D`` being the largest inter-point distance.",
+          "description": "Search interval. Defaults: ``[20, n]`` neighbours (adaptive) or ``[bw_max / 5000, bw_max]`` with ``bw_max`` defaulting to the largest distance between two points (fixed), the reference's interval. With ``n <= 20`` observations the adaptive interval ``[20, n]`` would be empty and starts at ``k + 2`` instead (``k`` local coefficients, the constant included). Adaptive searches can end one or two neighbours outside the interval, as the reference's do, because their points are rounded.",
           "type": "number"
         },
         "coords": {
@@ -67118,7 +67118,7 @@
         },
         "criterion": {
           "default": "AICc",
-          "description": "``\"AICc\"`` is ``bw.gwr(approach = \"AICc\")`` (and mgwr's default); ``\"CV\"`` is ``bw.gwr(approach = \"CV\")``, GWmodel's default.",
+          "description": "Score to minimise; ``'CV'`` is the leave-one-out residual sum of squares. ``GWmodel`` offers ``'AICc'`` and ``'CV'``.",
           "enum": [
             "AICc",
             "AIC",
@@ -67129,12 +67129,12 @@
         },
         "fixed": {
           "default": false,
-          "description": "fixed parameter (bool).",
+          "description": "``False``: adaptive bandwidth, a number of nearest neighbours (searched over integers). ``True``: a fixed distance.",
           "type": "boolean"
         },
         "kernel": {
           "default": "bisquare",
-          "description": "Kernel function used for weighting or smoothing.",
+          "description": "Kernel passed to :func:`gwr`.",
           "enum": [
             "bisquare",
             "gaussian",
@@ -67144,11 +67144,11 @@
         },
         "tol": {
           "default": 0.0001,
-          "description": "Stopping threshold of the golden-section search, applied (as in GWmodel, where it is hard-coded to ``1e-4``) both to the bracket step and to the difference of the two probed criterion values.",
+          "description": "The search stops when two interior criterion values differ by at most ``tol`` or the golden step falls to ``tol``.",
           "type": "number"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Outcome.",
           "type": "string"
         }
       },
