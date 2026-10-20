@@ -75489,7 +75489,7 @@
     }
   },
   {
-    "description": "Mean outcome under a modified treatment policy (sequential TMLE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lmtp",
     "parameters": {
       "properties": {
@@ -75517,6 +75517,13 @@
           },
           "type": "array"
         },
+        "censoring": {
+          "description": "Censoring indicator after each treatment (``1`` = still observed, ``0`` = censored; once 0, later indicators must not return to 1). The policy then also prevents censoring, and the parameter is the mean outcome had no one been lost. Variables measured after a unit's censoring may be missing; the outcome must be observed for every unit observed after the last time point.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "covariates_time": {
           "description": "Time-varying covariates measured before each treatment.",
           "items": {
@@ -75528,6 +75535,15 @@
           "description": "Wide data, one row per unit.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "estimator": {
+          "default": "tmle",
+          "description": "``'tmle'``: sequential targeted minimum loss-based estimation. ``'sdr'``: the sequentially doubly robust estimator, which regresses doubly robust pseudo-outcomes instead of targeting each regression (R ``lmtp_sdr``); with flexible learners its consistency needs, at each time point, either the outcome regressions from then on or the density ratios up to then.",
+          "enum": [
+            "tmle",
+            "sdr"
+          ],
+          "type": "string"
         },
         "folds": {
           "default": 1,

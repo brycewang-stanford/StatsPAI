@@ -21724,7 +21724,7 @@
     "name": "lm_lin"
   },
   {
-    "description": "Mean outcome under a modified treatment policy (sequential TMLE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability: no unmeasured confounding of each treatment given the measured history; Positivity for the policy: the shifted treatment value has support under the natural treatment distribution given the history; Correctly specified or consistently estimated outcome regressions or density ratios (sequential doubly robust TMLE). Pre-conditions: Wide data, one row per unit, treatments in time order; covariates_time has one list per time point; At least 20 complete rows. Failure modes: A shift that moves treatments outside their observed support -> Density ratios explode and are trimmed at the trim quantile; choose a smaller shift or inspect the density ratios in model_info; A static policy on a binary treatment (set A = 1) -> That is a longitudinal TMLE target. Alternatives: sp.ltmle, sp.tmle. Typical minimum N: 200.",
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability: no unmeasured confounding of each treatment given the measured history; Positivity for the policy: the shifted treatment value has support under the natural treatment distribution given the history; Correctly specified or consistently estimated outcome regressions or density ratios (sequential doubly robust TMLE). Pre-conditions: Wide data, one row per unit, treatments in time order; covariates_time has one list per time point; At least 20 complete rows. Failure modes: A shift that moves treatments outside their observed support -> Density ratios explode and are trimmed at the trim quantile; choose a smaller shift or inspect the density ratios in model_info; A static policy on a binary treatment (set A = 1) -> That is a longitudinal TMLE target. Alternatives: sp.ltmle, sp.tmle. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21751,12 +21751,28 @@
           },
           "type": "array"
         },
+        "censoring": {
+          "description": "Censoring indicator after each treatment (``1`` = still observed, ``0`` = censored; once 0, later indicators must not return to 1). The policy then also prevents censoring, and the parameter is the mean outcome had no one been lost. Variables measured after a unit's censoring may be missing; the outcome must be observed for every unit observed after the last time point.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "covariates_time": {
           "description": "Time-varying covariates measured before each treatment.",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "estimator": {
+          "default": "tmle",
+          "description": "``'tmle'``: sequential targeted minimum loss-based estimation. ``'sdr'``: the sequentially doubly robust estimator, which regresses doubly robust pseudo-outcomes instead of targeting each regression (R ``lmtp_sdr``); with flexible learners its consistency needs, at each time point, either the outcome regressions from then on or the density ratios up to then.",
+          "enum": [
+            "tmle",
+            "sdr"
+          ],
+          "type": "string"
         },
         "folds": {
           "default": 1,

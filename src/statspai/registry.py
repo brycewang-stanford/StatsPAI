@@ -12971,7 +12971,7 @@ def _build_registry() -> None:
                     "bool",
                     False,
                     False,
-                    "cbps / ebal / energy: also balance pairwise covariate " "products",
+                    "cbps / ebal / energy: also balance pairwise covariate products",
                 ),
                 ParamSpec(
                     "d_moments",

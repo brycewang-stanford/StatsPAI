@@ -47,6 +47,28 @@ All notable changes to StatsPAI will be documented in this file.
   with `design=` are refused. Weighted fits now also carry
   `model_info['ph_test']`, so `result.violations()` can flag them.
 
+### `sp.lmtp(censoring=, estimator='sdr')`
+
+#### Added
+
+- `sp.lmtp(..., censoring=[...])`: right censoring (indicator after each
+  treatment, 1 = observed, monotone). The policy also prevents censoring;
+  one classifier per time point stacks the natural rows still observed
+  against the policy rows at risk, which gives the censoring-adjusted
+  density ratio; censored units drop out of later regressions. Variables
+  after a unit's censoring may be missing. With censoring the
+  natural-course reference in `model_info` is the same estimator under the
+  identity policy.
+- `sp.lmtp(..., estimator='sdr')`: the sequentially doubly robust
+  estimator (doubly robust pseudo-outcomes, unbounded predictions, the
+  estimate is the mean of the influence function).
+- Both equal R `lmtp` 1.5.4 (`lmtp_tmle` / `lmtp_sdr`, AGPL, used as a
+  black box) with `SL.glm` learners and `folds = 1`: density ratios to
+  1e-12, estimates and SEs to 2e-7 relative (R glm's tolerance), on point
+  and two-period designs with and without censoring
+  (`tests/reference_parity/test_lmtp_parity.py`). The uncensored TMLE path
+  is bit-identical to before.
+
 ### `sp.weightit(method='energy')`
 
 #### Added
