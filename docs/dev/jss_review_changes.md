@@ -4804,7 +4804,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `da91f457f`.
+- **Commits.** `697addb60`.
 - **Reason.** Exporting `sp.ltmle_msm` from `statspai/__init__.py`
   touches the traced paths of Track A modules 03, 13, 15, 24-27, 53, 65,
   66 and original-data module 08; no estimation code on those paths
