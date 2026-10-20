@@ -27,6 +27,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._learners import positive_class_proba
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from ._learners import resolve_learner
@@ -64,11 +65,7 @@ def _predict_mean(fitted: Any, X: np.ndarray) -> np.ndarray:
                 "predict_proba.",
                 recovery_hint="Pass a probabilistic classifier for ml_m.",
             )
-        proba = np.asarray(fitted.predict_proba(X), dtype=float)
-        classes = list(getattr(fitted, "classes_", (0, 1)))
-        if 1 not in classes:
-            return np.zeros(X.shape[0], dtype=float)
-        return proba[:, classes.index(1)]
+        return positive_class_proba(fitted, X, context="dml_did ml_m")
     return np.asarray(fitted.predict(X), dtype=float).ravel()
 
 

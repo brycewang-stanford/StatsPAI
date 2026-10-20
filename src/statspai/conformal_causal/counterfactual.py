@@ -390,7 +390,15 @@ def conformal_counterfactual(
     else:
         m = clone(propensity_model)
         m.fit(X_all, T)
-        g = np.clip(m.predict_proba(X_all)[:, 1], 1e-3, 1 - 1e-3)
+        from ..core._learners import positive_class_proba
+
+        g = np.clip(
+            positive_class_proba(
+                m, X_all, context="conformal_counterfactual propensity_model"
+            ),
+            1e-3,
+            1 - 1e-3,
+        )
 
     # Per-arm split conformal with TBCR weights
     # For Y(1): calib set is treated, weight = 1/g (to push to marginal X dist)

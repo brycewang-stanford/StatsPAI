@@ -374,15 +374,24 @@ def _default_learner() -> Any:
 def _fit_predict(
     model: Any, state: np.ndarray, target: np.ndarray, folds: np.ndarray
 ) -> np.ndarray:
-    """Cross-fitted out-of-fold prediction; folds are unit-level already."""
+    """Cross-fitted out-of-fold prediction; folds are unit-level already.
+
+    A classifier on a 0/1 target predicts P(target = 1) (its hard label
+    would make the residual ``T - 1{p > 0.5}``, not ``T - E[T | state]``);
+    a classifier on any other target is refused, as in ``sp.dml``.
+    """
     from sklearn.base import clone
+
+    from ._base import _DoubleMLBase
 
     pred = np.empty(len(target), dtype=float)
     scored = np.zeros(len(target), dtype=bool)
     for f in np.unique(folds):
         train, test = folds != f, folds == f
         fitted = clone(model).fit(state[train], target[train])
-        pred[test] = np.asarray(fitted.predict(state[test]), dtype=float).ravel()
+        pred[test] = _DoubleMLBase._predict_nuisance(
+            fitted, state[test], target[train], "dynamic_dml model"
+        )
         scored[test] = True
     if not scored.all():  # pragma: no cover - every fold index is covered
         raise DataInsufficient("dynamic_dml(): a fold produced no predictions.")

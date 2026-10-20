@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._learners import positive_class_proba
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -894,11 +895,8 @@ class _DoubleMLBase:
                 "classifier, but its target is not a 0/1 variable (or the "
                 "learner has no predict_proba). Pass a regressor."
             )
-        proba = np.asarray(fitted.predict_proba(X), dtype=float)
-        classes = list(getattr(fitted, "classes_", (0, 1)))
-        if 1 not in classes:  # training fold held a single class, all zeros
-            return np.zeros(X.shape[0], dtype=float)
-        return proba[:, classes.index(1)]
+        # (n,) or (n, 2) by classes_; a fold with one class gives 0 or 1
+        return positive_class_proba(fitted, X, context=f"dml {role}")
 
     # ----- Sample-weight helpers (used by subclasses) -----------------
     @staticmethod

@@ -21,6 +21,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
+from ..core._learners import proba_or_predict
 from ._base import _DoubleMLBase
 from ._irm_score import score_binary_ate
 
@@ -315,10 +316,7 @@ class DoubleMLIRM(_DoubleMLBase):
                 )
 
             ml_m = self._fit_weighted(self.ml_m, X_tr, D_tr, w_tr)
-            if hasattr(ml_m, "predict_proba"):
-                m_hat = ml_m.predict_proba(X_te)[:, 1]
-            else:
-                m_hat = ml_m.predict(X_te)
+            m_hat = proba_or_predict(ml_m, X_te, context="dml(model='irm') ml_m")
             g1_full[test_idx] = g1_hat
             g0_full[test_idx] = g0_hat
             m_hat_full[test_idx] = m_hat

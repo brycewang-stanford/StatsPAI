@@ -112,13 +112,12 @@ def _crossfit(
     for train_idx, test_idx in split_iter:
         fitted = clone(model).fit(features[train_idx], target[train_idx])
         if proba:
-            probs = fitted.predict_proba(features[test_idx])
-            classes = list(getattr(fitted, "classes_", [0, 1]))
-            if 1 in classes or 1.0 in classes:
-                col = classes.index(1) if 1 in classes else classes.index(1.0)
-                out[test_idx] = probs[:, col]
-            else:  # the training fold held no treated rows
-                out[test_idx] = 0.0
+            from ..core._learners import positive_class_proba
+
+            # (n,) or (n, 2) by classes_; 0 when the fold held no treated rows
+            out[test_idx] = positive_class_proba(
+                fitted, features[test_idx], context="causal_forest model_t"
+            )
         else:
             out[test_idx] = np.asarray(fitted.predict(features[test_idx])).ravel()
     return out

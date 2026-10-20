@@ -36,6 +36,7 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 
+from ..core._learners import proba_or_predict
 from ._base import _DoubleMLBase
 
 
@@ -216,10 +217,9 @@ class DoubleMLIIVM(_DoubleMLBase):
 
             # m(X) = P(Z=1 | X) — instrument propensity
             ml_m = self._fit_weighted(self.ml_m, X_tr, Z_tr, w_tr)
-            if hasattr(ml_m, "predict_proba"):
-                m_hat[test_idx] = ml_m.predict_proba(X_te)[:, 1]
-            else:
-                m_hat[test_idx] = ml_m.predict(X_te)
+            m_hat[test_idx] = proba_or_predict(
+                ml_m, X_te, context="dml(model='iivm') ml_m"
+            )
 
         lo, hi = self.trimming_threshold, 1.0 - self.trimming_threshold
         m_hat_raw = m_hat.copy()
@@ -361,9 +361,10 @@ class DoubleMLIIVM(_DoubleMLBase):
 
         if len(X_sub) >= DoubleMLIIVM._MIN_SUBGROUP_FIT and len(np.unique(d_sub)) > 1:
             clf = DoubleMLIIVM._fit_weighted(learner, X_sub, d_sub, weights_sub)
-            if hasattr(clf, "predict_proba"):
-                return clf.predict_proba(X_te)[:, 1], False
-            return clf.predict(X_te), False
+            return (
+                proba_or_predict(clf, X_te, context="dml(model='iivm') ml_r"),
+                False,
+            )
         if len(d_sub) > 0:
             if weights_sub is not None and float(np.sum(weights_sub)) > 0:
                 fallback_mean = float(np.average(d_sub, weights=weights_sub))

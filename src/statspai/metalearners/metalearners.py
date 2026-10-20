@@ -32,6 +32,7 @@ from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._learners import positive_class_proba, proba_or_predict
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
@@ -113,10 +114,7 @@ def _get_propensity(
     clip: Tuple[float, float] = (0.01, 0.99),
 ) -> np.ndarray:
     """Return P(D=1|X), clipped for stability."""
-    if hasattr(model, "predict_proba"):
-        p = model.predict_proba(X)[:, 1]
-    else:
-        p = model.predict(X)
+    p = proba_or_predict(model, X, context="metalearner propensity_model")
     return np.asarray(np.clip(p, clip[0], clip[1]), dtype=float)
 
 
@@ -222,7 +220,9 @@ def _cross_fit_predict(
         m = clone(model)
         m.fit(X[train_idx], y[train_idx])
         if method == "predict_proba":
-            preds[test_idx] = m.predict_proba(X[test_idx])[:, 1]
+            preds[test_idx] = positive_class_proba(
+                m, X[test_idx], context="metalearner propensity_model"
+            )
         else:
             preds[test_idx] = m.predict(X[test_idx])
     return np.asarray(preds, dtype=float)
