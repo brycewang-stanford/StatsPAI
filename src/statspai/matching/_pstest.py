@@ -1,39 +1,34 @@
-"""Stata ``pstest``-faithful post-matching balance statistics.
+"""Stata ``pstest``-style post-matching balance statistics.
 
-``sp.psmatch2(...).balance()`` reports StatsPAI's own balance diagnostics
-(SMD, variance ratio, KS, effective sample size).  Those are the right
-numbers, but they are not *Stata's* numbers, and an analyst checking a
-ported result against a printed ``pstest`` table needs the latter.
+``sp.psmatch2(...).pstest()`` reports the balance table that Stata users
+print after ``psmatch2`` (Leuven and Sianesi's ``pstest``), so a ported
+analysis can be checked against it. ``sp.psmatch2(...).balance()`` keeps
+StatsPAI's own diagnostics (SMD, variance ratio, KS, effective sample size).
 
-This module reproduces ``pstest`` exactly, following ``pstest.ado`` v4.2.2
-(Leuven & Sianesi 2003).  The conventions that are easy to get wrong:
+Clean-room rewrite (2026-10-20) from the ``pstest`` help file, Rosenbaum and
+Rubin (1985) and Rubin (2001); Stata ``pstest`` 4.2.2 was used only as a
+black box (``docs/dev/cleanroom/pstest.md``). The statistics, per the help
+file and the papers:
 
-* **The standardised bias after matching keeps the *unmatched* denominator.**
-  Both rows divide by ``sqrt((v1u + v0u)/2)`` computed on the raw sample, so
-  the "after" bias is comparable to the "before" bias rather than being
-  rescaled by whatever matching did to the variances::
-
-      bias_before = 100 (m1u - m0u) / sqrt((v1u + v0u)/2)
-      bias_after  = 100 (m1m - m0m) / sqrt((v1u + v0u)/2)
-                                      ^^^^^^^^^^^^^^^^^^ unmatched
-
-* **The matched moments use Stata importance weights.**  ``summarize x
-  [iw=w]`` gives ``mean = Σwx/Σw`` and ``Var = Σw(x-mean)²/(Σw - 1)`` — the
-  denominator is the weight *total* minus one, not the row count minus one.
-
-* **Rubin's B and R are computed on pstest's own probit index, not on
-  psmatch2's propensity score.**  ``pstest`` fits ``probit treated <x>``
-  itself — twice, once unweighted on the full sample and once
-  importance-weighted on the matched sample — and uses each fit's linear
-  predictor ``xb``.  Reusing ``_pscore`` (or its logit) instead gets Rubin's
-  B wrong by several percent and the pseudo-R² wrong outright, because
-  psmatch2's score may come from a *logit* while pstest always probits.
-
-* ``%reduct`` is the reduction in *absolute* bias, so a covariate whose bias
-  flips sign but shrinks still shows a positive reduction.
-
-Rubin's (2001) rules of thumb, which ``pstest`` stars: balance is adequate
-when ``B < 25`` and ``R`` lies in ``[0.5, 2]``.
+* **Standardised % bias** (Rosenbaum and Rubin 1985): ``100 (m1 - m0) /
+  sqrt((v1u + v0u) / 2)``. The denominator is the *unmatched* treated and
+  control variances, before and after matching, so the two rows are on the
+  same scale; ``%reduct`` is the reduction in the absolute bias.
+* **Matched moments** use the matching weights as Stata importance
+  weights: ``mean = sum(w x) / sum(w)``, ``var = sum(w (x - mean)^2) /
+  (sum(w) - 1)``.
+* **t-tests** come from a regression of the covariate on the treatment
+  indicator: unweighted on the full sample before matching, weighted by
+  the matching weights on the on-support matched sample after.
+* **Pseudo-R2, LR chi2 and its p-value** come from a probit of the
+  treatment on the covariates, fitted by ``pstest`` itself on the full
+  sample and, importance-weighted, on the matched sample (not psmatch2's
+  propensity score); covariates that are constant or collinear in a sample
+  are dropped from that sample's probit and from the LR degrees of freedom.
+* **Rubin's B and R** (Rubin 2001) are computed on that probit's linear
+  index: ``B = 100 |mean_t - mean_c| / sqrt((var_t + var_c) / 2)``,
+  ``R = var_t / var_c`` (matched moments weighted). Rubin's rule of thumb:
+  balance is adequate when ``B < 25`` and ``0.5 <= R <= 2``.
 
 References
 ----------
@@ -50,47 +45,61 @@ Rubin, D.B. (2001). Health Services and Outcomes Research Methodology,
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats as _stats
+from scipy import stats
 
-#: Rubin (2001): B below this (in %) is considered balanced.
-RUBIN_B_THRESHOLD = 25.0
-#: Rubin (2001): R inside this interval is considered balanced.
-RUBIN_R_BOUNDS = (0.5, 2.0)
+_RUBIN_B_MAX = 25.0
+_RUBIN_R_RANGE = (0.5, 2.0)
+_COLUMNS = [
+    "mean_treated_unmatched",
+    "mean_control_unmatched",
+    "mean_treated_matched",
+    "mean_control_matched",
+    "pct_bias_unmatched",
+    "pct_bias_matched",
+    "pct_reduction_abs_bias",
+    "t_unmatched",
+    "p_unmatched",
+    "t_matched",
+    "p_matched",
+    "variance_ratio_unmatched",
+    "variance_ratio_matched",
+]
 
 
 def _iw_mean_var(x: np.ndarray, w: np.ndarray) -> Tuple[float, float]:
-    """Stata ``summarize x [iw=w]`` mean and variance.
+    """Mean and variance under Stata importance weights.
 
-    With importance weights Stata treats ``Σw`` as the sample size, so the
-    variance divides by ``Σw - 1`` rather than ``n - 1``.
+    The weight total plays the role of the sample size, so the variance is
+    ``sum(w (x - mean)^2) / (sum(w) - 1)``.
     """
     x = np.asarray(x, dtype=float)
     w = np.asarray(w, dtype=float)
-    keep = np.isfinite(x) & np.isfinite(w) & (w != 0)
-    x, w = x[keep], w[keep]
-    sw = float(w.sum())
-    if sw <= 0:
-        return float("nan"), float("nan")
-    mean = float(np.sum(w * x) / sw)
-    if sw <= 1:
-        return mean, float("nan")
-    var = float(np.sum(w * (x - mean) ** 2) / (sw - 1.0))
-    return mean, var
+    total = np.float64(w.sum())
+    mean = np.float64(np.sum(w * x) / total)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        var = np.float64(np.sum(w * (x - mean) ** 2) / (total - 1.0))
+    return mean, var  # NumPy floats: a constant covariate gives NaN, not an error
 
 
 def _plain_mean_var(x: np.ndarray) -> Tuple[float, float]:
-    """Stata ``summarize x`` mean and (ddof=1) variance."""
-    x = np.asarray(x, dtype=float)
-    x = x[np.isfinite(x)]
-    if x.size == 0:
-        return float("nan"), float("nan")
-    if x.size == 1:
-        return float(x[0]), float("nan")
-    return float(np.mean(x)), float(np.var(x, ddof=1))
+    """Mean and sample variance (divisor ``n - 1``)."""
+    return _iw_mean_var(x, np.ones(len(x)))
+
+
+def _independent_columns(Z: np.ndarray, w: np.ndarray) -> list:
+    """Columns of ``Z`` kept left to right, dropping any in the span of the
+    ones before it (Stata's omission order for collinear regressors)."""
+    zw = Z * np.sqrt(w)[:, None]
+    keep: list = []
+    for j in range(Z.shape[1]):
+        cand = zw[:, keep + [j]]
+        if np.linalg.matrix_rank(cand) == len(keep) + 1:
+            keep.append(j)
+    return keep
 
 
 def _probit_index_and_fit(
@@ -98,75 +107,53 @@ def _probit_index_and_fit(
     treated: np.ndarray,
     w: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, float, float, float]:
-    """Fit ``probit treated X [iw=w]`` and return (index, pseudo-R2, chi2, p).
+    """Probit of ``treated`` on ``[1, X]`` (importance weights ``w``).
 
-    ``pstest`` does **not** reuse psmatch2's propensity score.  It fits its
-    own **probit** — twice, once on the full sample for the "before" row and
-    once on the matched sample (importance-weighted) for the "after" row —
-    and takes the linear predictor ``xb`` of each as the index that Rubin's
-    B and R are computed on.  Using the logit of ``_pscore`` instead gets
-    Rubin's B wrong by several percent, and the pseudo-R² wrong outright.
-
-    The likelihood is Stata's Bernoulli one,
-    ``ll = Σ w [y log Φ(xb) + (1-y) log(1-Φ(xb))]``, so that
-    ``e(r2_p) = 1 - ll/ll0`` agrees digit for digit.
+    Returns the linear index ``xb``, the pseudo-R2 ``1 - ll / ll0``, the
+    likelihood-ratio statistic ``2 (ll - ll0)`` and its chi-square p-value
+    with as many degrees of freedom as covariates kept. Maximum likelihood
+    by Newton steps on the expected information.
     """
-    nan = float("nan")
-    empty = np.full(len(treated), nan)
-    try:
-        import statsmodels.api as sm
-    except ImportError:  # pragma: no cover - statsmodels is a core dependency
-        return empty, nan, nan, nan
-
     y = np.asarray(treated, dtype=float)
-    Xd = sm.add_constant(np.asarray(X, dtype=float), has_constant="add")
-    weights = None if w is None else np.asarray(w, dtype=float)
-    fam = sm.families.Binomial(link=sm.families.links.Probit())
-    # A probit on a matched sample can be genuinely unfittable -- a singular
-    # design, or perfect separation once the weights concentrate on a
-    # sub-sample. Those are expected and reported as missing, exactly as
-    # Stata leaves e(r2_p) missing. Anything else is a bug and must surface.
-    fit_errors: tuple = (np.linalg.LinAlgError, ValueError, ZeroDivisionError)
-    try:  # pragma: no cover - statsmodels always ships this symbol
-        from statsmodels.tools.sm_exceptions import PerfectSeparationError
+    w = np.ones(len(y)) if w is None else np.asarray(w, dtype=float)
+    Z = np.column_stack(
+        [np.ones(len(y)), np.asarray(X, dtype=float).reshape(len(y), -1)]
+    )
+    Z = Z[:, _independent_columns(Z, w)]
 
-        fit_errors = fit_errors + (PerfectSeparationError,)
-    except ImportError:
-        pass
-    try:
-        full = sm.GLM(y, Xd, family=fam, freq_weights=weights).fit()
-        null = sm.GLM(y, Xd[:, :1], family=fam, freq_weights=weights).fit()
-    except fit_errors as exc:
-        # Reported as missing, but not in silence: a bare NaN reads as
-        # "balance not computed" when the truth is "the balance probit
-        # would not fit".
+    def loglik(b: np.ndarray) -> float:
+        xb = Z @ b
+        return float(
+            np.sum(w * (y * stats.norm.logcdf(xb) + (1 - y) * stats.norm.logsf(xb)))
+        )
+
+    b = np.zeros(Z.shape[1])
+    converged = False
+    for _ in range(300):
+        xb = Z @ b
+        log_pdf = stats.norm.logpdf(xb)
+        mills_1 = np.exp(log_pdf - stats.norm.logcdf(xb))
+        mills_0 = np.exp(log_pdf - stats.norm.logsf(xb))
+        score = Z.T @ (w * (y * mills_1 - (1 - y) * mills_0))
+        info_w = w * mills_1 * mills_0  # phi^2 / (Phi (1 - Phi))
+        step = np.linalg.lstsq(Z.T @ (Z * info_w[:, None]), score, rcond=None)[0]
+        b = b + step
+        if np.max(np.abs(step)) <= 1e-13 * max(1.0, float(np.max(np.abs(b)))):
+            converged = True
+            break
+    if not converged:
         warnings.warn(
-            f"pstest: the balance probit did not fit ({type(exc).__name__}: "
-            f"{exc}); Rubin's B, Rubin's R and the pseudo-R2 are reported as "
-            f"NaN. This usually means a covariate perfectly separates the "
-            f"treatment or the design is singular.",
-            UserWarning,
+            "pstest: the probit for Rubin's B / R and the pseudo-R2 did not "
+            "converge (perfect prediction?); the summary block is unreliable.",
+            RuntimeWarning,
             stacklevel=3,
         )
-        return empty, nan, nan, nan
-
-    def _ll(fit: Any) -> float:
-        p = np.clip(np.asarray(fit.fittedvalues, dtype=float), 1e-300, 1 - 1e-16)
-        contrib = y * np.log(p) + (1.0 - y) * np.log1p(-p)
-        if weights is not None:
-            contrib = weights * contrib
-        return float(np.sum(contrib))
-
-    ll, ll0 = _ll(full), _ll(null)
-    if not np.isfinite(ll) or not np.isfinite(ll0) or ll0 == 0:
-        return empty, nan, nan, nan
-
-    index = np.asarray(Xd @ full.params, dtype=float)
-    r2 = 1.0 - ll / ll0
-    chi2 = 2.0 * (ll - ll0)
-    dof = Xd.shape[1] - 1
-    p_chi2 = float(_stats.chi2.sf(chi2, dof)) if dof > 0 else nan
-    return index, float(r2), float(chi2), p_chi2
+    ll = loglik(b)
+    p_bar = float(np.sum(w * y) / np.sum(w))
+    ll0 = float(np.sum(w * (y * np.log(p_bar) + (1 - y) * np.log1p(-p_bar))))
+    lr = 2.0 * (ll - ll0)
+    df = Z.shape[1] - 1
+    return Z @ b, 1.0 - ll / ll0, lr, float(stats.chi2.sf(lr, df))
 
 
 def _weighted_ttest(
@@ -174,34 +161,28 @@ def _weighted_ttest(
     treated: np.ndarray,
     w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float]:
-    """Two-sample t on the (optionally weighted) group means.
+    """t and two-sided p of the treatment coefficient in ``x ~ 1 + treated``.
 
-    pstest runs ``regress x treated`` (weighted after matching) and reports
-    that coefficient's t; for a two-group regression this is the equal-variance
-    two-sample t statistic, which is what we form here.
+    With importance weights the residual degrees of freedom are
+    ``sum(w) - 2``; this is the equal-variance two-sample t statistic.
     """
-    t_mask = treated == 1
-    c_mask = treated == 0
-    if w is None:
-        m1, v1 = _plain_mean_var(x[t_mask])
-        m0, v0 = _plain_mean_var(x[c_mask])
-        n1 = float(np.sum(np.isfinite(x[t_mask])))
-        n0 = float(np.sum(np.isfinite(x[c_mask])))
-    else:
-        m1, v1 = _iw_mean_var(x[t_mask], w[t_mask])
-        m0, v0 = _iw_mean_var(x[c_mask], w[c_mask])
-        n1 = float(np.nansum(w[t_mask]))
-        n0 = float(np.nansum(w[c_mask]))
-    if not np.isfinite(v1) or not np.isfinite(v0) or n1 + n0 <= 2:
-        return float("nan"), float("nan")
-    dof = n1 + n0 - 2.0
-    pooled = ((n1 - 1) * v1 + (n0 - 1) * v0) / dof
-    denom = np.sqrt(pooled * (1.0 / n1 + 1.0 / n0))
-    if not np.isfinite(denom) or denom <= 0:
-        return float("nan"), float("nan")
-    tstat = (m1 - m0) / denom
-    pval = float(2 * _stats.t.sf(abs(tstat), dof))
-    return float(tstat), pval
+    x = np.asarray(x, dtype=float)
+    d = np.asarray(treated, dtype=float)
+    w = np.ones(len(x)) if w is None else np.asarray(w, dtype=float)
+    m1, v1 = _iw_mean_var(x[d == 1], w[d == 1])
+    m0, v0 = _iw_mean_var(x[d == 0], w[d == 0])
+    w1, w0 = float(w[d == 1].sum()), float(w[d == 0].sum())
+    dof = w1 + w0 - 2.0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        pooled = ((w1 - 1.0) * v1 + (w0 - 1.0) * v0) / dof
+        t = (m1 - m0) / np.sqrt(pooled * (1.0 / w1 + 1.0 / w0))
+    return float(t), float(2.0 * stats.t.sf(abs(t), dof))
+
+
+def _rubin_b_r(index: np.ndarray, d: np.ndarray, w: np.ndarray) -> Tuple[float, float]:
+    mt, vt = _iw_mean_var(index[d == 1], w[d == 1])
+    mc, vc = _iw_mean_var(index[d == 0], w[d == 0])
+    return 100.0 * abs(mt - mc) / np.sqrt((vt + vc) / 2.0), vt / vc
 
 
 def pstest_table(
@@ -213,7 +194,7 @@ def pstest_table(
     support_col: str,
     pscore_col: str,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """Reproduce ``pstest <covariates>, both``.
+    """``pstest <covariates>, both`` on a psmatch2 matched frame.
 
     Parameters
     ----------
@@ -224,130 +205,72 @@ def pstest_table(
     covariates : sequence of str
         Covariates to test.
     weight_col, support_col, pscore_col : str
-        Names of the ``_weight`` / ``_support`` / ``_pscore`` columns.
-        ``pscore_col`` is accepted for symmetry and recorded in the result;
-        the Rubin statistics deliberately do **not** use it (pstest refits
-        its own probit -- see :func:`_probit_index_and_fit`).
+        Names of the ``_weight`` / ``_support`` / ``_pscore`` columns. The
+        matched sample is the on-support rows with a positive weight.
+        ``pscore_col`` is accepted for symmetry; the Rubin statistics use
+        ``pstest``'s own probit, not psmatch2's score.
 
     Returns
     -------
     (DataFrame, dict)
-        The per-covariate table (one row per covariate, in the order given)
-        and the sample-level summary block (``Ps R2``, ``LR chi2``,
-        ``p>chi2``, ``MeanBias``, ``MedBias``, ``B``, ``R``) for the
-        unmatched and matched samples.
+        The per-covariate table (index ``variable``, covariates in the order
+        given) and the sample-level block (``ps_r2``, ``lr_chi2``,
+        ``p_chi2``, ``mean_bias``, ``median_bias``, ``rubin_b``,
+        ``rubin_r``, ``rubin_balanced``) for ``"unmatched"`` and
+        ``"matched"``.
     """
-    treated = data[treat].to_numpy(dtype=float)
+    covs = list(covariates)
+    d = data[treat].to_numpy(dtype=float)
+    weight = data[weight_col].to_numpy(dtype=float)
     support = data[support_col].to_numpy(dtype=float)
-    raw_w = data[weight_col].to_numpy(dtype=float)
+    matched = (support == 1) & np.isfinite(weight) & (weight > 0)
+    ones = np.ones(len(d))
+    unmatched_w = np.where(matched, weight, 0.0)
 
-    # The matched sample: on support with a non-missing matching weight.
-    # pstest's `[iw=_weight] if _support==1` drops everything else.
-    m_ok = np.isfinite(raw_w) & (support == 1)
-    w = np.where(m_ok, raw_w, 0.0)
+    rows = {}
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for name in covs:
+            x = data[name].to_numpy(dtype=float)
+            m1u, v1u = _plain_mean_var(x[d == 1])
+            m0u, v0u = _plain_mean_var(x[d == 0])
+            t1, t0 = matched & (d == 1), matched & (d == 0)
+            m1m, v1m = _iw_mean_var(x[t1], weight[t1])
+            m0m, v0m = _iw_mean_var(x[t0], weight[t0])
+            scale = np.sqrt((v1u + v0u) / 2.0)
+            bias_u = 100.0 * (m1u - m0u) / scale
+            bias_m = 100.0 * (m1m - m0m) / scale
+            t_u, p_u = _weighted_ttest(x, d)
+            t_m, p_m = _weighted_ttest(x[matched], d[matched], weight[matched])
+            rows[name] = [
+                m1u, m0u, m1m, m0m, bias_u, bias_m,
+                -100.0 * (abs(bias_m) - abs(bias_u)) / abs(bias_u),
+                t_u, p_u, t_m, p_m, v1u / v0u, v1m / v0m,
+            ]  # fmt: skip
+    table = pd.DataFrame.from_dict(rows, orient="index", columns=_COLUMNS)
+    table.index.name = "variable"
 
-    t_u = treated == 1
-    c_u = treated == 0
-    t_m = t_u & m_ok
-    c_m = c_u & m_ok
-
-    rows: List[Dict[str, Any]] = []
-    for name in covariates:
-        x = data[name].to_numpy(dtype=float)
-        m1u, v1u = _plain_mean_var(x[t_u])
-        m0u, v0u = _plain_mean_var(x[c_u])
-        m1m, v1m = _iw_mean_var(x[t_m], w[t_m])
-        m0m, v0m = _iw_mean_var(x[c_m], w[c_m])
-
-        pooled_sd = np.sqrt((v1u + v0u) / 2.0)
-        bias_u = 100.0 * (m1u - m0u) / pooled_sd if pooled_sd > 0 else np.nan
-        bias_m = 100.0 * (m1m - m0m) / pooled_sd if pooled_sd > 0 else np.nan
-        reduct = (
-            -100.0 * (abs(bias_m) - abs(bias_u)) / abs(bias_u)
-            if np.isfinite(bias_u) and abs(bias_u) > 0
-            else np.nan
-        )
-
-        t_before, p_before = _weighted_ttest(x, treated, None)
-        # The matched t uses only the matched rows, weighted.
-        x_m = np.where(m_ok, x, np.nan)
-        t_after, p_after = _weighted_ttest(x_m, treated, w)
-
-        rows.append(
-            {
-                "variable": name,
-                "mean_treated_unmatched": m1u,
-                "mean_control_unmatched": m0u,
-                "mean_treated_matched": m1m,
-                "mean_control_matched": m0m,
-                "pct_bias_unmatched": bias_u,
-                "pct_bias_matched": bias_m,
-                "pct_reduction_abs_bias": reduct,
-                "t_unmatched": t_before,
-                "p_unmatched": p_before,
-                "t_matched": t_after,
-                "p_matched": p_after,
-                "variance_ratio_unmatched": (
-                    v1u / v0u if np.isfinite(v0u) and v0u > 0 else np.nan
-                ),
-                "variance_ratio_matched": (
-                    v1m / v0m if np.isfinite(v0m) and v0m > 0 else np.nan
-                ),
-            }
-        )
-
-    table = pd.DataFrame(rows).set_index("variable")
-
-    # --- sample-level block ------------------------------------------
-    # pstest fits its own probit twice, and Rubin's B / R are computed on
-    # each fit's linear predictor -- not on psmatch2's propensity score.
-    X = data[list(covariates)].to_numpy(dtype=float)
-    index_u, r2_u, chi2_u, p_u = _probit_index_and_fit(X, treated, None)
-    index_m_sub, r2_m, chi2_m, p_m = _probit_index_and_fit(
-        X[m_ok], treated[m_ok], w[m_ok]
-    )
-    index_m = np.full(len(treated), np.nan)
-    index_m[m_ok] = index_m_sub
-
-    mi1u, vi1u = _plain_mean_var(index_u[t_u])
-    mi0u, vi0u = _plain_mean_var(index_u[c_u])
-    mi1m, vi1m = _iw_mean_var(index_m[t_m], w[t_m])
-    mi0m, vi0m = _iw_mean_var(index_m[c_m], w[c_m])
-
-    def _rubin_b(m1: float, v1: float, m0: float, v0: float) -> float:
-        sd = np.sqrt((v1 + v0) / 2.0)
-        return float(100.0 * (m1 - m0) / sd) if sd > 0 else float("nan")
-
-    abs_bias_u = table["pct_bias_unmatched"].abs()
-    abs_bias_m = table["pct_bias_matched"].abs()
-
-    summary: Dict[str, Any] = {
-        "unmatched": {
-            "ps_r2": r2_u,
-            "lr_chi2": chi2_u,
-            "p_chi2": p_u,
-            "mean_bias": float(abs_bias_u.mean()),
-            "median_bias": float(abs_bias_u.median()),
-            "rubin_b": _rubin_b(mi1u, vi1u, mi0u, vi0u),
-            "rubin_r": float(vi1u / vi0u) if vi0u > 0 else float("nan"),
-        },
-        "matched": {
-            "ps_r2": r2_m,
-            "lr_chi2": chi2_m,
-            "p_chi2": p_m,
-            "mean_bias": float(abs_bias_m.mean()),
-            "median_bias": float(abs_bias_m.median()),
-            "rubin_b": _rubin_b(mi1m, vi1m, mi0m, vi0m),
-            "rubin_r": float(vi1m / vi0m) if vi0m > 0 else float("nan"),
-        },
-    }
-    for key in ("unmatched", "matched"):
-        b = summary[key]["rubin_b"]
-        r = summary[key]["rubin_r"]
-        summary[key]["rubin_balanced"] = bool(
-            np.isfinite(b)
-            and np.isfinite(r)
-            and abs(b) < RUBIN_B_THRESHOLD
-            and RUBIN_R_BOUNDS[0] <= r <= RUBIN_R_BOUNDS[1]
-        )
+    summary: Dict[str, Any] = {}
+    X = data[covs].to_numpy(dtype=float)
+    for label, mask, w in (
+        ("unmatched", np.ones(len(d), dtype=bool), ones),
+        ("matched", matched, unmatched_w),
+    ):
+        index, r2, lr, p = _probit_index_and_fit(X[mask], d[mask], w[mask])
+        b, r = _rubin_b_r(index, d[mask], w[mask])
+        abs_bias = np.abs(table[f"pct_bias_{label}"].to_numpy(dtype=float))
+        abs_bias = abs_bias[np.isfinite(abs_bias)]
+        summary[label] = {
+            "ps_r2": float(r2),
+            "lr_chi2": float(lr),
+            "p_chi2": float(p),
+            "mean_bias": float(np.mean(abs_bias)) if abs_bias.size else float("nan"),
+            "median_bias": (
+                float(np.median(abs_bias)) if abs_bias.size else float("nan")
+            ),
+            "rubin_b": float(b),
+            "rubin_r": float(r),
+            "rubin_balanced": bool(
+                b < _RUBIN_B_MAX and _RUBIN_R_RANGE[0] <= r <= _RUBIN_R_RANGE[1]
+            ),
+        }
     return table, summary
