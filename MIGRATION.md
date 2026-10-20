@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` / `sp.rdbwselect` with `cluster=` and `vce='hc2'` / `'hc3'`; `sp.rddensity` not-computable test
+
+- With `cluster=`, `vce='hc2'` and `vce='hc3'` are now the cluster-robust
+  CR2 and CR3 variances of R rdrobust 4.0.0 (each cluster's residuals
+  times `(I - H_gg)^(-1/2)` or `(I - H_gg)^(-1)`, no small-sample
+  factor), and a warning says so. Before, they were HC2 / HC3-scaled
+  residuals with the CR1 factor, which no reference computes; on the
+  `rd_covs_discriminating` fixture the SEs were 7% (CR2) to 18% (CR3)
+  smaller than R's. Because the bandwidth cascade uses the same variance,
+  `h` and `b` (and therefore the point estimates) change too. `vce='cr1'`
+  / `'cr2'` / `'cr3'` can now be named directly; without `cluster=` they
+  fall back to `hc1` / `hc2` / `hc3` with a warning, as in R. Clustered
+  results with `nn` / `hc0` / `hc1` (CR1) are unchanged. There is no
+  switch back to the old numbers; for the CR1 variance pass `vce='cr1'`.
+- `sp.rddensity` now reports `T` and the p-value as NaN (with an
+  `AssumptionWarning` and `model_info['diagnostics']['not_computable']`)
+  when the test cannot be computed on the bandwidth windows, as R
+  `rddensity` reports `NA`. It used to report `T = 0, p = 1`.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ DR-DiD standard errors on repeated cross-sections; never-treated cohorts beyond the sample; classical dynamic-panel GMM after FOD / `h=1`
 
 - `sp.drdid(est_method='dr', method='trad')` without `id=` and

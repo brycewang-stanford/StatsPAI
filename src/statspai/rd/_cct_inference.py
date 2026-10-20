@@ -30,7 +30,13 @@ import numpy as np
 
 from ..exceptions import NumericalInstability
 from ._cct_bandwidth import _drop_incomplete
-from ._cct_side import Side, kernel_name, variance_of
+from ._cct_side import (
+    Side,
+    cluster_adjusted_residuals,
+    cluster_kind,
+    kernel_name,
+    variance_of,
+)
 
 __all__ = ["cct_bias_corrected"]
 
@@ -107,7 +113,18 @@ def _plug_in_rows(side, fit, union, x_u, cols, vce, n_union) -> np.ndarray:
     """Plug-in residual rows of ``fit`` for every observation of the union."""
     design = np.vander(x_u, fit.order + 1, increasing=True)
     resid = cols - design @ fit.coef
-    kind = "hc0" if (side.cluster is not None and vce in ("nn", "hc1")) else vce
+    if side.cluster is not None:
+        kind = cluster_kind(vce)
+        if kind == "cr1":
+            return resid
+        # CR2 / CR3 from this fit's hat matrix over the whole union window
+        # (rows outside the fit's own window have zero weight).
+        w_u = np.zeros(n_union)
+        w_u[fit.mask[union]] = fit.w
+        return cluster_adjusted_residuals(
+            design, w_u, fit.ginv, side.cluster[union], resid, kind
+        )
+    kind = vce
     if kind == "hc0":
         return resid
     if kind == "hc1":
@@ -179,7 +196,10 @@ def cct_bias_corrected(
         cluster ids (CR1 small-sample factor), treatment indicator (the
         effect is the ratio of the outcome and treatment jumps, its bias
         correction and variance by the delta method) and observation weights.
-    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3', 'cr1', 'cr2', 'cr3'}
+        With ``cluster``: ``nn`` / ``hc0`` / ``hc1`` / ``cr1`` are CR1,
+        ``hc2`` / ``cr2`` CR2 and ``hc3`` / ``cr3`` CR3 (R rdrobust 4.0.0).
+        Without it ``cr1`` / ``cr2`` / ``cr3`` are ``hc1`` / ``hc2`` / ``hc3``.
     components : dict, optional
         Filled with each side's conventional and robust variance,
         ``V_cl_left``, ``V_cl_right``, ``V_rb_left``, ``V_rb_right``.
@@ -195,6 +215,8 @@ def cct_bias_corrected(
     """
     kernel = kernel_name(kernel)
     vce = str(vce).lower()
+    if cluster is None and vce in ("cr1", "cr2", "cr3"):
+        vce = "hc" + vce[2]
     y, x, covs, fuzzy, weights, cluster = _drop_incomplete(
         y, x, covs, fuzzy, weights, cluster
     )
@@ -253,8 +275,8 @@ def cct_bias_corrected(
     for side, o in zip(sides, ops):
         variances.append(
             (
-                variance_of(side, o["union"], o["a_cl"], o["rho_cl"], s, p + 1),
-                variance_of(side, o["union"], o["a_bc"], o["rho_bc"], s, q + 1),
+                variance_of(side, o["union"], o["a_cl"], o["rho_cl"], s, p + 1, vce),
+                variance_of(side, o["union"], o["a_bc"], o["rho_bc"], s, q + 1, vce),
             )
         )
     (v_cl_l, v_rb_l), (v_cl_r, v_rb_r) = variances

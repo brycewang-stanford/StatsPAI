@@ -4,6 +4,13 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### RD follow-ups: CR2 / CR3 cluster variances in `sp.rdrobust`, NaN density test, rdplot T4 notes
+
+- **⚠️ Correctness**: `sp.rdrobust` / `sp.rdbwselect` with `cluster=` and `vce='hc2'` / `'hc3'` used HC2 / HC3-scaled residuals with the CR1 small-sample factor. R rdrobust 4.0.0 (the canonical implementation, used as a black box) maps these to its CR2 / CR3 variances, and so does StatsPAI now: each cluster's residuals times `(I - H_gg)^(-1/2)` / `(I - H_gg)^(-1)` with `H_gg` the cluster block of the weighted hat matrix of the same fit, no small-sample factor. SEs rise by 7% (CR2) to 18% (CR3) on the `rd_covs_discriminating` fixture, and the selected bandwidths move with them. `vce='cr1' / 'cr2' / 'cr3'` are accepted (falling back to `hc*` with a warning when no cluster is given, as in R). New parity test `tests/reference_parity/test_rd_cluster_cr23_R_parity.py` (10 designs x {CR1, CR2, CR3}: fixed and selected bandwidths, `h > b`, covariates, fuzzy, weights, p = 2, uniform kernel) agrees to 1e-9.
+- **⚠️ Correctness**: `sp.rddensity` reported `T = 0, p = 1` when the test statistic could not be computed (too few distinct values in a window); it now reports NaN with an `AssumptionWarning` and a `not_computable` diagnostic, as R `rddensity` reports `NA`.
+- **Docs**: two deliberate `rdplot` differences from R 4.0.0 (the extra boundary bin from floating-point rounding; `J_IMSE = J_MV = 1` instead of `Inf` / `NaN` for a side with a constant outcome) are recorded as T4 in `docs/dev/modules/rd.md`.
+- **Removed**: `tests/reference_parity/_fixtures/_verify_rdbwselect_cascade.R`, which replicated GPL rdrobust internals and was used by nothing (license provenance audit, addendum row X1).
+
 ### DR-DiD on repeated cross-sections: delta-method SEs by default; more clean-room rewrites (CS grid / RCS path / multiplier bootstrap, AR tests, staggered SDID, score bootstrap)
 
 Second clean-room pass over self-declared ports of GPL code (audit rows H25-H27 and three DiD pieces found by the first pass). Specifications and evidence: `docs/dev/cleanroom/cs_rcs.md`, `dynpanel_ar.md`, `sdid_staggered.md`, `score_wild.md`. In every case the old code was deleted unread and the reference was used only as a black box.

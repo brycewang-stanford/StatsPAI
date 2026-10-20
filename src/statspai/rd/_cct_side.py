@@ -28,10 +28,25 @@ from typing import Optional, Tuple
 
 import numpy as np
 
+from ..exceptions import NumericalInstability
 from ._core import _kernel_fn, _spd_inverse
 from ._nn_variance import nn_residuals
 
-__all__ = ["Side", "LocalFit", "kernel_name", "complete_rows"]
+__all__ = ["Side", "LocalFit", "kernel_name", "complete_rows", "cluster_kind"]
+
+#: With clusters every ``vce`` is one of R rdrobust 4.0.0's three cluster
+#: variances: ``nn`` / ``hc0`` / ``hc1`` -> CR1, ``hc2`` -> CR2, ``hc3`` -> CR3
+#: (black box; the help page of ``rdrobust`` states the mapping).
+_CLUSTER_KIND = {
+    "nn": "cr1",
+    "hc0": "cr1",
+    "hc1": "cr1",
+    "cr1": "cr1",
+    "hc2": "cr2",
+    "cr2": "cr2",
+    "hc3": "cr3",
+    "cr3": "cr3",
+}
 
 _KERNEL_ALIASES = {
     "tri": "triangular",
@@ -191,13 +206,20 @@ def residual_rows(
     plug-in residuals of ``fit``, scaled by the HC weight: 1 (hc0),
     ``sqrt(n/(n-k))`` (hc1, ``n = n_dof`` or the window size, ``k`` the
     number of polynomial coefficients), ``1/sqrt(1-lev)`` (hc2) or
-    ``1/(1-lev)`` (hc3). With clusters, ``nn`` and ``hc1`` use the raw
-    plug-in residuals; the small-sample factor is applied to the clustered
-    sum instead (:func:`variance_of`).
+    ``1/(1-lev)`` (hc3). With clusters (:func:`cluster_kind`): CR1 uses the
+    raw plug-in residuals and puts its small-sample factor on the clustered
+    sum (:func:`variance_of`); CR2 / CR3 use
+    :func:`cluster_adjusted_residuals`.
     """
-    if side.cluster is not None and vce in ("nn", "hc1"):
-        vce = "hc0"
     cols = side.cols[fit.mask]
+    if side.cluster is not None:
+        kind = cluster_kind(vce)
+        resid = cols - fit.design @ fit.coef
+        if kind == "cr1":
+            return resid
+        return cluster_adjusted_residuals(
+            fit.design, fit.w, fit.ginv, side.cluster[fit.mask], resid, kind
+        )
     if vce == "nn":
         ties = np.zeros(fit.n, dtype=int)
         return nn_residuals(fit.x, cols, ties, ties, nnmatch)
@@ -216,6 +238,88 @@ def residual_rows(
     raise ValueError(f"unknown vce {vce!r}")
 
 
+def cluster_kind(vce: str) -> str:
+    """The cluster variance (``'cr1'``, ``'cr2'``, ``'cr3'``) a ``vce`` means
+    once clusters are given."""
+    try:
+        return _CLUSTER_KIND[str(vce).lower()]
+    except KeyError:
+        raise ValueError(f"unknown vce {vce!r}") from None
+
+
+def cluster_adjusted_residuals(
+    design: np.ndarray,
+    w: np.ndarray,
+    ginv: np.ndarray,
+    codes: np.ndarray,
+    resid: np.ndarray,
+    kind: str,
+) -> np.ndarray:
+    """CR2 / CR3 residual rows of one weighted polynomial fit.
+
+    ``design`` / ``w`` / ``codes`` / ``resid`` are row-aligned; ``ginv`` is
+    the inverse Gram matrix of the fit. Rows with ``w = 0`` (outside the
+    fit's window but inside the union window of the two fits) may be
+    included. Within each cluster ``g`` the residuals are multiplied by
+    ``(I - H_gg)^(-1/2)`` (CR2, Bell and McCaffrey) or ``(I - H_gg)^(-1)``
+    (CR3, the leave-one-cluster-out jackknife form), where
+    ``H_gg = P_g G^-1 P_g' W_g`` is the cluster's block of the weighted hat
+    matrix of this fit; the clustered sum of ``a_i s' rho_i`` then carries
+    no small-sample factor.
+
+    The matrix power is taken through the symmetric form
+    ``S = W^(1/2) P G^-1 P' W^(1/2)`` on the positive-weight rows, ``f(I -
+    H) = W^(-1/2) f(I - S) W^(1/2)``. Zero-weight rows have zero columns
+    in ``H_gg`` but not zero rows, so ``f(I - H_gg)`` adds to their residual
+    ``P_o G^-1 Z' g(S) W^(1/2) e`` with ``g(s) = (f(1 - s) - 1) / s``.
+
+    Black box: equals R rdrobust 4.0.0's ``cr2`` / ``cr3`` to about 1e-13
+    (the zero-weight rows matter for the robust variance when ``h > b``),
+    the leverage of each variance coming from its own fit (order ``p`` at
+    ``h`` for the conventional variance, order ``q`` at ``b`` for the
+    robust one). A singleton cluster reduces to ``hc2`` / ``hc3``.
+    """
+    power = -0.5 if kind == "cr2" else -1.0
+    out = np.array(resid, dtype=float, copy=True)
+    pos = w > 0
+    sw = np.sqrt(np.where(pos, w, 0.0))
+    z = design * sw[:, None]
+    order = np.argsort(codes, kind="mergesort")
+    starts = np.flatnonzero(np.r_[True, np.diff(codes[order]) != 0])
+    for lo, hi in zip(starts, np.r_[starts[1:], order.size]):
+        idx = order[lo:hi]
+        inside = idx[pos[idx]]
+        if inside.size == 0:
+            continue
+        outside = idx[~pos[idx]]
+        zi = z[inside]
+        lam, vecs = np.linalg.eigh(zi @ ginv @ zi.T)
+        if (1.0 - lam).min() <= 1e-10:
+            _singular_cluster(design.shape[1] - 1)
+        t = sw[inside, None] * resid[inside]
+        coef = vecs.T @ t
+        out[inside] = (vecs @ (((1.0 - lam) ** power)[:, None] * coef)) / sw[
+            inside, None
+        ]
+        if outside.size:
+            small = np.abs(lam) < 1e-8
+            safe = np.where(small, 1.0, lam)
+            g = np.where(small, -power, ((1.0 - lam) ** power - 1.0) / safe)
+            out[outside] += design[outside] @ ginv @ zi.T @ (vecs @ (g[:, None] * coef))
+    return out
+
+
+def _singular_cluster(order: int) -> None:
+    raise NumericalInstability(
+        "rdrobust: a cluster determines a local polynomial fit of order "
+        f"{order} by itself: its block of the hat matrix has an eigenvalue "
+        "of one, so the CR2 / CR3 leverage correction is not defined.",
+        recovery_hint="Use vce='cr1' (or 'hc1' with cluster=), a wider "
+        "bandwidth, or more clusters.",
+        diagnostics={"order": order},
+    )
+
+
 def variance_of(
     side: Side,
     mask: np.ndarray,
@@ -223,13 +327,15 @@ def variance_of(
     rho: np.ndarray,
     s: np.ndarray,
     n_coef: int,
+    vce: str = "hc1",
 ) -> float:
     """Sandwich variance of ``sum_i a_i s' C_i`` given residual rows ``rho``.
 
     Heteroskedasticity-robust: ``sum_i (a_i s' rho_i)^2``. Clustered: the
-    squared cluster sums times the CR1 factor
-    ``G/(G-1) * (n-1)/(n-n_coef)``, with ``n`` and ``G`` the observations
-    and clusters among the rows of ``mask``.
+    squared cluster sums; for CR1 (``vce`` ``nn`` / ``hc0`` / ``hc1`` /
+    ``cr1``) times ``G/(G-1) * (n-1)/(n-n_coef)``, with ``n`` and ``G`` the
+    observations and clusters among the rows of ``mask``. CR2 / CR3 carry
+    their correction in ``rho`` (:func:`cluster_adjusted_residuals`).
     """
     u = a * (rho @ s)
     if side.cluster is None:
@@ -237,6 +343,8 @@ def variance_of(
     codes = side.cluster[mask]
     _, inv = np.unique(codes, return_inverse=True)
     sums = np.bincount(inv, weights=u)
+    if cluster_kind(vce) != "cr1":
+        return float(np.sum(sums * sums))
     g = sums.size
     n = codes.size
     factor = (g / (g - 1.0)) * ((n - 1.0) / (n - n_coef)) if g > 1 else 1.0

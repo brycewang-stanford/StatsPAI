@@ -151,11 +151,13 @@ def rdbwselect(
         of each cascade, element-wise per side -- not stage by stage.
     cluster : str, optional
         Cluster variable name for cluster-robust variance estimation.
-    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3', 'cr1', 'cr2', 'cr3'}, default 'nn'
         Variance estimator inside the bandwidth cascade, R
         ``rdbwselect(vce=)``: ``'nn'`` uses nearest-neighbour residuals,
         the ``hc*`` family regression residuals. With ``cluster=``,
-        ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'``. The
+        ``'nn'`` / ``'hc0'`` / ``'hc1'`` become R's ``'cr1'`` and
+        ``'hc2'`` / ``'hc3'`` R 4.0.0's ``'cr2'`` / ``'cr3'``; ``'cr*'``
+        without ``cluster=`` fall back to ``'hc*'`` (with a warning). The
         bandwidths equal ``sp.rdrobust``'s with the same ``vce``.
         Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also
         inside ``'vce(...)'``) are read as ``cluster='v'`` with that
@@ -253,15 +255,12 @@ def rdbwselect(
         raise ValueError(  # pragma: no cover
             f"bwselect must be one of {sorted(_VALID_METHODS)}, " f"got '{bwselect}'"
         )
-    from ._cct_bandwidth import _VCE_KINDS, _split_rd_vce
+    from ._cct_bandwidth import _VCE_KINDS, _cluster_vce_note, _split_rd_vce
 
     vce, cluster = _split_rd_vce(vce, cluster, "rdbwselect")
     if str(vce).lower() not in _VCE_KINDS:
-        raise ValueError(
-            f"vce must be one of {sorted(_VCE_KINDS)}, got {vce!r}. "
-            "R's cr1/cr2/cr3 are requested by passing cluster= instead."
-        )
-    vce = str(vce).lower()
+        raise ValueError(f"vce must be one of {sorted(_VCE_KINDS)}, got {vce!r}.")
+    vce = _cluster_vce_note(str(vce).lower(), cluster, "rdbwselect")
     if deriv < 0:
         raise ValueError(f"deriv must be non-negative, got {deriv}")  # pragma: no cover
     if p < 1:

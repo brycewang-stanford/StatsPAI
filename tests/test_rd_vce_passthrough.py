@@ -57,7 +57,16 @@ def test_rdbwselect_vce_changes_the_bandwidth(rd):
 
 def test_rdbwselect_rejects_unknown_vce(rd):
     with pytest.raises(ValueError, match="vce must be one of"):
-        sp.rdbwselect(rd, y="y", x="x", vce="cr1")
+        sp.rdbwselect(rd, y="y", x="x", vce="hc4")
+
+
+def test_rdbwselect_cluster_kind_without_cluster_is_hc(rd):
+    # R rdrobust 4.0.0: vce='cr1' without a cluster variable falls back to
+    # hc1 with a warning; the bandwidths are then hc1's exactly.
+    with pytest.warns(sp.exceptions.StatsPAIWarning, match="needs cluster"):
+        cr = sp.rdbwselect(rd, y="y", x="x", vce="cr1")
+    hc = sp.rdbwselect(rd, y="y", x="x", vce="hc1")
+    pd.testing.assert_frame_equal(cr, hc)
 
 
 @pytest.mark.parametrize("vce", ["hc2", "nn"])

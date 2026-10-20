@@ -25,6 +25,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import warnings
 from math import factorial
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
@@ -36,7 +37,12 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from ..rd._lpdensity import (
     _cdf_counts,
     boundary_bias_constant,
@@ -257,11 +263,33 @@ def rddensity(
 
     diff = robust["right"] - robust["left"]
     se_diff = float(np.sqrt(robust["se_left"] ** 2 + robust["se_right"] ** 2))
+    not_computable = None
     if np.isfinite(diff) and np.isfinite(se_diff) and se_diff > 0:
         t_stat = diff / se_diff
         pvalue = float(2 * stats.norm.sf(abs(t_stat)))
-    else:  # statistic not computable on these windows
-        t_stat, se_diff, pvalue = 0.0, 0.0, 1.0
+    else:
+        # Not computable on these windows: report NA, as R rddensity does.
+        # (Before this fix the result said T = 0, p = 1, i.e. "no evidence
+        # of manipulation", which the data cannot support.)
+        t_stat, pvalue = np.nan, np.nan
+        not_computable = {
+            "reason": "density or its standard error is not identified in "
+            "a bandwidth window",
+            "n_eff_left": robust["n_left"],
+            "n_eff_right": robust["n_right"],
+            "polynomial_order_fitted": int(p) + 1,
+            "bandwidth_left": float(h_l),
+            "bandwidth_right": float(h_r),
+        }
+        warnings.warn(
+            "rddensity: the test statistic is not computable (a window "
+            f"holds {robust['n_left']} / {robust['n_right']} observations "
+            f"left / right of the cutoff, too few distinct values for an "
+            f"order-{int(p) + 1} fit, or a zero standard error); T and the "
+            "p-value are NaN, as in R rddensity. Widen h or lower p.",
+            AssumptionWarning,
+            stacklevel=2,
+        )
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (diff - z_crit * se_diff, diff + z_crit * se_diff)
 
@@ -302,6 +330,8 @@ def rddensity(
         "cutoff": c,
         "scale": dict(_SCALE),
     }
+    if not_computable is not None:
+        model_info["diagnostics"] = {"not_computable": not_computable}
     result = CausalResult(
         method="CJM (2020) Density Test",
         estimand=_ESTIMAND,

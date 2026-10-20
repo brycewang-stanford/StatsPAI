@@ -40,7 +40,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from ..exceptions import (
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+    StatsPAIWarning,
+)
 from ._cct_side import (
     Side,
     complete_rows,
@@ -68,7 +73,7 @@ BW_SELECTORS = (
 
 MASSPOINTS = ("adjust", "check", "off")
 
-_VCE_KINDS = frozenset({"nn", "hc0", "hc1", "hc2", "hc3"})
+_VCE_KINDS = frozenset({"nn", "hc0", "hc1", "hc2", "hc3", "cr1", "cr2", "cr3"})
 
 #: Pilot-bandwidth constants C_K (CCT 2014 SA S.2.6 / CCFT 2019 SA §12.1:
 #: 2.576 triangular, 1.843 uniform); 2.34 for the Epanechnikov kernel was
@@ -158,6 +163,34 @@ def _split_rd_vce(vce: Any, cluster: Any, function: str) -> Tuple[Any, Any]:
     return kind, var
 
 
+def _cluster_vce_note(vce: str, cluster: Any, function: str) -> str:
+    """R rdrobust 4.0.0's cluster mapping of ``vce``, with its warnings.
+
+    With clusters ``hc2`` / ``hc3`` are CR2 / CR3 (and ``nn`` / ``hc0`` /
+    ``hc1`` CR1, silently, as before). ``cr1`` / ``cr2`` / ``cr3`` without
+    clusters fall back to ``hc1`` / ``hc2`` / ``hc3``, as R does.
+    """
+    has_cluster = cluster is not None and not (isinstance(cluster, str) and not cluster)
+    if has_cluster and vce in ("hc2", "hc3"):
+        warnings.warn(
+            f"{function}: with cluster=, vce={vce!r} is the cluster-robust "
+            f"CR{vce[2]} variance (R rdrobust 4.0.0 maps it the same way; "
+            "earlier StatsPAI releases used HC-scaled residuals with the CR1 "
+            "factor).",
+            StatsPAIWarning,
+            stacklevel=3,
+        )
+    if not has_cluster and vce in ("cr1", "cr2", "cr3"):
+        warnings.warn(
+            f"{function}: vce={vce!r} needs cluster=; using vce='hc{vce[2]}' "
+            "(as R rdrobust does).",
+            StatsPAIWarning,
+            stacklevel=3,
+        )
+        return "hc" + vce[2]
+    return vce
+
+
 # --------------------------------------------------------------------------- #
 #  One stage of the plug-in cascade
 # --------------------------------------------------------------------------- #
@@ -202,7 +235,7 @@ def _stage(
     ell = np.zeros(order + 1)
     ell[nu] = math.factorial(nu)
     rho = residual_rows(side, fit, vce, nnmatch)
-    var = variance_of(side, fit.mask, fit.weights_for(ell), rho, s, order + 1)
+    var = variance_of(side, fit.mask, fit.weights_for(ell), rho, s, order + 1, vce)
     factor = fit.bias_factor(ell)
 
     bias_fit = side.fit(bias_bw, bias_order, kernel)
@@ -211,7 +244,7 @@ def _stage(
     deriv_coef = float(bias_fit.coef[order + 1] @ s)
     rho_b = residual_rows(side, bias_fit, vce, nnmatch)
     var_coef = variance_of(
-        side, bias_fit.mask, bias_fit.weights_for(pick), rho_b, s, bias_order + 1
+        side, bias_fit.mask, bias_fit.weights_for(pick), rho_b, s, bias_order + 1, vce
     )
     if fit.singular or bias_fit.singular:
         bad = fit if fit.singular else bias_fit
@@ -415,7 +448,7 @@ def cct_bandwidth(
         Covariates (adjusted per side, CCFT 2019), cluster ids (CR1-type
         variance), treatment indicator (fuzzy design) and observation weights
         (multiplying the kernel).
-    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3', 'cr1', 'cr2', 'cr3'}
     bwcheck : int, optional
         Minimum number of distinct running-variable values in the pilot
         window on each side.
@@ -434,6 +467,8 @@ def cct_bandwidth(
     vce = str(vce).lower()
     if vce not in _VCE_KINDS:
         raise ValueError(f"vce must be one of {sorted(_VCE_KINDS)}, got {vce!r}")
+    if cluster is None and vce in ("cr1", "cr2", "cr3"):
+        vce = "hc" + vce[2]
     kernel = kernel_name(kernel)
     q = p + 1 if q is None else int(q)
     y, x, covs, fuzzy, weights, cluster = _drop_incomplete(

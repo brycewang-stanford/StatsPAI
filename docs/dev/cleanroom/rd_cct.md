@@ -57,10 +57,17 @@ multiply the kernel). Kernels: triangular `1-|u|`, Epanechnikov
   - clusters: squared cluster sums times `G/(G-1) (n-1)/(n-k)` (CR1), with
     `n`, `G` counted on the union window of that side; `nn` and `hc1` with
     clusters use raw plug-in residuals [BB: equals R 4.0.0's `cr1` to
-    1e-15]. `hc2` / `hc3` with clusters keep the leverage-scaled residuals
-    with the CR1 factor (StatsPAI's existing behaviour, reproduced to
-    1e-15). R 4.0.0 now maps these to its CR2 / CR3; the difference is
-    0.07% to 0.6% of the SE on the fixtures tried (open item for the owner).
+    1e-15]. `hc2` / `hc3` (or `cr2` / `cr3`) with clusters are CR2 / CR3
+    (2026-10-21, aligned with R 4.0.0, which maps them so): per cluster
+    the residuals times `(I - H_gg)^(-1/2)` / `(I - H_gg)^(-1)`, `H_gg`
+    the cluster block of the weighted hat matrix `P G^-1 P' W` of the
+    variance's own fit (order `p` at `h`, order `q` at `b`), no
+    small-sample factor; zero-weight rows of the union window get the
+    off-diagonal block of the non-symmetric `f(I - H_gg)` [BB: 1e-14, and
+    9e-10 for the CR2 robust SE with `h > b`; test
+    `test_rd_cluster_cr23_R_parity.py`]. The old leverage-scaled
+    residuals with the CR1 factor were 7% (CR2) to 18% (CR3) below R on
+    `rd_covs_discriminating`.
 
 ## Bandwidth selector (`cct_bandwidth`)
 

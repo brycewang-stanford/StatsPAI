@@ -429,7 +429,7 @@ def rdrobust(
         Cluster variable for standard errors.  Note that clustering is not
         confined to inference: it enters the ``V`` term of the bandwidth
         cascade, so ``h`` and ``b`` move as well.
-    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3', 'cr1', 'cr2', 'cr3'}, default 'nn'
         Variance estimator, matching R ``rdrobust``'s argument of the same
         name.  ``'nn'`` uses nearest-neighbour residuals (``nnmatch=3``);
         the ``hc*`` family uses regression residuals with the usual
@@ -440,7 +440,12 @@ def rdrobust(
         differencing removes exactly the within-cluster correlation a
         clustered variance exists to capture, and pairing the two
         understates the SE by roughly 10x.  This mirrors R, which makes the
-        same substitution silently.
+        same substitution.  With ``cluster``, ``'hc2'`` / ``'hc3'`` are R
+        4.0.0's ``'cr2'`` / ``'cr3'`` (Bell-McCaffrey and jackknife
+        leverage corrections of each cluster's residuals, no small-sample
+        factor; a warning says so), and ``'cr1'`` / ``'cr2'`` / ``'cr3'``
+        may be named directly; without ``cluster`` they fall back to
+        ``'hc1'`` / ``'hc2'`` / ``'hc3'`` with a warning, as in R.
         Stata's spellings ``'cluster v'`` and ``'nncluster v'`` (also
         inside ``'vce(...)'``) are read as ``cluster='v'`` with that
         variance.
@@ -855,14 +860,11 @@ def rdrobust(
     # them in `except ValueError` to fall back to the legacy selector on
     # degenerate data, which would turn a typo'd vce into a silent switch
     # to a different variance estimator.
-    from ._cct_bandwidth import _VCE_KINDS
+    from ._cct_bandwidth import _VCE_KINDS, _cluster_vce_note
 
     if str(vce).lower() not in _VCE_KINDS:
-        raise ValueError(
-            f"vce must be one of {sorted(_VCE_KINDS)}, got {vce!r}. "
-            "R's cr1/cr2/cr3 are requested by passing cluster= instead."
-        )
-    vce = str(vce).lower()
+        raise ValueError(f"vce must be one of {sorted(_VCE_KINDS)}, got {vce!r}.")
+    vce = _cluster_vce_note(str(vce).lower(), cluster, "rdrobust")
 
     # --- Cluster values (handle donut filtering) ---
     # Aligned with Y / X_c: the complete-case mask first, then the donut.
