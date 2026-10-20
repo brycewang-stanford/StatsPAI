@@ -1242,7 +1242,7 @@
    "result_sha256": "a9b5bc87dc4b8335d8f9bb2b52bf19fc85de81c23a3488bca9694844ffadd061"
   },
   "33_var": {
-   "seconds": 2.37,
+   "seconds": 1.08,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1251,7 +1251,7 @@
    "exercised_sources": {
     "src/statspai/core/_collinear.py": "956b0d85841b5b74e880e98cd2f0ca15fed27362d9691bb6bdffad5b7d0ed25a",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
-    "src/statspai/timeseries/var.py": "151cdee4893b4bb04b57c9898ab07540ad3fc91bcfbd73ebd853692c8d9e5e42"
+    "src/statspai/timeseries/var.py": "914727966c0f408889871afbe598da4fdf8a398d097c6293595790b4b1443ef6"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
