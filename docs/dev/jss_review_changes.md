@@ -4982,6 +4982,10 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   the pre-extension code; `33_var.py` and `34_lp.py` were re-run first and
   reproduce their committed results byte for byte; only the trace was
   re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-20 — trace 59 re-record after `sp.liml(robust='many_weak')`
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
@@ -5001,7 +5005,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `eaf9f2419`.
+- **Commits.** `8cfa0055c`.
 - **Reason.** `did/_honest_breakdown.py` (the relative-magnitude C-LF
   breakdown now scans for the first crossing) is on the traced path of
   Track A module 10, which reports only the smoothness breakdown. The
