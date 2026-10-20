@@ -4897,3 +4897,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — orig trace 07 re-recorded after the learner helper
+
+- **Commits.** `d439b60c7` re-recorded
+  `tests/orig_parity/results/_implementation_trace.json` (module 07).
+- **Reason.** `inference/aipw.py` now reads user learners through the
+  shared `core/_learners.py` helper (SuperLearner as `ps_learner=`); module
+  07 executes the file but not the changed function.
+- **Effect on the paper.** None. Module 07 was re-run before re-recording:
+  the output is identical on origin/main and on this tree, and both differ
+  from the committed result by about 1e-13 relative (pre-existing, inside
+  the 1e-9 reproducibility tolerance), so the committed result was kept.
+- **Paths.**
+  - `tests/orig_parity/results/_implementation_trace.json`
