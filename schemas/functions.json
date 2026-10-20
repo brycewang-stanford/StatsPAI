@@ -65882,7 +65882,7 @@
     "parameters": {
       "properties": {
         "W": {
-          "description": "Covariates, proxy variables, or weights used by this estimator.",
+          "description": "n x n spatial weights, rows in the order of ``data``.",
           "type": "string"
         },
         "alpha": {
@@ -65896,7 +65896,7 @@
           "x-statspai-role": "dataframe"
         },
         "formula": {
-          "description": "Model formula using patsy/R-style syntax.",
+          "description": "``\"y ~ x1 + x2\"`` with plain column names; a constant is added.",
           "type": "string",
           "x-statspai-role": "formula"
         },

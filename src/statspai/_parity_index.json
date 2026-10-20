@@ -9181,7 +9181,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_spatial_durbin_error_Stata_parity.py"
+        "tests/reference_parity/test_spatial_durbin_error_Stata_parity.py",
+        "tests/reference_parity/test_spatial_sac_Stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -20525,7 +20526,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_spatial_models_parity.py"
+        "tests/reference_parity/test_spatial_models_parity.py",
+        "tests/reference_parity/test_spatial_sac_Stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"

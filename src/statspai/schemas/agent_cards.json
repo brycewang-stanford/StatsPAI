@@ -138340,12 +138340,13 @@
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "docstring",
+      "returns": "docstring",
       "typical_n_min": "family"
     },
     "reference": "anselin1988spatial",
     "returns": {
       "class": "EconometricResults",
-      "description": "",
+      "description": "EconometricResults: params [const, x..., rho, lambda] with OIM standard errors; model_info['vcov'] (their covariance), model_info['sigma2'] and model_info['se_sigma2'], model_info['loglik'].",
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
@@ -138362,7 +138363,7 @@
       "parameters": {
         "properties": {
           "W": {
-            "description": "Covariates, proxy variables, or weights used by this estimator.",
+            "description": "n x n spatial weights, rows in the order of ``data``.",
             "type": "string"
           },
           "alpha": {
@@ -138376,7 +138377,7 @@
             "x-statspai-role": "dataframe"
           },
           "formula": {
-            "description": "Model formula using patsy/R-style syntax.",
+            "description": "``\"y ~ x1 + x2\"`` with plain column names; a constant is added.",
             "type": "string",
             "x-statspai-role": "formula"
           },
@@ -138398,7 +138399,8 @@
     "typical_n_min": 50,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R spatialreg::sacsarlm [spatialreg 1.4.3, spdep 1.4.2]; tolerance rho and lambda at 1e-5, slope coefficients at 1e-6 -- a bounded two-parameter ML line search on both sides. -- tests/reference_parity/test_spdep_parity.py",
-      "tests/reference_parity/test_spatial_models_parity.py"
+      "tests/reference_parity/test_spatial_models_parity.py",
+      "tests/reference_parity/test_spatial_sac_Stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -138555,7 +138557,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_spatial_durbin_error_Stata_parity.py"
+        "tests/reference_parity/test_spatial_durbin_error_Stata_parity.py",
+        "tests/reference_parity/test_spatial_sac_Stata_parity.py"
       ],
       "tolerance": ""
     },

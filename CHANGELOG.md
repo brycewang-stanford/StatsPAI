@@ -4,6 +4,10 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.sac` full-information standard errors
+
+- **⚠️ Correctness**: `sp.sac` reported the regression SEs as `sigma2 (X~'X~)^-1`, treating rho and lambda as known, and the rho / lambda SEs from the diagonal of a numerical Hessian of the concentrated likelihood. Both were too small (the constant's SE 0.109 against Stata's 0.344 on the rook-grid fixture; rho 0.103 against 0.189). The fit now uses the same full-information maximum likelihood as `sp.gns` (shared in `spatial/models/_fiml.py`): standard errors invert the observed information in `(b, rho, lambda, sigma2)`, as Stata `spregress, ml dvarlag(W) errorlag(W)` (default `vce(oim)`). Estimates, OIM SEs, sigma2 and its SE equal Stata 18 to 1e-6 and the log-likelihood to 1e-12 on two fixtures (`tests/reference_parity/test_spatial_sac_Stata_parity.py`). The point estimates also move: on the asymmetric-graph fixture the old optimiser stopped 0.024 log-likelihood units below the maximum (lambda 0.6588 against 0.6595). `model_info` gains `vcov`, `sigma2`, `se_sigma2`, `loglik`.
+
 ### Classifier learners in DML, metalearners, causal forest; `sp.RlassoClassifier` as a propensity
 
 - **⚠️ Correctness**: `sp.dynamic_dml(model_t=<classifier>)` (or `model_y=`) residualised on the classifier's hard 0/1 label from `predict`, so the residual was `T - 1{p > 0.5}`, not `T - E[T | state]`. A classifier on a 0/1 target now gives P(T = 1), and a classifier on any other target is refused, as in `sp.dml`. Estimates with a classifier learner change; the default `RidgeCV` and any regressor are byte-identical.

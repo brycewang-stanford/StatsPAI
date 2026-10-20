@@ -853,7 +853,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `get_scores` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |
 | `gformula_mc` | [`test_gformula_family_parity.py`](../tests/reference_parity/test_gformula_family_parity.py) (+1) |
 | `gnn_causal` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
-| `gns` | [`test_spatial_durbin_error_Stata_parity.py`](../tests/reference_parity/test_spatial_durbin_error_Stata_parity.py) |
+| `gns` | [`test_spatial_durbin_error_Stata_parity.py`](../tests/reference_parity/test_spatial_durbin_error_Stata_parity.py) (+1) |
 | `gp_regress` | [`test_bayes_nonparametric_exact.py`](../tests/reference_parity/test_bayes_nonparametric_exact.py) (+1) |
 | `group_sequential` | [`test_group_sequential_stata_parity.py`](../tests/reference_parity/test_group_sequential_stata_parity.py) |
 | `hal_tmle` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |

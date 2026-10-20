@@ -28,7 +28,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from ...exceptions import ConvergenceFailure, NumericalInstability
-from ..models.durbin_error import _hessian
+from ..models._fiml import _hessian
 
 __all__ = ["fit_re"]
 

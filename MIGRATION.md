@@ -5,6 +5,18 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.sac` standard errors (and estimates)
+
+`sp.sac` now reports observed-information (OIM) standard errors of the
+full likelihood, as Stata `spregress, ml dvarlag(W) errorlag(W)`. The old
+SEs held rho and lambda fixed for the regression coefficients and were
+too small, often by a factor of two or more for the constant and the
+spatial parameters. The optimiser now reaches Stata's maximum (log-likelihoods equal to 1e-12), so
+estimates can move in the fourth decimal. There is no switch back; the
+old SEs were not a valid covariance.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ classifier learners in `sp.dynamic_dml`; rigorous-Lasso learners refuse `sample_weight`
 
 - `sp.dynamic_dml(model_t=<classifier>)` (or `model_y=`) now residualises
