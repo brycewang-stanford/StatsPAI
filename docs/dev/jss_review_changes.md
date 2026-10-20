@@ -4813,3 +4813,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after replicate-weight designs
+
+- **Commits.** `57fee3046` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 01, 03, 04,
+  10, 11, 13, 14, 15, 21, 24, 25, 26, 27, 48, 51, 53, 54, 55, 56, 57, 65,
+  66, 72, 79) and `tests/orig_parity/results/_implementation_trace.json`
+  (01, 02, 04, 04b, 06, 07, 08, 09, 10, 11).
+- **Reason.** `design=` accepts replicate-weight designs: the regression,
+  IPW / AIPW / TMLE, Cox, DiD and `survey/` sources these modules execute
+  gained a guarded first statement (`design` given and a replicate design)
+  or a refusal in `check_design`; the replicate machinery lives in new
+  files these modules do not execute.
+- **Effect on the paper.** None. Every affected module was re-run before
+  re-recording; the committed results differ from the re-runs by at most
+  3.3e-10 relative (module 25; all others <= 1.6e-11), inside the 1e-9
+  reproduction tolerance, so they were kept. Only source hashes changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
