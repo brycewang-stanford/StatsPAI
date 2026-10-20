@@ -5034,3 +5034,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after new `sp` exports (mmqreg, two_stage_interference)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `94916caa5`.
+- **Reason.** `src/statspai/__init__.py` gained `sp.mmqreg` (lazy) and
+  `sp.two_stage_interference`; the file is on the traced path of Track A
+  modules 03, 13, 15, 24, 25, 26, 27, 53, 65, 66 and original-data module
+  08. The tracer re-ran the modules; their committed results are unchanged.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
