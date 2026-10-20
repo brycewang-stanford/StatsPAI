@@ -29,7 +29,11 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.exceptions import AssumptionWarning, MethodIncompatibility
+from statspai.exceptions import (
+    AssumptionWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 FIX = Path(__file__).parent / "_fixtures"
 R = json.loads((FIX / "ts_causal_R.json").read_text(encoding="utf-8"))
@@ -311,6 +315,38 @@ def test_panel_granger_unit_statistics_and_unbalanced_panel():
     )
     assert not gu["balanced"]
     assert abs(gu["Z_tilde"] - R["pgrangertest"]["unbalanced"][0]) < 1e-12
+
+
+@pytest.mark.parametrize("K", [1, 2])
+def test_panel_granger_needs_more_than_5_plus_3k_periods(K):
+    """Stata xtgcause stops with r(459) and plm::pgrangertest refuses
+    Z-tilde when T <= 5 + 3K (checked on Stata 18 / plm at T = 8 and 9 for
+    K = 1, 11 and 12 for K = 2); before 2026-10-20 the headline p-value was
+    NaN without a word."""
+    times = np.sort(PANEL["time"].unique())
+    at = PANEL[PANEL["time"].isin(times[: 3 * K + 5])]
+    with pytest.raises(DataInsufficient, match="5 \\+ 3K") as info:
+        sp.granger_causality(
+            data=at, caused="y", causing="x", lags=K, id="id", time="time"
+        )
+    assert info.value.diagnostics["min_periods_needed"] == 3 * K + 6
+    above = PANEL[PANEL["time"].isin(times[: 3 * K + 6])]
+    g = sp.granger_causality(
+        data=above, caused="y", causing="x", lags=K, id="id", time="time"
+    )
+    T, N = 3 * K + 6, g["n_units"]
+    want = np.sqrt(N / (2 * K) * (T - 3 * K - 5) / (T - 2 * K - 3)) * (
+        (T - 3 * K - 3) / (T - 3 * K - 1) * g["W_bar"] - K
+    )
+    assert np.isfinite(g["p_value"]) and abs(g["Z_tilde"] - want) < 1e-12
+    # one short unit is enough (plm: "not met for all individuals")
+    short = PANEL[
+        ~((PANEL["id"] == PANEL["id"].iloc[0]) & (PANEL["time"] > times[3 * K + 4]))
+    ]
+    with pytest.raises(DataInsufficient, match="1 of"):
+        sp.granger_causality(
+            data=short, caused="y", causing="x", lags=K, id="id", time="time"
+        )
 
 
 def test_panel_granger_refuses_gaps():

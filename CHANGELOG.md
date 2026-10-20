@@ -66,6 +66,13 @@ All notable changes to StatsPAI will be documented in this file.
   is documented, not copied: with `vce(robust)` / `vce(cluster)` its `K`
   counts a continuous time-invariant regressor (rounding noise in its
   within transform) but not a dyadic one.
+- `sp.granger_causality(id=, time=)` (Dumitrescu-Hurlin) returned a NaN
+  headline p-value without a word when a unit has at most 5 + 3K periods.
+  Stata `xtgcause` stops there (`r(459)`) and R `plm::pgrangertest`
+  refuses `Ztilde`; this now raises `DataInsufficient` naming the
+  condition, the largest lag order the panel allows and the short units
+  (`tests/reference_parity/test_ts_causal_parity.py`). The threshold was
+  checked against both at T = 8 / 9 (K = 1) and 11 / 12 (K = 2).
 
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 

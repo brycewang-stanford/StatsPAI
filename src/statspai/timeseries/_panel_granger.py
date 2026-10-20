@@ -138,31 +138,47 @@ def panel_granger(
     N = len(rows)
     Wi = np.array([r["wald"] for r in rows])
     Ti_arr = np.array(Ti, dtype=float)
+    short = Ti_arr <= 3 * K + 5
+    if short.any():
+        # Stata xtgcause refuses the test (r(459)) and plm::pgrangertest
+        # the Z-tilde statistic when T <= 5 + 3K; Z_tilde (the headline)
+        # has no finite variance there and Z_bar is a large-T statistic.
+        raise DataInsufficient(
+            f"granger_causality: the Dumitrescu-Hurlin test needs more than "
+            f"5 + 3K = {3 * K + 5} periods per unit (K = {K}); "
+            f"{int(short.sum())} of {N} units have at most that many "
+            f"(shortest: {int(Ti_arr.min())}).",
+            recovery_hint=(
+                f"Use fewer lags (the most this panel allows is "
+                f"K = {max(int((Ti_arr.min() - 6) // 3), 0)}), or a longer "
+                "panel; Stata xtgcause and R plm refuse the test here too."
+            ),
+            diagnostics={
+                "lags": K,
+                "min_periods_needed": 3 * K + 6,
+                "shortest_unit_periods": int(Ti_arr.min()),
+                "n_short_units": int(short.sum()),
+            },
+        )
     Wbar = float(Wi.mean())
     balanced = bool(np.all(Ti_arr == Ti_arr[0]))
     zbar = float(np.sqrt(N / (2.0 * K)) * (Wbar - K)) if balanced else float("nan")
     if balanced:
         T = Ti_arr[0]
-        if T <= 3 * K + 5:
-            ztilde = float("nan")
-        else:
-            ztilde = float(
-                np.sqrt(N / (2.0 * K) * (T - 3 * K - 5) / (T - 2 * K - 3))
-                * ((T - 3 * K - 3) / (T - 3 * K - 1) * Wbar - K)
-            )
+        ztilde = float(
+            np.sqrt(N / (2.0 * K) * (T - 3 * K - 5) / (T - 2 * K - 3))
+            * ((T - 3 * K - 3) / (T - 3 * K - 1) * Wbar - K)
+        )
     else:
-        if np.any(Ti_arr <= 3 * K + 5):
-            ztilde = float("nan")
-        else:
-            mean_w = np.mean(K * (Ti_arr - 3 * K - 1) / (Ti_arr - 3 * K - 3))
-            var_w = np.mean(
-                2
-                * K
-                * (Ti_arr - 3 * K - 1) ** 2
-                * (Ti_arr - 2 * K - 3)
-                / ((Ti_arr - 3 * K - 3) ** 2 * (Ti_arr - 3 * K - 5))
-            )
-            ztilde = float(np.sqrt(N) * (Wbar - mean_w) / np.sqrt(var_w))
+        mean_w = np.mean(K * (Ti_arr - 3 * K - 1) / (Ti_arr - 3 * K - 3))
+        var_w = np.mean(
+            2
+            * K
+            * (Ti_arr - 3 * K - 1) ** 2
+            * (Ti_arr - 2 * K - 3)
+            / ((Ti_arr - 3 * K - 3) ** 2 * (Ti_arr - 3 * K - 5))
+        )
+        ztilde = float(np.sqrt(N) * (Wbar - mean_w) / np.sqrt(var_w))
     p_zbar = float(2 * stats.norm.sf(abs(zbar))) if np.isfinite(zbar) else float("nan")
     p_zt = (
         float(2 * stats.norm.sf(abs(ztilde))) if np.isfinite(ztilde) else float("nan")
