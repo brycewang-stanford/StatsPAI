@@ -5240,3 +5240,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces 06, 89 and orig 05 after the rdrobust recovery hint
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `26ce3ebf5`, `6acf85e28`.
+- **Reason.** `src/statspai/rd/rdrobust.py` (a recovery-hint string and
+  `alternative_functions` on the too-few-observations error) is on the
+  traced path of Track A modules 06 and 89 and original-data module 05.
+  All three were re-run first on the no-Rust path: their committed results
+  reproduce within 7.3e-12 relative (06: 2.8e-13, 89: 7.2e-12, orig 05:
+  2.8e-13), so the result files were kept and only the traces re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
