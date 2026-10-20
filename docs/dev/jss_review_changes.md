@@ -5156,3 +5156,36 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — DiD RCS / grid / bootstrap, AR tests, staggered SDID and score bootstrap clean-room; DR-RC SE default
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `f59df244a` (DiD clean-room and the delta-method default),
+  `379f678c3` (dynamic-panel AR tests, FOD / `h=1` σ̂²), `ceab8ecf8`
+  (staggered SDID inference), `cf5813fb4` (GLM score bootstrap),
+  `2a1c9b877` (traces).
+- **Reason.** License provenance audit rows H25-H27 and three DiD pieces
+  (`did/callaway_santanna.py` grid and repeated-cross-section path,
+  `did/_core.py::multiplier_bootstrap`, `did/wooldridge_did.py` improved
+  panel DR) were re-implemented clean-room (specs in `docs/dev/cleanroom/`).
+  The touched files are on the traced paths of Track A modules 04 05 16 17
+  20 38 50 53 73 75 78 79 83 84 85 and original-data module 02. Every module
+  was re-run first and reproduces its committed result within 1e-9; only the
+  traces were re-recorded.
+- **Effect on the paper.** No table number changes. Two statements to
+  revisit at the next re-anchor: (1) the owner's decision makes the
+  delta-method influence function the default for `drdid_rc` / `drdid_rc1`
+  and `callaway_santanna(estimator='dr')` on repeated cross-sections; R
+  `DRDID` / `did` and Stata `drdid` / `csdid` are reproduced only with
+  `variance_convention='reference'`, so any sentence or table row that cites
+  repeated-cross-section DR standard errors as T2 parity with R / Stata
+  becomes T4 (reference divergence, Monte Carlo evidence in
+  `tests/reference_parity/_fixtures/_drdid_rc_pre_regression_mc.py`); no
+  Track A module uses this path. (2) Classical one-step dynamic-panel GMM
+  after `transform='fod'` or `h=1` changes (σ̂² no longer halved), and
+  classical AR statistics for system GMM / FOD now match xtabond2; Track A
+  50 (one-step robust) is unaffected.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
