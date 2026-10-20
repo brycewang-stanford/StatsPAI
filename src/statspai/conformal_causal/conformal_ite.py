@@ -200,12 +200,16 @@ class ConformalCATE:
         self.y = y
         self.treat = treat
         self.covariates = covariates
-        self.model = model or GradientBoostingRegressor(
-            n_estimators=200,
-            max_depth=4,
-            learning_rate=0.05,
-            subsample=0.8,
-            random_state=random_state,
+        self.model = (
+            model
+            if model is not None
+            else GradientBoostingRegressor(
+                n_estimators=200,
+                max_depth=4,
+                learning_rate=0.05,
+                subsample=0.8,
+                random_state=random_state,
+            )
         )
         self.alpha = alpha
         self.calib_fraction = calib_fraction

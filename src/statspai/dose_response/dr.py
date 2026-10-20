@@ -49,7 +49,7 @@ def _pseudo_outcomes(
     random_state: int,
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
     from sklearn.linear_model import LinearRegression
-    from sklearn.model_selection import KFold
+    from sklearn.model_selection import KFold, cross_val_predict
 
     n = len(Y)
     tm = treatment_model if treatment_model is not None else LinearRegression()
@@ -79,7 +79,18 @@ def _pseudo_outcomes(
     )
     for tr, te in folds:
         fm = _clone(tm).fit(X[tr], T[tr])
-        r2 = (T[tr] - fm.predict(X[tr])) ** 2
+        # The variance model needs honest residuals: in-sample residuals of
+        # a flexible mean model (boosting, forests) are far too small, the
+        # density pi then collapses and the pseudo-outcomes explode
+        # (2026-10-20: a boosted default gave a curve of -71 .. 697 against
+        # a truth in [-1, 1]).
+        inner = min(5, len(tr))
+        oof = (
+            cross_val_predict(_clone(tm), X[tr], T[tr], cv=inner)
+            if inner >= 2
+            else fm.predict(X[tr])
+        )
+        r2 = (T[tr] - oof) ** 2
         fv = LinearRegression().fit(X[tr], r2)
         fo = _clone(om).fit(np.column_stack([X[tr], T[tr]]), Y[tr])
         mt = fm.predict(X[te])

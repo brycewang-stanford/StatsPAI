@@ -275,19 +275,30 @@ class DoseResponse:
         self.covariates = covariates
         self.n_dose_points = n_dose_points
         self.dose_range = dose_range
-        self.treatment_model = treatment_model or GradientBoostingRegressor(
-            n_estimators=200,
-            max_depth=4,
-            learning_rate=0.05,
-            subsample=0.8,
-            random_state=random_state,
+        # method='dr' has its own defaults (linear treatment mean, boosted
+        # outcome); it must see what the user passed, not the GPS defaults.
+        self._user_models = (treatment_model, outcome_model)
+        self.treatment_model = (
+            treatment_model
+            if treatment_model is not None
+            else GradientBoostingRegressor(
+                n_estimators=200,
+                max_depth=4,
+                learning_rate=0.05,
+                subsample=0.8,
+                random_state=random_state,
+            )
         )
-        self.outcome_model = outcome_model or GradientBoostingRegressor(
-            n_estimators=200,
-            max_depth=4,
-            learning_rate=0.05,
-            subsample=0.8,
-            random_state=random_state,
+        self.outcome_model = (
+            outcome_model
+            if outcome_model is not None
+            else GradientBoostingRegressor(
+                n_estimators=200,
+                max_depth=4,
+                learning_rate=0.05,
+                subsample=0.8,
+                random_state=random_state,
+            )
         )
         self.n_bootstrap = n_bootstrap
         self.alpha = alpha
@@ -417,8 +428,8 @@ class DoseResponse:
             T,
             X,
             dose_grid,
-            treatment_model=self.treatment_model,
-            outcome_model=self.outcome_model,
+            treatment_model=self._user_models[0],
+            outcome_model=self._user_models[1],
             bandwidth=self.bandwidth,
             n_folds=self.n_folds,
             random_state=self.random_state,

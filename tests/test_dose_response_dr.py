@@ -126,3 +126,49 @@ def test_shape_screen_against_npcausal_ctseff():
 def test_unknown_method_is_refused():
     with pytest.raises(MethodIncompatibility):
         sp.dose_response(_dgp(n=100), "y", "t", ["x1"], method="kernel")
+
+
+def _sin_dgp(seed=3, n=1000):
+    rng = np.random.default_rng(seed)
+    x1, x2 = rng.normal(size=(2, n))
+    dose = 0.5 * x1 + rng.normal(size=n)
+    y = np.sin(dose) + x1 + x2 + rng.normal(size=n)
+    return pd.DataFrame({"y": y, "dose": dose, "x1": x1, "x2": x2})
+
+
+def test_default_models_recover_the_curve():
+    # 2026-10-20 probe: with no models given, method='dr' received the GPS
+    # default (gradient boosting) for the treatment mean, whose in-sample
+    # residuals made the density collapse; the curve ran from -71 to 697
+    # against sin(dose) in [-1, 1] (max density ratio ~1e5).
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.dose_response(_sin_dgp(), "y", "dose", ["x1", "x2"], method="dr")
+    assert r.model_info["treatment_model"] == "LinearRegression"
+    d = r.detail
+    z = (d["response"] - np.sin(d["dose"])) / d["se"]
+    # every grid point within 3 of its own SEs of the truth (observed max 1.93)
+    assert np.max(np.abs(z)) < 3
+    assert r.model_info["max_density_ratio"] < 50  # observed 16.7
+
+
+def test_flexible_treatment_model_uses_honest_residuals():
+    # A boosted treatment mean used to crash (`model or Default()` calls
+    # len() on an unfitted ensemble) and, when it ran, fitted the variance
+    # on in-sample residuals. Its curve must stay on the truth too.
+    from sklearn.ensemble import GradientBoostingRegressor
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.dose_response(
+            _sin_dgp(),
+            "y",
+            "dose",
+            ["x1", "x2"],
+            method="dr",
+            treatment_model=GradientBoostingRegressor(random_state=0),
+        )
+    d = r.detail
+    inner = slice(3, -3)
+    z = (d["response"] - np.sin(d["dose"])) / d["se"]
+    assert np.max(np.abs(z.to_numpy()[inner])) < 3
