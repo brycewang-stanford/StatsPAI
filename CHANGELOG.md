@@ -50,6 +50,13 @@ All notable changes to StatsPAI will be documented in this file.
   `regress y L.x D.x` match Stata 18 on an unsorted gapped panel
   (`tests/test_stata_xtset_attrs.py`).
 
+- Guide `docs/guides/data_layer.md` (in the mkdocs nav): `sp.xtset`, lags /
+  leads / differences when periods are missing, time-series and
+  factor-variable terms in formulas and in `sp.stata`, `sp.reshape`,
+  `sp.collapse`, `sp.egen`. Every block is executed by
+  `tests/test_data_layer_guide.py`, which compares the printed output with
+  the guide.
+
 #### Fixed
 
 - `sp.rank` docstring: Stata's `field` is `method='min', ascending=False`
