@@ -5122,3 +5122,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces re-recorded after the `reset_spec_counter(y=)` rename
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `8329bcd0a`.
+- **Reason.** `core/_spec_counter.py` (argument of `sp.reset_spec_counter`
+  renamed to `y=`, `outcome=` kept as an alias) is on the traced paths of
+  Track A modules 01 14 35 51 53 54 55 56 67 and original-data modules 01
+  04 04b 09. Every module was re-run first: the committed results reproduce
+  within 2e-11 relative, so the result files were restored; only the traces
+  were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
