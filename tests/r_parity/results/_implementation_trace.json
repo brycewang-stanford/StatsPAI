@@ -954,7 +954,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 1.47,
+   "seconds": 3.54,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -997,13 +997,13 @@
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "0550423a2051e6f31961b79cce29a7b2466fd6877be5ab09d88bbb133ee6c08c",
     "src/statspai/survival/__init__.py": "56ed61de4f07175d7483bb16509c214c1b00030ba847cc5cdb4e273568d47244",
-    "src/statspai/survival/_cox_core.py": "71e947df4ff976e36ad0895b4be71a762757e20c204eda2685e35079bb951bfb",
+    "src/statspai/survival/_cox_core.py": "0a9874dd3cd6ccd24716eca46c192104da46575467daf730cdcad6b1cd5d4e9b",
     "src/statspai/survival/_cox_inputs.py": "573bee8d031c3ea8c1cdf903a3b6ef9561a02d1dbcd6bfe805094fc8ba056d6b",
     "src/statspai/survival/aft.py": "ffd2c54ec73fafd83d209ea922f1f6e373944507ad2e3bf1d78ae3c97a1af069",
     "src/statspai/survival/causal_forest.py": "37f1666f41e518f82dabf5122987545a29489b08ecc61623a23a16237dcf4fda",
     "src/statspai/survival/competing_risks.py": "becead38b611784740cedbb0c7a5f83cb0c541295446812213da4ee8f1119e1d",
     "src/statspai/survival/frailty.py": "1032fad2702e4be1115b5047726fed0cd45323d9d2de8d6656cb2ec3de71523e",
-    "src/statspai/survival/models.py": "a3028e2f3fe60642e64b876b384f839b89e09f0ae1faf5abbbce38574c8762f7",
+    "src/statspai/survival/models.py": "1a1d944180e92a7d4104e8d76b9c4421769f4317fded7c5ab808504b8f63bf25",
     "src/statspai/utils/_attrs.py": "1f02a82073a223f190963759f9a71b1fea32d03e8ce7442cc17a4647aceae958"
    },
    "dependency_versions": {
