@@ -118,14 +118,56 @@ What each estimator linearises:
 | `callaway_santanna`, `did_2x2` | unit-level ATT(g, t) influence functions (panel); the DID regression | R `did` `inffunc`; `svyglm` |
 | `msm` | outcome-model scores with the stabilised weights held fixed | R `ipw::ipwtm` + `svyglm` |
 | `cox`, `kaplan_meier` | weighted score residuals; per-row influence on S(t) | R `svycoxph`; `resid(survfit)` |
+| `ltmle` | the influence curve of the longitudinal TMLE | R `ltmle` influence curves |
+| `match` (nearest neighbour, ATT / ATC) | the matched-sample regression `y ~ d`, matching weights fixed, matched rows a domain of the full design | MatchIt `s.weights` + `svyglm(y ~ d, subset(design, matched))` |
 
 On panel data (`callaway_santanna`, `msm`) the unit is the sampled
 element: its weight, stratum and PSU must be the same in every period.
-`sp.dml` forms its cross-fitting folds over whole PSUs. A bootstrap needs
-replicate weights, which are not supported, so `design=` is refused with
-`se_method='bootstrap'` and the multiplier bootstrap; it is also refused
-with `weights=` / `cluster=` (the design carries both). Functions without an
-influence function refuse `design=` rather than approximate.
+`sp.dml` forms its cross-fitting folds over whole PSUs. With a
+linearisation design, `design=` is refused with `se_method='bootstrap'`
+and the multiplier bootstrap (a bootstrap of a complex design needs
+replicate weights, section 4b); it is also refused with `weights=` /
+`cluster=` (the design carries both). Functions without an influence
+function refuse `design=` rather than approximate. `sp.did(design=)`
+forwards the design to `did_2x2` / `callaway_santanna`.
+
+## 4b. Replicate weights (BRR, Fay, jackknife, bootstrap)
+
+Public-use files often ship replicate weights instead of strata and PSUs
+(ACS, MEPS, CHIS, many national surveys). Declare them with
+`sp.svrepdesign`, or build jackknife / BRR weights from a strata / PSU
+design with `sp.as_svrepdesign`:
+
+```python
+rep = sp.svrepdesign(df, repweights="^repwt", weights="pw", type="BRR")
+rep = sp.svrepdesign(df, repweights="^repwt", weights="pw", type="Fay", rho=0.5)
+rep = sp.as_svrepdesign(design, type="JKn")    # = R as.svrepdesign
+
+sp.svymean("y", rep)
+sp.svyglm("yb ~ x1 + x2", rep, family="binomial")
+sp.ipw(df, y="y", treat="d", covariates=["x1", "x2"], design=rep)
+sp.callaway_santanna(panel, y="y", g="g", t="t", i="id", x=["x"], design=rep_panel)
+```
+
+The statistic is computed once with the full-sample weights and once with
+each replicate's weights (rows of zero weight left out); its variance is
+`scale * sum_r rscales_r (theta_r - c)^2` with `c` the mean of the
+replicates, or the full-sample estimate with `mse=True`. `type` sets
+`scale` / `rscales` / `mse` as R `svrepdesign` does (BRR `1/R`, Fay
+`1/(R (1-rho)^2)`, JK1 `(R-1)/R`, JKn needs `rscales`, bootstrap `1/(R-1)`,
+ACS / successive difference `4/R` with `mse=True`); the design df is the
+rank of the replicate weights minus one. Accepted by `svymean`, `svytotal`,
+`svyglm`, `regress`, `logit`, `probit`, `ipw`, `aipw`, `tmle`, `ltmle`,
+`cox`, `did_2x2`, `callaway_santanna` and `sp.did`; the others refuse a
+replicate design.
+
+Stata users: `svyset [pw=w], brrweight(...)` / `fay()` / `jkrweight(...,
+multiplier())` give the same standard errors (Stata reports #replicates - 1
+as the df for BRR, where R and StatsPAI use the rank). Stata `svy
+bootstrap` divides by R rather than R - 1: pass `scale=1/R` to reproduce
+it. On Cox models with Efron ties a replicate here drops the deleted rows,
+as Stata does; R `svycoxph` keeps them with a negligible weight, which
+moves its SEs by a few parts in 10,000.
 
 The shared helper is `statspai.survey.linearization.design_vcov`, which
 takes per-row contributions `u_i` (with `theta_hat - theta ~= sum u_i`, the

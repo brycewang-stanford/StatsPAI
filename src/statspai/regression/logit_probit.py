@@ -1281,6 +1281,10 @@ def logit(
         ``svyglm``, Stata ``svy: logit``), with t inference on the design
         degrees of freedom (#PSU - #strata). Cannot be combined with
         ``weights=``, ``cluster=`` or ``robust=``.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
     Returns
     -------
@@ -1305,6 +1309,11 @@ def logit(
     >>> bool('dy/dx' in me.columns)
     True
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        return replicate_refit(logit, _args, design, function="sp.logit")
     return _fit_binary(
         formula=formula,
         data=data,
@@ -1405,6 +1414,10 @@ def probit(
         ``svyglm``, Stata ``svy: probit``), with t inference on the design
         degrees of freedom (#PSU - #strata). Cannot be combined with
         ``weights=``, ``cluster=`` or ``robust=``.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
     Returns
     -------
@@ -1425,6 +1438,11 @@ def probit(
     >>> bool('dy/dx' in me.columns)
     True
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        return replicate_refit(probit, _args, design, function="sp.probit")
     return _fit_binary(
         formula=formula,
         data=data,

@@ -308,7 +308,12 @@ def svymean(
     ----------
     variables : str or list of str
         Column name(s) in the design's data.
-    design : SurveyDesign
+    design : SurveyDesign or ReplicateDesign
+        The design from :func:`sp.svydesign` (linearisation) or
+        :func:`sp.svrepdesign` / :func:`sp.as_svrepdesign` (replicate
+        weights: the statistic is recomputed with every replicate's
+        weights, as R ``svymean`` on a ``svrepdesign``; DEFF is then not
+        computed).
     alpha : float
         CIs use the t distribution with the design df (#PSU - #strata), as
         Stata ``svy:`` and R ``confint(..., df = degf(design))``; R's
@@ -354,6 +359,10 @@ def svymean(
     >>> list(res.estimate.index)
     ['income']
     """
+    if getattr(design, "is_replicate_design", False):
+        from ._replicate_stats import rep_mean_total
+
+        return rep_mean_total(variables, design, alpha, subpop, total=False)
     var_names, vals = _resolve_vars(variables, design.data, "sp.svymean")
     dom = _domain_mask(design, subpop)
     w = design.weights if dom is None else design.weights * dom
@@ -403,7 +412,12 @@ def svytotal(
     Parameters
     ----------
     variables : str or list of str
-    design : SurveyDesign
+    design : SurveyDesign or ReplicateDesign
+        The design from :func:`sp.svydesign` (linearisation) or
+        :func:`sp.svrepdesign` / :func:`sp.as_svrepdesign` (replicate
+        weights: the statistic is recomputed with every replicate's
+        weights, as R ``svymean`` on a ``svrepdesign``; DEFF is then not
+        computed).
     alpha : float
         CIs use the t distribution with the design df (#PSU - #strata), as
         Stata ``svy:`` and R ``confint(..., df = degf(design))``; R's
@@ -449,6 +463,10 @@ def svytotal(
     >>> list(res.estimate.index)
     ['income']
     """
+    if getattr(design, "is_replicate_design", False):
+        from ._replicate_stats import rep_mean_total
+
+        return rep_mean_total(variables, design, alpha, subpop, total=True)
     var_names, vals = _resolve_vars(variables, design.data, "sp.svytotal")
     dom = _domain_mask(design, subpop)
     w = design.weights if dom is None else design.weights * dom
@@ -500,7 +518,12 @@ def svyglm(
     ----------
     formula : str
         ``"y ~ x1 + x2"`` style formula.
-    design : SurveyDesign
+    design : SurveyDesign or ReplicateDesign
+        The design from :func:`sp.svydesign` (sandwich over strata / PSUs)
+        or :func:`sp.svrepdesign` / :func:`sp.as_svrepdesign` (the model is
+        refitted with every replicate's weights, as R ``svyglm`` on a
+        ``svrepdesign``; df are the design's, the rank of the replicate
+        weights minus one).
     family : str
         ``"gaussian"``, ``"binomial"`` (logistic), or ``"poisson"``.
         Canonical links; the sandwich is ``A^{-1} B A^{-1}`` with
@@ -591,6 +614,10 @@ def svyglm(
         design_info=getattr(X_df, "design_info", None),
     )
     n, k = X.shape
+    if getattr(design, "is_replicate_design", False):
+        from ._replicate_stats import rep_glm
+
+        return rep_glm(y, X, var_names, pos, design, family, alpha, dof, dom)
 
     if family == "gaussian":
         params, working_residuals = _wls_fit(y, X, w)

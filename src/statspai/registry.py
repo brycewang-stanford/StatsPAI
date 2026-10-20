@@ -2725,7 +2725,9 @@ def _build_registry() -> None:
                     "design weights as unit weights, SEs by survey "
                     "linearisation of the influence functions over strata / "
                     "PSUs / fpc, t on the design df. Refused with other "
-                    "methods, aggregation=, weights= or cluster=.",
+                    "methods, aggregation=, weights= or cluster=. A "
+                    "replicate-weight design (sp.svrepdesign) refits the "
+                    "estimator with every replicate.",
                 ),
             ],
             returns="CausalResult",
@@ -6485,7 +6487,8 @@ def _build_registry() -> None:
                     "sample regression with the matched rows as a domain of "
                     "the full design (R svyglm on subset(design, matched)), "
                     "t on the design df. Other methods are refused (no "
-                    "influence function); use sp.ipw / aipw / tmle(design=).",
+                    "influence function); use sp.ipw / aipw / tmle(design=). "
+                    "Replicate-weight designs are refused.",
                 ),
                 ParamSpec(
                     "k2k",
@@ -33089,7 +33092,8 @@ def _build_registry() -> None:
                     "and the SE is the Taylor-linearisation variance of the "
                     "influence rows over strata / PSUs / fpc (R "
                     "survey::svyrecvar), t with #PSU - #strata df as Stata "
-                    "svy. Not with weights= or cluster=.",
+                    "svy. Not with weights= or cluster=. A replicate-weight "
+                    "design (sp.svrepdesign) refits with every replicate.",
                 ),
                 ParamSpec(
                     "ps_learner",

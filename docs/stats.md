@@ -98,7 +98,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `power` | 2,061 | 5 | 15 |
 | `proximal` | 2,061 | 8 | 13 |
 | `causal_text` | 1,774 | 4 | 4 |
-| `survey` | 2,295 | 7 | 9 |
+| `survey` | 3,426 | 10 | 12 |
 | `bcf` | 1,792 | 5 | 8 |
 | `ope` | 1,869 | 4 | 9 |
 | `fairness` | 1,500 | 3 | 9 |

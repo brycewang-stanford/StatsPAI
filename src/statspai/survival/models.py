@@ -1252,6 +1252,10 @@ def cox(
         design degrees of freedom. With counting-process rows (``start=``)
         the subject's rows must lie in one PSU. Not with ``weights=``,
         ``cluster=``, ``robust=`` or ``ssc=``.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
     Returns
     -------
@@ -1287,6 +1291,11 @@ def cox(
     >>> bool(isinstance(res.summary(), str))
     True
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        return replicate_refit(cox, _args, design, function="sp.cox")
     svy: Any = None
     if design is not None:
         from ..survey._regression_design import refuse_design_options

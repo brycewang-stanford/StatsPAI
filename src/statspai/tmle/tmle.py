@@ -221,6 +221,10 @@ def tmle(
         p-values use the t distribution with the design degrees of
         freedom (#PSU - #strata). Not with ``weights=``, ``cluster=``,
         ``fold_indices`` or ``se_method='bootstrap'``.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
     Returns
     -------
@@ -289,6 +293,17 @@ def tmle(
     ('ATE', 2.0)
     >>> report = result.summary()
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        return replicate_refit(
+            tmle,
+            _args,
+            design,
+            function="sp.tmle",
+            overrides={"se_method": "influence"},
+        )
     est = TMLE(
         data=data,
         y=y,

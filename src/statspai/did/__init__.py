@@ -455,6 +455,10 @@ def did(
         the influence functions over strata / PSUs / fpc, with t
         intervals on the design df. Other methods, ``aggregation=``,
         ``weights=`` and ``cluster=`` are refused with ``design=``.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
         .. versionadded:: 1.40.0
 

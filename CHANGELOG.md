@@ -83,6 +83,35 @@ All notable changes to StatsPAI will be documented in this file.
   outcome nodes (`final.Ynodes`) and `variance.method='tmle'` are not
   implemented.
 
+### Replicate-weight survey designs
+
+#### Added
+
+- `sp.svrepdesign(data, repweights=, weights=, type=)` declares a design
+  by its replicate weights (BRR, Fay, JK1, JKn, JK2, bootstrap, ACS /
+  successive difference, other) and `sp.as_svrepdesign(design, type=)`
+  builds JK1 / JKn / BRR / Fay weights from a strata / PSU design. The
+  statistic is recomputed with every replicate's weights; the variance is
+  `scale * sum_r rscales_r (theta_r - c)^2` with R `svrepdesign`'s
+  `scale` / `rscales` / `mse` per type and df = rank of the replicate
+  weights minus one. Accepted by `sp.svymean` / `svytotal` / `svyglm` and,
+  through `design=`, by `sp.regress`, `logit`, `probit`, `ipw`, `aipw`,
+  `tmle`, `ltmle`, `cox`, `did_2x2`, `callaway_santanna` and `sp.did`;
+  the other `design=` estimators refuse a replicate design with a typed
+  error. Equal to R survey 4.5 (`svrepdesign` + `svymean` / `svytotal` /
+  `svyglm` / `svycoxph` with Breslow ties / `withReplicates` of IPW and of
+  `did::att_gt`) on seven replicate designs, and to Stata 18 `svy brr` /
+  `svy jackknife` (`tests/reference_parity/test_survey_replicate_parity.py`).
+  JKn and JK1 weights built by `as_svrepdesign` are R's `as.svrepdesign`
+  weights exactly; BRR / Fay use a Sylvester Hadamard matrix (fully
+  balanced, not R's half-samples). Documented differences: Stata reports
+  #replicates - 1 as the BRR df; Stata's `svy bootstrap` divides by R
+  (`scale=1/R` reproduces it); on Cox fits with Efron ties R's
+  `svycoxph` keeps a replicate's deleted rows with a negligible weight,
+  which its tie fractions count (SEs ~3e-4 apart; the test reproduces R's
+  numbers that way). Stata `svy` keeps replicate estimates in float unless
+  `saving(, double)` is used, which moves its e(V) by ~1e-7.
+
 ### `design=` on `sp.ltmle` and `sp.match`
 
 #### Added

@@ -300,7 +300,8 @@
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_rcs_aggregation_conventions.py",
-        "tests/reference_parity/test_stata_did_commands_parity.py"
+        "tests/reference_parity/test_stata_did_commands_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -585,6 +586,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "as_svrepdesign",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_survey_replicate_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "assimilative_causal",
@@ -2781,7 +2799,8 @@
         "tests/reference_parity/test_rcs_aggregation_conventions.py",
         "tests/reference_parity/test_staggered_rollout_parity.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
-        "tests/reference_parity/test_survey_did_parity.py"
+        "tests/reference_parity/test_survey_did_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -4449,6 +4468,7 @@
         "tests/reference_parity/test_cox_zph_weighted_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py",
         "tests/reference_parity/test_survival_epi_R_parity.py",
         "tests/reference_parity/test_survival_weighted_parity.py"
       ],
@@ -5332,7 +5352,8 @@
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_did2x2_wild_parity.py",
         "tests/reference_parity/test_sunab_weighted_parity.py",
-        "tests/reference_parity/test_survey_did_parity.py"
+        "tests/reference_parity/test_survey_did_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py"
       ],
       "tolerance": ""
     },
@@ -5391,7 +5412,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_survey_did_parity.py"
+        "tests/reference_parity/test_survey_did_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -10557,6 +10579,7 @@
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
         "tests/reference_parity/test_teffects_probit_stata.py"
       ],
@@ -11254,6 +11277,7 @@
       "additional_tests": [
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py",
         "tests/reference_parity/test_survival_causal_parity.py",
         "tests/reference_parity/test_survival_weighted_parity.py"
       ],
@@ -12148,6 +12172,7 @@
         "tests/reference_parity/test_r2_postest_parity.py",
         "tests/reference_parity/test_regression_stories_r_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
@@ -12695,7 +12720,8 @@
       "additional_tests": [
         "tests/reference_parity/test_ltmle_design_parity.py",
         "tests/reference_parity/test_ltmle_weights_parity.py",
-        "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+        "tests/reference_parity/test_ml_causal_recovery_parity_round2.py",
+        "tests/reference_parity/test_survey_replicate_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -13008,6 +13034,7 @@
         "tests/reference_parity/test_psmatch2_llr_parity.py",
         "tests/reference_parity/test_psmatch2_parity.py",
         "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
+        "tests/reference_parity/test_survey_replicate_parity.py",
         "tests/reference_parity/test_teffects_probit_stata.py",
         "tests/reference_parity/test_the_effect_stata_parity.py",
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
@@ -17500,6 +17527,7 @@
         "tests/reference_parity/test_ml_sandwich_r_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
@@ -19575,6 +19603,7 @@
         "tests/reference_parity/test_sasp_within_parity.py",
         "tests/reference_parity/test_spdep_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_the_effect_stata_parity.py",
@@ -22800,6 +22829,23 @@
       "tolerance": ""
     },
     {
+      "function": "svrepdesign",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_survey_replicate_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/external_parity/test_gelman_ros_examples.py",
         "tests/reference_parity/test_cox_zph_weighted_parity.py",
@@ -22811,7 +22857,8 @@
         "tests/reference_parity/test_survey_causal_parity.py",
         "tests/reference_parity/test_survey_did_parity.py",
         "tests/reference_parity/test_survey_domain_parity.py",
-        "tests/reference_parity/test_survey_parity.py"
+        "tests/reference_parity/test_survey_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -22842,6 +22889,9 @@
       "tolerance": "estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel (observed <= 4e-14; p 6e-13)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_survey_replicate_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -22866,6 +22916,9 @@
       "tolerance": "coefficients + SE 1e-10 abs (observed ~2e-15 / 6e-15)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_survey_replicate_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -22890,6 +22943,9 @@
       "tolerance": "estimate + SE 1e-10 abs (observed ~5e-15 / 8e-17)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_survey_replicate_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

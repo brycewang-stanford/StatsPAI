@@ -146,6 +146,10 @@ def did_2x2(
         unit (or a coarser unit containing it) must be the design's PSU so
         that a unit's two periods fall in one PSU. Not with ``weights=``,
         ``cluster=``, ``vce=`` or ``engine='bayes'``.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
     engine : {'ols', 'bayes'}, default 'ols'
         Inference backend for the same 2×2 design. ``'ols'`` (default) is the
         frequentist OLS estimator above. ``'bayes'`` routes to
@@ -185,6 +189,11 @@ def did_2x2(
     >>> bool(abs(result.estimate - 5.0) < 1.0)
     True
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        return replicate_refit(did_2x2, _args, design, function="sp.did_2x2")
     vce, cluster = cluster_from_vce(vce, cluster, function="did_2x2", native=None)
     from ..core._param_aliases import resolve_alias
 

@@ -1911,6 +1911,10 @@ def regress(
         (#PSU - #strata, Stata's convention; R ``summary.svyglm`` uses
         that minus #coefficients plus one). Cannot be combined with
         ``weights=``, ``cluster=`` or another variance option.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
     **kwargs
         Additional options. Unrecognised keywords raise ``TypeError``
         rather than being ignored — a misspelled option must not
@@ -1942,6 +1946,7 @@ def regress(
     True
     """
     if design is not None:
+        _args = dict(locals())
         from ..survey._regression_design import (
             refuse_design_options,
             regress_with_design,
@@ -1963,6 +1968,10 @@ def regress(
             conley_cutoff=conley_cutoff,
             **{k: v for k, v in kwargs.items()},
         )
+        if getattr(design, "is_replicate_design", False):
+            from ..survey._replicate_refit import replicate_refit
+
+            return replicate_refit(regress, _args, design, function="sp.regress")
         return regress_with_design(formula, data, design, collinear)
 
     # --- vcov= (pyfixest spelling) -> native robust=/cluster=/vce= ---

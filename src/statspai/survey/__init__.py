@@ -28,10 +28,14 @@ from .calibration import CalibrationResult, linear_calibration, rake
 from .design import SurveyDesign, svydesign
 from .estimators import svyglm, svymean, svytotal
 from .poststrat import PoststratResult, poststratify
+from .replicate import ReplicateDesign, as_svrepdesign, svrepdesign
 
 __all__ = [
     "SurveyDesign",
     "svydesign",
+    "svrepdesign",
+    "as_svrepdesign",
+    "ReplicateDesign",
     "svymean",
     "svytotal",
     "svyglm",

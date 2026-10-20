@@ -78,8 +78,10 @@ def check_design(
     carries the weights and the PSUs, so ``weights=`` and ``cluster=``
     must not be given as well.
     """
+    from ._replicate_refit import refuse_replicate
     from .design import SurveyDesign
 
+    refuse_replicate(design, function)
     if not isinstance(design, SurveyDesign):
         raise MethodIncompatibility(
             f"{function}: design= must be a SurveyDesign "

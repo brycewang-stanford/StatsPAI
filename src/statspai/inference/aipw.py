@@ -195,6 +195,10 @@ def aipw(
         the t distribution with the design degrees of freedom
         (#PSU - #strata), as Stata ``svy``. ``weights=`` and ``cluster=``
         must not be given; ``design=None`` changes nothing.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
     ps_learner : classifier, optional
         Any estimator with ``fit`` / ``predict_proba`` (scikit-learn style,
@@ -267,6 +271,11 @@ def aipw(
     See Glynn & Quinn (2010) for an introduction, and
     Chernozhukov et al. (2018) for the cross-fitting procedure.
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        return replicate_refit(aipw, _args, design, function="sp.aipw")
     if (
         ps_learner is not None or outcome_learner is not None
     ) and se_method != "influence":

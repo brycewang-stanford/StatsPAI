@@ -134,7 +134,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The coefficients are weighted least squares with the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction -- R ``svyglm`` and Stata ``svy: regress``. t statistics, p-values and intervals use the design degrees of freedom (#PSU - #strata, Stata's convention; R ``summary.svyglm`` uses that minus #coefficients plus one). Cannot be combined with ``weights=``, ``cluster=`` or another variance option.",
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The coefficients are weighted least squares with the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction -- R ``svyglm`` and Stata ``svy: regress``. t statistics, p-values and intervals use the design degrees of freedom (#PSU - #strata, Stata's convention; R ``summary.svyglm`` uses that minus #coefficients plus one). Cannot be combined with ``weights=``, ``cluster=`` or another variance option. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
             "type": "string",
             "x-statspai-source": "signature"
           },
@@ -3161,7 +3161,8 @@
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_did2x2_wild_parity.py",
         "tests/reference_parity/test_sunab_weighted_parity.py",
-        "tests/reference_parity/test_survey_did_parity.py"
+        "tests/reference_parity/test_survey_did_parity.py",
+        "tests/reference_parity/test_survey_replicate_parity.py"
       ],
       "tolerance": ""
     },
@@ -3314,7 +3315,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A survey design from sp.svydesign on the same rows, forwarded to did_2x2 (method '2x2') or callaway_santanna (method 'cs', panel, analytic SEs): design weights as unit weights, SEs by survey linearisation of the influence functions over strata / PSUs / fpc, t on the design df. Refused with other methods, aggregation=, weights= or cluster=.",
+            "description": "A survey design from sp.svydesign on the same rows, forwarded to did_2x2 (method '2x2') or callaway_santanna (method 'cs', panel, analytic SEs): design weights as unit weights, SEs by survey linearisation of the influence functions over strata / PSUs / fpc, t on the design df. Refused with other methods, aggregation=, weights= or cluster=. A replicate-weight design (sp.svrepdesign) refits the estimator with every replicate.",
             "type": "string"
           },
           "estimator": {
@@ -9034,7 +9035,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A survey design from sp.svydesign on the same rows, for nearest-neighbour ATT/ATC: design weights as MatchIt s.weights, SE by survey linearisation of the matched-sample regression with the matched rows as a domain of the full design (R svyglm on subset(design, matched)), t on the design df. Other methods are refused (no influence function); use sp.ipw / aipw / tmle(design=).",
+            "description": "A survey design from sp.svydesign on the same rows, for nearest-neighbour ATT/ATC: design weights as MatchIt s.weights, SE by survey linearisation of the matched-sample regression with the matched rows as a domain of the full design (R svyglm on subset(design, matched)), t on the design df. Other methods are refused (no influence function); use sp.ipw / aipw / tmle(design=). Replicate-weight designs are refused.",
             "type": "string"
           },
           "exact": {
@@ -9765,7 +9766,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The design weights are the observation weights (as ``weights=``) and every standard error -- the estimate's and those in ``result.detail`` -- is the Taylor-linearisation variance of the weighted efficient influence function over strata, PSUs and the finite population correction (R ``survey::svyrecvar`` on ``w_i EIF_i / sum(w)``). Intervals and p-values use the t distribution with the design degrees of freedom (#PSU - #strata). Not with ``weights=``, ``cluster=``, ``fold_indices`` or ``se_method='bootstrap'``.",
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The design weights are the observation weights (as ``weights=``) and every standard error -- the estimate's and those in ``result.detail`` -- is the Taylor-linearisation variance of the weighted efficient influence function over strata, PSUs and the finite population correction (R ``survey::svyrecvar`` on ``w_i EIF_i / sum(w)``). Intervals and p-values use the t distribution with the design degrees of freedom (#PSU - #strata). Not with ``weights=``, ``cluster=``, ``fold_indices`` or ``se_method='bootstrap'``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
             "type": "string",
             "x-statspai-source": "signature"
           },
@@ -28554,7 +28555,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The propensity model and the IPW means are fitted with the design weights, and the standard error is the Taylor-linearisation variance of the stacked influence function (the ``'sandwich'`` rows) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` applied to ``-A^{-1} w_i psi_i`` (Binder's method). The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``se_method`` and ``n_bootstrap`` are then not used (a bootstrap of a complex design needs replicate weights), and ``weights=`` / ``cluster=`` must not be given. ``design=None`` leaves every other path unchanged.",
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The propensity model and the IPW means are fitted with the design weights, and the standard error is the Taylor-linearisation variance of the stacked influence function (the ``'sandwich'`` rows) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` applied to ``-A^{-1} w_i psi_i`` (Binder's method). The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``se_method`` and ``n_bootstrap`` are then not used (a bootstrap of a complex design needs replicate weights), and ``weights=`` / ``cluster=`` must not be given. ``design=None`` leaves every other path unchanged. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
             "type": "string",
             "x-statspai-source": "signature"
           },
@@ -66494,7 +66495,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The DID regression is fitted with the design weights and its covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm`` on ``y ~ treat * time``, Stata ``svy: regress``), with t inference on the design degrees of freedom. With panel rows, the unit (or a coarser unit containing it) must be the design's PSU so that a unit's two periods fall in one PSU. Not with ``weights=``, ``cluster=``, ``vce=`` or ``engine='bayes'``.",
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The DID regression is fitted with the design weights and its covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm`` on ``y ~ treat * time``, Stata ``svy: regress``), with t inference on the design degrees of freedom. With panel rows, the unit (or a coarser unit containing it) must be the design's PSU so that a unit's two periods fall in one PSU. Not with ``weights=``, ``cluster=``, ``vce=`` or ``engine='bayes'``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
             "type": "string",
             "x-statspai-source": "signature"
           },
@@ -66570,6 +66571,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 MP regress [aw=w], robust (aweight HC1) [Stata 18 MP]; tolerance b / se 1e-12 abs (observed <= 3e-16) -- tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py",
       "tests/reference_parity/test_survey_did_parity.py",
+      "tests/reference_parity/test_survey_replicate_parity.py",
       "API/unit contract evidence: tests/reference_parity/test_did_parity.py",
       "API/unit contract evidence: tests/coverage_monte_carlo/test_coverage.py"
     ],
@@ -74544,7 +74546,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A survey design from sp.svydesign on the same rows: the nuisance models and the AIPW mean use the design weights, and the SE is the Taylor-linearisation variance of the influence rows over strata / PSUs / fpc (R survey::svyrecvar), t with #PSU - #strata df as Stata svy. Not with weights= or cluster=.",
+            "description": "A survey design from sp.svydesign on the same rows: the nuisance models and the AIPW mean use the design weights, and the SE is the Taylor-linearisation variance of the influence rows over strata / PSUs / fpc (R survey::svyrecvar), t with #PSU - #strata df as Stata svy. Not with weights= or cluster=. A replicate-weight design (sp.svrepdesign) refits with every replicate.",
             "type": "string"
           },
           "estimand": {
@@ -97689,7 +97691,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: logit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``.",
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: logit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
             "type": "string"
           },
           "formula": {
@@ -97890,7 +97892,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: probit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``.",
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: probit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
             "type": "string"
           },
           "formula": {
@@ -111413,6 +111415,128 @@
   },
   {
     "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "survey",
+    "cost_profile": "",
+    "description": "Replicate weights from a strata / PSU design (R ``as.svrepdesign``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_survey_replicate_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.as_svrepdesign(des, type=\"JKn\").n_replicates",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'JK1', 'JKn', 'BRR' or 'Fay'; for bootstrap weights pass them to sp.svrepdesign(type='bootstrap').",
+        "symptom": "as_svrepdesign: type=<type> is not built here."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Build the design with sp.svydesign(...) first.",
+        "symptom": "as_svrepdesign: design must be a SurveyDesign from sp.svydesign."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Convert the uncalibrated design.",
+        "symptom": "as_svrepdesign: a calibrated design cannot be converted (the calibration would have to be repeated on every replicate)."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use type='JKn'.",
+        "symptom": "as_svrepdesign: JK1 is for unstratified designs; this one has <H> strata."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "as_svrepdesign",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "ReplicateDesign",
+      "description": "ReplicateDesign",
+      "fields": {
+        "combined_weights": "bool",
+        "data": "pd.DataFrame",
+        "df": "Optional[float]",
+        "mse": "Optional[bool]",
+        "repweights": "Any",
+        "rho": "Optional[float]",
+        "rscales": "Optional[Sequence[float]]",
+        "scale": "Optional[float]",
+        "type": "str",
+        "weights": "Union[str, np.ndarray, None]"
+      }
+    },
+    "signature": {
+      "description": "Replicate weights from a strata / PSU design (R ``as.svrepdesign``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "as_svrepdesign",
+      "parameters": {
+        "properties": {
+          "design": {
+            "description": "Built with :func:`sp.svydesign`; not calibrated.",
+            "type": "string"
+          },
+          "mse": {
+            "description": "mse parameter (Optional[bool]).",
+            "type": "boolean"
+          },
+          "rho": {
+            "default": 0.0,
+            "description": "Fay coefficient for ``type='Fay'``.",
+            "type": "number"
+          },
+          "type": {
+            "default": "auto",
+            "description": "``'auto'``: JKn with strata, JK1 without. * ``JK1`` (unstratified): one replicate per PSU, the PSU deleted and the others scaled by ``R/(R-1)``; ``scale = (R-1)/R (1-f)``. * ``JKn``: one replicate per PSU, deleting it and scaling the rest of its stratum by ``n_h/(n_h-1)``; ``rscales = (n_h-1)/n_h (1-f_h)``. Every stratum needs two or more PSUs. * ``BRR`` / ``Fay``: exactly two PSUs per stratum; half-samples from the columns of a Sylvester Hadamard matrix (order the smallest power of two above the number of strata), weights ``2 / 0`` (BRR) or ``2 - rho / rho`` (Fay). The half-samples are fully balanced but not R's: for linear statistics the variance is the same; for others it can differ at the order of the replication noise. To reproduce R exactly, export R's replicate weights and use :func:`sp.svrepdesign`. Bootstrap weights are random and are not built here: pass weights produced elsewhere to :func:`sp.svrepdesign` with ``type='bootstrap'``.",
+            "enum": [
+              "auto",
+              "JK1",
+              "JKn",
+              "BRR",
+              "Fay"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "design"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_survey_replicate_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
     "alternatives": [
       "sp.svyglm",
       "sp.regress"
@@ -111502,7 +111626,7 @@
             "type": "string"
           },
           "design": {
-            "description": "design parameter ('SurveyDesign').",
+            "description": "The design from :func:`sp.svydesign` (linearisation) or :func:`sp.svrepdesign` / :func:`sp.as_svrepdesign` (replicate",
             "type": "string"
           },
           "subpop": {
@@ -111536,7 +111660,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs survey::svymean (Horvitz-Thompson/Hajek + Taylor SE) [R version 4.5.2 (2025-10-31)]; tolerance estimate + SE 1e-10 abs (observed ~5e-15 / 8e-17) -- tests/reference_parity/test_survey_parity.py"
+      "Cross-language parity (bit-exact) vs survey::svymean (Horvitz-Thompson/Hajek + Taylor SE) [R version 4.5.2 (2025-10-31)]; tolerance estimate + SE 1e-10 abs (observed ~5e-15 / 8e-17) -- tests/reference_parity/test_survey_parity.py",
+      "tests/reference_parity/test_survey_replicate_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -111632,7 +111757,7 @@
             "type": "string"
           },
           "design": {
-            "description": "design parameter ('SurveyDesign').",
+            "description": "The design from :func:`sp.svydesign` (linearisation) or :func:`sp.svrepdesign` / :func:`sp.as_svrepdesign` (replicate",
             "type": "string"
           },
           "subpop": {
@@ -111666,7 +111791,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs survey::svytotal (Horvitz-Thompson + Taylor SE) [R version 4.5.2 (2025-10-31)]; tolerance estimate 1e-12 rel; SE 1e-10 rel (observed ~2e-12 / 1e-14) -- tests/reference_parity/test_survey_parity.py"
+      "Cross-language parity (bit-exact) vs survey::svytotal (Horvitz-Thompson + Taylor SE) [R version 4.5.2 (2025-10-31)]; tolerance estimate 1e-12 rel; SE 1e-10 rel (observed ~2e-12 / 1e-14) -- tests/reference_parity/test_survey_parity.py",
+      "tests/reference_parity/test_survey_replicate_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -111752,7 +111878,7 @@
             "type": "number"
           },
           "design": {
-            "description": "design parameter ('SurveyDesign').",
+            "description": "The design from :func:`sp.svydesign` (sandwich over strata / PSUs)",
             "type": "string"
           },
           "dof": {
@@ -111803,7 +111929,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs survey::svyglm (design-based GLM + linearization SE) [R version 4.5.2 (2025-10-31)]; tolerance coefficients + SE 1e-10 abs (observed ~2e-15 / 6e-15) -- tests/reference_parity/test_survey_parity.py"
+      "Cross-language parity (bit-exact) vs survey::svyglm (design-based GLM + linearization SE) [R version 4.5.2 (2025-10-31)]; tolerance coefficients + SE 1e-10 abs (observed ~2e-15 / 6e-15) -- tests/reference_parity/test_survey_parity.py",
+      "tests/reference_parity/test_survey_replicate_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -118778,7 +118905,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The partial likelihood is weighted by the design weights and the covariance is ``I^-1 M I^-1`` with ``M`` the survey linearisation covariance of the weighted score residuals over strata, PSUs and the finite population correction -- R ``survey::svycoxph`` (Binder 1992). Inference uses t with the design degrees of freedom. With counting-process rows (``start=``) the subject's rows must lie in one PSU. Not with ``weights=``, ``cluster=``, ``robust=`` or ``ssc=``.",
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The partial likelihood is weighted by the design weights and the covariance is ``I^-1 M I^-1`` with ``M`` the survey linearisation covariance of the weighted score residuals over strata, PSUs and the finite population correction -- R ``survey::svycoxph`` (Binder 1992). Inference uses t with the design degrees of freedom. With counting-process rows (``start=``) the subject's rows must lie in one PSU. Not with ``weights=``, ``cluster=``, ``robust=`` or ``ssc=``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
             "type": "string"
           },
           "duration": {
@@ -119032,8 +119159,8 @@
       "Cross-language parity (bit-exact) vs survival::survfit [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance S(t) at every event time 1e-12 (observed ~3e-17); median exact -- tests/reference_parity/test_survival_km_parity.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/reference_parity/test_survey_causal_parity.py",
-      "tests/reference_parity/test_survival_causal_parity.py",
-      "tests/reference_parity/test_survival_weighted_parity.py"
+      "tests/reference_parity/test_survey_replicate_parity.py",
+      "tests/reference_parity/test_survival_causal_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -160533,7 +160660,7 @@
             "x-statspai-role": "dataframe"
           },
           "design": {
-            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). Its weights are the observation weights (as ``weights=``) and the standard error of the difference is the Taylor-linearisation variance of the influence-curve rows over strata / PSUs / fpc (R ``survey::svyrecvar`` of ``IC / n``), with t intervals on the design df (#PSU - #strata). Not with ``weights=``. Equals R ``ltmle`` + ``svyrecvar`` (``tests/reference_parity/test_ltmle_design_parity.py``). .. versionadded:: 1.40.0",
+            "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). Its weights are the observation weights (as ``weights=``) and the standard error of the difference is the Taylor-linearisation variance of the influence-curve rows over strata / PSUs / fpc (R ``survey::svyrecvar`` of ``IC / n``), with t intervals on the design df (#PSU - #strata). Not with ``weights=``. Equals R ``ltmle`` + ``svyrecvar`` (``tests/reference_parity/test_ltmle_design_parity.py``). A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
             "type": "string"
           },
           "g_learner": {
@@ -160614,7 +160741,8 @@
       "Cross-language parity (bit-exact) vs ltmle::ltmle 1.3-0 (glm, gbounds c(0.01, 1), variance.method = 'ic') [R version 4.5.2 (2025-10-31), ltmle 1.3.0]; tolerance psi1 / psi0 / ATE / SE 1e-9 rel without censoring (observed 5e-13); 1e-8 with censoring nodes (observed 5e-10) -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/reference_parity/test_ltmle_design_parity.py",
       "tests/reference_parity/test_ltmle_weights_parity.py",
-      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py",
+      "tests/reference_parity/test_survey_replicate_parity.py"
     ],
     "validation_status": "certified"
   },

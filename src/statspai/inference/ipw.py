@@ -182,6 +182,10 @@ def ipw(
         ``n_bootstrap`` are then not used (a bootstrap of a complex design
         needs replicate weights), and ``weights=`` / ``cluster=`` must not
         be given. ``design=None`` leaves every other path unchanged.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
     ps_learner : classifier, optional
         Any estimator with ``fit`` / ``predict_proba`` (scikit-learn style,
         e.g. ``GradientBoostingClassifier()`` or
@@ -250,6 +254,20 @@ def ipw(
     >>> result.estimand
     'ATT'
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        # point estimates only on the refits (n_bootstrap=0)
+        return replicate_refit(
+            ipw,
+            _args,
+            design,
+            function="sp.ipw",
+            overrides={"se_method": "bootstrap", "n_bootstrap": 0},
+            # cross-fitting folds would be redrawn on every replicate
+            refuse=("cluster", "ps_learner"),
+        )
     estimand = estimand.upper()
     if estimand == "ATU":
         estimand = "ATC"

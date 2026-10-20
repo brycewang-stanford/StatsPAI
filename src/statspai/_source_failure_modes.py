@@ -38,6 +38,34 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "ardl: no row has all of the series observed.",
         },
     ],
+    "as_svrepdesign": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'JK1', 'JKn', 'BRR' or 'Fay'; for "
+            "bootstrap weights pass them to "
+            "sp.svrepdesign(type='bootstrap').",
+            "symptom": "as_svrepdesign: type=<type> is not built " "here.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Build the design with sp.svydesign(...) first.",
+            "symptom": "as_svrepdesign: design must be a SurveyDesign "
+            "from sp.svydesign.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Convert the uncalibrated design.",
+            "symptom": "as_svrepdesign: a calibrated design cannot be "
+            "converted (the calibration would have to be "
+            "repeated on every replicate).",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use type='JKn'.",
+            "symptom": "as_svrepdesign: JK1 is for unstratified "
+            "designs; this one has <H> strata.",
+        },
+    ],
     "bagged_forecast": [
         {
             "exception": "statspai.MethodIncompatibility",

@@ -400,6 +400,10 @@ def ltmle(
         intervals on the design df (#PSU - #strata). Not with
         ``weights=``. Equals R ``ltmle`` + ``svyrecvar``
         (``tests/reference_parity/test_ltmle_design_parity.py``).
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
         .. versionadded:: 1.40.0
 
@@ -458,6 +462,11 @@ def ltmle(
     >>> bool(np.isfinite(res.ate))
     True
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        return replicate_refit(ltmle, _args, design, function="sp.ltmle")
     if not isinstance(data, pd.DataFrame):
         raise _ltmle_error(
             "ltmle data must be a pandas DataFrame.",

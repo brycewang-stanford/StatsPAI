@@ -464,7 +464,7 @@
           "type": "boolean"
         },
         "design": {
-          "description": "A survey design from sp.svydesign on the same rows: the nuisance models and the AIPW mean use the design weights, and the SE is the Taylor-linearisation variance of the influence rows over strata / PSUs / fpc (R survey::svyrecvar), t with #PSU - #strata df as Stata svy. Not with weights= or cluster=.",
+          "description": "A survey design from sp.svydesign on the same rows: the nuisance models and the AIPW mean use the design weights, and the SE is the Taylor-linearisation variance of the influence rows over strata / PSUs / fpc (R survey::svyrecvar), t with #PSU - #strata df as Stata svy. Not with weights= or cluster=. A replicate-weight design (sp.svrepdesign) refits with every replicate.",
           "type": "string"
         },
         "estimand": {
@@ -7475,7 +7475,7 @@
           "x-statspai-role": "column"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The partial likelihood is weighted by the design weights and the covariance is ``I^-1 M I^-1`` with ``M`` the survey linearisation covariance of the weighted score residuals over strata, PSUs and the finite population correction -- R ``survey::svycoxph`` (Binder 1992). Inference uses t with the design degrees of freedom. With counting-process rows (``start=``) the subject's rows must lie in one PSU. Not with ``weights=``, ``cluster=``, ``robust=`` or ``ssc=``.",
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The partial likelihood is weighted by the design weights and the covariance is ``I^-1 M I^-1`` with ``M`` the survey linearisation covariance of the weighted score residuals over strata, PSUs and the finite population correction -- R ``survey::svycoxph`` (Binder 1992). Inference uses t with the design degrees of freedom. With counting-process rows (``start=``) the subject's rows must lie in one PSU. Not with ``weights=``, ``cluster=``, ``robust=`` or ``ssc=``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
           "type": "string"
         },
         "duration": {
@@ -9132,7 +9132,7 @@
           "x-statspai-role": "columns"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The DID regression is fitted with the design weights and its covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm`` on ``y ~ treat * time``, Stata ``svy: regress``), with t inference on the design degrees of freedom. With panel rows, the unit (or a coarser unit containing it) must be the design's PSU so that a unit's two periods fall in one PSU. Not with ``weights=``, ``cluster=``, ``vce=`` or ``engine='bayes'``.",
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The DID regression is fitted with the design weights and its covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm`` on ``y ~ treat * time``, Stata ``svy: regress``), with t inference on the design degrees of freedom. With panel rows, the unit (or a coarser unit containing it) must be the design's PSU so that a unit's two periods fall in one PSU. Not with ``weights=``, ``cluster=``, ``vce=`` or ``engine='bayes'``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
           "type": "string",
           "x-statspai-source": "signature"
         },
@@ -19166,7 +19166,7 @@
           "type": "boolean"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The propensity model and the IPW means are fitted with the design weights, and the standard error is the Taylor-linearisation variance of the stacked influence function (the ``'sandwich'`` rows) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` applied to ``-A^{-1} w_i psi_i`` (Binder's method). The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``se_method`` and ``n_bootstrap`` are then not used (a bootstrap of a complex design needs replicate weights), and ``weights=`` / ``cluster=`` must not be given. ``design=None`` leaves every other path unchanged.",
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The propensity model and the IPW means are fitted with the design weights, and the standard error is the Taylor-linearisation variance of the stacked influence function (the ``'sandwich'`` rows) over strata, PSUs and the finite population correction -- R ``survey::svyrecvar`` applied to ``-A^{-1} w_i psi_i`` (Binder's method). The interval and p-value use the t distribution with the design degrees of freedom (#PSU - #strata), as Stata ``svy``. ``se_method`` and ``n_bootstrap`` are then not used (a bootstrap of a complex design needs replicate weights), and ``weights=`` / ``cluster=`` must not be given. ``design=None`` leaves every other path unchanged. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
           "type": "string",
           "x-statspai-source": "signature"
         },
@@ -22072,7 +22072,7 @@
           "x-statspai-role": "column"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: logit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``.",
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: logit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
           "type": "string"
         },
         "formula": {
@@ -22521,7 +22521,7 @@
           "type": "array"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). Its weights are the observation weights (as ``weights=``) and the standard error of the difference is the Taylor-linearisation variance of the influence-curve rows over strata / PSUs / fpc (R ``survey::svyrecvar`` of ``IC / n``), with t intervals on the design df (#PSU - #strata). Not with ``weights=``. Equals R ``ltmle`` + ``svyrecvar`` (``tests/reference_parity/test_ltmle_design_parity.py``). .. versionadded:: 1.40.0",
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). Its weights are the observation weights (as ``weights=``) and the standard error of the difference is the Taylor-linearisation variance of the influence-curve rows over strata / PSUs / fpc (R ``survey::svyrecvar`` of ``IC / n``), with t intervals on the design df (#PSU - #strata). Not with ``weights=``. Equals R ``ltmle`` + ``svyrecvar`` (``tests/reference_parity/test_ltmle_design_parity.py``). A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
           "type": "string"
         },
         "g_learner": {
@@ -29483,7 +29483,7 @@
           "x-statspai-role": "column"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: probit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``.",
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows): the likelihood is weighted by the design weights and the covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm``, Stata ``svy: probit``), with t inference on the design degrees of freedom (#PSU - #strata). Cannot be combined with ``weights=``, ``cluster=`` or ``robust=``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
           "type": "string"
         },
         "formula": {
@@ -42325,7 +42325,7 @@
           "x-statspai-role": "columns"
         },
         "design": {
-          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The design weights are the observation weights (as ``weights=``) and every standard error -- the estimate's and those in ``result.detail`` -- is the Taylor-linearisation variance of the weighted efficient influence function over strata, PSUs and the finite population correction (R ``survey::svyrecvar`` on ``w_i EIF_i / sum(w)``). Intervals and p-values use the t distribution with the design degrees of freedom (#PSU - #strata). Not with ``weights=``, ``cluster=``, ``fold_indices`` or ``se_method='bootstrap'``.",
+          "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The design weights are the observation weights (as ``weights=``) and every standard error -- the estimate's and those in ``result.detail`` -- is the Taylor-linearisation variance of the weighted efficient influence function over strata, PSUs and the finite population correction (R ``survey::svyrecvar`` on ``w_i EIF_i / sum(w)``). Intervals and p-values use the t distribution with the design degrees of freedom (#PSU - #strata). Not with ``weights=``, ``cluster=``, ``fold_indices`` or ``se_method='bootstrap'``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
           "type": "string",
           "x-statspai-source": "signature"
         },

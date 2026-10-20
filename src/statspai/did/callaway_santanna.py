@@ -537,6 +537,10 @@ def callaway_santanna(
         multiplier bootstrap), and not with ``weights=`` or
         ``clustervars=``. ``sp.aggte`` / ``sp.honest_did`` on such a fit
         are refused rather than rebuilt without the design.
+        A replicate-weight design (:func:`sp.svrepdesign`) is accepted
+        too: the estimator is refitted with every replicate's weights
+        and the replicate variance replaces the linearisation (R
+        ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
     Returns
     -------
@@ -589,6 +593,13 @@ def callaway_santanna(
     Callaway, B. and Sant'Anna, P. H. C. (2021). Difference-in-differences
     with multiple time periods. *Journal of Econometrics*. [@callaway2021difference]
     """
+    if design is not None and getattr(design, "is_replicate_design", False):
+        _args = dict(locals())
+        from ..survey._replicate_refit import replicate_refit
+
+        return replicate_refit(
+            callaway_santanna, _args, design, function="sp.callaway_santanna"
+        )
     data = _require_dataframe(data, function="callaway_santanna")
     y = _require_column_name(y, argument="y")
     g = _require_column_name(g, argument="g")
