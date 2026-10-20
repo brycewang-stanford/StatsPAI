@@ -5138,3 +5138,21 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces re-recorded after the AKM / KDE / GWR / HTZ clean-room rewrites (audit H19-H21, H23, H24)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `b1647b141` and `4eaf52b3c` (rewrites), `069d890c3` (traces).
+- **Reason.** License provenance audit rows H19 (`fast/inference.py`, CR2
+  HTZ test), H21 (`spatial/gwr/bandwidth.py`), H23 / H24
+  (`regression/interflex.py`, `decomposition/_common.py`, now delegating
+  to the new `core/_binned_kde.py`) were re-implemented clean-room (specs
+  in `docs/dev/cleanroom/`). These files are on the traced paths of Track A
+  modules 03, 15, 30, 31, 32, 47, 53, 65, 66, 67 and 87. All eleven were
+  re-run first and reproduce their committed results (worst relative
+  difference 5.5e-15); only the traces were re-recorded. H20
+  (`bartik/_akm.py`) is not on a traced path.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
