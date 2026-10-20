@@ -1389,6 +1389,28 @@ TIER3_ROUND_TRIPS = [
         "xtserial",
         {"y": "y", "x": ["x"], "id": "id", "time": "year"},
     ),
+    (
+        "xtregar y x, fe rhotype(tscorr) i(id) t(year)",
+        "xtregar",
+        {
+            "y": "y",
+            "x": ["x"],
+            "id": "id",
+            "time": "year",
+            "method": "fe",
+            "rhotype": "tscorr",
+        },
+    ),
+    (
+        "xttobit y x, ll(0) i(id)",
+        "xttobit",
+        {"y": "y", "x": ["x"], "id": "id", "ll": 0.0},
+    ),
+    (
+        "xtintreg lo hi x, intpoints(20) i(id)",
+        "xtintreg",
+        {"y_lower": "lo", "y_upper": "hi", "x": ["x"], "id": "id", "intpoints": 20},
+    ),
     # regression control method
     (
         "rcm gdp, trunit(9) trperiod(150) counit(4 10/12) placebo(unit cut(2)) "

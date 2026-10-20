@@ -4,6 +4,10 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Stata translation: `xtregar`, `xttobit`, `xtintreg`
+
+- **Added**: `sp.from_stata` / `sp.stata` translate `xtregar` (`fe` / `re`, `rhotype()` with its abbreviations, `rhof()`, `twostep`, `lbi`), `xttobit` (`ll(#)` / `ul(#)`, `intpoints()`, `tobit`) and `xtintreg` (`intpoints()`, `intreg`) to `sp.xtregar` / `sp.xttobit` / `sp.xtintreg`. The panel declaration comes from `xtset` as for `xtreg`. Refused: `ll` / `ul` without a number or with a variable, `xttobit` without any limit, factor-variable regressors, weights; `intmethod(ghermite)`, `noconstant`, `offset()` and `constraints()` are left out of the call and listed in `untranslated_options`, so `sp.stata` refuses to run them. Executed equivalence: the Stata lines run through `sp.stata` reproduce the frozen Stata 18 numbers of `tests/test_xtregar_stata.py` (1e-10) and `tests/test_xttobit_stata.py` (1e-6) (`tests/test_stata_translation_xt_ar_censored.py`).
+
 ### `sp.panel_match`: clean-room rewrite
 
 - **Changed**: `sp.panel_match` is reimplemented from scratch

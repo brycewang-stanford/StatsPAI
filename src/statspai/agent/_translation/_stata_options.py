@@ -316,6 +316,11 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "rdmcplot": (("cvar", 1),),
     # [ST] streg: distribution(), frailty(), time and tratio.
     "streg": (("distribution", 1), ("frailty", 2), ("tratio", 2)),
+    # [XT] xtregar: rhot:ype(), two:step; [XT] xttobit / xtintreg:
+    # intm:ethod(), intp:oints().
+    "xtregar": (("rhotype", 4), ("twostep", 3)),
+    "xttobit": (("intpoints", 4), ("intmethod", 4)),
+    "xtintreg": (("intpoints", 4), ("intmethod", 4)),
     # [CAUSAL] etpoisson: treat(), intpoints().
     "etpoisson": (("treat", 2), ("intpoints", 4)),
 }
