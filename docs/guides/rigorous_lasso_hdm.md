@@ -264,6 +264,10 @@ convergence tolerance — no tighter ground truth exists); and `post=True`
 `sp.RlassologitClassifier` is the principled binary nuisance learner for
 Double-ML: `sp.dml(model='irm', ml_m='rlassologit')` uses a *calibrated*
 logistic propensity (unlike the linear-probability `RlassoClassifier`).
+Since 1.40 the string `'rlasso'` in a classifier role (`ml_m` under
+`irm` / `iivm`, `sp.dml_did(ml_m=)`) also means `RlassologitClassifier`,
+as `hdm` fits propensities with `rlassologit`; `'rlasso_lpm'` selects the
+linear-probability `RlassoClassifier` it meant before.
 
 ### `sp.rlassologit_effect` / `rlassologit_effects` — logistic treatment effects
 

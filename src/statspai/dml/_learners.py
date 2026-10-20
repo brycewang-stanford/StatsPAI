@@ -15,6 +15,11 @@ Aliases (case-insensitive)
 * ``'gbm'``, ``'gbr'``, ``'gbc'``,
   ``'gboost'``, ``'gradient_boosting'`` → GradientBoosting{Regressor,Classifier}
 * ``'lasso'``                         → LassoCV / LogisticRegressionCV(L1)
+* ``'rlasso'``, ``'rigorous_lasso'``  → RlassoRegressor / RlassologitClassifier
+  (``hdm``: ``rlasso`` for outcomes, ``rlassologit`` for propensities)
+* ``'rlassologit'``                   → classifier only (RlassologitClassifier)
+* ``'rlasso_lpm'``                    → classifier only (RlassoClassifier, the
+  linear-probability rigorous Lasso that ``'rlasso'`` meant before 1.40)
 * ``'ridge'``                         → RidgeCV  / LogisticRegressionCV(L2)
 * ``'linear'``, ``'ols'``             → LinearRegression / LogisticRegression
 * ``'logistic'``, ``'logit'``         → classifier only (LogisticRegressionCV)
@@ -64,6 +69,7 @@ _CLASSIFIER_ALIASES = {
     "rlassologit",
     "rigorous_logit",
     "logit_lasso",
+    "rlasso_lpm",
     "ridge",
     "linear",
     "logistic",
@@ -179,13 +185,22 @@ def _build_classifier(alias: str) -> Any:
             max_iter=2000,
             random_state=42,
         )
-    if a in {"rlassologit", "rigorous_logit", "logit_lasso"}:
-        # Genuine logistic (glmnet-aligned) rigorous-Lasso propensity.
+    if a in {
+        "rlassologit",
+        "rigorous_logit",
+        "logit_lasso",
+        "rlasso",
+        "rigorous_lasso",
+    }:
+        # Logistic rigorous-Lasso propensity: what hdm fits for a binary
+        # treatment or instrument (rlassologit). 'rlasso' meant the
+        # linear-probability fit below until 1.40 (see MIGRATION.md).
         from ..rlasso.learner import RlassologitClassifier
 
         return RlassologitClassifier()
-    if a in {"rlasso", "rigorous_lasso"}:
-        # Linear-probability propensity backed by the rigorous Lasso.
+    if a == "rlasso_lpm":
+        # Linear-probability rigorous Lasso on the 0/1 label, clipped to
+        # [clip, 1 - clip]; the pre-1.40 meaning of 'rlasso' here.
         from ..rlasso.learner import RlassoClassifier
 
         return RlassoClassifier()

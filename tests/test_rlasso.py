@@ -7,6 +7,8 @@ contract against ``hdm`` lives in
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -244,9 +246,59 @@ def test_dml_accepts_rlasso_alias():
     assert isinstance(
         resolve_learner("rlasso", kind="regressor", role="ml_g"), RlassoRegressor
     )
+    # A classifier role gets the logistic rigorous Lasso, as hdm fits
+    # propensities with rlassologit; the linear-probability fit that
+    # 'rlasso' meant before 1.40 is 'rlasso_lpm'.
+    for alias in ("rlasso", "rigorous_lasso", "rlassologit"):
+        assert isinstance(
+            resolve_learner(alias, kind="classifier", role="ml_m"),
+            sp.RlassologitClassifier,
+        )
     assert isinstance(
-        resolve_learner("rlasso", kind="classifier", role="ml_m"), RlassoClassifier
+        resolve_learner("rlasso_lpm", kind="classifier", role="ml_m"),
+        RlassoClassifier,
     )
+    with pytest.raises(ValueError, match="Unknown regressor alias"):
+        resolve_learner("rlasso_lpm", kind="regressor", role="ml_g")
+
+
+def _irm_frame(seed=7, n=400, p=12):
+    rng = np.random.default_rng(seed)
+    X = rng.normal(size=(n, p))
+    d = (rng.uniform(size=n) < 1 / (1 + np.exp(-(X[:, 0] - 0.5 * X[:, 1])))).astype(
+        float
+    )
+    y = 0.8 * d + X[:, 0] + 0.5 * X[:, 2] + rng.normal(size=n)
+    df = pd.DataFrame(X, columns=[f"x{j}" for j in range(p)])
+    df["y"] = y
+    df["d"] = d
+    return df, [f"x{j}" for j in range(p)]
+
+
+def test_dml_irm_rlasso_alias_is_the_logistic_rigorous_lasso():
+    """ml_m='rlasso' in a classifier role is ml_m='rlassologit' exactly, and
+    'rlasso_lpm' is an explicit RlassoClassifier (the pre-1.40 meaning)."""
+    df, cov = _irm_frame()
+    kw = dict(
+        data=df,
+        y="y",
+        treat="d",
+        covariates=cov,
+        model="irm",
+        ml_g="rlasso",
+        n_folds=3,
+        random_state=11,
+    )
+    by_alias = sp.dml(ml_m="rlasso", **kw)
+    by_name = sp.dml(ml_m="rlassologit", **kw)
+    assert float(by_alias.estimate) == float(by_name.estimate)
+    assert float(by_alias.se) == float(by_name.se)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # the LPM clip warning, if it binds
+        lpm_alias = sp.dml(ml_m="rlasso_lpm", **kw)
+        lpm_obj = sp.dml(ml_m=RlassoClassifier(), **kw)
+    assert float(lpm_alias.estimate) == float(lpm_obj.estimate)
+    assert float(lpm_alias.se) == float(lpm_obj.se)
 
 
 def test_dml_plr_with_rlasso_learner_recovers_effect():
