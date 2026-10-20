@@ -5189,3 +5189,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces re-recorded after the RD CR2 / CR3 and rddensity NaN fixes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `8026408c6`.
+- **Reason.** `rd/_cct_side.py`, `rd/_cct_inference.py`,
+  `rd/_cct_bandwidth.py`, `rd/rdrobust.py`, `rd/bandwidth.py` (CR2 / CR3
+  cluster variances for `vce='hc2'` / `'hc3'` with clusters, as R
+  rdrobust 4.0.0) and `diagnostics/rddensity.py` (NaN when the test is
+  not computable) are on the traced paths of Track A modules 06 09 88 89
+  and original-data module 05. None of them uses `hc2` / `hc3` with
+  clusters or a non-computable density test. Every module was re-run
+  first: the committed results reproduce within 1.4e-10 (88), 2.1e-11
+  (09) and 3e-13 / 7e-12 (06, 89, orig 05), so the result files were
+  restored; only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
