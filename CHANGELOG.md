@@ -1738,6 +1738,18 @@ batch, then a re-run of the 2026-10-19 agent-native audit.
   bands use the new variance; `model_info['error_model']` holds the REML
   fit. The separate `synth/bsts.py` implementation (a local-level model,
   `sp.bsts_synth`) is a different model and was not changed.
+- (2026-10-20, same release) The critical value of the average and
+  cumulative effect now also carries the uncertainty of the REML error
+  model: a two-pass parametric bootstrap-t (`n_boot=199` draws per pass,
+  `seed=0`; new parameters) that first corrects the small-sample bias of
+  the AR(1) coefficient and noise share, then simulates the studentised
+  forecast error with the error model re-fitted on every draw
+  (vectorised grid REML, `causal_impact/_uncertainty.py`). The interval
+  uses the larger of that quantile and the t quantile (`model_info['crit']`,
+  `['crit_method']`), the p-value the larger of the two. Coverage on the
+  same five designs: 94.5%, 94.5%, 93% (rho 0.9, was 89.5%), 92.5% and
+  95%. `n_boot=0` restores the t quantile; a call takes about one second
+  longer.
 
 ### `sp.staggered_synth` solves 300-unit panels in about a second
 

@@ -47,6 +47,8 @@ def causal_impact(
     alpha: float = 0.05,
     n_seasons: Optional[int] = None,
     weights: Optional[str] = None,
+    n_boot: int = 199,
+    seed: int = 0,
 ) -> CausalResult:
     """
     Estimate the causal impact of an intervention on a time series.
@@ -76,6 +78,12 @@ def causal_impact(
         the forecast-error variance has no weighted form. To weight the
         units that make up an aggregate series, build the series as a
         weighted mean first.
+    n_boot : int, default 199
+        Parametric-bootstrap draws per pass for the critical value of the
+        average / cumulative effect (bias-corrected bootstrap-t, see
+        Notes); ``0`` uses the t quantile alone.
+    seed : int, default 0
+        Seed of those draws (the result is reproducible).
 
     Returns
     -------
@@ -89,10 +97,17 @@ def causal_impact(
     coefficients exactly; the error covariance is an AR(1)-plus-noise model
     fitted by REML on the pre-period, and intervals and p-values use a t
     distribution with ``n_pre - p - 3`` degrees of freedom
-    (``model_info['df']``). Uncertainty in that covariance is not
-    propagated, so intervals stay somewhat short with few pre-periods and
-    a persistent error (89.5% for a nominal 95% at n_pre = 40, rho = 0.9;
-    92%-94% in the other designs tried). Until 2026-10-19 the SE took all
+    (``model_info['df']``). The uncertainty of that covariance is carried
+    by the critical value of the average / cumulative effect: a two-pass
+    parametric bootstrap-t (``n_boot`` draws each) that first corrects the
+    small-sample bias of the REML AR(1) coefficient and noise share, then
+    simulates the studentised forecast error with the covariance re-fitted
+    on every draw. ``model_info['crit']`` is the larger of that quantile
+    and the t quantile, and the p-value the larger of the bootstrap share
+    and the t p-value, so the interval is never shorter than the t one. The t quantile alone covered 89.5% for a nominal 95% at
+    n_pre = 40, rho = 0.9 (see ``tests/reference_parity/
+    test_causal_impact_uncertainty.py`` for the calibrated figures); the
+    pointwise bands in ``detail`` keep the t quantile. Until 2026-10-19 the SE took all
     parameters as known and covered 57.5%-90.5% in the same designs; that
     number is kept as ``model_info['se_avg_conditional']``. The
     ``detail`` column ``effect_se`` carries the pointwise version
@@ -148,6 +163,8 @@ def causal_impact(
         covariates=covariates,
         alpha=alpha,
         n_seasons=n_seasons,
+        n_boot=n_boot,
+        seed=seed,
     )
     _result = estimator.fit()
     try:
@@ -163,6 +180,8 @@ def causal_impact(
                 "covariates": list(covariates) if covariates else None,
                 "alpha": alpha,
                 "n_seasons": n_seasons,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -198,6 +217,11 @@ class CausalImpactEstimator:
         Significance level for the credible intervals.
     n_seasons : int, optional
         Not used (no seasonal component); a value > 1 warns.
+    n_boot : int, default 199
+        Bootstrap draws per pass for the critical value; 0 for the t
+        quantile (see :func:`causal_impact`).
+    seed : int, default 0
+        Seed of the bootstrap draws.
 
     Examples
     --------
@@ -231,7 +255,21 @@ class CausalImpactEstimator:
         covariates: Optional[List[str]] = None,
         alpha: float = 0.05,
         n_seasons: Optional[int] = None,
+        n_boot: int = 199,
+        seed: int = 0,
     ) -> None:
+        if (
+            isinstance(n_boot, bool)
+            or not isinstance(n_boot, (int, np.integer))
+            or n_boot < 0
+            or 0 < n_boot < 19
+        ):
+            raise MethodIncompatibility(
+                f"causal_impact: n_boot must be 0 or an integer >= 19, got {n_boot!r}.",
+                recovery_hint="Use the default 199, or 0 for the t quantile alone.",
+            )
+        self.n_boot = int(n_boot)
+        self.seed = seed
         self.data = data.sort_values(time).copy()
         self.y = y
         self.time = time
@@ -373,6 +411,24 @@ class CausalImpactEstimator:
         n_beta = 1 + (self.X.shape[1] if self.X is not None else 0)
         df_t = max(self.n_pre - n_beta - 3, 1)
         crit = float(stats.t.ppf(1 - self.alpha / 2, df_t))
+        cal = None
+        if se_method == "reml_error_model" and self.n_boot > 0:
+            from ._uncertainty import calibrated_critical_value
+
+            L_map, Xo = self._error_inputs
+            cal = calibrated_critical_value(
+                Y_pre,
+                Xo,
+                L_map,
+                self.pre_mask,
+                error_model,
+                self.alpha,
+                n_boot=self.n_boot,
+                seed=self.seed,
+            )
+        # never shorter than the t interval: on draws where the bootstrap
+        # quantile is below it, the t quantile already covered as often
+        crit_total = max(cal["crit"], crit) if cal is not None else crit
 
         point_se = Y_pred_se.copy()
         point_se[self.post_mask] = np.sqrt(np.clip(np.diag(cov_post), 0.0, None))
@@ -385,10 +441,16 @@ class CausalImpactEstimator:
             avg_effect / post_pred_mean if abs(post_pred_mean) > 1e-10 else np.nan
         )
 
-        # P-value (two-sided t test against zero effect)
+        # P-value (two-sided, against zero effect)
         t_stat = avg_effect / se_avg if se_avg > 0 else 0.0
-        pvalue = float(2 * stats.t.sf(abs(t_stat), df_t))
-        ci = (avg_effect - crit * se_avg, avg_effect + crit * se_avg)
+        if cal is not None:
+            exceed = int(np.sum(cal["abs_t"] >= abs(t_stat)))
+            p_boot = (1.0 + exceed) / (1.0 + len(cal["abs_t"]))
+            # consistent with the interval: the larger of the two p-values
+            pvalue = max(p_boot, float(2 * stats.t.sf(abs(t_stat), df_t)))
+        else:
+            pvalue = float(2 * stats.t.sf(abs(t_stat), df_t))
+        ci = (avg_effect - crit_total * se_avg, avg_effect + crit_total * se_avg)
 
         # Build detail table (time series)
         detail = pd.DataFrame(
@@ -418,6 +480,12 @@ class CausalImpactEstimator:
             "se_method": se_method,
             "error_model": error_model,
             "df": df_t,
+            "crit": crit_total,
+            "crit_method": (
+                "bias-corrected parametric bootstrap-t" if cal is not None else "t"
+            ),
+            "error_model_corrected": cal["corrected"] if cal is not None else None,
+            "n_boot": cal["n_boot"] if cal is not None else 0,
             "relative_effect": relative_effect,
             "relative_effect_pct": (
                 relative_effect * 100 if not np.isnan(relative_effect) else np.nan
@@ -551,6 +619,8 @@ class CausalImpactEstimator:
         )
         err = reml_ar1_noise(Y_pre, Xo)
         L = predictor_map(X_aug, self.pre_mask, model)
+        self._error_inputs = (L, Xo)
+
         V = forecast_error_cov(L, error_covariance(n, err), self.pre_mask)
         return V, err, "reml_error_model"
 

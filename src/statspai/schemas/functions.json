@@ -5505,7 +5505,7 @@
     }
   },
   {
-    "description": "Causal impact of an intervention on a time series: pre-period OLS on the covariate series with an AR(1) latent state (Kalman filter), post-period counterfactual forecasts and frequentist prediction intervals for pointwise, average and cumulative effects. The intervals include the estimation of the regression (REML AR(1)+noise error model, t quantile); ~92-94% coverage at nominal 95% in simulations, less with few pre-periods and a persistent error. Not the Bayesian structural time-series model of R CausalImpact. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Causal impact of an intervention on a time series: pre-period OLS on the covariate series with an AR(1) latent state (Kalman filter), post-period counterfactual forecasts and frequentist prediction intervals for pointwise, average and cumulative effects. The intervals include the estimation of the regression (REML AR(1)+noise error model) and, for the average / cumulative effect, of that error model (bias-corrected parametric bootstrap-t critical value). Not the Bayesian structural time-series model of R CausalImpact. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "causal_impact",
     "parameters": {
       "properties": {
@@ -5533,10 +5533,20 @@
           "description": "Date/index of intervention",
           "type": "string"
         },
+        "n_boot": {
+          "default": 199,
+          "description": "Parametric-bootstrap draws per pass (two passes) for the critical value of the average / cumulative effect; 0 uses the t quantile alone (shorter intervals with few pre-periods and a persistent error). Otherwise >= 19.",
+          "type": "integer"
+        },
         "n_seasons": {
           "description": "Accepted for API compatibility but currently not used: the model has no seasonal component.",
           "type": "integer",
           "x-statspai-source": "signature"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Seed of the bootstrap draws (results are reproducible).",
+          "type": "integer"
         },
         "time": {
           "description": "Time / date column",

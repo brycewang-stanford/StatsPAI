@@ -7449,10 +7449,10 @@ def _build_registry() -> None:
                 "post-period counterfactual forecasts and frequentist prediction "
                 "intervals for pointwise, average and cumulative effects. The "
                 "intervals include the estimation of the regression (REML "
-                "AR(1)+noise error model, t quantile); ~92-94% coverage at "
-                "nominal 95% in simulations, less with few pre-periods and a "
-                "persistent error. Not the Bayesian structural time-series "
-                "model of R CausalImpact."
+                "AR(1)+noise error model) and, for the average / cumulative "
+                "effect, of that error model (bias-corrected parametric "
+                "bootstrap-t critical value). Not the Bayesian structural "
+                "time-series model of R CausalImpact."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -7463,6 +7463,23 @@ def _build_registry() -> None:
                     "str",
                     True,
                     description="Date/index of intervention",
+                ),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    199,
+                    "Parametric-bootstrap draws per pass (two passes) for the "
+                    "critical value of the average / cumulative effect; 0 uses "
+                    "the t quantile alone (shorter intervals with few "
+                    "pre-periods and a persistent error). Otherwise >= 19.",
+                ),
+                ParamSpec(
+                    "seed",
+                    "int",
+                    False,
+                    0,
+                    "Seed of the bootstrap draws (results are reproducible).",
                 ),
             ],
             returns="CausalImpactEstimator result",

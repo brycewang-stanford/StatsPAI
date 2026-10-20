@@ -9,6 +9,12 @@ on the same draws: the error of the forecast actually made,
 ``u_post - L u_pre``, under an AR(1)+noise error covariance fitted by REML,
 with a t quantile. Evidence here: two exact identities and a seeded
 coverage run.
+
+2026-10-20: the critical value of the average / cumulative effect also
+carries the estimation of that error model (bias-corrected parametric
+bootstrap-t, never below the t quantile). Coverage on the same draws:
+94.5%, 94.5%, 93% (was 89.5% in the hard design n_pre 40, rho 0.9),
+92.5% and 95%.
 """
 
 from __future__ import annotations
@@ -95,6 +101,7 @@ def test_se_is_the_variance_of_the_forecast_actually_made():
     assert mi["se_method"] == "reml_error_model"
 
 
+@pytest.mark.slow
 def test_null_coverage_is_close_to_nominal():
     """200 null replications (n_pre 40, n_post 20, rho 0.6, two covariates):
     0.935 observed; the old conditional interval covered 0.795. A binomial
@@ -105,3 +112,58 @@ def test_null_coverage_is_close_to_nominal():
         lo, hi = _fit(_sim(s), 40).ci
         hits += lo <= 0 <= hi
     assert hits / reps >= 0.90
+
+
+def test_without_bootstrap_the_t_quantile_is_used():
+    from scipy import stats
+
+    df = _sim(3)
+    cov = ["x0", "x1"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.causal_impact(
+            df, y="y", time="t", intervention_time=40, covariates=cov, n_boot=0
+        )
+    mi = r.model_info
+    crit = stats.t.ppf(0.975, mi["df"])
+    assert mi["crit"] == pytest.approx(crit, rel=1e-12)
+    assert r.ci[1] - r.estimate == pytest.approx(crit * r.se, rel=1e-12)
+    t = r.estimate / r.se
+    assert r.pvalue == pytest.approx(2 * stats.t.sf(abs(t), mi["df"]), rel=1e-12)
+
+
+def test_bootstrap_is_seeded_and_the_interval_uses_its_quantile():
+    df = _sim(4)
+    a, b = _fit(df, 40), _fit(df, 40)
+    assert a.ci == b.ci and a.pvalue == b.pvalue
+    mi = a.model_info
+    assert mi["crit_method"] == "bias-corrected parametric bootstrap-t"
+    assert a.ci[1] - a.estimate == pytest.approx(mi["crit"] * a.se, rel=1e-12)
+    assert 0.0 < a.pvalue <= 1.0
+
+
+def test_vectorised_bootstrap_reml_is_the_grid_maximum():
+    """_grid_reml_many returns, for each replicate, the grid point with the
+    smallest REML criterion of _reml_objective (the same likelihood)."""
+    r = np.random.default_rng(5)
+    X = np.column_stack([np.ones(40), r.normal(size=(40, 2))])
+    Z = r.normal(size=(40, 3)).cumsum(axis=0) * 0.3 + r.normal(size=(40, 3))
+    got = U._grid_reml_many(Z, X)
+    R, P = np.meshgrid(U._BOOT_RHO, U._BOOT_PSI, indexing="ij")
+    for j in range(Z.shape[1]):
+        nll, s2 = U._reml_objective(Z[:, j], X, R.ravel(), P.ravel())
+        g = int(np.argmin(nll))
+        assert got[j, 0] == R.ravel()[g] and got[j, 1] == P.ravel()[g]
+        assert got[j, 2] == pytest.approx(s2[g], rel=1e-10)
+
+
+@pytest.mark.slow
+def test_null_coverage_in_the_hard_design():
+    """n_pre 40, rho 0.9: the t quantile alone covered 0.895; with the
+    bootstrap-t critical value 0.93 on these 200 seeded draws."""
+    hits = 0
+    reps = 200
+    for s in range(reps):
+        lo, hi = _fit(_sim(s, rho=0.9), 40).ci
+        hits += lo <= 0 <= hi
+    assert hits / reps >= 0.92
