@@ -1455,6 +1455,14 @@ def psmatch2(
         warnings.filterwarnings(
             "ignore", message="PSM can increase imbalance", category=UserWarning
         )
+        # sp.match's tie warning names sp.match's own option (ties='all');
+        # psmatch2 re-issues it below in its own terms (ties=True), and
+        # not at all when ties=True has already redone the assignment.
+        warnings.filterwarnings(
+            "ignore",
+            message=r"sp\.match: \d+ of \d+ matched units",
+            category=UserWarning,
+        )
         if out_var is None:
             # the synthetic constant outcome has no variation by design,
             # and its "estimate" is replaced by NaN below
@@ -1514,6 +1522,19 @@ def psmatch2(
             ),
         }
     )
+    n_tied = int(model_info.get("n_units_with_tied_matches", 0) or 0)
+    if n_tied and not ties:
+        warnings.warn(
+            f"psmatch2: {n_tied} treated units had more equally close "
+            f"controls than the neighbor={k} requested; without `ties` the "
+            "first in data order was kept (as Stata psmatch2 does) and "
+            f"{int(model_info.get('n_tied_matches_left_out', 0) or 0)} tied "
+            "controls were left out, so the estimate depends on the row "
+            "order. Pass ties=True (Stata's `ties` option) to use every "
+            "tied control.",
+            UserWarning,
+            stacklevel=2,
+        )
     if ties or ate:
         refit: Optional[Any] = None
         if se_method == "bootstrap" and pscore is None:

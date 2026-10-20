@@ -137,6 +137,31 @@ class TestTiesAndAte:
         first = _psm(_tied(), outcome="y", pscore="ps")
         assert first.att == pytest.approx(((10 - 1) + (20 - 5)) / 2, abs=1e-12)
 
+    def test_tie_warning_speaks_psmatch2_and_is_silent_with_ties(self):
+        """sp.match's tie warning tells the user to pass ties='all', which
+        psmatch2 does not accept; psmatch2 words it with its own option and
+        drops it once ties=True has used every tied control."""
+
+        def _msgs(**kw):
+            with warnings.catch_warnings(record=True) as rec:
+                warnings.simplefilter("always")
+                m = sp.psmatch2(_tied(), treat="d", outcome="y", pscore="ps", **kw)
+            return m, [str(w.message) for w in rec]
+
+        m, msgs = _msgs(ties=True)
+        assert m.att == pytest.approx(((10 - 2) + (20 - 7)) / 2, abs=1e-12)
+        assert not [t for t in msgs if "tie" in t.lower()]
+
+        first, msgs = _msgs()
+        assert first.att == pytest.approx(((10 - 1) + (20 - 5)) / 2, abs=1e-12)
+        tie_msgs = [t for t in msgs if "tie" in t.lower()]
+        assert len(tie_msgs) == 1
+        # both treated units have two equally close controls; one is left out
+        assert tie_msgs[0].startswith("psmatch2: 2 treated units had more")
+        assert "2 tied controls were left out" in tie_msgs[0]
+        assert "ties=True" in tie_msgs[0]
+        assert "ties='all'" not in tie_msgs[0]
+
     def test_ties_agrees_with_match_ties_all(self):
         df = _data(n=200)
         # a coarse score, so that exact ties are everywhere
