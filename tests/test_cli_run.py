@@ -9,14 +9,31 @@ agent payload and errors are structured.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import statspai
 from statspai.cli import SHORTCUTS, _make_parser, main
+
+# The subprocess must import the statspai this test process imported. In a
+# worktree the editable install points at the main checkout, and a relative
+# PYTHONPATH stops resolving once a test has changed directory, so the
+# child would otherwise run another tree's CLI.
+_PKG_PARENT = str(Path(statspai.__file__).resolve().parent.parent)
+
+
+def _child_env() -> dict:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        p for p in (_PKG_PARENT, env.get("PYTHONPATH", "")) if p
+    )
+    return env
 
 
 @pytest.fixture(scope="module")
@@ -277,8 +294,10 @@ class TestRouteAndMcp:
             capture_output=True,
             text=True,
             timeout=120,
+            env=_child_env(),
         )
-        assert proc.returncode == 0 and "--profile" in proc.stdout
+        assert proc.returncode == 0, proc.stderr[-1000:]
+        assert "--profile" in proc.stdout
 
     def test_run_over_subprocess_is_pure_json(self, panel_csv):
         proc = subprocess.run(
@@ -300,6 +319,7 @@ class TestRouteAndMcp:
             capture_output=True,
             text=True,
             timeout=300,
+            env=_child_env(),
         )
         assert proc.returncode == 0, proc.stderr[-1000:]
         payload = json.loads(proc.stdout)
