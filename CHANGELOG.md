@@ -4,6 +4,37 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.panel_match`: clean-room rewrite
+
+- **Changed**: `sp.panel_match` is reimplemented from scratch
+  (`did/pmatch.py` + `did/_pmatch_{prep,sets,refine,infer}.py`; the old
+  `did/panelmatch.py` and `did/_panel_match_*.py` are deleted). The first
+  version had been written by an agent who had read R PanelMatch's GPL-3
+  source; the new code was written only from Imai, Kim and Wang (2023), the
+  PanelMatch help pages and vignette, this repository's tests and fixtures,
+  and PanelMatch 3.1.5's outputs on our data (black box). Signature and
+  result fields are unchanged. On 640 black-box comparisons with the first
+  version (sets, weights, estimates, analytic SEs, balance, placebo) and on
+  seeded bootstrap draws, outputs are identical except the ATC item below.
+  Four new R fixture cases (`atc_ps`, `psm_ties`, `gaps_exact`,
+  `art_restrict`); the existing cases are byte-identical on regeneration.
+- **⚠️ Correctness**: ATC propensity weighting (`qoi='atc'` or the ATC half
+  of `qoi='ate'`, with `refinement='ps_weight'` / `'cbps_weight'`) weighted
+  the treated controls by the odds of being treated, i.e. away from the
+  untreated observations they stand in for. That is R PanelMatch 3.1.5's
+  output, which the first version reproduced; on the `atc_ps` fixture it
+  widens the standardised gap in x1 at t from -0.82 (unrefined) to -1.28.
+  The weights are now the odds of being the matched observation, as for
+  the ATT and ART (-0.35 on the same fixture). R's weights are rebuilt as
+  the reciprocal of ours in a test. Unreleased function, so no migration
+  note.
+- **Added**: `model_info['propensity_scores']` (score of each unit-period a
+  propensity refinement used). `ps_match` keeps controls whose score ties
+  the treated one, where R drops them (and gives a set whose controls all
+  tie zero weights); pinned by an identity on the `psm_ties` fixture.
+  A covariate that is not a column or `lag(x, k)` of one raises
+  `MethodIncompatibility`, a missing column `ColumnNotFound`.
+
 ### `sp.margins` / `avg_slopes` after `sp.fepois`: standard errors with the effects as parameters
 
 - **Changed** (unreleased refusal replaced): averages after `sp.fepois` (or `sp.feglm(family='poisson')`) that depend on the absorbed effects (`sp.margins` AMEs, `sp.margins_at` and its contrasts, `sp.contrast`, `sp.pwcompare`, `sp.avg_slopes` / `avg_predictions` / `avg_comparisons`, `by=` averages) now get delta-method standard errors that count the effects as parameters, as Stata's `margins` after `poisson y x i.g` and after `ppmlhdfe ..., d` (`postestimation/_fe_delta.py`: Frisch-Waugh partitioning of the Poisson information, model-based / robust / one-way clustered, the fit's own small-sample factor read off its coefficient covariance). Equal to Stata 18 to 1e-8 on a one-way fixture and 1e-6 on a two-way, weighted one after that scalar factor, plus a closed-form identity (`tests/test_margins_fe_delta.py`). Still refused: unit-level quantities, `method='mem'`, two-way clustering, and logit / probit / OLS-predictive margins with absorbed effects. Point estimates are unchanged.

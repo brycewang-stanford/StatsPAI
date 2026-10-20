@@ -10,7 +10,8 @@ standard errors, the covariate-balance tables (refined and unrefined).
 Bootstrap standard errors are stochastic screens (R's ``sample()`` stream
 cannot be reproduced): only that they lie within a generous band.
 
-Three documented departures, each pinned by an identity:
+Documented departures, each pinned by an identity that rebuilds R's
+number from the rule R follows:
 
 * ``forbid_treatment_reversal``: when every control of a set violates the
   restriction R keeps the set with its original (violating) controls; we
@@ -18,8 +19,17 @@ Three documented departures, each pinned by an identity:
 * placebo test: for a treated observation within ``k - 2`` periods of the
   panel end R's estimate at ``t-k`` loses its ``Y[t-1]`` terms (the row it
   would sit on does not exist). ``test_placebo_r_truncation_at_panel_end``.
+* ATC propensity weighting: R weights the controls by the reciprocal of
+  the odds that do balance them.
+  ``test_atc_ps_weight_uses_the_odds_of_the_target_r_uses_the_reciprocal``.
+* ``ps_match``: R drops controls whose score equals the treated one.
+  ``test_ps_match_keeps_controls_that_tie_with_the_treated_score``.
 * CBPS refinement: ``sp.cbps``'s over-identified ATT fit is not R
   ``CBPS``'s (see ``sp.cbps``); screened only.
+
+``sp.panel_match`` is a clean-room implementation (2026-10-20): it was
+written from Imai, Kim and Wang (2023), the PanelMatch documentation and
+PanelMatch's outputs on these fixtures, without reading PanelMatch source.
 """
 
 from __future__ import annotations
@@ -112,6 +122,24 @@ CASES = {
         refinement="none",
         qoi="att",
         lead=range(2),
+        restrict_control_period=2,
+    ),
+    "gaps_exact": dict(
+        data="gaps",
+        lag=2,
+        qoi="att",
+        lead=range(1),
+        size_match=4,
+        covariates=["x1"],
+        exact_match=["region"],
+    ),
+    "art_restrict": dict(
+        data="full",
+        lag=4,
+        qoi="art",
+        lead=range(2),
+        size_match=5,
+        covariates=["x1", "x2"],
         restrict_control_period=2,
     ),
     "gaps_missing": dict(
@@ -401,3 +429,89 @@ def test_analytic_se_moves_with_a_common_time_shock_as_in_panelmatch():
         assert c.estimate == pytest.approx(est, rel=1e-12)
         assert c.se == pytest.approx(se_c, rel=1e-12)
         assert u.se == pytest.approx(se_u, rel=1e-12)
+
+
+def test_atc_ps_weight_uses_the_odds_of_the_target_r_uses_the_reciprocal(R, panels):
+    """ATC propensity weighting. The ATC's matched observations stay out of
+    treatment (d=0) and their controls are treated (d=1); weighting the
+    controls toward the matched observations needs the odds of being one,
+    e/(1-e) with e = P(matched observation | covariates), which is ours.
+    R PanelMatch 3.1.5 weights by the reciprocal (the odds of the control
+    state): its weights are exactly ours inverted and renormalised, and
+    they move the controls away from the matched observations (the
+    balance identity below), while ours move them closer."""
+    ref = R["cases"]["atc_ps"]
+    cfg = dict(
+        data="full",
+        lag=3,
+        refinement="ps_weight",
+        qoi="atc",
+        lead=range(3),
+        covariates=["lag(y, 1:2)", "x1"],
+    )
+    res = _fit(panels, cfg, se_method="conditional")
+    r_sets = _r_sets(ref["sets"])
+    ours = _py_sets(res.model_info["matched_sets"], "atc")
+    assert set(r_sets) == set(ours)
+    for key, ctrl in r_sets.items():
+        if not ctrl:
+            continue
+        c = list(ctrl)
+        inv = 1.0 / np.array([ours[key][u] for u in c])
+        np.testing.assert_allclose(inv / inv.sum(), [ctrl[u] for u in c], atol=TOL)
+    bal = res.model_info["balance"]
+    unref = res.model_info["balance_unrefined"]
+    r_bal = pd.DataFrame(
+        ref["balance"]["refined"],
+        index=ref["balance"]["rows"],
+        columns=["x1", "x2", "y"],
+    )
+    # x1 at t enters the score: ours shrinks the gap, R's widens it
+    assert abs(bal.loc["t-0", "x1"]) < 0.5 * abs(unref.loc["t-0", "x1"])
+    assert abs(r_bal.loc["t_0", "x1"]) > abs(unref.loc["t-0", "x1"])
+
+
+def test_ps_match_keeps_controls_that_tie_with_the_treated_score(R, panels):
+    """``ps_match`` on a coarse covariate (region, three values): many
+    controls have exactly the treated observation's score. We keep them
+    (they are the best matches). R PanelMatch 3.1.5 discards every control
+    whose score equals the treated one, also in sets no larger than
+    ``size_match`` (a lone control excepted), and gives a set whose
+    controls all tie zero weights.
+    R's weights are reproduced from our scores by that rule."""
+    ref = _r_sets(R["cases"]["psm_ties"]["sets"])
+    cfg = dict(
+        data="full",
+        lag=3,
+        refinement="ps_match",
+        qoi="att",
+        lead=range(2),
+        size_match=5,
+        covariates=["region"],
+    )
+    res = _fit(panels, cfg, se_method="conditional")
+    ours = _py_sets(res.model_info["matched_sets"], "att")
+    assert set(ref) == set(ours)
+    ps = res.model_info["propensity_scores"].set_index(["unit", "time"])["pscore"]
+    n_tied_sets = 0
+    for key, ctrl in ref.items():
+        if not ctrl:
+            continue
+        i, t = map(int, key.split("."))
+        c = list(ctrl)
+        d = np.abs(ps.loc[[(u, t) for u in c]].to_numpy() - ps.loc[(i, t)])
+        n_tied_sets += bool((d == 0).any())
+        # ours: the 5 closest, ties kept (all of them when the set is small)
+        cut = np.sort(d)[min(5, len(c)) - 1]
+        keep = d <= cut
+        np.testing.assert_allclose(
+            [ours[key][u] for u in c], keep / keep.sum(), atol=TOL
+        )
+        # R: the same after dropping exact ties with the treated score
+        # (a lone control keeps weight 1)
+        pos = (d > 0) | (len(c) == 1)
+        cut_r = np.sort(d[pos])[min(5, pos.sum()) - 1] if pos.any() else -1.0
+        keep_r = pos & (d <= cut_r)
+        w_r = keep_r / keep_r.sum() if keep_r.any() else np.zeros(len(c))
+        np.testing.assert_allclose([ctrl[u] for u in c], w_r, atol=TOL)
+    assert n_tied_sets > 10

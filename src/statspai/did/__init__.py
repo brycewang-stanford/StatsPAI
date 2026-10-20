@@ -99,7 +99,6 @@ from .influence import aggte_from_influence, influence_functions
 from .jwdid import jwdid
 from .misclassified import did_misclassified
 from .overlap_did import dl_propensity_score, overlap_weighted_did
-from .panelmatch import panel_match
 from .plots import bacon_plot, cohort_event_study_plot, did_plot, did_summary_plot
 from .plots import event_study_plot as enhanced_event_study_plot
 from .plots import (
@@ -110,6 +109,7 @@ from .plots import (
     sensitivity_plot,
     treatment_rollout_plot,
 )
+from .pmatch import panel_match
 from .pretrends import (
     SensitivityResult,
     pretrends_power,

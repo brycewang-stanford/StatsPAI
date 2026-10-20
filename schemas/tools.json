@@ -27412,7 +27412,7 @@
     "name": "panel_logit"
   },
   {
-    "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10. Validation: certified parity evidence. Assumptions: Parallel trends conditional on the matched treatment history and refinement covariates; No carryover beyond the lag window; No interference between units. Failure modes: panel_match: leads must be non-negative integers -> Use placebo_test=True for pre-treatment periods; panel_match: qoi must be one of <_QOIS>, got <qoi> -> qoi='att' for the effect on units switching into treatment; panel_match: refinement must be one of <_REFINEMENTS>, got <refinement> -> The marginal-structural-model refinements of R PanelMatch (ps.msm.weight, CB...",
+    "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10 apart from documented departures where R's output is wrong (ATC propensity weights, tied propensity scores, treatment-reversal filtering). Validation: certified parity evidence. Assumptions: Parallel trends conditional on the matched treatment history and refinement covariates; No carryover beyond the lag window; No interference between units. Failure modes: refinement=<refinement> needs covariates -> Pass covariates=[...] or use refinement='none'; the ATE has only the bootstrap standard error -> Use se_method='bootstrap' with qoi='ate'; no treated observation has a matched set -> S...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -27507,7 +27507,7 @@
           "type": "string"
         },
         "restrict_control_period": {
-          "description": "Keep treated observations untreated in each of this many periods before t (att / art)",
+          "description": "Keep treated observations whose treatment stayed at its pre-switch value (0 for att, 1 for art) in each of this many periods before t",
           "type": "integer"
         },
         "se_method": {

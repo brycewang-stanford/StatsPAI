@@ -31352,7 +31352,9 @@ def _build_registry() -> None:
                 "ATE and ART; unit bootstrap or analytic (conditional / "
                 "unconditional) SEs; covariate balance; placebo test. Sets, "
                 "weights, estimates and analytic SEs equal R PanelMatch 3.1.5 "
-                "to 1e-10."
+                "to 1e-10 apart from documented departures where R's output is "
+                "wrong (ATC propensity weights, tied propensity scores, "
+                "treatment-reversal filtering)."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True, description="Long panel"),
@@ -31450,8 +31452,9 @@ def _build_registry() -> None:
                     "int",
                     False,
                     None,
-                    "Keep treated observations untreated in each of this many "
-                    "periods before t (att / art)",
+                    "Keep treated observations whose treatment stayed at its "
+                    "pre-switch value (0 for att, 1 for art) in each of this many "
+                    "periods before t",
                 ),
                 ParamSpec(
                     "diagonal_covariance",

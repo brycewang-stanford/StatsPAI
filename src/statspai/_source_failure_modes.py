@@ -1062,26 +1062,26 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "panel_match": [
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use placebo_test=True for pre-treatment periods.",
-            "symptom": "panel_match: leads must be non-negative " "integers.",
+            "remedy": "Pass covariates=[...] or use refinement='none'.",
+            "symptom": "refinement=<refinement> needs covariates",
         },
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "qoi='att' for the effect on units switching into " "treatment.",
-            "symptom": "panel_match: qoi must be one of <_QOIS>, got " "<qoi>.",
+            "remedy": "Use se_method='bootstrap' with qoi='ate'.",
+            "symptom": "the ATE has only the bootstrap standard error",
         },
         {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "The marginal-structural-model refinements of R "
-            "PanelMatch (ps.msm.weight, CBPS.msm.weight) are "
-            "not implemented.",
-            "symptom": "panel_match: refinement must be one of "
-            "<_REFINEMENTS>, got <refinement>.",
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Shorten lag, set match_missing=True, drop "
+            "exact_match / restrict_control_period, or use "
+            "fewer leads.",
+            "symptom": "no treated observation has a matched set",
         },
         {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "se_method='conditional' for a deterministic " "analytic SE.",
-            "symptom": "panel_match: se_method must be one of " "<_SE_METHODS>.",
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Drop placebo_test or shorten lag.",
+            "symptom": "no matched set observes the outcome over the "
+            "whole history window",
         },
     ],
     "pca": [

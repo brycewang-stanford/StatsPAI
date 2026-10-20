@@ -291,13 +291,16 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "tests/reference_parity/_fixtures/panel_match_R.json",
         ],
         "note": (
-            "Frozen-R fixture: fifteen settings on two synthetic panels with "
+            "Frozen-R fixture: nineteen settings on two synthetic panels with "
             "treatment switching on and off (one with missing rows and cells). "
             "Documented departures pinned by identities: sets whose controls all "
             "violate forbid_treatment_reversal (R keeps them), the placebo "
-            "estimate near the panel end (R drops the t-1 outcome), CBPS "
-            "refinement (sp.cbps's ATT fit, screened). Bootstrap SEs are "
-            "stochastic screens."
+            "estimate near the panel end (R drops the t-1 outcome), ATC "
+            "propensity weights (R uses the reciprocal odds, which worsens "
+            "balance), ps_match controls tied with the treated score (R drops "
+            "them), CBPS refinement (sp.cbps's ATT fit, screened). Bootstrap "
+            "SEs are stochastic screens. Clean-room implementation (2026-10-20): "
+            "PanelMatch (GPL-3) used as a black box only."
         ),
     },
     "ctree": {

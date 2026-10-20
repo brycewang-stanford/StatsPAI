@@ -429,7 +429,6 @@ from .did.lp_did import lp_did as lp_did
 from .did.misclassified import did_misclassified as did_misclassified
 from .did.overlap_did import dl_propensity_score as dl_propensity_score
 from .did.overlap_did import overlap_weighted_did as overlap_weighted_did
-from .did.panelmatch import panel_match as panel_match
 from .did.plots import bacon_plot as bacon_plot
 from .did.plots import cohort_event_study_plot as cohort_event_study_plot
 from .did.plots import did_plot as did_plot
@@ -441,6 +440,7 @@ from .did.plots import panel_view as panel_view
 from .did.plots import parallel_trends_plot as parallel_trends_plot
 from .did.plots import sensitivity_plot as sensitivity_plot
 from .did.plots import treatment_rollout_plot as treatment_rollout_plot
+from .did.pmatch import panel_match as panel_match
 from .did.pretrends import SensitivityResult as SensitivityResult
 from .did.pretrends import pretrends_power as pretrends_power
 from .did.pretrends import pretrends_slope_for_power as pretrends_slope_for_power

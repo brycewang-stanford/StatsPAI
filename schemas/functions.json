@@ -31802,7 +31802,7 @@
     }
   },
   {
-    "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10. Validation: certified parity evidence.",
+    "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10 apart from documented departures where R's output is wrong (ATC propensity weights, tied propensity scores, treatment-reversal filtering). Validation: certified parity evidence.",
     "name": "panel_match",
     "parameters": {
       "properties": {
@@ -31903,7 +31903,7 @@
           "type": "string"
         },
         "restrict_control_period": {
-          "description": "Keep treated observations untreated in each of this many periods before t (att / art)",
+          "description": "Keep treated observations whose treatment stayed at its pre-switch value (0 for att, 1 for art) in each of this many periods before t",
           "type": "integer"
         },
         "se_method": {

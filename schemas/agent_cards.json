@@ -70528,7 +70528,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10. Validation: certified parity evidence.",
+    "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10 apart from documented departures where R's output is wrong (ATC propensity weights, tied propensity scores, treatment-reversal filtering). Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
@@ -70555,26 +70555,26 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use placebo_test=True for pre-treatment periods.",
-        "symptom": "panel_match: leads must be non-negative integers."
+        "remedy": "Pass covariates=[...] or use refinement='none'.",
+        "symptom": "refinement=<refinement> needs covariates"
       },
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "qoi='att' for the effect on units switching into treatment.",
-        "symptom": "panel_match: qoi must be one of <_QOIS>, got <qoi>."
+        "remedy": "Use se_method='bootstrap' with qoi='ate'.",
+        "symptom": "the ATE has only the bootstrap standard error"
       },
       {
         "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "The marginal-structural-model refinements of R PanelMatch (ps.msm.weight, CBPS.msm.weight) are not implemented.",
-        "symptom": "panel_match: refinement must be one of <_REFINEMENTS>, got <refinement>."
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Shorten lag, set match_missing=True, drop exact_match / restrict_control_period, or use fewer leads.",
+        "symptom": "no treated observation has a matched set"
       },
       {
         "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "se_method='conditional' for a deterministic analytic SE.",
-        "symptom": "panel_match: se_method must be one of <_SE_METHODS>."
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Drop placebo_test or shorten lag.",
+        "symptom": "no matched set observes the outcome over the whole history window"
       }
     ],
     "inherits_from": null,
@@ -70610,7 +70610,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10. Validation: certified parity evidence.",
+      "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10 apart from documented departures where R's output is wrong (ATC propensity weights, tied propensity scores, treatment-reversal filtering). Validation: certified parity evidence.",
       "name": "panel_match",
       "parameters": {
         "properties": {
@@ -70711,7 +70711,7 @@
             "type": "string"
           },
           "restrict_control_period": {
-            "description": "Keep treated observations untreated in each of this many periods before t (att / art)",
+            "description": "Keep treated observations whose treatment stayed at its pre-switch value (0 for att, 1 for art) in each of this many periods before t",
             "type": "integer"
           },
           "se_method": {
