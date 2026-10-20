@@ -1,32 +1,18 @@
-"""SDID from a treatment indicator: staggered adoption, projected covariates.
+"""Synthetic DiD with staggered adoption: ``sp.sdid(..., treat=...)``.
 
-``sp.sdid(..., treat="W")`` follows Stata ``sdid`` (Pailanir & Clarke),
-the implementation accompanying [@clarke2024synthetic]:
+Clean-room implementation (2026-10-20) of the staggered-adoption design of
+Arkhangelsky et al. (2021, Appendix A) as set out in Clarke et al. (2024):
+one SDID block fit per adoption cohort against the never-treated units, the
+cohort effects aggregated with weights proportional to treated units times
+post-treatment periods (their eq. 7), projected covariates (Kranz 2022 as
+described by Clarke et al.), and the bootstrap, jackknife and placebo
+variance estimators of Algorithms 2-4. Stata ``sdid`` 2.0.2 (GPL-3) was
+used only as a black box (its outputs and error codes on our data) and
+through its help file. Specification: ``docs/dev/cleanroom/sdid_staggered.md``.
 
-* **Design.** Units adopt at possibly different periods (absorbing
-  treatment). Each adoption cohort ``a`` is a block design -- its treated
-  units against the never-treated units over the full panel -- fitted with
-  the same weight solver as the block estimator (``sdid._compute_weights``).
-  The ATT aggregates the cohort effects with weights proportional to treated
-  units x post periods (eq. 7 of the paper).
-* **Covariates** (``covariate_method="projected"``): the outcome
-  is regressed on the covariates with unit and period fixed effects on the
-  never-treated units only, and ``Y - X beta`` replaces ``Y``. The
-  never-treated sample is what ``sdid.ado``'s ``projected()`` uses (it selects
-  on the unit-level ever-treated flag); Stata's default ``optimized`` method is
-  not implemented.
-* **Inference.** ``jackknife`` holds each cohort's omega (renormalised after
-  a control is dropped) and lambda fixed, re-projects covariates on every
-  leave-one-out sample, and is deterministic -- it reproduces Stata exactly.
-  ``bootstrap`` (units resampled with replacement, redrawn without a treated
-  or a control unit) and ``placebo`` (as many controls as treated units given
-  the treated units' adoption periods) re-solve the weights from the original
-  ones with regularisation recomputed on each replication, as ``sdid.ado``
-  does. Their random draws cannot match Stata's; only their distribution does.
-  ``noinference`` returns the point estimate only. The applicability rules are
-  ``sdid.ado``'s: jackknife needs two treated units in every cohort, bootstrap
-  more than one treated unit when there is a single cohort, placebo more
-  controls than treated units.
+References
+----------
+[@arkhangelsky2021synthetic]; [@clarke2024synthetic].
 """
 
 from __future__ import annotations
@@ -74,7 +60,7 @@ def _build_panel(
     treatment: str,
     covariates: Sequence[str],
 ) -> _Panel:
-    """Validate as ``sdid.ado`` does and pivot to matrices."""
+    """Validate the panel (balanced, absorbing 0/1 treatment) and pivot it."""
     # labels are the sp.sdid argument names (outcome= / treat=)
     check_columns(
         data,
@@ -187,26 +173,31 @@ def _build_panel(
 def _project(
     Y: np.ndarray, X: np.ndarray, never: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """``sdid.ado``'s ``projected()``: beta from a two-way FE regression on the
-    never-treated units, then ``Y - X beta`` for every unit.
+    """Projected covariate adjustment (Kranz 2022; Clarke et al. 2024, Sec. 2.2).
 
-    On a balanced panel two-way demeaning gives the fixed-effects coefficient
-    exactly (Frisch-Waugh-Lovell).
+    ``beta`` is the OLS coefficient of the outcome on the covariates with
+    unit and period fixed effects, fitted on the never-treated units only
+    (black box: Stata ``sdid ..., covariates(x, projected)`` returns this
+    ``beta``, not the one fitted on every untreated observation). The
+    outcome of every unit is then replaced by ``Y - X beta`` and SDID runs
+    on it. On a balanced block the two-way fixed effects are removed
+    exactly by double demeaning.
     """
-    Yc, Xc = Y[never], X[never]
+    Yc = Y[never]
+    Xc = X[never]
 
-    def demean(A: np.ndarray) -> np.ndarray:
-        out: np.ndarray = (
+    def two_way_within(A: np.ndarray) -> np.ndarray:
+        return (
             A
-            - A.mean(axis=1, keepdims=True)
             - A.mean(axis=0, keepdims=True)
+            - A.mean(axis=1, keepdims=True)
             + A.mean(axis=(0, 1), keepdims=True)
         )
-        return out
 
-    y = demean(Yc).ravel()
-    Z = np.column_stack([demean(Xc[..., k]).ravel() for k in range(X.shape[-1])])
-    beta, *_ = np.linalg.lstsq(Z, y, rcond=None)
+    k = X.shape[-1]
+    y_w = two_way_within(Yc).ravel()
+    x_w = np.stack([two_way_within(Xc[..., j]).ravel() for j in range(k)], axis=1)
+    beta, *_ = np.linalg.lstsq(x_w, y_w, rcond=None)
     return Y - X @ beta, beta
 
 
@@ -273,74 +264,92 @@ def _aggregate(tau: Dict[int, float], weight: Dict[int, float]) -> float:
     return float(sum(tau[a] * weight[a] for a in tau) / total)
 
 
-def _refit(
+def _fixed_weight_tau(
+    Y: np.ndarray,
+    controls: np.ndarray,
+    treated: np.ndarray,
+    a: int,
+    omega: np.ndarray,
+    lam: np.ndarray,
+) -> float:
+    """Cohort effect with given weights on a subset of the units.
+
+    ``controls`` indexes the never-treated units kept (``omega`` is
+    restricted to them and rescaled to sum to one); ``treated`` the
+    cohort's treated units kept. NaN when the kept controls carry no weight.
+    """
+    from .sdid import _estimate_tau
+
+    mass = float(omega.sum())
+    if not mass > 0 or treated.size == 0:
+        return float("nan")
+    co_pre, co_post, tr_pre, tr_post = _cohort_blocks(Y, controls, treated, int(a))
+    return _estimate_tau(co_pre, co_post, tr_pre, tr_post, omega / mass, lam)
+
+
+def _jackknife(panel: _Panel, method: str, fit: _Fit) -> Tuple[float, Dict[int, float]]:
+    """Leave-one-unit-out jackknife with the weights held fixed.
+
+    Algorithm 3 of Arkhangelsky et al. (2021), in the staggered form of
+    Clarke et al. (2024): for each unit ``i`` the cohort effects are
+    recomputed without ``i`` using the full-sample unit weights (restricted
+    to the remaining controls and rescaled) and time weights; projected
+    covariates are re-estimated without ``i``. The cohort effects are
+    aggregated with the eq. (7) weights of the remaining sample, and
+
+    ``V = (N - 1)/N * sum_i (ATT^(-i) - mean_j ATT^(-j))^2``
+
+    over all ``N`` units, the usual jackknife centred at the mean of the
+    leave-one-out estimates (black box: this is what Stata ``sdid``
+    reports, to 1e-15; Algorithm 3 as printed centres at the full-sample
+    estimate, which differs by a term of order ``1/N^2``). Each cohort's
+    variance is the same expression over its own leave-one-out effects.
+    """
+    Y0, X, adopt = panel.Y, panel.X, panel.adopt
+    N, T = Y0.shape
+    never_all = np.flatnonzero(adopt < 0)
+    cohorts = sorted(fit.tau)
+    att_loo = np.empty(N)
+    tau_loo = {a: np.empty(N) for a in cohorts}
+    for i in range(N):
+        keep = np.ones(N, dtype=bool)
+        keep[i] = False
+        if X is not None:
+            never_keep = (adopt < 0) & keep
+            Y, _ = _project(Y0, X, never_keep)
+        else:
+            Y = Y0
+        ctrl_mask = np.isin(never_all, np.flatnonzero(keep))
+        controls = never_all[ctrl_mask]
+        num = den = 0.0
+        for a in cohorts:
+            treated = np.flatnonzero((adopt == a) & keep)
+            tau = _fixed_weight_tau(
+                Y, controls, treated, a, fit.omega[a][ctrl_mask], fit.lam[a]
+            )
+            tau_loo[a][i] = tau
+            w = float(treated.size * (T - a))
+            num += tau * w
+            den += w
+        att_loo[i] = num / den
+    scale = (N - 1) / N
+
+    def jk_se(values: np.ndarray) -> float:
+        return float(np.sqrt(scale * np.sum((values - values.mean()) ** 2)))
+
+    return jk_se(att_loo), {a: jk_se(tau_loo[a]) for a in cohorts}
+
+
+def _replicate(
     Y: np.ndarray,
     X: Optional[np.ndarray],
     adopt: np.ndarray,
     method: str,
-    omega0: Dict[int, np.ndarray],
-    lam0: Dict[int, np.ndarray],
 ) -> Tuple[float, Dict[int, float]]:
-    """One bootstrap / placebo replication (``synthdid(data, inference=1, ...)``).
-
-    ``omega0[a]`` is already aligned to this replication's never-treated rows.
-    Weights are re-solved from those starting values with the regularisation
-    recomputed on the replication, as ``sdid.ado`` does.
-    """
-    from .sdid import _sum_normalize, _synthdid_opts, _synthdid_refit
-
-    never = adopt < 0
-    if X is not None:
-        Y, _ = _project(Y, X, never)
-    T = Y.shape[1]
-    tau, weight = {}, {}
-    for a in np.unique(adopt[~never]):
-        a = int(a)
-        treated = adopt == a
-        block = np.vstack([Y[never], Y[treated]])
-        n0 = int(never.sum())
-        opts = _synthdid_opts(block, n0, a, method)
-        tau[a] = _synthdid_refit(block, n0, a, _sum_normalize(omega0[a]), lam0[a], opts)
-        weight[a] = float(treated.sum() * (T - a))
-    return _aggregate(tau, weight), tau
-
-
-def _jackknife(panel: _Panel, method: str, fit: _Fit) -> Tuple[float, Dict[int, float]]:
-    """Fixed-weight leave-one-unit-out jackknife (``sdid.ado`` jk branch)."""
-    from .sdid import _sum_normalize
-
-    never = panel.adopt < 0
-    control_rows = np.flatnonzero(never)
-    N, T = panel.Y.shape
-    atts: List[float] = []
-    taus: Dict[int, List[float]] = {a: [] for a in fit.tau}
-    for i in range(N):
-        keep = np.arange(N) != i
-        Y, adopt = panel.Y[keep], panel.adopt[keep]
-        X = panel.X[keep] if panel.X is not None else None
-        nv = adopt < 0
-        if X is not None:
-            Y, _ = _project(Y, X, nv)
-        drop_ctrl = control_rows != i
-        tau, weight = {}, {}
-        for a in fit.tau:
-            treated = adopt == a
-            om = _sum_normalize(fit.omega[a][drop_ctrl])
-            la = fit.lam[a]
-            co_pre, co_post, tr_pre, tr_post = _cohort_blocks(Y, nv, treated, a)
-            post = tr_post.mean() - om @ co_post.mean(axis=1)
-            pre = tr_pre.mean(axis=0) @ la - om @ (co_pre @ la)
-            tau[a] = float(post - pre)
-            weight[a] = float(treated.sum() * (T - a))
-            taus[a].append(tau[a])
-        atts.append(_aggregate(tau, weight))
-
-    def se(values: Sequence[float]) -> float:
-        x = np.asarray(values, dtype=float)
-        n = x.size
-        return float(np.sqrt((n - 1) / n * np.sum((x - x.mean()) ** 2)))
-
-    return se(atts), {a: se(v) for a, v in taus.items()}
+    """One bootstrap or placebo replicate: Algorithm 1 refitted in full
+    (weights re-estimated, projected covariates re-estimated)."""
+    fit = _fit(Y, X, adopt, method, "projected" if X is not None else None)
+    return fit.att, dict(fit.tau)
 
 
 def _resampling_se(
@@ -351,75 +360,87 @@ def _resampling_se(
     n_reps: int,
     rng: np.random.Generator,
 ) -> Tuple[float, Dict[int, float], int]:
-    """Bootstrap or placebo SE: ``sqrt((B-1)/B) * sd`` over replications."""
-    never = panel.adopt < 0
-    control_rows = np.flatnonzero(never)
-    ctrl_pos = {r: k for k, r in enumerate(control_rows)}
-    N = panel.Y.shape[0]
+    """Bootstrap (Algorithm 2) or placebo (Algorithm 4) standard errors.
+
+    Bootstrap: draw ``N`` units with replacement; a draw without treated
+    or without never-treated units is discarded and drawn again. Placebo:
+    on the never-treated units only, the first ``N_tr`` of a random
+    permutation receive the adoption dates of the treated units (in the
+    panel's unit order), and the estimator is applied to that placebo
+    panel. (These draw conventions keep the seeded streams of earlier
+    releases.) The standard error is the standard deviation of the ``B``
+    replicate ATTs with divisor ``B`` (the algorithms' variance); each
+    cohort's is the same over the replicates in which it appears.
+    Returns ``(se, cohort_se, B)``.
+    """
+    Y, X, adopt = panel.Y, panel.X, panel.adopt
+    N = Y.shape[0]
+    never = np.flatnonzero(adopt < 0)
+    treated_dates = adopt[adopt >= 0]
     atts: List[float] = []
     taus: Dict[int, List[float]] = {a: [] for a in fit.tau}
-    draws = 0
-    treated_adopt = panel.adopt[~never]
     while len(atts) < n_reps:
-        draws += 1
-        if draws > 50 * n_reps:
-            raise MethodIncompatibility(
-                f"sdid: could not complete {n_reps} {se_method} replications "
-                f"after {draws - 1} draws.",
-                recovery_hint="Use se_method='jackknife' or 'noinference'.",
-            )
         if se_method == "bootstrap":
-            rows = rng.integers(0, N, N)
-            adopt = panel.adopt[rows]
-            if (adopt < 0).all() or (adopt >= 0).all():
-                continue  # sdid.ado redraws: all controls or all treated
-            ctrl_src = rows[adopt < 0]
-        else:  # placebo
-            chosen = rng.permutation(control_rows)[: treated_adopt.size]
-            adopt = np.full(control_rows.size, -1)
-            pos = np.searchsorted(control_rows, chosen)
-            adopt[pos] = treated_adopt
-            rows = control_rows
-            ctrl_src = control_rows[adopt < 0]
-        Y = panel.Y[rows]
-        X = panel.X[rows] if panel.X is not None else None
-        idx = [ctrl_pos[r] for r in ctrl_src]
-        omega0 = {a: fit.omega[a][idx] for a in fit.omega}
-        att, tau = _refit(Y, X, adopt, method, omega0, fit.lam)
-        atts.append(att)
-        for a, v in tau.items():
-            taus.setdefault(a, []).append(v)
+            idx = rng.integers(0, N, size=N)
+            a_b = adopt[idx]
+            if not (a_b < 0).any() or not (a_b >= 0).any():
+                continue
+            Y_b = Y[idx]
+            X_b = None if X is None else X[idx]
+        else:
+            chosen = rng.permutation(never.size)[: treated_dates.size]
+            a_b = np.full(never.size, -1)
+            a_b[chosen] = treated_dates
+            Y_b = Y[never]
+            X_b = None if X is None else X[never]
+        att_b, tau_b = _replicate(Y_b, X_b, a_b, method)
+        atts.append(att_b)
+        for a, value in tau_b.items():
+            taus.setdefault(a, []).append(value)
 
-    def se(values: Sequence[float]) -> float:
-        x = np.asarray(values, dtype=float)
-        return float(np.std(x)) if x.size > 1 else float("nan")
+    def sd(values: Sequence[float]) -> float:
+        arr = np.asarray(values, dtype=float)
+        return float(arr.std(ddof=0)) if arr.size >= 2 else float("nan")
 
-    return se(atts), {a: se(v) for a, v in taus.items() if a in fit.tau}, draws
+    return sd(atts), {a: sd(taus[a]) for a in fit.tau}, len(atts)
 
 
 def _check_se_method(panel: _Panel, se_method: str) -> None:
-    """``sdid.ado``'s refusals (all r(451))."""
-    ever = panel.adopt >= 0
-    counts = pd.Series(panel.adopt[ever]).value_counts()
-    if se_method == "jackknife" and (counts < 2).any():
-        singles = sorted(panel.times[a] for a in counts[counts < 2].index)
-        raise MethodIncompatibility(
-            "sdid: the jackknife standard error needs at least two treated "
-            f"units in every adoption cohort; cohort(s) {singles} have one "
-            "(Stata r(451)).",
-            recovery_hint="Use se_method='placebo' or 'bootstrap'.",
-        )
-    if se_method == "bootstrap" and len(counts) == 1 and int(counts.iloc[0]) == 1:
+    """Refuse a variance estimator the design cannot support.
+
+    From the ``sdid`` help (Stata error 451 in each case, black box):
+    the bootstrap needs more than one treated unit; the jackknife needs at
+    least two treated units in every adoption cohort (a cohort's
+    leave-one-out effect is undefined otherwise); the placebo needs more
+    never-treated than treated units.
+    """
+    adopt = panel.adopt
+    n_tr = int((adopt >= 0).sum())
+    n_co = int((adopt < 0).sum())
+    if se_method == "bootstrap" and n_tr < 2:
         raise MethodIncompatibility(
             "sdid: the bootstrap standard error needs more than one treated "
-            "unit when there is a single adoption period (Stata r(451)).",
+            "unit (Stata r(451)).",
             recovery_hint="Use se_method='placebo'.",
+            diagnostics={"n_treated": n_tr},
         )
-    if se_method == "placebo" and (~ever).sum() <= ever.sum():
+    if se_method == "jackknife":
+        cohorts, counts = np.unique(adopt[adopt >= 0], return_counts=True)
+        single = [panel.times[int(a)] for a, c in zip(cohorts, counts) if c < 2]
+        if single:
+            raise MethodIncompatibility(
+                "sdid: the jackknife standard error needs at least two treated "
+                f"units in every adoption cohort; cohort(s) {single} have one "
+                "(Stata r(451)).",
+                recovery_hint="Use se_method='placebo' or 'bootstrap'.",
+                diagnostics={"single_unit_cohorts": single},
+            )
+    if se_method == "placebo" and n_co <= n_tr:
         raise MethodIncompatibility(
-            "sdid: the placebo standard error needs more control units than "
-            "treated units (Stata r(451)).",
+            f"sdid: the placebo standard error needs more control units than "
+            f"treated units ({n_co} controls, {n_tr} treated; Stata r(451)).",
             recovery_hint="Use se_method='bootstrap' or 'jackknife'.",
+            diagnostics={"n_control": n_co, "n_treated": n_tr},
         )
 
 
