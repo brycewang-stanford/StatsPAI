@@ -1,6 +1,6 @@
 """Analytical parity: sp.grapple robust-adjusted profile-score MR recovery.
 
-GRAPPLE (Barber et al. 2018): profile likelihood MR with robust Tukey
+GRAPPLE (wang2021causal): robust profile likelihood MR with the Tukey
 biweight loss. Under a clean DGP (no pleiotropic outliers) it recovers the
 planted constant effect analytically. Analytical evidence tier (known-truth
 recovery on a deterministic DGP; the test is loose because the biweight

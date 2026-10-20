@@ -5,6 +5,22 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.grapple(loss='tukey')` standard errors; `sp.mr_raps` robust log-likelihood
+
+- `sp.grapple` with the Tukey loss (its default) now evaluates the whole
+  sandwich on one scale of the loss. `tau2_se` and `loglik` are 3.658
+  times (c^2/6 with c = 4.685) the previous values, which reproduced
+  GRAPPLE 0.2.2 and understated the tau2 SE about 3.7-fold in simulation;
+  the beta SE changes by up to about 15%, most on weak-instrument data
+  with tau2 = 0. Point estimates are unchanged. There is no switch back.
+  Huber and L2 results are unchanged.
+- `sp.mr_raps(...).loglik_robust` for the Huber and Tukey losses is now
+  `-sum rho(t)` (Zhao et al. 2020, eq. 5.1), twice the previous value.
+  Estimates and SEs are unaffected; compare log-likelihoods only within
+  one version.
+
+---
+
 ## 1.39.6 → unreleased: `sp.interference("partial" | "hudgens_halloran")` deprecated as aliases of `spillover`
 
 `sp.interference("partial", ...)` and `sp.interference("hudgens_halloran", ...)`

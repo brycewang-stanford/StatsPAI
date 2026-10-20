@@ -17,8 +17,10 @@ exceptions are listed where they occur:
   and ``integrate`` at 1.2e-4 relative. The sandwich formula is therefore
   pinned exactly at R's own estimates and moments, and the fitted values
   are graded aligned (beta 5e-5, SE 5e-4, tau^2 1.5e-3) with a test showing
-  StatsPAI's root is the more accurate one. The Gaussian (L2) fits, which
-  need neither, match at 1e-8.
+  StatsPAI's root is the more accurate one. The Gaussian (L2) fits match
+  at 1e-8, except the over-dispersed tau^2 (1e-7: mr.raps stops its
+  iterations at an absolute sqrt(eps), StatsPAI solves to machine
+  precision).
 """
 
 from __future__ import annotations
@@ -201,12 +203,32 @@ def test_raps_simple_matches_mr_raps():
 
 
 def test_raps_l2_overdispersed_matches_mr_raps():
+    """APS fit (Zhao et al. 2020, eqs. 4.2-4.3) against mr.raps.overdispersed.
+
+    StatsPAI solves the two estimating equations to machine precision;
+    mr.raps stops its iterations at an absolute change of sqrt(eps) ~ 1.5e-8,
+    which for tau^2 ~ 3e-3 leaves the fifth significant digit or so
+    undetermined. The residuals below show StatsPAI's root is the more
+    accurate one; tau^2 and its SE are therefore graded at 1e-7, beta and its
+    SE stay at 1e-8.
+    """
     r = sp.mr_raps(BX, BY, SX, SY, loss="l2", over_dispersion=True)
     ref = R["raps_l2"]
     _close(r.estimate, ref["est"], rtol=1e-8)
     _close(r.se, ref["se"], rtol=1e-8)
-    _close(r.tau2, ref["tau2"], rtol=1e-8)
+    _close(r.tau2, ref["tau2"], rtol=1e-7)
     _close(r.tau2_se, ref["tau2_se"], rtol=1e-7)
+
+    def aps(b, t2):
+        v = SX**2 * b**2 + SY**2 + t2
+        res = BY - b * BX
+        return (
+            abs(np.sum(res * (BY * SX**2 * b + BX * (SY**2 + t2)) / v**2)),
+            abs(np.sum(SX**2 * (res**2 - v) / v**2)),
+        )
+
+    ours, theirs = aps(r.estimate, r.tau2), aps(ref["est"], ref["tau2"])
+    assert ours[0] < theirs[0] and ours[1] < theirs[1]
 
 
 _K = {"huber": 1.345, "tukey": 4.685}

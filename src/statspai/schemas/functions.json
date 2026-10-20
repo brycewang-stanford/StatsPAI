@@ -16494,33 +16494,33 @@
     "parameters": {
       "properties": {
         "beta_exposure": {
-          "description": "beta_exposure parameter (ndarray).",
+          "description": "Variant-exposure and variant-outcome associations.",
           "type": "string"
         },
         "beta_outcome": {
-          "description": "beta_outcome parameter (ndarray).",
+          "description": "Variant-exposure and variant-outcome associations.",
           "type": "string"
         },
         "n_boot": {
           "default": 1000,
-          "description": "Number of bootstrap replications.",
+          "description": "Number of simulated null draws. The global p-value resolves ``1 / n_boot`` and the Bonferroni-adjusted outlier p-values ``J / n_boot``; a warning fires when ``n_boot < J / sig_threshold``.",
           "type": "integer"
         },
         "se_exposure": {
-          "description": "se_exposure parameter (ndarray).",
+          "description": "Their standard errors (strictly positive).",
           "type": "string"
         },
         "se_outcome": {
-          "description": "se_outcome parameter (ndarray).",
+          "description": "Their standard errors (strictly positive).",
           "type": "string"
         },
         "seed": {
-          "description": "Random seed for reproducible stochastic steps.",
+          "description": "Seed for the simulated null draws.",
           "type": "integer"
         },
         "sig_threshold": {
           "default": 0.05,
-          "description": "sig_threshold parameter (float).",
+          "description": "Level of the global and outlier tests.",
           "type": "number"
         }
       },
@@ -24495,25 +24495,25 @@
     }
   },
   {
-    "description": "GRAPPLE: profile-likelihood MR with joint weak-instrument and balanced-pleiotropy robustness (Wang et al. 2021). Model: beta_y = beta*beta_x + u, Var(u) = se_y^2 + beta^2*se_x^2 + tau^2; jointly MLE over (beta, tau^2) via L-BFGS-B; SE from observed Fisher info. Validation: certified parity evidence.",
+    "description": "GRAPPLE: profile-score MR with joint weak-instrument and balanced-pleiotropy robustness (Wang et al. 2021). Model: beta_y = beta*beta_x + u, Var(u) = se_y^2 + beta^2*se_x^2 + tau^2; robust profile-score estimating equations (beta score root + tau^2 moment equation with p-1 df); sandwich SE (the paper's S2 Text). Clean-room implementation; GRAPPLE used only as a black box. Validation: certified parity evidence.",
     "name": "grapple",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Two-sided level of the normal confidence interval.",
           "type": "number"
         },
         "beta_exposure": {
-          "description": "beta_exposure parameter (ndarray).",
+          "description": "Per-variant associations with the exposure and the outcome.",
           "type": "string"
         },
         "beta_init": {
-          "description": "Start for ``beta``; default GRAPPLE's: the maximiser of the objective at ``tau2 = 0`` over a 5000-point grid on ``+/- 2 * quantile(|by / bx|, 0.95)``.",
+          "description": "Starting value for ``beta``. By default the squared-loss GRAPPLE fit (started from the inverse-variance weighted estimate) is used, so a robust fit picks the mode of the robust objective nearest the Gaussian solution.",
           "type": "number"
         },
         "beta_outcome": {
-          "description": "beta_outcome parameter (ndarray).",
+          "description": "Per-variant associations with the exposure and the outcome.",
           "type": "string"
         },
         "k": {
@@ -24536,16 +24536,16 @@
           "type": "integer"
         },
         "se_exposure": {
-          "description": "se_exposure parameter (ndarray).",
+          "description": "Their standard errors (non-negative; ``se_outcome`` positive).",
           "type": "string"
         },
         "se_outcome": {
-          "description": "se_outcome parameter (ndarray).",
+          "description": "Their standard errors (non-negative; ``se_outcome`` positive).",
           "type": "string"
         },
         "tau2_init": {
           "default": 0.0001,
-          "description": "Start of ``tau2`` when ``beta_init`` is given (otherwise GRAPPLE's start, ``tau2 = 0``, is used). The alternation re-solves ``tau2`` first, so the start only matters for multiple roots.",
+          "description": "``tau^2`` used in the first ``beta`` step; negative values are treated as 0.",
           "type": "number"
         },
         "tol": {
@@ -24569,47 +24569,47 @@
     "parameters": {
       "properties": {
         "K_max": {
-          "description": "Maximum pleiotropy cardinality to try. Defaults to ``n_snps - 2``, the reference's ``K_vec``. Must be in ``[0, n_snps - 1]``.",
+          "description": "Largest number of invalid instruments considered. Default ``n_snps - 2`` (the paper's candidate set ``{0, ..., m - 2}``, which keeps at least two valid instruments); must lie in ``[0, n_snps - 1]``.",
           "type": "integer"
         },
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Two-sided level for the normal confidence interval.",
           "type": "number"
         },
         "beta_exposure": {
-          "description": "beta_exposure parameter (ndarray).",
+          "description": "Per-variant associations with the exposure and the outcome.",
           "type": "string"
         },
         "beta_outcome": {
-          "description": "beta_outcome parameter (ndarray).",
+          "description": "Per-variant associations with the exposure and the outcome.",
           "type": "string"
         },
         "max_iter": {
           "default": 100,
-          "description": "Stop the fixed-K iteration when ``|theta_new - theta| <= tol`` or after ``max_iter`` sweeps (the reference's rule and defaults).",
+          "description": "Maximum coordinate-descent rounds per K.",
           "type": "integer"
         },
         "model_average": {
           "default": false,
-          "description": "Average over K with weights proportional to ``exp(-BIC / 2)``; the standard error is ``sum w sqrt(se_K^2 + (theta_K - theta_MA)^2)``.",
+          "description": "Report the BIC model average (Equation 5) instead of the BIC-selected fit.",
           "type": "boolean"
         },
         "n": {
-          "description": "GWAS sample size for the BIC penalty. Required by the method; if omitted the number of variants stands in and a ``UserWarning`` is raised.",
+          "description": "GWAS sample size for the BIC penalty; the paper recommends ``min(n_exposure, n_outcome)``. When omitted the number of variants is used and a warning is issued.",
           "type": "integer"
         },
         "se_exposure": {
-          "description": "se_exposure parameter (ndarray).",
+          "description": "Their standard errors (strictly positive).",
           "type": "string"
         },
         "se_outcome": {
-          "description": "se_outcome parameter (ndarray).",
+          "description": "Their standard errors (strictly positive).",
           "type": "string"
         },
         "tol": {
           "default": 1e-07,
-          "description": "Stop the fixed-K iteration when ``|theta_new - theta| <= tol`` or after ``max_iter`` sweeps (the reference's rule and defaults).",
+          "description": "Stop when the change in theta between rounds is below ``tol``.",
           "type": "number"
         }
       },
@@ -24623,25 +24623,25 @@
     }
   },
   {
-    "description": "MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR (Zhao et al. 2020, Annals of Statistics). A port of the authors' mr.raps package: the simple and over-dispersed profile-score estimators, and the robust over-dispersed one with a Huber (default, the package's) or Tukey loss; weak-instrument corrected; resistant to a small fraction of gross pleiotropy outliers. Validation: certified parity evidence.",
+    "description": "MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR (Zhao et al. 2020, Annals of Statistics). Clean-room implementation of the paper's simple and over-dispersed profile-score estimators and the robust over-dispersed one with a Huber (default, as in mr.raps) or Tukey loss; weak-instrument corrected; resistant to a small fraction of gross pleiotropy outliers. Validation: certified parity evidence.",
     "name": "mr_raps",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "``1 - alpha`` confidence level.",
           "type": "number"
         },
         "beta_exposure": {
-          "description": "beta_exposure parameter (ndarray).",
+          "description": "Variant-exposure and variant-outcome associations.",
           "type": "string"
         },
         "beta_init": {
-          "description": "Deprecated since 1.28.0 and ignored (the fit starts from the L2 over-dispersed estimate, as mr.raps does); removed in 1.29.",
+          "description": "Deprecated since 1.28.0 and ignored (the fit starts from the L2 over-dispersed estimate); removed in 1.29.",
           "type": "number"
         },
         "beta_outcome": {
-          "description": "beta_outcome parameter (ndarray).",
+          "description": "Variant-exposure and variant-outcome associations.",
           "type": "string"
         },
         "loss": {
@@ -24655,25 +24655,25 @@
         },
         "niter": {
           "default": 20,
-          "description": "Alternating-update controls, the reference's defaults.",
+          "description": "Maximum number of alternating ``tau2`` / ``beta`` iterations.",
           "type": "integer"
         },
         "over_dispersion": {
           "default": true,
-          "description": "``False`` is only defined with ``loss=\"l2\"``.",
+          "description": "Estimate the over-dispersion variance ``tau2`` (Sections 4-5). ``False`` is the profile-score estimator of Section 3 and needs ``loss='l2'``.",
           "type": "boolean"
         },
         "pruning": {
           "default": true,
-          "description": "Drop variants with ``se_exposure > 10 * median(se_exposure)``, as the reference does by default. A warning names how many.",
+          "description": "Drop variants with ``se_exposure > 10 * median(se_exposure)``.",
           "type": "boolean"
         },
         "se_exposure": {
-          "description": "se_exposure parameter (ndarray).",
+          "description": "Their standard errors (strictly positive).",
           "type": "string"
         },
         "se_outcome": {
-          "description": "se_outcome parameter (ndarray).",
+          "description": "Their standard errors (strictly positive).",
           "type": "string"
         },
         "tau2_init": {
@@ -24682,11 +24682,11 @@
         },
         "tol": {
           "default": 1.4901161193847656e-08,
-          "description": "Alternating-update controls, the reference's defaults.",
+          "description": "Convergence threshold on the change in ``(beta, tau2)``.",
           "type": "number"
         },
         "tuning_c": {
-          "description": "Loss constant; defaults to 1.345 (Huber) or 4.685 (Tukey). Before 1.28.0 this was always the Tukey constant, so passing it without ``loss`` warns: the loss it now applies to is Huber.",
+          "description": "Loss tuning constant ``k``; default 1.345 (Huber) or 4.685 (Tukey). Ignored for ``loss='l2'``.",
           "type": "number"
         }
       },

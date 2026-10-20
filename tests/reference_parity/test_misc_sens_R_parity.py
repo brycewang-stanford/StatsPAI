@@ -388,8 +388,19 @@ def test_grapple_fit_is_aligned_and_solves_the_equations(loss):
     """Fitted values agree with grappleRobustEst to 1e-3 (beta) / 1e-4
     (tau2, SE): GRAPPLE stops optim at its default tolerance and its tau2
     root at bound * eps^0.25. StatsPAI solves both estimating equations to
-    machine precision; at GRAPPLE's point the beta score is still O(1e-3)."""
-    from statspai.mendelian.frontier.grapple import _l2_rho
+    machine precision; at GRAPPLE's point the beta score is still O(1e-3).
+
+    Tukey SEs are a documented divergence (docs/dev/cleanroom/grapple.md):
+    GRAPPLE evaluates Var[rho(Z)] with the biweight on its max-1 scale but
+    rho' on the paper's c^2/6 scale, which shrinks the tau2 SE by exactly
+    6/c^2 and moves the beta SE by ~1e-3 here. StatsPAI keeps one scale; the
+    same sandwich with GRAPPLE's mixed scale reproduces its numbers."""
+    from statspai.mendelian.frontier.grapple import (
+        _grapple_vcov,
+        _l2_rho,
+        _loss_moments,
+        _robust_rho,
+    )
     from statspai.mendelian.frontier.raps import _rho
 
     g = sp.grapple(BX, BY, SX, SY, loss=loss)
@@ -397,7 +408,28 @@ def test_grapple_fit_is_aligned_and_solves_the_equations(loss):
     assert g.converged
     _close(g.estimate, ref["beta"], rtol=1e-3)
     _close(g.tau2, ref["tau2"], rtol=1e-4)
-    _close(g.se, ref["se"], rtol=1e-4)
+    if loss == "tukey":
+        k = 4.685
+        _close(g.tau2_se * 6 / k**2, ref["tau2_se"], rtol=1e-4)
+        rho_t = _robust_rho("tukey", k)
+        mom = _loss_moments("tukey", rho_t, k)
+        V = _grapple_vcov(
+            g.estimate,
+            g.tau2,
+            BX,
+            BY,
+            SX**2,
+            SY**2,
+            rho_t,
+            mom["score_sq"],
+            mom["rho_var"] * (6 / k**2) ** 2,
+            mom["slope"],
+            mom["slope"],
+        )
+        _close(np.sqrt(V[0, 0]), ref["se"], rtol=1e-4)
+    else:
+        _close(g.se, ref["se"], rtol=1e-4)
+        _close(g.tau2_se, ref["tau2_se"], rtol=1e-4)
     rho = (
         _l2_rho if loss == "l2" else _rho(loss, {"tukey": 4.685, "huber": 1.345}[loss])
     )

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Sequence, Union
+from typing import List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -692,6 +692,43 @@ class MRPressoResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
+def _ivw_regression(bx: np.ndarray, by: np.ndarray, w: np.ndarray) -> tuple:
+    """Weighted no-intercept regression of ``by`` on ``bx`` (weights ``w``).
+
+    Returns ``(slope, se, t, p)`` with the residual-scaled standard error and
+    a t reference on ``n - 1`` degrees of freedom (an ordinary weighted
+    least-squares fit; Verbanck et al. 2018 build every MR-PRESSO estimate on
+    this IVW regression).
+    """
+    sxx = float(np.sum(w * bx**2))
+    slope = float(np.sum(w * bx * by) / sxx)
+    df = bx.size - 1
+    resid = by - slope * bx
+    se = float(np.sqrt(np.sum(w * resid**2) / df / sxx))
+    t = slope / se if se > 0 else float("inf") * np.sign(slope)
+    p = float(2 * stats.t.sf(abs(t), df))
+    return slope, se, float(t), p
+
+
+def _loo_slopes(bx: np.ndarray, by: np.ndarray, w: np.ndarray) -> np.ndarray:
+    """Leave-one-out IVW slopes along the last axis (works row-wise on 2-D)."""
+    sxy = np.sum(w * bx * by, axis=-1, keepdims=True)
+    sxx = np.sum(w * bx**2, axis=-1, keepdims=True)
+    return (sxy - w * bx * by) / (sxx - w * bx**2)
+
+
+def _presso_rss(bx: np.ndarray, by: np.ndarray, sy: np.ndarray) -> tuple:
+    """Observed MR-PRESSO residuals (Verbanck et al. 2018, global test step 2).
+
+    Returns ``(rss_obs, resid2)``: ``resid2[j] = (by_j - b_{-j} bx_j)^2`` with
+    ``b_{-j}`` the IVW slope without variant ``j``, and the global statistic
+    ``rss_obs = sum_j resid2[j] / se_outcome_j^2``.
+    """
+    w = 1.0 / sy**2
+    resid2 = (by - _loo_slopes(bx, by, w) * bx) ** 2
+    return float(np.sum(w * resid2)), resid2
+
+
 def mr_presso(
     beta_exposure: np.ndarray,
     beta_outcome: np.ndarray,
@@ -704,179 +741,197 @@ def mr_presso(
 ) -> MRPressoResult:
     """MR-PRESSO global test + outlier detection + corrected estimate.
 
-    A port of the authors' R package ``MRPRESSO::mr_presso``:
+    The Mendelian Randomization Pleiotropy RESidual Sum and Outlier method
+    of Verbanck et al. (2018), single-exposure version:
 
-    * variants are oriented to positive exposure associations;
-    * the raw and outlier-corrected estimates are weighted least squares
-      through the origin (``lm(by ~ -1 + bx, weights = 1 / se_y^2)``), with
-      the residual-scaled standard error and t(n - p) p-values;
-    * the null simulates each exposure association from N(bx, se_x) and each
-      outcome association around its *observed* leave-one-out prediction;
-    * a variant's outlier p-value compares its observed squared residual
-      from the observed leave-one-out fit with the simulated ones, and is
-      Bonferroni-adjusted (multiplied by the number of variants, capped at
-      1); the outlier test runs only when the global test rejects;
-    * the distortion test resamples non-outlier variants.
+    1. **Global test.** With ``b_{-j}`` the IVW slope fitted without variant
+       ``j``, the observed statistic is
+       ``RSS_obs = sum_j (by_j - b_{-j} bx_j)^2 / se_outcome_j^2``. Its null
+       distribution is simulated ``n_boot`` times by drawing
+       ``bx*_j ~ N(bx_j, se_exposure_j^2)`` and
+       ``by*_j ~ N(b_{-j} bx_j, se_outcome_j^2)`` and recomputing the same
+       statistic (leave-one-out slopes included) on the draws. The p-value is
+       the share of draws with ``RSS* > RSS_obs``.
+    2. **Outlier test** (only when the global test rejects at
+       ``sig_threshold``). Variant ``j``'s p-value is the share of draws in
+       which its own term exceeds the observed one, multiplied by the number
+       of variants (Bonferroni) and capped at 1. Variants below
+       ``sig_threshold`` are outliers.
+    3. **Outlier-corrected estimate**: the IVW regression without the
+       outliers.
+    4. **Distortion test**: ``D = 100 (b_raw - b_corrected) / |b_corrected|``
+       against a null in which variants are resampled from the non-outliers.
 
-    The deterministic outputs -- raw estimate / SE / p, observed RSS, and
-    the corrected estimate for a given outlier set -- match the reference
-    to machine precision. The simulated p-values cannot (different RNG).
-    They follow the reference's ``k / B`` convention, so **a p-value of 0
-    means "below the Monte Carlo resolution"**: ``< 1 / B`` for the global
-    and distortion tests, ``< n / B`` for a Bonferroni-adjusted outlier
-    p-value. The ``(k + 1) / (B + 1)`` convention cannot be used here: with
-    Bonferroni its smallest attainable outlier p-value is ``n / (B + 1)``,
-    which exceeds 0.05 for 50 variants at B = 1000, so the test could never
-    flag anything. A warning is raised when ``n_boot`` is too small to
-    resolve ``sig_threshold`` after the Bonferroni adjustment.
+    Parameters
+    ----------
+    beta_exposure, beta_outcome : array-like
+        Variant-exposure and variant-outcome associations.
+    se_exposure, se_outcome : array-like
+        Their standard errors (strictly positive).
+    n_boot : int, default 1000
+        Number of simulated null draws. The global p-value resolves ``1 /
+        n_boot`` and the Bonferroni-adjusted outlier p-values ``J / n_boot``;
+        a warning fires when ``n_boot < J / sig_threshold``.
+    sig_threshold : float, default 0.05
+        Level of the global and outlier tests.
+    seed : int, optional
+        Seed for the simulated null draws.
 
-    .. versionchanged:: 1.28.0
-       Brought in line with the reference: the per-variant outlier p-values
-       were not Bonferroni-adjusted (seven outliers flagged on the LDL-C /
-       CHD example where MR-PRESSO flags two, moving the corrected estimate
-       2.4%), standard errors were fixed-effect rather than
-       residual-scaled (half the reference's there), p-values came from
-       ``1 - Phi(z)`` and read exactly 0.0, the outlier test ran even when
-       the global test did not reject, and the "distortion test" was a
-       z-test on the difference of two estimates rather than PRESSO's
-       resampling test.
+    Returns
+    -------
+    MRPressoResult
+        IVW estimates use the residual-scaled standard error and a t test on
+        ``n - 1`` degrees of freedom. Simulated p-values are ``k / n_boot``
+        (0 means "below the Monte Carlo resolution"). ``outlier_pvalues`` is
+        ``None`` when the outlier test was not run; the corrected estimate and
+        the distortion test are ``None`` when no outlier was found.
+
+    Raises
+    ------
+    ValueError
+        On mismatched lengths, fewer than 3 variants, non-finite input,
+        non-positive standard errors, ``n_boot < 1`` or ``sig_threshold``
+        outside ``(0, 1)``.
 
     Examples
     --------
     >>> import numpy as np
     >>> import statspai as sp
     >>> rng = np.random.default_rng(0)
-    >>> n = 12
-    >>> beta_exposure = rng.uniform(0.2, 0.5, n)
-    >>> beta_outcome = 0.3 * beta_exposure + rng.normal(0, 0.02, n)
-    >>> se_exposure = rng.uniform(0.02, 0.05, n)
-    >>> se_outcome = rng.uniform(0.02, 0.05, n)
-    >>> res = sp.mr_presso(
-    ...     beta_exposure, beta_outcome, se_exposure, se_outcome,
-    ...     n_boot=500, seed=0,
-    ... )
-    >>> bool(0.0 <= res.global_test_pvalue <= 1.0)
+    >>> bx = rng.uniform(0.2, 0.5, 15)
+    >>> sx = np.full(15, 0.02)
+    >>> sy = np.full(15, 0.02)
+    >>> by = 0.3 * bx + rng.normal(0, 0.02, 15)
+    >>> by[0] += 0.5
+    >>> res = sp.mr_presso(bx, by, sx, sy, n_boot=500, seed=0)
+    >>> 0 in res.outliers
     True
-    >>> isinstance(res.outliers, list)
-    True
+
+    Notes
+    -----
+    Clean-room implementation from Verbanck et al. (2018); the reference
+    (R ``MRPRESSO`` 1.0, GPL-3) was used only as a black box. Its
+    deterministic outputs (IVW fits, observed RSS, outlier-corrected fit,
+    distortion coefficient) are matched exactly; its simulated p-values are
+    compared as distributions (``docs/dev/cleanroom/mr_presso.md``).
 
     References
     ----------
-    [@verbanck2018detection]
+    verbanck2018detection
     """
-    rng = np.random.default_rng(seed)
-    bx = np.asarray(beta_exposure, dtype=float)
-    by = np.asarray(beta_outcome, dtype=float)
-    sx = np.asarray(se_exposure, dtype=float)
-    sy = np.asarray(se_outcome, dtype=float)
-    sign = np.where(bx < 0, -1.0, 1.0)
-    bx, by = bx * sign, by * sign
-    w = 1.0 / sy**2
-    n = len(bx)
-    if n <= 3:
-        raise ValueError("mr_presso: not enough instrumental variables (need > 3)")
-    if n >= n_boot:
-        raise ValueError("mr_presso: n_boot must exceed the number of variants")
-
-    def _wls(mask: Any) -> Any:
-        """lm(by ~ -1 + bx, weights = w): estimate, residual-scaled SE, p."""
-        xw, yw = bx[mask] * np.sqrt(w[mask]), by[mask] * np.sqrt(w[mask])
-        beta = float(xw @ yw / (xw @ xw))
-        df = int(mask.sum()) - 1
-        s2 = float(np.sum((yw - beta * xw) ** 2)) / df
-        se = float(np.sqrt(s2 / (xw @ xw)))
-        pval = float(2.0 * stats.t.sf(abs(beta / se), df)) if se > 0 else 1.0
-        return beta, se, pval
-
-    def _loo_betas(x: Any, y: Any) -> Any:
-        xw, yw = x * np.sqrt(w), y * np.sqrt(w)
-        sxx, sxy = float(xw @ xw), float(xw @ yw)
-        return (sxy - xw * yw) / (sxx - xw * xw)
-
-    def _rss(x: Any, y: Any) -> Any:
-        xw, yw = x * np.sqrt(w), y * np.sqrt(w)
-        return float(np.sum((yw - _loo_betas(x, y) * xw) ** 2))
-
-    all_mask = np.ones(n, dtype=bool)
-    raw_beta, raw_se, raw_p = _wls(all_mask)
-    beta_loo_obs = _loo_betas(bx, by)
-    rss_obs = _rss(bx, by)
-
-    # Null data sets: exposure ~ N(bx, sx); outcome_i ~ N(beta_{-i} bx_i, sy_i)
-    # around the OBSERVED leave-one-out prediction, as getRandomData builds.
-    sim_bx = rng.normal(bx, sx, size=(n_boot, n))
-    sim_by = rng.normal(beta_loo_obs * bx, sy, size=(n_boot, n))
-    rss_exp = np.array([_rss(sim_bx[b], sim_by[b]) for b in range(n_boot)])
-    p_global = float(np.sum(rss_exp > rss_obs) / n_boot)
-    if n / n_boot > sig_threshold:
+    bx, by, sx, sy = (
+        np.asarray(a, dtype=float).ravel()
+        for a in (beta_exposure, beta_outcome, se_exposure, se_outcome)
+    )
+    n = bx.size
+    if not (by.size == sx.size == sy.size == n):
+        raise ValueError("mr_presso: all four inputs must have the same length")
+    if n < 3:
+        raise ValueError(f"mr_presso needs at least 3 variants; got {n}")
+    if not all(np.all(np.isfinite(a)) for a in (bx, by, sx, sy)):
+        raise ValueError("mr_presso: inputs must be finite")
+    if np.any(sx <= 0) or np.any(sy <= 0):
+        raise ValueError("mr_presso: standard errors must be strictly positive")
+    n_boot = int(n_boot)
+    if n_boot < 1:
+        raise ValueError(f"mr_presso: n_boot must be >= 1; got {n_boot}")
+    if not 0 < sig_threshold < 1:
+        raise ValueError(
+            f"mr_presso: sig_threshold must lie in (0, 1); got {sig_threshold}"
+        )
+    if n_boot * sig_threshold < n:
         warnings.warn(
-            f"mr_presso: n_boot={n_boot} cannot resolve sig_threshold={sig_threshold} "
-            f"after the Bonferroni adjustment for {n} variants "
-            f"(resolution {n}/{n_boot}); "
-            "only variants that no simulated draw exceeds can be flagged. "
-            f"Use n_boot >= {int(np.ceil(n / sig_threshold))}.",
+            f"mr_presso: n_boot={n_boot} cannot resolve sig_threshold="
+            f"{sig_threshold:g} after the Bonferroni adjustment for {n} variants: "
+            f"one exceeding draw already gives an adjusted p of {n}/{n_boot}, so "
+            f"only variants that no draw exceeds can be flagged. Use n_boot >= "
+            f"{int(np.ceil(n / sig_threshold))}.",
             UserWarning,
             stacklevel=2,
         )
 
-    base = dict(
-        raw_estimate=raw_beta,
-        raw_se=raw_se,
-        raw_p=raw_p,
-        global_test_rss_obs=rss_obs,
-        global_test_pvalue=p_global,
-    )
-    if p_global >= sig_threshold:
-        return MRPressoResult(
-            outlier_corrected_estimate=None,
-            outlier_corrected_se=None,
-            outlier_corrected_p=None,
-            outliers=[],
-            **base,
-        )
+    w = 1.0 / sy**2
+    raw_b, raw_se, _, raw_p = _ivw_regression(bx, by, w)
+    rss_obs, resid2 = _presso_rss(bx, by, sy)
+    rss_obs_j = w * resid2
 
-    dif2 = (by - bx * beta_loo_obs) ** 2
-    exp2 = (sim_by - sim_bx * beta_loo_obs[None, :]) ** 2
-    p_snp = np.sum(exp2 > dif2[None, :], axis=0) / n_boot
-    p_snp = np.minimum(p_snp * n, 1.0)
-    outliers = [int(i) for i in range(n) if p_snp[i] <= sig_threshold]
+    # Null draws (global test step 3): exposure around its estimate, outcome
+    # around the leave-one-out prediction; the statistic is recomputed on the
+    # draws, leave-one-out slopes included.
+    rng = np.random.default_rng(seed)
+    pred = _loo_slopes(bx, by, w) * bx
+    draw_x = bx + sx * rng.standard_normal((n_boot, n))
+    draw_y = pred + sy * rng.standard_normal((n_boot, n))
+    rss_null_j = w * (draw_y - _loo_slopes(draw_x, draw_y, w) * draw_x) ** 2
+    global_p = float(np.mean(rss_null_j.sum(axis=1) > rss_obs))
 
-    if not outliers or len(outliers) == n:
-        return MRPressoResult(
-            outlier_corrected_estimate=None,
-            outlier_corrected_se=None,
-            outlier_corrected_p=None,
-            outliers=outliers,
-            outlier_pvalues=[float(v) for v in p_snp],
-            **base,
-        )
+    outlier_p: Optional[np.ndarray] = None
+    outliers: List[int] = []
+    if global_p < sig_threshold:
+        outlier_p = np.minimum(1.0, n * np.mean(rss_null_j > rss_obs_j, axis=0))
+        outliers = [int(i) for i in np.flatnonzero(outlier_p < sig_threshold)]
 
-    keep = np.ones(n, dtype=bool)
-    keep[outliers] = False
-    c_beta, c_se, c_p = _wls(keep)
-
-    # Distortion test: resample n - k indices (with replacement) from the
-    # non-outliers, refit, and compare relative biases.
-    non_out = np.flatnonzero(keep)
-    bias_obs = (raw_beta - c_beta) / abs(c_beta)
-    bias_exp = np.empty(n_boot)
-    for b in range(n_boot):
-        idx = rng.choice(non_out, size=n - len(outliers), replace=True)
-        xw, yw = bx[idx] * np.sqrt(w[idx]), by[idx] * np.sqrt(w[idx])
-        br = float(xw @ yw / (xw @ xw))
-        bias_exp[b] = (raw_beta - br) / abs(br)
-    dist_p = float(np.sum(np.abs(bias_exp) > abs(bias_obs)) / n_boot)
+    cor_b = cor_se = cor_p = dist_p = dist_coef = None
+    if outliers:
+        keep = np.ones(n, dtype=bool)
+        keep[outliers] = False
+        if keep.sum() < 2:
+            warnings.warn(
+                f"mr_presso: {len(outliers)} of {n} variants flagged; fewer than 2 "
+                "remain, so no outlier-corrected estimate is reported.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            cor_b, cor_se, _, cor_p = _ivw_regression(bx[keep], by[keep], w[keep])
+            dist_coef = 100.0 * (raw_b - cor_b) / abs(cor_b)
+            dist_p = _distortion_pvalue(bx, by, w, keep, raw_b, dist_coef, n_boot, rng)
 
     return MRPressoResult(
-        outlier_corrected_estimate=c_beta,
-        outlier_corrected_se=c_se,
-        outlier_corrected_p=c_p,
+        raw_estimate=raw_b,
+        raw_se=raw_se,
+        raw_p=raw_p,
+        outlier_corrected_estimate=cor_b,
+        outlier_corrected_se=cor_se,
+        outlier_corrected_p=cor_p,
         outliers=outliers,
+        global_test_rss_obs=rss_obs,
+        global_test_pvalue=global_p,
         distortion_p=dist_p,
-        outlier_pvalues=[float(v) for v in p_snp],
-        distortion_coefficient=float(100.0 * bias_obs),
-        **base,
+        outlier_pvalues=None if outlier_p is None else [float(v) for v in outlier_p],
+        distortion_coefficient=dist_coef,
     )
+
+
+def _distortion_pvalue(
+    bx: np.ndarray,
+    by: np.ndarray,
+    w: np.ndarray,
+    keep: np.ndarray,
+    raw_b: float,
+    dist_coef: float,
+    n_boot: int,
+    rng: np.random.Generator,
+) -> float:
+    """Simulated p-value of the MR-PRESSO distortion test.
+
+    Verbanck et al. (2018): the null replaces the ``n_out`` outliers by
+    ``n_out`` variants drawn with replacement from the non-outliers, keeping
+    ``J`` variants. For each draw the IVW slope ``b_null`` of that set plays
+    the role of the corrected estimate, ``D_null = 100 (b_raw - b_null) /
+    |b_null|``, and the p-value is the share of draws with ``|D_null| >
+    |D_obs|``.
+    """
+    non = np.flatnonzero(keep)
+    n_out = bx.size - non.size
+    extra = rng.choice(non, size=(n_boot, n_out), replace=True)
+    sxy_non = float(np.sum(w[non] * bx[non] * by[non]))
+    sxx_non = float(np.sum(w[non] * bx[non] ** 2))
+    sxy = sxy_non + np.sum(w[extra] * bx[extra] * by[extra], axis=1)
+    sxx = sxx_non + np.sum(w[extra] * bx[extra] ** 2, axis=1)
+    b_null = sxy / sxx
+    d_null = 100.0 * (raw_b - b_null) / np.abs(b_null)
+    return float(np.mean(np.abs(d_null) > abs(dist_coef)))
 
 
 # --------------------------------------------------------------------------- #

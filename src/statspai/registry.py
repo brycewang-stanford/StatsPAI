@@ -23762,11 +23762,13 @@ def _build_registry() -> None:
             name="grapple",
             category="mendelian",
             description=(
-                "GRAPPLE: profile-likelihood MR with joint weak-instrument "
+                "GRAPPLE: profile-score MR with joint weak-instrument "
                 "and balanced-pleiotropy robustness (Wang et al. 2021). "
                 "Model: beta_y = beta*beta_x + u, Var(u) = se_y^2 + "
-                "beta^2*se_x^2 + tau^2; jointly MLE over (beta, tau^2) via "
-                "L-BFGS-B; SE from observed Fisher info."
+                "beta^2*se_x^2 + tau^2; robust profile-score estimating "
+                "equations (beta score root + tau^2 moment equation with "
+                "p-1 df); sandwich SE (the paper's S2 Text). Clean-room "
+                "implementation; GRAPPLE used only as a black box."
             ),
             params=[
                 ParamSpec("beta_exposure", "ndarray", True),
@@ -23865,9 +23867,9 @@ def _build_registry() -> None:
             description=(
                 "MR-RAPS: Robust Adjusted Profile Score for two-sample "
                 "summary-data MR (Zhao et al. 2020, Annals of Statistics). "
-                "A port of the authors' mr.raps package: the simple and "
-                "over-dispersed profile-score estimators, and the robust "
-                "over-dispersed one with a Huber (default, the package's) "
+                "Clean-room implementation of the paper's simple and "
+                "over-dispersed profile-score estimators and the robust "
+                "over-dispersed one with a Huber (default, as in mr.raps) "
                 "or Tukey loss; weak-instrument corrected; resistant to a "
                 "small fraction of gross pleiotropy outliers."
             ),
@@ -23896,7 +23898,7 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Deprecated since 1.28.0 and ignored (the fit starts from the L2 "
-                    "over-dispersed estimate, as mr.raps does); removed in 1.29.",
+                    "over-dispersed estimate); removed in 1.29.",
                 ),
                 ParamSpec(
                     "tau2_init",

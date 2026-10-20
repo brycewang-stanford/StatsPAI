@@ -231,8 +231,9 @@ print(res.outliers)                          # flagged SNP indices
 print(res.outlier_corrected_estimate)        # re-IVW after dropping outliers
 ```
 
-A port of `MRPRESSO::mr_presso`: outlier p-values are Bonferroni-adjusted
-and the outlier test runs only when the global test rejects. Simulated
+Implemented from Verbanck et al. (2018) and checked against `MRPRESSO`
+1.0 as a black box: outlier p-values are Bonferroni-adjusted and the outlier
+test runs only when the global test rejects. Simulated
 p-values follow the package's `k / B` convention, so `0` means "below the
 Monte Carlo resolution"; use `n_boot ≥ n_snps / sig_threshold` so the
 adjusted outlier test can reject at all (a warning fires otherwise).
@@ -279,7 +280,7 @@ print(res.f_mean, res.f_min, res.weak_instrument_risk)
 `f_min < 10` → the weakest SNP is a weak instrument → MR estimates
 can be biased toward the confounded observational estimate. Remedy:
 drop the weak SNPs or use an estimator built for weak instruments —
-`sp.mr_raps` (a port of `mr.raps`) or `sp.grapple`.
+`sp.mr_raps` (Zhao et al. 2020) or `sp.grapple`.
 
 Reference: Staiger & Stock (1997), *Econometrica* 65(3).
 

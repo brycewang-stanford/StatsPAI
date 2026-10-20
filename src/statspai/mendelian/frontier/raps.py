@@ -1,42 +1,42 @@
-"""MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR.
+"""MR-RAPS: robust adjusted profile score for two-sample summary-data MR.
 
-Reference
----------
-Zhao, Q., Wang, J., Hemani, G., Bowden, J. & Small, D.S. (2020).
-"Statistical inference in two-sample summary-data Mendelian
-randomization using robust adjusted profile score."
-*The Annals of Statistics*, 48(3), 1742-1769.
+Model (Zhao, Wang, Hemani, Bowden & Small 2020, Sections 3-5)
+--------------------------------------------------------------
+Variant ``j`` contributes an exposure association :math:`\\hat\\gamma_j \\sim
+N(\\gamma_j, \\sigma_{Xj}^2)` and an outcome association :math:`\\hat\\Gamma_j
+\\sim N(\\beta\\gamma_j, \\sigma_{Yj}^2 + \\tau^2)`. Three estimators are offered.
 
-A port of the authors' R package ``mr.raps`` (0.4.3, github
-qingyuanzhao/mr.raps), variant for variant:
+* ``over_dispersion=False`` (``loss="l2"``): the profile-likelihood
+  estimator of Section 3, :math:`\\hat\\beta = \\arg\\max_\\beta l(\\beta)` with
+  :math:`l(\\beta) = -\\tfrac12\\sum_j (\\hat\\Gamma_j - \\beta\\hat\\gamma_j)^2 /
+  (\\sigma_{Xj}^2\\beta^2 + \\sigma_{Yj}^2)` (eq. 3.2), standard error
+  :math:`\\hat V_1^{1/2} / \\hat V_2` (Theorem 3.3).
+* ``over_dispersion=True, loss="l2"``: the adjusted profile score (APS)
+  estimator, the finite root of eqs. (4.2)-(4.3), sandwich variance of
+  Theorem 4.2.
+* ``over_dispersion=True, loss="huber" | "tukey"``: the robust adjusted
+  profile score (RAPS), the root of eqs. (5.2)-(5.3) with
+  :math:`t_j = (\\hat\\Gamma_j - \\beta\\hat\\gamma_j) / (\\sigma_{Xj}^2\\beta^2 +
+  \\sigma_{Yj}^2 + \\tau^2)^{1/2}` and :math:`\\delta = E[Z\\rho'(Z)]`, sandwich
+  variance of Theorem 5.2.
 
-* ``over_dispersion=False, loss="l2"`` -- ``mr.raps.simple``;
-* ``over_dispersion=True,  loss="l2"`` -- ``mr.raps.overdispersed``;
-* ``over_dispersion=True,  loss="huber" | "tukey"`` --
-  ``mr.raps.overdispersed.robust`` (the package's ``mr.raps()`` default is
-  Huber with k = 1.345).
+Clean-room implementation written from the paper (``zhao2020statistical``)
+and the specification ``docs/dev/cleanroom/mr_raps.md``. The reference
+(R ``mr.raps`` 0.4.3, GPL-3) was used only as a black box: its help pages and
+its outputs on committed data (``tests/reference_parity/_fixtures``).
 
-Model
------
-.. math::
-
-   \\beta_{y,i} = \\beta \\beta_{x,i} + u_i,
-   \\qquad u_i \\sim \\mathcal{N}(
-   0, s_{y,i}^2 + \\beta^2 s_{x,i}^2 + \\tau^2).
-
-The robust variant replaces the Gaussian profile log-likelihood with
-:math:`-\\tfrac12\\sum \\rho(t_i)`, :math:`t_i` the standardised residual,
-estimates :math:`\\tau^2` from the moment equation
-:math:`\\sum s_{x,i}^2 (t_i\\rho'(t_i) - \\delta) / (\\tau^2 + s_{y,i}^2 +
-s_{x,i}^2\\beta^2) = 0` with :math:`\\delta = E[Z\\rho'(Z)]`, and reports the
-joint :math:`(\\beta, \\tau^2)` sandwich variance.
+References
+----------
+zhao2020statistical
 """
 
 from __future__ import annotations
 
+import math
 import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Tuple
+from functools import lru_cache
+from typing import Callable, Optional, Tuple
 
 import numpy as np
 from scipy import integrate, optimize, stats
@@ -45,6 +45,19 @@ from ..._result_serialize import ResultProtocolMixin
 from ._common import as_float_arrays
 
 _EPS_HALF = float(np.finfo(float).eps ** 0.5)
+_SQRT_2PI = math.sqrt(2.0 * math.pi)
+
+#: Default tuning constants (95% Gaussian efficiency in the location model,
+#: Zhao et al. 2020, Section 5.3).
+_DEFAULT_TUNING = {"huber": 1.345, "tukey": 4.685}
+
+#: Variants whose ``se_exposure`` exceeds this multiple of the median are
+#: dropped when ``pruning=True`` (convention checked against the reference).
+_PRUNE_RATIO = 10.0
+
+#: Gaussian moments of the squared-error loss rho(r) = r^2 / 2:
+#: (delta, E[rho'^2], Var(Z rho'(Z)), E[Z^2 rho'']).
+_L2_MOMENTS = (1.0, 1.0, 2.0, 1.0)
 
 
 @dataclass
@@ -54,17 +67,25 @@ class MRRapsResult(ResultProtocolMixin):
     Attributes
     ----------
     estimate : float
+        Causal effect estimate.
     se : float
-        From the reference's asymptotic variance: ``sqrt(score_var / I^2)``
-        for the simple model, the ``(beta, tau2)`` sandwich otherwise.
+        Asymptotic standard error: Theorem 3.3 of Zhao et al. (2020) for the
+        model without over-dispersion, the ``beta`` entry of the joint
+        ``(beta, tau2)`` sandwich (Theorems 4.2 / 5.2) otherwise.
     ci_lower, ci_upper : float
+        Normal confidence interval at level ``1 - alpha``.
     p_value : float
+        Two-sided normal p-value for ``beta = 0``.
     tau2 : float
-        Over-dispersion (0 for the simple model).
+        Over-dispersion variance (0 for the model without it).
     tau2_se : float
+        Standard error of ``tau2`` (``nan`` without over-dispersion).
     loglik_robust : float
-        Profile objective at the estimate (robust or Gaussian).
+        Objective at the estimate, ``-sum_j rho(t_j)`` (eq. 5.1, which is the
+        profile log-likelihood (3.2) when ``rho(r) = r^2 / 2``).
     converged : bool
+        Whether the estimating equations were solved within ``niter``
+        iterations to ``tol``.
     tuning_c : float
         Loss tuning constant (``nan`` for ``loss="l2"``).
     n_snps : int
@@ -92,6 +113,8 @@ class MRRapsResult(ResultProtocolMixin):
     True
     """
 
+    _citation_keys = ("zhao2020statistical",)
+
     estimate: float
     se: float
     ci_lower: float
@@ -108,283 +131,336 @@ class MRRapsResult(ResultProtocolMixin):
     n_pruned: int = 0
 
     def summary(self) -> str:
-        ci = f"[{self.ci_lower:+.4f}, {self.ci_upper:+.4f}]"
-        conv = "converged" if self.converged else "DID NOT CONVERGE"
-        variant = (
-            "simple"
-            if not self.over_dispersion
-            else f"over-dispersed, {self.loss}"
-            + ("" if self.loss == "l2" else f" (k = {self.tuning_c:g})")
-        )
-        return (
-            "MR-RAPS (Robust Adjusted Profile Score)\n" + "=" * 62 + "\n"
-            f"  variant       : {variant}\n"
+        if self.over_dispersion:
+            label = {
+                "l2": "adjusted profile score",
+                "huber": "robust adjusted profile score, Huber loss",
+                "tukey": "robust adjusted profile score, Tukey biweight",
+            }[self.loss]
+        else:
+            label = "profile score, no over-dispersion"
+        tuning = "" if self.loss == "l2" else f" (k = {self.tuning_c:g})"
+        lines = [
+            f"MR-RAPS ({label}){tuning}",
+            "=" * 62,
             f"  n SNPs        : {self.n_snps}"
-            + (f"  ({self.n_pruned} pruned)" if self.n_pruned else "")
-            + "\n"
-            f"  causal β      : {self.estimate:+.4f}   SE = {self.se:.4f}\n"
-            f"  95% CI        : {ci}\n"
-            f"  p-value       : {self.p_value:.4g}\n"
-            f"  pleiotropy τ² : {self.tau2:.4g}\n"
-            f"  objective     : {self.loglik_robust:.3f}  ({conv})"
-        )
+            + (f"  ({self.n_pruned} pruned)" if self.n_pruned else ""),
+            f"  estimate      : {self.estimate:+.4f}  (SE {self.se:.4f})",
+            f"  CI            : [{self.ci_lower:+.4f}, {self.ci_upper:+.4f}]",
+            f"  p-value       : {self.p_value:.4g}",
+        ]
+        if self.over_dispersion:
+            lines.append(f"  tau^2         : {self.tau2:.4g}  (SE {self.tau2_se:.3g})")
+        conv = "converged" if self.converged else "NOT converged"
+        lines.append(f"  objective     : {self.loglik_robust:.3f}  ({conv})")
+        return "\n".join(lines)
 
 
-# ── loss functions, exactly as mr.raps:::rho.huber / rho.tukey ─────────────
+# --------------------------------------------------------------------------- #
+#  Loss functions and their Gaussian moments
+# --------------------------------------------------------------------------- #
 
 
 def _rho(loss: str, k: float) -> Callable[..., np.ndarray]:
+    """Robust loss ``rho(r; k)`` and its first two derivatives.
+
+    ``deriv=0`` is the loss of Zhao et al. (2020), Section 5.1:
+    Huber ``r^2/2`` inside ``[-k, k]`` and ``k(|r| - k/2)`` outside; Tukey
+    ``1 - (1 - (r/k)^2)^3`` inside and ``1`` outside. ``deriv=1`` and
+    ``deriv=2`` return the score function and its derivative. For Tukey the
+    score is the usual biweight ``r (1 - (r/k)^2)^2``, i.e. ``k^2/6`` times the
+    derivative of the bounded loss above; the estimating equations and the
+    sandwich variance are invariant to that factor (it cancels between the
+    two Gaussian moments that enter each), and it is the scaling the
+    reference's documented ``rho.tukey`` returns.
+    """
     if loss == "huber":
 
-        def rho(r: Any, deriv: int = 0) -> Any:
+        def rho(r: np.ndarray, deriv: int = 0) -> np.ndarray:
             r = np.asarray(r, dtype=float)
-            a = np.abs(r) <= k
+            inside = np.abs(r) <= k
             if deriv == 0:
-                return np.where(a, r**2 / 2, k * (np.abs(r) - k / 2))
+                return np.where(inside, 0.5 * r**2, k * (np.abs(r) - 0.5 * k))
             if deriv == 1:
-                return np.where(a, r, k * np.sign(r))
-            return np.where(a, 1.0, 0.0)
+                return np.clip(r, -k, k)
+            return inside.astype(float)
 
-        return rho
+    elif loss == "tukey":
 
-    def rho(r: Any, deriv: int = 0) -> Any:  # Tukey, with the package's own scaling
-        r = np.asarray(r, dtype=float)
-        if deriv == 0:
-            return np.minimum(1 - (1 - (r / k) ** 2) ** 3, 1.0)
-        if deriv == 1:
-            return r * (1 - (r / k) ** 2) ** 2 * (np.abs(r) <= k)
-        t = (r / k) ** 2
-        return np.where(t < 1, (1 - t) * (1 - 5 * t), 0.0)
+        def rho(r: np.ndarray, deriv: int = 0) -> np.ndarray:
+            r = np.asarray(r, dtype=float)
+            u2 = (r / k) ** 2
+            inside = u2 <= 1.0
+            if deriv == 0:
+                return np.where(inside, 1.0 - (1.0 - u2) ** 3, 1.0)
+            if deriv == 1:
+                return np.where(inside, r * (1.0 - u2) ** 2, 0.0)
+            return np.where(inside, (1.0 - u2) * (1.0 - 5.0 * u2), 0.0)
 
+    else:
+        raise ValueError(f"unknown robust loss {loss!r}")
     return rho
 
 
 def _gauss_moment(f: Callable[[float], float]) -> float:
-    return float(
-        integrate.quad(lambda x: float(f(x)) * stats.norm.pdf(x), -np.inf, np.inf)[0]
-    )
+    """``E[f(Z)]`` for ``Z ~ N(0, 1)`` by adaptive quadrature."""
 
+    def integrand(x: float) -> float:
+        return float(f(x)) * math.exp(-0.5 * x * x) / _SQRT_2PI
 
-# ── the three estimators ────────────────────────────────────────────────────
-
-
-def _raps_simple(bx: Any, by: Any, sx: Any, sy: Any) -> Tuple[float, float]:
-    def negll(b: Any) -> Any:
-        return 0.5 * np.sum((by - bx * b) ** 2 / (sy**2 + sx**2 * b**2))
-
-    bound = float(np.quantile(np.abs(by / bx), 0.95)) * 2
-    beta = _bounded_argmin(negll, bound)
-    while abs(beta) > 0.95 * bound:
-        bound *= 2
-        beta = _bounded_argmin(negll, bound)
-    d = (sy**2 + beta**2 * sx**2) ** 2
-    score_var = np.sum(
-        ((bx**2 - sx**2) * sy**2 + (by**2 - sy**2) * sx**2 + sx**2 * sy**2) / d
-    )
-    info = np.sum(((bx**2 - sx**2) * sy**2 + (by**2 - sy**2) * sx**2) / d)
-    return float(beta), float(np.sqrt(score_var / info**2))
-
-
-def _bounded_argmin(f: Any, bound: float) -> float:
-    """Golden-section / Brent on [-bound, bound] to R optimize()'s tolerance."""
-    res = optimize.minimize_scalar(
-        f, bounds=(-bound, bound), method="bounded", options={"xatol": _EPS_HALF}
-    )
-    return float(res.x)
-
-
-def _raps_overdispersed(
-    bx: Any, by: Any, sx: Any, sy: Any, niter: int, tol: float
-) -> Any:
-    beta, _ = _raps_simple(bx, by, sx, sy)
-    tau2 = 0.0
-    bound_beta = float(np.quantile(np.abs(by / bx), 0.95)) * 10
-    bound_tau2 = float(np.quantile(sy**2, 0.95)) * 100
-
-    def negll_fixbeta(t2: Any, b: Any) -> Any:
-        v = t2 + sy**2 + sx**2 * b**2
-        return 0.5 * np.sum(sx**2 * np.log(v)) + 0.5 * np.sum(
-            sx**2 * (by - bx * b) ** 2 / v
+    # The robust scores are piecewise smooth with kinks inside [-10, 10];
+    # splitting there lets quad resolve them, the tails are negligible.
+    total = 0.0
+    edges = (-np.inf, -10.0, -5.0, 0.0, 5.0, 10.0, np.inf)
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        val, _ = integrate.quad(
+            integrand, lo, hi, epsabs=1e-14, epsrel=1e-12, limit=200
         )
-
-    def negll_fixtau(b: Any, t2: Any) -> Any:
-        return 0.5 * np.sum((by - bx * b) ** 2 / (t2 + sy**2 + sx**2 * b**2))
-
-    converged = False
-    for _ in range(niter):
-        b_old, t_old = beta, tau2
-        tau2 = float(
-            optimize.minimize_scalar(
-                lambda t2: negll_fixbeta(t2, beta),
-                bounds=(0.0, bound_tau2),
-                method="bounded",
-                options={"xatol": _EPS_HALF},
-            ).x
-        )
-        beta = _bounded_argmin(lambda b: negll_fixtau(b, tau2), bound_beta)
-        ext = 0
-        while abs(beta) > 0.95 * bound_beta and ext <= niter:
-            ext += 1
-            bound_beta *= 2
-            beta = _bounded_argmin(lambda b: negll_fixtau(b, tau2), bound_beta)
-        if (
-            abs(b_old - beta) / abs(beta + 1e-10)
-            + abs(t_old - tau2) / abs(tau2 + 1e-10)
-            <= tol
-        ):
-            converged = True
-            break
-    v = tau2 + sy**2 + sx**2 * beta**2
-    score_var = np.diag(
-        [
-            np.sum(
-                (
-                    (bx**2 - sx**2) * (tau2 + sy**2)
-                    + (by**2 - tau2 - sy**2) * sx**2
-                    + sx**2 * (tau2 + sy**2)
-                )
-                / v**2
-            ),
-            np.sum(2 * sx**4 / v**2),
-        ]
-    )
-    info = np.array(
-        [
-            [
-                -np.sum(
-                    ((bx**2 - sx**2) * (tau2 + sy**2) + (by**2 - tau2 - sy**2) * sx**2)
-                    / v**2
-                ),
-                -np.sum(sx**2 * beta / v**2),
-            ],
-            [0.0, -np.sum(sx**2 / v**2)],
-        ]
-    )
-    return beta, tau2, _sandwich(info, score_var), negll_fixtau(beta, tau2), converged
+        total += val
+    return float(total)
 
 
-def _sandwich(info: np.ndarray, score_var: np.ndarray) -> np.ndarray:
-    # R builds I column-wise: matrix(c(a, 0, b, d), 2, 2) = [[a, b], [0, d]].
-    Ii = np.linalg.inv(info)
-    return Ii @ score_var @ Ii.T
-
-
-def _robust_vcov(
-    bx: Any, by: Any, sx: Any, sy: Any, beta: Any, tau2: Any, consts: Any
-) -> np.ndarray:
-    """Sandwich covariance of (beta, tau2) for a robust loss.
-
-    ``consts`` = (delta, c1, c2, c3), the loss's Gaussian moments. Split out
-    so the formula can be checked at the reference's own estimates and
-    constants, independently of how tightly either side solves for them.
-    """
-    delta, c1, c2, c3 = consts
-    v = tau2 + sy**2 + sx**2 * beta**2
-    score_var = np.diag(
-        [
-            c1
-            * np.sum(
-                (
-                    (bx**2 - sx**2) * (tau2 + sy**2)
-                    + (by**2 - tau2 - sy**2) * sx**2
-                    + sx**2 * (tau2 + sy**2)
-                )
-                / v**2
-            ),
-            (c2 / 2) * np.sum(2 * sx**4 / v**2),
-        ]
-    )
-    info = np.array(
-        [
-            [
-                -delta
-                * np.sum(
-                    ((bx**2 - sx**2) * (tau2 + sy**2) + (by**2 - tau2 - sy**2) * sx**2)
-                    / v**2
-                ),
-                -delta * np.sum(sx**2 * beta / v**2),
-            ],
-            [0.0, -(delta + c3) / 2 * np.sum(sx**2 / v**2)],
-        ]
-    )
-    return _sandwich(info, score_var)
-
-
-def _raps_robust(
-    bx: Any, by: Any, sx: Any, sy: Any, loss: str, k: float, niter: int, tol: float
-) -> Any:
+@lru_cache(maxsize=32)
+def _loss_moments(loss: str, k: float) -> Tuple[float, float, float, float]:
+    """``(delta, c1, var(Z rho'(Z)), c3)`` of Theorem 5.2 for ``Z ~ N(0, 1)``."""
+    if loss == "l2":
+        return _L2_MOMENTS
     rho = _rho(loss, k)
     delta = _gauss_moment(lambda x: x * rho(x, 1))
     c1 = _gauss_moment(lambda x: rho(x, 1) ** 2)
-    c2 = _gauss_moment(lambda x: x**2 * rho(x, 1) ** 2) - delta**2
+    var_zpsi = _gauss_moment(lambda x: (x * rho(x, 1)) ** 2) - delta**2
     c3 = _gauss_moment(lambda x: x**2 * rho(x, 2))
+    return delta, c1, var_zpsi, c3
 
-    def neg_robust(b: Any, t2: Any) -> Any:
-        return 0.5 * np.sum(
-            rho((by - bx * b) / np.sqrt(np.maximum(0.0, t2 + sy**2 + sx**2 * b**2)))
+
+# --------------------------------------------------------------------------- #
+#  Estimating equations
+# --------------------------------------------------------------------------- #
+
+
+def _standardized_residuals(
+    bx: np.ndarray,
+    by: np.ndarray,
+    sx: np.ndarray,
+    sy: np.ndarray,
+    beta: float,
+    tau2: float,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Residual ``r``, variance ``v`` and ``t = r / sqrt(v)`` at ``(beta, tau2)``."""
+    resid = by - beta * bx
+    var = sx**2 * beta**2 + sy**2 + tau2
+    return resid, var, resid / np.sqrt(var)
+
+
+def _beta_score(bx, by, sx, sy, beta, tau2, psi) -> float:
+    """Eq. (5.2): ``sum_j psi(t_j) u_j`` with ``u_j = -dt_j / dbeta``.
+
+    With ``psi(t) = t`` this is the adjusted profile score (4.2), i.e. the
+    derivative of the profile log-likelihood (3.2) when ``tau2 = 0``.
+    """
+    resid, var, t = _standardized_residuals(bx, by, sx, sy, beta, tau2)
+    u = (bx * var + resid * sx**2 * beta) / var**1.5
+    return float(np.sum(psi(t) * u))
+
+
+def _tau2_score(bx, by, sx, sy, beta, tau2, psi, delta) -> float:
+    """Eq. (5.3): ``sum_j sx_j^2 (t_j psi(t_j) - delta) / v_j``; (4.3) for L2."""
+    _, var, t = _standardized_residuals(bx, by, sx, sy, beta, tau2)
+    return float(np.sum(sx**2 * (t * psi(t) - delta) / var))
+
+
+def _objective(bx, by, sx, sy, beta, tau2, rho) -> float:
+    """Eq. (5.1) at ``(beta, tau2)``: ``-sum_j rho(t_j)``."""
+    _, _, t = _standardized_residuals(bx, by, sx, sy, beta, tau2)
+    return -float(np.sum(rho(t)))
+
+
+def _global_profile_max(bx, by, sx, sy) -> float:
+    """Maximiser of the profile log-likelihood (3.2) over the whole real line.
+
+    ``l(beta)`` tends to a finite limit as ``|beta| -> inf`` and may have
+    more than one local maximum, so it is scanned on ``beta = tan(theta)``
+    over ``theta`` in ``(-pi/2, pi/2)`` and the best cell is refined by a
+    root of its derivative.
+    """
+    theta = np.linspace(-np.pi / 2, np.pi / 2, 4003)[1:-1]
+    grid = np.tan(theta)
+    resid = by[None, :] - grid[:, None] * bx[None, :]
+    var = sx[None, :] ** 2 * grid[:, None] ** 2 + sy[None, :] ** 2
+    loglik = -0.5 * np.sum(resid**2 / var, axis=1)
+    i = int(np.argmax(loglik))
+    lo, hi = grid[max(i - 1, 0)], grid[min(i + 1, grid.size - 1)]
+
+    def score(b: float) -> float:
+        return _beta_score(bx, by, sx, sy, b, 0.0, lambda t: t)
+
+    if score(lo) > 0 > score(hi):
+        return float(
+            optimize.brentq(score, lo, hi, xtol=1e-15, rtol=4 * np.finfo(float).eps)
         )
+    return float(grid[i])
 
-    def tau_eq(t2: Any, b: Any) -> Any:
-        v = t2 + sy**2 + sx**2 * b**2
-        t = (by - b * bx) / np.sqrt(np.maximum(0.0, v))
-        return float(np.sum(sx**2 * (t * rho(t, 1) - delta) / v))
 
-    beta, tau2, _, _, _ = _raps_overdispersed(bx, by, sx, sy, niter, tol)
-    bound_beta = float(np.quantile(np.abs(by / bx), 0.95)) * 10
-    bound_tau2 = float(np.quantile(sy**2, 0.95)) * 100
+def _local_beta_root(f: Callable[[float], float], beta0: float, scale: float) -> float:
+    """Root of a decreasing-through-zero score nearest to ``beta0``.
 
-    converged = False
-    for _ in range(niter):
-        b_old, t_old = beta, tau2
-        tau2 = _root_tau2(lambda t2: tau_eq(t2, beta), bound_tau2)
-        if tau2 > bound_tau2 * 0.95:
-            warnings.warn(
-                "mr_raps: estimated over-dispersion seems abnormally large.",
-                UserWarning,
-                stacklevel=3,
+    The score is the derivative of an objective in ``beta``; the root sought
+    is the local maximum reached by walking uphill from ``beta0``.
+    """
+    f0 = f(beta0)
+    if f0 == 0.0:
+        return beta0
+    direction = 1.0 if f0 > 0 else -1.0
+    step = scale
+    prev = beta0
+    for _ in range(200):
+        cur = beta0 + direction * step
+        fc = f(cur)
+        if (fc < 0) if direction > 0 else (fc > 0):
+            lo, hi = (prev, cur) if direction > 0 else (cur, prev)
+            return float(
+                optimize.brentq(f, lo, hi, xtol=1e-15, rtol=4 * np.finfo(float).eps)
             )
-        res = optimize.minimize(
-            lambda b: neg_robust(b[0], tau2),
-            x0=[beta],
-            method="L-BFGS-B",
-            bounds=[(-bound_beta, bound_beta)],
-            options={"ftol": 1e-15, "gtol": 1e-12},
+        prev = cur
+        step *= 2.0
+    raise RuntimeError("mr_raps: no root of the beta estimating equation found")
+
+
+def _tau2_root(g: Callable[[float], float], scale: float) -> Optional[float]:
+    """Smallest positive root of the ``tau2`` equation, or ``None``.
+
+    ``g(tau2)`` tends to a negative limit as ``tau2 -> inf``; a root exists
+    when ``g(0) > 0``. The upper end is found by geometric expansion from
+    ``scale``.
+    """
+    if not g(0.0) > 0:
+        return None
+    lo, hi = 0.0, scale
+    for _ in range(400):
+        if g(hi) < 0:
+            return float(
+                optimize.brentq(g, lo, hi, xtol=1e-300, rtol=4 * np.finfo(float).eps)
+            )
+        lo, hi = hi, hi * 4.0
+    return None
+
+
+def _fit_overdispersed(
+    bx, by, sx, sy, loss: str, k: float, beta_start: float, niter: int, tol: float
+) -> Tuple[float, float, bool, bool]:
+    """Solve the (R)APS equations by alternating ``tau2`` and ``beta`` steps.
+
+    Returns ``(beta, tau2, converged, tau2_at_zero)``. After the alternating
+    iterations meet ``tol`` the joint root is polished by Newton-type steps,
+    so the reported root does not depend on the stopping rule.
+    """
+    if loss == "l2":
+        psi = lambda t: t  # noqa: E731
+        delta = 1.0
+    else:
+        rho = _rho(loss, k)
+        psi = lambda t: rho(t, 1)  # noqa: E731
+        delta = _loss_moments(loss, k)[0]
+
+    tau_scale = float(np.min(sy**2)) * 1e-6
+    beta_scale = 1e-3 * max(
+        abs(beta_start), float(np.median(np.abs(sy / bx))) * 1e-3, 1e-12
+    )
+    beta, tau2 = float(beta_start), 0.0
+    at_zero = False
+    converged = False
+    for _ in range(int(niter)):
+        root = _tau2_root(
+            lambda s: _tau2_score(bx, by, sx, sy, beta, s, psi, delta), tau_scale
         )
-        beta = float(res.x[0])
-        ext = 0
-        while abs(beta) > 0.95 * bound_beta and ext <= niter:
-            ext += 1
-            bound_beta *= 2
-            beta = _bounded_argmin(lambda b: neg_robust(b, tau2), bound_beta)
-        if (
-            abs(b_old - beta) / abs(beta + 1e-10)
-            + abs(t_old - tau2) / abs(tau2 + 1e-10)
-            <= tol
-        ):
+        at_zero = root is None
+        tau2_new = 0.0 if at_zero else root
+        beta_new = _local_beta_root(
+            lambda b: _beta_score(bx, by, sx, sy, b, tau2_new, psi), beta, beta_scale
+        )
+        change = abs(beta_new - beta) + abs(tau2_new - tau2)
+        beta, tau2 = beta_new, tau2_new
+        if change < tol:
             converged = True
             break
-    vcov = _robust_vcov(bx, by, sx, sy, beta, tau2, (delta, c1, c2, c3))
-    return beta, tau2, vcov, neg_robust(beta, tau2), converged
+
+    if converged and not at_zero:
+
+        def joint(p: np.ndarray) -> list:
+            return [
+                _beta_score(bx, by, sx, sy, p[0], p[1], psi),
+                _tau2_score(bx, by, sx, sy, p[0], p[1], psi, delta),
+            ]
+
+        sol = optimize.root(joint, [beta, tau2], method="hybr", tol=1e-15)
+        b_new, t_new = float(sol.x[0]), float(sol.x[1])
+        start_res = np.max(np.abs(joint(np.array([beta, tau2]))))
+        if (
+            sol.success
+            and t_new >= 0
+            and abs(b_new - beta) <= 1e-4 * max(abs(beta), 1e-12) + tol
+            and abs(t_new - tau2) <= 1e-3 * tau2 + tol
+            and np.max(np.abs(joint(sol.x))) <= start_res
+        ):
+            beta, tau2 = b_new, t_new
+    return beta, tau2, converged, at_zero
 
 
-def _root_tau2(f: Any, bound: float) -> float:
-    """uniroot on [0, bound] with extendInt = 'yes', floored at 0."""
-    lo, hi = 0.0, bound
-    flo, fhi = f(lo), f(hi)
-    n = 0
-    while flo * fhi > 0 and n < 60:
-        hi *= 2
-        fhi = f(hi)
-        n += 1
-    if flo * fhi > 0:
-        warnings.warn(
-            "mr_raps: did not find a solution for tau2; using 0.",
-            UserWarning,
-            stacklevel=3,
-        )
-        return 0.0
-    root = optimize.brentq(f, lo, hi, xtol=bound * np.finfo(float).eps ** 0.25 * 1e-6)
-    return max(float(root), 0.0)
+# --------------------------------------------------------------------------- #
+#  Variances
+# --------------------------------------------------------------------------- #
+
+
+def _simple_se(bx, by, sx, sy, beta: float) -> float:
+    """Theorem 3.3: ``sqrt(V1_hat) / V2_hat`` with the unbiased plug-ins."""
+    var = sx**2 * beta**2 + sy**2
+    v2 = np.sum(((bx**2 - sx**2) * sy**2 + (by**2 - sy**2) * sx**2) / var**2)
+    v1 = v2 + np.sum(sx**2 * sy**2 / var**2)
+    return float(np.sqrt(v1) / v2) if v1 > 0 and v2 > 0 else float("nan")
+
+
+def _robust_vcov(
+    bx: np.ndarray,
+    by: np.ndarray,
+    sx: np.ndarray,
+    sy: np.ndarray,
+    beta: float,
+    tau2: float,
+    consts: Tuple[float, float, float, float],
+) -> np.ndarray:
+    """Sandwich covariance of ``(beta, tau2)``, Theorems 4.2 and 5.2.
+
+    ``consts = (delta, c1, var_zpsi, c3)`` with ``delta = E[Z psi(Z)]``,
+    ``c1 = E[psi(Z)^2]``, ``var_zpsi = Var(Z psi(Z))`` (twice the paper's
+    ``c2``) and ``c3 = E[Z^2 psi'(Z)]``; ``(1, 1, 2, 1)`` for the L2 loss.
+    ``gamma_j^2`` and ``Gamma_j^2`` are replaced by ``bx_j^2 - sx_j^2`` and
+    ``by_j^2 - sy_j^2 - tau2`` (Section 4.3).
+    """
+    delta, c1, var_zpsi, c3 = consts
+    beta = float(beta)
+    tau2 = float(tau2)
+    var = sx**2 * beta**2 + sy**2 + tau2
+    gamma2 = bx**2 - sx**2
+    big_gamma2 = by**2 - sy**2 - tau2
+    w = 1.0 / var**2
+    # Score variance (V1 of Theorem 4.2 scaled by c1 and c2).
+    v1_11 = np.sum(w * ((gamma2 + sx**2) * (sy**2 + tau2) + big_gamma2 * sx**2))
+    v1_22 = np.sum(w * 2.0 * sx**4)
+    meat = np.diag([c1 * v1_11, 0.5 * var_zpsi * v1_22])
+    # Expected Jacobian (V2 of Theorem 4.2 scaled by delta and (delta + c3)/2).
+    v2_11 = np.sum(w * (gamma2 * (sy**2 + tau2) + big_gamma2 * sx**2))
+    v2_12 = np.sum(w * sx**2 * beta)
+    v2_22 = np.sum(w * sx**2)
+    bread = np.array(
+        [[delta * v2_11, delta * v2_12], [0.0, 0.5 * (delta + c3) * v2_22]]
+    )
+    inv = np.linalg.inv(bread)
+    return inv @ meat @ inv.T
+
+
+# --------------------------------------------------------------------------- #
+#  Public entry point
+# --------------------------------------------------------------------------- #
 
 
 def mr_raps(
@@ -405,157 +481,181 @@ def mr_raps(
 ) -> MRRapsResult:
     """Robust Adjusted Profile Score MR (Zhao et al. 2020).
 
-    Profile-likelihood MR that corrects for weak instruments through the
-    :math:`\\beta^2 s_x^2` term, optionally allows balanced pleiotropy as
-    over-dispersion :math:`\\tau^2`, and optionally replaces the Gaussian
-    loss with a robust one. A port of the authors' ``mr.raps`` package, which
-    it matches variant for variant.
-
-    .. versionchanged:: 1.28.0
-       Rewritten as a port of ``mr.raps``. The previous implementation was a
-       different estimator under this name: it minimised a Tukey loss jointly
-       over ``(beta, log tau2)`` instead of solving the reference's
-       ``tau2`` estimating equation, and its standard error was a
-       one-dimensional sandwich that treated ``tau2`` as known. On
-       ``MendelianRandomization``'s LDL-C / CHD example that put ``tau2``
-       3.5x below the reference, the estimate 1.4% away and the SE 47% too
-       small. The default loss also changes from Tukey (4.685) to Huber
-       (1.345), the package default; pass ``loss="tukey"`` for the old
-       choice of loss.
+    Profile-likelihood MR that accounts for measurement error in the
+    exposure associations (weak instruments), optionally for systematic
+    pleiotropy (a random-effect variance ``tau2``) and, with a robust loss,
+    for a small fraction of gross pleiotropic outliers.
 
     Parameters
     ----------
-    beta_exposure, beta_outcome : ndarray
-    se_exposure, se_outcome : ndarray
-    loss : {"huber", "tukey", "l2"}, optional
-        ``"huber"`` / ``"tukey"`` give ``mr.raps.overdispersed.robust``;
-        ``"l2"`` gives ``mr.raps.overdispersed`` (or ``mr.raps.simple`` when
-        ``over_dispersion=False``). ``None`` means ``"huber"``, the
-        package's ``mr.raps()`` default.
+    beta_exposure, beta_outcome : array-like
+        Variant-exposure and variant-outcome associations.
+    se_exposure, se_outcome : array-like
+        Their standard errors (strictly positive).
+    loss : {'huber', 'tukey', 'l2'}, optional
+        Loss in the profile score. ``None`` means ``'huber'``.
     over_dispersion : bool, default True
-        ``False`` is only defined with ``loss="l2"``.
+        Estimate the over-dispersion variance ``tau2`` (Sections 4-5).
+        ``False`` is the profile-score estimator of Section 3 and needs
+        ``loss='l2'``.
     tuning_c : float, optional
-        Loss constant; defaults to 1.345 (Huber) or 4.685 (Tukey). Before
-        1.28.0 this was always the Tukey constant, so passing it without
-        ``loss`` warns: the loss it now applies to is Huber.
-    beta_init, tau2_init
-        Deprecated and ignored. The robust fit starts from the L2
-        over-dispersed estimate, as ``mr.raps`` does; they will be removed
-        in 1.29.
+        Loss tuning constant ``k``; default 1.345 (Huber) or 4.685 (Tukey).
+        Ignored for ``loss='l2'``.
     alpha : float, default 0.05
+        ``1 - alpha`` confidence level.
     pruning : bool, default True
-        Drop variants with ``se_exposure > 10 * median(se_exposure)``, as the
-        reference does by default. A warning names how many.
-    niter, tol
-        Alternating-update controls, the reference's defaults.
+        Drop variants with ``se_exposure > 10 * median(se_exposure)``.
+    niter : int, default 20
+        Maximum number of alternating ``tau2`` / ``beta`` iterations.
+    tol : float, default ``sqrt(machine eps)``
+        Convergence threshold on the change in ``(beta, tau2)``.
+    beta_init, tau2_init : float, optional
+        Deprecated and ignored: the over-dispersed fit starts from the
+        no-over-dispersion estimate and the robust fit from the L2 fit.
 
     Returns
     -------
-    :class:`MRRapsResult`
+    MRRapsResult
+
+    Raises
+    ------
+    ValueError
+        On mismatched lengths, fewer than 3 variants, non-positive standard
+        errors, an unknown ``loss``, a non-positive ``tuning_c``, or a robust
+        loss without over-dispersion.
 
     Examples
     --------
     >>> import statspai as sp
     >>> import numpy as np
-    >>> rng = np.random.default_rng(8)
-    >>> bx = rng.uniform(0.1, 0.5, 25)   # SNP-exposure associations
-    >>> sx = rng.uniform(0.02, 0.05, 25)
-    >>> sy = rng.uniform(0.02, 0.05, 25)
-    >>> by = 0.3 * bx + rng.normal(0, sy)  # true causal beta = 0.3
-    >>> res = sp.mr_raps(bx, by, sx, sy)
-    >>> res.n_snps
-    25
-    >>> bool(np.isfinite(res.estimate))
+    >>> rng = np.random.default_rng(1)
+    >>> bx = rng.uniform(0.1, 0.4, 30)
+    >>> sx = np.full(30, 0.02)
+    >>> sy = np.full(30, 0.02)
+    >>> by = 0.5 * bx + rng.normal(0, 0.02, 30)
+    >>> r = sp.mr_raps(bx, by, sx, sy, loss="tukey")
+    >>> bool(abs(r.estimate - 0.5) < 0.2)
     True
+
+    Notes
+    -----
+    Clean-room implementation of the paper's estimating equations; the
+    reference (R ``mr.raps`` 0.4.3, GPL-3) was used only as a black box.
+    The (R)APS root is solved to machine precision, so it can differ from
+    the reference in the digits that the reference's own stopping rule
+    leaves undetermined (see ``docs/dev/cleanroom/mr_raps.md``).
+
+    References
+    ----------
+    zhao2020statistical
     """
     if beta_init is not None or tau2_init is not None:
         warnings.warn(
-            "mr_raps: beta_init / tau2_init are ignored since 1.28.0 -- the fit "
-            "starts from the L2 over-dispersed estimate, as mr.raps does -- and "
-            "will be removed in 1.29.",
+            "mr_raps: beta_init / tau2_init are deprecated since 1.28.0 and "
+            "ignored; the fit starts from the profile-score estimate.",
             DeprecationWarning,
             stacklevel=2,
         )
     if loss is None:
-        loss = "huber"
-        if tuning_c is not None and tuning_c > 0:
+        if tuning_c is not None:
             warnings.warn(
-                f"mr_raps: tuning_c={tuning_c} now applies to the default Huber "
-                "loss; before 1.28.0 the only loss was Tukey. Pass loss='tukey' "
-                "to keep the old loss.",
+                "mr_raps: tuning_c given without loss; the default loss is "
+                "'huber' since 1.28.0, so tuning_c is the Huber constant. Pass "
+                "loss='tukey' to keep the Tukey biweight.",
                 FutureWarning,
                 stacklevel=2,
             )
+        loss = "huber"
+    loss = str(loss).lower()
     if loss not in ("huber", "tukey", "l2"):
-        raise ValueError(f"loss must be 'huber', 'tukey' or 'l2', got {loss!r}")
+        raise ValueError(f"loss must be 'huber', 'tukey' or 'l2'; got {loss!r}")
+    if tuning_c is not None and not (np.isfinite(tuning_c) and tuning_c > 0):
+        raise ValueError(f"tuning_c must be a positive finite number; got {tuning_c!r}")
     if not over_dispersion and loss != "l2":
         raise ValueError(
-            "over_dispersion=False is only defined for loss='l2' (mr.raps.simple)"
+            "over_dispersion=False is only implemented for loss='l2' (the "
+            "profile-score estimator of Zhao et al. 2020, Section 3)"
         )
-    if tuning_c is None:
-        tuning_c = {"huber": 1.345, "tukey": 4.685}.get(loss, float("nan"))
-    elif not tuning_c > 0:
-        raise ValueError(f"tuning_c must be > 0; got {tuning_c}")
+    if not 0 < alpha < 1:
+        raise ValueError(f"alpha must lie in (0, 1); got {alpha!r}")
+    k = float("nan") if loss == "l2" else float(tuning_c or _DEFAULT_TUNING[loss])
 
     bx, by, sx, sy = as_float_arrays(
         beta_exposure, beta_outcome, se_exposure, se_outcome
     )
+    if not all(np.all(np.isfinite(a)) for a in (bx, by, sx, sy)):
+        raise ValueError("mr_raps: inputs must be finite")
+    if np.any(sx <= 0) or np.any(sy <= 0):
+        raise ValueError(
+            "mr_raps: se_exposure and se_outcome must be strictly positive"
+        )
+
     n_pruned = 0
     if pruning:
-        drop = sx > 10 * np.median(sx)
-        n_pruned = int(drop.sum())
+        keep = sx <= _PRUNE_RATIO * np.median(sx)
+        n_pruned = int(np.sum(~keep))
         if n_pruned:
             warnings.warn(
-                f"mr_raps: pruning {n_pruned} variant(s) with extraordinarily large "
-                "se_exposure (> 10 x median), as mr.raps does by default.",
+                f"mr_raps: pruning {n_pruned} variant(s) whose se_exposure exceeds "
+                f"{_PRUNE_RATIO:g} x the median (pruning=False keeps them).",
                 UserWarning,
                 stacklevel=2,
             )
-            keep = ~drop
             bx, by, sx, sy = bx[keep], by[keep], sx[keep], sy[keep]
+            if bx.size < 3:
+                raise ValueError("mr_raps: fewer than 3 variants left after pruning")
 
+    beta_simple = _global_profile_max(bx, by, sx, sy)
     if not over_dispersion:
-        beta, se = _raps_simple(bx, by, sx, sy)
-        tau2, tau2_se, converged = 0.0, float("nan"), True
-        obj = -0.5 * float(np.sum((by - bx * beta) ** 2 / (sy**2 + sx**2 * beta**2)))
+        beta, tau2, converged = beta_simple, 0.0, True
+        se = _simple_se(bx, by, sx, sy, beta)
+        tau2_se = float("nan")
+        objective = _objective(bx, by, sx, sy, beta, 0.0, lambda t: 0.5 * t**2)
     else:
-        if loss == "l2":
-            beta, tau2, V, negobj, converged = _raps_overdispersed(
-                bx, by, sx, sy, niter, tol
+        beta, tau2, converged, at_zero = _fit_overdispersed(
+            bx, by, sx, sy, "l2", k, beta_simple, niter, tol
+        )
+        if loss != "l2":
+            beta_l2 = beta
+            beta, tau2, converged_r, at_zero = _fit_overdispersed(
+                bx, by, sx, sy, loss, k, beta_l2, niter, tol
             )
-        else:
-            beta, tau2, V, negobj, converged = _raps_robust(
-                bx, by, sx, sy, loss, tuning_c, niter, tol
+            converged = converged and converged_r
+        if at_zero:
+            warnings.warn(
+                "mr_raps: the tau2 estimating equation has no positive root at "
+                "the estimate; tau2 is set to 0 (no detectable over-dispersion).",
+                UserWarning,
+                stacklevel=2,
             )
-        se = float(np.sqrt(V[0, 0])) if V[0, 0] > 0 else float("nan")
-        tau2_se = float(np.sqrt(V[1, 1])) if V[1, 1] > 0 else float("nan")
-        obj = -float(negobj)
         if not converged:
             warnings.warn(
-                "mr_raps: did not converge when solving the estimating equations; "
-                "consider increasing niter.",
+                f"mr_raps: the estimating equations did not converge in "
+                f"niter={niter} iterations; consider increasing niter.",
                 UserWarning,
                 stacklevel=2,
             )
+        V = _robust_vcov(bx, by, sx, sy, beta, tau2, _loss_moments(loss, k))
+        se = float(np.sqrt(V[0, 0])) if V[0, 0] > 0 else float("nan")
+        tau2_se = float(np.sqrt(V[1, 1])) if V[1, 1] > 0 else float("nan")
+        rho = (lambda t: 0.5 * t**2) if loss == "l2" else _rho(loss, k)
+        objective = _objective(bx, by, sx, sy, beta, tau2, rho)
 
-    z_crit = stats.norm.ppf(1 - alpha / 2)
-    if np.isfinite(se) and se > 0:
-        p_value = float(min(1.0, 2.0 * stats.norm.sf(abs(beta) / se)))
-        lo, hi = beta - z_crit * se, beta + z_crit * se
-    else:
-        p_value = lo = hi = float("nan")
-
+    z = stats.norm.ppf(1 - alpha / 2)
+    p_value = (
+        float(2 * stats.norm.sf(abs(beta / se))) if np.isfinite(se) else float("nan")
+    )
     return MRRapsResult(
         estimate=float(beta),
         se=float(se),
-        ci_lower=float(lo),
-        ci_upper=float(hi),
+        ci_lower=float(beta - z * se),
+        ci_upper=float(beta + z * se),
         p_value=p_value,
         tau2=float(tau2),
-        loglik_robust=obj,
+        loglik_robust=float(objective),
         converged=bool(converged),
-        tuning_c=float(tuning_c),
-        n_snps=len(bx),
+        tuning_c=k,
+        n_snps=int(bx.size),
         tau2_se=float(tau2_se),
         loss=loss,
         over_dispersion=bool(over_dispersion),
