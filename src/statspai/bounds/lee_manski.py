@@ -242,6 +242,18 @@ def lee_bounds(
                 stacklevel=2,
             )
             df = df[df[weights].notna()]
+        # Zero-weight rows are not in the estimation sample (Stata drops
+        # them for every weight type); left in, they entered the mean-one
+        # rescaling and the N of the analytic SE, which shrank by
+        # sqrt(n_positive / n) (2026-10-20 probe).
+        n_zero = int((df[weights] == 0).sum())
+        if n_zero:
+            warnings.warn(
+                f"lee_bounds: dropped {n_zero} row(s) with a zero weight.",
+                UserWarning,
+                stacklevel=2,
+            )
+            df = df[df[weights] != 0]
     covariates = list(covariates) if covariates else []
     if covariates:
         n_before = len(df)

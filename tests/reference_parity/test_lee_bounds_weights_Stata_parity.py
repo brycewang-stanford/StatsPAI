@@ -133,3 +133,35 @@ def test_negative_weight_is_refused(data):
     d.iloc[0, d.columns.get_loc("w")] = -1.0
     with pytest.raises(sp.MethodIncompatibility, match="non-negative"):
         sp.lee_bounds(d, y="y", treat="d", selection="s", weights="w", trimming="exact")
+
+
+@pytest.mark.parametrize("trimming", ["exact", "leebounds"])
+def test_zero_weight_rows_are_outside_the_sample(trimming):
+    # 2026-10-20 probe: zero-weight rows stayed in the mean-one rescaling
+    # and in N, so se_lower was sqrt(1700/2000) of its value with the rows
+    # dropped and n_obs counted them.
+    rng = np.random.default_rng(1)
+    n = 2000
+    d = rng.binomial(1, 0.5, n)
+    u = rng.normal(size=n)
+    s = (u + 0.5 * d + rng.normal(size=n) > 0).astype(int)
+    y = np.where(s == 1, 1 + d + u + rng.normal(size=n), np.nan)
+    df = pd.DataFrame(
+        {"y": y, "d": d, "s": s, "w": np.where(np.arange(n) < 300, 0.0, 1.0)}
+    )
+    with pytest.warns(UserWarning, match="zero weight"):
+        a = sp.lee_bounds(
+            df, "y", "d", "s", trimming=trimming, weights="w", se_method="analytic"
+        )
+    b = sp.lee_bounds(
+        df.iloc[300:],
+        "y",
+        "d",
+        "s",
+        trimming=trimming,
+        weights="w",
+        se_method="analytic",
+    )
+    assert a.n_obs == b.n_obs
+    for k in ("lower_bound", "upper_bound", "se_lower", "se_upper"):
+        assert a.model_info[k] == pytest.approx(b.model_info[k], rel=1e-12), k
