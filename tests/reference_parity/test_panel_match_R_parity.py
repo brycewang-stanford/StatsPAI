@@ -370,3 +370,34 @@ def test_bootstrap_se_screen(name, R, panels):
     res = _fit(panels, CASES[name], se_method="bootstrap", n_boot=2000, seed=11)
     r_se = np.asarray(R["cases"][name]["est"]["boot_se"])
     assert np.all(np.abs(res.detail["se"].to_numpy() / r_se - 1) < 0.15)
+
+
+def test_analytic_se_moves_with_a_common_time_shock_as_in_panelmatch():
+    """Adding a common period shock (3 sin t) leaves the estimate unchanged
+    but raises the analytic SEs (0.110 -> 0.188 conditional). That is
+    PanelMatch 3.1.5's own behaviour, not a port error: its numbers on the
+    same data (black box, 2026-10-20) are reproduced to 1e-12. Its
+    bootstrap SE moves the same way (0.092 -> 0.199 at set.seed(1), 500
+    draws). Documented in docs/dev/modules/did.md; a decision on the
+    clean-room rewrite of sp.panel_match is pending with the owner."""
+    rng = np.random.default_rng(0)
+    rows = []
+    for i in range(150):
+        d = 0
+        for t in range(12):
+            d = int(rng.random() < (0.7 if d else 0.2))
+            rows.append((i + 1, t + 1, d, 1.5 * d + rng.normal()))
+    df = pd.DataFrame(rows, columns=["id", "t", "d", "y"])
+    shocked = df.assign(y=df["y"] + 3.0 * np.sin(df["t"] - 1))
+    r_values = {  # estimate, conditional SE, unconditional SE (R)
+        "plain": (1.610351427801459, 0.1102927565389772, 0.1288241205711441),
+        "shock": (1.610351427801461, 0.1876090425879621, 0.1999581267199601),
+    }
+    for key, data in (("plain", df), ("shock", shocked)):
+        est, se_c, se_u = r_values[key]
+        kw = dict(y="y", treat="d", id="id", time="t", lag=2, lead=0)
+        c = sp.panel_match(data, refinement="none", se_method="conditional", **kw)
+        u = sp.panel_match(data, refinement="none", se_method="unconditional", **kw)
+        assert c.estimate == pytest.approx(est, rel=1e-12)
+        assert c.se == pytest.approx(se_c, rel=1e-12)
+        assert u.se == pytest.approx(se_u, rel=1e-12)

@@ -104,6 +104,16 @@ All notable changes to StatsPAI will be documented in this file.
   (`MethodIncompatibility`). Nine enumerated (2^9) p-values match boottest
   exactly (`tests/reference_parity/test_wcb_bootcluster_parity.py`).
 
+#### Evidence notes (no numeric change)
+
+- `sp.panel_match`: the standard errors (analytic and bootstrap) grow when
+  a period shock common to every unit is added, while the estimate does
+  not change. R PanelMatch 3.1.5 gives the same analytic SEs on the same
+  data to 1e-12 and its bootstrap SE moves the same way, so this is the
+  reference's behaviour, reproduced and now documented (docstring,
+  `docs/dev/modules/did.md`, a pinned test). Not changed pending the
+  owner's decision on the clean-room rewrite.
+
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 
 No existing number changes.

@@ -255,7 +255,10 @@ def panel_match(
     se_method : {'bootstrap', 'conditional', 'unconditional'}
         Unit bootstrap (``n_boot`` draws, percentile interval) or the
         analytic variances of Imai, Kim and Wang (normal interval). The
-        ATE has only the bootstrap.
+        ATE has only the bootstrap. As in R PanelMatch, all three grow
+        with period shocks common to every unit although the estimate does
+        not change (they are reproduced, not altered; see
+        ``docs/dev/modules/did.md``).
     n_boot : int, default 1000
     seed : int, optional
         Seed of the bootstrap.
