@@ -1044,7 +1044,9 @@ def cluster_dof_wald_bm(
 
 
 # ---------------------------------------------------------------------------
-# clubSandwich-equivalent HTZ Wald (Pustejovsky-Tipton 2018, JBES 36(4))
+# CR2 Wald test with the approximate Hotelling's T-squared reference
+# distribution (HTZ; Pustejovsky and Tipton 2018, Section 3.2). Clean-room
+# implementation; R clubSandwich was used only as a black box.
 # ---------------------------------------------------------------------------
 
 
@@ -1121,6 +1123,68 @@ class WaldTestResult(ResultProtocolMixin):
         }
 
 
+def _symmetric_pinv_sqrt(B: np.ndarray) -> np.ndarray:
+    """Symmetric square root of the Moore-Penrose inverse of a PSD matrix.
+
+    Eigenvalues at or below ``n * eps * max(1, largest eigenvalue)`` count
+    as zero (the ``B_i^{+1/2}`` of Pustejovsky and Tipton 2018, eq. 7).
+    """
+    B = 0.5 * (B + B.T)
+    vals, vecs = np.linalg.eigh(B)
+    cutoff = B.shape[0] * np.finfo(float).eps * max(1.0, float(vals.max(initial=0.0)))
+    inv_sqrt = np.zeros_like(vals)
+    keep = vals > cutoff
+    inv_sqrt[keep] = 1.0 / np.sqrt(vals[keep])
+    return (vecs * inv_sqrt) @ vecs.T
+
+
+def _htz_validate(
+    X: np.ndarray,
+    cluster: np.ndarray,
+    R: np.ndarray,
+    weights: Optional[np.ndarray],
+    bread: Optional[np.ndarray],
+) -> tuple:
+    """Shared input checks of the HTZ helpers; returns ``(X, R, codes, G, M)``."""
+    X = np.asarray(X, dtype=np.float64)
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+    n, k = X.shape
+    R = np.atleast_2d(np.asarray(R, dtype=np.float64))
+    if R.shape[0] == 0:
+        raise ValueError("R must have at least one row (one restriction).")
+    if R.shape[1] != k:
+        raise ValueError(
+            f"R has {R.shape[1]} cols but X has {k} columns; R must be (q, k)."
+        )
+    q = R.shape[0]
+    if np.linalg.matrix_rank(R) < q:
+        raise ValueError(
+            f"R must have full row rank (rank {np.linalg.matrix_rank(R)} < q={q})."
+        )
+    if weights is not None:
+        w = _prepare_weights(weights, n, context="HTZ", strictly_positive=True)
+        if np.ptp(w) > 1e-12 * float(np.max(np.abs(w))):
+            raise NotImplementedError(
+                "HTZ with non-uniform weights is not implemented: the working "
+                "model here is Phi = I with unweighted (or equally weighted) "
+                "least squares."
+            )
+    codes, n_clusters = _factorize_cluster_labels(cluster, n, context="HTZ")
+    if n_clusters <= q:
+        raise ValueError(
+            f"HTZ needs more clusters than restrictions (G > q); got G={n_clusters}, "
+            f"q={q}."
+        )
+    if bread is None:
+        M = np.linalg.pinv(X.T @ X)
+    else:
+        M = np.asarray(bread, dtype=np.float64)
+        if M.shape != (k, k):
+            raise ValueError(f"bread must be ({k}, {k}), got {M.shape}.")
+    return X, R, codes, n_clusters, M
+
+
 def _htz_per_cluster_quantities(
     X: np.ndarray,
     cluster: np.ndarray,
@@ -1129,288 +1193,127 @@ def _htz_per_cluster_quantities(
     weights: Optional[np.ndarray] = None,
     bread: Optional[np.ndarray] = None,
 ) -> dict:
-    """Internal helper: per-cluster lifted contributions for the HTZ test.
+    """Per-cluster pieces of the CR2 Wald test (Pustejovsky and Tipton 2018).
 
-    Computes the matrices that both :func:`cluster_dof_wald_htz` and
-    :func:`cluster_wald_htz` need:
+    With ``M = (X'X)^{-1}``, ``H = X M X'`` and working model ``Phi = I``:
 
-    Per cluster ``g``:
-        H_gg      = X_g · bread · X_g^T · diag(w_g)            (n_g × n_g)
-        A_g       = (I_g - 0.5(H_gg + H_gg^T))^{-1/2}          (n_g × n_g)
-        G_g       = R · bread · X_g^T · diag(√w_g)             (q × n_g)
-                    # No A_g — Ω = Σ_g G_g G_g^T = R · bread · R^T
-                    # under the working covariance Φ = I.
-        A_g_sqrtW = diag(√w_g) · A_g                           (n_g × n_g)
-                    # Applied to raw residuals: ẽ_g = A_g_sqrtW · u_g.
-                    # Then v_g = G_g · ẽ_g = R bread X_g^T diag(w_g) A_g u_g
-                    # — exactly the weighted CR2 score lifted to R-subspace,
-                    # matching :func:`crve` (CR2 path).
-
-    Aggregate:
-        Ω = Σ_g G_g G_g^T                                       (q × q)
-                    # Unweighted: Ω = R · (X'X)^{-1} · R^T.
-                    # Weighted:   Ω = R · (X'WX)^{-1} · R^T.
-
-    Eigenvalue floor 1e-12 on ``(I - Hsym)`` matches the convention in
-    :func:`crve` (CR2 path) and :func:`cluster_dof_wald_bm`.
-
-    Returns
-    -------
-    dict
-        Keys (cluster-list ordering follows ``pd.factorize(sort=False)``):
-
-        - ``"G_g"``         list of (q × n_g) arrays per cluster
-                            — V_R-decomposition lift (no A_g embedded).
-        - ``"A_g_sqrtW"``   list of (n_g × n_g) arrays per cluster
-                            — applied to raw residuals: ẽ_g = A_g_sqrtW · u_g.
-        - ``"A_g_raw"``     list of (n_g × n_g) arrays per cluster
-                            — bare A_g for HTZ η formula
-                            (clubSandwich convention rebuild).
-        - ``"X_g_list"``    list of (n_g × k) arrays per cluster
-                            — for H_g_cs = G_cs · X_g · L^T inside
-                            :func:`_htz_eta_from_quantities`.
-        - ``"R"``           (q × k) array — cached for η helper.
-        - ``"weights"``     (n,) array — for η to detect Φ ≠ I (raises).
-        - ``"Omega"``       (q × q) — V_R-style aggregate.
-        - ``"cluster_codes"`` (n,) — pd.factorize codes.
-        - ``"G"``           int — cluster count.
-        - ``"q"``           int — R rank.
-        - ``"bread"``       (k × k) — (X' W X)^{-1}.
-
-    Raises
-    ------
-    ValueError
-        On any of: ``R.shape[1] != k``, ``q < 1``, ``q > k``,
-        ``R`` rank-deficient, fewer than 2 clusters, ``G ≤ q``,
-        or ``(weights <= 0).any()``.
-    NotImplementedError
-        If non-uniform ``weights`` are passed (v1 locks Φ = I; the
-        clubSandwich-equivalent η formula assumes a uniform working
-        covariance).
+    * ``A_g_sqrtW[g]`` -- the CR2 adjustment ``A_g = (I - H_gg)^{+1/2}``
+      (eq. 7-8; with unweighted least squares ``W = I``);
+    * ``G_g[g]`` -- the ``(q, n_g)`` map ``R M X_g'``, so that the CR2
+      estimate of ``Var(R beta)`` is ``sum_g G_g A_g e_g e_g' A_g G_g'``;
+    * ``U_g[g]`` -- ``A_g X_g M R'`` (``n_g x q``), the cluster blocks of the
+      vectors ``p_si`` of eq. (13) before the ``(I - H)`` projection;
+    * ``Omega`` -- the expectation of that CR2 estimate under the working
+      model (equal to ``R M R'`` when the CR2 estimator is exactly unbiased,
+      Theorem 1);
+    * ``cluster_codes``, ``G`` (number of clusters), ``M``.
     """
-    R = np.atleast_2d(np.asarray(R, dtype=np.float64))
-    n, k = X.shape
-    if R.shape[1] != k:
-        raise MethodIncompatibility(f"R has {R.shape[1]} cols but X has k={k}")
+    X, R, codes, n_clusters, M = _htz_validate(X, cluster, R, weights, bread)
     q = R.shape[0]
-    if q < 1:
-        raise MethodIncompatibility("R must have at least one row")
-    if q > k:
-        raise MethodIncompatibility(f"R has {q} rows > k={k}; over-determined")
-    if np.linalg.matrix_rank(R) < q:
-        raise MethodIncompatibility("R must have full row rank")
-
-    weights = _prepare_weights(
-        weights,
-        n,
-        context="HTZ",
-        strictly_positive=True,
-    )
-    # Fail fast at the helper boundary rather than after one O(G·n_g²·k)
-    # loop: v1 locks Φ = I (HTZ paper-faithful path) and the η formula
-    # in :func:`_htz_eta_from_quantities` would reject non-uniform
-    # weights anyway. Earlier exception keeps the stack trace clean.
-    if not np.allclose(weights, 1.0):
-        raise NotImplementedError(
-            "HTZ with non-uniform weights is not implemented in v1 "
-            "(working covariance Φ = I, OLS+CR2 only). "
-            "Use boottest_wald or open a v2 issue."
+    order = np.argsort(codes, kind="stable")
+    bounds = np.searchsorted(codes[order], np.arange(n_clusters + 1))
+    MR = M @ R.T  # (k, q)
+    A_list, G_list, U_list, XU_list = [], [], [], []
+    n_singleton = 0
+    for g in range(n_clusters):
+        idx = order[bounds[g] : bounds[g + 1]]
+        X_g = X[idx]
+        if idx.size == 1:
+            n_singleton += 1
+        H_gg = X_g @ M @ X_g.T
+        A_g = _symmetric_pinv_sqrt(np.eye(idx.size) - H_gg)
+        U_g = A_g @ (X_g @ MR)  # (n_g, q)
+        A_list.append(A_g)
+        G_list.append((X_g @ MR).T)  # (q, n_g)
+        U_list.append(U_g)
+        XU_list.append(X_g.T @ U_g)  # (k, q)
+    if n_singleton:
+        warnings.warn(
+            f"HTZ: {n_singleton} singleton cluster(s); their CR2 adjustment "
+            "rests on a single leverage value.",
+            RuntimeWarning,
+            stacklevel=3,
         )
-
-    cluster_codes, G_clusters = _factorize_cluster_labels(
-        cluster,
-        n,
-        context="HTZ",
-    )
-    if G_clusters <= q:
-        raise DataInsufficient(f"HTZ Wald requires G > q (got G={G_clusters}, q={q})")
-
-    if bread is None:
-        XtWX = X.T @ (X * weights[:, None])
-        bread = np.linalg.inv(XtWX)
-
-    R_bread = R @ bread  # (q, k)
-
-    G_list: list = []
-    Asw_list: list = []
-    A_raw_list: list = []
-    X_g_list: list = []
-    Omega: np.ndarray = np.zeros((q, q))
-
-    for cg in range(G_clusters):
-        mask = cluster_codes == cg
-        X_g = X[mask]
-        w_g = weights[mask]
-        n_g = X_g.shape[0]
-        if n_g == 1:
-            warnings.warn(
-                f"HTZ: singleton cluster (code={cg}, n_g=1); A_g floored",
-                RuntimeWarning,
-                stacklevel=3,
-            )
-
-        Xb = X_g @ bread  # (n_g, k)
-        H_gg = Xb @ (X_g * w_g[:, None]).T  # (n_g, n_g)
-        Hsym = 0.5 * (H_gg + H_gg.T)
-        Msym = np.eye(n_g) - Hsym
-        evals, evecs = np.linalg.eigh(Msym)
-        evals = np.maximum(evals, 1e-12)
-        A_g = (evecs * (evals**-0.5)) @ evecs.T  # (n_g, n_g)
-
-        sqrt_w = np.sqrt(w_g)
-        # G_g = R · bread · X_g^T · diag(√w_g)         (NO A_g)
-        RB_Xt = R_bread @ X_g.T  # (q, n_g)
-        G_g = RB_Xt * sqrt_w  # (q, n_g)
-
-        # A_g_sqrtW = diag(√w_g) · A_g  (applied LEFT-to-RIGHT to residuals)
-        # so that v_g = G_g · (A_g_sqrtW · u_g)
-        #             = R bread X_g^T √w_g · √w_g A_g u_g
-        #             = R bread X_g^T diag(w_g) A_g u_g    ← matches crve.
-        A_g_sqrtW = sqrt_w[:, None] * A_g  # (n_g, n_g)
-
-        G_list.append(G_g)
-        Asw_list.append(A_g_sqrtW)
-        A_raw_list.append(A_g)
-        X_g_list.append(X_g)
-        Omega += G_g @ G_g.T
-
-    # Symmetrize Ω against floating drift
+    # Expectation under Phi = I of sum_g G_g A_g e_g e_g' A_g G_g':
+    # E[e e'] = (I - H), so the (g, g) block is I - H_gg.
+    Omega = np.zeros((q, q))
+    for g in range(n_clusters):
+        idx = order[bounds[g] : bounds[g + 1]]
+        X_g = X[idx]
+        block = np.eye(idx.size) - X_g @ M @ X_g.T
+        GA = G_list[g] @ A_list[g]
+        Omega += GA @ block @ GA.T
     Omega = 0.5 * (Omega + Omega.T)
-
     return {
-        "G_g": G_list,
-        "A_g_sqrtW": Asw_list,
-        "A_g_raw": A_raw_list,  # for HTZ η formula (clubSandwich convention)
-        "X_g_list": X_g_list,  # for H_g_cs = G_cs · X_g · L^T
-        "R": R,  # cached for η helper
-        "weights": weights,  # for η to detect w!=1 (raises in v1)
-        "Omega": Omega,
-        "cluster_codes": cluster_codes,
-        "G": G_clusters,
+        "cluster_codes": codes,
+        "G": n_clusters,
         "q": q,
-        "bread": bread,
+        "M": M,
+        "A_g_sqrtW": A_list,
+        "G_g": G_list,
+        "U_g": U_list,
+        "XtU_g": XU_list,
+        "Omega": Omega,
     }
 
 
 def _htz_eta_from_quantities(qty: dict) -> float:
-    """Compute the HTZ moment-matching DOF η.
+    """Degrees of freedom ``eta`` of the AHT test, eq. (13).
 
-    1:1 translation of clubSandwich (R, v0.6.2) ``Wald_testing`` HTZ branch
-    + ``get_P_array(all_terms=TRUE)`` + ``total_variance_mat``. Source
-    reconciliation: ``/tmp/htz_reconciliation.txt`` (developer-side note).
-
-    Reconstructs clubSandwich-style cluster quantities from the helper's
-    raw outputs:
-
-        G_cs[g] = R · bread · X_g^T · A_g                  (q × n_g)
-        H_cs[g] = G_cs[g] · X_g · L^T                      (q × k)
-        Ω_cs    = Σ_g G_cs[g] · G_cs[g]^T                  (q × q)
-
-    where L is the lower-triangular Cholesky factor of ``bread`` (so
-    ``L · L^T = bread``).
-
-    Then for each cluster pair (k, l) (with J = number of clusters):
-        if k == l:  P[:, :, k, k] = G_cs[k] · G_cs[k]^T  −  H_cs[k] · H_cs[k]^T
-        else:       P[:, :, k, l] =                       −  H_cs[k] · H_cs[l]^T
-
-    With Ω_nsqrt = Ω_cs^{-1/2}:
-        B[:, :, k, l] = Ω_nsqrt · P[:, :, k, l] · Ω_nsqrt
-
-    var_mat[s, t] = Σ_{k, l} ( B[s, t, k, l] · B[t, s, k, l]
-                                + B[s, s, k, l] · B[t, t, k, l] )
-
-    η = q · (q + 1) / Σ_{s, t} var_mat[s, t]
-
-    Note: the helper's ``Omega`` (V_R-decomposition convention, no A_g)
-    equals ``R · bread · R^T``. The HTZ formula uses a **different** Ω
-    that includes A_g — ``Ω_cs = Σ_g R · bread · X_g^T · A_g^2 · X_g · bread · R^T``.
-    These two Ω matrices coincide only in degenerate cases.
+    ``eta = q (q + 1) / sum_{s,t} sum_{i,j} (p_si'p_tj p_ti'p_sj +
+    p_si'p_sj p_ti'p_tj)`` with ``p_si = (I - H)_i' A_i X_i M R' g_s`` and
+    ``g_s`` the columns of ``Omega^{-1/2}``. With ``u_si`` the cluster block
+    ``A_i X_i M R' g_s``, ``p_si'p_tj = 1{i = j} u_si'u_tj - (X_i'u_si)' M
+    (X_j'u_tj)`` because ``(I - H)`` is symmetric and idempotent, so no
+    ``n``-vector is ever formed.
     """
-    A_raw_list = qty["A_g_raw"]
-    X_g_list = qty["X_g_list"]
-    bread = qty["bread"]
-    R_arr = np.atleast_2d(np.asarray(qty["R"], dtype=np.float64))
-    J = qty["G"]
     q = qty["q"]
-    # weights uniformity is enforced upstream in
-    # :func:`_htz_per_cluster_quantities`; assertion left as a self-check.
-    assert np.allclose(
-        qty["weights"], 1.0
-    ), "internal: helper let non-uniform weights through"
-
-    # Lower-triangular Cholesky of bread: L · L^T = bread.
-    L = np.linalg.cholesky(bread)
-
-    R_bread = R_arr @ bread
-
-    # Build clubSandwich-style G_cs and H_cs per cluster.
-    Gcs_list: list = []
-    Hcs_list: list = []
-    for cg in range(J):
-        X_g = X_g_list[cg]
-        A_g = A_raw_list[cg]
-        # G_cs = R · bread · X_g^T · A_g                   (q × n_g)
-        Gcs = (R_bread @ X_g.T) @ A_g
-        # H_cs = G_cs · X_g · L                            (q × k)
-        # NB: clubSandwich's M_U_ct = t(chol(M_U)) is lower-triangular,
-        # which is exactly numpy's np.linalg.cholesky(bread) (= L below);
-        # use L (NOT L.T) — verified element-wise vs clubSandwich GH$H.
-        Hcs = (Gcs @ X_g) @ L
-        Gcs_list.append(Gcs)
-        Hcs_list.append(Hcs)
-
-    # Build P_array (q × q × J × J).
-    # P[:, :, k, k] = G_k G_k^T - H_k H_k^T
-    # P[:, :, k, l] (k != l) = -H_k H_l^T
-    P = np.empty((q, q, J, J))
-    for k in range(J):
-        Gk = Gcs_list[k]
-        Hk = Hcs_list[k]
-        P[:, :, k, k] = Gk @ Gk.T - Hk @ Hk.T
-        for m in range(k + 1, J):
-            Hm = Hcs_list[m]
-            cross = -(Hk @ Hm.T)
-            P[:, :, k, m] = cross
-            P[:, :, m, k] = cross.T
-
-    # Critical: Ω used in HTZ is the *trace* of P_array over clusters,
-    # NOT Σ_g G_g · G_g^T. From clubSandwich source:
-    #   Omega <- apply(P_array, 1:2, function(x) sum(diag(x)))
-    # i.e. Ω[i, j] = Σ_k P_array[i, j, k, k]
-    #             = Σ_k (G_k G_k^T - H_k H_k^T)[i, j]
-    # The G_g-only Ω (which equals R · bread · X^T A^2 X · bread · R^T)
-    # is the *naive* expected value; HTZ subtracts the cluster-leverage
-    # cross terms. This was the root cause of an 18% drift before fix.
-    Omega_cs = np.einsum("ijkk->ij", P)
-    Omega_cs = 0.5 * (Omega_cs + Omega_cs.T)
-
-    # Ω_cs^{-1/2} via symmetric eigendecomposition with eigenvalue floor
-    # 1e-12 — matches clubSandwich's matrix_power(x, -1/2, tol=-12).
-    evals, evecs = np.linalg.eigh(Omega_cs)
-    evals_pow = np.where(evals > 1e-12, evals**-0.5, 0.0)
-    Omega_nsqrt = (evecs * evals_pow) @ evecs.T
-
-    # B[s, t, k, l] = Σ_{i, j} Ω_nsqrt[s, i] · P[i, j, k, l] · Ω_nsqrt[j, t]
-    B = np.einsum("si,ijkl,jt->stkl", Omega_nsqrt, P, Omega_nsqrt)
-
-    # total_variance_mat
-    var_mat = np.zeros((q, q))
-    for s in range(q):
-        for t in range(s + 1):
-            temp = float(
-                np.sum(B[s, t, :, :] * B[t, s, :, :])
-                + np.sum(B[s, s, :, :] * B[t, t, :, :])
-            )
-            var_mat[s, t] = temp
-            var_mat[t, s] = temp
-
-    total = float(var_mat.sum())
-    if total <= 0:
+    M = qty["M"]
+    vals, vecs = np.linalg.eigh(qty["Omega"])
+    if vals.min() <= 0:
         raise NumericalInstability(
-            f"HTZ var_mat sum non-positive (={total!r}); design degenerate. "
-            f"Use boottest_wald."
+            "HTZ: the working-model variance of R beta is singular; the "
+            "restrictions are not identified by the clustered design.",
+            recovery_hint="Drop restrictions on coefficients that the "
+            "clusters cannot separate.",
         )
-    return float(q * (q + 1) / total)
+    Om_isqrt = (vecs / np.sqrt(vals)) @ vecs.T  # columns g_s
+    n_clusters = qty["G"]
+    # Within-cluster Gram blocks E_i[s, t] = u_si'u_ti and stacked X_i'u_si.
+    E = np.empty((n_clusters, q, q))
+    W = np.empty((M.shape[0], n_clusters * q))
+    for i in range(n_clusters):
+        Ui = qty["U_g"][i] @ Om_isqrt
+        E[i] = Ui.T @ Ui
+        W[:, i * q : (i + 1) * q] = qty["XtU_g"][i] @ Om_isqrt
+    # K[(i, s), (j, t)] = p_si'p_tj
+    K = -(W.T @ M @ W)
+    for i in range(n_clusters):
+        K[i * q : (i + 1) * q, i * q : (i + 1) * q] += E[i]
+    K4 = K.reshape(n_clusters, q, n_clusters, q)  # [i, s, j, t]
+    # sum_{s,t,i,j} K[i,s,j,t] K[i,t,j,s]
+    term_cross = float(np.einsum("isjt,itjs->", K4, K4))
+    # sum_{i,j} (sum_s K[i,s,j,s])^2
+    trace_ij = np.einsum("isjs->ij", K4)
+    term_diag = float(np.sum(trace_ij * trace_ij))
+    total = term_cross + term_diag
+    if not total > 0:
+        raise NumericalInstability(
+            "HTZ: zero total variance of the normalised CR2 estimate.",
+            recovery_hint="Check the design: the restrictions may not vary "
+            "within or across clusters.",
+        )
+    eta = float(q * (q + 1) / total)
+    if eta <= q - 1:
+        raise NumericalInstability(
+            f"HTZ degrees of freedom eta={eta:.4g} <= q - 1 (q={q}): the "
+            "F(q, eta - q + 1) reference distribution does not exist for this "
+            "design.",
+            recovery_hint="Test fewer restrictions at once, or use "
+            "sp.fast.boottest_wald for a bootstrap Wald test.",
+            diagnostics={"eta": eta, "q": q},
+        )
+    return eta
 
 
 def cluster_dof_wald_htz(
@@ -1421,64 +1324,35 @@ def cluster_dof_wald_htz(
     weights: Optional[np.ndarray] = None,
     bread: Optional[np.ndarray] = None,
 ) -> float:
-    """clubSandwich-equivalent HTZ Wald DOF (Pustejovsky-Tipton 2018 §3.2).
+    """Degrees of freedom of the approximate Hotelling's T-squared (HTZ) test.
 
-    For testing ``H0: R β = r`` with the CR2 sandwich variance, the
-    cluster-robust Wald statistic ``Q = (Rβ̂ - r)' V_R^{-1} (Rβ̂ - r)``
-    is approximated by Hotelling's T² with denominator DOF ``η`` such
-    that ``(η - q + 1) / (η · q) · Q ~ F(q, η - q + 1)``.
-
-    The DOF ``η`` is computed by moment-matching the first two moments
-    of ``V_R = R V^CR2 R^T`` under the working covariance ``Φ = I``
-    (OLS+CR2 path; clubSandwich's default).
-
-    Equivalent to R::clubSandwich::Wald_test(test="HTZ")$df_denom to
-    ``rtol < 1e-8`` on the verified fixtures
-    (``tests/fixtures/htz_clubsandwich.json``).
+    The ``eta`` of Pustejovsky and Tipton (2018, Section 3.2, eq. 13) for
+    ``H0: R beta = r`` under the CR2 sandwich with working model
+    ``Phi = I``: the Wishart degrees of freedom that match the mean and the
+    total variance of the normalised CR2 estimate of ``Var(R beta)``. For
+    ``q = 1`` it is the Bell-McCaffrey Satterthwaite DOF with cross-cluster
+    terms. Matches R ``clubSandwich``'s ``Wald_test(test = "HTZ")``
+    (``df_denom + q - 1``), run as a black box.
 
     Parameters
     ----------
-    X : ndarray, shape (n, k)
-        Regressors (already FE-residualised if applicable).
-    cluster : ndarray, shape (n,)
-        Cluster identifiers.
-    R : ndarray, shape (q, k)
-        Restriction matrix; full row rank required (q ≤ k).
-    weights : ndarray, shape (n,), optional
-        Observation weights. Must be all 1 in v1 (Φ = I working cov).
-    bread : ndarray, shape (k, k), optional
-        Pre-computed inverse Hessian / ``(X'WX)^{-1}``.
+    X : (n, k) design matrix of the fitted OLS model.
+    cluster : (n,) cluster labels.
+    R : (q, k) restriction matrix of full row rank.
+    weights : optional (n,) weights; only equal weights are supported.
+    bread : optional (k, k) ``(X'X)^{-1}``.
 
     Returns
     -------
     float
-        ``η``, the HTZ moment-matching DOF.
-
-    Raises
-    ------
-    ValueError
-        If ``R`` is rank-deficient, ``G ≤ q``, or ``η ≤ q − 1``
-        (Hotelling-T² scaling diverges).
+        ``eta``; the test's denominator DOF is ``eta - q + 1``.
 
     References
     ----------
-    Pustejovsky and Tipton (2018) — see ``pustejovsky2018small`` in
-    ``paper.bib`` for the canonical citation.
+    pustejovsky2018small; bell2002bias.
     """
-    qty = _htz_per_cluster_quantities(
-        X,
-        cluster,
-        R=R,
-        weights=weights,
-        bread=bread,
-    )
-    eta = _htz_eta_from_quantities(qty)
-    if eta <= qty["q"] - 1:
-        raise NumericalInstability(
-            f"HTZ DOF η={eta:.4f} ≤ q−1 (q={qty['q']}); design too "
-            f"degenerate. Use boottest_wald instead."
-        )
-    return eta
+    qty = _htz_per_cluster_quantities(X, cluster, R=R, weights=weights, bread=bread)
+    return _htz_eta_from_quantities(qty)
 
 
 def cluster_wald_htz(
@@ -1492,87 +1366,100 @@ def cluster_wald_htz(
     weights: Optional[np.ndarray] = None,
     bread: Optional[np.ndarray] = None,
 ) -> WaldTestResult:
-    """clubSandwich-equivalent HTZ Wald test under CR2 cluster-robust sandwich.
+    """Cluster-robust Wald test with the CR2 sandwich and the HTZ F reference.
 
-    Tests ``H0: R β = r`` with the Pustejovsky-Tipton 2018 §3.2
-    moment-matching DOF and Hotelling-T² scaling. Equivalent to
-    R::clubSandwich::Wald_test(fit, constraints=R, vcov="CR2",
-    test="HTZ") to ``rtol < 1e-8`` on the verified fixtures.
+    ``Q = (R beta - r)' V_R^{-1} (R beta - r)`` with ``V_R = R V^{CR2} R'``;
+    under the approximate Hotelling's T-squared distribution of Pustejovsky
+    and Tipton (2018, eq. 12), ``F = (eta - q + 1) / (eta q) * Q`` is
+    referred to ``F(q, eta - q + 1)``, with ``eta`` from
+    :func:`cluster_dof_wald_htz`. Agrees with R ``clubSandwich``'s
+    ``Wald_test(..., test = "HTZ")`` (black-box fixtures in
+    ``tests/fixtures/htz_clubsandwich.json`` and
+    ``tests/reference_parity/_fixtures/htz_blackbox_R.json``).
+
+    Parameters
+    ----------
+    X : (n, k) design matrix.
+    residuals : (n,) OLS residuals ``y - X beta``.
+    cluster : (n,) cluster labels.
+    R : (q, k) restriction matrix of full row rank.
+    beta : (k,) coefficient estimates.
+    r : (q,) null values, default zeros.
+    weights : optional (n,) weights; only equal weights are supported.
+    bread : optional (k, k) ``(X'X)^{-1}``.
+
+    Returns
+    -------
+    WaldTestResult
+
+    References
+    ----------
+    pustejovsky2018small; bell2002bias.
     """
-    qty = _htz_per_cluster_quantities(
-        X,
-        cluster,
-        R=R,
-        weights=weights,
-        bread=bread,
-    )
-    G_list = qty["G_g"]
-    Asw_list = qty["A_g_sqrtW"]
-    cluster_codes = qty["cluster_codes"]
-    G_clusters = qty["G"]
+    qty = _htz_per_cluster_quantities(X, cluster, R=R, weights=weights, bread=bread)
     q = qty["q"]
-    R_arr = np.atleast_2d(np.asarray(R, dtype=np.float64))
-
-    if r is None:
-        r = np.zeros(q)
-    else:
-        r = np.asarray(r, dtype=np.float64).ravel()
-        if r.shape[0] != q:
-            raise MethodIncompatibility(
-                f"r has {r.shape[0]} entries but R has q={q} rows"
-            )
-
-    residuals = np.asarray(residuals, dtype=np.float64).ravel()
+    R = np.atleast_2d(np.asarray(R, dtype=np.float64))
     beta = np.asarray(beta, dtype=np.float64).ravel()
+    e = np.asarray(residuals, dtype=np.float64).ravel()
+    if beta.shape[0] != R.shape[1]:
+        raise ValueError(
+            f"beta has {beta.shape[0]} entries but R has {R.shape[1]} cols."
+        )
+    if e.shape[0] != qty["cluster_codes"].shape[0]:
+        raise ValueError("residuals and cluster must have the same length.")
+    r_vec = np.zeros(q) if r is None else np.asarray(r, dtype=np.float64).ravel()
+    if r_vec.shape[0] != q:
+        raise ValueError(f"r has {r_vec.shape[0]} entries but R has {q} rows.")
 
-    # V_R via the V_R-decomposition path (matches crve(type='cr2')):
-    #   v_g = G_g · (A_g_sqrtW · u_g) = R · bread · X_g^T · diag(w_g) · A_g · u_g
+    codes = qty["cluster_codes"]
+    order = np.argsort(codes, kind="stable")
+    bounds = np.searchsorted(codes[order], np.arange(qty["G"] + 1))
     V_R = np.zeros((q, q))
-    for cg in range(G_clusters):
-        mask = cluster_codes == cg
-        u_g = residuals[mask]
-        e_tilde = Asw_list[cg] @ u_g  # (n_g,)
-        v_g = G_list[cg] @ e_tilde  # (q,)
-        V_R += np.outer(v_g, v_g)
+    for g in range(qty["G"]):
+        idx = order[bounds[g] : bounds[g + 1]]
+        v = qty["G_g"][g] @ (qty["A_g_sqrtW"][g] @ e[idx])
+        V_R += np.outer(v, v)
     V_R = 0.5 * (V_R + V_R.T)
 
-    eta = _htz_eta_from_quantities(qty)
-    if eta <= q - 1:
-        raise NumericalInstability(
-            f"HTZ DOF η={eta:.4f} ≤ q−1 (q={q}); design too degenerate "
-            f"for Hotelling-T² scaling. Use boottest_wald instead."
-        )
-
-    diff = R_arr @ beta - r  # (q,)
-    # Short-circuit: if V_R is the zero matrix (zero residuals or fully
-    # degenerate sandwich), the Wald statistic is 0 by convention iff the
-    # diff is also 0; otherwise the test is undefined.
-    if not np.any(V_R):
-        if np.allclose(diff, 0.0):
-            Q = 0.0
-        else:
-            raise NumericalInstability(
-                "HTZ: V_R is the zero matrix but R β̂ − r ≠ 0; "
-                "test is undefined (likely zero residuals with non-zero "
-                "constraint)."
-            )
+    diff = R @ beta - r_vec
+    if not np.any(diff):
+        Q = 0.0
     else:
-        Q = float(diff @ np.linalg.solve(V_R, diff))
+        sv = np.linalg.svd(V_R, compute_uv=False)
+        if sv[-1] <= 1e-12 * sv[0]:
+            # e.g. a restriction on a coefficient that is constant within
+            # clusters (a cluster fixed effect): CR2 cannot estimate its
+            # variance and the inverse is rounding noise.
+            warnings.warn(
+                "HTZ: the CR2 estimate of Var(R beta) is (near-)singular "
+                f"(condition number {sv[0] / max(sv[-1], 1e-300):.3g}); the Wald "
+                "statistic uses its pseudo-inverse and tests only the "
+                "estimable directions.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            Q = float(diff @ np.linalg.pinv(V_R, rcond=1e-12) @ diff)
+        else:
+            Q = float(diff @ np.linalg.solve(V_R, diff))
+
+    eta = _htz_eta_from_quantities(qty)
+    df2 = eta - q + 1
     F_stat = (eta - q + 1) / (eta * q) * Q
+    if Q == 0.0:
+        p_value = 1.0
+    else:
+        from scipy import stats as _stats
 
-    from scipy.stats import f as _scipy_f
-
-    p_value = float(_scipy_f.sf(F_stat, q, eta - q + 1))
-
+        p_value = float(_stats.f.sf(F_stat, q, df2))
     return WaldTestResult(
         test="HTZ",
-        q=q,
+        q=int(q),
         eta=float(eta),
         F_stat=float(F_stat),
         p_value=p_value,
-        Q=Q,
-        R=R_arr.copy(),
-        r=r.copy(),
+        Q=float(Q),
+        R=R.copy(),
+        r=r_vec.copy(),
         V_R=V_R,
     )
 

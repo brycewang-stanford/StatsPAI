@@ -7,7 +7,11 @@ environments without R installed.
 
 ## Files
 
-- `_gen_htz_fixture.R` — generator script (developer-only, NOT in CI).
+- `_gen_htz_fixture.R` — generator script (developer-only, NOT in CI). It
+  calls only clubSandwich's public API (`vcovCR`, `Wald_test`; `eta` is
+  `df_denom + q - 1`); clubSandwich is GPL-3 and is a black box here.
+  A wider fixture lives in
+  `tests/reference_parity/_fixtures/htz_blackbox_R.json`.
 - `htz_panel_{q1,q2,q3_unbal}.csv` — actual panel data R simulated.
 - `htz_clubsandwich.json` — `Wald_test(test="HTZ")` outputs (η, F, p, Q, V_R)
   for each panel.

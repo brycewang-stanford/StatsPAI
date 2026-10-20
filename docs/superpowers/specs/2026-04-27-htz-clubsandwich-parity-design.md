@@ -1,3 +1,8 @@
+> **Superseded (2026-10-20).** The HTZ code this design describes was replaced by a
+> clean-room implementation written from Pustejovsky and Tipton (2018) and
+> black-box runs of clubSandwich; see `docs/dev/cleanroom/htz.md`. This file is
+> kept as history and does not describe the current code.
+
 # clubSandwich-equivalent HTZ Wald DOF — design spec
 
 **Date**: 2026-04-27

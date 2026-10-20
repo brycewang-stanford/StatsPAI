@@ -6,6 +6,8 @@
 #   cd tests/fixtures && Rscript _gen_htz_fixture.R
 #
 # Requires: R >= 4.0, clubSandwich, jsonlite, data.table.
+# Public clubSandwich API only (vcovCR, Wald_test); see
+# docs/dev/cleanroom/htz.md.
 
 suppressMessages({
   library(clubSandwich)
@@ -75,15 +77,10 @@ for (cfg in panels) {
   V_R_mat <- as.matrix(R %*% V_CR2 %*% t(R))
   q_int <- as.integer(wt$df_num)
 
-  # Re-derive nu_Z from clubSandwich internals (cleanest, no float drift):
-  GH <- clubSandwich:::get_GH(fit, V_CR2)
-  GH$G <- lapply(GH$G, function(s) R %*% s)
-  GH$H <- clubSandwich:::array_multiply(R, GH$H)
-  P_array <- clubSandwich:::get_P_array(GH = GH, all_terms = TRUE)
-  Omega <- apply(P_array, 1:2, function(x) sum(diag(x)))
-  Omega_nsqrt <- clubSandwich:::matrix_power(Omega, -1/2)
-  Var_mat <- clubSandwich:::total_variance_mat(P_array, Omega_nsqrt, q = q_int)
-  nu_Z <- q_int * (q_int + 1) / sum(Var_mat)
+  # eta (the moment-matching DOF of Pustejovsky and Tipton 2018, eq. 13)
+  # from the public API: Wald_test's denominator DOF is eta - q + 1.
+  # clubSandwich is GPL-3 and used only as a black box (no internals).
+  nu_Z <- wt$df_denom + q_int - 1
 
   # Q (raw Wald) = F · q · df_denom / 1, since F = delta · Q / q with
   # delta = df_denom / nu_Z, so Q = F · q · nu_Z / df_denom.

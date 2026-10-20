@@ -1,6 +1,7 @@
-"""Tests for clubSandwich-equivalent HTZ Wald DOF (Pustejovsky-Tipton 2018).
+"""Tests for the CR2 / HTZ Wald test (Pustejovsky-Tipton 2018, Section 3.2).
 
-See docs/superpowers/specs/2026-04-27-htz-clubsandwich-parity-design.md.
+Clean-room implementation; spec in docs/dev/cleanroom/htz.md. R clubSandwich
+(GPL-3) is used only as a black box through its public API.
 """
 
 from __future__ import annotations
@@ -509,16 +510,8 @@ def test_htz_matches_r_clubsandwich_live(seed, G, q, tmp_path):
         "fit <- lm(y ~ x1 + x2, data=d)\n"
         "V <- vcovCR(fit, cluster=d$g, type='CR2')\n"
         f"R <- {R_str}\n"
-        "GH <- clubSandwich:::get_GH(fit, V)\n"
-        "GH$G <- lapply(GH$G, function(s) R %*% s)\n"
-        "GH$H <- clubSandwich:::array_multiply(R, GH$H)\n"
-        "P_arr <- clubSandwich:::get_P_array(GH=GH, all_terms=TRUE)\n"
-        "Om <- apply(P_arr, 1:2, function(x) sum(diag(x)))\n"
-        "Om_nsqrt <- clubSandwich:::matrix_power(Om, -1/2)\n"
-        "VM <- clubSandwich:::total_variance_mat(P_arr, Om_nsqrt, "
-        f"q={q})\n"
-        f"nu_Z <- {q} * ({q}+1) / sum(VM)\n"
         "wt <- Wald_test(fit, constraints=R, vcov=V, test='HTZ')\n"
+        f"nu_Z <- wt$df_denom + {q} - 1\n"
         "out <- list(eta=nu_Z, F_stat=wt$Fstat, p_value=wt$p_val, "
         "df_denom=wt$df_denom)\n"
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
