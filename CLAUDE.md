@@ -340,7 +340,7 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
 | --- | --- | --- |
 | [`rd.md`](docs/dev/modules/rd.md) | 回归断点（RD） | `rd/`；`rd/optimized.py`（`sp.rd_optimized`，Imbens-Wager 2019） |
 | [`synth.md`](docs/dev/modules/synth.md) | 合成控制 | `synth/`；`synth/_gsynth_multi.py`（`sp.gsynth(treat=)`，1.39 起） |
-| [`did.md`](docs/dev/modules/did.md) | 双重差分与事件研究 | `did/did_forest.py`；`callaway_santanna(notyet_cutoff=)`；`did/es_inference.py`；CS 的聚类变量；`did/_arp.py::rm_confidence_set`；`sp.drdid` 的面板路径；`sp.did_multiplegt`；`did/few_treated.py`；dCDH 家族（`did/did_multiplegt.py` / `did_multiplegt_dyn.py` / `twowayfeweights.py`）；`sp.sun_abraham`；DiD 的日期型时间列（`did/_core.py::calendar_time_aware`） |
+| [`did.md`](docs/dev/modules/did.md) | 双重差分与事件研究 | `did/did_forest.py`；`callaway_santanna(notyet_cutoff=)`；`did/es_inference.py`；CS 的聚类变量；`did/_arp_sets.py::rm_confidence_set`；`sp.drdid` 的面板路径；`sp.did_multiplegt`；`did/few_treated.py`；dCDH 家族（`did/did_multiplegt.py` / `did_multiplegt_dyn.py` / `twowayfeweights.py`）；`sp.sun_abraham`；DiD 的日期型时间列（`did/_core.py::calendar_time_aware`） |
 | [`decomposition.md`](docs/dev/modules/decomposition.md) | 分解 | `decomposition/` |
 | [`panel_multilevel.md`](docs/dev/modules/panel_multilevel.md) | 面板、多层模型、前沿、动态面板 GMM | `multilevel/` / `frontier/` / GLMM；`gmm/_dynpanel/`；`panel/` 的随机效应方差分量只有一份实现；`mackinnon1994_pvalue`（`panel/unit_root.py`）在拟合范围之上返回 1 |
 | [`bayes_mcmc.md`](docs/dev/modules/bayes_mcmc.md) | 贝叶斯（PyMC 与 mcmc/） | `bayes/`；`mcmc/`（1.39 起）；`mcmc/` 的第二批（1.39 起）；`mcmc/` 的回归工作流（2026-10 Gelman-Hill-Vehtari 一轮） |

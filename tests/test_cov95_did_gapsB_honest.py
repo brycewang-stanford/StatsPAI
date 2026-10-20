@@ -16,6 +16,7 @@ import pytest
 from scipy import stats
 
 import statspai as sp
+import statspai.did._honest_r  # noqa: F401  (registers the submodule)
 import statspai.did.honest_did  # noqa: F401  (registers the submodule)
 from statspai.core.results import CausalResult
 from statspai.exceptions import (
@@ -25,6 +26,8 @@ from statspai.exceptions import (
 )
 
 H = sys.modules["statspai.did.honest_did"]
+# The R backend and its Rscript resolver live in their own module.
+HR = sys.modules["statspai.did._honest_r"]
 
 TIMES = [-3, -2, 0, 1, 2]
 BETA = np.array([0.1, -0.05, 1.0, 1.2, 1.5])
@@ -193,11 +196,11 @@ def test_fit_without_consistent_covariance_is_rejected():
 # R backend
 # ----------------------------------------------------------------------
 def test_find_rscript_falls_back_to_standard_install_paths(monkeypatch):
-    monkeypatch.setattr(H.shutil, "which", lambda name: None)
-    monkeypatch.setattr(H.Path, "exists", lambda self: True)
-    assert H._find_rscript() == "/Library/Frameworks/R.framework/Resources/bin/Rscript"
-    monkeypatch.setattr(H.Path, "exists", lambda self: False)
-    assert H._find_rscript() is None
+    monkeypatch.setattr(HR.shutil, "which", lambda name: None)
+    monkeypatch.setattr(HR.Path, "exists", lambda self: True)
+    assert HR._find_rscript() == "/Library/Frameworks/R.framework/Resources/bin/Rscript"
+    monkeypatch.setattr(HR.Path, "exists", lambda self: False)
+    assert HR._find_rscript() is None
 
 
 @pytest.mark.parametrize("fixture", ["with_cov", "no_cov"])
@@ -205,7 +208,7 @@ def test_r_backend_reports_a_failing_rscript(monkeypatch, request, fixture):
     # Point the backend at an executable that cannot run R code: the windowed
     # l_vec target is prepared in Python first, then the non-zero exit status
     # must surface as ConvergenceFailure rather than as empty output.
-    monkeypatch.setattr(H, "_find_rscript", lambda: sys.executable)
+    monkeypatch.setattr(HR, "_find_rscript", lambda: sys.executable)
     res = request.getfixturevalue(fixture)
     with pytest.raises(ConvergenceFailure, match="failed while running the R") as ei:
         sp.honest_did(
@@ -215,6 +218,6 @@ def test_r_backend_reports_a_failing_rscript(monkeypatch, request, fixture):
 
 
 def test_r_backend_validates_l_vec_before_calling_r(monkeypatch, with_cov):
-    monkeypatch.setattr(H, "_find_rscript", lambda: sys.executable)
+    monkeypatch.setattr(HR, "_find_rscript", lambda: sys.executable)
     with pytest.raises(MethodIncompatibility, match="l_vec"):
         sp.honest_did(with_cov, e=0, backend="honestdid", l_vec=[1.0, 0.0])

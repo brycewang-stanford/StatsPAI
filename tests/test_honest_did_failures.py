@@ -26,6 +26,8 @@ from statspai.core.results import CausalResult
 from statspai.exceptions import ConvergenceFailure, DataInsufficient
 
 hd = importlib.import_module("statspai.did.honest_did")
+# The R backend (and the Rscript resolver it calls) lives in its own module.
+hd_r = importlib.import_module("statspai.did._honest_r")
 
 
 def _result(times, att, se):
@@ -64,14 +66,14 @@ def test_one_pre_period_still_runs():
 def test_unreadable_r_answer_is_a_typed_error(monkeypatch):
     """R exits 0 but leaves no readable table (simulated, no R needed)."""
     res = _result([-2, 0, 1], [0.01, 0.4, 0.3], [0.05, 0.1, 0.1])
-    monkeypatch.setattr(hd, "_find_rscript", lambda: "Rscript")
+    monkeypatch.setattr(hd_r, "_find_rscript", lambda: "Rscript")
 
     def fake_run(args, **kw):
         return subprocess.CompletedProcess(
             args, 0, stdout="Polishing not needed\n", stderr="a warning\n"
         )
 
-    monkeypatch.setattr(hd.subprocess, "run", fake_run)
+    monkeypatch.setattr(hd_r.subprocess, "run", fake_run)
     with pytest.raises(ConvergenceFailure, match="Polishing not needed") as err:
         sp.honest_did(res, e=0, backend="r", honestdid_method="C-F", m_grid=[0.1])
     assert "a warning" in str(err.value)

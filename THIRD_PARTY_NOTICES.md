@@ -6,9 +6,9 @@ notices are reproduced here as those licences require.
 
 ## HonestDiD (R package)
 
-`src/statspai/did/_arp.py` ports the relative-magnitudes confidence-set
-construction of the R package **HonestDiD** 0.2.8 by Ashesh Rambachan and
-Jonathan Roth (<https://github.com/asheshrambachan/HonestDiD>), which is
+`src/statspai/did/_arp.py` and `src/statspai/did/_arp_sets.py` port the
+relative-magnitudes confidence-set construction of the R package
+**HonestDiD** 0.2.8 by Ashesh Rambachan and Jonathan Roth (<https://github.com/asheshrambachan/HonestDiD>), which is
 distributed under the MIT License:
 
 ```

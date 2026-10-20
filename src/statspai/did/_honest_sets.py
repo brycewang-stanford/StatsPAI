@@ -42,7 +42,8 @@ import numpy as np
 from scipy import optimize
 
 from ..exceptions import ConvergenceFailure, MethodIncompatibility
-from ._arp import create_a_rm, union_confidence_set
+from ._arp import create_a_rm
+from ._arp_sets import union_confidence_set
 
 __all__ = [
     "create_a_sd",

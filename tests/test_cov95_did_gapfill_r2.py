@@ -548,9 +548,9 @@ def test_honest_r_backend_without_rscript_raises(cs_result, monkeypatch):
     # patch the resolver itself to model "no Rscript anywhere".
     import importlib
 
-    # ``statspai.did.honest_did`` the *attribute* is the re-exported
-    # function; fetch the module object explicitly.
-    honest_mod = importlib.import_module("statspai.did.honest_did")
+    # The R backend resolves Rscript in its own module; fetch the module
+    # object explicitly.
+    honest_mod = importlib.import_module("statspai.did._honest_r")
     monkeypatch.setattr(honest_mod, "_find_rscript", lambda: None)
     with pytest.raises(ImportError, match="Rscript"):
         sp.honest_did(cs_result, backend="honestdid")
