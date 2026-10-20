@@ -40,6 +40,16 @@ names will then fail or change meaning.
 The dispatcher's default `design` changes from `"partial"` to
 `"spillover"` (same estimator), so calls without a design neither warn now
 nor change target later.
+## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` / `sp.rdbwselect` bandwidths with mass points
+
+With `masspoints='adjust'` (the default) and 20% or more tied values of the
+running variable on a side, the selected `h` and `b` are no longer floored
+at the distance of the 10th (`bwcheck`-th) distinct value; only the pilot
+bandwidth is, as in rdrobust 4.0.0. Bandwidths, estimates and SEs change on
+such data (continuous running variables are unaffected). Pass `h=` / `b=`
+to fix the bandwidths yourself. Windows with fewer distinct values than
+polynomial coefficients are now refused instead of fitted with a
+pseudo-inverse.
 
 ---
 

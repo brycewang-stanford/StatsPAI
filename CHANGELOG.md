@@ -68,6 +68,59 @@ Audit rows H13-H18 and H22 of `docs/dev/2026-10-20-license-provenance-audit.md`:
   influence function. Switching the default would be a correctness fix for
   `sp.drdid(method='trad')` on repeated cross-sections and
   `callaway_santanna(panel=False, estimator='dr')`.
+### RD core (`sp.rdrobust`, `sp.rdbwselect`, `sp.rdplot`, `sp.rddensity`, `sp.lprobust_at_point` / `lpbwselect_*`): clean-room rewrite
+
+- **Changed**: the modules the 2026-10-20 license audit listed as ports of
+  GPL code (rows H5, H6, H7, H12) are reimplemented from the papers, the
+  R / Stata help files and black-box runs of the references, without
+  reading their source: the CCT bandwidth selector and robust
+  bias-corrected estimator (`rd/_cct_bandwidth.py`, new `_cct_inference.py`,
+  `_cct_side.py`, `_nn_variance.py`), the RD-plot numbers
+  (`rd/_rdplot_numbers.py`), the CJM density estimator (`rd/_lpdensity.py`,
+  `diagnostics/rddensity.py`) and `nonparametric/lprobust.py` (+
+  `_lprobust_bw.py`, `_lprobust_select.py`). Specifications with the
+  black-box evidence for each convention are in `docs/dev/cleanroom/`
+  (`rd_cct.md`, `rdplot.md`, `rddensity.md`, `lpdensity.md`,
+  `lprobust.md`). Signatures and result fields are unchanged. Track A
+  modules 06, 09, 88, 89 and original-data 05 reproduce their committed
+  results within 1.5e-10. New R fixtures: NN residuals, rdplot (70 calls),
+  lpdensity, rdbwdensity regimes, lprobust selectors (600 cases).
+- **⚠️ Correctness**: `sp.rdrobust` / `sp.rdbwselect` with
+  `masspoints='adjust'` (the default) on a running variable with 20% or
+  more tied values floored the final `h` and `b` at the `bwcheck` distance
+  (the 10th distinct value from the cutoff). rdrobust 4.0.0 floors only
+  the pilot bandwidth; on the 20-support-point cells of
+  `tests/reliability/rd_mass_points.py` the old `h` was 0.475 on every
+  draw against R's 0.15 to 0.35. Now as R (to 1e-12 on those draws).
+- **Changed**: a preliminary fit in the bandwidth selector whose window
+  has fewer distinct running-variable values than coefficients raises
+  `DataInsufficient` (`sp.rdrobust` falls back to its legacy selector with a
+  recorded warning, as for other degenerate data), and the estimator
+  refuses a rank-deficient `h` / `b` window with `NumericalInstability`.
+  Both used to return numbers from a pseudo-inverse (R does too). A
+  constant outcome raises `DataInsufficient` in the selector.
+- **Changed** (`sp.rddensity`): `n_eff` counted one observation short when
+  the cutoff is not zero and an observation sits exactly at distance `h`
+  (now as R); a side with too few distinct points gives NaN densities
+  instead of numbers from an underdetermined fit; estimates at `p >= 3`
+  move by up to 2e-7 (p = 3, 4) and 1e-4 (p = 6, 7), equally close to R.
+  `lpdensity_numbers` refuses a bandwidth <= 0, `v > p` and unknown kernel
+  names (they fell back to Epanechnikov).
+- **Changed** (`lprobust` selectors): last-digit changes, up to 2e-9 at
+  `p = 1` and 1.5e-6 in ill-conditioned `p = 3` cases; a 50-digit
+  recomputation agrees with the new values (see `lprobust.md`).
+  `bwcheck=0` and exactly identified pilot windows now raise
+  `DataInsufficient`, as R.
+- **Changed** (`sp.rdplot` numbers): duplicated covariates are dropped with
+  a warning and `coef_covs` lists the kept columns (as R); a side with one
+  observation raises `DataInsufficient`; invalid `nbins` / `scale` / `p` /
+  `ci` / weights raise typed errors; a non-integer `scale` uses
+  `ceil(scale * J)`.
+- Open items for the owner: R 4.0.0 maps `vce='hc2'`/`'hc3'` with
+  `cluster=` to its CR2 / CR3 estimators; StatsPAI keeps leverage-scaled
+  residuals with the CR1 factor (0.07% to 0.6% of the SE apart on the
+  fixtures tried). `sp.rddensity` still reports T = 0, p = 1 when the
+  statistic cannot be computed (R: NA).
 
 ### `sp.scdata` / `sp.scest` / `sp.scpi`: clean-room rewrite
 
