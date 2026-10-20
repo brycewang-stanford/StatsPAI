@@ -4,7 +4,8 @@
 the column (or ``treat_type=``) and returns weights from a generalized
 propensity-score model (``method='glm'``), the just-identified covariate
 balancing propensity score (``'cbps'``), entropy balancing (``'ebal'``) or
-energy balancing (``'energy'``, categorical treatments). :func:`sp.bal_tab` reports the balance the weights achieve.
+energy balancing (``'energy'``, categorical treatments). :func:`sp.bal_tab`
+reports the balance the weights achieve.
 
 References
 ----------

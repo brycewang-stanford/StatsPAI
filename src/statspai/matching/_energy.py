@@ -1,4 +1,4 @@
-"""Energy balancing weights for categorical treatments (``sp.weightit(method='energy')``).
+"""Energy balancing weights: ``sp.weightit(method='energy')``.
 
 The weights minimise the energy distance between each weighted treatment
 group and the target distribution: the full sample (ATE) or the focal
