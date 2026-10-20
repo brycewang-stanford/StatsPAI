@@ -271,6 +271,17 @@ All notable changes to StatsPAI will be documented in this file.
   The default paths (the FLCI under smoothness, C-LF under relative
   magnitudes) are unchanged.
 
+- `sp.xtevent_smpath(result, postwindow=None, maxorder=10, level=0.95)`:
+  the "least wiggly" confound path that Stata `xteventplot, smpath(line)`
+  draws after `xtevent` (the lowest-degree polynomial through the
+  normalised coefficient inside the Wald region, with the smallest leading
+  coefficient), solved in closed form. The least Wald statistic at each
+  degree and the critical value equal Stata 18's (to the 9 digits it
+  prints), so the degree chosen is the same; the path is a screen against
+  Stata's numerical optimiser (within 1e-7 on four designs, 2e-4 on a fifth,
+  where the closed form has the smaller leading coefficient)
+  (`tests/reference_parity/test_xtevent_smpath_Stata_screen.py`).
+
 #### Changed
 
 - `did/honest_did.py` (1,944 lines) and `did/_arp.py` (895) are split by

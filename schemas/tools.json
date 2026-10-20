@@ -45223,6 +45223,36 @@
     "name": "xtevent"
   },
   {
+    "description": "Smoothest ('least wiggly') polynomial confound path through the Wald region of an sp.xtevent event study (Stata xteventplot, smpath(); Freyaldenhoven et al. Suggestion 6): the lowest-degree polynomial in event time through the normalised coefficient that the data cannot reject, with the smallest leading coefficient. Solved in closed form; Stata optimises numerically. Per-degree Wald statistics equal Stata's; the path agrees with Stata's to 1e-7 where its optimiser converges (a screen, not parity). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The event-study coefficients are approximately normal with the estimated covariance (Wald region). Failure modes: No polynomial of order up to <maxorder> lies in the <level> Wald region of the event-time coefficients -> Raise maxorder (at most 10) or lower level; maxorder must be between 1 and 10 -> Stata's default is maxorder(10); level must lie strictly between 0 and 1 -> Use level=0.95 for a 95% Wald region. Alternatives: sp.honest_did, sp.pretrends_test, sp.xtevent.",
+    "input_schema": {
+      "properties": {
+        "level": {
+          "default": 0.95,
+          "description": "Coverage of the Wald region (chi-square quantile)",
+          "type": "number"
+        },
+        "maxorder": {
+          "default": 10,
+          "description": "Stata maxorder(): highest polynomial degree tried (1-10)",
+          "type": "integer"
+        },
+        "postwindow": {
+          "description": "Stata postwindow(): only post-event coefficients 0..postwindow-1 enter the Wald region (default: all)",
+          "type": "integer"
+        },
+        "result": {
+          "description": "sp.xtevent event study (no static / trend / proxy)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "xtevent_smpath"
+  },
+  {
     "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors. Assumptions: Every regressor is uncorrelated with the idiosyncratic error; The regressors not listed in endog= are uncorrelated with the unit effect; At least as many exogenous time-varying regressors as endogenous time-invariant ones. Failure modes: MethodIncompatibility: the model is under-identified -> Declare fewer time-invariant regressors endogenous or add exogenous time-varying regressors. Alternati...",
     "input_schema": {
       "properties": {

@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 435 |
 | | aligned | 60 |
 | | **subtotal** | **495** |
-| **No external software reference** | analytical-only (T1) | 425 |
+| **No external software reference** | analytical-only (T1) | 426 |
 | | external-replication (published numbers) | 62 |
-| | **subtotal** | **487** |
-| No numerical evidence yet | unverified | 639 |
+| | **subtotal** | **488** |
+| No numerical evidence yet | unverified | 640 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 495 | 964 | 977 | 50.7% |
+| estimator callables | 495 | 965 | 979 | 50.6% |
 | infrastructure (parity N/A) | 0 | 13 | 232 | 0.0% |
 | result / exception classes | 0 | 5 | 412 | 0.0% |
-| **all registered** | 495 | 982 | 1621 | 30.5% |
+| **all registered** | 495 | 983 | 1623 | 30.5% |
 
 ### Coverage by estimator family
 
@@ -52,13 +52,13 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 155 | 355 | 355 |
+| causal | 155 | 356 | 356 |
 | regression | 45 | 59 | 62 |
 | timeseries | 24 | 52 | 53 |
 | inference | 28 | 51 | 52 |
 | bayes | 12 | 49 | 49 |
 | diagnostics | 24 | 39 | 39 |
-| panel | 28 | 34 | 38 |
+| panel | 28 | 34 | 39 |
 | spatial | 28 | 35 | 35 |
 | experimental | 3 | 26 | 29 |
 | decomposition | 20 | 24 | 24 |
@@ -675,7 +675,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 425 functions
+## analytical-only — 426 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -1097,7 +1097,8 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `westfall_young` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) (+1) |
 | `wooldridge_prod` | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
-| `xtevent` | [`test_xtevent_Stata_parity.py`](../tests/reference_parity/test_xtevent_Stata_parity.py) (+1) |
+| `xtevent` | [`test_xtevent_Stata_parity.py`](../tests/reference_parity/test_xtevent_Stata_parity.py) (+2) |
+| `xtevent_smpath` | [`test_xtevent_smpath_Stata_screen.py`](../tests/reference_parity/test_xtevent_smpath_Stata_screen.py) |
 | `xthtaylor` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
 | `xtoverid` | [`test_textbook_methods_stata_parity.py`](../tests/reference_parity/test_textbook_methods_stata_parity.py) |
 | `xtserial` | [`test_textbook_methods_stata_parity.py`](../tests/reference_parity/test_textbook_methods_stata_parity.py) |
@@ -1107,6 +1108,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 639 functions
+## unverified — 640 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

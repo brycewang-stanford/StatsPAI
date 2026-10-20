@@ -31773,6 +31773,36 @@
     }
   },
   {
+    "description": "Smoothest ('least wiggly') polynomial confound path through the Wald region of an sp.xtevent event study (Stata xteventplot, smpath(); Freyaldenhoven et al. Suggestion 6): the lowest-degree polynomial in event time through the normalised coefficient that the data cannot reject, with the smallest leading coefficient. Solved in closed form; Stata optimises numerically. Per-degree Wald statistics equal Stata's; the path agrees with Stata's to 1e-7 where its optimiser converges (a screen, not parity). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "xtevent_smpath",
+    "parameters": {
+      "properties": {
+        "level": {
+          "default": 0.95,
+          "description": "Coverage of the Wald region (chi-square quantile)",
+          "type": "number"
+        },
+        "maxorder": {
+          "default": 10,
+          "description": "Stata maxorder(): highest polynomial degree tried (1-10)",
+          "type": "integer"
+        },
+        "postwindow": {
+          "description": "Stata postwindow(): only post-event coefficients 0..postwindow-1 enter the Wald region (default: all)",
+          "type": "integer"
+        },
+        "result": {
+          "description": "sp.xtevent event study (no static / trend / proxy)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10. Validation: certified parity evidence.",
     "name": "panel_match",
     "parameters": {

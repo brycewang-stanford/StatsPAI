@@ -236,6 +236,7 @@ from .did import (
     uniform_bands,
     wooldridge_did,
     xtevent,
+    xtevent_smpath,
 )
 from .dml import (  # v1.7 long-panel DML; v1.13 DML-OVB sensitivity + diagnostics
     DMLAveragingResult,
@@ -1494,6 +1495,7 @@ __all__ = [
     "borusyak_jaravel_spiess",
     "stacked_did",
     "xtevent",
+    "xtevent_smpath",
     "panel_match",
     "cdlz_bunching",
     "gardner_did",

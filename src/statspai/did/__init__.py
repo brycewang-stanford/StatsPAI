@@ -45,6 +45,7 @@ from ._staggered_rollout import (
     staggered_rollout,
     staggered_sa,
 )
+from ._xtevent_smpath import xtevent_smpath
 from .aggte import aggte
 from .analysis import DIDAnalysis, did_analysis
 from .bacon import bacon_decomposition
@@ -1097,6 +1098,7 @@ __all__ = [
     "stacked_did",
     "cdlz_bunching",
     "xtevent",
+    "xtevent_smpath",
     "panel_match",
     "gardner_did",
     "did_2stage",

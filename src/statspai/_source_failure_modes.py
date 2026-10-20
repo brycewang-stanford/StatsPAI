@@ -1817,6 +1817,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "(engine='areg').",
         },
     ],
+    "xtevent_smpath": [
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Raise maxorder (at most 10) or lower level.",
+            "symptom": "No polynomial of order up to <maxorder> lies "
+            "in the <level> Wald region of the event-time "
+            "coefficients.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Stata's default is maxorder(10).",
+            "symptom": "maxorder must be between 1 and 10.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use level=0.95 for a 95% Wald region.",
+            "symptom": "level must lie strictly between 0 and 1.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Omit it to use every post-event coefficient.",
+            "symptom": "postwindow must be a positive integer.",
+        },
+    ],
     "xtoverid": [
         {
             "exception": "statspai.MethodIncompatibility",

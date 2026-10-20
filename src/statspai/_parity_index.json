@@ -2582,6 +2582,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_honest_did_paper_parity.py",
+        "tests/reference_parity/test_honest_breakdown_R_parity.py",
         "tests/reference_parity/test_honest_rm_R_parity.py"
       ],
       "also_verified_by": [
@@ -9788,6 +9789,7 @@
         "tests/stata_parity/21_honest_relmags.do",
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/reference_parity/test_did_imputation_pretrend_vcov_Stata_parity.py",
+        "tests/reference_parity/test_honest_breakdown_R_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
         "tests/reference_parity/test_honest_did_moments_R_parity.py",
@@ -25177,7 +25179,25 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_xtevent_Stata_parity.py",
-        "tests/reference_parity/test_xtevent_extensions_Stata_parity.py"
+        "tests/reference_parity/test_xtevent_extensions_Stata_parity.py",
+        "tests/reference_parity/test_xtevent_smpath_Stata_screen.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "xtevent_smpath",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_xtevent_smpath_Stata_screen.py"
       ],
       "tolerance": ""
     },

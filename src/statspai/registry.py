@@ -31268,6 +31268,71 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="xtevent_smpath",
+            category="causal",
+            description=(
+                "Smoothest ('least wiggly') polynomial confound path through the "
+                "Wald region of an sp.xtevent event study (Stata xteventplot, "
+                "smpath(); Freyaldenhoven et al. Suggestion 6): the lowest-degree "
+                "polynomial in event time through the normalised coefficient "
+                "that the data cannot reject, with the smallest leading "
+                "coefficient. Solved in closed form; Stata optimises "
+                "numerically. Per-degree Wald statistics equal Stata's; the "
+                "path agrees with Stata's to 1e-7 where its optimiser converges "
+                "(a screen, not parity)."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "CausalResult",
+                    True,
+                    description="sp.xtevent event study (no static / trend / proxy)",
+                ),
+                ParamSpec(
+                    "postwindow",
+                    "int",
+                    False,
+                    None,
+                    "Stata postwindow(): only post-event coefficients 0.."
+                    "postwindow-1 enter the Wald region (default: all)",
+                ),
+                ParamSpec(
+                    "maxorder",
+                    "int",
+                    False,
+                    10,
+                    "Stata maxorder(): highest polynomial degree tried (1-10)",
+                ),
+                ParamSpec(
+                    "level",
+                    "float",
+                    False,
+                    0.95,
+                    "Coverage of the Wald region (chi-square quantile)",
+                ),
+            ],
+            returns=(
+                "DataFrame: relative_time, att, in_region, smpath; attrs order "
+                "(degree), coefficients, wald, wald_by_order, critical, df"
+            ),
+            example=(
+                'r = sp.xtevent(df, y="y", policy="z", panel="id", time="t", '
+                "window=3); sp.xtevent_smpath(r)"
+            ),
+            tags=["did", "event_study", "xtevent", "plot", "pretrends"],
+            reference=(
+                "Freyaldenhoven, Hansen & Shapiro (2019) [@freyaldenhoven2019event]"
+            ),
+            assumptions=[
+                "The event-study coefficients are approximately normal with the "
+                "estimated covariance (Wald region)",
+            ],
+            alternatives=["honest_did", "pretrends_test", "xtevent"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="panel_match",
             category="causal",
             description=(

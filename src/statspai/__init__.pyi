@@ -363,6 +363,7 @@ from .did._equivalence import pretrends_equivalence as pretrends_equivalence
 from .did._staggered_rollout import staggered_cs as staggered_cs
 from .did._staggered_rollout import staggered_rollout as staggered_rollout
 from .did._staggered_rollout import staggered_sa as staggered_sa
+from .did._xtevent_smpath import xtevent_smpath as xtevent_smpath
 from .did.aggte import aggte as aggte
 from .did.analysis import DIDAnalysis as DIDAnalysis
 from .did.analysis import did_analysis as did_analysis
