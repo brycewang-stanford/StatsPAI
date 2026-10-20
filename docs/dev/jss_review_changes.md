@@ -4770,3 +4770,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   result is byte-identical; only the source hash in the trace changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — original-data traces 06 / 10 / 11 after sp.ipw learners
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `f46ab3e16`.
+- **Reason.** `inference/ipw.py` (new `ps_learner=` / `cross_fit=` /
+  `n_folds=` arguments; the default path is unchanged) is on the traced
+  path of original-data modules 06, 10 and 11. The modules were re-run
+  first and their committed results reproduce exactly; only the traces
+  were re-recorded.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/orig_parity/results/_implementation_trace.json`
