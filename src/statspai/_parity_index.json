@@ -18770,6 +18770,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdhte_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -18998,6 +19001,9 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdhte_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -19025,6 +19031,9 @@
       "tolerance": "coef, coef.bc, se.rb, vcov rel 1e-9 (observed 2.2e-12); bandwidths 1e-8"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdhte_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -19215,6 +19224,9 @@
       "tolerance": "f_p, f_q, se_p, se_q at every grid point rel 1e-8 (observed 8.0e-12); nh exact"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdpower_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -19373,6 +19385,9 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdpower_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

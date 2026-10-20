@@ -87538,7 +87538,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R rdhte::rdhte 0.2.0 (sandwich 3.1.1) [R version 4.5.2 (2025-10-31), rdhte 0.2.0, rdrobust 4.0.0, sandwich 3.1.1]; tolerance coef, coef.bc, se.rb, vcov rel 1e-9 (observed 2.2e-12); bandwidths 1e-8 -- tests/reference_parity/test_rd_iv_rd_R_parity.py"
+      "Cross-language parity (bit-exact) vs R rdhte::rdhte 0.2.0 (sandwich 3.1.1) [R version 4.5.2 (2025-10-31), rdhte 0.2.0, rdrobust 4.0.0, sandwich 3.1.1]; tolerance coef, coef.bc, se.rb, vcov rel 1e-9 (observed 2.2e-12); bandwidths 1e-8 -- tests/reference_parity/test_rd_iv_rd_R_parity.py",
+      "tests/reference_parity/test_rdhte_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -87734,7 +87735,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R rdhte::rdbwhte 0.2.0 [R version 4.5.2 (2025-10-31), rdhte 0.2.0, rdrobust 4.0.0]; tolerance bandwidths rel 1e-8 (continuous and per-subgroup) -- tests/reference_parity/test_rd_iv_rd_R_parity.py"
+      "Cross-language parity (bit-exact) vs R rdhte::rdbwhte 0.2.0 [R version 4.5.2 (2025-10-31), rdhte 0.2.0, rdrobust 4.0.0]; tolerance bandwidths rel 1e-8 (continuous and per-subgroup) -- tests/reference_parity/test_rd_iv_rd_R_parity.py",
+      "tests/reference_parity/test_rdhte_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -87869,7 +87871,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R rdhte::rdhte_lincom 0.2.0 [R version 4.5.2 (2025-10-31), rdhte 0.2.0]; tolerance estimate, z, CI, joint chi-square rel 1e-9; p 1e-8 -- tests/reference_parity/test_rd_iv_rd_R_parity.py"
+      "Cross-language parity (bit-exact) vs R rdhte::rdhte_lincom 0.2.0 [R version 4.5.2 (2025-10-31), rdhte 0.2.0]; tolerance estimate, z, CI, joint chi-square rel 1e-9; p 1e-8 -- tests/reference_parity/test_rd_iv_rd_R_parity.py",
+      "tests/reference_parity/test_rdhte_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -142183,7 +142186,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs rdpower::rdpower 3.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdpower 3.0]; tolerance robust bias-corrected SE & power 1e-8 rel (observed 4.2e-14) -- tests/reference_parity/test_rdlocrand_parity.py"
+      "Cross-language parity (bit-exact) vs rdpower::rdpower 3.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdpower 3.0]; tolerance robust bias-corrected SE & power 1e-8 rel (observed 4.2e-14) -- tests/reference_parity/test_rdlocrand_parity.py",
+      "tests/reference_parity/test_rdpower_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -142367,7 +142371,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs rdpower::rdsampsi 3.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdpower 3.0]; tolerance required sample sizes n_left / n_right / n_total asserted as exact integer equality (no tolerance) -- tests/reference_parity/test_rdlocrand_parity.py"
+      "Cross-language parity (bit-exact) vs rdpower::rdsampsi 3.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdpower 3.0]; tolerance required sample sizes n_left / n_right / n_total asserted as exact integer equality (no tolerance) -- tests/reference_parity/test_rdlocrand_parity.py",
+      "tests/reference_parity/test_rdpower_R_parity.py"
     ],
     "validation_status": "certified"
   },
