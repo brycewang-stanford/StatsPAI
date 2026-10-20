@@ -21,6 +21,8 @@ conformal_ite_interval) now surface in ``sp.list_functions()``.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -356,21 +358,29 @@ class TestConformalDispatcher:
 
 
 class TestInterferenceDispatcher:
-    def test_partial_matches_direct_call(self):
+    @pytest.mark.parametrize("design", ["spillover", "partial", "hudgens_halloran"])
+    def test_spillover_aliases_match_direct_call(self, design):
         df = _spillover_df(n_households=60)
-        r_disp = sp.interference(
-            "partial",
-            data=df,
-            y="y",
-            treat="d",
-            cluster="h",
-            n_bootstrap=50,
-            random_state=0,
-        )
-        r_direct = sp.spillover(
-            data=df, y="y", treat="d", cluster="h", n_bootstrap=50, random_state=0
-        )
-        assert r_disp.estimate == pytest.approx(r_direct.estimate)
+        kw = dict(data=df, y="y", treat="d", cluster="h", n_bootstrap=50)
+        if design == "spillover":
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", FutureWarning)
+                r_disp = sp.interference(design, random_state=0, **kw)
+        else:
+            # Deprecated: these names will route to sp.two_stage_interference.
+            with pytest.warns(FutureWarning, match="two_stage_interference"):
+                r_disp = sp.interference(design, random_state=0, **kw)
+        r_direct = sp.spillover(random_state=0, **kw)
+        assert r_disp.estimate == pytest.approx(r_direct.estimate, rel=1e-14)
+
+    def test_default_design_is_spillover_without_warning(self):
+        df = _spillover_df(n_households=40)
+        kw = dict(data=df, y="y", treat="d", cluster="h", n_bootstrap=20)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            r_default = sp.interference(random_state=1, **kw)
+        r_direct = sp.spillover(random_state=1, **kw)
+        assert r_default.estimate == pytest.approx(r_direct.estimate, rel=1e-14)
 
     def test_network_hte_matches_direct_call(self):
         rng = np.random.default_rng(0)
@@ -433,7 +443,7 @@ class TestInterferenceDispatcher:
 
     def test_available_designs_is_sorted(self):
         designs = sp.interference_available_designs()
-        required = {"partial", "network_exposure", "cluster_staggered"}
+        required = {"spillover", "two_stage", "network_exposure", "cluster_staggered"}
         np.testing.assert_allclose(len(required & set(designs)), len(required))
         assert designs == sorted(designs)
         assert required <= set(designs)

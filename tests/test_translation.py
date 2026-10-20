@@ -1411,6 +1411,18 @@ TIER3_ROUND_TRIPS = [
         "xtintreg",
         {"y_lower": "lo", "y_upper": "hi", "x": ["x"], "id": "id", "intpoints": 20},
     ),
+    (
+        "mmqreg y x, absorb(id) q(25) cluster(id)",
+        "mmqreg",
+        {
+            "y": "y",
+            "x": ["x"],
+            "absorb": ["id"],
+            "quantile": 0.25,
+            "vce": "cluster",
+            "cluster": "id",
+        },
+    ),
     # regression control method
     (
         "rcm gdp, trunit(9) trperiod(150) counit(4 10/12) placebo(unit cut(2)) "
@@ -1680,6 +1692,9 @@ class TestStataHandlerCoverage:
         #     then group_sequential(n_fixed=)) →
         #     test_stata_translation_gsbounds.py::test_refusals_carry_guidance
         covered.add("gsdesign")
+        #   xtqreg — always refused, with an executable sp.mmqreg pointer →
+        #     test_stata_translation_mmqreg.py::test_xtqreg_refused_with_an_executable_pointer
+        covered.add("xtqreg")
         # Each handler should have at least one alias covered.
         handler_to_aliases = {}
         for alias, h in STATA_COMMAND_MAP.items():

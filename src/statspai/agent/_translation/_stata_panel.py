@@ -5,6 +5,10 @@ maximum likelihood), ``xtsum``, ``xtserial``, ``xtregar``, ``xttobit`` and
 ``xtintreg``. All of them need the panel
 declaration of ``xtset``, which lives on another line: the handlers accept
 Stata's own ``i()`` / ``t()`` options, and ``sp.stata`` fills them in.
+
+Also the quantiles-via-moments pair: ``mmqreg`` (SSC, Rios-Avila) ->
+``sp.mmqreg``; ``xtqreg`` (SSC, Machado and Santos Silva) is refused with a
+pointer to ``sp.mmqreg``.
 """
 
 from __future__ import annotations
@@ -388,7 +392,158 @@ def _h_xtintreg(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
+def _quantile_percent(raw: Optional[str], command: str) -> Any:
+    """``quantile(#)`` as a fraction (one number; ``#`` >= 1 is a percent,
+    as in qreg and mmqreg); an error payload otherwise."""
+    if raw is None:
+        return 0.5
+    text = str(raw).strip()
+    if len(text.replace(",", " ").split()) != 1 or "(" in text:
+        return _emit_error(
+            f"{command}: quantile({text}) lists several quantiles; sp.mmqreg "
+            "fits one quantile per call (no joint covariance across "
+            "quantiles). Write one line per quantile.",
+            command=command,
+            suggestions=[],
+        )
+    try:
+        q = float(text)
+    except ValueError:
+        return _emit_error(
+            f"{command}: quantile({text}) is not a number",
+            command=command,
+            suggestions=[],
+        )
+    if q >= 1:
+        q = q / 100.0
+    if not 0 < q < 1:
+        return _emit_error(
+            f"{command}: quantile({text}) is outside (0, 100)",
+            command=command,
+            suggestions=[],
+        )
+    return q
+
+
+#: mmqreg options that change the estimator or its variance and have no
+#: counterpart in sp.mmqreg.
+_MMQREG_REFUSED = {
+    "denopt": "denopt() changes the density estimator; sp.mmqreg uses "
+    "mmqreg's default (fitted, Hall-Sheather)",
+    "dfadj": "dfadj rescales the variance by N - k - absorbed coefficients",
+    "jknife": "jknife applies the split-panel jackknife bias correction",
+}
+
+
+def _h_mmqreg(cmd: StataCommand) -> Dict[str, Any]:
+    """``mmqreg y x [, quantile(#) absorb() robust cluster()]`` ->
+    ``sp.mmqreg``."""
+    opts = cmd.options
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None or not xs:
+        return _emit_error(
+            "mmqreg needs an outcome and at least one regressor",
+            command="mmqreg",
+            suggestions=[],
+        )
+    refused = _plain_regressors("mmqreg", xs)
+    if refused:
+        return refused
+    for name, why in _MMQREG_REFUSED.items():
+        if name in opts:
+            return _emit_error(
+                f"mmqreg: {why}; not available in sp.mmqreg.",
+                command="mmqreg",
+                suggestions=[],
+            )
+    q = _quantile_percent(opts.get("quantile"), "mmqreg")
+    if isinstance(q, dict):
+        return q
+    args: Dict[str, Any] = {"y": y, "x": list(xs)}
+    absorb = (opts.get("absorb") or "").split()
+    if absorb:
+        args["absorb"] = absorb
+    args["quantile"] = q
+    vce_words = (opts.get("vce") or "").split()
+    if vce_words and vce_words[0].lower() not in ("robust", "cluster"):
+        return _emit_error(
+            f"mmqreg: vce({opts.get('vce')}) is not translated; sp.mmqreg has "
+            "vce='gls' (the default), 'robust' and 'cluster'",
+            command="mmqreg",
+            suggestions=[],
+        )
+    cluster_words = (opts.get("cluster") or "").split() or vce_words[1:]
+    if len(cluster_words) > 1:
+        return _emit_error(
+            f"mmqreg: clustering on {' '.join(cluster_words)} (several "
+            "variables); sp.mmqreg clusters on one",
+            command="mmqreg",
+            suggestions=[],
+        )
+    cluster = _vce_cluster(cmd)
+    if cluster:
+        args["vce"] = "cluster"
+        args["cluster"] = cluster
+    elif _robust_kind(cmd) == "hc1":
+        args["vce"] = "robust"
+    for display in ("nowarning", "nols"):
+        opts.get(display)
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit(
+        "mmqreg",
+        args,
+        f"sp.mmqreg(df, {kw})",
+        [],
+        semantics=[
+            "The default variance is mmqreg's ('gls'); robust and "
+            "cluster() map to vce='robust' / vce='cluster'. The location and "
+            "scale equations and the joint covariance are in "
+            "result.model_info ('location', 'scale', 'vcov_all'); e(qval) "
+            "is model_info['q'].",
+            "sp.mmqreg drops observations alone in an absorbed group (with "
+            "a warning); mmqreg keeps them, which can move q(tau) by one "
+            "order statistic.",
+        ],
+    )
+
+
+#: The call suggested in place of ``xtqreg``. Kept outside the handler so the
+#: coverage table (which reads targets from handler source) does not list
+#: ``xtqreg`` as translated.
+_XTQREG_POINTER = (
+    "sp.mmqreg(df, {y!r}, {x!r}, absorb={unit!r}, quantile={q}, "
+    "vce='cluster', cluster={unit!r})"
+)
+
+
+def _h_xtqreg(cmd: StataCommand) -> Dict[str, Any]:
+    """``xtqreg`` is refused: its quantile-coefficient standard errors use a
+    GLS form sp does not reproduce. Points to ``sp.mmqreg``."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    unit = cmd.options.get("i") or "<panel_id>"
+    q = _quantile_percent(cmd.options.get("quantile"), "xtqreg")
+    q_txt = repr(q) if not isinstance(q, dict) else "<quantile>"
+    unit = str(unit).strip()
+    call = _XTQREG_POINTER.format(
+        y=y or "<y>", x=list(xs) if xs else "<x>", unit=unit, q=q_txt
+    )
+    return _emit_error(
+        "xtqreg is not translated: its quantile-coefficient standard errors "
+        "come from a GLS form (scale moment not centred) that sp does not "
+        "reproduce, so a translated line would report different SEs under "
+        "the same name. sp.mmqreg fits the same model: its coefficients, "
+        "q(tau) and location / scale coefficients equal xtqreg's (1e-10 on "
+        "the test fixture); for standard errors use vce='cluster' on the "
+        "panel (xtqreg's location / scale covariances are those times "
+        "G/(G-1)(N-1)/(N-K)) or vce='gls' (mmqreg's default).",
+        command="xtqreg",
+        suggestions=[call],
+    )
+
+
 HANDLERS = {
+    "mmqreg": _h_mmqreg,
+    "xtqreg": _h_xtqreg,
     "xtsum": _h_xtsum,
     "xtserial": _h_xtserial,
     "xtregar": _h_xtregar,

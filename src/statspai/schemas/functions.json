@@ -7696,7 +7696,7 @@
         },
         "vce": {
           "default": "gls",
-          "description": "Variance: 'gls' (valid under the location-scale model; mmqreg's default), 'robust' or 'cluster'",
+          "description": "Variance: 'gls' (valid under the location-scale model; Stata mmqreg's default, kept for comparability), 'robust' or 'cluster' (the method paper's preference: GLS SEs are unstable when fitted scales near zero)",
           "enum": [
             "gls",
             "robust",
@@ -28488,8 +28488,8 @@
     "parameters": {
       "properties": {
         "design": {
-          "default": "partial",
-          "description": "Interference design -- call sp.interference_available_designs() for the full list.",
+          "default": "spillover",
+          "description": "Interference design -- call sp.interference_available_designs() for the full list. 'partial' / 'hudgens_halloran' are deprecated aliases of 'spillover' (FutureWarning); they will route to 'two_stage' (Hudgens-Halloran) in the next minor release.",
           "enum": [
             "aronow_samii",
             "as",

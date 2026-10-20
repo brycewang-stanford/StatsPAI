@@ -9245,7 +9245,9 @@ def _build_registry() -> None:
                     False,
                     "gls",
                     "Variance: 'gls' (valid under the location-scale model; "
-                    "mmqreg's default), 'robust' or 'cluster'",
+                    "Stata mmqreg's default, kept for comparability), "
+                    "'robust' or 'cluster' (the method paper's preference: "
+                    "GLS SEs are unstable when fitted scales near zero)",
                     ["gls", "robust", "cluster"],
                 ),
                 ParamSpec("cluster", "str", False, None, "Cluster column"),
@@ -26877,10 +26879,13 @@ def _build_registry() -> None:
                     "design",
                     "str",
                     False,
-                    "partial",
+                    "spillover",
                     "Interference design — call "
                     "sp.interference_available_designs() for the "
-                    "full list.",
+                    "full list. 'partial' / 'hudgens_halloran' are "
+                    "deprecated aliases of 'spillover' (FutureWarning); "
+                    "they will route to 'two_stage' (Hudgens-Halloran) "
+                    "in the next minor release.",
                 ),
             ],
             returns=(
@@ -26890,7 +26895,7 @@ def _build_registry() -> None:
                 "DNCGNNDiDResult"
             ),
             example=(
-                'sp.interference("partial", data=df, y="y", '
+                'sp.interference("spillover", data=df, y="y", '
                 'treat="d", cluster="household")'
             ),
             tags=[

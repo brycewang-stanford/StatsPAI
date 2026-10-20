@@ -4,6 +4,12 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.interference("partial" | "hudgens_halloran")` deprecated; `sp.mmqreg` SE guidance; `mmqreg` in `sp.from_stata`
+
+- **Deprecated**: the dispatcher aliases `partial` and `hudgens_halloran` route to `sp.spillover`, which is not the Hudgens-Halloran estimator. They now emit a `FutureWarning`; in the next minor release they will route to `sp.two_stage_interference`. Numbers are unchanged. The dispatcher's default `design` is now `"spillover"` (the same estimator), so calls without a design neither warn nor change target later. See MIGRATION.md.
+- **Docs**: `sp.mmqreg` keeps `vce='gls'` as the default (Stata `mmqreg`'s). The docstring now says that the method paper (Rios-Avila, Siles and Canavire-Bacarreza 2024) finds the GLS standard errors biased when fitted scales are near zero or negative and favours `'robust'`, or `'cluster'` with within-group correlation in larger samples.
+- **Added**: `sp.from_stata` / `sp.stata` translate `mmqreg` (SSC) to `sp.mmqreg`: `quantile()` (a value below 1 is a fraction: Stata 18 gives the same `e(qval)` for `q(.5)` and `q(50)`), `absorb()`, `robust` / `vce(robust)`, `cluster()` / `vce(cluster)`. Refused: several quantiles in one call, `denopt()`, `dfadj`, `jknife`, other `vce()` types, multi-variable clustering, weights, factor variables. Executed equivalence: the lines run through `sp.stata` reproduce the frozen Stata 18 `mmqreg` 2.6 numbers of `tests/test_mmqreg.py` (full covariance of the three equations, 1e-10) for every `vce` with one, two and no absorbed sets (`tests/test_stata_translation_mmqreg.py`). `xtqreg` is refused: its quantile-coefficient standard errors use a GLS form that is not reproduced. The error suggests an `sp.mmqreg` call, which the test executes and checks against `xtqreg`'s coefficients, `e(q)` and location coefficients (1e-10).
+
 ### E-value, Mendelian randomization, CBPS and mediation sensitivity rewritten clean-room
 
 Audit rows H13-H18 and H22 of `docs/dev/2026-10-20-license-provenance-audit.md`: code whose docstrings said it ported GPL R packages is rewritten from the method papers, the packages' help pages and their outputs on our data (black box), never their source. Each rewrite has a spec under `docs/dev/cleanroom/`.

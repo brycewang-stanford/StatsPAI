@@ -61,6 +61,9 @@ LIMITATIONS: List[str] = [
     "undefined macros and extended macro functions are refused.",
     "sp.from_stata / sp.from_r take one command per call; sp.stata takes a "
     "do-file snippet.",
+    "xtqreg is recognised but refused: its quantile-coefficient standard "
+    "errors use a GLS form that is not reproduced. The error names the "
+    "sp.mmqreg call with the same coefficients; mmqreg translates.",
 ]
 
 

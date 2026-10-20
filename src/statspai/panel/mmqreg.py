@@ -156,8 +156,14 @@ def mmqreg(
         The quantile, strictly between 0 and 1.
     vce : {'gls', 'robust', 'cluster'}, default 'gls'
         ``'gls'`` is valid when the location-scale model is right (Stata
-        ``mmqreg``'s default); ``'robust'`` and ``'cluster'`` use the
-        influence functions without that factorization.
+        ``mmqreg``'s default, kept here so results match it); ``'robust'``
+        and ``'cluster'`` use the influence functions without that
+        factorization. The method paper (Rios-Avila, Siles and
+        Canavire-Bacarreza 2024) favours them: it finds the GLS standard
+        errors unstable when fitted scales are near zero or negative,
+        robust ones better behaved even under a correct model (if somewhat
+        small in small samples), and recommends ``'cluster'`` when errors
+        are correlated within groups and the sample is large. See Notes.
     cluster : str, optional
         Cluster variable for ``vce='cluster'``.
     alpha : float, default 0.05
@@ -185,6 +191,14 @@ def mmqreg(
     The scale model is linear, so its fitted values can be negative; the
     standardized residuals and the variance then lose their meaning, and a
     warning counts those observations (as ``mmqreg`` does).
+
+    The default ``vce='gls'`` follows Stata ``mmqreg``. Its validity rests
+    on the location-scale model holding exactly; in Rios-Avila, Siles and
+    Canavire-Bacarreza's (2024) simulations it is biased when fitted
+    scales are near zero or negative, where the robust and clustered
+    standard errors stay stable. Prefer ``vce='robust'`` or
+    ``vce='cluster'`` (for panels, clustered on the unit) unless the aim
+    is to reproduce ``mmqreg``'s default output.
 
     Examples
     --------

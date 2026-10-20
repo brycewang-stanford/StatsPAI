@@ -321,6 +321,16 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "xtregar": (("rhotype", 4), ("twostep", 3)),
     "xttobit": (("intpoints", 4), ("intmethod", 4)),
     "xtintreg": (("intpoints", 4), ("intmethod", 4)),
+    # mmqreg (SSC) help: q:uantile(), abs:orb(), den:opt(), now:arning,
+    # jk:nife; xtqreg (SSC): q:uantile().
+    "mmqreg": (
+        ("quantile", 1),
+        ("absorb", 3),
+        ("denopt", 3),
+        ("nowarning", 3),
+        ("jknife", 2),
+    ),
+    "xtqreg": (("quantile", 1),),
     # [CAUSAL] etpoisson: treat(), intpoints().
     "etpoisson": (("treat", 2), ("intpoints", 4)),
 }

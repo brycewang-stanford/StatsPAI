@@ -5,6 +5,28 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: `sp.interference("partial" | "hudgens_halloran")` deprecated as aliases of `spillover`
+
+`sp.interference("partial", ...)` and `sp.interference("hudgens_halloran", ...)`
+route to `sp.spillover`, which is not the Hudgens-Halloran (2008) estimator
+(it splits units by the treated share of their cluster mates; it takes no
+randomized saturation). They now emit a `FutureWarning`; numbers are
+unchanged. **In the next minor release both names will route to
+`sp.two_stage_interference`**, the Hudgens-Halloran two-stage estimator,
+which needs `group=` and `saturation=` columns, so existing calls with those
+names will then fail or change meaning.
+
+- To keep the current estimator: `sp.interference("spillover", ...)` or
+  `sp.spillover(...)`.
+- For Hudgens-Halloran two-stage designs: `sp.interference("two_stage", ...)`
+  or `sp.two_stage_interference(...)`.
+
+The dispatcher's default `design` changes from `"partial"` to
+`"spillover"` (same estimator), so calls without a design neither warn now
+nor change target later.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.breakdown_m(method='relative_magnitude')` precision and search
 
 The default (C-LF) relative-magnitude breakdown value is now the first
