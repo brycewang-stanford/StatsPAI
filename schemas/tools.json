@@ -44590,7 +44590,7 @@
           "type": "number"
         },
         "bootcluster": {
-          "description": "With multi-way ``cluster=[a, b]`` (least squares): the variable(s) whose clusters the bootstrap weights are drawn for (Stata ``boottest, bootcluster()``). Default: the intersection of the cluster variables, boottest's default.",
+          "description": "Least squares: the variable(s) whose clusters the bootstrap weights are drawn for (Stata ``boottest, bootcluster()``). Default: the intersection of the cluster variables, boottest's default. As in boottest, bootstrap clusters that cut across one-way error clusters are replaced by their intersections with them (a subcluster bootstrap, with a warning); ones nested in no error clustering and coarser are refused.",
           "items": {
             "type": "string"
           },
@@ -45110,7 +45110,7 @@
     "name": "xtabond"
   },
   {
-    "description": "Panel event study of a policy that may be continuous and change several times per unit (Stata xtevent, Freyaldenhoven et al.): leads and lags of the policy's first difference inside the window, endpoint regressors for the tails, unit and period effects, one event time normalised to zero. areg or reghdfe conventions; equals Stata xtevent to 1e-12. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends in the absence of policy changes; No anticipation beyond the window's leads; Effects homogeneous across units (see sun_abraham for binary staggered adoption). Failure modes: xtevent: trend= and proxy= are not combined here -> Fit them separately; xtevent: proxy= is fitted as Stata xtivreg, fe (engine='areg') -> Drop engine='reghdfe' / absorb= for the proxy estimator. Alternatives: sp.event_study, sp.sun_abraham, sp.did_multiplegt_dyn. Typical minimum N: 50.",
+    "description": "Panel event study of a policy that may be continuous and change several times per unit (Stata xtevent, Freyaldenhoven et al.): leads and lags of the policy's first difference inside the window, endpoint regressors for the tails, unit and period effects, one event time normalised to zero. areg or reghdfe conventions; equals Stata xtevent to 1e-12. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends in the absence of policy changes; No anticipation beyond the window's leads; Effects homogeneous across units (see sun_abraham for binary staggered adoption). Failure modes: xtevent: trend= and proxy= are not combined here -> Fit them separately; xtevent: proxy= is fitted as Stata xtivreg, fe (engine='areg') -> Drop engine='reghdfe' / absorb= for the proxy estimator; xtevent: the policy <policy> is collinear with the unit and period effects (and controls); its effect is not identified -> The policy must vary within units over and above the common period shocks; check the policy column. Alternatives: sp.event_study, sp.sun_abraham, sp.did_multiplegt_dyn. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "absorb": {

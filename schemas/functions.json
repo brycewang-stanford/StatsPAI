@@ -49175,7 +49175,7 @@
           "type": "number"
         },
         "bootcluster": {
-          "description": "With multi-way ``cluster=[a, b]`` (least squares): the variable(s) whose clusters the bootstrap weights are drawn for (Stata ``boottest, bootcluster()``). Default: the intersection of the cluster variables, boottest's default.",
+          "description": "Least squares: the variable(s) whose clusters the bootstrap weights are drawn for (Stata ``boottest, bootcluster()``). Default: the intersection of the cluster variables, boottest's default. As in boottest, bootstrap clusters that cut across one-way error clusters are replaced by their intersections with them (a subcluster bootstrap, with a warning); ones nested in no error clustering and coarser are refused.",
           "items": {
             "type": "string"
           },
