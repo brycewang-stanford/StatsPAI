@@ -363,3 +363,44 @@ def test_marginaleffects_functions_point_to_margins(df, fits, fn):
 def test_contrast_points_to_margins_at(df, fits):
     with pytest.raises(MethodIncompatibility, match="margins_at"):
         sp.contrast(fits["ologit"], data=df, variable="g")
+
+
+def test_vcov_false_drops_inference_after_ldv_models():
+    # 2026-10-20 probe: vcov=False was not passed to the LDV branch, so the
+    # se / z / p / CI columns came back after intreg / ologit / heckprobit.
+    import numpy as np
+    import pandas as pd
+
+    import statspai as sp
+
+    rng = np.random.default_rng(0)
+    n = 1500
+    e, x = rng.normal(size=(2, n))
+    w = 2 + 0.5 * e + 0.3 * x + rng.normal(size=n)
+    df = pd.DataFrame({"e": e, "x": x, "lo": np.floor(w), "hi": np.floor(w) + 1})
+    r = sp.intreg(df, y_lower="lo", y_upper="hi", x=["e", "x"])
+    full = sp.margins(r, data=df)
+    bare = sp.margins(r, data=df, vcov=False)
+    assert bare.columns.tolist() == ["variable", "dy/dx"]
+    np.testing.assert_array_equal(bare["dy/dx"].to_numpy(), full["dy/dx"].to_numpy())
+    at = sp.margins_at(r, data=df, at={"e": [0, 1]}, vcov=False)
+    assert not {"se", "z", "pvalue", "ci_lower", "ci_upper"} & set(at.columns)
+
+
+def test_heckprobit_refuses_an_outcome_that_does_not_vary():
+    # 2026-10-20 probe: y = 1 on every selected row gave converged=True, a
+    # 17.4 coefficient with SE 3e30; Stata stops ("outcome does not vary").
+    import numpy as np
+    import pandas as pd
+    import pytest
+
+    import statspai as sp
+    from statspai.exceptions import DataInsufficient
+
+    rng = np.random.default_rng(0)
+    n = 500
+    z, x = rng.normal(size=(2, n))
+    s = (z + rng.normal(size=n) > 0).astype(int)
+    df = pd.DataFrame({"x": x, "z": z, "s": s, "y": np.where(s == 1, 1.0, np.nan)})
+    with pytest.raises(DataInsufficient, match="must vary"):
+        sp.heckprobit(df, y="y", x=["x"], select="s", z=["z", "x"])

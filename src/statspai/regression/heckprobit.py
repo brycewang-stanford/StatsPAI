@@ -205,6 +205,18 @@ def heckprobit(
             "selected, some not).",
             diagnostics={"n_selected": n_sel, "n": n},
         )
+    n_pos = int(Yv[sel].sum())
+    if n_pos in (0, n_sel):
+        # Stata: "outcome does not vary". The likelihood has no maximum; the
+        # optimiser used to stop at a 17.4 coefficient with SE 3e30 and
+        # report convergence (2026-10-20 probe).
+        raise DataInsufficient(
+            f"heckprobit: the outcome {y!r} is {int(Yv[sel][0])} on every "
+            "selected row; it must vary.",
+            recovery_hint="Check the outcome and selection coding; with an "
+            "outcome that does not vary there is nothing to estimate.",
+            diagnostics={"n_selected": n_sel, "n_outcome_1": n_pos},
+        )
     Z = np.column_stack([np.ones(n)] + [df[v].to_numpy(dtype=float) for v in z])
     X = np.column_stack(
         [np.ones(n)] + [df[v].to_numpy(dtype=float, na_value=0.0) for v in x]

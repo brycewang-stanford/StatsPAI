@@ -39,6 +39,7 @@ from ._optim_helpers import (
     robust_convergence,
     se_from_vcov,
 )
+from .multinomial import outcome_categories
 
 __all__ = ["gologit"]
 
@@ -172,14 +173,14 @@ def gologit(
         )
     df = data.loc[data[cols].notna().all(axis=1)]
     yv = df[y].to_numpy()
-    cats = np.sort(pd.unique(yv))
+    cats = outcome_categories(df[y])
     M = len(cats)
     if M < 3:
         raise DataInsufficient(
             f"gologit: the outcome needs at least three categories; got {M}.",
             recovery_hint="With two categories use sp.logit / sp.probit.",
         )
-    yi = np.searchsorted(cats, yv)
+    yi = pd.Index(cats).get_indexer(yv)
     n = len(df)
     X = (
         np.column_stack([df[v].to_numpy(dtype=float) for v in xs])

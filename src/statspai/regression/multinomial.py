@@ -356,6 +356,20 @@ def _compute_vcov(
     return _as_float_array(ml_vcov(H_inv, score_i, kind=kind, clusters=cluster_vals))
 
 
+def outcome_categories(col: pd.Series) -> np.ndarray:
+    """Outcome categories in their order: a pandas Categorical's declared
+    order (categories present in the data), otherwise sorted values.
+
+    An ordered ``pd.Categorical(["lo", "mid", "hi", "top"], ordered=True)``
+    used to be sorted alphabetically (hi < lo < mid < top), which silently
+    scrambles an ordinal outcome (2026-10-20 probe).
+    """
+    if isinstance(col.dtype, pd.CategoricalDtype):
+        present = set(col.dropna().unique())
+        return np.array([c for c in col.cat.categories if c in present], dtype=object)
+    return np.sort(np.unique(np.asarray(col.dropna())))
+
+
 def _ordered_logit_cdf(z: np.ndarray) -> np.ndarray:
     z_clip = np.clip(z, -500, 500)
     return _as_float_array(1.0 / (1.0 + np.exp(-z_clip)))
@@ -768,7 +782,9 @@ def _ordered_model(
     n, k = X_no_const.shape
     var_names = list(x_names)
 
-    categories = np.sort(np.unique(Y_raw))
+    categories = outcome_categories(
+        df[y_name] if y_name in df.columns else pd.Series(Y_raw)
+    )
     J = len(categories)
     if J < 3:
         raise ValueError(f"Ordered model requires J >= 3 categories, got {J}.")

@@ -181,9 +181,10 @@ def margins(
         )
     ldv = ldv_model(result)
     if ldv is not None:
-        return ldv_margins(
+        out = ldv_margins(
             ldv, data, variables, at, method, eps, alpha, subset, predict, category
         )
+        return out if vcov else _without_inference(out)
     _reject_ldv_options(predict, category, "margins")
     ctx = _MarginsContext(result, data, at=at, subset=subset, vcov=vcov)
     ctx.check_fe("margins", ctx.link != "identity")
@@ -971,7 +972,8 @@ def margins_at(
         )
     ldv = ldv_model(result)
     if ldv is not None:
-        return ldv_margins_at(ldv, data, at, alpha, contrast, subset, predict, category)
+        out = ldv_margins_at(ldv, data, at, alpha, contrast, subset, predict, category)
+        return out if vcov else _without_inference(out)
     _reject_ldv_options(predict, category, "margins_at")
     ctx = _MarginsContext(result, data, alpha=alpha, subset=subset, vcov=vcov)
     for v in at:
@@ -1034,13 +1036,20 @@ def margins_at(
             rows.append(row)
     out = pd.DataFrame(rows)
     if not vcov:
-        keep = [
-            c
-            for c in out.columns
-            if c not in ("se", "z", "pvalue", "ci_lower", "ci_upper")
-        ]
-        out = out[keep]
+        out = _without_inference(out)
     out.attrs.update(ctx.attrs())
+    return out
+
+
+_INFERENCE_COLUMNS = ("se", "z", "pvalue", "ci_lower", "ci_upper")
+
+
+def _without_inference(out: pd.DataFrame) -> pd.DataFrame:
+    """``vcov=False``: the margins table without its inference columns
+    (after an LDV model these used to come back regardless)."""
+    attrs = dict(out.attrs)
+    out = out[[c for c in out.columns if c not in _INFERENCE_COLUMNS]]
+    out.attrs.update(attrs)
     return out
 
 
