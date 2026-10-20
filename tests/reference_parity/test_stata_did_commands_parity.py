@@ -63,30 +63,12 @@ def _close(mine: float, theirs: float, rtol: float) -> None:
 # ----------------------------------------------------------------------
 
 
-def _rc_dripw_reference_se(df: pd.DataFrame, locally_efficient: bool) -> float:
-    """``sp.drdid`` with R / Stata's sign for the pre-period comparison
-    regression term (``variance_convention='reference'``).
-
-    StatsPAI's default (``'delta'``, Sant'Anna-Zhao Appendix B) differs from
-    Stata's ``dripw`` on repeated cross-sections in that one term: a
-    documented T4 divergence (Monte Carlo coverage 0.95 vs 0.81 under a
-    misspecified propensity score). The translated call keeps the default;
-    this reproduces Stata's number from the same estimator.
-    """
-    two = df[df["g"].isin([2004, 0]) & df["year"].isin([2003, 2005])]
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        fit = sp.drdid(
-            two,
-            y="y",
-            group="d04",
-            time="year",
-            covariates=["x1", "x2"],
-            method="trad",
-            locally_efficient=locally_efficient,
-            variance_convention="reference",
-        )
-    return float(fit.se)
+# dripw on repeated cross-sections: Stata's drdid carries the pre-period
+# comparison-regression term of the influence function with the opposite
+# sign to Sant'Anna and Zhao (2020, Appendix B), StatsPAI's default
+# ('delta'; Monte Carlo coverage 0.95 vs 0.81 under a misspecified
+# propensity score, a documented T4 divergence). The translation passes
+# variance_convention='reference', so the replayed line prints Stata's SE.
 
 
 @pytest.mark.parametrize("flag", ["drimp", "dripw", "reg", "stdipw", "ipw"])
@@ -98,10 +80,8 @@ def test_drdid_estimators(df, flag, design):
     rtol = RTOL_REG if flag == "reg" else RTOL_PS
     _close(res.estimate, b, rtol)
     if design == "rc" and flag == "dripw":
-        assert res.model_info["variance_convention"] == "delta"
-        _close(_rc_dripw_reference_se(df, True), se, rtol)
-    else:
-        _close(res.se, se, rtol)
+        assert res.model_info["variance_convention"] == "reference"
+    _close(res.se, se, rtol)
 
 
 def test_drdid_default_is_the_improved_estimator(df):
@@ -115,8 +95,9 @@ def test_drdid_default_is_the_improved_estimator(df):
 def test_drdid_rc1_on_repeated_cross_sections(df):
     res = _run(f"drdid y x1 x2 {_TWO}, time(year) treatment(d04) dripw rc1", df)
     b, se = _ref("drdid_rc_dripw_rc1")["ATET:r1vs0.d04"]
+    assert res.model_info["variance_convention"] == "reference"
     _close(res.estimate, b, RTOL_PS)
-    _close(_rc_dripw_reference_se(df, False), se, RTOL_PS)
+    _close(res.se, se, RTOL_PS)
 
 
 # ----------------------------------------------------------------------
@@ -468,13 +449,7 @@ def test_drdid_all(df, design):
     for name, row in rows.iterrows():
         b, se = ref[name]
         _close(row["att"], b, RTOL_PS)
-        if design == "rc" and name in ("dripw", "dripw_rc1"):
-            # T4: Stata's sign for the pre-period regression term.
-            se = ref[name][1]
-            mine = _rc_dripw_reference_se(df, name == "dripw")
-            _close(mine, se, RTOL_PS)
-        else:
-            _close(row["se"], se, RTOL_PS)
+        _close(row["se"], se, RTOL_PS)
     _close(res.estimate, ref["drimp"][0], RTOL_PS)
 
 
@@ -670,3 +645,45 @@ def test_teffects_ra_and_ipwra(df, line, tag):
     _close(res.se, block["se"][0], RTOL_REG)
     _close(res.model_info["pomean0"], block["b"][1], RTOL_REG)
     _close(res.model_info["pomean0_se"], block["se"][1], RTOL_REG)
+
+
+# ----------------------------------------------------------------------
+# drdid dripw on repeated cross-sections: translation vs the two conventions
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("rc1", [False, True])
+def test_translated_dripw_rc_is_the_reference_convention_of_sp_drdid(df, rc1):
+    """sp.from_stata emits variance_convention='reference' for dripw on
+    repeated cross-sections (with a note on the default); executing the
+    emitted call equals sp.drdid with that convention bit for bit and
+    Stata's printed SE, and dropping the argument gives the default
+    'delta' fit of the same ATT."""
+    line = f"drdid y x1 x2 {_TWO}, time(year) treatment(d04) dripw" + (
+        " rc1" if rc1 else ""
+    )
+    tr = sp.from_stata(line)
+    assert "variance_convention='reference'" in tr["python_code"]
+    assert any("variance_convention='delta'" in n for n in tr["notes"])
+    two = df[df["g"].isin([2004, 0]) & df["year"].isin([2003, 2005])]
+    kw = dict(
+        y="y",
+        group="d04",
+        time="year",
+        covariates=["x1", "x2"],
+        est_method="dr",
+        method="trad",
+    )
+    if rc1:
+        kw["locally_efficient"] = False
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ref_fit = sp.drdid(two, variance_convention="reference", **kw)
+        delta_fit = sp.drdid(two, **kw)
+    res = _run(line, df)
+    assert res.se == ref_fit.se
+    assert res.estimate == ref_fit.estimate
+    assert delta_fit.model_info["variance_convention"] == "delta"
+    assert delta_fit.estimate == ref_fit.estimate
+    tag = "drdid_rc_dripw_rc1" if rc1 else "drdid_rc_dripw"
+    _close(res.se, _ref(tag)["ATET:r1vs0.d04"][1], RTOL_PS)

@@ -30,6 +30,20 @@ _DRDID_METHODS: Dict[str, Dict[str, Any]] = {
 
 _AGGREGATIONS = ("simple", "group", "calendar", "event")
 
+#: dripw (with or without rc1) on repeated cross-sections: the translation
+#: reproduces the SE Stata prints; the note says what the default would give.
+_DRIPW_RC_SE_NOTE = (
+    "Standard error of dripw on repeated cross-sections: the call passes "
+    "variance_convention='reference', which reproduces the SE Stata's drdid "
+    "prints (it carries the estimation effect of the pre-period comparison "
+    "regression with the opposite sign). StatsPAI's default, "
+    "variance_convention='delta' (the influence function of Sant'Anna and "
+    "Zhao 2020, Appendix B; the default since 1.40.0), gives the "
+    "asymptotically correct SE when the propensity model is misspecified "
+    "(95% interval coverage 0.95 against 0.81 for the reference SE in a "
+    "Monte Carlo); drop the argument to use it. The ATT is the same."
+)
+
 
 def _plain_names(names: List[str], command: str) -> Optional[Dict[str, Any]]:
     for name in names:
@@ -84,6 +98,9 @@ def _h_drdid(cmd: StataCommand) -> Dict[str, Any]:
         all_args["est_method"] = "all"
         lost_all: List[str] = []
         notes_all: List[str] = []
+        if not opts.get("ivar"):
+            all_args["variance_convention"] = "reference"
+            notes_all.append(_DRIPW_RC_SE_NOTE)
         raw = opts.get("pscoretrim")
         if raw is not None:
             try:
@@ -146,13 +163,8 @@ def _h_drdid(cmd: StataCommand) -> Dict[str, Any]:
             lost.append("pscoretrim")
             notes.append(f"pscoretrim({raw_trim}) is not a number.")
     if not ivar and args.get("est_method") == "dr" and args.get("method") == "trad":
-        notes.append(
-            "Standard error: sp.drdid uses the influence function of "
-            "Sant'Anna and Zhao (2020, Appendix B); Stata's dripw on repeated "
-            "cross-sections carries the pre-period comparison-regression term "
-            "with the opposite sign. Add variance_convention='reference' to "
-            "reproduce Stata's SE (the ATT is the same)."
-        )
+        args["variance_convention"] = "reference"
+        notes.append(_DRIPW_RC_SE_NOTE)
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
     out = _emit("drdid", args, f"sp.drdid(data=df, {kw})", notes)
     out["untranslated_options"] = lost
