@@ -345,8 +345,8 @@ def _breakdown_restricted(
             f"honestdid_method={hm!r} needs the joint covariance of the "
             "event-study coefficients, which this result does not expose.",
             recovery_hint="Refit with an estimator that stores it (see "
-            "sp.event_study_vcov), or pass the coefficients and covariance to "
-            "sp.event_study_from_moments first.",
+            "sp.event_study_vcov), or pass the coefficients and their joint "
+            "covariance to sp.honest_did_from_moments.",
             diagnostics={"restriction": delta_name(family, bias, mono)},
         )
     b, s, n_pre, n_post, l_post = inputs
