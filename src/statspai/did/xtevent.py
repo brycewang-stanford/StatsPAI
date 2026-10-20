@@ -22,6 +22,7 @@ regressors are the usual event-time dummies with binned endpoints.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -213,6 +214,18 @@ def xtevent(
             recovery_hint="Drop engine='reghdfe' / absorb= for the proxy estimator.",
         )
     controls = list(covariates or [])
+    if isinstance(proxy_iv, (str, int, np.integer)) and not isinstance(proxy_iv, bool):
+        # Stata proxyiv(1): a single lead (or variable name) is a scalar.
+        proxy_iv = [proxy_iv] if proxy_iv != "select" else proxy_iv
+    elif proxy_iv is not None:
+        try:
+            proxy_iv = list(proxy_iv)  # type: ignore[arg-type]
+        except TypeError:
+            raise MethodIncompatibility(
+                f"xtevent: proxy_iv must be 'select', a lead (int), a variable "
+                f"name, or a list of them (got {type(proxy_iv).__name__}).",
+                recovery_hint="E.g. proxy_iv=1, proxy_iv=[1, 2] or proxy_iv=['x2'].",
+            ) from None
     extra_iv = [
         v
         for v in ([proxy_iv] if isinstance(proxy_iv, str) else list(proxy_iv or []))
@@ -233,6 +246,8 @@ def xtevent(
             "panel": panel,
             "time": time,
             "covariates": controls,
+            "proxy": proxies,
+            "proxy_iv": extra_iv,
             "cluster": cluster or None,
         },
         message="xtevent: columns not found: "
@@ -327,7 +342,17 @@ def xtevent(
         vcov: Any = (
             {"CRV1": cluster} if cluster else ("hetero" if vce is not None else "iid")
         )
-        fit = _feols(fml, use, vcov=vcov, ssc=_ssc("areg"), fixef_rm="none")
+        try:
+            fit = _feols(fml, use, vcov=vcov, ssc=_ssc("areg"), fixef_rm="none")
+        except ValueError as exc:
+            if "collinear" not in str(exc):
+                raise
+            raise MethodIncompatibility(
+                f"xtevent: every regressor ({regs}) is collinear with the unit and "
+                "period effects; the policy effect is not identified.",
+                recovery_hint="The policy must vary within units over and above "
+                "the common period shocks; check the policy column and window=.",
+            ) from None
         params, ses = fit.params, fit.std_errors
         V_all = fit.vcov()
         df_inf = fit._inference_df() if hasattr(fit, "_inference_df") else np.inf
@@ -343,6 +368,24 @@ def xtevent(
         params, ses = fit.params, fit.std_errors
         V_all = fit.cov_params()
         df_inf = fit.df_inference
+    params, ses, V_all, omitted = _restore_omitted(params, ses, V_all, regs)
+    if omitted:
+        if static and policy in omitted:
+            raise MethodIncompatibility(
+                f"xtevent: the policy {policy!r} is collinear with the unit and "
+                "period effects (and controls); its effect is not identified.",
+                recovery_hint="The policy must vary within units over and above "
+                "the common period shocks; check the policy column.",
+            )
+        warnings.warn(
+            f"xtevent: {omitted} omitted because of collinearity (with the unit / "
+            "period effects or each other); as in Stata, they are reported as 0 "
+            "and enter the averages as 0. A binned endpoint that is constant "
+            "within every unit (e.g. no unit sees the policy change more than "
+            "the window's reach ahead) is the usual cause: narrow window=.",
+            UserWarning,
+            stacklevel=2,
+        )
     trend_info = None
     if not static and trend is not None:
         V_df = pd.DataFrame(
@@ -419,6 +462,7 @@ def xtevent(
                 pvalue=(_two_sided_p(b / s, df_inf) if s > 0 else np.nan),
                 is_reference=k in zeroed,
                 is_endpoint=k in (lo - 1, hi + 1),
+                is_omitted=_label(k) in omitted,
             )
         )
     es = pd.DataFrame(rows)
@@ -465,6 +509,7 @@ def xtevent(
             window=(lo, hi),
             norm=norm,
             normalized=sorted(zeroed),
+            omitted=omitted,
             trend=trend_info,
             proxy=(
                 {
@@ -485,6 +530,42 @@ def xtevent(
         ),
         **common,
     )
+
+
+def _restore_omitted(params, ses, V_all, regs):
+    """Put regressors dropped as collinear back at 0 with zero variance.
+
+    Stata ``xtevent`` keeps an omitted regressor in ``e(b)`` / ``e(V)`` as
+    0 (``o.`` operator), so its event-time coefficient is plotted and
+    averaged as 0; this mirrors that bookkeeping.
+    """
+    names = [str(i) for i in params.index]
+    V = np.asarray(V_all, dtype=float)
+    # pyfixest drops an omitted column; sp.hdfe_ols keeps it as NaN.
+    nan_kept = [
+        r for r in regs if r in names and not np.isfinite(params.iloc[names.index(r)])
+    ]
+    if nan_kept:
+        pos = [names.index(r) for r in nan_kept]
+        params = params.astype(float).copy()
+        ses = ses.astype(float).copy()
+        params.iloc[pos] = 0.0
+        ses.iloc[pos] = 0.0
+        V = V.copy()
+        V[pos, :] = 0.0
+        V[:, pos] = 0.0
+    omitted = [r for r in regs if r not in names]
+    if not omitted:
+        return params, ses, V, nan_kept
+    k_old = len(names)
+    full = names + omitted
+    V_new = np.zeros((len(full), len(full)))
+    V_new[:k_old, :k_old] = V
+    params = pd.concat([params.astype(float), pd.Series(0.0, index=omitted)]).set_axis(
+        full
+    )
+    ses = pd.concat([ses.astype(float), pd.Series(0.0, index=omitted)]).set_axis(full)
+    return params, ses, V_new, nan_kept + omitted
 
 
 def _fit_proxy_iv(

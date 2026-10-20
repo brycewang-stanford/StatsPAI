@@ -4,6 +4,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Leftovers from the 2026-10-20 probe (xtevent, data layer, translation)
+
+#### Fixed
+
+- `sp.xtevent` no longer raises `KeyError` when an event-time regressor is
+  collinear with the unit / period effects (typically the binned left
+  endpoint, constant within every unit when the window reaches past the
+  panel). As Stata `xtevent` 3.1.0 does, the term is omitted, reported as
+  0 with zero variance and enters the averages as 0; a `UserWarning` names
+  it and `model_info['omitted']` / the `is_omitted` column record it. Both
+  engines match Stata 18 to 1e-10 on a new fixture, with and without
+  clustering and with `trend_method='ols'`
+  (`tests/reference_parity/test_xtevent_omitted_Stata_parity.py`). A static
+  model whose policy is absorbed now raises `MethodIncompatibility`.
+- `sp.xtevent(proxy_iv=1)` (a scalar lead, Stata `proxyiv(1)`) raised
+  `TypeError`; it now equals `proxy_iv=[1]` and Stata. A missing external
+  instrument raises `ColumnNotFound` instead of `KeyError`.
+
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 
 No existing number changes.

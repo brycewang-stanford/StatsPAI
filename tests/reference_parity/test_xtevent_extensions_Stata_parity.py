@@ -149,3 +149,21 @@ def test_refusals(data):
         _fit(data["bin"], window=4, proxy=["x"], engine="reghdfe")
     with pytest.raises(MethodIncompatibility):
         _fit(data["bin"], window=4, proxy=["x", "x2"], proxy_iv="select")
+
+
+def test_scalar_proxy_iv_is_stata_proxyiv_1(data):
+    """proxy_iv=1 is Stata ``proxyiv(1)`` (it raised TypeError before 2026-10-20)."""
+    res = _fit(data["bin"], window=4, proxy=["x"], proxy_iv=1)
+    ref = STATA["bin_proxy_lead1"]
+    es = res.model_info["event_study"].set_index("relative_time")
+    for name, b, se in zip(ref["names"].split(), ref["b"], ref["se"]):
+        if name.startswith("_k_eq_"):
+            assert abs(es.loc[_k(name), "estimate"] - b) < 1e-9, name
+            assert abs(es.loc[_k(name), "se"] - se) < 1e-9 * max(1.0, se), name
+
+
+def test_missing_external_instrument_is_column_not_found(data):
+    with pytest.raises(sp.exceptions.ColumnNotFound, match="nope"):
+        _fit(data["bin"], window=4, proxy=["x"], proxy_iv=["nope"])
+    with pytest.raises(MethodIncompatibility, match="proxy_iv must be"):
+        _fit(data["bin"], window=4, proxy=["x"], proxy_iv=1.5)
