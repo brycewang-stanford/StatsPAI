@@ -170,6 +170,53 @@ class TestDiscoveryMetaTools:
         assert "error" not in out
         assert out["called_via"] == "call_function"
 
+    def test_call_function_folds_flat_arguments(self):
+        # 2026-10-19 audit: the function's arguments sent next to
+        # `function` (not nested under `arguments`) failed with "missing
+        # required arguments". Flat and nested must give the same result.
+        nested = _rpc(
+            "tools/call",
+            {
+                "name": "call_function",
+                "arguments": {
+                    "function": "adjust_pvalues",
+                    "arguments": {"pvalues": [0.01, 0.04, 0.03], "method": "holm"},
+                },
+            },
+        )["result"]["structuredContent"]
+        flat = _rpc(
+            "tools/call",
+            {
+                "name": "call_function",
+                "arguments": {
+                    "name": "adjust_pvalues",
+                    "pvalues": [0.01, 0.04, 0.03],
+                    "method": "holm",
+                },
+            },
+        )["result"]["structuredContent"]
+        assert "error" not in flat, flat
+        assert flat["arguments_folded"] == ["method", "pvalues"]
+        flat.pop("arguments_folded")
+        assert json.dumps(flat, sort_keys=True, default=str) == json.dumps(
+            nested, sort_keys=True, default=str
+        )
+
+    def test_call_function_refuses_conflicting_flat_and_nested(self):
+        out = _rpc(
+            "tools/call",
+            {
+                "name": "call_function",
+                "arguments": {
+                    "function": "adjust_pvalues",
+                    "method": "bonferroni",
+                    "arguments": {"pvalues": [0.01, 0.04], "method": "holm"},
+                },
+            },
+        )["result"]["structuredContent"]
+        assert out["error_kind"] == "ambiguous_argument"
+        assert "'method'" in out["error"]
+
     def test_describe_unknown_name_suggests(self):
         out = _rpc(
             "tools/call",

@@ -2923,6 +2923,30 @@ def _tool_call_function(
     inner = arguments.get("arguments") or {}
     if not isinstance(inner, dict):
         return {"error": "`arguments` must be a JSON object of keyword arguments."}
+    # Agents often send the function's own arguments next to `function`
+    # instead of nesting them under `arguments` (the 2026-10-19 audit: a
+    # flat call_function(function='sun_abraham', y=..., g=...) failed with
+    # "missing 3 required positional arguments"). Fold them in; a key given
+    # both ways with different values is ambiguous and refused.
+    # Without `function`, `name` carried the function name, not an argument.
+    meta = ("function", "arguments") + (() if "function" in arguments else ("name",))
+    flat = {k: v for k, v in arguments.items() if k not in meta}
+    folded: list = []
+    if flat:
+        clash = sorted(k for k in flat if k in inner and inner[k] != flat[k])
+        if clash:
+            return {
+                "error": (
+                    "call_function got "
+                    + ", ".join(repr(k) for k in clash)
+                    + " both inside `arguments` and at the top level with "
+                    "different values; pass each argument once, inside "
+                    "`arguments`."
+                ),
+                "error_kind": "ambiguous_argument",
+            }
+        folded = sorted(k for k in flat if k not in inner)
+        inner = {**flat, **inner}
     from .tools import execute_tool
 
     out = execute_tool(
@@ -2936,6 +2960,8 @@ def _tool_call_function(
     if isinstance(out, dict):
         out.setdefault("tool", fn_name)
         out["called_via"] = "call_function"
+        if folded:
+            out["arguments_folded"] = folded
     return out
 
 
