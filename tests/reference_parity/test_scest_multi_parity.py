@@ -205,3 +205,20 @@ def test_unit_treated_from_the_first_period_is_refused():
     early.loc[early.unit == "u01", "treat"] = 1
     with pytest.raises(DataInsufficient, match="no pre-treatment period"):
         sp.scest(early, outcome="y", unit="unit", time="year", treat="treat")
+
+
+@pytest.mark.parametrize(
+    "edit,kw,error,match",
+    [
+        (lambda d: d.assign(treat=d.treat.where(d.year != 2005)), {},
+         MethodIncompatibility, "missing values"),
+        (lambda d: d.assign(treat=d.treat * 2), {}, MethodIncompatibility, "0/1"),
+        (lambda d: d, dict(anticipation=-1), MethodIncompatibility, "anticipation"),
+        (lambda d: d.assign(treat=0), {}, DataInsufficient, "no unit is ever treated"),
+    ],
+)  # fmt: skip
+def test_treatment_column_and_anticipation_are_validated(edit, kw, error, match):
+    with pytest.raises(error, match=match):
+        sp.scest(
+            edit(PANEL), outcome="y", unit="unit", time="year", treat="treat", **kw
+        )
