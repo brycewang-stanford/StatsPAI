@@ -5085,3 +5085,21 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after the RD clean-room rewrite
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `f7d83b89d`.
+- **Reason.** Audit rows H5, H6, H7 and H12 rewritten clean-room:
+  `rd/_cct_bandwidth.py` (+ new `rd/_cct_inference.py`, `rd/_cct_side.py`,
+  `rd/_nn_variance.py`), `rd/_core.py` (`_spd_inverse`),
+  `diagnostics/rddensity.py` (+ new `rd/_lpdensity.py`). They are on the
+  traced paths of Track A modules 06, 09, 88, 89 and original-data module
+  05. Every module was re-run first: the committed results reproduce within
+  1.5e-10 (88), 2.1e-11 (09) and 3e-13 / 7e-12 (06, 89, orig 05), so the
+  result files were restored; only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
