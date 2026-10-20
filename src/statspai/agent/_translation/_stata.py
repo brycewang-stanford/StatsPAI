@@ -1640,8 +1640,14 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
 
     ``xtdidregress`` is the same call with ``id=`` set to the panel unit of
     ``xtset``, which switches the variance to the ``xtreg, fe`` convention.
-    Options that change the estimator (``wildbootstrap()``, ``aggregate()``,
-    ``nogteffects``) are not read, so they are reported as untranslated.
+    ``aggregate(dlang | dlang, varying | standard)`` is
+    ``aggregate='dlang' | 'dlang_varying' | 'standard'``; for the Donald-Lang
+    fits ``dlang_df='stata'`` reproduces Stata's t degrees of freedom (the
+    ``sp.didregress`` default counts the absorbed group effects). Stata
+    refuses ``aggregate(dlang)`` with ``vce(cluster)`` or
+    ``wildbootstrap``, and so does the translation. Other options that
+    change the estimator (``wildbootstrap()``, ``nogteffects``) are not
+    read, so they are reported as untranslated.
     """
     eqs = _equations(list(cmd.varlist))
     if not eqs or len(eqs) != 2 or eqs[0][1] or eqs[1][1]:
@@ -1689,6 +1695,41 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
         if unit is None:
             notes.append(_PANEL_NOTE)
     cluster = _vce_cluster(cmd)
+    lost: List[str] = []
+    raw_agg = cmd.options.get("aggregate")
+    if raw_agg is not None:
+        words = raw_agg.replace(",", " ").lower().split()
+        aggregate = {
+            ("dlang",): "dlang",
+            ("dlang", "varying"): "dlang_varying",
+            ("standard",): "standard",
+        }.get(tuple(words))
+        if aggregate is None:
+            lost.append("aggregate")
+            notes.append(
+                f"aggregate({raw_agg}) is not dlang, `dlang, varying` or "
+                "standard; not carried over."
+            )
+        elif aggregate.startswith("dlang") and (
+            cluster or "wildbootstrap" in cmd.options
+        ):
+            what = "vce(cluster)" if cluster else "wildbootstrap"
+            return _emit_error(
+                f"{cmd.command}: Stata does not allow aggregate(dlang) with "
+                f"{what}; the Donald-Lang variance is the OLS variance of the "
+                "cell regression.",
+                command=cmd.command,
+                suggestions=[],
+            )
+        else:
+            args["aggregate"] = aggregate
+            if aggregate.startswith("dlang"):
+                args["dlang_df"] = "stata"
+                notes.append(
+                    "dlang_df='stata': Stata's t reference leaves the absorbed "
+                    "group effects out of the degrees of freedom; "
+                    "sp.didregress's default ('residual') counts them."
+                )
     if cluster:
         args["cluster"] = cluster
     notes.append(
@@ -1696,7 +1737,10 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
         "`estat granger` are sp.estat(result, 'ptrends' | 'granger')."
     )
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
-    return _emit("didregress", args, f"sp.didregress(data=df, {kw})", notes)
+    out = _emit("didregress", args, f"sp.didregress(data=df, {kw})", notes)
+    if lost:
+        out["untranslated_options"] = lost
+    return out
 
 
 def _numlist(text: str) -> Optional[List[int]]:

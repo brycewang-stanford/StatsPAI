@@ -486,7 +486,11 @@ def _check_event_codes(
         return
     required = dict(out.get("requires_codes") or {})
     tool = str(out.get("tool") or "")
-    if survival is not None and tool in ("cox", "survreg") and not required:
+    if (
+        survival is not None
+        and tool in ("cox", "survreg", "stteffects")
+        and not required
+    ):
         required = {survival[1]: [0, 1]}
     for var, allowed in required.items():
         if var not in data.columns:

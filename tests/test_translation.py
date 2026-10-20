@@ -1002,6 +1002,21 @@ TIER3_ROUND_TRIPS = [
         "finegray",
         {"event": "cause", "cause": 1, "small_sample": True},
     ),
+    # 2026-10-20 (numbers against Stata 18:
+    # test_stata_translation_stteffects.py)
+    (
+        "stteffects ipwra (x1 x2) (a x1 x2, probit) (x1, lnormal)",
+        "stteffects",
+        {
+            "treat": "a",
+            "covariates": ["x1", "x2"],
+            "treat_covariates": ["x1", "x2"],
+            "treat_model": "probit",
+            "censor_covariates": ["x1"],
+            "censor_dist": "lognormal",
+            "method": "ipwra",
+        },
+    ),
     (
         "eventstudyinteract y r0 r1, cohort(g) control_cohort(nt) absorb(i.id i.t)",
         "sun_abraham",

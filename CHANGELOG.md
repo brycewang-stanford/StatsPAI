@@ -4,6 +4,27 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Stata translation: `stteffects`, `didregress aggregate()`
+
+#### Added
+
+- `sp.from_stata` / `sp.stata` translate `stteffects ra | wra | ipw |
+  ipwra` to `sp.stteffects` (equations read by position; `lnormal` ->
+  `dist='lognormal'`, `probit` treatment model, constant-only censoring
+  model `(, weibull)`, `atet`, `pomeans`, `level()`). Fifteen lines run
+  through `sp.stata` reproduce Stata 18
+  (`tests/test_stata_translation_stteffects.py`). `ipwra, atet` is
+  translated with `atet` flagged (`complete=False`, `sp.stata` refuses):
+  Stata averages over the whole sample, `sp.stteffects` over the treated.
+  `noconstant`, `gamma` and `hetprobit` are refused.
+- `didregress` / `xtdidregress ..., aggregate(dlang | dlang, varying |
+  standard)` translate to `sp.didregress(aggregate=...)`, with
+  `dlang_df='stata'` for the Donald-Lang fits so the interval uses Stata's
+  degrees of freedom; the ten Stata 18 reference lines run through
+  `sp.stata` to 1e-10 (`tests/test_stata_translation_didregress_aggregate.py`).
+  `aggregate(dlang)` with `vce(cluster)` or `wildbootstrap` is refused, as
+  Stata refuses it.
+
 ### `design=` on `sp.ltmle` and `sp.match`
 
 #### Added
