@@ -47,7 +47,9 @@ def match_cem_k2k(data: pd.DataFrame, spec: Dict[str, Any], fit: Any) -> Any:
     col = "__cem_cell__"
     while col in work.columns:  # pragma: no cover - name clash
         col += "_"
-    work[col] = np.nan
+    # object dtype: the cells are strings (a float column would warn now and
+    # refuse the assignment in a later pandas)
+    work[col] = pd.Series(np.nan, index=work.index, dtype=object)
     work.loc[md.index, col] = md["_stratum"].astype(str).to_numpy()
     nn_spec = dict(spec)
     nn_spec.update(
@@ -90,8 +92,11 @@ def l1_imbalance(
         0/1 treatment.
     covariates : sequence of str
     weights : array-like or str, optional
-        Matching or balancing weights (``NaN`` = not in the sample); the
-        default is the unweighted sample.
+        Matching or balancing weights (``NaN`` = unmatched, weight 0); the
+        default is the unweighted sample. The bins are set on every row with
+        complete covariates whatever its weight, so a weighted (after
+        matching) and an unweighted (before matching) L1 use the same
+        cells. Negative or infinite weights are refused.
     n_bins : int, optional
         Bins per covariate; default Sturges' rule ``ceil(log2(n) + 1)``
         (the default of R ``cem``'s ``imbalance`` is a different,
@@ -128,15 +133,35 @@ def l1_imbalance(
         w = np.asarray(weights, dtype=float).ravel()
         if len(w) != len(data):
             raise MethodIncompatibility("l1_imbalance: weights have the wrong length.")
-    keep = (
-        data[[treat] + cols].notna().all(axis=1).to_numpy() & np.isfinite(w) & (w > 0)
-    )
+    # a missing weight is an unmatched row (matched_data's _weight): mass 0
+    w = np.where(np.isnan(w), 0.0, w)
+    if weights is not None and (np.any(w < 0) or not np.isfinite(w).all()):
+        raise MethodIncompatibility(
+            "l1_imbalance: weights must be finite and non-negative.",
+            recovery_hint="Drop or fix rows with negative or infinite weights.",
+        )
+    # The coarsening (bin count and edges) is fixed on every complete row,
+    # zero-weight rows included, as cem's imbalance() does; weights only
+    # move mass between the cells. Dropping zero weights first gave the
+    # after-matching L1 a different coarsening from the before-matching one
+    # (0.150 instead of 0.104 after k2k, 2026-10-20 probe).
+    keep = data[[treat] + cols].notna().all(axis=1).to_numpy()
     df = data.loc[keep]
     w = w[keep]
-    t = df[treat].to_numpy(dtype=float)
+    try:
+        t = df[treat].to_numpy(dtype=float)
+    except (TypeError, ValueError):
+        t = np.array([np.nan])
     if not np.isin(t, (0.0, 1.0)).all() or t.min() == t.max():
         raise MethodIncompatibility(
-            "l1_imbalance: the treatment must be 0/1 with both arms present."
+            "l1_imbalance: the treatment must be 0/1 with both arms present.",
+            recovery_hint="Recode the treatment as 0/1 (e.g. "
+            "(df[treat] == 'treated').astype(int)).",
+        )
+    if w[t == 1].sum() <= 0 or w[t == 0].sum() <= 0:
+        raise MethodIncompatibility(
+            "l1_imbalance: an arm has zero total weight.",
+            recovery_hint="Each arm needs some positive weight.",
         )
     n = len(df)
     k = int(n_bins) if n_bins is not None else int(np.ceil(np.log2(n) + 1))

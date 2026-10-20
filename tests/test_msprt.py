@@ -102,7 +102,7 @@ def test_plugin_variance_and_batched_looks():
             "day": np.repeat(np.arange(12), n // 12),
         }
     )
-    r = sp.msprt(df, "y", "d", tau=0.2, time="day")
+    r = sp.msprt(df, "y", "d", tau=0.2, time="day", min_per_arm=2)
     assert len(r.path) == 12
     last = r.path.iloc[-1]
     g = df.groupby("d")["y"]
@@ -119,3 +119,19 @@ def test_invalid_inputs():
         sp.msprt(df.assign(d=[0, 1, 2, 1]), "y", "d", tau=1)
     with pytest.raises(DataInsufficient):
         sp.msprt(df, "y", "d", tau=1, min_per_arm=5)
+
+
+def test_default_plug_in_keeps_the_level():
+    # 2026-10-20 probe: with 2 observations per arm at the first looks the
+    # plug-in variance made the always-valid test reject 8-10% of the time
+    # under the null. The default now waits for 10 per arm. 300 seeded null
+    # replications (n = 600, tau = 0.3): rejection rate observed 3.0%;
+    # the bound 0.05 + 2 * MC SE (0.0126) would still fail at 2 per arm
+    # (0.095 in 600 replications).
+    rej = 0
+    R = 300
+    for r in range(R):
+        rng = np.random.default_rng(1000 + r)
+        df = pd.DataFrame({"d": rng.integers(0, 2, 600), "y": rng.normal(size=600)})
+        rej += sp.msprt(df, "y", "d", tau=0.3).p_value < 0.05
+    assert rej / R <= 0.05 + 2 * np.sqrt(0.05 * 0.95 / R)

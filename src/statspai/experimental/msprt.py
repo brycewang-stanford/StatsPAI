@@ -139,7 +139,7 @@ def msprt(
     time: Optional[str] = None,
     theta0: float = 0.0,
     alpha: float = 0.05,
-    min_per_arm: int = 2,
+    min_per_arm: Optional[int] = None,
 ) -> MSPRTResult:
     """Always-valid p-values and confidence sequences for a two-arm test.
 
@@ -169,9 +169,13 @@ def msprt(
     alpha : float, default 0.05
         Level of the test and one minus the coverage of the confidence
         sequence.
-    min_per_arm : int, default 2
-        Looks with fewer observations in an arm are skipped (the variance
-        is undefined); at least 2 with the plug-in variance.
+    min_per_arm : int, optional
+        Looks with fewer observations in an arm are skipped. Default: 1
+        with ``sigma=``; 10 with the plug-in variance, whose estimate from
+        a handful of observations makes the first looks reject too often
+        (null rejection rate 9.5% at a nominal 5% with 2 per arm, 2.5% with
+        10; 600 replications of n = 600, tau = 0.3). At least 2 with the
+        plug-in variance.
 
     Returns
     -------
@@ -215,6 +219,8 @@ def msprt(
             f"sigma must be a positive number; got {sigma!r}.",
             recovery_hint="Drop sigma= to use the running sample variances.",
         )
+    if min_per_arm is None:
+        min_per_arm = 1 if sigma is not None else 10
     min_arm = max(int(min_per_arm), 1 if sigma is not None else 2)
     check_columns(data, {"y": y, "treat": treat, "time": time}, function="sp.msprt")
     cols = [y, treat] + ([time] if time else [])

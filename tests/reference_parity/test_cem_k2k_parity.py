@@ -79,3 +79,40 @@ def test_matching_reduces_l1(data):
     before = sp.l1_imbalance(data, "d", ["x1", "x2"], n_bins=4)
     after = sp.l1_imbalance(md, "d", ["x1", "x2"], weights="_weight", n_bins=4)
     assert after < before
+
+
+def test_l1_weights_keep_the_full_sample_coarsening(data):
+    # 2026-10-20 probe: rows with weight 0 were dropped before the bins
+    # were set, so a weighted (after-matching) L1 used other cells than the
+    # unweighted (before-matching) one. Bins now come from every complete
+    # row; checked against a direct computation with those bins.
+    rng = np.random.default_rng(5)
+    w = rng.integers(0, 3, len(data)).astype(float)
+    got = sp.l1_imbalance(data, "d", ["x1", "x2"], weights=w, n_bins=4)
+
+    def codes(x):
+        edges = np.linspace(x.min(), x.max(), 5)
+        return np.clip(np.searchsorted(edges, x, side="left"), 1, 4)
+
+    cell = codes(data["x1"].to_numpy()) * 10 + codes(data["x2"].to_numpy())
+    t = data["d"].to_numpy()
+    f = pd.Series(w[t == 1]).groupby(cell[t == 1]).sum()
+    g = pd.Series(w[t == 0]).groupby(cell[t == 0]).sum()
+    f, g = f.reindex(f.index.union(g.index), fill_value=0), g.reindex(
+        f.index.union(g.index), fill_value=0
+    )
+    want = 0.5 * np.abs(f / f.sum() - g / g.sum()).sum()
+    assert got == pytest.approx(want, abs=1e-12)
+
+
+@pytest.mark.parametrize("bad", [-1.0, np.inf])
+def test_l1_refuses_invalid_weights(data, bad):
+    w = np.ones(len(data))
+    w[0] = bad
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.l1_imbalance(data, "d", ["x1", "x2"], weights=w)
+
+
+def test_l1_string_treatment_is_a_typed_error(data):
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="0/1"):
+        sp.l1_imbalance(data.assign(d=data["d"].map({0: "c", 1: "t"})), "d", ["x1"])

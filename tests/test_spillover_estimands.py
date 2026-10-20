@@ -82,3 +82,33 @@ def test_empty_cell_raises_instead_of_reporting_zero():
             rows.append({"cl": c, "d": d, "y": float(d) + 0.1 * i + c * 0.01})
     with pytest.raises(sp.DataInsufficient, match="untreated_low"):
         sp.spillover(pd.DataFrame(rows), y="y", treat="d", cluster="cl")
+
+
+def test_missing_outcomes_keep_their_treatment_in_peer_exposure():
+    # 2026-10-20 probe: rows with a missing outcome were dropped before the
+    # exposure was computed, so their treatment vanished from their
+    # cluster-mates' exposure. The exposure is the full-cluster ``frac``.
+    df = _data(seed=2)
+    rng = np.random.default_rng(9)
+    holes = rng.choice(len(df), 60, replace=False)
+    df.loc[holes, "y"] = np.nan
+    with pytest.warns(UserWarning, match="missing outcome"):
+        res = sp.spillover(df, y="y", treat="d", cluster="cl", n_bootstrap=50)
+    obs = df[df["y"].notna()]
+    c = float(np.median(obs["frac"][obs["frac"] > 0]))
+    hi = obs["frac"] >= c
+    m = lambda mask: obs.loc[mask, "y"].mean()  # noqa: E731
+    mi = res.model_info
+    assert mi["median_exposure"] == pytest.approx(c, rel=1e-12)
+    assert mi["direct_effect"] == pytest.approx(
+        m((obs.d == 1) & hi) - m((obs.d == 0) & hi), rel=1e-12
+    )
+    assert res.n_obs == len(obs)
+
+
+def test_missing_treatment_is_refused():
+    df = _data(seed=3)
+    df["d"] = df["d"].astype(float)
+    df.loc[5, "d"] = np.nan
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="missing treatment"):
+        sp.spillover(df, y="y", treat="d", cluster="cl", n_bootstrap=10)

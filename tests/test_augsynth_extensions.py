@@ -119,3 +119,16 @@ def test_r_backend_refuses_extensions():
 def test_unknown_treated_unit():
     with pytest.raises(ValueError, match="not found"):
         sp.augsynth(_panel(), treated_unit=["a", "zz"], **KW)
+
+
+def test_progfunc_none_is_scm_whatever_scm_says():
+    # 2026-10-20 probe: progfunc='none', scm=False returned the average of
+    # uniform donor weights (6.878 on the probe panel) while R
+    # augsynth(progfunc = "None", scm = FALSE) returns the SCM estimate
+    # (3.33428, the same as scm = TRUE; run in R augsynth on that panel).
+    # Here: the SCM fit of 'a' is exact, so both settings give 1.5.
+    df = _panel(seed=5).query("unit != 'b'")
+    a = sp.augsynth(df, treated_unit="a", progfunc="none", scm=True, **KW)
+    b = sp.augsynth(df, treated_unit="a", progfunc="none", scm=False, **KW)
+    assert b.estimate == a.estimate
+    assert abs(b.estimate - 1.5) < 1e-6

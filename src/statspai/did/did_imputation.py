@@ -473,6 +473,8 @@ def did_imputation(
         function="did_imputation",
         reset_index=False,
     )
+    # rows the fit can use (n_obs counted the dropped missing rows too)
+    n_usable = len(df)
     _require_constant_cohort(
         df, unit=group, cohort=first_treat, function="did_imputation"
     )
@@ -1262,7 +1264,7 @@ def did_imputation(
         pvalue=pvalue_att,
         ci=ci_att,
         alpha=alpha,
-        n_obs=len(data),
+        n_obs=n_usable,
         detail=event_study_df,
         model_info=model_info,
         _citation_key="did_imputation",

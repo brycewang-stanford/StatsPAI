@@ -28206,7 +28206,12 @@ def _build_registry() -> None:
                 ParamSpec("theta0", "float", False, 0.0, "Null value of the effect"),
                 ParamSpec("alpha", "float", False, 0.05, "Level"),
                 ParamSpec(
-                    "min_per_arm", "int", False, 2, "Skip looks with fewer per arm"
+                    "min_per_arm",
+                    "int",
+                    False,
+                    None,
+                    "Skip looks with fewer per arm (default 1 with sigma=, "
+                    "10 with the plug-in variance)",
                 ),
             ],
             returns="MSPRTResult (.path, .p_value, .ci, .rejected, .stop_look)",
@@ -40471,6 +40476,19 @@ def search_functions(
     hits = rank(_REGISTRY, query, parents=parents)
     if category is not None and str(category).strip():
         cat = str(category).strip().lower()
+        known = sorted(
+            {str(sp_.category).lower() for sp_ in _REGISTRY.values() if sp_.category}
+        )
+        if cat not in known:
+            # an unknown category used to return [] silently (2026-10-20
+            # probe: category='did' looked like "no DiD functions")
+            from .exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"search_functions: unknown category {category!r}.",
+                recovery_hint=f"Categories: {', '.join(known)}.",
+                diagnostics={"categories": known},
+            )
         hits = [h for h in hits if str(h.get("category", "")).lower() == cat]
     return hits if limit is None else hits[:limit]
 

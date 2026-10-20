@@ -123,7 +123,9 @@ def augsynth(
     scm : bool, default True
         Start the augmentation from SCM weights (``True``) or from uniform
         weights over the donors (``False``, pure ridge regression
-        weights), as augsynth's ``scm``.
+        weights), as augsynth's ``scm``. With ``progfunc='none'`` there is
+        no augmentation and the fit is SCM whatever ``scm`` says (as in R
+        augsynth).
     fixedeff : bool, default False
         De-mean every unit by its pre-treatment average before fitting and
         add the treated average back (augsynth's ``fixedeff``).
@@ -573,7 +575,12 @@ def _fit_ridge_augmented_weights(
         x_1 = np.concatenate([x_1, sdx * (z1 - z_mean) / sdz])
 
     n0 = x_c.shape[0]
-    syn = _scm_weights(x_1, x_c) if scm else np.full(n0, 1.0 / n0)
+    # Without the ridge augmentation the fit is SCM itself, whatever scm=
+    # says: R augsynth(progfunc = "None", scm = FALSE) returns the SCM
+    # estimate (3.334 on the probe panel), and the uniform-weight average
+    # the native path gave (6.878) is not an augsynth estimator.
+    use_scm = scm or not ridge
+    syn = _scm_weights(x_1, x_c) if use_scm else np.full(n0, 1.0 / n0)
     if not ridge:
         return {"weights": syn.copy(), "synthetic_weights": syn, "ridge_lambda": None}
     if ridge_lambda is None:

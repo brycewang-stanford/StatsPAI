@@ -38,6 +38,7 @@ References
 compute).
 """
 
+import warnings
 from typing import List, Optional
 
 import numpy as np
@@ -244,15 +245,40 @@ class SpilloverEstimator:
                 diagnostics={"exposure_fn": self.exposure_fn},
             )
 
-        df = self.data[cols].dropna().copy()
+        full = self.data[cols].copy()
+        # Peer exposure needs every unit's treatment: a unit whose treatment
+        # or cluster is missing cannot be placed. Rows were dropped silently
+        # before exposure was computed, so a missing outcome also removed the
+        # unit's treatment from its cluster-mates' exposure (2026-10-20
+        # probe: the threshold moved from 0.5 to 0.667).
+        n_bad = int(full[[self.treat, self.cluster]].isna().any(axis=1).sum())
+        if n_bad:
+            raise MethodIncompatibility(
+                f"sp.spillover: {n_bad} row(s) have a missing treatment or "
+                "cluster, so their peers' exposure is undefined.",
+                recovery_hint="Fill or drop those rows deliberately before "
+                "calling (dropping a unit changes its peers' exposure).",
+                diagnostics={"n_rows": n_bad},
+            )
+        D_all = full[self.treat].values.astype(np.float64)
+        G_all = full[self.cluster].values
+        exposure_all = self._compute_exposure(full, D_all, G_all)
+        keep = full[self.y].notna().to_numpy()
+        if not keep.all():
+            warnings.warn(
+                f"sp.spillover: {int((~keep).sum())} row(s) with a missing "
+                "outcome are left out of the contrasts; their treatment still "
+                "counts in their cluster-mates' exposure.",
+                UserWarning,
+                stacklevel=3,
+            )
+        df = full.loc[keep]
         n = len(df)
 
         Y = df[self.y].values.astype(np.float64)
-        D = df[self.treat].values.astype(np.float64)
-        G = df[self.cluster].values
-
-        # Compute peer exposure for each unit
-        exposure = self._compute_exposure(df, D, G)
+        D = D_all[keep]
+        G = G_all[keep]
+        exposure = exposure_all[keep]
 
         # Classify units into 4 groups:
         # (own_treat=1, high_exposure) vs (own_treat=0, low_exposure) etc.

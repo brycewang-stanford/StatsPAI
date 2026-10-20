@@ -528,6 +528,8 @@ def sun_abraham(
         columns=[y, t, *([i] if i is not None else []), *(covariates or [])],
         function="sun_abraham",
     )
+    # rows the fit can use (n_obs counted the dropped missing rows too)
+    n_usable = len(df)
     if i is not None:
         _require_constant_cohort(df, unit=i, cohort=g, function="sun_abraham")
         _duplicate_unit_period_rows(df, unit=i, time=t, function="sun_abraham")
@@ -1097,7 +1099,7 @@ def sun_abraham(
         pvalue=pvalue,
         ci=ci,
         alpha=alpha,
-        n_obs=len(data),
+        n_obs=n_usable,
         detail=event_study,
         model_info=model_info,
         _citation_key="sun_abraham",
