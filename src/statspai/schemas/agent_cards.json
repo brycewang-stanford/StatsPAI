@@ -142013,7 +142013,7 @@
       ],
       "tolerance": "robust bias-corrected SE & power 1e-8 rel (observed 4.2e-14)"
     },
-    "example": "res = sp.rdpower(tau=0.15, n_left=500, n_right=500)",
+    "example": "r = sp.rdpower(tau=0.15, n_left=500, n_right=500)",
     "failure_modes": [
       {
         "alternative": "sp.rdrobust",
@@ -142061,12 +142061,14 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
+      "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cattaneo2019power",
     "returns": {
       "class": "RDPowerResult",
-      "description": "",
+      "description": "RDPowerResult: power, se, mde, alpha, tau and the side sample sizes (data mode: the observed N- / N+).",
       "fields": {
         "alpha": "float",
         "mde": "float",
@@ -142084,64 +142086,64 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level.",
+            "description": "Significance level of the two-sided test.",
             "type": "number"
           },
           "c": {
             "default": 0.0,
-            "description": "Cutoff, for data mode.",
+            "description": "Data mode: cutoff.",
             "type": "number"
           },
           "data": {
-            "description": "Enables data mode. Requires ``y`` and ``x``.",
+            "description": "Data mode: the sample. Requires ``y`` and ``x``; the standard error is the robust bias-corrected one of ``sp.rdrobust`` on these data.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
           "h_left": {
             "default": 0.5,
-            "description": "Bandwidth fractions (proportion of running-variable support used). Design mode only.",
+            "description": "Design mode: bandwidth on each side.",
             "type": "number"
           },
           "h_right": {
             "default": 0.5,
-            "description": "Bandwidth fractions (proportion of running-variable support used). Design mode only.",
+            "description": "Design mode: bandwidth on each side.",
             "type": "number"
           },
           "n_left": {
             "default": 500,
-            "description": "Available sample size on each side. Design mode only.",
+            "description": "Design mode: sample size on each side.",
             "type": "integer"
           },
           "n_right": {
             "default": 500,
-            "description": "Available sample size on each side. Design mode only.",
+            "description": "Design mode: sample size on each side.",
             "type": "integer"
           },
           "target_power": {
-            "description": "If set, compute MDE for this target power instead.",
+            "description": "Power at which the minimum detectable effect ``mde`` is reported (default 0.8).",
             "type": "number"
           },
           "tau": {
-            "description": "Hypothesised treatment effect at the cutoff.",
+            "description": "Treatment effect under the alternative.",
             "type": "number"
           },
           "var_left": {
             "default": 1.0,
-            "description": "Outcome variance on each side of the cutoff. Design mode only.",
+            "description": "Design mode: outcome variance on each side of the cutoff.",
             "type": "number"
           },
           "var_right": {
             "default": 1.0,
-            "description": "Outcome variance on each side of the cutoff. Design mode only.",
+            "description": "Design mode: outcome variance on each side of the cutoff.",
             "type": "number"
           },
           "x": {
-            "description": "Outcome and running-variable column names, for data mode.",
+            "description": "Data mode: outcome and running-variable columns.",
             "type": "string",
             "x-statspai-role": "column"
           },
           "y": {
-            "description": "Outcome and running-variable column names, for data mode.",
+            "description": "Data mode: outcome and running-variable columns.",
             "type": "string",
             "x-statspai-role": "column"
           }
@@ -142200,7 +142202,7 @@
       ],
       "tolerance": "required sample sizes n_left / n_right / n_total asserted as exact integer equality (no tolerance)"
     },
-    "example": "res = sp.rdsampsi(tau=0.15, target_power=0.80)",
+    "example": "r = sp.rdsampsi(tau=0.15, target_power=0.80)",
     "failure_modes": [
       {
         "alternative": "sp.rdrobust",
@@ -142248,12 +142250,14 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
+      "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cattaneo2019power",
     "returns": {
       "class": "RDSampSiResult",
-      "description": "",
+      "description": "RDSampSiResult: n_left, n_right, n_total (data mode: observations inside the bandwidth window on each side), tau, target_power, alpha.",
       "fields": {
         "alpha": "float",
         "n_left": "int",
@@ -142270,60 +142274,60 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level for confidence intervals and tests.",
+            "description": "Significance level of the two-sided test.",
             "type": "number"
           },
           "c": {
             "default": 0.0,
-            "description": "c parameter (float).",
+            "description": "Data mode: cutoff.",
             "type": "number"
           },
           "data": {
-            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "description": "Data mode: a pilot sample. Requires ``y`` and ``x``.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
           "h_left": {
             "default": 0.5,
-            "description": "h_left parameter (float).",
+            "description": "Design mode: bandwidth on each side.",
             "type": "number"
           },
           "h_right": {
             "default": 0.5,
-            "description": "h_right parameter (float).",
+            "description": "Design mode: bandwidth on each side.",
             "type": "number"
           },
           "ratio": {
             "default": 1.0,
-            "description": "``n_right / n_left``. Default 1.0 assumes equal allocation.",
+            "description": "Design mode: ``n_right / n_left``.",
             "type": "number"
           },
           "target_power": {
             "default": 0.8,
-            "description": "target_power parameter (float).",
+            "description": "Power to reach.",
             "type": "number"
           },
           "tau": {
-            "description": "Quantile level or target treatment-effect index.",
+            "description": "Treatment effect under the alternative (non-zero).",
             "type": "number"
           },
           "var_left": {
             "default": 1.0,
-            "description": "var_left parameter (float).",
+            "description": "Design mode: outcome variance on each side.",
             "type": "number"
           },
           "var_right": {
             "default": 1.0,
-            "description": "var_right parameter (float).",
+            "description": "Design mode: outcome variance on each side.",
             "type": "number"
           },
           "x": {
-            "description": "Primary running variable, regressor, or feature input for this estimator.",
+            "description": "Data mode: outcome and running-variable columns.",
             "type": "string",
             "x-statspai-role": "column"
           },
           "y": {
-            "description": "Outcome variable column name or outcome array.",
+            "description": "Data mode: outcome and running-variable columns.",
             "type": "string",
             "x-statspai-role": "column"
           }

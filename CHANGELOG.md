@@ -10,6 +10,13 @@ All notable changes to StatsPAI will be documented in this file.
 - **Changed**: `sp.reset_spec_counter`'s argument is now `y=` (the house-style outcome name); `outcome=` stays accepted as an alias. Neither has been released.
 - **Docs**: agent cards (assumptions, pre-conditions) for `sp.reset_spec_counter`, `sp.xtset`, `sp.reshape`, `sp.collapse`, `sp.egen`, `sp.msprt_lambda`, `sp.hpd_interval`, `sp.gelman_rubin` and `sp.westfall_young`, read from their code and docstrings.
 
+### RD power, heterogeneous effects and boundary designs: clean-room rewrites
+
+Audit rows H9-H11 of `docs/dev/2026-10-20-license-provenance-audit.md`.
+
+- **Changed**: `sp.rdpower` / `sp.rdsampsi` (`rd/rdpower.py`) are reimplemented from Cattaneo, Titiunik and Vazquez-Bare (2019, section 2), the R `rdpower` 3.0 help pages and R's outputs (black box; spec `docs/dev/cleanroom/rdpower.md`). New fixture `rdpower_R.json` (`_generate_rdpower_R.R`): data-mode power and robust SE match R at 1e-9 on 10 cells, and `rdsampsi(data=)` window sample sizes match exactly on 14 cells. Where R's iterative solver does not return (e.g. `tau = 0.5` on the Senate data), the root is now bracketed and a number is returned.
+- **⚠️ Correctness**: design-mode `sp.rdsampsi` now solves the exact two-sided power equation. The previous code used the one-tail approximation `tau/se = z_(1-alpha/2) + z_power`, which overstates the sample when the target power is close to `alpha` (e.g. `alpha=0.2, target_power=0.3, tau=0.2`: 21 + 21 before, 17 + 17 now, the smallest sample reaching power 0.3). At conventional settings (power 0.8, alpha 0.05) the numbers are unchanged. Invalid inputs (non-positive sizes, variances or bandwidths, `alpha` outside (0, 1), `target_power` outside (alpha, 1), `tau = 0` for `rdsampsi`, `ratio <= 0`) now raise `MethodIncompatibility` instead of returning nonsense or crashing.
+
 ### Honest RD (`sp.rd_honest`, `sp.rd_discrete`, `sp.rd_bias_aware_fuzzy`): clean-room rewrite
 
 - **Changed**: `rd/_rdhonest.py`, `rd/bias_aware.py` and `rd/rd_discrete.py`
@@ -1335,7 +1342,6 @@ batch, then a re-run of the 2026-10-19 agent-native audit.
 - R fixest, MASS and alpaca (GPL) were used as black boxes: their outputs
   and documentation only.
 
-
 ### ⚠️ Correctness: unconverged fixed-effect projections are finished exactly; faster clustering and CSV reading
 
 #### Fixed
@@ -2155,7 +2161,6 @@ batch, then a re-run of the 2026-10-19 agent-native audit.
   because it rounded the codes before checking; `sp.optimal_match` read a
   0/2 column as having no treated units.
 
-
 ### ⚠️ Correctness: `sp.ges` is Greedy Equivalence Search
 
 - ⚠️ `sp.ges` now searches equivalence classes with Chickering's (2002)
@@ -2278,7 +2283,6 @@ batch, then a re-run of the 2026-10-19 agent-native audit.
   `sp.aggte(alp=, biters=)`, `sp.drdid(yname=, tname=, idname=, dname=,
   estMethod=, weightsname=)` (R `DRDID::drdid`), and
   `sp.event_study(first_treat=)`.
-
 
 ### ⚠️ Correctness: `sp.rdrobust` fuzzy bandwidth with covariates
 
@@ -5305,7 +5309,6 @@ New subpackages: `statspai.mcmc` (Bayesian regression, model comparison,
 leave-one-out, posterior predictive checks, all without PyMC) and
 `statspai.doe` (design of experiments).
 
-
 ### `sp.glmnet`: the elastic net with `glmnet`'s conventions; IPW standard errors without the bootstrap
 
 Second round of the Yuksel and Aydede pass: the items the first round left
@@ -7232,7 +7235,6 @@ against R and Stata 18. Notes are in
   into the call. `sp.from_stata` / `sp.stata` translate `xtfmb`, `robreg`
   and `newey` on `xtset` data.
 
-
 ### What a forecasting textbook found
 
 Hyndman, Athanasopoulos, Garza, Challu, Mergenthaler and Olivares,
@@ -8135,7 +8137,6 @@ The Stata evidence on committed data is in
   the earlier ones to 1e-8 or better.
 - `sp.lincom` and `sp.test` accept division by a number (`"exp + exp2/5"`).
 - `sp.from_stata("nlcom (a + b) / (1 - c)")` is read as one expression.
-
 
 ### `rdlocrand` 3.0
 

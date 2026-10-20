@@ -68099,64 +68099,64 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level.",
+          "description": "Significance level of the two-sided test.",
           "type": "number"
         },
         "c": {
           "default": 0.0,
-          "description": "Cutoff, for data mode.",
+          "description": "Data mode: cutoff.",
           "type": "number"
         },
         "data": {
-          "description": "Enables data mode. Requires ``y`` and ``x``.",
+          "description": "Data mode: the sample. Requires ``y`` and ``x``; the standard error is the robust bias-corrected one of ``sp.rdrobust`` on these data.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
         "h_left": {
           "default": 0.5,
-          "description": "Bandwidth fractions (proportion of running-variable support used). Design mode only.",
+          "description": "Design mode: bandwidth on each side.",
           "type": "number"
         },
         "h_right": {
           "default": 0.5,
-          "description": "Bandwidth fractions (proportion of running-variable support used). Design mode only.",
+          "description": "Design mode: bandwidth on each side.",
           "type": "number"
         },
         "n_left": {
           "default": 500,
-          "description": "Available sample size on each side. Design mode only.",
+          "description": "Design mode: sample size on each side.",
           "type": "integer"
         },
         "n_right": {
           "default": 500,
-          "description": "Available sample size on each side. Design mode only.",
+          "description": "Design mode: sample size on each side.",
           "type": "integer"
         },
         "target_power": {
-          "description": "If set, compute MDE for this target power instead.",
+          "description": "Power at which the minimum detectable effect ``mde`` is reported (default 0.8).",
           "type": "number"
         },
         "tau": {
-          "description": "Hypothesised treatment effect at the cutoff.",
+          "description": "Treatment effect under the alternative.",
           "type": "number"
         },
         "var_left": {
           "default": 1.0,
-          "description": "Outcome variance on each side of the cutoff. Design mode only.",
+          "description": "Design mode: outcome variance on each side of the cutoff.",
           "type": "number"
         },
         "var_right": {
           "default": 1.0,
-          "description": "Outcome variance on each side of the cutoff. Design mode only.",
+          "description": "Design mode: outcome variance on each side of the cutoff.",
           "type": "number"
         },
         "x": {
-          "description": "Outcome and running-variable column names, for data mode.",
+          "description": "Data mode: outcome and running-variable columns.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome and running-variable column names, for data mode.",
+          "description": "Data mode: outcome and running-variable columns.",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -68174,60 +68174,60 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Significance level of the two-sided test.",
           "type": "number"
         },
         "c": {
           "default": 0.0,
-          "description": "c parameter (float).",
+          "description": "Data mode: cutoff.",
           "type": "number"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Data mode: a pilot sample. Requires ``y`` and ``x``.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
         "h_left": {
           "default": 0.5,
-          "description": "h_left parameter (float).",
+          "description": "Design mode: bandwidth on each side.",
           "type": "number"
         },
         "h_right": {
           "default": 0.5,
-          "description": "h_right parameter (float).",
+          "description": "Design mode: bandwidth on each side.",
           "type": "number"
         },
         "ratio": {
           "default": 1.0,
-          "description": "``n_right / n_left``. Default 1.0 assumes equal allocation.",
+          "description": "Design mode: ``n_right / n_left``.",
           "type": "number"
         },
         "target_power": {
           "default": 0.8,
-          "description": "target_power parameter (float).",
+          "description": "Power to reach.",
           "type": "number"
         },
         "tau": {
-          "description": "Quantile level or target treatment-effect index.",
+          "description": "Treatment effect under the alternative (non-zero).",
           "type": "number"
         },
         "var_left": {
           "default": 1.0,
-          "description": "var_left parameter (float).",
+          "description": "Design mode: outcome variance on each side.",
           "type": "number"
         },
         "var_right": {
           "default": 1.0,
-          "description": "var_right parameter (float).",
+          "description": "Design mode: outcome variance on each side.",
           "type": "number"
         },
         "x": {
-          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "description": "Data mode: outcome and running-variable columns.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Data mode: outcome and running-variable columns.",
           "type": "string",
           "x-statspai-role": "column"
         }

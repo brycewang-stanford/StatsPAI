@@ -5,6 +5,17 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ design-mode `sp.rdsampsi` uses the exact power equation
+
+`sp.rdsampsi` without `data=` now returns the smallest sample whose two-sided
+power reaches `target_power`. It used the one-tail approximation before, which
+gives a larger sample only when the opposite tail carries power (target power
+close to `alpha`). Conventional settings (0.8 / 0.05) are unchanged. Invalid
+inputs now raise `MethodIncompatibility` (a `ValueError`). Nothing to change in
+calling code.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.grapple(loss='tukey')` standard errors; `sp.mr_raps` robust log-likelihood
 
 - `sp.grapple` with the Tukey loss (its default) now evaluates the whole
