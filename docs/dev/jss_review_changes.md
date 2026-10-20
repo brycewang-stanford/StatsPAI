@@ -4941,3 +4941,16 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   so the committed result was kept.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — trace 10 re-record after the breakdown_m recovery hint
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `2a29aa53b`, `8a1f2d128`.
+- **Reason.** `did/_honest_breakdown.py` (a recovery-hint string named a
+  non-public function) is on the traced path of Track A module 10. The
+  module was re-run first: its committed result reproduces byte for byte;
+  only the trace was re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
