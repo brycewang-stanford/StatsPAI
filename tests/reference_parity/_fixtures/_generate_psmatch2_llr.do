@@ -6,24 +6,22 @@
 * Requires: Stata 18 + psmatch2 (ssc install psmatch2).
 * Run:      stata -b do _generate_psmatch2_llr.do   (from this directory)
 *
-* Two behaviours of psmatch2 that this fixture exists to pin
+* Two behaviours of psmatch2 that this fixture exists to pin (observed by
+* running psmatch2 as a black box; see docs/dev/cleanroom/psmatch2.md)
 * ---------------------------------------------------------
-* 1. psmatch2 reports `seatt = .` for genuine LLR.  Local linear weights can
-*    be negative, and the analytic formula sqrt(var1/N1 + var0*sum(w^2)/N1^2)
-*    assumes they are not.  Only the point estimate is alignable.
+* 1. psmatch2 reports `seatt = .` for LLR with the tricube kernel.  Local
+*    linear weights can be negative, and the analytic formula
+*    sqrt(var1/N1 + var0*sum(w^2)/N1^2) assumes they are not.  Only the point
+*    estimate is alignable.  (With the normal, uniform and biweight kernels
+*    psmatch2 does print an seatt.)
 *
-* 2. `psmatch2 ..., llr` with the DEFAULT kernel (epan) does not perform local
-*    linear regression matching at all.  psmatch2.ado rewrites the request as
-*    nearest-neighbour matching on an lpoly-smoothed outcome:
-*
-*        // do nearest neighbor if llr with tricube
-*        if ("`method'"=="llr" & "`kerneltype'"=="epan" & "`metric'"=="pscore") {
-*            local method "neighbor"
-*            ... lpoly `v' _pscore ..., deg(1) at(_pscore) gen(_s_`v')
-*        }
-*
-*    so it reports a non-missing SE and a materially different ATT.  Only a
-*    non-Epanechnikov kernel reaches psmatch2's own `_Match_llr` routine.
+* 2. `psmatch2 ..., llr` with the DEFAULT kernel (epan) on a propensity score
+*    does not perform local linear regression matching.  Its output is that
+*    of one-nearest-neighbour matching on the score in which each control's
+*    outcome is replaced by an lpoly (degree 1) smooth of the control outcomes
+*    on the score, read at that control's score (the variable _s_y).  It
+*    therefore reports a non-missing SE and a materially different ATT.  Only
+*    a non-Epanechnikov kernel gives local linear regression matching.
 *
 * Produces
 * --------
@@ -41,7 +39,7 @@ gen x2 = rnormal()
 gen d  = rbinomial(1, invlogit(0.9*x1 - 0.5*x2))
 gen y  = 1 + 0.8*x1 - 0.4*x2 + rnormal()
 
-* --- genuine LLR: every non-epan kernel goes through _Match_llr ------------
+* --- genuine LLR: every non-epan kernel gives local linear matching -------
 foreach kt in tricube biweight normal uniform {
     preserve
     quietly psmatch2 d x1 x2, outcome(y) llr kerneltype(`kt') bwidth(0.5) logit

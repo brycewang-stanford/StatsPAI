@@ -131,25 +131,27 @@ def psmatch2_se(
 ) -> float:
     """Stata ``psmatch2`` default analytic ATT standard error.
 
-    Reproduces, digit for digit, the formula in ``psmatch2.ado``
-    (Leuven & Sianesi 2003)::
+    The formula is the one the ``psmatch2`` help file states for its
+    default standard error (independent observations, fixed matching
+    weights, homoskedastic outcomes within each arm; Lechner 2001)::
 
-        seatt = sqrt(var1 / N1  +  var0 * wtot / N1^2)
+        se = sqrt( Var(Y | matched treated) / N1
+                   + sum_j w_j^2 / N1^2 * Var(Y | matched controls) )
 
-    where
+    Clean-room implementation; the reading of each term below was pinned
+    by running ``psmatch2`` as a black box and rebuilding ``r(seatt)``
+    from the variables it leaves behind (``docs/dev/cleanroom/psmatch2.md``):
 
-    * ``var1`` is the (ddof=1) outcome variance among the **treated on
-      support**,
-    * ``var0`` is the (ddof=1) outcome variance among the **controls that
-      were actually used as matches** (``_weight`` not missing),
-    * ``wtot`` is the sum of squared control ``_weight``\\ s, and
-    * ``N1`` is the number of treated units on support.
+    * the matched treated are the treated units on common support, and
+      ``N1`` is their number;
+    * the matched controls are the controls with a non-missing matching
+      weight (a weight of zero still counts), whatever their support flag;
+    * both variances are the unweighted sample variances (divisor
+      ``n - 1``), and ``w_j`` is the control's total matching weight.
 
-    This treats the matching weights as fixed and assumes homoskedastic,
-    independent outcomes within group (Lechner 2001).  It does **not**
-    account for the estimation of the propensity score — exactly matching
-    Stata's note.  It applies identically to nearest-neighbour, kernel and
-    radius matching because all three feed it the same ``_weight`` column.
+    It conditions on the matching weights and on the propensity score, so
+    it ignores the estimation of either.  Nearest-neighbour, kernel and
+    radius matching all reach it through the same weight column.
 
     Parameters
     ----------
@@ -165,24 +167,28 @@ def psmatch2_se(
     Returns
     -------
     float
-        The analytic SE, or ``nan`` if it cannot be formed (e.g. fewer than
-        two treated, or no used controls).
+        The analytic SE, or ``nan`` when it cannot be formed: fewer than
+        two matched treated or fewer than two matched controls, or a
+        missing outcome among them.
+
+    References
+    ----------
+    [@lechner2001identification]
     """
     y = np.asarray(outcome, dtype=float)
-    t = np.asarray(treated)
-    s = np.asarray(support).astype(bool)
+    arm = np.asarray(treated, dtype=float)
+    on_support = np.asarray(support).astype(bool)
     w = np.asarray(weight, dtype=float)
 
-    treated_on = (t == 1) & s
-    n1 = int(np.sum(treated_on))
-    used_c = (t == 0) & np.isfinite(w)
-    if n1 < 2 or np.sum(used_c) < 2:
+    matched_treated = (arm == 1) & on_support
+    matched_controls = (arm == 0) & np.isfinite(w)
+    n1 = int(np.sum(matched_treated))
+    if n1 < 2 or int(np.sum(matched_controls)) < 2:
         return float("nan")
-
-    var1 = float(np.var(y[treated_on], ddof=1))
-    var0 = float(np.var(y[used_c], ddof=1))
-    wtot = float(np.sum(w[used_c] ** 2))
-    return float(np.sqrt(var1 / n1 + var0 * wtot / n1**2))
+    var_treated = np.var(y[matched_treated], ddof=1)
+    var_controls = np.var(y[matched_controls], ddof=1)
+    sum_sq_weights = np.sum(w[matched_controls] ** 2)
+    return float(np.sqrt(var_treated / n1 + var_controls * sum_sq_weights / n1**2))
 
 
 def _within_group_self_outcome_reference(
@@ -517,12 +523,16 @@ def abadie_imbens_se(
 ) -> float:
     """Abadie-Imbens (2006) heteroskedasticity-robust ATT standard error.
 
-    Reproduces, digit for digit, Stata ``psmatch2 , ai(J)`` (Leuven &
-    Sianesi 2003; Abadie & Imbens 2006, eq. 14, p. 250 for the sample ATT)::
+    The variance of the sample ATT in Abadie and Imbens (2006, eq. 14;
+    ``abadie2006large``), with the conditional variance estimated from the
+    ``J`` nearest same-arm units::
 
-        shat_i  = (J / (J+1)) · (Y_i − Ȳ_self_i)²          # σ²(X_i) estimate
-        VhatEt_i = shat_i · (D_i − (1 − D_i)·w_i)²          # on support
-        seatt    = sqrt(Σ_i VhatEt_i) / N1
+        sigma2_i = (J / (J+1)) · (Y_i − Ȳ_self_i)²          # σ²(X_i) estimate
+        term_i   = sigma2_i · (D_i − (1 − D_i)·w_i)²        # on support
+        se       = sqrt(Σ_i term_i) / N1
+
+    Its output matches Stata ``psmatch2 , ai(J)`` digit for digit, with
+    psmatch2 used as a black box (reference parity tests).
 
     where ``Ȳ_self_i`` is the mean outcome of the ``J`` nearest *same-arm*
     neighbours (:func:`_within_group_self_outcome`), ``w_i = max(_weight_i,

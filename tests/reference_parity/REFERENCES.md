@@ -316,8 +316,8 @@ reading `psmatch2.ado` / `pstest.ado` and then confirmed against the live
 package — not inferred:
 
 * `psmatch2 ..., llr` with its **default** Epanechnikov kernel does not run
-  local linear regression matching. `psmatch2.ado` rewrites the request as
-  nearest-neighbour matching on an `lpoly`-smoothed outcome, so a treated
+  local linear regression matching. Its output is that of nearest-neighbour
+  matching on an `lpoly`-smoothed control outcome, so a treated
   unit's raw outcome is compared with its match's *smoothed* one
   (`max|_y − _s_y[match]| = 0` exactly, vs `max|_y − y[match]| = 1.99`).
   Only a non-Epanechnikov kernel reaches psmatch2's own LLR routine.

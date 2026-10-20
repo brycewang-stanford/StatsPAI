@@ -1,0 +1,21 @@
+{
+  "_source": "Stata 18 MP + psmatch2 4.0.12, _generate_psmatch2_cleanroom.do",
+  "kernel_epan": {"att":  3.35665858975212e+00, "seatt":  1.03924083622294e+00},
+  "kernel_normal": {"att":  3.19101042727861e+00, "seatt":  9.65315169091255e-01},
+  "kernel_biweight": {"att":  3.41980612416439e+00, "seatt":  1.04958024908868e+00},
+  "kernel_uniform": {"att":  3.22323908284557e+00, "seatt":  1.02470680788228e+00},
+  "kernel_tricube": {"att":  3.42814054737367e+00, "seatt":  1.04919600653082e+00},
+  "llr_tricube": {"att":  2.36327122223593e+00, "seatt": null},
+  "llr_normal": {"att":  2.47920163629087e+00, "seatt":  1.00263706299006e+00},
+  "llr_uniform": {"att":  2.21725312441249e+00, "seatt":  1.12489169138783e+00},
+  "llr_biweight": {"att":  2.34724507486683e+00, "seatt":  1.19783032482252e+00},
+  "llr_epan": {"att":  2.63123099354151e+00, "seatt":  1.16758520164544e+00},
+  "boundary_kernel_epan": {"att": -2.42142857142857e+01, "seatt":  9.01123637201805e+00},
+  "boundary_kernel_uniform": {"att": -2.26666666666667e+01, "seatt":  6.73712764380258e+00},
+  "boundary_kernel_tricube": {"att": -2.35292397660819e+01, "seatt":  8.92403457018265e+00},
+  "boundary_kernel_biweight": {"att": -2.25000000000000e+01, "seatt":  8.84741016719959e+00},
+  "boundary_kernel_normal": {"att": -2.30661778918598e+01, "seatt":  6.74950728556385e+00},
+  "boundary_radius": {"att": -2.26666666666667e+01, "seatt":  6.73712764380258e+00},
+  "boundary_uniform_weight_at_h":  2.50000000000000e-01,
+  "boundary_epan_weight_at_h_missing": true
+}

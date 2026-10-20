@@ -74,22 +74,21 @@ _LEGACY_MAP = {
 _VALID_DISTANCES = ("propensity", "mahalanobis", "euclidean", "exact")
 _VALID_METHODS = ("nearest", "stratify", "cem", "kernel", "radius", "llr")
 
-#: Below this weighted variance of the propensity gaps the local linear
-#: design is collinear and no slope is identified; the treated unit is
-#: dropped off support, mirroring psmatch2's `cap reg` failure branch.
+#: Local linear regression matching needs the kernel-weighted gaps
+#: ``p_j - p_i`` to vary, or no slope is identified. A treated unit whose
+#: weighted variance of the gaps is below this floor is set off support
+#: and left out of the estimate (docs/dev/cleanroom/psmatch2.md, s. 3).
 _LLR_MIN_VARIANCE = 1e-24
-#: The same, relative to the weighted mean square of the gaps. The variance
-#: is computed as a difference of two such mean squares, so when every
-#: donor has the same score it is rounding error of about 1e-16 times
-#: their size, not zero, and an absolute floor does not catch it.
+#: The same test relative to the weighted mean square of the gaps. The
+#: variance is a difference of two mean squares, so when every control in
+#: the window has the same score it comes out as rounding error of about
+#: 1e-16 times their size rather than zero, which an absolute floor misses.
 _LLR_MIN_RELATIVE_VARIANCE = 1e-10
 
-# Kernel functions K(u) used by kernel / radius matching, matching the
-# definitions in Stata psmatch2.ado (Leuven & Sianesi 2003).  Each returns
-# the (un-normalised) weight for |u| <= 1, and 0 outside the bandwidth
-# (the 'normal' kernel has unbounded support).  The leading constants
-# (e.g. 0.75 for Epanechnikov) cancel under the per-treated normalisation,
-# so psmatch2 omits them — we follow suit for digit-for-digit parity.
+#: Kernels for kernel / radius / LLR matching on the propensity score
+#: (``_kernel_weight``). They are the usual compact kernels on [-1, 1] plus
+#: the normal density, without normalising constants: each treated unit's
+#: weights are divided by their sum, so a constant factor cancels.
 _VALID_KERNELS = ("epan", "normal", "biweight", "uniform", "tricube")
 
 
@@ -186,23 +185,33 @@ def _coerce_column_list(value: Any, *, name: str, context: str) -> List[str]:
 
 
 def _kernel_weight(u: np.ndarray, kernel: str) -> np.ndarray:
-    """Un-normalised kernel weight K(u); 0 outside [-1, 1] (save 'normal')."""
-    au = np.abs(u)
-    inside = au <= 1.0
+    """Un-normalised kernel weight K(u); 0 outside [-1, 1] (save 'normal').
+
+    The compact kernels are written without their normalising constants,
+    which cancel once the weights of a treated unit are scaled to sum one
+    (see ``docs/dev/cleanroom/psmatch2.md``).  The window is closed:
+    ``|u| = 1`` is inside, where the uniform kernel weighs 1 and the other
+    compact kernels weigh 0.  ``'normal'`` is the standard normal density
+    and has unbounded support.
+
+    Raises
+    ------
+    MethodIncompatibility
+        For a kernel name outside :data:`_VALID_KERNELS`.
+    """
+    z = np.abs(np.asarray(u, dtype=float))
+    inside = z <= 1.0
+    if kernel == "normal":
+        return np.exp(-(z**2) / 2) / np.sqrt(2 * np.pi)
+    if kernel == "uniform":
+        return np.where(inside, 1.0, 0.0)
     if kernel == "epan":
-        w = np.where(inside, 1.0 - u**2, 0.0)
-    elif kernel == "biweight":
-        w = np.where(inside, (1.0 - u**2) ** 2, 0.0)
-    elif kernel == "uniform":
-        w = np.where(inside, 1.0, 0.0)
-    elif kernel == "tricube":
-        w = np.where(inside, (1.0 - au**3) ** 3, 0.0)
-    elif kernel == "normal":
-        # standard normal density, unbounded support (no truncation)
-        w = np.exp(-0.5 * u**2) / np.sqrt(2.0 * np.pi)
-    else:  # pragma: no cover — guarded by _validate
-        raise MethodIncompatibility(f"unknown kernel '{kernel}'")
-    return w
+        return np.where(inside, 1.0 - z**2, 0.0)
+    if kernel == "biweight":
+        return np.where(inside, (1.0 - z**2) ** 2, 0.0)
+    if kernel == "tricube":
+        return np.where(inside, (1.0 - z**3) ** 3, 0.0)
+    raise MethodIncompatibility(f"unknown kernel '{kernel}'")
 
 
 # ======================================================================
@@ -2618,7 +2627,7 @@ class MatchEstimator:
         return "ai"
 
     # ==================================================================
-    # Kernel / radius matching (Heckman-Ichimura-Todd 1997; psmatch2)
+    # Kernel / radius / local linear regression matching on the score
     # ==================================================================
 
     def _fit_kernel(
@@ -2629,157 +2638,136 @@ class MatchEstimator:
         idx_t: np.ndarray,
         idx_c: np.ndarray,
     ) -> Tuple[float, float, pd.DataFrame, dict[str, Any]]:
-        """Kernel / radius propensity-score matching (Stata psmatch2).
+        """Kernel, radius and local linear regression matching on the score.
 
-        Each treated unit is matched to *all* on-support controls, weighted
-        by a kernel of the propensity-score distance::
+        Clean-room implementation (specification:
+        ``docs/dev/cleanroom/psmatch2.md``).  For every treated unit ``i``
+        on support, the counterfactual is a weighted mean of the control
+        outcomes, ``m_i = sum_j w_ij Y_j``, with weights that sum to one:
 
-            w_ij = K(|p_i - p_j| / h) / Σ_k K(|p_i - p_k| / h)
+        * ``method='kernel'``: ``w_ij`` proportional to ``K((p_j - p_i)/h)``;
+        * ``method='radius'``: the same with the uniform kernel and
+          ``h = caliper``, i.e. the plain mean of the controls within the
+          radius;
+        * ``method='llr'``: the intercept of the kernel-weighted regression
+          of the control outcome on ``p_j - p_i`` evaluated at zero gap,
+          written as the linear smoother ``w_ij = k_j (S2 - D d_j) / V``
+          with ``k`` the kernel weights normalised to sum one,
+          ``d_j = p_j - p_i``, ``D = sum k_j d_j``, ``S2 = sum k_j d_j^2``
+          and ``V = S2 - D^2``.
 
-        so the controls' contributions to a treated unit sum to 1.  The
-        matched-control mean outcome is ``_y_i = Σ_j w_ij Y_j`` and
-        ``ATT = mean_i (Y_i - _y_i)`` over the on-support treated.  A treated
-        unit with no control inside the bandwidth (all kernel weights zero)
-        is dropped off support.
-
-        ``method='radius'`` is the special case of a uniform kernel with the
-        bandwidth set to ``caliper`` (Stata: "radius matching is like kernel
-        matching with a uniform kernel").
+        A treated unit without a control of positive kernel weight, or
+        (LLR) whose controls do not identify a slope, is set off support
+        and left out of the average.  The returned standard error is the
+        matched-difference one, ``sd(Y_i - m_i) / sqrt(N1)`` (it backs
+        ``se_method='ai'``); :meth:`fit` replaces it with the analytic or
+        bootstrap one the caller asked for.
         """
         pscore = self._score(X, T)
-
-        # Common-support trimming (Stata `common`) precedes kernel matching.
         support = common_support_mask(pscore, T, rule=self.common_support)
 
-        kerneltype = "uniform" if self.method == "radius" else self.kernel
         if self.method == "radius":
-            assert self.caliper is not None
-            bw = float(self.caliper)
+            kernel_name = "uniform"
+            bandwidth = float(self.caliper)
         else:
-            bw = float(self.bwidth)
+            kernel_name = self.kernel
+            bandwidth = float(self.bwidth)
+        local_linear = self.method == "llr"
 
-        is_llr = self.method == "llr"
-        if is_llr and kerneltype == "epan":
-            # Stata psmatch2 does NOT run local linear regression here: with
-            # the (default) Epanechnikov kernel and a propensity metric it
-            # rewrites the request as nearest-neighbour matching on an
-            # lpoly-smoothed outcome (psmatch2.ado, "do nearest neighbor if
-            # llr with tricube").  The two produce materially different
-            # numbers.  We run the estimator the option names, and say so.
+        if local_linear and kernel_name == "epan":
             warnings.warn(
                 "sp.match(method='llr', kernel='epan'): Stata psmatch2 does "
                 "not perform local linear regression matching for this "
-                "combination -- it silently substitutes nearest-neighbour "
-                "matching on an lpoly-smoothed outcome, so its ATT will "
-                "differ. StatsPAI runs genuine LLR. To reproduce a Stata "
-                "`psmatch2 ..., llr` number exactly, use kernel='tricube' "
-                "(or another non-Epanechnikov kernel), which is the only way "
-                "psmatch2 reaches its own LLR routine.",
+                "combination. It answers with nearest-neighbour matching on "
+                "an lpoly-smoothed control outcome instead, so its ATT is a "
+                "different number. StatsPAI estimates the local linear "
+                "regression matching estimator. Pass llr_stata_compat=True "
+                "to reproduce Stata's number, or a non-Epanechnikov kernel "
+                "(e.g. kernel='tricube') to compare like with like.",
                 UserWarning,
                 stacklevel=3,
             )
 
-        ps_c = pscore[idx_c]
-        Y_c = Y[idx_c]
-        # On-support controls form the donor pool (controls are always on
-        # support under psmatch2's comsup, but we honour the flag anyway).
-        c_on = support[idx_c]
-        pool = np.where(c_on)[0]  # positions into idx_c
-
-        full_matches = [np.array([], dtype=int) for _ in idx_t]
-        full_weights = [np.array([], dtype=float) for _ in idx_t]
-        effects = []
-        for i, t_pos in enumerate(idx_t):
-            if not support[t_pos] or len(pool) == 0:
-                support[t_pos] = False
+        p_control = pscore[idx_c]
+        y_control = Y[idx_c]
+        matches: List[np.ndarray] = []
+        weights: List[np.ndarray] = []
+        gaps: List[float] = []
+        for t_pos in idx_t:
+            empty = (np.array([], dtype=int), np.array([], dtype=float))
+            if not support[t_pos]:
+                matches.append(empty[0])
+                weights.append(empty[1])
                 continue
-            d = np.abs(pscore[t_pos] - ps_c[pool]) / bw
-            k = _kernel_weight(d, kerneltype)
-            ksum = k.sum()
-            if ksum <= 0:
-                # No control within the bandwidth -> drop off support.
+            dist = p_control - pscore[t_pos]
+            k_all = _kernel_weight(dist / bandwidth, kernel_name)
+            used = np.flatnonzero(k_all > 0)
+            total = float(np.sum(k_all[used])) if used.size else 0.0
+            if used.size == 0 or not total > 0:
                 support[t_pos] = False
+                matches.append(empty[0])
+                weights.append(empty[1])
                 continue
-            nz = k > 0
-            w = k[nz] / ksum
-            cpos = pool[nz]  # positions into idx_c
-
-            if is_llr:
-                # Local linear regression matching (Heckman, Ichimura & Todd
-                # 1997), reproducing psmatch2's `_Match_llr`.  With kernel
-                # weights K normalised to sum 1 and signed propensity gaps
-                # d_j = p_j - p_i,
-                #
-                #     w_ij = K_j (V + dbar^2 - dbar * d_j) / V,
-                #     dbar = sum_j K_j d_j,  V = sum_j K_j d_j^2 - dbar^2
-                #
-                # which satisfies sum_j w_ij = 1 and sum_j w_ij d_j = 0 — the
-                # local-linear property that makes the estimate exact for a
-                # linear conditional mean.  Note w_ij may be NEGATIVE; that is
-                # inherent to local linear weighting, and it is why the
-                # psmatch2 analytic SE does not apply.
-                d_signed = ps_c[cpos] - pscore[t_pos]
-                dbar = float(np.sum(w * d_signed))
-                v = float(np.sum(w * d_signed**2) - dbar**2)
-                # V == 0 means the local design is collinear (every donor at
-                # the same propensity score), so no linear term is
-                # identified.  Stata's `cap reg` fails and it drops the unit
-                # off support; do the same rather than dividing by ~0.
-                floor = max(
-                    _LLR_MIN_VARIANCE,
-                    _LLR_MIN_RELATIVE_VARIANCE * float(np.sum(w * d_signed**2)),
-                )
-                if not np.isfinite(v) or v <= floor:
+            k = k_all[used] / total
+            if local_linear:
+                d = dist[used]
+                mean_gap = float(np.average(d, weights=k_all[used]))
+                mean_sq = float(np.dot(k, d * d))
+                spread = mean_sq - mean_gap * mean_gap
+                if (
+                    spread < _LLR_MIN_VARIANCE
+                    or spread < _LLR_MIN_RELATIVE_VARIANCE * mean_sq
+                ):
                     support[t_pos] = False
+                    matches.append(empty[0])
+                    weights.append(empty[1])
                     continue
-                w = w * (v + dbar**2 - dbar * d_signed) / v
+                w = k * (mean_sq - mean_gap * d) / spread
+            else:
+                w = k
+            matches.append(used.astype(int))
+            weights.append(np.asarray(w, dtype=float))
+            gaps.append(float(Y[t_pos] - np.dot(w, y_control[used])))
 
-            full_matches[i] = cpos
-            full_weights[i] = w
-            yhat = float(np.sum(w * Y_c[cpos]))
-            effects.append(Y[t_pos] - yhat)
-
-        if len(effects) == 0:
+        n_matched = len(gaps)
+        if n_matched == 0:
             raise DataInsufficient(
                 f"match: {self.method} matching found no treated unit with a "
-                f"control within bandwidth {bw}.",
+                f"control within bandwidth {bandwidth}.",
                 recovery_hint="Increase bwidth/caliper or inspect common support.",
-                diagnostics={"method": self.method, "bandwidth": bw},
+                diagnostics={"method": self.method, "bandwidth": bandwidth},
             )
-
-        att = float(np.mean(effects))
-        # Placeholder SE; fit() replaces it with the psmatch2 analytic SE
-        # (se_method resolves to 'psmatch2' for kernel/radius).
-        if len(effects) > 1:
-            se = float(np.std(effects, ddof=1) / np.sqrt(len(effects)))
-        else:
-            # one treated unit with donors: no spread to estimate
-            se = float("nan")
+        diffs = np.asarray(gaps, dtype=float)
+        att = float(np.mean(diffs))
+        if n_matched < 2:
             self._se_undefined = (
                 "fewer than two treated units with a control inside the " "bandwidth"
             )
+            se = float("nan")
+        else:
+            se = float(np.std(diffs, ddof=1) / np.sqrt(n_matched))
 
         balance = self._balance_table(X, T, pscore)
-
         self._assignment = {
             "pscore": pscore,
             "treated": T,
             "idx_t": idx_t,
             "idx_c": idx_c,
-            "matches": full_matches,
-            "weights": full_weights,
+            "matches": matches,
+            "weights": weights,
             "support": support,
             "outcome": Y,
+            # many controls per treated unit with fractional weights: no
+            # discrete-neighbour columns in the matched frame
             "neighbors": False,
         }
-
-        extra = {
-            "kernel": kerneltype,
-            "bwidth": bw,
+        extra_info: dict[str, Any] = {
+            "kernel": kernel_name,
+            "bwidth": bandwidth,
             "n_on_support": int(np.sum(support)),
-            "n_matched_treated": int(np.sum([len(m) > 0 for m in full_matches])),
+            "n_matched_treated": int(n_matched),
         }
-        return att, se, balance, extra
+        return att, se, balance, extra_info
 
     @staticmethod
     def _stable_index_order(index: Any) -> np.ndarray:

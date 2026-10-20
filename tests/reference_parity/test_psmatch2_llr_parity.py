@@ -12,21 +12,23 @@ reads off its intercept at the treated unit's own score.  With kernel weights
     V = \\sum_j K_j d_j^2 - \\bar{d}^2
 
 which satisfies :math:`\\sum_j w_{ij} = 1` and :math:`\\sum_j w_{ij} d_j = 0`
-— the local-linear property.  This reproduces psmatch2's ``_Match_llr``.
+— the local-linear property.  Its output matches ``psmatch2 ..., llr`` with a
+non-Epanechnikov kernel (psmatch2 used as a black box).
 
 Two Stata behaviours pinned here
 --------------------------------
-1. **psmatch2 reports no analytic SE for LLR** (``seatt = .``).  Local linear
-   weights can be negative, which the analytic formula assumes away.  So only
-   the point estimate is alignable; StatsPAI defaults to a bootstrap SE, which
-   is strictly more than Stata offers.
+1. **psmatch2 reports no analytic SE for LLR with the tricube kernel**
+   (``seatt = .``; it does print one for the normal, uniform and biweight
+   kernels).  Local linear weights can be negative, which the analytic
+   formula assumes away.  So only the point estimate is alignable; StatsPAI
+   defaults to a bootstrap SE for every LLR kernel.
 
 2. **``psmatch2 ..., llr`` with the default kernel is not LLR.**  For
-   ``kerneltype(epan)`` with a propensity metric, psmatch2.ado rewrites the
-   request as nearest-neighbour matching on an ``lpoly``-smoothed outcome and
-   reports a non-missing SE.  Since ``epan`` is psmatch2's *default* kernel
-   for ``llr``, a plain ``psmatch2 ..., llr`` never reaches its own LLR
-   routine.  StatsPAI runs genuine LLR and warns about the divergence.
+   ``kerneltype(epan)`` on a propensity score, psmatch2's output is that of
+   nearest-neighbour matching on an ``lpoly``-smoothed control outcome, with
+   a non-missing SE.  Since ``epan`` is psmatch2's *default* kernel for
+   ``llr``, a plain ``psmatch2 ..., llr`` never gives local linear matching.
+   StatsPAI runs genuine LLR and warns about the divergence.
 
 Fixture provenance
 ------------------
