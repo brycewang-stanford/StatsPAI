@@ -9218,7 +9218,7 @@
       "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_accounting_research_parity.py",
       "tests/reference_parity/test_cem_k2k_parity.py",
-      "tests/reference_parity/test_ding_first_course_parity.py"
+      "tests/reference_parity/test_cleanroom_psmatch2.py"
     ],
     "validation_status": "certified"
   },
@@ -9657,10 +9657,10 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003) [Stata 18 MP, psmatch2 4.0.12]; tolerance Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9). -- tests/reference_parity/test_psmatch2_parity.py",
+      "tests/reference_parity/test_cleanroom_pstest.py",
       "tests/reference_parity/test_psm_ties_se_parity.py",
       "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py",
-      "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
-      "tests/reference_parity/test_teffects_probit_stata.py"
+      "tests/reference_parity/test_qiu_jiaping_methods_stata.py"
     ],
     "validation_status": "certified"
   },
@@ -27355,7 +27355,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs MASS::lm.ridge [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance coefficients, GCV, kHKB and kLW 1e-9 rel -- tests/reference_parity/test_linear_model_extensions_parity.py",
-      "tests/external_parity/test_ding_linear_model.py"
+      "tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_cleanroom_ridge_blackbox.py"
     ],
     "validation_status": "certified"
   },
@@ -80647,6 +80648,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs RDHonest::RDHonest 1.0.1.9000 (Armstrong & Kolesar) [R version 4.5.2 (2025-10-31), RDHonest 1.0.1.9000]; tolerance estimate / std.error / maximum.bias / conf.low / conf.high 1e-9 rel at fixed bandwidth; 1e-6 rel when the bandwidth and M are selected -- tests/reference_parity/test_rdhonest_parity.py",
       "tests/reference_parity/test_rdhonest_cluster_R_parity.py",
+      "tests/reference_parity/test_rdhonest_extra_R_parity.py",
       "API/unit contract evidence: tests/test_rd_validation.py"
     ],
     "validation_status": "certified"
@@ -81267,6 +81269,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (aligned) vs R RDHonest 1.0.1.9000, RDHonest(y | d ~ x) [R version 4.5.2 (2025-10-31), RDHonest 1.0.1.9000]; tolerance estimate, std.error, maximum.bias, conf.low/high, M, first stage: rel 1e-9 at fixed h and M (observed 1.1e-14), 1e-6 with selected h (observed 3.5e-8, optimiser) -- tests/reference_parity/test_rd_iv_rd_R_parity.py",
+      "tests/reference_parity/test_rdhonest_extra_R_parity.py",
       "API/unit contract evidence: tests/test_rd_polish.py"
     ],
     "validation_status": "certified"

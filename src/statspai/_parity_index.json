@@ -13038,6 +13038,7 @@
         "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_cem_k2k_parity.py",
+        "tests/reference_parity/test_cleanroom_psmatch2.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_match_design_parity.py",
         "tests/reference_parity/test_match_fw_stata_parity.py",
@@ -17844,6 +17845,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_cleanroom_pstest.py",
         "tests/reference_parity/test_psm_ties_se_parity.py",
         "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py",
         "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
@@ -18391,6 +18393,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdhonest_extra_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -18613,7 +18618,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_rdhonest_cluster_R_parity.py"
+        "tests/reference_parity/test_rdhonest_cluster_R_parity.py",
+        "tests/reference_parity/test_rdhonest_extra_R_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -19866,7 +19872,8 @@
     },
     {
       "additional_tests": [
-        "tests/external_parity/test_ding_linear_model.py"
+        "tests/external_parity/test_ding_linear_model.py",
+        "tests/reference_parity/test_cleanroom_ridge_blackbox.py"
       ],
       "also_verified_by": [
         "external_parity",
