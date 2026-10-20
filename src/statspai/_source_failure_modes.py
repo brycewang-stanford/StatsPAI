@@ -77,6 +77,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "bart_causal": [
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use cut_grid='auto'.",
+            "symptom": "bart_causal: cut_grid must be 'auto', 'quantile' "
+            "or 'uniform'; got <cut_grid>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Use method='bcf' or 'bart'.",
             "symptom": "bart_causal: method must be 'bcf' or 'bart'; got " "<method>.",
         },
@@ -91,12 +97,6 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Use the defaults (draws=1000, burnin=1000, " "chains=4).",
             "symptom": "bart_causal: draws >= 10, burnin >= 0, thin >= "
             "1, chains >= 1.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Recode the treatment to 0/1.",
-            "symptom": "bart_causal: the treatment must be 0/1 with both "
-            "values present.",
         },
     ],
     "bayes_arima": [

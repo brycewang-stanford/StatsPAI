@@ -2169,7 +2169,7 @@
     "name": "balke_pearl"
   },
   {
-    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled. Assumptions: No unmeasured confounding given the covariates; Overlap: both treatment values are possible at every covariate value; Normal errors with constant variance. Failure modes: bart_causal: method must be 'bcf' or 'bart'; got <method> -> Use method='bcf' or 'bart'; bart_causal: estimand must be 'ATE', 'ATT' or 'ATC'; got <estimand> -> Use estimand='ATE'; bart_causal: draws >= 10, burnin >= 0,...",
+    "description": "Bayesian tree models for a binary treatment, sampled by MCMC on the sp.bart engine: the Bayesian causal forest (method='bcf': a prognostic forest with the propensity score and a separate, strongly regularised effect forest, half-Cauchy / half-normal scale priors) or one BART response surface (method='bart', the bartCause default). Posterior of the ATE / ATT / ATC and of every individual effect, several chains with split R-hat. Checked against known truth and, by seed replication, against R bcf / bartCause (a stochastic screen, not parity). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Frequentist coverage of the ATE is required: use sp.aipw / sp.dml; The outcome is binary: only continuous outcomes are modelled. Assumptions: No unmeasured confounding given the covariates; Overlap: both treatment values are possible at every covariate value; Normal errors with constant variance. Failure modes: bart_causal: cut_grid must be 'auto', 'quantile' or 'uniform'; got <cut_grid> -> Use cut_grid='auto'; bart_causal: method must be 'bcf' or 'bart'; got <method> -> Use method='bcf' or 'bart'; bart_causal: estimand must b...",
     "input_schema": {
       "properties": {
         "burnin": {
@@ -2189,6 +2189,16 @@
           },
           "type": "array",
           "x-statspai-role": "columns"
+        },
+        "cut_grid": {
+          "default": "auto",
+          "description": "Candidate split points: sample quantiles or equally spaced over the range; auto = quantile for bcf, uniform for bart (dbarts useQuantiles = FALSE)",
+          "enum": [
+            "auto",
+            "quantile",
+            "uniform"
+          ],
+          "type": "string"
         },
         "draws": {
           "default": 1000,
@@ -2225,8 +2235,7 @@
           "type": "integer"
         },
         "n_trees_control": {
-          "default": 200,
-          "description": "Trees in the prognostic forest (bart: the only forest)",
+          "description": "Trees in the prognostic forest (bart: the only forest); None = 200 for bcf, 75 for bart (dbarts::bart2)",
           "type": "integer"
         },
         "n_trees_moderate": {

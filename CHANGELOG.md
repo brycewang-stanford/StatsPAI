@@ -385,8 +385,12 @@ All notable changes to StatsPAI will be documented in this file.
   several chains with split R-hat. Evidence: known truth
   (`tests/test_bart_causal.py`) and a seed screen against R bcf 2.0.2 and
   bartCause 1.0.10, eight seeds a side (tier S, not parity): BCF ATE
-  posterior means 0.06 posterior SDs apart, SDs within 1.2%; BART 0.21
-  posterior SDs apart, SDs within 3.3%.
+  posterior means 0.06 posterior SDs apart, SDs within 1.2%; BART 0.02
+  posterior SDs apart, SDs within 0.6%, with the prior of `dbarts::bart2`
+  that bartCause calls (75 trees, cut points equally spaced over each
+  covariate's range: the `method='bart'` defaults, `n_trees_control=None`
+  and the new `cut_grid='auto'`; 200 trees on quantile cut points left a
+  0.21 posterior-SD gap).
   `tests/reference_parity/test_bart_causal_seed_screen.py`. bcf,
   bartCause and dbarts (GPL) were used as black boxes.
 - The `sp.bart` backfitting kernel takes per-observation precision

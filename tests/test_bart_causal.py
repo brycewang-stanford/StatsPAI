@@ -111,3 +111,43 @@ def test_input_checks():
         sp.bart_causal(df.assign(z=df.z + 1), "y", "z", ["x1"])
     with pytest.raises(MethodIncompatibility):
         sp.bart_causal(df.assign(p=1.0), "y", "z", ["x1"], propensity="p")
+
+
+def test_bart_defaults_are_the_bart2_prior_and_the_old_prior_is_reachable():
+    # method='bart' defaults to dbarts::bart2's documented prior (75 trees,
+    # equally spaced cut points); 200 trees on a quantile grid is the
+    # earlier default and reproduces its committed draw bit for bit.
+    import pathlib
+
+    from statspai.mcmc.causal_bart import _uniform_cutpoints
+
+    d = pd.read_csv(
+        pathlib.Path(__file__).parent
+        / "reference_parity"
+        / "_fixtures"
+        / "bart_causal_data.csv"
+    )
+    kw = dict(method="bart", propensity="pi", draws=1000, burnin=1000, chains=1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        new = sp.bart_causal(d, "y", "z", ["x1", "x2", "x3"], seed=101000, **kw)
+        old = sp.bart_causal(
+            d,
+            "y",
+            "z",
+            ["x1", "x2", "x3"],
+            seed=101000,
+            n_trees_control=200,
+            cut_grid="quantile",
+            **kw,
+        )
+    assert new.diagnostics["n_trees_control"] == 75
+    assert new.diagnostics["cut_grid"] == "uniform"
+    assert abs(old.estimate / 0.5239967569681155 - 1) < 1e-9
+    assert abs(old.se / 0.05301707568206653 - 1) < 1e-9
+    x = np.linspace(-1.0, 3.0, 500) ** 3
+    c = _uniform_cutpoints(x, 9)
+    np.testing.assert_allclose(np.diff(c), (x.max() - x.min()) / 10, rtol=1e-12)
+    assert c[0] > x.min() and c[-1] < x.max()
+    with pytest.raises(MethodIncompatibility):
+        sp.bart_causal(d, "y", "z", ["x1"], cut_grid="sobol", **kw)

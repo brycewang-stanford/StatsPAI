@@ -6,7 +6,10 @@ ported, those packages are GPL and were used as black boxes only):
 
 ``method='bart'`` -- one BART response surface ``f(x, z[, pihat])`` (Hill
 2011's approach, the ``bartCause`` default response model). Individual
-effects are ``f(x_i, 1) - f(x_i, 0)`` draw by draw.
+effects are ``f(x_i, 1) - f(x_i, 0)`` draw by draw. The prior is that of
+``dbarts::bart2``, which ``bartCause`` calls, as its documentation states
+it: 75 trees, ``k = 2``, cut points equally spaced over each covariate's
+range (``useQuantiles = FALSE``).
 
 ``method='bcf'`` -- the Bayesian causal forest of Hahn, Murray and Carvalho
 (2020) [@hahn2020bayesian]::
@@ -133,10 +136,23 @@ class BayesCausalResult(ResultProtocolMixin):
         return self.summary()
 
 
+def _uniform_cutpoints(x: np.ndarray, numcut: int) -> np.ndarray:
+    """``numcut`` points equally spaced inside the range of ``x`` (the
+    midpoints between its values when it has at most ``numcut + 1``)."""
+    u = np.unique(x)
+    if u.size <= 1:
+        return np.empty(0)
+    if u.size <= numcut + 1:
+        return np.asarray(0.5 * (u[1:] + u[:-1]))
+    lo, hi = float(u[0]), float(u[-1])
+    return lo + (hi - lo) * np.arange(1, numcut + 1) / (numcut + 1)
+
+
 def _cut_design(
-    X: np.ndarray, numcut: int
+    X: np.ndarray, numcut: int, uniform: bool = False
 ) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray]]:
-    cuts = [_cutpoints(X[:, v], int(numcut)) for v in range(X.shape[1])]
+    grid = _uniform_cutpoints if uniform else _cutpoints
+    cuts = [grid(X[:, v], int(numcut)) for v in range(X.shape[1])]
     ncut = np.array([c.size for c in cuts], dtype=np.int64)
     xcut = np.column_stack(
         [np.searchsorted(c, X[:, v], side="left") for v, c in enumerate(cuts)]
@@ -232,7 +248,7 @@ def bart_causal(
     burnin: int = 1000,
     thin: int = 1,
     chains: int = 4,
-    n_trees_control: int = 200,
+    n_trees_control: Optional[int] = None,
     n_trees_moderate: int = 50,
     sd_control: float = 2.0,
     sd_moderate: float = 1.0,
@@ -240,6 +256,7 @@ def bart_causal(
     min_leaf: int = 5,
     seed: Optional[int] = None,
     level: float = 0.95,
+    cut_grid: str = "auto",
 ) -> BayesCausalResult:
     """Bayesian tree models for a binary treatment: BCF or BART.
 
@@ -269,9 +286,10 @@ def bart_causal(
     draws, burnin, thin, chains : int
         Posterior draws kept per chain, burn-in sweeps, thinning, and
         independent chains (each with its own seed; R-hat needs >= 2).
-    n_trees_control, n_trees_moderate : int, default 200, 50
+    n_trees_control, n_trees_moderate : int, default None, 50
         Trees in the prognostic (``'bart'``: the only) forest and in the
-        effect forest.
+        effect forest. ``None``: 200 for ``'bcf'`` (R ``bcf``), 75 for
+        ``'bart'`` (``dbarts::bart2``, which ``bartCause`` uses).
     sd_control, sd_moderate : float, default 2.0, 1.0
         Prior medians of the scale of the prognostic and effect functions,
         in standard deviations of ``y`` (``'bcf'``).
@@ -281,6 +299,15 @@ def bart_causal(
         Smallest number of observations in a leaf.
     seed : int, optional
     level : float, default 0.95
+    cut_grid : {'auto', 'quantile', 'uniform'}, default 'auto'
+        Candidate split points of a covariate with more than ``numcut + 1``
+        distinct values: ``numcut`` sample quantiles, or ``numcut`` points
+        equally spaced over its range (fewer distinct values: the
+        midpoints between them). ``'auto'`` is ``'quantile'`` for
+        ``'bcf'`` and ``'uniform'`` for ``'bart'`` (``dbarts``'s
+        ``useQuantiles = FALSE``). The grid is part of the prior: with
+        quantile cuts and 200 trees the BART posterior mean of the ATE sat
+        0.21 posterior SDs from ``bartCause``'s, with its own prior 0.02.
 
     Returns
     -------
@@ -320,6 +347,12 @@ def bart_causal(
     [@hahn2020bayesian]
     """
     method = str(method).lower()
+    if cut_grid not in ("auto", "quantile", "uniform"):
+        raise MethodIncompatibility(
+            f"bart_causal: cut_grid must be 'auto', 'quantile' or 'uniform'; "
+            f"got {cut_grid!r}.",
+            recovery_hint="Use cut_grid='auto'.",
+        )
     if method not in ("bcf", "bart"):
         raise MethodIncompatibility(
             f"bart_causal: method must be 'bcf' or 'bart'; got {method!r}.",
@@ -367,6 +400,9 @@ def bart_causal(
     if np.ptp(yv) == 0:
         raise MethodIncompatibility("bart_causal: the outcome does not vary.")
     ps, ps_src = _propensity(data, rows, z, X, propensity)
+    if n_trees_control is None:
+        n_trees_control = 200 if method == "bcf" else 75
+    uniform = cut_grid == "uniform" or (cut_grid == "auto" and method == "bart")
     target = {"ATE": np.ones(n, bool), "ATT": z == 1, "ATC": z == 0}[estimand]
 
     rng = np.random.default_rng(seed)
@@ -392,6 +428,7 @@ def bart_causal(
                 float(sd_moderate),
                 int(numcut),
                 int(min_leaf),
+                uniform,
             )
         else:
             tau, nl = _bart_chain(
@@ -406,6 +443,7 @@ def bart_causal(
                 int(n_trees_control),
                 int(numcut),
                 int(min_leaf),
+                uniform,
             )
         tau_all.append(tau)
         est_chains[c] = tau[:, target].mean(axis=1)
@@ -433,6 +471,8 @@ def bart_causal(
         "leaves_per_tree": float(np.mean(leaves)),
         "propensity": ps_src,
         "n_dropped": int((~rows).sum()),
+        "n_trees_control": int(n_trees_control),
+        "cut_grid": "uniform" if uniform else "quantile",
     }
     if np.isfinite(rhat) and rhat > 1.05:
         _sp_warn(
@@ -468,13 +508,14 @@ def _bcf_chain(
     sd_moderate,
     numcut,
     min_leaf,
+    uniform=False,
 ) -> Tuple[np.ndarray, float]:
     n = len(yv)
     ybar, sy = float(yv.mean()), float(yv.std(ddof=1))
     ys = (yv - ybar) / sy
     Xmu = X if ps is None else np.column_stack([X, ps])
-    xc_mu, nc_mu, _ = _cut_design(Xmu, numcut)
-    xc_tau, nc_tau, _ = _cut_design(X, numcut)
+    xc_mu, nc_mu, _ = _cut_design(Xmu, numcut, uniform)
+    xc_tau, nc_tau, _ = _cut_design(X, numcut, uniform)
     f_mu = _Forest(xc_mu, nc_mu, m_mu, 1.0 / m_mu, 0.95, 2.0, 8, min_leaf)
     tau2_tau = (sd_moderate / _Q_HALF_NORMAL_MEDIAN) ** 2 / m_tau
     f_tau = _Forest(xc_tau, nc_tau, m_tau, tau2_tau, 0.25, 3.0, 8, min_leaf)
@@ -517,12 +558,12 @@ def _bcf_chain(
 
 
 def _bart_chain(
-    yv, z, X, ps, rng, draws, burnin, thin, m, numcut, min_leaf
+    yv, z, X, ps, rng, draws, burnin, thin, m, numcut, min_leaf, uniform=False
 ) -> Tuple[np.ndarray, float]:
     n = len(yv)
     cols = [X, z[:, None]] + ([] if ps is None else [ps[:, None]])
     Xf = np.column_stack(cols)
-    xcut, ncut, cuts = _cut_design(Xf, numcut)
+    xcut, ncut, cuts = _cut_design(Xf, numcut, uniform)
     zcol = X.shape[1]
     xc1 = xcut.copy()
     xc0 = xcut.copy()

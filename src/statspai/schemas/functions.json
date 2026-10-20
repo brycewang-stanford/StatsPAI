@@ -20144,6 +20144,16 @@
           "type": "array",
           "x-statspai-role": "columns"
         },
+        "cut_grid": {
+          "default": "auto",
+          "description": "Candidate split points: sample quantiles or equally spaced over the range; auto = quantile for bcf, uniform for bart (dbarts useQuantiles = FALSE)",
+          "enum": [
+            "auto",
+            "quantile",
+            "uniform"
+          ],
+          "type": "string"
+        },
         "data": {
           "description": "Analysis data",
           "type": "object",
@@ -20184,8 +20194,7 @@
           "type": "integer"
         },
         "n_trees_control": {
-          "default": 200,
-          "description": "Trees in the prognostic forest (bart: the only forest)",
+          "description": "Trees in the prognostic forest (bart: the only forest); None = 200 for bcf, 75 for bart (dbarts::bart2)",
           "type": "integer"
         },
         "n_trees_moderate": {

@@ -10,11 +10,16 @@ with seeds ``1000 + 100000 k`` (``_generate_bart_causal_R.R``,
 black boxes.
 
 Observed (2026-10-19): BCF posterior means of the ATE 0.06 posterior SDs
-apart, posterior SDs within 1.2%, seed-averaged CATE correlation 0.995;
-BART (bartCause response model, CATE type) 0.21 posterior SDs apart --
-beyond seed noise (seed SDs 0.003-0.004), so a systematic difference in
-the BART specification that is not localised -- posterior SDs within 3.3%,
-CATE correlation 0.989. The bounds below are screens around those values.
+apart, posterior SDs within 1.2%, seed-averaged CATE correlation 0.995.
+BART (bartCause response model, CATE type) was 0.21 posterior SDs apart,
+beyond seed noise (seed SDs 0.003-0.004). Located 2026-10-20 in the prior,
+from dbarts' documentation of ``bart2`` (which bartCause calls): 75 trees,
+not 200, and cut points equally spaced over each covariate's range, not at
+quantiles. 75 trees alone leave 0.14 SDs, the grid alone 0.05; with both
+(the 'bart' defaults now) the means are 0.02 posterior SDs apart (within
+the 0.03 SD standard error of a difference of two 8-seed means), posterior
+SDs within 0.6%, CATE correlation 0.999. The bounds below are screens
+around those values.
 """
 
 from __future__ import annotations
@@ -32,7 +37,7 @@ import statspai as sp
 _FIX = pathlib.Path(__file__).parent / "_fixtures"
 R = json.loads((_FIX / "bart_causal_R.json").read_text(encoding="utf-8"))
 PY = json.loads((_FIX / "bart_causal_py.json").read_text(encoding="utf-8"))
-BOUND_MEAN = {"bcf": 0.25, "bart": 0.35}  # in posterior SDs
+BOUND_MEAN = {"bcf": 0.25, "bart": 0.25}  # in posterior SDs
 
 
 def _stats(side, m):

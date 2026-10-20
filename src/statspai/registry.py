@@ -20499,8 +20499,9 @@ def _build_registry() -> None:
                     "n_trees_control",
                     "int",
                     False,
-                    200,
-                    "Trees in the prognostic forest (bart: the only forest)",
+                    None,
+                    "Trees in the prognostic forest (bart: the only forest); "
+                    "None = 200 for bcf, 75 for bart (dbarts::bart2)",
                 ),
                 ParamSpec(
                     "n_trees_moderate",
@@ -20531,6 +20532,16 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("seed", "int", False, None, "Random seed"),
                 ParamSpec("level", "float", False, 0.95, "Credible level"),
+                ParamSpec(
+                    "cut_grid",
+                    "str",
+                    False,
+                    "auto",
+                    "Candidate split points: sample quantiles or equally spaced "
+                    "over the range; auto = quantile for bcf, uniform for bart "
+                    "(dbarts useQuantiles = FALSE)",
+                    enum=["auto", "quantile", "uniform"],
+                ),
             ],
             returns="BayesCausalResult",
             example='sp.bart_causal(df, "y", "d", ["x1", "x2"], method="bcf", seed=1)',
