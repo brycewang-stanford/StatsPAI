@@ -5048,3 +5048,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after the DR-DiD clean-room rewrite (audit H2-H4)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `94f48be45` (rewrite), `e75853cd7` (traces).
+- **Reason.** License provenance audit rows H2-H4: `did/_rcs.py`, the panel
+  2x2 engines of `did/callaway_santanna.py`, `did/_core.py::weight_influence`
+  and `did/aggte.py::_aggregated_influence` were re-implemented clean-room
+  (new shared module `did/_dr_common.py`; spec in
+  `docs/dev/cleanroom/did_drdid.md`). These files are on the traced paths of
+  Track A modules 04 05 16 17 20 73 75 78 79 83 84 85 and original-data
+  module 02. Every module was re-run first and reproduces its committed
+  result (worst relative difference 3e-16 on 04 / 79 / orig 02, at most
+  1.6e-12 elsewhere); only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes. Track C `02_csdid` was
+  already stale before this change and remains to be re-timed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
