@@ -16,16 +16,13 @@ import numpy as np
 from ...exceptions import IdentificationFailure
 from ._data import add_time_dummies, build_panel_arrays, unit_cluster_codes
 from ._diagnostics import (
-    _lagged_residual_vector,
-    ar_test_cross_basis,
-    arellano_bond_ar_test,
     check_instrument_count,
     difference_in_hansen,
     overid_test,
+    serial_correlation_test,
 )
 from ._estimate import (
     gmm_solve,
-    group_index,
     level_sigma2,
     moment_covariance,
     onestep_weight,
@@ -448,113 +445,17 @@ def fit_dynamic_panel(
         )
     se = np.sqrt(np.maximum(var_diag, 0.0))
 
-    # The Arellano-Bond test is a statement about serial correlation in the
-    # *first-differenced* errors -- that is what Stata and xtabond2 print,
-    # whatever transform produced the estimate. Under forward orthogonal
-    # deviations the estimation rows hold FOD residuals, so the test is run
-    # on an auxiliary first-differenced design evaluated at the fitted
-    # coefficients. Running it on the FOD residuals instead flips the sign
-    # of the statistic.
-    ar_design = design
-    ar_resid = resid
-    if transform == "fod":
-        ar_spec = replace(design.spec, transform="fd")
-        ar_design = build_design(panel, ar_spec)
-        if cluster is not None and not cluster_is_unit:
-            ar_design.set_clusters(unit_cluster_codes(panel, cluster))
-        ar_resid = ar_design.dy - ar_design.W @ beta
-
-    robust_ar = robust or twostep
-    # The Arellano-Bond variance carries a (W'q)' Avar(beta) (W'q) term whose
-    # natural expansion uses the *uncorrected* robust sandwich; swap in the VCE
-    # actually reported so the test and the coefficients agree on Avar(beta).
-    if ar_design is design:
-        ar_W, ar_Z = W, Z
-        ar_weight, ar_Minv = weight_final, Minv_final
-        # The Arellano-Bond variance sums (q_i' e_i)^2 and Z_i' e_i (q_i' e_i)
-        # over *units*, never over clusters -- xtabond2's `_ARTests` loops
-        # `for (i = N; i; i--)` for both. Only the coefficient-variance term
-        # picks up the clustering, through `coef_vcov` below.
-        ar_meat = design.unit_rows
-        ar_index = group_index(ar_meat, design.n_rows)
-    else:
-        # The auxiliary design has its own row space, so its influence
-        # adjustment uses its own one-step weight. The coefficient-variance
-        # term still comes from the reported VCE.
-        ar_meat = ar_design.unit_rows
-        ar_index = group_index(ar_meat, ar_design.n_rows)
-        ar_W, ar_Z = ar_design.W, ar_design.Z
-        ar_weight = onestep_weight(ar_design)
-        _, ar_Minv, _ = gmm_solve(ar_W, ar_Z, ar_design.dy, ar_weight)
-
-    naive_vcov = (
-        robust_sandwich(
-            ar_Minv,
-            ar_W.T @ ar_Z,
-            ar_weight,
-            moment_covariance(ar_Z, ar_resid, ar_meat, index=ar_index),
-        )
-        if robust_ar
-        else None
-    )
-    ar_kwargs = dict(
-        unit_rows=ar_meat,
-        periods=ar_design.row_period,
-        Z=ar_Z,
-        W=ar_W,
-        weight=ar_weight,
-        Minv=ar_Minv,
-        robust=robust_ar,
+    ar1, ar2, ar_note = _serial_correlation_tests(
+        panel,
+        design,
+        beta,
+        resid,
+        vcov,
+        weight_final,
+        Minv_final,
+        classical=(steps == 1 and not robust),
         sigma2=sigma2,
-        # The Arellano-Bond test is always about serial correlation in the
-        # *first-differenced* errors, so under system GMM only the
-        # transformed rows contribute residual pairs.
-        eq_mask=ar_design.row_eq == 0,
-        units=ar_design.row_unit,
-        coef_vcov=vcov if robust_ar else None,
-        naive_vcov=naive_vcov,
     )
-    # Every AR configuration is now exact against Stata / xtabond2, so no
-    # provenance caveat is attached. The field is kept so downstream readers
-    # have a stable key to check.
-    ar_note: Optional[str] = None
-
-    if ar_design is not design:
-        # Forward orthogonal deviations: the test lives on first differences
-        # while the estimator ran on the deviations, so the two bases are
-        # combined unit by unit exactly as xtabond2's `_ARTests` does.
-        ar_mask = ar_design.row_eq == 0
-        n_units_total = (
-            int(max(int(ar_design.row_unit.max()), int(design.row_unit.max()))) + 1
-        )
-        XZ_est = W.T @ Z
-        ar1, ar2 = (
-            ar_test_cross_basis(
-                q=_lagged_residual_vector(
-                    ar_resid,
-                    ar_design.unit_rows,
-                    ar_design.row_period,
-                    order,
-                    ar_mask,
-                    ar_design.row_unit,
-                )[ar_mask],
-                resid_ar=ar_resid[ar_mask],
-                X_ar=ar_design.W[ar_mask],
-                units_ar=ar_design.row_unit[ar_mask],
-                Z_est=Z,
-                resid_est=resid,
-                units_est=design.row_unit,
-                XZ_est=XZ_est,
-                weight=weight_final,
-                Minv=Minv_final,
-                coef_vcov=vcov,
-                n_units=n_units_total,
-            )
-            for order in (1, 2)
-        )
-    else:
-        ar1 = arellano_bond_ar_test(ar_resid, order=1, **ar_kwargs)
-        ar2 = arellano_bond_ar_test(ar_resid, order=2, **ar_kwargs)
 
     overid_df = m - k
     sargan = overid_test(Z, resid1, A1, overid_df, scale=sigma2)
@@ -598,6 +499,131 @@ def fit_dynamic_panel(
         instrument_warning=instrument_note,
         hansen_warning=hansen_note,
     )
+
+
+def _serial_correlation_tests(
+    panel, design, beta, resid, vcov, weight, Minv, *, classical, sigma2
+):
+    """AR(1) and AR(2) tests on the first-differenced residuals.
+
+    The test is always run in first differences (Roodman 2009, Sec. 3.5:
+    deviations residuals are all mutually related), so after estimation in
+    forward orthogonal deviations the residuals are recomputed on the
+    first-differenced version of the same specification. Level-equation
+    rows of system GMM do not enter. Returns ``(ar1, ar2, note)``.
+    """
+    if design.transform == "fd":
+        test, resid_test = design, resid
+    else:
+        test = build_design(panel, replace(design.spec, transform="fd"))
+        resid_test = test.dy - test.W @ beta
+
+    # The AR statistic sums over panel units even when the coefficient
+    # covariance is clustered more coarsely (black box: xtabond2 with
+    # cluster() matches this to 1e-12; the clustering enters through Avar).
+    est_groups = design.unit_rows
+    unit_group = {}
+    for j, rows in enumerate(est_groups):
+        for u in np.unique(design.row_unit[rows]).tolist():
+            unit_group[u] = j
+    n_groups = len(est_groups)
+    test_units = test.row_unit
+    for u in np.unique(test_units).tolist():
+        if u not in unit_group:
+            unit_group[u] = n_groups
+            n_groups += 1
+    groups_test = np.array([unit_group[u] for u in test_units.tolist()], dtype=np.int64)
+    groups_est = np.array(
+        [unit_group[u] for u in design.row_unit.tolist()], dtype=np.int64
+    )
+
+    blocks = (
+        _classical_blocks(design, test, sigma2, panel.n_periods) if classical else None
+    )
+
+    common = dict(
+        resid_test=resid_test,
+        X_test=test.W,
+        units_test=test.row_unit,
+        periods_test=test.row_period,
+        use_test=test.row_eq == 0,
+        groups_test=groups_test,
+        Z=design.Z,
+        resid_est=resid,
+        groups_est=groups_est,
+        XZ=design.W.T @ design.Z,
+        weight=weight,
+        Minv=Minv,
+        coef_vcov=vcov,
+        n_groups=n_groups,
+        classical_blocks=blocks,
+    )
+    ar1 = serial_correlation_test(1, **common)
+    ar2 = serial_correlation_test(2, **common)
+    return ar1, ar2, None
+
+
+def _level_operator(design, rows, n_periods: int) -> np.ndarray:
+    """Rows of the transform as weights on the unit's level errors.
+
+    First differences: ``e_p - e_{p-1}``. Forward orthogonal deviations:
+    the deviation operator on the balanced period grid (the one ``H`` is
+    built from; black box: xtabond2's classical AR statistic after
+    ``orthogonal`` matches this, to 1e-10, and not the unit-specific
+    operator). Level-equation rows get zero rows: like xtabond2, the
+    classical AR variance ignores their covariance with the differences.
+    """
+    out = np.zeros((rows.size, n_periods))
+    operator = design.transform_operator
+    for j, r in enumerate(rows):
+        if design.row_eq[r] != 0:
+            continue
+        p = int(design.row_period[r])
+        if operator is None:
+            out[j, p] = 1.0
+            if p >= 1:
+                out[j, p - 1] = -1.0
+        else:
+            out[j] = operator[p - 1]
+    return out
+
+
+def _classical_blocks(design, test, sigma2: float, n_periods: int):
+    """Per-unit error covariances for the classical AR variance.
+
+    Under i.i.d. level errors with variance ``sigma2``, the covariance of
+    two transformed errors is ``sigma2 * a'b`` for their level weights
+    ``a``, ``b``. With ``h=1`` the one-step weight assumes ``H = I`` for the
+    transformed errors, and the AR variance takes the same assumption:
+    ``sigma2`` between a row and itself (same unit and period), zero
+    otherwise (black box: xtabond2's ``h(1)`` statistics follow this
+    structure).
+    """
+    blocks = []
+    test_use = test.row_eq == 0
+    test_rows_of = {}
+    for rows in test.unit_rows:
+        rows = rows[test_use[rows]]
+        if rows.size:
+            test_rows_of[int(test.row_unit[rows[0]])] = rows
+    for est_rows in design.unit_rows:
+        unit = int(design.row_unit[est_rows[0]])
+        test_rows = test_rows_of.get(unit)
+        if test_rows is None:
+            continue
+        if design.h == 1:
+            same = (design.row_eq[est_rows] == 0)[:, None] & (
+                design.row_period[est_rows][:, None]
+                == test.row_period[test_rows][None, :]
+            )
+            c_et = sigma2 * same.astype(float)
+            c_tt = sigma2 * np.eye(test_rows.size)
+        else:
+            a = _level_operator(design, est_rows, n_periods)
+            b = _level_operator(test, test_rows, n_periods)
+            c_et, c_tt = sigma2 * (a @ b.T), sigma2 * (b @ b.T)
+        blocks.append((est_rows, test_rows, c_et, c_tt))
+    return blocks
 
 
 def _warn_on_internal_gaps(panel, y: str, stacklevel: int) -> Optional[str]:

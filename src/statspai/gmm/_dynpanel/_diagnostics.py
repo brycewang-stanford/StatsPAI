@@ -1,27 +1,18 @@
 """Specification diagnostics for dynamic-panel GMM.
 
-Three families, and all three are load-bearing rather than decorative:
-
-* **Arellano-Bond AR(1)/AR(2)**.  First-differencing induces MA(1) by
-  construction, so AR(1) *should* reject; AR(2) rejecting is evidence that
-  the level errors are serially correlated, which invalidates the lagged
-  levels used as instruments.
-* **Sargan** (one-step, homoskedastic) and **Hansen J** (two-step,
-  heteroskedasticity-robust) over-identification tests.
-* **Instrument-count guardrail**.  Instrument proliferation is the dominant
-  practical failure mode: with full lag depth the moment count grows as
-  O(T²), overfits the endogenous regressor, biases the estimate toward the
-  (Nickell-biased) within estimator, and drives the Hansen p-value toward
-  1.0 — where it looks *reassuring* while being uninformative.  Roodman
-  (2009) recommends keeping the instrument count below the number of units
-  and always reporting it.
+* **Arellano-Bond serial-correlation tests** (:func:`serial_correlation_test`):
+  the AR(l) test of Arellano and Bond (1991) on the first-differenced
+  residuals. Clean-room implementation (2026-10-20) from the paper and from
+  Roodman (2009, Section 3.5), with Stata's ``xtabond`` / ``xtabond2`` used
+  only as black boxes (their outputs on our data). Specification:
+  ``docs/dev/cleanroom/dynpanel_ar.md``.
+* **Over-identification** (:func:`overid_test`): Sargan and Hansen J.
+* **Difference-in-Hansen** (:func:`difference_in_hansen`) and the
+  instrument-count advisory (:func:`check_instrument_count`).
 
 References
 ----------
-Arellano, M. and Bond, S. (1991). *Review of Economic Studies* 58(2).
-[@arellano1991some]
-Roodman, D. (2009). How to do xtabond2. *Stata Journal* 9(1), 86-136.
-[@roodman2009xtabond]
+[@arellano1991some]; [@roodman2009xtabond].
 """
 
 from __future__ import annotations
@@ -32,126 +23,12 @@ from typing import Dict, Optional, Sequence
 import numpy as np
 from scipy import stats
 
-from ._moments import first_difference_H
-
 __all__ = [
-    "arellano_bond_ar_test",
-    "ar_test_cross_basis",
+    "serial_correlation_test",
     "overid_test",
     "check_instrument_count",
     "difference_in_hansen",
 ]
-
-
-def arellano_bond_ar_test(
-    resid: np.ndarray,
-    unit_rows: Sequence[np.ndarray],
-    periods: np.ndarray,
-    order: int,
-    Z: np.ndarray,
-    W: np.ndarray,
-    weight: np.ndarray,
-    Minv: np.ndarray,
-    robust: bool,
-    sigma2: float,
-    eq_mask: Optional[np.ndarray] = None,
-    units: Optional[np.ndarray] = None,
-    coef_vcov: Optional[np.ndarray] = None,
-    naive_vcov: Optional[np.ndarray] = None,
-) -> Dict[str, float]:
-    """Test for AR(``order``) in the first-differenced errors.
-
-    ``m = (q'ê) / sqrt(Var)`` where ``q`` carries, for each row at period
-    ``p``, the same unit's residual at ``p - order`` (0 when unavailable).
-    The variance uses the influence-function adjustment for the estimated
-    coefficients,
-
-        ``c = q − Z A (Z'W) Minv (W'q)``,
-
-    with a clustered outer-product variance ``Σ_i (c_i'ê_i)²`` when
-    ``robust``, else the homoskedastic ``σ̂² Σ_i c_i' H_i c_i``.
-
-    ``eq_mask`` restricts which stacked rows may supply a residual pair.
-    Under system GMM the test still concerns serial correlation in the
-    *first-differenced* errors, so only the transformed rows participate;
-    the influence-function adjustment nevertheless runs over the full
-    stacked system because that is what the coefficients were estimated on.
-
-    **Coefficient-variance term.**  Expanding the clustered sum shows that
-    the third of Arellano & Bond's (1991) three variance terms is exactly
-    ``(W'q)' Avar(β̂) (W'q)`` with ``Avar(β̂)`` the *uncorrected* robust
-    sandwich.  Whenever the reported VCE is a different one — the two-step
-    Windmeijer correction, or the conventional two-step ``(W'ZA₂Z'W)^{-1}``
-    — that term has to be swapped for the reported VCE, or the test
-    silently uses a variance the estimate does not:
-
-        ``Var = Σ_i (c_i'ê_i)² − (W'q)' V_naive (W'q) + (W'q)' V_reported (W'q)``.
-
-    Pass ``coef_vcov`` (reported) and ``naive_vcov`` (the robust sandwich at
-    the final weight and residuals) to enable it; when they coincide — the
-    one-step robust case — the swap is identically zero.  Without it, the
-    two-step AR statistic on ``abdata`` is -4.32 where Stata reports -3.10.
-
-    Validated to machine precision against Stata's ``estat abond`` for
-    one-step robust, one-step classical, two-step conventional and two-step
-    Windmeijer-corrected estimation.
-    """
-    resid = np.asarray(resid, dtype=float)
-    q = _lagged_residual_vector(resid, unit_rows, periods, order, eq_mask, units)
-
-    if not np.any(q):
-        return {"z": float("nan"), "pvalue": float("nan")}
-
-    num = float(q @ resid)
-    u = Minv @ (W.T @ q)
-    c = q - Z @ (weight @ ((Z.T @ W) @ u))
-
-    if robust:
-        var = float(sum((c[rows] @ resid[rows]) ** 2 for rows in unit_rows))
-        if coef_vcov is not None and naive_vcov is not None:
-            Wq = W.T @ q
-            var += float(Wq @ (np.asarray(coef_vcov) - np.asarray(naive_vcov)) @ Wq)
-    else:
-        total = 0.0
-        for rows in unit_rows:
-            use = rows if eq_mask is None else rows[eq_mask[rows]]
-            if use.size:
-                total += float(c[use] @ first_difference_H(periods[use]) @ c[use])
-        var = sigma2 * total
-
-    if not np.isfinite(var) or var <= 0:
-        return {"z": float("nan"), "pvalue": float("nan")}
-    z = num / np.sqrt(var)
-    return {"z": float(z), "pvalue": float(2 * stats.norm.sf(abs(z)))}
-
-
-def _lagged_residual_vector(resid, unit_rows, periods, order, eq_mask, units):
-    """``q[i]`` = the same unit's residual ``order`` periods earlier, else 0.
-
-    Vectorised through a ``(unit, period) -> row`` lookup built once,
-    instead of a per-unit Python dict. ``units`` is the row's unit index;
-    it is reconstructed from ``unit_rows`` when not supplied.
-    """
-    n = resid.shape[0]
-    if units is None:
-        units = np.empty(n, dtype=np.int64)
-        for j, rows in enumerate(unit_rows):
-            units[rows] = j
-    use = np.ones(n, dtype=bool) if eq_mask is None else np.asarray(eq_mask, dtype=bool)
-    idx = np.flatnonzero(use)
-    q = np.zeros(n)
-    if idx.size == 0:
-        return q
-    span = int(periods.max()) + int(order) + 2
-    keys = units[idx] * span + periods[idx]
-    sorter = np.argsort(keys, kind="stable")
-    keys_sorted = keys[sorter]
-    want = units[idx] * span + periods[idx] - int(order)
-    pos = np.clip(np.searchsorted(keys_sorted, want), 0, keys_sorted.size - 1)
-    hit = keys_sorted[pos] == want
-    if hit.any():
-        q[idx[hit]] = resid[idx[sorter][pos[hit]]]
-    return q
 
 
 def overid_test(
@@ -296,49 +173,108 @@ def difference_in_hansen(
     return out
 
 
-def ar_test_cross_basis(
-    q: np.ndarray,
-    resid_ar: np.ndarray,
-    X_ar: np.ndarray,
-    units_ar: np.ndarray,
-    Z_est: np.ndarray,
+def _lag_index(units: np.ndarray, periods: np.ndarray, use: np.ndarray, order: int):
+    """Row of the same unit's residual ``order`` periods earlier, or -1.
+
+    Only rows flagged in ``use`` (first-differenced equations) count, on
+    both ends of the pair.
+    """
+    where = {
+        (u, p): r
+        for r, (u, p, ok) in enumerate(zip(units.tolist(), periods.tolist(), use))
+        if ok
+    }
+    lag = np.full(units.size, -1, dtype=np.int64)
+    for r in np.flatnonzero(use):
+        lag[r] = where.get((int(units[r]), int(periods[r]) - order), -1)
+    return lag
+
+
+def _group_sums(values: np.ndarray, codes: np.ndarray, n_groups: int) -> np.ndarray:
+    """Sum the rows of ``values`` (1-D or 2-D) within each group code."""
+    shape = (n_groups,) + values.shape[1:]
+    out = np.zeros(shape)
+    np.add.at(out, codes, values)
+    return out
+
+
+def serial_correlation_test(
+    order: int,
+    *,
+    resid_test: np.ndarray,
+    X_test: np.ndarray,
+    units_test: np.ndarray,
+    periods_test: np.ndarray,
+    use_test: np.ndarray,
+    groups_test: np.ndarray,
+    Z: np.ndarray,
     resid_est: np.ndarray,
-    units_est: np.ndarray,
-    XZ_est: np.ndarray,
+    groups_est: np.ndarray,
+    XZ: np.ndarray,
     weight: np.ndarray,
     Minv: np.ndarray,
     coef_vcov: np.ndarray,
-    n_units: int,
+    n_groups: int,
+    classical_blocks: Optional[Sequence[tuple]] = None,
 ) -> Dict[str, float]:
-    """Arellano-Bond AR statistic when the test and estimation bases differ.
+    """Arellano-Bond (1991) test for AR(``order``) in first-differenced errors.
 
-    Used for forward orthogonal deviations, where the estimator runs on
-    orthogonal deviations but the test is a statement about first
-    differences.  The per-unit scalars ``s_i = q_i' e_i`` come from the
-    differenced basis; the instrument/residual cross-products that carry the
-    coefficient-estimation error come from the basis the estimator actually
-    used.  The two are aligned by unit index, which is why both bases pass
-    their own ``units`` array.
+    With ``e`` the first-differenced residuals of the test rows and ``q``
+    the same unit's residual ``order`` periods earlier (zero when that row
+    does not exist), the statistic is ``z = q'e / sqrt(V)`` with (Arellano
+    and Bond 1991; Roodman 2009, Section 3.5)
 
-    Implements ``xtabond2``'s ``_ARTests`` term by term:
+    ``V = S_qq - 2 q'X M^{-1} X'Z A S_Zq + q'X Avar(b) X'q``,
 
-        Var = Σ_i s_i²  −  2 (X_ar'q)' Minv (X_est'Z) A Σ_i (Z_i'e_i) s_i
-              +  (X_ar'q)' V_reported (X_ar'q)
+    ``M = X'Z A Z'X`` the estimator's moment matrix, ``Avar(b)`` the
+    reported coefficient covariance (robust or not, Windmeijer-corrected or
+    not), and the "meat" terms
+
+    * robust: ``S_qq = sum_g (q_g' e_g)^2`` and
+      ``S_Zq = sum_g Z_g' u_g (e_g' q_g)``, summed over the groups ``g``,
+      ``u`` the estimation residuals;
+    * classical (one-step, non-robust): ``S_qq = sum_i q_i' C_tt,i q_i`` and
+      ``S_Zq = sum_i Z_i' C_et,i q_i`` with ``C`` the error covariances
+      implied by i.i.d. level errors of variance ``s^2``; each entry of
+      ``classical_blocks`` is ``(est_rows, test_rows, C_et, C_tt)`` for one
+      unit.
+
+    The test basis (``*_test``: always first differences) may differ from
+    the estimation basis (``Z``, ``resid_est``: e.g. forward orthogonal
+    deviations); ``groups_*`` give each row's group code in
+    ``0..n_groups-1`` so that the two bases line up.
+
+    Returns ``{'z', 'pvalue'}`` (two-sided normal p-value); both are NaN
+    when no lagged pair exists or the variance is not positive.
     """
-    s = np.zeros(n_units)
-    np.add.at(s, units_ar, q * resid_ar)
-    if not np.any(s):
+    use = np.asarray(use_test, dtype=bool)
+    e = np.where(use, np.asarray(resid_test, dtype=float), 0.0)
+    lag = _lag_index(np.asarray(units_test), np.asarray(periods_test), use, order)
+    has = lag >= 0
+    q = np.zeros_like(e)
+    q[has] = e[lag[has]]
+    if not has.any():
         return {"z": float("nan"), "pvalue": float("nan")}
 
-    Ze = np.zeros((n_units, Z_est.shape[1]))
-    np.add.at(Ze, units_est, Z_est * resid_est[:, None])
-    ZHw = Ze.T @ s
-
-    tmp = X_ar.T @ q
-    m2VZXA = (-2.0 * Minv) @ (XZ_est @ weight)
-    var = float(s.sum() ** 2 * 0.0)  # keep dtype float
-    var = float(np.sum(s**2) + tmp @ (m2VZXA @ ZHw) + tmp @ coef_vcov @ tmp)
-    if not np.isfinite(var) or var <= 0:
+    numer = float(q @ e)
+    qX = q @ X_test
+    proj = qX @ Minv @ XZ @ weight
+    if classical_blocks is None:
+        per_group = _group_sums(q * e, groups_test, n_groups)
+        s_qq = float(per_group @ per_group)
+        zu = _group_sums(
+            Z * np.asarray(resid_est, dtype=float)[:, None], groups_est, n_groups
+        )
+        s_zq = zu.T @ per_group
+    else:
+        s_qq = 0.0
+        s_zq = np.zeros(Z.shape[1])
+        for est_rows, test_rows, c_et, c_tt in classical_blocks:
+            qt = q[test_rows]
+            s_qq += float(qt @ c_tt @ qt)
+            s_zq += Z[est_rows].T @ (c_et @ qt)
+    var = s_qq - 2.0 * float(proj @ s_zq) + float(qX @ coef_vcov @ qX)
+    if not var > 0:
         return {"z": float("nan"), "pvalue": float("nan")}
-    z = float(s.sum() / np.sqrt(var))
-    return {"z": z, "pvalue": float(2 * stats.norm.sf(abs(z)))}
+    z = numer / np.sqrt(var)
+    return {"z": float(z), "pvalue": float(2.0 * stats.norm.sf(abs(z)))}

@@ -1004,50 +1004,41 @@ class TestArellanoBondSerialCorrelation:
                 ),
             )
 
-    def test_correction_is_a_no_op_for_onestep_robust(self, abdata):
-        """Where the reported and naive VCEs coincide, nothing may change.
+    def test_onestep_robust_statistic_is_the_closed_form(self, abdata):
+        """One-step robust AR(1): the Roodman (2009, Sec. 3.5) formula.
 
-        One-step robust reports exactly the sandwich the AR variance
-        expansion already uses, so the swap must be identically zero — a
-        guard that the correction is targeted rather than a global fudge.
+        Recomputes ``q'e / sqrt(V)`` from the fit's own matrices, with
+        ``V = S_qq - 2 q'X M^{-1} X'Z A S_Zq + q'X Avar q'X'`` summed over
+        units by hand, and checks the reported statistic against it.
         """
         from statspai.gmm._dynpanel import fit_dynamic_panel
-        from statspai.gmm._dynpanel._diagnostics import arellano_bond_ar_test
-        from statspai.gmm._dynpanel._estimate import (
-            gmm_solve,
-            moment_covariance,
-            onestep_weight,
-        )
-        from statspai.gmm._dynpanel._inference import robust_sandwich
+        from statspai.gmm._dynpanel._estimate import gmm_solve, onestep_weight
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             fit = fit_dynamic_panel(abdata, y="n", id="id", time="year", lags=1)
-        design = fit["design"]
-        W, Z, dy = design.W, design.Z, design.dy
-        A1 = onestep_weight(design)
-        beta, Minv, WZ = gmm_solve(W, Z, dy, A1)
-        resid = dy - W @ beta
-        vcov = robust_sandwich(
-            Minv, WZ, A1, moment_covariance(Z, resid, design.unit_rows)
+        d = fit["design"]
+        A1 = onestep_weight(d)
+        beta, Minv, WZ = gmm_solve(d.W, d.Z, d.dy, A1)
+        e = d.dy - d.W @ beta
+        where = {(u, p): r for r, (u, p) in enumerate(zip(d.row_unit, d.row_period))}
+        q = np.array(
+            [
+                e[where[(u, p - 1)]] if (u, p - 1) in where else 0.0
+                for u, p in zip(d.row_unit, d.row_period)
+            ]
         )
-        common = dict(
-            unit_rows=design.unit_rows,
-            periods=design.row_period,
-            order=1,
-            Z=Z,
-            W=W,
-            weight=A1,
-            Minv=Minv,
-            robust=True,
-            sigma2=fit["sigma2"],
-            eq_mask=design.row_eq == 0,
+        s_qq = 0.0
+        s_zq = np.zeros(d.Z.shape[1])
+        for rows in d.unit_rows:
+            qe = float(q[rows] @ e[rows])
+            s_qq += qe**2
+            s_zq += d.Z[rows].T @ e[rows] * qe
+        qX = q @ d.W
+        var = (
+            s_qq - 2 * float(qX @ Minv @ WZ @ A1 @ s_zq) + float(qX @ fit["vcov"] @ qX)
         )
-        without = arellano_bond_ar_test(resid, **common)
-        with_swap = arellano_bond_ar_test(
-            resid, coef_vcov=vcov, naive_vcov=vcov, **common
-        )
-        assert with_swap["z"] == pytest.approx(without["z"], rel=1e-14)
+        assert fit["ar1"]["z"] == pytest.approx(float(q @ e) / np.sqrt(var), rel=1e-12)
 
     def test_correction_actually_moves_the_twostep_statistic(self, abdata, stata):
         """Guard against the swap silently becoming a no-op everywhere.

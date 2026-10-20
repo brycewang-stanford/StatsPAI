@@ -18,10 +18,10 @@ Nothing here is public API; ``sp.xtabond`` is the user-facing entry point.
 
 from ._data import PanelArrays, add_time_dummies, build_panel_arrays
 from ._diagnostics import (
-    arellano_bond_ar_test,
     check_instrument_count,
     difference_in_hansen,
     overid_test,
+    serial_correlation_test,
 )
 from ._fit import DynPanelFit, fit_dynamic_panel
 from ._moments import Design, build_design, first_difference_H
@@ -39,7 +39,7 @@ __all__ = [
     "Term",
     "parse_terms",
     "term_name",
-    "arellano_bond_ar_test",
+    "serial_correlation_test",
     "check_instrument_count",
     "difference_in_hansen",
     "overid_test",

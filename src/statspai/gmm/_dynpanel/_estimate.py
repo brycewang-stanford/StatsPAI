@@ -287,10 +287,21 @@ def level_sigma2(resid: np.ndarray, design: Design, k: int) -> float:
     denominator — a finite-sample convention, so its Sargan statistic sits a
     factor ``N*/(N* − k)`` above the ``xtabond`` one).
 
+    The 2 is the diagonal of the a-priori covariance ``H`` the one-step
+    weight assumes, and σ̂² has to be on the same scale as ``H``. Forward
+    orthogonal deviations are orthonormal (``M M' = I``) and ``h=1`` takes
+    ``H = I``; in both cases the factor is 1, ``σ̂² = ê*'ê* / (N* − k)``.
+    (Until 1.40 the factor 2 was applied there too, which halved σ̂²:
+    classical one-step standard errors were too small by about ``√2`` and
+    the Sargan statistic doubled, against xtabond2's ``orthogonal`` and
+    ``h(1)``.)
+
     This is the scale used by the classical one-step VCE and by the Sargan
     statistic.
     """
     rows = design.row_eq == 0
     r = resid[rows]
     n_star = int(rows.sum())
-    return float(r @ r) / (2.0 * max(n_star - k, 1))
+    unit_diagonal = design.transform_operator is not None or design.h == 1
+    factor = 1.0 if unit_diagonal else 2.0
+    return float(r @ r) / (factor * max(n_star - k, 1))
