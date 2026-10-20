@@ -4850,3 +4850,26 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — honest_did split, breakdown_m restrictions, sp.xtevent_smpath
+
+- **Commits.** `1f9873dce` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 03, 10, 13,
+  15, 21, 24, 25, 26, 27, 53, 65, 66) and
+  `tests/orig_parity/results/_implementation_trace.json` (08).
+- **Reason.** `did/honest_did.py` and `did/_arp.py` were split by concern
+  into `_honest_common.py` / `_honest_r.py` / `_honest_breakdown.py` /
+  `_honest_moments.py` / `_arp_sets.py` (pure refactor), `sp.breakdown_m`
+  gained the sign / shape / SDRM restrictions, and the smoothness
+  test-inversion grid now recentres when it accepts nothing; modules 10 and
+  21 execute those files. `src/statspai/__init__.py` gained the
+  `sp.xtevent_smpath` export, executed by the other modules.
+- **Effect on the paper.** None. Before re-recording, the Python side of
+  modules 10, 16, 21 and 84 was re-run and writes byte-identical results to
+  the pre-split tree, and `verify_reproduce_py.py` reproduces all twelve
+  traced modules (fixtures byte-identical, worst relative difference
+  1.3e-10, module 25). The recentred grid only changes rows that used to
+  be empty (`NaN`), which no Track A module produces.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
