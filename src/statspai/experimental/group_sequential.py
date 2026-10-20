@@ -64,7 +64,8 @@ class GroupSequentialResult(ResultProtocolMixin):
     expected_info_h0, expected_info_h1 : float
         Expected information at stopping, as a fraction of the fixed
         design's information, under the null and the alternative (futility
-        stops honoured).
+        stops honoured, also for nonbinding bounds; see the Notes of
+        :func:`group_sequential` for Stata's different convention).
 
     Examples
     --------
@@ -441,6 +442,16 @@ def group_sequential(
     on the information fractions up to that look, so a design can be
     re-computed at the information actually observed (pass ``information=``
     with the realised fractions and the planned maximum as the last value).
+
+    ``expected_info_h0`` / ``expected_info_h1`` (times ``n_fixed``, the
+    expected sample size) assume the futility rule is followed, also when
+    it is nonbinding. Stata's ``gsdesign`` reports a different figure for
+    nonbinding designs: it adds the efficacy-crossing probabilities with
+    futility ignored to the futility-crossing probabilities with futility
+    followed, so a path stopped for futility that would later have crossed
+    the efficacy bound is counted twice and its ``ESS1`` can exceed the
+    maximum sample size. For efficacy-only and binding designs the two
+    agree to 1e-7.
 
     Examples
     --------

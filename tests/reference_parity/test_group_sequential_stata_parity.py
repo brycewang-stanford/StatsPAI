@@ -109,3 +109,137 @@ def test_closed_form_first_look_of_spending_design():
     assert res.boundaries["efficacy_upper"].iloc[0] == pytest.approx(
         stats.norm.isf(spent / 2), rel=1e-12
     )
+
+
+# ---------------------------------------------------------------------------
+# Expected sample size against Stata 18 ``gsdesign`` (r(ESS0), r(ESS1)),
+# 16 designs from ``_fixtures/_generate_gsdesign_ess_Stata.do``.
+#
+# Efficacy-only and binding-futility designs agree to 1e-7. With nonbinding
+# futility bounds the two report different quantities. Ours is the expected
+# sample size when the futility rule is followed. Stata's is
+#     sum_k n_k * (P_eff,k [futility ignored] + P_fut,k [futility followed]),
+# which counts a path that crosses a futility bound and would later cross
+# the efficacy bound twice. The weights then sum to more than one: in the
+# futility-only design Stata's ESS1 (59.417) exceeds the maximum sample
+# size (59.166). Its manual describes a third rule (drop the futility bound
+# at delta = 0, keep it otherwise), which reproduces neither of its numbers.
+# The test rebuilds Stata's figure from our crossing probabilities to 1e-7
+# and checks ours by an identity and a simulation.
+# ---------------------------------------------------------------------------
+
+ESS = json.loads((_FIX / "gsdesign_ess_Stata.json").read_text(encoding="utf-8"))
+
+
+def _ess_call(case):
+    cmd = case["cmd"]
+    eff, eff_p, _ = _spec(cmd, "efficacy")
+    fut, fut_p, binding = _spec(cmd, "futility")
+    kw = {"power": float(re.search(r"power\(([\d.]+)\)", cmd).group(1))}
+    m = re.search(r"nlooks\((\d+)\)", cmd)
+    info = re.search(r"information\(([^)]*)\)", cmd)
+    if m:
+        kw["n_looks"] = int(m.group(1))
+    elif info:
+        kw["information"] = [float(x) for x in info.group(1).split()]
+    side = case["direction"]
+    return sp.group_sequential(
+        side=side,
+        efficacy=eff,
+        efficacy_param=eff_p,
+        futility=fut,
+        futility_param=fut_p,
+        binding=binding,
+        n_fixed=float(case["N_fixedfrac"]),
+        **kw,
+    )
+
+
+def _crossings(res, theta, follow_futility):
+    """Per-look efficacy and futility crossing probabilities at drift
+    ``theta`` (0 = H0, 1 = the design alternative)."""
+    from statspai.experimental import _gs_core as core
+    from statspai.experimental.group_sequential import _no_futility
+
+    b_ = res.boundaries
+    t = b_["info_frac"].to_numpy()
+    k = len(t)
+    sides = 2 if res.side == "two-sided" else 1
+    if res.side == "lower":  # mirror onto the upper scale
+        b, a = -b_["efficacy_lower"].to_numpy(), -b_["futility_upper"].to_numpy()
+    else:
+        b = b_["efficacy_upper"].to_numpy()
+        a = b_["futility_upper" if sides == 2 else "futility_lower"].to_numpy()
+    b = np.where(np.isnan(b), np.inf, b)
+    if res.futility is None or not follow_futility:
+        a = _no_futility(k, sides)
+    else:
+        a = np.where(np.isnan(a), 0.0 if sides == 2 else -np.inf, a)
+    info = res.info_ratio * res.detail["info_fixed_per_unit_drift"]
+    path = core._Path(t * info, 1.0) if theta else core._Path(t, 0.0)
+    eff, fut = np.zeros(k), np.zeros(k)
+    for j in range(k):
+        eff[j] = core.efficacy_prob(path, b[j], sides)
+        if j < k - 1:
+            fut[j] = core.futility_prob(path, a[j], sides)
+            path.advance(core.continuation(a[j], b[j], sides))
+        else:
+            fut[j] = path.mass() - eff[j]
+    return eff, fut
+
+
+@pytest.mark.parametrize("case", ESS, ids=[c["cmd"][16:80] for c in ESS])
+def test_expected_sample_size_against_gsdesign(case):
+    res = _ess_call(case)
+    assert res.info_ratio == pytest.approx(float(case["info_ratio"]), rel=1e-6)
+    n = res.boundaries["n"].to_numpy()
+    assert n[-1] == pytest.approx(float(case["N_max"]), rel=1e-6)
+    ours = (res.expected_info_h0 * res.n_fixed, res.expected_info_h1 * res.n_fixed)
+    nonbinding = res.futility is not None and not res.binding
+    for theta, got, want in zip((0, 1), ours, (case["ESS0"], case["ESS1"])):
+        eff_f, fut_f = _crossings(res, theta, follow_futility=True)
+        # ours: futility followed; the stopping probabilities sum to one
+        assert eff_f.sum() + fut_f.sum() == pytest.approx(1.0, abs=1e-10)
+        assert got == pytest.approx(float(np.dot(n, eff_f + fut_f)), rel=1e-12)
+        assert got <= n[-1] * (1 + 1e-12)
+        if not nonbinding:
+            assert got == pytest.approx(float(want), rel=1e-7)
+        else:
+            eff_n, _ = _crossings(res, theta, follow_futility=False)
+            stata_rule = float(np.dot(n, eff_n + fut_f))
+            assert stata_rule == pytest.approx(float(want), rel=1e-7)
+
+
+def test_stata_nonbinding_ess_exceeds_the_maximum_sample_size():
+    case = next(
+        c
+        for c in ESS
+        if c["cmd"].endswith("power(0.9) futility(errpocock)")
+        and "efficacy" not in c["cmd"]
+    )
+    assert float(case["ESS1"]) > float(case["N_max"])
+    res = _ess_call(case)
+    assert res.expected_info_h1 * res.n_fixed < float(case["N_max"])
+
+
+def test_nonbinding_expected_sample_size_by_simulation():
+    # Brownian motion on the information scale, futility rule followed:
+    # the simulated mean sample size matches ours within 4 Monte Carlo SEs.
+    case = next(c for c in ESS if "nlooks(4)" in c["cmd"] and "futility" in c["cmd"])
+    res = _ess_call(case)
+    b_ = res.boundaries
+    t, n = b_["info_frac"].to_numpy(), b_["n"].to_numpy()
+    e = b_["efficacy_upper"].fillna(np.inf).to_numpy()
+    f = b_["futility_lower"].fillna(-np.inf).to_numpy()
+    info = res.info_ratio * res.detail["info_fixed_per_unit_drift"]
+    rng = np.random.default_rng(20261020)
+    reps = 200_000
+    for theta, want in ((0.0, res.expected_info_h0), (1.0, res.expected_info_h1)):
+        inc = rng.normal(size=(reps, len(t))) * np.sqrt(np.diff(np.r_[0.0, t]))
+        w = np.cumsum(inc, axis=1) + theta * np.sqrt(info) * t
+        z = w / np.sqrt(t)
+        stop = (z >= e) | (z < f)
+        stop[:, -1] = True
+        size = n[np.argmax(stop, axis=1)]
+        se = size.std() / np.sqrt(reps)
+        assert abs(size.mean() - want * res.n_fixed) < 4 * se
