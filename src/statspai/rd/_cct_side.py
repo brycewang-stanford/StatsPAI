@@ -95,6 +95,10 @@ class LocalFit:
         w = k[mask]
         gram = (design * w[:, None]).T @ design
         ginv, singular = _spd_inverse(gram)
+        # A polynomial of order k needs k + 1 distinct support points with
+        # positive weight; Cholesky can succeed on such a matrix in floating
+        # point, so count them directly.
+        singular = singular or np.unique(x).size < order + 1
         self.mask = mask
         self.x = x
         self.design = design

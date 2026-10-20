@@ -40,7 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ..exceptions import MethodIncompatibility, NumericalInstability
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from ._cct_side import (
     Side,
     complete_rows,
@@ -213,13 +213,21 @@ def _stage(
     var_coef = variance_of(
         side, bias_fit.mask, bias_fit.weights_for(pick), rho_b, s, bias_order + 1
     )
-    singular = fit.singular or bias_fit.singular
-    return {
-        "V": var,
-        "B": factor * deriv_coef,
-        "R": factor**2 * var_coef,
-        "singular": float(singular),
-    }
+    if fit.singular or bias_fit.singular:
+        bad = fit if fit.singular else bias_fit
+        raise DataInsufficient(
+            "rdbwselect: a preliminary local polynomial of order "
+            f"{bad.order} has fewer than {bad.order + 1} distinct values of the "
+            f"running variable inside its window (bandwidth {bad.h:.4g}); the "
+            "plug-in bandwidth is not identified.",
+            recovery_hint=(
+                "Pass h= yourself, lower p / q, or use a method built for a "
+                "discrete running variable (sp.rd_discrete)."
+            ),
+            diagnostics={"order": bad.order, "bandwidth": bad.h},
+            alternative_functions=["sp.rd_discrete", "sp.rdrandinf"],
+        )
+    return {"V": var, "B": factor * deriv_coef, "R": factor**2 * var_coef}
 
 
 def _plug_in(
@@ -438,6 +446,14 @@ def cct_bandwidth(
     if min(left.n, right.n) < q + 2:
         raise ValueError("rdbwselect: too few observations on a side of the cutoff.")
     is_fuzzy = fuzzy is not None
+    yv = np.asarray(y, dtype=float)
+    if np.ptp(yv) <= 1e-12 * max(1.0, float(np.max(np.abs(yv)))):
+        raise DataInsufficient(
+            "rdbwselect: the outcome is constant, so the plug-in bandwidth "
+            "(variance over squared bias) is not defined.",
+            recovery_hint="Pass h= yourself; the RD effect of a constant is zero.",
+            diagnostics={"outcome_range": float(np.ptp(yv))},
+        )
 
     pilot = _pilot_bandwidth(xc, kernel, masspoints, bwcheck)
     range_l, range_r = -float(xc.min()), float(xc.max())
