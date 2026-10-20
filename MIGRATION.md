@@ -43,6 +43,16 @@ nor change target later.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.scpi(w_constr='L1-L2')` in-sample bounds
+
+The in-sample bounds of the L1-L2 constraint (and the combined
+`subgaussian` / `ls` / `qreg` and `joint` bounds that add to them) now
+agree with R `scpi` 4.0.1; they could differ from it by up to about 1e-2 on
+short panels. Point estimates and the other constraints are unchanged. No
+option restores the old values.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.breakdown_m(method='relative_magnitude')` precision and search
 
 The default (C-LF) relative-magnitude breakdown value is now the first

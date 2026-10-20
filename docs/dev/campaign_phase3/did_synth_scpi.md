@@ -1,3 +1,10 @@
+> **Superseded (2026-10-20).** The implementation this note describes was
+> deleted after the license-provenance audit (row H1): it had been written as
+> a port of R `scpi` (GPL-3). The current code is a clean-room
+> re-implementation; its specification and black-box evidence are in
+> `docs/dev/cleanroom/scpi.md`. The parity results below still hold for the
+> new code (same tests, same tolerances).
+
 # did_synth / `scpi` cluster: `sp.scdata`, `sp.scest`, `sp.scpi` vs R `scpi` 4.0.1
 
 Reference: R `scpi` 4.0.1 (`scdata`, `scest`, `scpi`, `scdataMulti`), R 4.5.2.

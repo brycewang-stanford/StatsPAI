@@ -1,337 +1,334 @@
-"""Inference layer of ``sp.scpi`` (private; port of the body of R ``scpi``).
+"""Prediction-interval inference for ``sp.scpi`` (private).
 
-Given the data matrices and the donor weights, reproduces for a single treated
-unit (``effect = "unit-time"``): ``local.geom`` / ``local.geom.2step`` (rho,
-relaxed constraint set), ``u.des.prep`` + ``u.sigma.est`` (conditional moments
-and variance ``Sigma`` of the pseudo-residuals), ``df.EST``, the in-sample
-simulation of ``insampleUncertaintyGetDiag``, ``e.des.prep`` + ``scpi.out``
-(out-of-sample bounds) and ``simultaneousPredGet`` (joint bounds).
+Clean-room implementation of the uncertainty quantification of
+Cattaneo, Feng and Titiunik [@cattaneo2021prediction] as documented for the
+``scpi`` software [@cattaneo2025scpi], for one treated unit, the outcome as
+the only feature and no covariate adjustment. The R package ``scpi``
+(GPL-3) was used only as a black box to pin conventions the papers leave
+open; no reference source was read. The specification, with the black-box
+evidence for every convention, is ``docs/dev/cleanroom/scpi.md``.
+
+The prediction error of the synthetic control splits into an in-sample part
+(the weights are estimated) and an out-of-sample part (the post-treatment
+shock):
+
+* in-sample: Gaussian draws ``G ~ N(0, Sigma)`` of the score, and for each
+  draw, horizon and side the extreme value of ``p_t'(w - w_hat)`` over the
+  weights that satisfy the simulated basic inequality and a locally relaxed
+  version of the constraint set; the bounds are quantiles over draws;
+* out-of-sample: sub-Gaussian, location-scale or quantile-regression bounds
+  on the post-treatment error, estimated from the pre-treatment residuals.
 """
 
 from __future__ import annotations
 
 import warnings
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _scpi_solvers as _sv
 
-# ====================================================================== #
-#  Inference (scpi.R body for a single treated unit, effect = unit-time)
-# ====================================================================== #
+ACTIVE_TOL = 1e-6  # a weight counts as non-zero from this magnitude on
+RHO_FLOOR = 1e-3  # a data-driven rho below this falls back to rho_max
+IQR_TO_SD = 1.34  # Gaussian IQR rule of thumb used for the scale
+HC_TYPES = ("HC0", "HC1", "HC2", "HC3", "HC4")
 
 
-def _regularize_w(
-    kind: str, rho_max: Any, res: Any, B: Any, T0: Any, J: Any, d0: Any
-) -> float:
-    """R ``regularize.w``."""
-    sigma_u = np.sqrt(np.mean((res - res.mean()) ** 2))
-    if kind == "type-1":
-        sd_min = np.min(np.std(B, axis=0, ddof=1))
-        if sd_min == 0:
-            raise DataInsufficient(
-                "One of your donors has no variation in the pre-treatment period!",
-                recovery_hint="Drop donors constant over the pre-period.",
-            )
-        CC = sigma_u / sd_min
-    elif kind == "type-2":
-        var_min = np.min(np.var(B, axis=0, ddof=1))
-        if var_min == 0:
-            raise DataInsufficient(
-                "One of your donors has no variation in the pre-treatment period!",
-                recovery_hint="Drop donors constant over the pre-period.",
-            )
-        CC = np.max(np.std(B, axis=0, ddof=1)) * sigma_u / var_min
-    else:
-        raise MethodIncompatibility("rho must be 'type-1', 'type-2' or a number.")
-    d = J
-    rho = CC * np.sqrt(np.log(d) * d0 * np.log(T0)) / np.sqrt(T0)
-    if rho_max is not None:
-        rho = min(rho, rho_max)
-    return float(rho)
+# ---------------------------------------------------------------------- #
+#  Ingredients
+# ---------------------------------------------------------------------- #
 
 
-def _local_geometry(spec: Any, w: Any, rho: Any, rho_max: Any, res: Any, B: Any) -> Any:
-    """R ``local.geom`` + ``local.geom.2step`` (single unit, KM = 0)."""
-    T0, J = B.shape
-    d0 = int(np.sum(np.abs(w) >= 1e-6))
-    if rho is None:
-        rho = "type-2"
-    if isinstance(rho, str):
-        rho_val = _regularize_w(rho, rho_max, res, B, T0, J, d0)
-        if rho_val < 0.001:  # regularize.check.lb
-            rho_val = max(
-                _regularize_w("type-1", 0.2, res, B, T0, J, d0),
-                _regularize_w("type-2", 0.2, res, B, T0, J, d0),
-            )
-            if rho_val < 0.05:
-                rho_val = rho_max
-            warnings.warn(
-                "rho was too low; increased it to favour shrinkage (R "
-                "regularize.check.lb).",
-                RuntimeWarning,
-                stacklevel=4,
-            )
-    else:
-        rho_val = float(rho)
+def _degrees_of_freedom(spec: Dict[str, Any], w: np.ndarray, B: np.ndarray) -> float:
+    """Effective degrees of freedom of the weight estimator.
 
-    p, direction, name = spec["p"], spec["dir"], spec["name"]
-    if p == "L2" or name == "ridge" or p == "no norm":
-        index_w = np.ones(J, dtype=bool)
-    else:
-        index_w = np.abs(w) > rho_val
-        if not index_w.any():
-            index_w = np.zeros(J, dtype=bool)
-            index_w[int(np.argmax(w))] = True
-            warnings.warn(
-                "rho was too high; kept the largest weight active (R "
-                "regularize.check).",
-                RuntimeWarning,
-                stacklevel=4,
-            )
-
-    # local.geom.2step
-    Qin = spec["Q2"] if p == "L1-L2" else spec["Q"]
-    Qout = Qin
-    if p == "L1":
-        w_norm = float(np.sum(np.abs(w)))
-        rhoj = rho_val
-    elif p in ("L2", "L1-L2"):
-        w_norm = float(np.sum(w**2))
-        rhoj = min(2 * np.sqrt(w_norm) * rho_val, rho_max)
-    if direction in ("<=", "==/<="):
-        active = 1.0 if (w_norm - Qin) > -rhoj else 0.0
-        Qout = active * (w_norm + rho_val - Qin) + Qin
-    if spec["lb"] == 0:
-        lb = np.where(w < rho_val, w, 0.0)
-    else:
-        lb = np.full(J, -np.inf)
-    if p == "L1-L2":
-        Q_star, Q2_star = spec["Q"], Qout
-    else:
-        Q_star, Q2_star = Qout, None
-    return {
-        "rho": rho_val,
-        "d0": d0,
-        "index_w": index_w,
-        "Q_star": Q_star,
-        "Q2_star": Q2_star,
-        "lb": lb,
-    }
-
-
-def _df_est(spec: Any, w: Any, B: Any) -> float:
-    """R ``df.EST`` (KM = 0)."""
-    name, p, direction = spec["name"], spec["p"], spec["dir"]
-    if name == "ols" or p == "no norm":
-        return float(B.shape[1])
-    if name == "lasso" or (p == "L1" and direction == "<="):
-        return float(np.sum(np.abs(w) >= 1e-6))
-    if name == "simplex" or (p == "L1" and direction == "=="):
-        return float(np.sum(np.abs(w) >= 1e-6) - 1)
-    lam = spec["lambda"]
-    if lam is None:  # R: d^2 / (d^2 + NULL) is numeric(0) -> df = 0
+    ``ols``: J; ``lasso``: number of non-zero weights [@cattaneo2025scpi,
+    Section 4.3]; ``simplex``: that number minus one; ``ridge`` and
+    ``L1-L2``: ``sum_j s_j^2 / (s_j^2 + lambda)`` with ``s`` the singular
+    values of ``B`` and ``lambda`` the shrinkage parameter of the radius rule
+    (0 when the radius was given by the user).
+    """
+    name = spec["name"]
+    J = B.shape[1]
+    d0 = int(np.sum(np.abs(w) >= ACTIVE_TOL))
+    if name == "ols":
+        return float(J)
+    if name == "lasso":
+        return float(d0)
+    if name == "simplex":
+        return float(d0 - 1)
+    lam = spec.get("lambda")
+    if lam is None:
         return 0.0
-    d = np.clip(np.linalg.svd(B, compute_uv=False), 0.0, None)
-    return float(np.sum(d**2 / (d**2 + lam)))
+    s = np.linalg.svd(B, compute_uv=False)
+    return float(np.sum(s**2 / (s**2 + float(lam))))
 
 
-def _hc_scale(u_sigma: Any, Z: Any, TT: Any, df: Any) -> Any:
+def _regularisation(
+    kind: Any, rho_max: float, res: np.ndarray, B: np.ndarray, d0: int
+) -> Tuple[float, Optional[str]]:
+    """Sparsity threshold rho [@cattaneo2025scpi, Section 4.3].
+
+    ``rho = sqrt(d0 log(J) log(T0)) C / sqrt(T0)`` with ``C = sigma_u /
+    min_j sigma_bj`` (``'type-1'``) or ``max_j sigma_bj sigma_u / min_j
+    sigma_bj^2`` (``'type-2'``, the default), capped at ``rho_max``;
+    ``sigma_u`` is the population and ``sigma_bj`` the sample standard
+    deviation. A user number is used as given. Returns ``(rho, note)``.
+    """
+    if kind is not None and not isinstance(kind, str):
+        return float(kind), None
+    kind = "type-2" if kind is None else kind
+    if kind not in ("type-1", "type-2"):
+        raise MethodIncompatibility(
+            f"rho must be 'type-1', 'type-2' or a positive number, got {kind!r}.",
+            recovery_hint="Use rho='type-2' (default), rho='type-1' or a number.",
+            diagnostics={"rho": kind},
+        )
+    T0, J = B.shape
+    sd_b = np.std(B, axis=0, ddof=1)
+    if sd_b.min() <= 1e-12 * max(1.0, float(np.abs(B).max())):
+        raise DataInsufficient(
+            "sp.scpi: a donor has no variation in the pre-treatment period, "
+            "so the regularisation parameter rho cannot be computed.",
+            recovery_hint="Drop constant donors or pass a numeric rho=.",
+            diagnostics={"constant_donors": np.flatnonzero(sd_b <= 0).tolist()},
+        )
+    sd_u = float(np.std(res))
+    if kind == "type-1":
+        C = sd_u / sd_b.min()
+    else:
+        C = sd_b.max() * sd_u / sd_b.min() ** 2
+    rho = float(np.sqrt(d0 * np.log(J) * np.log(T0)) * C / np.sqrt(T0))
+    rho = min(rho, float(rho_max))
+    if not rho >= RHO_FLOOR:
+        return float(rho_max), "low"
+    return rho, None
+
+
+def _hc_scale(u_sigma: str, Z: np.ndarray, TT: int, df: float) -> np.ndarray:
+    """Heteroskedasticity-robust scale factors (MacKinnon's HC0-HC4).
+
+    The leverage is the diagonal of the hat matrix of ``Z`` (the donors'
+    pre-treatment outcomes); ``df`` is the effective degrees of freedom.
+    """
+    if u_sigma not in HC_TYPES:
+        raise MethodIncompatibility(
+            f"u_sigma must be one of {list(HC_TYPES)}, got {u_sigma!r}.",
+            recovery_hint="Use u_sigma='HC1' (default) or one of HC0-HC4.",
+        )
     if u_sigma == "HC0":
         return np.ones(TT)
     if u_sigma == "HC1":
         return np.full(TT, TT / (TT - df))
-    lev = np.einsum("ij,ji->i", Z, np.linalg.solve(Z.T @ Z, Z.T))
+    lev = np.einsum("ij,ji->i", Z, np.linalg.pinv(Z.T @ Z) @ Z.T)
     if u_sigma == "HC2":
-        return 1.0 / (1.0 - lev)
+        return np.asarray(1.0 / (1.0 - lev), dtype=float)
     if u_sigma == "HC3":
-        return 1.0 / (1.0 - lev) ** 2
-    if u_sigma == "HC4":
-        dd = np.minimum(4.0, TT * lev / df)
-        return 1.0 / (1.0 - lev) ** dd
-    raise MethodIncompatibility("u_sigma must be one of 'HC0','HC1','HC2','HC3','HC4'.")
+        return np.asarray(1.0 / (1.0 - lev) ** 2, dtype=float)
+    with np.errstate(divide="ignore"):
+        delta = np.minimum(4.0, TT * lev / df) if df > 0 else np.full(TT, 4.0)
+    return np.asarray((1.0 - lev) ** (-delta), dtype=float)
 
 
 def _sqrtm_psd(S: np.ndarray) -> np.ndarray:
-    """R ``sqrtm``: U diag(sqrt(d)) U' from the SVD."""
-    U, d, _ = np.linalg.svd(S)
-    d = np.clip(d, 0.0, None)
-    return np.asarray((U * np.sqrt(d)) @ U.T)
+    """Symmetric square root of a positive semi-definite matrix (via SVD)."""
+    U, d, _ = np.linalg.svd(0.5 * (S + S.T))
+    return np.asarray((U * np.sqrt(d)) @ U.T, dtype=float)
 
 
-def _proj_fitted(X: np.ndarray, y: np.ndarray) -> np.ndarray:
-    return X @ np.linalg.lstsq(X, y, rcond=None)[0]
+def _local_geometry(
+    spec: Dict[str, Any],
+    w: np.ndarray,
+    rho: Any,
+    rho_max: float,
+    res: np.ndarray,
+    B: np.ndarray,
+) -> Dict[str, Any]:
+    """Constraint set used in the simulation [@cattaneo2025scpi, Section 4.3].
 
+    An inequality constraint counts as binding when it is within rho of
+    holding with equality; binding linear constraints are kept at their
+    estimated value, slack ones at their original form:
 
-def _e_design(B: Any, P_rows: Any, index_w: Any, e_order: Any, T0: Any) -> Any:
-    """``e.des.prep`` (out.feat = TRUE, constant = FALSE) + scpi.R fallbacks."""
-    if e_order == 0:
-        X0 = np.ones((T0, 1))
-        X1 = np.ones((P_rows.shape[0], 1))
-    else:
-        X0 = np.column_stack([B[:, index_w], np.ones(T0)])
-        X1 = np.column_stack([P_rows[:, index_w], np.ones(P_rows.shape[0])])
-    if (T0 - 10) <= X0.shape[1]:
-        X0 = np.ones((T0, 1))
-        X1 = np.ones((P_rows.shape[0], 1))
-        e_order = 0
+    * simplex / L1-L2: ``w_j >= lb_j`` with ``lb_j = w_hat_j`` if
+      ``w_hat_j < rho`` and 0 otherwise, ``sum(w) = Q``; for L1-L2 also
+      ``||w||_2 <= Q2*``, with ``Q2*`` from the ridge rule below using
+      ``min(rho, rho_max)``;
+    * lasso: ``||w||_1 <= Q*`` with ``Q* = ||w_hat||_1 + rho`` when
+      ``||w_hat||_1 > Q - rho`` and ``Q* = Q`` otherwise;
+    * ridge: ``||w||_2 <= Q*`` with ``Q* = ||w_hat||_2^2 + rho`` when
+      ``||w_hat||_2^2 > Q - rho`` and ``Q* = Q`` otherwise (R's outputs:
+      the squared norm is compared with Q, see the specification);
+    * ols: unrestricted.
 
-    def detect_constant(x: Any) -> Any:
-        keep = (np.sum(x == 1, axis=0) != x.shape[0]) & (np.sum(x, axis=0) != 0)
-        return np.column_stack([x[:, keep], np.ones(x.shape[0])])
-
-    X0 = detect_constant(X0)
-    X1 = detect_constant(X1)
-    if X0.shape[1] >= X0.shape[0] - 1:  # avoidCollin
-        X0 = np.ones((T0, 1))
-        X1 = np.ones((P_rows.shape[0], 1))
-    return X0, X1, e_order
-
-
-def _scpi_out(res: Any, x: Any, ev: Any, e_method: Any, alpha: Any) -> Any:
-    """R ``scpi.out`` (effect = unit-time, out.feat = TRUE)."""
-    n_eval = ev.shape[0]
-    if e_method in ("gaussian", "ls"):
-        bhat = np.linalg.lstsq(x, res, rcond=None)[0]
-        e_mean = ev @ bhat
-        res_fit = x @ bhat
-        u = res - res_fit
-        ghat = np.linalg.lstsq(x, np.log(u**2), rcond=None)[0]
-        var_eval = ev @ ghat
-        qcoef = _sv.rrq(x, u, [0.25, 0.75])
-        qp = ev @ qcoef
-        iq = np.abs(qp[:, 1] - qp[:, 0])
-        if e_method == "gaussian":
-            e_sig = np.minimum(np.sqrt(np.exp(var_eval)), iq / 1.34)
-            eps = np.sqrt(-np.log(alpha) * 2) * e_sig
-            return e_mean - eps, e_mean + eps, e_mean, e_sig**2
-        res_var = x @ ghat
-        res_st = u / np.sqrt(np.exp(res_var))
-        e_sig = np.minimum(np.sqrt(np.exp(var_eval)), iq / 1.34)
-        lo = e_mean + e_sig * np.quantile(res_st, alpha)
-        hi = e_mean + e_sig * np.quantile(res_st, 1 - alpha)
-        return lo, hi, e_mean, e_sig**2
-    qcoef = _sv.rrq(x, res, [alpha, 1 - alpha])
-    qp = ev @ qcoef
-    return qp[:, 0], qp[:, 1], np.full(n_eval, np.nan), np.full(n_eval, np.nan)
-
-
-def _insample_problem(spec: Any, geom: Any, beta: Any, Qm: Any) -> Any:
-    """Map R's (p, dir) constraint set to the active-set solver's arguments."""
-    p, direction = spec["p"], spec["dir"]
-    J = beta.shape[0]
-    if p == "no norm":
-        return {"kind": "y", "ell": np.full(J, -np.inf), "sum_mode": None, "ball": None}
-    if p == "L1" and direction == "==":
-        return {
-            "kind": "y",
-            "ell": geom["lb"] - beta,
-            "sum_mode": "eq",
-            "sum_val": geom["Q_star"] - beta.sum(),
-            "ball": None,
-        }
-    if p == "L1" and direction == "<=":
-        T = np.hstack([np.eye(J), -np.eye(J)])
-        z0 = np.concatenate([np.clip(beta, 0, None), np.clip(-beta, 0, None)])
-        return {
-            "kind": "z",
-            "T": T,
-            "Qz": T.T @ Qm @ T,
-            "ell": np.zeros(2 * J),
-            "sum_mode": "le",
-            "sum_val": geom["Q_star"],
-            "ball": None,
-            "y0": z0,
-        }
-    if p == "L2":
-        return {
-            "kind": "y",
-            "ell": np.full(J, -np.inf),
-            "sum_mode": None,
-            "ball": (beta, geom["Q_star"]),
-        }
-    if p == "L1-L2":
-        return {
-            "kind": "y",
-            "ell": geom["lb"] - beta,
-            "sum_mode": "eq",
-            "sum_val": geom["Q_star"] - beta.sum(),
-            "ball": (beta, geom["Q2_star"]),
-        }
-    raise MethodIncompatibility(
-        f"Unsupported constraint p={p!r}, dir={direction!r}."
-    )  # pragma: no cover
-
-
-def _insample_sims(
-    Z: Any, P_rows: Any, beta: Any, spec: Any, geom: Any, zeta: Any
-) -> Any:
-    """Per-draw bounds of ``insampleUncertaintyGetDiag`` (lb, ub columns).
-
-    Each (draw, horizon, side) problem is solved by the exact active-set
-    QCQP of ``_scpi_solvers``; SLSQP is the fallback when the active-set
-    search cannot certify a KKT point.
+    ``rho`` is computed here when it is a rule name or ``None``.
     """
-    TT, J = Z.shape
-    Qm = Z.T @ Z / TT
-    sims = zeta.shape[1]
-    H = P_rows.shape[0]
-    vlb = np.full((sims, H), np.nan)
-    vub = np.full((sims, H), np.nan)
-    prob = _insample_problem(spec, geom, beta, Qm)
-    n_fallback = 0
+    d0 = int(np.sum(np.abs(w) >= ACTIVE_TOL))
+    rho_v, note = _regularisation(rho, rho_max, res, B, d0)
+    name = spec["name"]
+    J = len(w)
+    out: Dict[str, Any] = {"rho": rho_v, "rho_note": note, "w": w, "Q2_star": None}
+    if name in ("simplex", "L1-L2"):
+        lb = np.where(w < rho_v, w, 0.0)
+        out.update(kind="simplex", lb=lb, Q_star=float(spec["Q"]))
+        if name == "L1-L2":
+            # the L2 ball follows the ridge rule with rho capped at rho_max
+            Q2 = float(spec["Q2"])
+            r2 = min(rho_v, float(rho_max))
+            sq = float(w @ w)
+            Q2s = sq + r2 if sq > Q2 - r2 else Q2
+            out.update(Q2=Q2s, Q2_star=Q2s)
+    elif name == "lasso":
+        Q = float(spec["Q"])
+        l1 = float(np.abs(w).sum())
+        Qs = l1 + rho_v if l1 > Q - rho_v else Q
+        out.update(kind="l1", Q=Qs, Q_star=Qs, lb=np.full(J, -np.inf))
+    elif name == "ridge":
+        Q = float(spec["Q"])
+        sq = float(w @ w)
+        Qs = sq + rho_v if sq > Q - rho_v else Q
+        out.update(kind="l2", Q=Qs, Q_star=Qs, lb=np.full(J, -np.inf))
+    else:
+        out.update(kind="none", Q_star=None, lb=np.full(J, -np.inf))
+    return out
 
-    def solve(cc: Any, Qq: Any, Gg: Any, kk: Any) -> Any:
-        return _sv.insample_active_set(
-            cc,
-            Qq,
-            Gg,
-            kk,
-            prob["ell"],
-            prob["sum_mode"],
-            prob.get("sum_val", 0.0),
-            prob["ball"],
-            prob.get("y0"),
-        )
 
-    for s in range(sims):
+def _active_donors(
+    spec: Dict[str, Any], w: np.ndarray, rho: float
+) -> Tuple[np.ndarray, bool]:
+    """Donors entering the residual designs.
+
+    For the L1-type constraints (simplex, lasso, L1-L2) the donors whose
+    weight exceeds rho in absolute value (the largest one if none does); for
+    ridge and ols every donor. The flag reports the "none exceeds" case.
+    """
+    if spec["name"] in ("ridge", "ols"):
+        return np.ones(len(w), bool), False
+    keep = np.abs(w) > rho
+    if keep.any():
+        return keep, False
+    keep = np.zeros(len(w), bool)
+    keep[int(np.argmax(np.abs(w)))] = True
+    return keep, True
+
+
+def _design(Bk: np.ndarray, order: int, T0: int) -> Tuple[np.ndarray, int]:
+    """Residual design ``[B_active, 1]`` (order 1) or ``[1]`` (order 0).
+
+    Falls back to the constant when fewer than 11 observations per column
+    remain (``T0 <= columns + 10``). Returns ``(design, order_used)``.
+    """
+    ones = np.ones((Bk.shape[0], 1))
+    if order >= 1:
+        D = np.column_stack([Bk, ones])
+        if T0 > D.shape[1] + 10:
+            return D, order
+    return ones, 0
+
+
+def _quantile(x: np.ndarray, q: float, axis: int = 0) -> np.ndarray:
+    """Type-7 (linear) quantile ignoring NaN; NaN where nothing is finite."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return np.asarray(np.nanquantile(x, q, axis=axis), dtype=float)
+
+
+# ---------------------------------------------------------------------- #
+#  Out-of-sample error
+# ---------------------------------------------------------------------- #
+
+
+def _out_of_sample(
+    res: np.ndarray, De: np.ndarray, De_post: np.ndarray, alpha: float
+) -> Dict[str, Any]:
+    """Moments and bounds of the post-treatment error.
+
+    Conditional mean: least squares of the pre-treatment residuals on the
+    design. Conditional variance: the smaller of an exponential
+    (log-squared-residual) regression and the squared interquartile range
+    divided by 1.34, both from restricted regression quantiles. Quantile
+    bounds: restricted regression quantiles on the design, or the type-7
+    sample quantiles when the design is a constant.
+    Bounds: sub-Gaussian
+    ``mean -/+ sqrt(2 var log(2/alpha))``; location-scale with the empirical
+    quantiles of the standardised residuals; and regression quantiles.
+    """
+    fit, mean_post = _sv.lm_fitted(De, res, De_post)
+    dev2 = (res - fit) ** 2
+    tiny = np.finfo(float).tiny
+    log_dev2 = np.log(np.maximum(dev2, tiny))
+    lfit, lpost = _sv.lm_fitted(De, log_dev2, De_post)
+    var_exp_post, var_exp_in = np.exp(np.asarray(lpost)), np.exp(lfit)
+    taus = [0.25, 0.75, alpha / 2, 1 - alpha / 2]
+    qpost = De_post @ _sv.rrq(De, res, taus)
+    var_iqr = ((qpost[:, 1] - qpost[:, 0]) / IQR_TO_SD) ** 2
+    if De.shape[1] == 1:  # constant design: bounds at the sample (type-7) quantiles
+        qpost[:, 2:4] = np.quantile(res, taus[2:4])
+    var_post = np.minimum(var_exp_post, var_iqr)
+    half = np.sqrt(2.0 * var_post * np.log(2.0 / alpha))
+    eps = (res - fit) / np.sqrt(var_exp_in)
+    q_lo, q_hi = _quantile(eps, alpha / 2), _quantile(eps, 1 - alpha / 2)
+    sd = np.sqrt(var_post)
+    return {
+        "mean": mean_post,
+        "var": var_post,
+        "subgaussian": np.column_stack([mean_post - half, mean_post + half]),
+        "ls": np.column_stack([mean_post + sd * q_lo, mean_post + sd * q_hi]),
+        "qreg": qpost[:, 2:4].copy(),
+    }
+
+
+# ---------------------------------------------------------------------- #
+#  In-sample simulation
+# ---------------------------------------------------------------------- #
+
+
+def _solve_one(
+    c: np.ndarray, M: np.ndarray, G: np.ndarray, geom: Dict[str, Any], fallback: list
+) -> float:
+    """``c'y`` at the optimum of min c'y (NaN when unbounded or failed)."""
+    y = _sv.insample_solve(c, M, G, geom)
+    if isinstance(y, str):
+        return np.nan
+    if y is None:
+        y = _sv.insample_slsqp(c, M, G, geom)
+        fallback[0] += 1
+        if y is None:
+            return np.nan
+    return float(c @ y)
+
+
+def _simulate(
+    rows: np.ndarray,
+    M: np.ndarray,
+    zeta: np.ndarray,
+    geom: Dict[str, Any],
+    fallback: list,
+) -> np.ndarray:
+    """Per-draw lower and upper in-sample errors for each row of ``rows``.
+
+    Column ``t`` holds ``-max p_t'y`` and column ``H + t`` holds
+    ``-min p_t'y`` over the simulated feasible set (``H`` rows).
+    """
+    H = rows.shape[0]
+    S = zeta.shape[1]
+    out = np.full((S, 2 * H), np.nan)
+    for s in range(S):
         G = zeta[:, s]
-        if prob["kind"] == "z":
-            T = prob["T"]
-            Gz = T.T @ (Qm @ beta + G)
-            k0 = beta @ Qm @ beta + 2 * G @ beta
-        for h in range(H):
-            xt = P_rows[h]
-            for sign, store in ((-1.0, vlb), (1.0, vub)):
-                c = sign * xt
-                if prob["kind"] == "z":
-                    zsol = solve(T.T @ c, prob["Qz"], Gz, k0)
-                    y = (
-                        zsol
-                        if zsol is None or isinstance(zsol, str)
-                        else T @ zsol - beta
-                    )
-                else:
-                    y = solve(c, Qm, G, 0.0)
-                if isinstance(y, str):  # unbounded: R/ECOS reports a failed draw
-                    continue
-                if y is None:
-                    n_fallback += 1
-                    y = _sv.insample_slsqp(
-                        c,
-                        Qm,
-                        G,
-                        beta,
-                        {"p": spec["p"], "dir": spec["dir"]},
-                        geom["lb"],
-                        geom["Q_star"],
-                        geom["Q2_star"],
-                    )
-                if y is not None:
-                    store[s, h] = -xt @ y
-    return vlb, vub, n_fallback
+        for t in range(H):
+            p = rows[t]
+            hi = _solve_one(-p, M, G, geom, fallback)  # = -max p'y
+            lo = _solve_one(p, M, G, geom, fallback)  # = min p'y
+            out[s, t] = hi
+            out[s, H + t] = -lo
+    return out
+
+
+# ---------------------------------------------------------------------- #
+#  Driver
+# ---------------------------------------------------------------------- #
 
 
 def scpi_inference(
@@ -352,163 +349,167 @@ def scpi_inference(
     rho: Optional[Any] = None,
     rho_max: float = 0.2,
     aggregate: bool = False,
-) -> Any:
-    """Inference layer of R ``scpi`` given data matrices and weights.
+) -> Dict[str, Any]:
+    """Prediction-interval ingredients and bounds for given data and weights.
 
-    Separated from :func:`scpi` so the reference-parity test can hold it
-    against R on R's own weights (the weights themselves are compared
-    separately at the conic solver's tolerance).
+    ``A`` (T0), ``B`` (T0 x J) and ``P`` (T1 x J) are the pre-treatment
+    outcome of the treated unit, the donors' pre-treatment outcomes and their
+    post-treatment outcomes; ``w`` the estimated weights and ``spec`` their
+    constraint (``name``, ``Q``, ``Q2``, ``lambda``). ``draws`` (J x sims)
+    are standard normal draws (generated from ``rng`` when omitted). With
+    ``aggregate=True`` the bounds for the average over post-treatment periods
+    are added under ``"aggregate"``.
     """
-    if u_order not in (0, 1) or e_order not in (0, 1):
-        raise NotImplementedError(
-            "u_order / e_order > 1 are not ported (R u.order/e.order)."
-        )
     A = np.asarray(A, float)
     B = np.asarray(B, float)
     P = np.asarray(P, float)
     w = np.asarray(w, float)
     T0, J = B.shape
     T1 = P.shape[0]
+    if u_order > 1 or e_order > 1:
+        raise NotImplementedError(
+            "u_order / e_order > 1 (polynomial residual designs) are not implemented."
+        )
+    if draws is not None:
+        Z = np.asarray(draws, float)
+        if Z.shape != (J, sims):
+            raise MethodIncompatibility(
+                f"draws must have shape ({J}, {sims}) (donors x sims), got {Z.shape}.",
+                recovery_hint="Pass a donors x sims matrix of standard normal draws.",
+            )
+    else:
+        gen = rng if rng is not None else np.random.default_rng()
+        Z = gen.standard_normal((J, sims))
+
     res = A - B @ w
     geom = _local_geometry(spec, w, rho, rho_max, res, B)
-    index_w = geom["index_w"]
+    rho_v = geom["rho"]
+    if geom["rho_note"] == "low":
+        warnings.warn(
+            "sp.scpi: the data-driven rho was too low (below 1e-3, e.g. an exact "
+            f"pre-treatment fit); rho_max = {rho_max} is used instead.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    keep, none_above = _active_donors(spec, w, rho_v)
+    if none_above:
+        warnings.warn(
+            f"sp.scpi: rho was too high ({rho_v:.4g}): no weight exceeds it, so "
+            "only the largest weight is kept active in the residual designs.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
-    # ---- pseudo-residual conditional moments (u.missp) ----
+    df = _degrees_of_freedom(spec, w, B)
+    if df >= T0:
+        warnings.warn(
+            f"sp.scpi: the weights use {df:.4g} degrees of freedom, more degrees "
+            f"of freedom than observations (T0 = {T0}); df is capped at T0 - 1.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        df = float(T0 - 1)
+
+    # conditional moments of the pseudo-residuals
+    Bk = B[:, keep]
     if u_missp:
-        if u_order == 0:
-            u_des = np.ones((T0, 1))
-        else:
-            u_des = np.column_stack([B[:, index_w], np.ones(T0)])
-        if T0 - 10 <= u_des.shape[1]:
-            u_des = np.ones((T0, 1))
-            u_order = 0
-        u_mean = _proj_fitted(u_des, res)
-        u_T, u_params = T0, u_des.shape[1]
+        Du, u_order_used = _design(Bk, u_order, T0)
+        u_mean, _ = _sv.lm_fitted(Du, res)
+        u_T, u_params = T0, Du.shape[1]
     else:
         u_mean = np.zeros(T0)
-        u_T, u_params = 0, 0
-
-    df = _df_est(spec, w, B)
-    if df >= T0:
-        df = T0 - 1
-        warnings.warn(
-            "The specification uses more degrees of freedom than observations.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+        u_order_used, u_T, u_params = u_order, 0, 0
     vc = _hc_scale(u_sigma, B, T0, df)
-    omega = (res - u_mean) ** 2 * vc
-    Sigma = (B.T * omega) @ B / T0**2
-    Sigma_root = _sqrtm_psd(Sigma)
+    u_var = vc * (res - u_mean) ** 2
+    Sigma = (B.T * u_var) @ B / T0**2
 
-    # ---- in-sample simulation ----
-    if draws is None:
-        if rng is None:
-            rng = np.random.default_rng()
-        zraw = rng.standard_normal((J, sims))
-    else:
-        zraw = np.asarray(draws, float)
-        if zraw.shape != (J, sims):
-            raise MethodIncompatibility(
-                f"draws must have shape ({J}, {sims}), got {zraw.shape}."
-            )
-    zeta = Sigma_root @ zraw
-    P_rows = np.vstack([P, P.mean(axis=0)]) if aggregate else P
-    vlb, vub, n_fallback = _insample_sims(B, P_rows, w, spec, geom, zeta)
-    vsig_all = np.hstack([vlb, vub])
-    keep = np.sum(np.isnan(vsig_all), axis=1) < vsig_all.shape[1]
-    vlb_k, vub_k = vlb[keep], vub[keep]
-    n_rows = P_rows.shape[0]
-    if keep.any():
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN columns -> NaN
-            w_lb = np.nanquantile(vlb_k, u_alpha / 2, axis=0)
-            w_ub = np.nanquantile(vub_k, 1 - u_alpha / 2, axis=0)
-    else:
-        w_lb = w_ub = np.full(n_rows, np.nan)
+    # in-sample simulation
+    zeta = _sqrtm_psd(Sigma) @ Z
+    M = B.T @ B / T0
+    fallback = [0]
+    rows = np.vstack([P, P.mean(axis=0)]) if aggregate else P
+    vs_all = _simulate(rows, M, zeta, geom, fallback)
+    H = rows.shape[0]
+    lower_all, upper_all = vs_all[:, :H], vs_all[:, H:]
+    lower, upper = lower_all[:, :T1], upper_all[:, :T1]
+    vsig = np.hstack([lower, upper])
+    n_bad = int(np.isnan(vsig).sum())
+    if n_bad == vsig.size:
         warnings.warn(
-            "Every in-sample simulation problem was unbounded or failed (for "
-            "w_constr='ols' this happens when the donors outnumber the "
-            "pre-treatment periods: the weights are not identified). The "
-            "in-sample bounds are NaN, as R scpi's are.",
+            "sp.scpi: Every in-sample simulation problem was unbounded or failed "
+            "(e.g. more donors than pre-treatment periods without a norm "
+            "constraint); the in-sample bounds are NaN.",
             RuntimeWarning,
-            stacklevel=2,
+            stacklevel=3,
         )
-    failed = np.vstack(
-        [np.isnan(vlb).sum(axis=0) / sims * 100, np.isnan(vub).sum(axis=0) / sims * 100]
+    else:
+        _sv.warn_failed(n_bad, vsig.size)
+    failed = 100.0 * np.vstack([np.isnan(lower).mean(0), np.isnan(upper).mean(0)])
+    a1, a2 = float(u_alpha), float(e_alpha)
+    insample = np.column_stack([_quantile(lower, a1 / 2), _quantile(upper, 1 - a1 / 2)])
+
+    # out-of-sample error
+    De, e_order_used = _design(Bk, e_order, T0)
+    Pk = P[:, keep]
+    De_post = (
+        np.column_stack([Pk, np.ones(T1)]) if e_order_used >= 1 else np.ones((T1, 1))
     )
-    _sv.warn_failed(int(np.isnan(vsig_all).sum()), vsig_all.size)
+    oos = _out_of_sample(res, De, De_post, a2)
+    e_bounds = {"subgaussian": oos["subgaussian"], "ls": oos["ls"], "qreg": oos["qreg"]}
+    bounds = {"insample": insample}
+    for k, eb in e_bounds.items():
+        bounds[k] = insample + eb
 
-    # ---- out-of-sample ----
-    X0, X1, e_order_eff = _e_design(B, P_rows, index_w, e_order, T0)
-    ea = e_alpha / 2
-    g_lo, g_hi, e_mean, e_var = _scpi_out(res, X0, X1, "gaussian", ea)
-    l_lo, l_hi, _, _ = _scpi_out(res, X0, X1, "ls", ea)
-    if e_order_eff == 0:
-        q_lo = np.full(P_rows.shape[0], np.quantile(res, ea))
-        q_hi = np.full(P_rows.shape[0], np.quantile(res, 1 - ea))
-    else:
-        q_lo, q_hi, _, _ = _scpi_out(res, X0, X1, "qreg", ea)
+    # simultaneous bounds over the post-treatment horizon
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        lo_min = np.nanmin(lower, axis=1)
+        hi_max = np.nanmax(upper, axis=1)
+    m_lo, m_hi = _quantile(lo_min, a1 / 2), _quantile(hi_max, 1 - a1 / 2)
+    scale = np.sqrt(np.log(T1 + 1.0))
+    bounds["joint"] = np.column_stack(
+        [
+            m_lo + scale * e_bounds["subgaussian"][:, 0],
+            m_hi + scale * e_bounds["subgaussian"][:, 1],
+        ]
+    )
 
-    # ---- joint bounds (simultaneousPredGet, I = 1) ----
-    if keep.any():
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            lb_joint = np.quantile(np.nanmin(vlb_k[:, :T1], axis=1), u_alpha / 2)
-            ub_joint = np.quantile(np.nanmax(vub_k[:, :T1], axis=1), 1 - u_alpha / 2)
-    else:
-        lb_joint = ub_joint = np.nan
-    eps = np.sqrt(np.log(T1 + 1)) if T1 > 1 else 1.0
-    ML = g_lo[:T1] * eps + lb_joint
-    MU = g_hi[:T1] * eps + ub_joint
-
-    sl = slice(0, T1)
-    bounds = {
-        "insample": np.column_stack([w_lb[sl], w_ub[sl]]),
-        "subgaussian": np.column_stack([w_lb[sl] + g_lo[sl], w_ub[sl] + g_hi[sl]]),
-        "ls": np.column_stack([w_lb[sl] + l_lo[sl], w_ub[sl] + l_hi[sl]]),
-        "qreg": np.column_stack([w_lb[sl] + q_lo[sl], w_ub[sl] + q_hi[sl]]),
-        "joint": np.column_stack([ML, MU]),
-    }
-    out = {
-        "bounds": bounds,
-        "e_bounds": {
-            "subgaussian": np.column_stack([g_lo[sl], g_hi[sl]]),
-            "ls": np.column_stack([l_lo[sl], l_hi[sl]]),
-            "qreg": np.column_stack([q_lo[sl], q_hi[sl]]),
-        },
-        "CI": None,
-        "rho": geom["rho"],
+    out: Dict[str, Any] = {
+        "rho": rho_v,
         "Q_star": geom["Q_star"],
         "Q2_star": geom["Q2_star"],
         "lb": geom["lb"],
-        "index_w": index_w,
         "df": df,
         "u_mean": u_mean,
-        "u_var": omega,
+        "u_var": u_var,
         "u_T": u_T,
         "u_params": u_params,
-        "u_order": u_order,
+        "u_order": u_order_used,
         "Sigma": Sigma,
-        "e_mean": e_mean[sl],
-        "e_var": e_var[sl],
+        "e_mean": oos["mean"],
+        "e_var": oos["var"],
         "e_T": T0,
-        "e_params": X0.shape[1],
-        "e_order": e_order_eff,
-        "failed_sims": failed[:, sl],
-        "sims": sims,
-        "n_slsqp_fallback": n_fallback,
-        "vsig": np.hstack([vlb[:, sl], vub[:, sl]]),
+        "e_params": De.shape[1],
+        "e_order": e_order_used,
+        "e_bounds": e_bounds,
+        "bounds": bounds,
+        "vsig": vsig,
+        "failed_sims": failed,
+        "n_slsqp_fallback": int(fallback[0]),
+        "sims": int(sims),
+        "active_donors": keep,
     }
     if aggregate:
-        k = T1
-        out["aggregate"] = {
-            "insample": (float(w_lb[k]), float(w_ub[k])),
-            "subgaussian": (float(w_lb[k] + g_lo[k]), float(w_ub[k] + g_hi[k])),
-            "ls": (float(w_lb[k] + l_lo[k]), float(w_ub[k] + l_hi[k])),
-            "qreg": (float(w_lb[k] + q_lo[k]), float(w_ub[k] + q_hi[k])),
-            "e_subgaussian": (float(g_lo[k]), float(g_hi[k])),
-            "e_ls": (float(l_lo[k]), float(l_hi[k])),
-            "e_qreg": (float(q_lo[k]), float(q_hi[k])),
-        }
+        a_lo, a_hi = lower_all[:, T1], upper_all[:, T1]
+        agg_in = np.array([_quantile(a_lo, a1 / 2), _quantile(a_hi, 1 - a1 / 2)])
+        row = De_post.mean(axis=0, keepdims=True)
+        agg_oos = _out_of_sample(res, De, row, a2)
+        agg: Dict[str, Any] = {"insample": agg_in}
+        for k in ("subgaussian", "ls", "qreg"):
+            eb = agg_oos[k][0]
+            agg["e_" + k] = eb
+            agg[k] = agg_in + eb
+        agg["e_mean"] = float(agg_oos["mean"][0])
+        agg["e_var"] = float(agg_oos["var"][0])
+        out["aggregate"] = agg
     return out

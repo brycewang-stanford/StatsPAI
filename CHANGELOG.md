@@ -69,6 +69,35 @@ Audit rows H13-H18 and H22 of `docs/dev/2026-10-20-license-provenance-audit.md`:
   `sp.drdid(method='trad')` on repeated cross-sections and
   `callaway_santanna(panel=False, estimator='dr')`.
 
+### `sp.scdata` / `sp.scest` / `sp.scpi`: clean-room rewrite
+
+- **Changed**: the scpi family (`synth/scpi.py` and its private
+  `_scpi_inference.py` / `_scpi_solvers.py`, plus the new `_scpi_insample.py`,
+  `_scpi_simulate.py` and `_scpi_qp.py`) is reimplemented from scratch. The previous code
+  described itself as a port of R `scpi` (GPL-3; license-provenance audit
+  row H1). The new code was written from Cattaneo, Feng and Titiunik (2021),
+  the scpi JSS article (2025), the staggered-adoption paper and its
+  supplement, the R help pages, this repository's tests and fixtures, and
+  R `scpi` 4.0.1 run as a black box; the specification and the evidence for
+  every convention are in `docs/dev/cleanroom/scpi.md`. Signatures and
+  result fields are unchanged. Against R, fed R's weights and draws, the
+  bounds agree within R's own solver tolerances on 110 of 113 black-box
+  panels (the other three are R solver artefacts, documented). New fixture
+  `tests/reference_parity/test_scpi_cleanroom_parity.py` (17 configurations
+  on three committed panels) pins the conventions the papers leave open:
+  rho rules, the radii of the simulation constraint set, HC2 / HC4 leverage,
+  residual designs, levels, and constant out-of-sample designs.
+- **⚠️ Correctness**: `sp.scpi(w_constr='L1-L2')` in-sample bounds (and the
+  combined and joint bounds built on them) were off R by 1.6e-4 to 6.3e-3 on
+  eight of 26 black-box panels and by 1.4e-2 on the new fixture's short
+  panel; they now agree with R within its solver tolerance (5e-6 here). Other
+  constraints are unchanged (old and new agree to 1e-10 on the Germany
+  fixture and to 1e-13 on seeded runs, same draw stream).
+- **Fixed**: in-sample problems on ill-conditioned designs that the
+  previous code left unsolved (NaN draws) or handed to SLSQP are solved
+  exactly (on one test panel: 294 SLSQP fallbacks and 11 failed draws
+  before, none now; the solved values agree to 7e-13).
+
 ### `sp.panel_match`: clean-room rewrite
 
 - **Changed**: `sp.panel_match` is reimplemented from scratch

@@ -6242,8 +6242,10 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "lasso / ridge were penalised estimators on standardised data rather "
         "than R scpi's norm-constrained weights, and sp.scpi was not the "
         "Cattaneo-Feng-Titiunik procedure (subsampling variance + Gaussian "
-        "PI; intervals 2-4x too narrow on scpi_germany). Both were rewritten "
-        "as a port of R scpi.",
+        "PI; intervals 2-4x too narrow on scpi_germany). Both were rewritten; "
+        "on 2026-10-20 the family was re-implemented clean-room from the "
+        "papers and help pages with R scpi as a black box "
+        "(docs/dev/cleanroom/scpi.md).",
     },
     "scest": {
         "status": "aligned",
@@ -6262,13 +6264,19 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "and ||w_R - w_py|| <= sqrt(gap / lambda_min(B'B)) (observed "
         "2.0e-6 / 1.4e-5 / 2.9e-7).",
         "sides": ["py", "R"],
-        "test": ["tests/reference_parity/test_did_synth_scpi_parity.py"],
+        "test": [
+            "tests/reference_parity/test_did_synth_scpi_parity.py",
+            "tests/reference_parity/test_scpi_cleanroom_parity.py",
+        ],
         "note": "Correctness fix in the phase-3 sweep: lasso / ridge were "
         "penalised coordinate descent / ridge regression with lambda = 1 on "
         "standardised data (weights off by up to 0.23 from R); now ||w||_1 <= "
-        "1 and ||w||_2 <= Q with R's shrinkage.EST radius. lasso_lambda / "
-        "ridge_lambda deprecated (ignored with DeprecationWarning); L1-L2 "
-        "added.",
+        "1 and ||w||_2 <= Q with the documented data-driven radius. "
+        "lasso_lambda / ridge_lambda deprecated (ignored with "
+        "DeprecationWarning); L1-L2 added. Clean-room re-implementation "
+        "2026-10-20 (docs/dev/cleanroom/scpi.md); the radius rule on a "
+        "screened design (T0 - J <= 10) and user radii are pinned in "
+        "test_scpi_cleanroom_parity.py.",
     },
     "scpi": {
         "status": "aligned",
@@ -6290,12 +6298,19 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "within 2e-3 abs. Average-effect CI = scdataMulti(effect = "
         "'unit') within 5e-4. J > T0 (California, 38 donors) covered.",
         "sides": ["py", "R"],
-        "test": ["tests/reference_parity/test_did_synth_scpi_parity.py"],
+        "test": [
+            "tests/reference_parity/test_did_synth_scpi_parity.py",
+            "tests/reference_parity/test_scpi_cleanroom_parity.py",
+        ],
         "note": "Correctness fix in the phase-3 sweep: sp.scpi was a different "
         "procedure under the scpi name (subsampling in-sample variance, "
         "residual-variance out-of-sample term, Gaussian PI, invented SE / "
-        "p-value); now a port of R scpi solved exactly (active-set QCQP per "
-        "draw, exact LP quantile regressions). Simulated bounds with "
+        "p-value); now the Cattaneo-Feng-Titiunik procedure solved exactly "
+        "(active-set QCQP per draw, exact LP quantile regressions), "
+        "re-implemented clean-room on 2026-10-20 with R scpi as a black box "
+        "(docs/dev/cleanroom/scpi.md); the conventions the papers leave open "
+        "are pinned on 17 more configurations in "
+        "test_scpi_cleanroom_parity.py. Simulated bounds with "
         "StatsPAI's own RNG are Monte Carlo relative to R (T3); pass draws= "
         "to reproduce R. Default simplex end-to-end rho / df differ from R "
         "because CLARABEL leaves one donor at 2.0e-6 >= scpi's 1e-6 active "

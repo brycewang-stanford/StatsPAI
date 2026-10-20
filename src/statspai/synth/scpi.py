@@ -1,32 +1,30 @@
 """
-Prediction Intervals for Synthetic Control Methods (port of R ``scpi``).
+Prediction intervals for synthetic control methods.
 
-``sp.scdata`` / ``sp.scest`` / ``sp.scpi`` reproduce the single-treated-unit,
-outcome-only path of the R package ``scpi`` (Cattaneo, Feng, Palomba and
-Titiunik; ``scdata`` -> ``scest`` -> ``scpi``) with ``V = "separate"``
-(identity weighting matrix), no covariate adjustment and no constant:
+``sp.scdata`` / ``sp.scest`` / ``sp.scpi`` implement the synthetic control
+prediction and the prediction intervals of Cattaneo, Feng and Titiunik
+[@cattaneo2021prediction] in the form documented for the ``scpi`` software
+[@cattaneo2025scpi]: one treated unit, the outcome as the only feature, no
+covariate adjustment and an identity weighting matrix.
 
-* **weights** (``scest``): ``simplex`` (w >= 0, sum = Q, Q = 1), ``lasso``
-  (||w||_1 <= Q, Q = 1), ``ridge`` (||w||_2 <= Q, Q from the shrinkage rule
-  of ``shrinkage.EST``), ``L1-L2`` (simplex and ||w||_2 <= Q2) and ``ols``.
-* **in-sample uncertainty**: the simulation of ``insampleUncertaintyGetDiag``
-  -- conditional variance ``Sigma`` of the pseudo-residuals (``u.sigma``
-  HC0-HC4, conditional mean from ``u.order``), the regularisation ``rho``
-  (``type-1`` / ``type-2``), the locally relaxed constraint set of
-  ``local.geom`` / ``local.geom.2step`` and, for each draw
-  ``G = Sigma^{1/2} z``, the min / max of ``p_t'(b - beta)`` over
-  ``{(b - beta)'Q(b - beta) - 2 G'(b - beta) <= 0}`` intersected with that set.
-* **out-of-sample uncertainty** (``scpi.out``): ``gaussian`` (sub-Gaussian
-  bound), ``ls`` (location-scale) and ``qreg`` (restricted regression
-  quantiles, ``Qtools::rrq``), with the ``e.order`` design.
-* **joint (simultaneous) bounds** of ``simultaneousPredGet``.
+* weights: ``simplex`` (``w >= 0, sum(w) = 1``), ``lasso``
+  (``||w||_1 <= Q``), ``ridge`` (``||w||_2 <= Q`` with a data-driven Q),
+  ``L1-L2`` (simplex and ``||w||_2 <= Q2``) and ``ols``;
+* in-sample uncertainty: simulated bounds on ``p_t'(w_hat - w_0)``;
+* out-of-sample uncertainty: sub-Gaussian, location-scale or
+  quantile-regression bounds on the post-treatment error;
+* simultaneous bounds over the post-treatment periods.
 
-The optimisation problems that R hands to CVXR / ECOS / quantreg are solved
-exactly here (active set, closed form, HiGHS LP; see ``_scpi_solvers``).
+Clean-room implementation: written from the papers and the R ``scpi`` help
+pages, with R ``scpi`` (GPL-3) run only as a black box to settle
+conventions; no reference source was read. The specification and the
+black-box evidence are in ``docs/dev/cleanroom/scpi.md``. Several treated
+units (``sp.scest(treat=)``) are handled in ``_scest_multi``.
 
 References
 ----------
 [@cattaneo2021prediction]
+[@cattaneo2025scpi]
 """
 
 from __future__ import annotations
@@ -44,11 +42,28 @@ from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _scpi_solvers as _sv
 from ._scpi_inference import scpi_inference
 
+__all__ = ["scdata", "scest", "scpi"]
+
 _W_CONSTR = ("simplex", "lasso", "ridge", "ols", "L1-L2")
+_W_ALIASES = {
+    "ls": "ols",
+    "LS": "ols",
+    "l1-l2": "L1-L2",
+    "L1L2": "L1-L2",
+    "l1l2": "L1-L2",
+}
+_PI_TYPES = ("in_sample", "out_of_sample", "both")
+_E_METHODS = {"gaussian": "subgaussian", "ls": "ls", "qreg": "qreg"}
+_RADIUS_FLOOR = 0.5  # smallest data-driven ridge radius
+_MIN_T0_RADIUS = 5  # below this many pre-periods the ridge lambda is not reported
+
+
+def _sort_key(v: Any) -> Any:
+    return (str(type(v)), v)
 
 
 # ====================================================================== #
-#  Public API: scdata, scest, scpi
+#  Data preparation
 # ====================================================================== #
 
 
@@ -61,14 +76,7 @@ def scdata(
     treated_unit: Any,
     treatment_time: Any,
 ) -> Dict[str, Any]:
-    """
-    Prepare data matrices for synthetic control estimation.
-
-    Reshapes a long-format panel into the matrices of R ``scpi::scdata``
-    (features = outcome only, no ``cov.adj``, ``constant = FALSE``):
-    ``A`` (treated pre-treatment outcomes), ``B`` (donor pre-treatment
-    outcomes, donors in sorted order as R's ``sort(B.names)``), ``C = None``
-    and ``P`` (donor post-treatment outcomes).
+    """Prepare data matrices for synthetic control estimation.
 
     Parameters
     ----------
@@ -80,121 +88,258 @@ def scdata(
         Unit identifier column name.
     time : str
         Time period column name.
-    treated_unit : scalar
+    treated_unit : Any
         Identifier of the treated unit.
-    treatment_time : scalar
-        First treatment period (periods ``< treatment_time`` are pre-treatment).
+    treatment_time : Any
+        First treatment period (periods ``< treatment_time`` are
+        pre-treatment).
 
     Returns
     -------
     dict
-        Keys:
-
-        - ``A`` / ``Y_pre``  : treated unit pre-treatment outcomes (T0,)
-        - ``Y_post`` : treated unit post-treatment outcomes (T1,)
-        - ``B`` / ``Y_donors_pre``  : donor pre-treatment matrix (T0, J)
-        - ``P`` / ``Y_donors_post`` : donor post-treatment matrix (T1, J)
-        - ``C`` : ``None`` (no covariate adjustment)
-        - ``J``, ``KM`` (= 0), ``T0``, ``T1`` : dimensions as in R ``specs``
-        - ``donor_names``   : list of donor unit labels (column order of B)
-        - ``pre_times`` / ``post_times`` / ``times`` : time values
-        - ``treated_unit`` / ``treatment_time`` : echoes
+        ``A`` (pre-treatment outcome of the treated unit, length T0),
+        ``B`` (donors' pre-treatment outcomes, T0 x J), ``C`` (``None``: no
+        covariate adjustment), ``P`` (donors' post-treatment outcomes,
+        T1 x J), ``J``, ``KM`` (0), ``T0``, ``T1``, the outcome series
+        ``Y_pre`` / ``Y_post`` / ``Y_donors_pre`` / ``Y_donors_post``,
+        ``donor_names`` (sorted), ``pre_times`` / ``post_times`` / ``times``,
+        ``treated_unit`` and ``treatment_time``.
 
     Notes
     -----
-    Donors with any missing pre-treatment outcome are dropped with a warning
-    (R instead drops donors that are missing in *every* pre-treatment period
-    and then the periods with any missing value); both agree on balanced
-    panels.
+    Duplicate (unit, time) rows and missing outcomes of the treated unit
+    are refused. Donors with a missing pre-treatment outcome are dropped
+    with a warning; a donor missing a post-treatment outcome is refused,
+    because the synthetic control would be undefined in that period.
 
     Examples
     --------
     >>> import statspai as sp
-    >>> df = sp.california_prop99()  # cols: state, year, packspercapita
-    >>> prepared = sp.scdata(df, outcome='packspercapita', unit='state',
-    ...     time='year', treated_unit='California', treatment_time=1989)
-    >>> prepared['Y_pre'].shape  # 19 pre-treatment years (1970-1988)
-    (19,)
+    >>> df = sp.california_prop99()
+    >>> d = sp.scdata(df, outcome="packspercapita", unit="state",
+    ...               time="year", treated_unit="California",
+    ...               treatment_time=1989)
+    >>> d["B"].shape == (d["T0"], d["J"])
+    True
+
+    References
+    ----------
+    [@cattaneo2025scpi]
     """
     check_columns(
-        data,
-        {
-            "outcome": outcome,
-            "unit": unit,
-            "time": time,
-        },
-        function="sp.scdata",
+        data, {"outcome": outcome, "unit": unit, "time": time}, function="sp.scdata"
     )
-    if data.duplicated([unit, time]).any():
-        raise MethodIncompatibility(f"Duplicate ({unit}, {time}) rows in data.")
-    pivot = data.pivot(index=time, columns=unit, values=outcome).sort_index()
-    times = pivot.index.values
-    pre_mask = times < treatment_time
-    post_mask = times >= treatment_time
-
-    if pre_mask.sum() < 2:
-        raise ValueError("Need at least 2 pre-treatment periods.")
-    if post_mask.sum() < 1:
-        raise ValueError("Need at least 1 post-treatment period.")  # pragma: no cover
-
-    if treated_unit not in pivot.columns:
-        raise ValueError(  # pragma: no cover
-            f"Treated unit '{treated_unit}' not found in data."
+    df = data[[unit, time, outcome]]
+    if df.duplicated([unit, time]).any():
+        raise MethodIncompatibility(
+            "Duplicate (unit, time) rows in data.",
+            recovery_hint="Aggregate or drop the repeated unit-period rows first.",
+            diagnostics={"n_duplicates": int(df.duplicated([unit, time]).sum())},
         )
-
-    Y_treated = pivot[treated_unit].values.astype(np.float64)
-    if np.isnan(Y_treated).any():
-        raise MethodIncompatibility("The treated unit has missing outcome values.")
-    donor_cols = sorted((c for c in pivot.columns if c != treated_unit), key=str)
-
-    if len(donor_cols) == 0:
-        raise ValueError("No donor units found.")  # pragma: no cover
-
-    Y_donors = pivot[donor_cols].values.astype(np.float64)
-
-    pre_donors = Y_donors[pre_mask]
-    valid = ~np.any(np.isnan(pre_donors), axis=0)
-    if valid.sum() == 0:
-        raise ValueError(
-            "All donor units have missing pre-treatment data."
-        )  # pragma: no cover
-    if not valid.all():
-        dropped = [donor_cols[i] for i in range(len(donor_cols)) if not valid[i]]
+    if treated_unit not in set(df[unit]):
+        raise MethodIncompatibility(
+            f"Treated unit {treated_unit!r} not found in data.",
+            recovery_hint=f"Pass one of the values of the {unit!r} column.",
+        )
+    wide = df.pivot(index=time, columns=unit, values=outcome).sort_index()
+    times = wide.index.to_numpy()
+    pre_mask = times < treatment_time
+    T0, T1 = int(pre_mask.sum()), int((~pre_mask).sum())
+    if T0 < 2:
+        raise DataInsufficient(
+            "Need at least 2 pre-treatment periods.",
+            recovery_hint="Use a later treatment_time or a longer panel.",
+            diagnostics={"n_pre_periods": T0},
+        )
+    if T1 < 1:
+        raise DataInsufficient(
+            "Need at least 1 post-treatment period.",
+            recovery_hint="treatment_time must not be after the last period.",
+            diagnostics={"n_post_periods": T1},
+        )
+    y_tr = wide[treated_unit].to_numpy(dtype=float)
+    if np.isnan(y_tr).any():
+        raise MethodIncompatibility(
+            "The treated unit has missing outcome values.",
+            recovery_hint="Impute or drop the periods where the treated "
+            "unit's outcome is missing.",
+            diagnostics={"missing_times": times[np.isnan(y_tr)].tolist()},
+        )
+    donors = sorted((u for u in wide.columns if u != treated_unit), key=_sort_key)
+    Yd = wide[donors]
+    bad_pre = [
+        u for u in donors if np.isnan(Yd[u].to_numpy(dtype=float)[pre_mask]).any()
+    ]
+    if bad_pre:
         warnings.warn(
-            f"Dropping donors with missing pre-treatment outcomes: {dropped}",
+            f"Dropping donors with missing pre-treatment outcomes: {bad_pre}",
             UserWarning,
             stacklevel=2,
         )
-    Y_donors = Y_donors[:, valid]
-    donor_cols = [donor_cols[i] for i in range(len(donor_cols)) if valid[i]]
-    if np.isnan(Y_donors[post_mask]).any():
-        raise MethodIncompatibility(
-            "Donor outcomes are missing in the post-treatment period."
+        donors = [u for u in donors if u not in bad_pre]
+        Yd = wide[donors]
+    if not donors:
+        raise DataInsufficient(
+            "All donor units have missing pre-treatment data.",
+            recovery_hint="Supply donors observed in every pre-treatment period.",
         )
-
-    A = Y_treated[pre_mask]
-    B = Y_donors[pre_mask]
-    P = Y_donors[post_mask]
+    Ydv = Yd.to_numpy(dtype=float)
+    bad_post = [u for j, u in enumerate(donors) if np.isnan(Ydv[~pre_mask, j]).any()]
+    if bad_post:
+        raise MethodIncompatibility(
+            f"Donors {bad_post} have outcomes missing in the post-treatment period.",
+            recovery_hint="Drop those donors or impute their post-treatment outcomes.",
+            diagnostics={"donors": bad_post},
+        )
+    B = Ydv[pre_mask]
+    P = Ydv[~pre_mask]
     return {
-        "A": A,
+        "A": y_tr[pre_mask].copy(),
         "B": B,
         "C": None,
         "P": P,
-        "J": B.shape[1],
+        "J": len(donors),
         "KM": 0,
-        "T0": int(pre_mask.sum()),
-        "T1": int(post_mask.sum()),
-        "Y_pre": A,
-        "Y_post": Y_treated[post_mask],
-        "Y_donors_pre": B,
-        "Y_donors_post": P,
-        "donor_names": donor_cols,
+        "T0": T0,
+        "T1": T1,
+        "Y_pre": y_tr[pre_mask].copy(),
+        "Y_post": y_tr[~pre_mask].copy(),
+        "Y_donors_pre": B.copy(),
+        "Y_donors_post": P.copy(),
+        "donor_names": list(donors),
         "pre_times": times[pre_mask],
-        "post_times": times[post_mask],
+        "post_times": times[~pre_mask],
         "times": times,
         "treated_unit": treated_unit,
         "treatment_time": treatment_time,
     }
+
+
+# ====================================================================== #
+#  Weight constraints and estimation
+# ====================================================================== #
+
+
+def _warn_deprecated_lambdas(lasso_lambda: Any, ridge_lambda: Any) -> None:
+    if lasso_lambda is not None or ridge_lambda is not None:
+        warnings.warn(
+            "lasso_lambda / ridge_lambda are ignored: sp.scest and sp.scpi bound "
+            "the norm of the weights instead of penalising it. Pass Q= (and "
+            "Q2= for L1-L2) to set the bound.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
+
+def _normalise_constr(w_constr: str) -> str:
+    name = _W_ALIASES.get(w_constr, w_constr)
+    if name not in _W_CONSTR:
+        raise MethodIncompatibility(
+            f"w_constr must be one of {_W_CONSTR} (or 'ls'), got {w_constr!r}.",
+            recovery_hint="Use 'simplex' (default), 'lasso', 'ridge', "
+            "'L1-L2' or 'ols'.",
+            diagnostics={"w_constr": w_constr},
+        )
+    return name
+
+
+def _positive(name: str, value: Any) -> float:
+    v = float(value)
+    if not np.isfinite(v) or v <= 0:
+        raise MethodIncompatibility(
+            f"{name} must be a positive number, got {value!r}.",
+            recovery_hint=f"Pass {name} > 0 or leave it at the default.",
+        )
+    return v
+
+
+def _ridge_radius(A: np.ndarray, B: np.ndarray) -> Dict[str, float]:
+    """Data-driven ridge radius, floored at 0.5; lambda NaN for T0 < 5."""
+    est = _sv.shrinkage_ridge(A, B, B.shape[1])
+    Q = max(est["Q"], _RADIUS_FLOOR)
+    lam = est["lambda"] if B.shape[0] >= _MIN_T0_RADIUS else np.nan
+    return {"Q": float(Q), "lambda": float(lam)}
+
+
+def _constraint_spec(
+    A: np.ndarray,
+    B: np.ndarray,
+    name: str,
+    Q: Optional[Any] = None,
+    Q2: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Constraint description for the weights (outcome feature, V = I).
+
+    Keys: ``name``, ``p`` (norm), ``dir`` (direction), ``lb`` (lower bound
+    on each weight), ``Q`` (norm bound), ``Q2`` (L2 bound of ``L1-L2``) and
+    ``lambda`` (shrinkage parameter of the data-driven ridge radius; ``None``
+    when the radius is user-given or does not apply).
+    """
+    name = _normalise_constr(name)
+    spec: Dict[str, Any] = {"name": name, "Q2": None, "lambda": None}
+    if name == "simplex":
+        spec.update(p="L1", dir="==", lb=0.0, Q=1.0 if Q is None else _positive("Q", Q))
+    elif name == "lasso":
+        spec.update(
+            p="L1", dir="<=", lb=-np.inf, Q=1.0 if Q is None else _positive("Q", Q)
+        )
+    elif name == "ridge":
+        spec.update(p="L2", dir="<=", lb=-np.inf)
+        if Q is None:
+            rr = _ridge_radius(np.asarray(A, float), np.asarray(B, float))
+            spec.update(Q=rr["Q"], **{"lambda": rr["lambda"]})
+        else:
+            spec["Q"] = _positive("Q", Q)
+    elif name == "L1-L2":
+        spec.update(
+            p="L1-L2", dir="==/<=", lb=0.0, Q=1.0 if Q is None else _positive("Q", Q)
+        )
+        if Q2 is None:
+            rr = _ridge_radius(np.asarray(A, float), np.asarray(B, float))
+            lam = rr["lambda"] if np.isfinite(rr["lambda"]) else 0.0
+            spec.update(Q2=rr["Q"], **{"lambda": lam})
+        else:
+            spec["Q2"] = _positive("Q2", Q2)
+    else:
+        spec.update(p="no norm", dir=None, lb=-np.inf, Q=None)
+    return spec
+
+
+def _solve_weights(A: np.ndarray, B: np.ndarray, spec: Dict[str, Any]) -> np.ndarray:
+    name = spec["name"]
+    if name == "simplex":
+        return _sv.simplex_weights(B, A, spec["Q"])
+    if name == "lasso":
+        return _sv.lasso_ball(B, A, spec["Q"])
+    if name == "ridge":
+        return _sv.ridge_ball(B, A, spec["Q"])
+    if name == "L1-L2":
+        if spec["Q"] != 1.0:
+            raise MethodIncompatibility(
+                "L1-L2 weights sum to one; Q is fixed at 1.",
+                recovery_hint="Drop Q= (use Q2= for the L2 bound).",
+            )
+        return _sv.simplex_l2(B, A, spec["Q2"])
+    T0, J = B.shape
+    if np.linalg.matrix_rank(B) < J:
+        warnings.warn(
+            f"OLS weights are not identified ({J} donors, rank "
+            f"{np.linalg.matrix_rank(B)} "
+            f"with T0 = {T0}); the minimum-norm least-squares weights are reported.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return np.asarray(np.linalg.lstsq(B, A, rcond=None)[0], dtype=float)
+
+
+def _fit_weights(
+    A: Any, B: Any, w_constr: Any, Q: Optional[Any] = None, Q2: Optional[Any] = None
+) -> Any:
+    """Weights and their constraint description: ``(w, spec)``."""
+    A = np.asarray(A, float)
+    B = np.asarray(B, float)
+    spec = _constraint_spec(A, B, w_constr, Q, Q2)
+    return _solve_weights(A, B, spec), spec
 
 
 @accepts_aliases(id="unit", y="outcome")
@@ -214,11 +359,7 @@ def scest(
     effect: str = "unit-time",
     anticipation: int = 0,
 ) -> Dict[str, Any]:
-    """
-    Estimate synthetic control weights (R ``scpi::scest``).
-
-    Solves min_w ||A - B w||^2 (``V`` = identity, R's ``V = "separate"``)
-    over the constraint set named by ``w_constr``.
+    """Estimate synthetic control weights.
 
     Parameters
     ----------
@@ -230,106 +371,72 @@ def scest(
         Unit identifier column name.
     time : str
         Time period column name.
-    treated_unit : scalar, optional
+    treated_unit : Any, optional
         Identifier of the treated unit. With ``treat=``, optionally the
-        subset of treated units to estimate (R ``units.est``); default all.
-    treatment_time : scalar, optional
+        subset of treated units to estimate (default all).
+    treatment_time : Any, optional
         First treatment period of the single treated unit. Not used with
         ``treat=``, where each unit's adoption period is read from the
         treatment column.
     w_constr : str, default 'simplex'
-        Weight constraint, as in R ``w.constr = list(name = ...)``:
+        Constraint on the weights:
 
-        - ``'simplex'`` : w >= 0, sum(w) = Q (Q = 1)
-        - ``'lasso'``   : ||w||_1 <= Q (Q = 1), weights may be negative
-        - ``'ridge'``   : ||w||_2 <= Q, Q from R's ``shrinkage.EST`` rule
-          (``max(Q_hat, 0.5)`` with Q_hat = ||b_ols|| / (1 + lambda),
-          lambda = sigma^2 J / ||b_ols||^2)
-        - ``'L1-L2'``   : w >= 0, sum(w) = 1 and ||w||_2 <= Q2 (Q2 as ridge Q)
-        - ``'ols'``     : unconstrained least squares (``'ls'`` is an alias)
+        - ``'simplex'``: ``w >= 0``, ``sum(w) = Q`` (Q = 1);
+        - ``'lasso'``: ``||w||_1 <= Q`` (Q = 1), weights may be negative;
+        - ``'ridge'``: ``||w||_2 <= Q``, by default
+          ``Q = max(||b|| / (1 + lambda), 0.5)`` with ``b`` the least-squares
+          weights (on a lasso-selected subset of donors when
+          ``T0 - J <= 10``) and ``lambda = k sigma^2 / ||b||^2``;
+        - ``'L1-L2'``: ``w >= 0``, ``sum(w) = 1`` and ``||w||_2 <= Q2``
+          (Q2 as the ridge Q);
+        - ``'ols'`` (alias ``'ls'``): unconstrained least squares.
     lasso_lambda, ridge_lambda : float, optional
-        Deprecated and ignored (emit ``DeprecationWarning``).  Before 1.28.x
-        these set L1 / L2 *penalties* of a different estimator; R ``scpi``
-        constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.
+        Deprecated and ignored (a ``DeprecationWarning`` is raised); the
+        weights are norm-bounded, use ``Q`` / ``Q2``.
     Q : float, optional
-        Norm bound of the constraint (sum of weights for ``simplex``).
-        Default: R's data-driven value.
+        Norm bound for ``'simplex'`` / ``'lasso'`` / ``'ridge'``.
     Q2 : float, optional
-        L2 bound for ``'L1-L2'``.  Default: R's ridge rule.
+        L2 bound for ``'L1-L2'``.
     treat : str, optional
-        0/1 treatment column (1 from a unit's adoption period on): several
-        treated units with staggered adoption (R ``scdataMulti``). Each
-        treated unit gets its own weights, fitted on its periods before
-        adoption with the never-treated units as donors; units treated
-        later are never donors.
+        0/1 treatment column for several treated units with staggered
+        adoption; each treated unit gets its own fit with the never-treated
+        units as donors.
     effect : {'unit-time', 'unit', 'time'}, default 'unit-time'
-        With ``treat=``: which summary of the post-treatment gaps is in
-        ``effects``. ``'unit-time'`` every unit-period gap, ``'unit'``
-        each unit's average over its post-treatment periods, ``'time'``
-        the average across treated units at horizons ``1..min_i T1_i``.
+        With ``treat=``: report every gap, each unit's average gap, or the
+        average across units by horizon.
     anticipation : int, default 0
-        With ``treat=``: number of periods before adoption that may already
-        respond; they are moved out of the pre-treatment window.
+        With ``treat=``: number of periods before adoption excluded from
+        the pre-treatment fit.
 
     Returns
     -------
     dict
-        With ``treat=`` the keys are ``weights`` (DataFrame, donors by
-        treated unit), ``w_constr``, ``w_constr_spec`` (per unit),
-        ``effect``, ``effects`` (DataFrame of the chosen summary with
-        ``outcome``, ``synthetic`` and ``effect`` columns),
-        ``Y_synth_post`` (its ``synthetic`` column, R ``Y.post.fit``),
-        ``unit_time_effects`` (every gap, with ``horizon``), ``pre_fit``,
-        ``pre_rmspe`` (per unit), ``treated_units``, ``adoption_times``,
-        ``treatment_times`` (first post-treatment period after
-        anticipation), ``anticipation``, ``donor_names`` and ``unit_fits``
-        (each unit's single-unit result). Otherwise the keys are:
-
-        - ``weights``       : np.ndarray (J,) of estimated donor weights
-        - ``w_constr``      : constraint name
-        - ``w_constr_spec`` : dict(name, p, dir, Q, Q2, lb, lambda) as in R
-        - ``Y_synth_pre``   : synthetic pre-treatment outcomes (R ``Y.pre.fit``)
-        - ``Y_synth_post``  : synthetic post-treatment outcomes (R ``Y.post.fit``)
-        - ``residuals_pre`` : pre-treatment fit residuals
-        - ``effects``       : post-treatment gaps (treated - synthetic)
-        - ``pre_rmspe``     : root mean squared prediction error (pre)
-        - ``donor_names``   : donor labels
-        - ``sc_data``       : the prepared data dict from ``scdata``
+        ``weights`` (array in ``donor_names`` order), ``w_constr``,
+        ``w_constr_spec``, ``Y_synth_pre`` / ``Y_synth_post``,
+        ``residuals_pre``, ``effects`` (post-treatment gaps), ``pre_rmspe``,
+        ``donor_names`` and ``sc_data`` (the :func:`scdata` output). With
+        ``treat=`` see :mod:`statspai.synth._scest_multi`.
 
     Examples
     --------
     >>> import statspai as sp
-    >>> df = sp.california_prop99()  # cols: state, year, packspercapita
-    >>> est = sp.scest(df, outcome='packspercapita', unit='state',
-    ...     time='year', treated_unit='California', treatment_time=1989)
-    >>> bool(est['pre_rmspe'] >= 0)  # pre-treatment fit RMSPE
-    True
-    >>> est['Y_synth_post'].shape  # 12 post-treatment years (1989-2000)
-    (12,)
-
-    Several treated units adopting at different dates:
-
-    >>> import numpy as np, pandas as pd
-    >>> rng = np.random.default_rng(0)
-    >>> rows = [(f"u{i}", t, i + 0.1 * t + rng.normal(0, 0.1),
-    ...          int((i, t) in {(0, 5), (0, 6), (1, 6)}))
-    ...         for i in range(6) for t in range(7)]
-    >>> panel = pd.DataFrame(rows, columns=["unit", "t", "y", "d"])
-    >>> multi = sp.scest(panel, outcome="y", unit="unit", time="t",
-    ...                  treat="d", effect="time")
-    >>> list(multi["effects"].columns)
-    ['horizon', 'n_units', 'outcome', 'synthetic', 'effect']
+    >>> df = sp.california_prop99()
+    >>> est = sp.scest(df, outcome="packspercapita", unit="state",
+    ...                time="year", treated_unit="California",
+    ...                treatment_time=1989)
+    >>> round(float(est["weights"].sum()), 6)
+    1.0
 
     References
     ----------
-    [@cattaneo2021prediction], [@cattaneo2025scpi]
+    [@cattaneo2025scpi]
     """
     _warn_deprecated_lambdas(lasso_lambda, ridge_lambda)
     if treat is not None:
         if treatment_time is not None:
             raise MethodIncompatibility(
-                "sp.scest: with treat= each unit's adoption period comes "
-                "from the treatment column; treatment_time= is not used.",
+                "sp.scest: with treat= each unit's adoption period comes from the "
+                "treatment column; treatment_time= is not used.",
                 recovery_hint="Drop treatment_time=, or drop treat= for one "
                 "treated unit.",
             )
@@ -349,41 +456,46 @@ def scest(
         )
     if effect != "unit-time" or anticipation != 0:
         raise MethodIncompatibility(
-            "sp.scest: effect= and anticipation= apply to several treated "
-            "units (treat=); with one treated unit every post-treatment gap "
-            "is reported and treatment_time= sets the window.",
-            recovery_hint="Pass treat='<0/1 column>' or drop effect= / "
-            "anticipation=.",
+            "sp.scest: effect= and anticipation= apply to several treated units "
+            "(treat=); with one treated unit every post-treatment gap is "
+            "reported and treatment_time= sets the window.",
+            recovery_hint="Pass treat='<0/1 column>' or drop effect= / anticipation=.",
         )
     if treated_unit is None or treatment_time is None:
         raise MethodIncompatibility(
             "sp.scest: name the treated unit and its first treatment period "
-            "(treated_unit=, treatment_time=), or pass a 0/1 treatment "
-            "column as treat= for several treated units.",
-            recovery_hint="e.g. treated_unit='California', "
-            "treatment_time=1989, or treat='treated'.",
+            "(treated_unit=, treatment_time=), or pass a 0/1 treatment column "
+            "as treat= for several treated units.",
+            recovery_hint="e.g. treated_unit='California', treatment_time=1989.",
         )
     sc = scdata(data, outcome, unit, time, treated_unit, treatment_time)
-    w, spec = _fit_weights(sc["A"], sc["B"], w_constr, Q=Q, Q2=Q2)
-
-    Y_synth_pre = sc["B"] @ w
-    Y_synth_post = sc["P"] @ w
-    residuals_pre = sc["A"] - Y_synth_pre
-    effects = sc["Y_post"] - Y_synth_post
-    pre_rmspe = float(np.sqrt(np.mean(residuals_pre**2)))
-
+    A, B, P = sc["A"], sc["B"], sc["P"]
+    w, spec = _fit_weights(A, B, w_constr, Q, Q2)
+    fit_pre, fit_post = B @ w, P @ w
+    resid = A - fit_pre
     return {
         "weights": w,
         "w_constr": spec["name"],
         "w_constr_spec": spec,
-        "Y_synth_pre": Y_synth_pre,
-        "Y_synth_post": Y_synth_post,
-        "residuals_pre": residuals_pre,
-        "effects": effects,
-        "pre_rmspe": pre_rmspe,
+        "Y_synth_pre": fit_pre,
+        "Y_synth_post": fit_post,
+        "residuals_pre": resid,
+        "effects": sc["Y_post"] - fit_post,
+        "pre_rmspe": float(np.sqrt(np.mean(resid**2))),
         "donor_names": sc["donor_names"],
         "sc_data": sc,
     }
+
+
+# ====================================================================== #
+#  Prediction intervals
+# ====================================================================== #
+
+
+def _bound_key(pi_type: str, e_method: str) -> str:
+    if pi_type == "in_sample":
+        return "insample"
+    return _E_METHODS[e_method]
 
 
 @accepts_aliases(id="unit", y="outcome")
@@ -415,145 +527,158 @@ def scpi(
     rho_max: float = 0.2,
     draws: Optional[np.ndarray] = None,
 ) -> CausalResult:
-    """
-    Prediction intervals for synthetic control methods (R ``scpi::scpi``).
+    """Prediction intervals for synthetic control methods.
 
-    Port of the single-treated-unit path of R ``scpi`` (``effect =
-    "unit-time"``): per post-period prediction intervals for the synthetic
-    counterfactual combining in-sample (weight-estimation) uncertainty,
-    quantified by simulation, and out-of-sample uncertainty, quantified by
-    ``e_method``.  Interval for the treatment effect of period t is
-    ``Y_t - [upper, lower]`` of the counterfactual interval.
+    The synthetic control prediction error is bounded in two parts
+    [@cattaneo2021prediction]: the in-sample error from estimating the
+    weights (simulated: Gaussian draws of the score, and for each draw the
+    extreme values of ``p_t'(w_hat - w)`` over the weights compatible with
+    the simulated optimality condition and a locally relaxed constraint
+    set), with level ``u_alpha``; and the out-of-sample error of the
+    post-treatment shock, with level ``e_alpha``. The interval for the
+    effect in period ``t`` has conditional coverage of at least
+    ``1 - u_alpha - e_alpha``.
 
     Parameters
     ----------
     data : pd.DataFrame
         Long-format panel data.
-    outcome, unit, time : str
-        Column names.
-    treated_unit : scalar
+    outcome : str
+        Outcome variable column name.
+    unit : str
+        Unit identifier column name.
+    time : str
+        Time period column name.
+    treated_unit : Any
         Identifier of the treated unit.
-    treatment_time : scalar
+    treatment_time : Any
         First treatment period.
     w_constr : str, default 'simplex'
-        Weight constraint; see :func:`scest`.
+        Weight constraint (``'simplex'``, ``'lasso'``, ``'ridge'``,
+        ``'L1-L2'``, ``'ols'``); see :func:`scest`.
     pi_type : {'both', 'in_sample', 'out_of_sample'}, default 'both'
-        Which interval is reported in ``period_results`` / ``ci``:
-        ``'both'`` = R ``CI.all.<e_method>`` (in-sample + out-of-sample
-        bounds), ``'in_sample'`` = R ``CI.in.sample``, ``'out_of_sample'`` =
-        synthetic fit + out-of-sample bounds only (not an R table).
+        Which interval is reported in ``period_results`` and ``ci``: the
+        in-sample plus out-of-sample bounds, the in-sample bounds only, or
+        the out-of-sample bounds only. All are kept in
+        ``model_info['bounds']``.
     e_method : {'gaussian', 'ls', 'qreg'}, default 'gaussian'
         Out-of-sample bound: sub-Gaussian, location-scale or quantile
-        regression.  All three are always computed (``model_info``).
+        regression.
     alpha : float, default 0.05
-        Default for both ``u_alpha`` and ``e_alpha``.  As in R, the
-        combined interval has nominal coverage at least
-        ``1 - (u_alpha + e_alpha)`` (0.90 with the defaults).
+        Default for both ``u_alpha`` and ``e_alpha``; the reported interval
+        has nominal coverage ``1 - u_alpha - e_alpha``.
     cores : int, default 1
-        Accepted for API compatibility; the simulation runs serially.
+        Accepted for compatibility; the simulation runs serially.
     seed : int, optional
-        Seed of the ``numpy`` generator for the in-sample draws (R uses its
-        own ``rnorm`` stream, so simulated bounds agree with R only up to
-        Monte Carlo error unless ``draws`` is supplied).
+        Seed of the standard normal draws.
     lasso_lambda, ridge_lambda : float, optional
         Deprecated and ignored; see :func:`scest`.
-    Q, Q2 : float, optional
-        Constraint bounds; see :func:`scest`.
+    Q : float, optional
+        Norm bound of the weights for ``'simplex'`` / ``'lasso'`` /
+        ``'ridge'``; see :func:`scest`.
+    Q2 : float, optional
+        L2 bound of the weights for ``'L1-L2'``; see :func:`scest`.
     sims : int, default 200
-        Number of in-sample simulation draws (R ``sims``; >= 10).
+        Number of simulation draws (at least 10).
     u_missp : bool, default True
-        Allow a misspecified conditional mean of the pseudo-residuals
-        (R ``u.missp``).
-    u_sigma : {'HC0','HC1','HC2','HC3','HC4'}, default 'HC1'
-        Variance estimator of the pseudo-residuals.
+        Treat the weight model as misspecified: the conditional mean of the
+        pseudo-residuals is estimated (by least squares on the active donors
+        and a constant) instead of being set to zero.
+    u_sigma : {'HC0', 'HC1', 'HC2', 'HC3', 'HC4'}, default 'HC1'
+        Heteroskedasticity-robust variance of the pseudo-residuals.
     u_order : {0, 1}, default 1
-        Order of the pseudo-residual mean model (R ``u.order``; ``u.lags``
-        is fixed at 0).
-    u_alpha, e_alpha : float, optional
-        Levels of the in-sample / out-of-sample bounds (default ``alpha``).
+        Residual design for the conditional mean: a constant (0) or the
+        active donors and a constant (1). Falls back to 0 when
+        ``T0 <= columns + 10``.
+    u_alpha : float, optional
+        Level of the in-sample bounds (default ``alpha``).
     e_order : {0, 1}, default 1
-        Order of the out-of-sample moment models (R ``e.order``;
-        ``e.lags`` is fixed at 0).
-    rho : {'type-1', 'type-2'} or float, optional
-        Regularisation of the local geometry (default ``'type-2'``).
+        Design for the out-of-sample moments, as ``u_order``.
+    e_alpha : float, optional
+        Level of the out-of-sample bounds (default ``alpha``).
+    rho : {'type-2', 'type-1'} or float, optional
+        Sparsity threshold that decides which weights are treated as zero
+        (binding constraints); default ``'type-2'``.
     rho_max : float, default 0.2
-        Upper bound on ``rho``.
+        Upper bound on the data-driven rho.
     draws : np.ndarray, optional
-        ``(J, sims)`` matrix of standard-normal draws used for the in-sample
-        simulation instead of generating them; passing the matrix R's
-        ``rnorm`` produced reproduces R's simulated bounds.
+        Standard normal draws, ``(n_donors, sims)``; overrides ``seed``.
 
     Returns
     -------
     CausalResult
-        ``estimate`` = average post-treatment effect; ``ci`` = interval for
-        that average (the R ``effect = "unit"`` construction: the averaged
-        ``P`` row goes through the same simulation and out-of-sample
-        models); ``se`` / ``pvalue`` are NaN (prediction intervals carry no
-        standard error).  ``model_info`` holds ``period_results`` (per-period
-        effect intervals), ``bounds`` (R ``inference.results$bounds``:
-        insample / subgaussian / ls / qreg / joint), ``CI`` (the four
-        synthetic-outcome tables), ``rho``, ``Q_star``, ``lb``, ``df``,
-        ``u_mean``, ``u_var``, ``Sigma``, ``e_mean``, ``e_var``,
-        ``failed_sims``, ``weights`` and the fit diagnostics.
+        ``estimate`` is the average post-treatment effect and ``ci`` its
+        interval (the same construction applied to the average over the
+        post-treatment periods); ``se`` and ``pvalue`` are NaN (a
+        prediction interval has no standard error). ``detail`` /
+        ``model_info['period_results']`` hold the per-period effects with
+        ``pi_lower`` / ``pi_upper``, the synthetic outcome with its band and
+        the simultaneous bounds ``joint_lower`` / ``joint_upper``.
+        ``model_info`` also carries every ingredient: ``bounds`` (in-sample,
+        sub-Gaussian, location-scale, quantile-regression and joint bounds
+        on the counterfactual minus the synthetic control), ``CI``,
+        ``rho``, ``Sigma``, ``u_mean`` / ``u_var``, ``e_mean`` / ``e_var``,
+        ``df``, ``vsig`` (per-draw in-sample values) and ``failed_sims``.
 
     Examples
     --------
     >>> import statspai as sp
-    >>> df = sp.california_prop99()  # cols: state, year, packspercapita
-    >>> # Subset donors to keep the simulation fast for this example
-    >>> states = ['California', 'Alabama', 'Arkansas', 'Colorado',
-    ...     'Connecticut', 'Delaware', 'Georgia', 'Illinois', 'Indiana']
-    >>> df = df[df['state'].isin(states)]
-    >>> result = sp.scpi(df, outcome='packspercapita', unit='state',
-    ...     time='year', treated_unit='California', treatment_time=1989,
-    ...     seed=42)
-    >>> result.estimand
-    'ATT'
-    >>> bool(result.ci[0] < result.ci[1])  # interval for the average effect
+    >>> df = sp.california_prop99()
+    >>> r = sp.scpi(df, outcome="packspercapita", unit="state", time="year",
+    ...             treated_unit="California", treatment_time=1989,
+    ...             sims=20, seed=0)
+    >>> r.ci[0] < r.ci[1]
     True
-
-    >>> # In-sample (weight-estimation) uncertainty only
-    >>> result_in = sp.scpi(df, outcome='packspercapita', unit='state',  # doctest: +SKIP
-    ...     time='year', treated_unit='California', treatment_time=1989,
-    ...     pi_type='in_sample', seed=42)
-
-    >>> # Quantile-regression based out-of-sample component
-    >>> result_qr = sp.scpi(df, outcome='packspercapita', unit='state',  # doctest: +SKIP
-    ...     time='year', treated_unit='California', treatment_time=1989,
-    ...     e_method='qreg', seed=42)
 
     References
     ----------
     [@cattaneo2021prediction]
+    [@cattaneo2025scpi]
     """
-    if pi_type not in ("in_sample", "out_of_sample", "both"):
-        raise ValueError(
-            f"pi_type must be 'in_sample', 'out_of_sample', or 'both', "
-            f"got '{pi_type}'."
-        )
-    if e_method not in ("gaussian", "ls", "qreg"):
-        raise ValueError(
-            f"e_method must be 'gaussian', 'ls', or 'qreg', " f"got '{e_method}'."
-        )
-    if sims < 10:
-        raise MethodIncompatibility("sims must be >= 10 (as in R scpi).")
     _warn_deprecated_lambdas(lasso_lambda, ridge_lambda)
-    u_alpha = alpha if u_alpha is None else u_alpha
-    e_alpha = alpha if e_alpha is None else e_alpha
+    if pi_type not in _PI_TYPES:
+        raise MethodIncompatibility(
+            "pi_type must be 'in_sample', 'out_of_sample', or 'both', got "
+            f"{pi_type!r}.",
+            recovery_hint="Use pi_type='both' (default).",
+        )
+    if e_method not in _E_METHODS:
+        raise MethodIncompatibility(
+            f"e_method must be 'gaussian', 'ls', or 'qreg', got {e_method!r}.",
+            recovery_hint="Use e_method='gaussian' (default); all three are "
+            "in model_info['bounds'].",
+        )
+    if int(sims) < 10:
+        raise MethodIncompatibility(
+            f"sims must be >= 10, got {sims}.",
+            recovery_hint="Use sims=200 (default) or more.",
+        )
+    u_alpha = float(alpha) if u_alpha is None else float(u_alpha)
+    e_alpha = float(alpha) if e_alpha is None else float(e_alpha)
 
-    sc = scdata(data, outcome, unit, time, treated_unit, treatment_time)
+    est = scest(
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
+        w_constr=w_constr,
+        Q=Q,
+        Q2=Q2,
+    )
+    sc, w, spec = est["sc_data"], est["weights"], est["w_constr_spec"]
     A, B, P = sc["A"], sc["B"], sc["P"]
-    w, spec = _fit_weights(A, B, w_constr, Q=Q, Q2=Q2)
+    T0 = sc["T0"]
     lam = spec.get("lambda")
-    if lam is not None and not np.isfinite(lam):
-        # the ridge rule estimates its penalty from the pre-period fit and
-        # the degrees of freedom of the in-sample uncertainty need it
+    if spec["name"] == "ridge" and lam is not None and not np.isfinite(lam):
         raise DataInsufficient(
-            f"scpi: w_constr='{spec['name']}' with {A.shape[0]} pre-treatment "
-            "periods cannot estimate the ridge penalty that the prediction "
-            "intervals use (the rule needs at least 5). Pass the radius "
-            "yourself with Q=, or use sp.scest for the point estimate alone."
+            f"sp.scpi: the data-driven ridge radius needs at least {_MIN_T0_RADIUS} "
+            f"pre-treatment periods (T0 = {T0}), because its shrinkage parameter "
+            "sets the degrees of freedom of the variance estimator.",
+            recovery_hint="Pass the radius yourself, e.g. Q=1.0, or use "
+            "w_constr='simplex'.",
+            diagnostics={"n_pre_periods": T0},
         )
 
     rng = np.random.default_rng(seed)
@@ -563,7 +688,7 @@ def scpi(
         P,
         w,
         spec,
-        sims=sims,
+        sims=int(sims),
         draws=draws,
         rng=rng,
         u_missp=u_missp,
@@ -576,81 +701,95 @@ def scpi(
         rho_max=rho_max,
         aggregate=True,
     )
+    return _assemble(sc, est, inf, pi_type, e_method, u_alpha, e_alpha)
 
-    Y_pre, Y_post = sc["Y_pre"], sc["Y_post"]
-    fit_pre = B @ w
-    fit_post = P @ w
-    effects = Y_post - fit_post
-    e_key = {"gaussian": "subgaussian", "ls": "ls", "qreg": "qreg"}[e_method]
-    b = inf["bounds"]
-    if pi_type == "in_sample":
-        lo, hi = b["insample"][:, 0], b["insample"][:, 1]
-    elif pi_type == "out_of_sample":
-        lo, hi = inf["e_bounds"][e_key][:, 0], inf["e_bounds"][e_key][:, 1]
+
+def _assemble(
+    sc: Dict[str, Any],
+    est: Dict[str, Any],
+    inf: Dict[str, Any],
+    pi_type: str,
+    e_method: str,
+    u_alpha: float,
+    e_alpha: float,
+) -> CausalResult:
+    """Package the inference output as a :class:`CausalResult`."""
+    w = est["weights"]
+    fit_post = est["Y_synth_post"]
+    y_post = sc["Y_post"]
+    effects = y_post - fit_post
+    bounds = inf["bounds"]
+    e_b = inf["e_bounds"]
+    key = _bound_key(pi_type, e_method)
+    if pi_type == "out_of_sample":
+        band = e_b[_E_METHODS[e_method]]
     else:
-        lo, hi = b[e_key][:, 0], b[e_key][:, 1]
-    sc_lo, sc_hi = fit_post + lo, fit_post + hi
-    period_df = pd.DataFrame(
+        band = bounds[key]
+    joint = bounds["joint"]
+    # non-coverage of the reported interval: both parts, or the one shown
+    level = {"both": u_alpha + e_alpha, "in_sample": u_alpha, "out_of_sample": e_alpha}[
+        pi_type
+    ]
+    period = pd.DataFrame(
         {
             "time": sc["post_times"],
             "effect": effects,
-            "pi_lower": Y_post - sc_hi,
-            "pi_upper": Y_post - sc_lo,
+            "pi_lower": y_post - fit_post - band[:, 1],
+            "pi_upper": y_post - fit_post - band[:, 0],
             "synthetic": fit_post,
-            "synthetic_lower": sc_lo,
-            "synthetic_upper": sc_hi,
-            "joint_lower": Y_post - (fit_post + b["joint"][:, 1]),
-            "joint_upper": Y_post - (fit_post + b["joint"][:, 0]),
+            "synthetic_lower": fit_post + band[:, 0],
+            "synthetic_upper": fit_post + band[:, 1],
+            "joint_lower": y_post - fit_post - joint[:, 1],
+            "joint_upper": y_post - fit_post - joint[:, 0],
         }
     )
-
     agg = inf["aggregate"]
-    att = float(np.mean(effects))
-    if pi_type == "in_sample":
-        a_lo, a_hi = agg["insample"]
-    elif pi_type == "out_of_sample":
-        a_lo, a_hi = agg["e_" + e_key]
-    else:
-        a_lo, a_hi = agg[e_key]
-    ci = (att - a_hi, att - a_lo)
+    agg_key = "e_" + _E_METHODS[e_method] if pi_type == "out_of_sample" else key
+    a_lo, a_hi = agg[agg_key]
+    y_bar, fit_bar = float(np.mean(y_post)), float(np.mean(fit_post))
+    estimate = float(np.mean(effects))
+    ci = (y_bar - (fit_bar + float(a_hi)), y_bar - (fit_bar + float(a_lo)))
 
-    Y_synth = np.concatenate([fit_pre, fit_post])
-    Y_treated = np.concatenate([Y_pre, Y_post])
-    e_pre = Y_pre - fit_pre
+    times = sc["times"]
+    y_all = np.concatenate([sc["Y_pre"], y_post])
+    synth_all = np.concatenate([est["Y_synth_pre"], fit_post])
     gap_table = pd.DataFrame(
         {
-            "time": sc["times"],
-            "treated": Y_treated,
-            "synthetic": Y_synth,
-            "gap": Y_treated - Y_synth,
+            "time": times,
+            "treated": y_all,
+            "synthetic": synth_all,
+            "gap": y_all - synth_all,
         }
     )
-    model_info = {
-        "period_results": period_df,
-        "weights": dict(zip(sc["donor_names"], w)),
-        "w_constr": spec["name"],
-        "w_constr_spec": spec,
+    agg_out = {
+        k: np.asarray(v, float) for k, v in agg.items() if k not in ("e_mean", "e_var")
+    }
+    model_info: Dict[str, Any] = {
+        "period_results": period,
+        "weights": dict(zip(sc["donor_names"], (float(x) for x in w))),
+        "w_constr": est["w_constr"],
+        "w_constr_spec": est["w_constr_spec"],
         "pi_type": pi_type,
         "e_method": e_method,
-        "sigma_hat": float(np.std(e_pre, ddof=1)),
-        "treatment_time": treatment_time,
-        "treated_unit": treated_unit,
+        "sigma_hat": float(np.std(est["residuals_pre"], ddof=1)),
+        "treatment_time": sc["treatment_time"],
+        "treated_unit": sc["treated_unit"],
         "gap_table": gap_table,
-        "Y_synth": Y_synth,
-        "Y_treated": Y_treated,
-        "times": sc["times"],
-        "n_donors": B.shape[1],
+        "Y_synth": synth_all,
+        "Y_treated": y_all,
+        "times": times,
+        "n_donors": sc["J"],
         "n_pre_periods": sc["T0"],
         "n_post_periods": sc["T1"],
-        "pre_rmspe": float(np.sqrt(np.mean(e_pre**2))),
+        "pre_rmspe": est["pre_rmspe"],
         "u_alpha": u_alpha,
         "e_alpha": e_alpha,
-        "nominal_coverage": 1.0 - (u_alpha + e_alpha) if pi_type == "both" else None,
-        "aggregate_bounds": agg,
+        "nominal_coverage": 1.0 - level if pi_type == "both" else None,
+        "aggregate_bounds": agg_out,
+        "bounds": bounds,
+        "CI": {k: fit_post[:, None] + v for k, v in bounds.items()},
     }
     for k in (
-        "bounds",
-        "CI",
         "rho",
         "Q_star",
         "Q2_star",
@@ -673,134 +812,35 @@ def scpi(
         "vsig",
     ):
         model_info[k] = inf[k]
-    model_info["CI"] = {k: fit_post[:, None] + v for k, v in inf["bounds"].items()}
-
     return CausalResult(
         method="SCM with Prediction Intervals (Cattaneo et al. 2021)",
         estimand="ATT",
-        estimate=att,
+        estimate=estimate,
         se=float("nan"),
         pvalue=float("nan"),
         ci=ci,
-        alpha=(
-            u_alpha + e_alpha
-            if pi_type == "both"
-            else (u_alpha if pi_type == "in_sample" else e_alpha)
-        ),
-        n_obs=len(Y_treated),
-        detail=period_df,
+        alpha=level,
+        n_obs=int(sc["T0"] + sc["T1"]),
+        detail=period,
         model_info=model_info,
         _citation_key="scpi",
     )
 
 
 # ====================================================================== #
-#  Weight estimation (w.constr.OBJ + b.est)
-# ====================================================================== #
-
-
-def _warn_deprecated_lambdas(lasso_lambda: Any, ridge_lambda: Any) -> None:
-    if lasso_lambda is not None or ridge_lambda is not None:
-        warnings.warn(
-            "lasso_lambda / ridge_lambda are ignored: sp.scest / sp.scpi follow "
-            "R scpi, which bounds ||w|| (pass Q / Q2) instead of penalising it.",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-
-
-def _normalise_constr(w_constr: str) -> str:
-    name = {"ls": "ols", "l1-l2": "L1-L2", "l1l2": "L1-L2"}.get(
-        str(w_constr).lower(), str(w_constr)
-    )
-    if name not in _W_CONSTR:
-        raise MethodIncompatibility(
-            f"w_constr must be one of {_W_CONSTR} (or 'ls'), got '{w_constr}'."
-        )
-    return name
-
-
-def _constraint_spec(
-    A: np.ndarray,
-    B: np.ndarray,
-    name: str,
-    Q: Optional[Any] = None,
-    Q2: Optional[Any] = None,
-) -> Dict[str, Any]:
-    """R ``w.constr.OBJ`` for a single feature (the outcome), V = identity."""
-    J = B.shape[1]
-    spec: Dict[str, Any] = {"name": name, "Q2": None, "lambda": None}
-    if name == "simplex":
-        spec.update(p="L1", dir="==", lb=0.0, Q=1.0 if Q is None else float(Q))
-    elif name == "ols":
-        spec.update(p="no norm", dir=None, lb=-np.inf, Q=None)
-    elif name == "lasso":
-        spec.update(p="L1", dir="<=", lb=-np.inf, Q=1.0 if Q is None else float(Q))
-    elif name in ("ridge", "L1-L2"):
-        user = Q if name == "ridge" else Q2
-        if user is None:
-            if A.shape[0] >= 5:
-                est = _sv.shrinkage_ridge(A, B, J)
-                bound, lam = max(est["Q"], 0.5), est["lambda"]
-            else:
-                est = _sv.shrinkage_ridge(A, B, J)
-                bound = max(est["Q"], 0.5)
-                lam = np.nan if name == "ridge" else 0.0
-        else:
-            bound, lam = float(user), None
-        if name == "ridge":
-            spec.update(p="L2", dir="<=", lb=-np.inf, Q=bound, **{"lambda": lam})
-        else:
-            spec.update(
-                p="L1-L2", dir="==/<=", lb=0.0, Q=1.0, Q2=bound, **{"lambda": lam}
-            )
-    return spec
-
-
-def _solve_weights(A: np.ndarray, B: np.ndarray, spec: Dict[str, Any]) -> np.ndarray:
-    name = spec["name"]
-    if name == "simplex":
-        return _sv.qp_bounded_sum(B.T @ B, B.T @ A, np.zeros(B.shape[1]), spec["Q"])
-    if name == "lasso":
-        return _sv.lasso_ball(B, A, spec["Q"])
-    if name == "ridge":
-        return _sv.ridge_ball(B, A, spec["Q"])
-    if name == "L1-L2":
-        return _sv.simplex_l2(B, A, spec["Q2"])
-    coef, rank = _sv.lm_coef(B, A)
-    if rank < B.shape[1]:
-        warnings.warn(
-            "OLS weights are not identified (rank-deficient donor matrix); "
-            "returning the minimum-norm least-squares solution.",
-            RuntimeWarning,
-            stacklevel=3,
-        )
-        return np.linalg.lstsq(B, A, rcond=None)[0]
-    return coef
-
-
-def _fit_weights(
-    A: Any, B: Any, w_constr: Any, Q: Optional[Any] = None, Q2: Optional[Any] = None
-) -> Any:
-    name = _normalise_constr(w_constr)
-    spec = _constraint_spec(A, B, name, Q=Q, Q2=Q2)
-    return _solve_weights(A, B, spec), spec
-
-
-# ====================================================================== #
 #  Citation registration
 # ====================================================================== #
 
+# verified against Crossref and doi.org (10.1080/01621459.2021.1979561)
 CausalResult._CITATIONS["scpi"] = (
     "@article{cattaneo2021prediction,\n"
     "  title={Prediction Intervals for Synthetic Control Methods},\n"
-    "  author={Cattaneo, Matias D. and Feng, Yingjie "
-    "and Titiunik, Rocio},\n"
+    "  author={Cattaneo, Matias D. and Feng, Yingjie and Titiunik, Rocio},\n"
     "  journal={Journal of the American Statistical Association},\n"
     "  volume={116},\n"
     "  number={536},\n"
     "  pages={1865--1880},\n"
     "  year={2021},\n"
-    "  publisher={Taylor \\& Francis}\n"
+    "  doi={10.1080/01621459.2021.1979561}\n"
     "}"
 )

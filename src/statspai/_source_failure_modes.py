@@ -1388,6 +1388,29 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "a control.",
         }
     ],
+    "scdata": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Aggregate or drop the repeated unit-period rows first.",
+            "symptom": "Duplicate (unit, time) rows in data.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Use a later treatment_time or a longer panel.",
+            "symptom": "Need at least 2 pre-treatment periods.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "treatment_time must not be after the last period.",
+            "symptom": "Need at least 1 post-treatment period.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Impute or drop the periods where the treated unit's "
+            "outcome is missing.",
+            "symptom": "The treated unit has missing outcome values.",
+        },
+    ],
     "sdtest": [
         {
             "exception": "statspai.MethodIncompatibility",

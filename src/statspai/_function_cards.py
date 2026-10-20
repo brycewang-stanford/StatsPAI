@@ -892,7 +892,8 @@ FUNCTION_CARDS: Dict[str, Card] = {
     },
     "scpi": {
         "not_recommended_when": [
-            "several units are treated — this ports the single-treated-unit path; "
+            "several units are treated — the prediction intervals cover one "
+            "treated unit (sp.scest(treat=) gives point estimates for several); "
             "use sp.sdid or sp.gsynth",
         ],
     },
