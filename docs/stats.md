@@ -69,7 +69,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mendelian` | 5,201 | 13 | 41 |
 | `frontier` | 4,995 | 8 | 12 |
 | `structural` | 6,108 | 15 | 15 |
-| `utils` | 6,407 | 15 | 41 |
+| `utils` | 6,961 | 15 | 42 |
 | `survival` | 6,714 | 12 | 18 |
 | `workflow` | 4,549 | 5 | 3 |
 | `gmm` | 4,305 | 12 | 4 |

@@ -22728,6 +22728,124 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="egen",
+            category="utils",
+            description=(
+                "Stata's egen: a new variable from a statistic by group "
+                "(mean / count / sd / pctile / mode ...), rank, seq, std, "
+                "group / tag of a variable list, row functions (rowtotal, "
+                "rowmean, rowfirst, anycount ...) or cut, with Stata's "
+                "missing-value and if rules. The implementation the egen "
+                "step of sp.stata uses (double precision here)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "fcn",
+                    "str",
+                    True,
+                    None,
+                    "egen function",
+                    [
+                        "count", "mean", "median", "sd", "min", "max",
+                        "total", "sum", "pctile", "iqr", "skew", "kurt",
+                        "mad", "mdev", "mode", "rowtotal", "rowmean",
+                        "rowmin", "rowmax", "rowsd", "rownonmiss",
+                        "rowmiss", "rowfirst", "rowlast", "anycount",
+                        "anymatch", "cut", "group", "tag", "std", "rank",
+                        "seq",
+                    ],  # fmt: skip
+                ),
+                ParamSpec(
+                    "x",
+                    "str | list | Series",
+                    False,
+                    None,
+                    "The variable (statistics, std, rank, cut) as a column "
+                    "name or aligned values; the variable list for group / "
+                    "tag / row functions; none for seq",
+                ),
+                ParamSpec(
+                    "by",
+                    "str | list",
+                    False,
+                    None,
+                    "Group variables (by()); not with std, group, tag or row "
+                    "functions",
+                ),
+                ParamSpec(
+                    "where",
+                    "bool Series",
+                    False,
+                    None,
+                    "Rows to use (Stata's if); the others get missing (tag: 0)",
+                ),
+                ParamSpec("p", "float", False, None, "Percentile for pctile (50)"),
+                ParamSpec(
+                    "missing",
+                    "bool",
+                    False,
+                    False,
+                    "total / sum / rowtotal: missing instead of 0 when no value; "
+                    "group / tag: missing values form groups",
+                ),
+                ParamSpec(
+                    "mode_ties",
+                    "str",
+                    False,
+                    "missing",
+                    "mode with several modes: missing, minmode or maxmode",
+                    ["missing", "min", "max"],
+                ),
+                ParamSpec(
+                    "rank_ties",
+                    "str",
+                    False,
+                    "average",
+                    "rank ties: average, field (1 = largest) or track",
+                    ["average", "field", "track"],
+                ),
+                ParamSpec("start", "float", False, 1.0, "seq: from()"),
+                ParamSpec("stop", "float", False, None, "seq: to()"),
+                ParamSpec("block", "int", False, 1, "seq: block()"),
+                ParamSpec(
+                    "values", "list", False, None, "anycount / anymatch: values()"
+                ),
+                ParamSpec("at", "list", False, None, "cut: the cut points at()"),
+                ParamSpec(
+                    "n_groups",
+                    "int",
+                    False,
+                    None,
+                    "cut: groups of about equal frequency (group(#))",
+                ),
+                ParamSpec(
+                    "icodes",
+                    "bool",
+                    False,
+                    False,
+                    "cut: code the intervals 0, 1, ... (icodes)",
+                ),
+            ],
+            returns="Series aligned with data.index (float64)",
+            example='sp.egen(df, "mean", "wage", by="state")',
+            tags=["egen", "group by", "rank", "row mean", "stata", "data"],
+            failure_modes=[
+                FailureMode(
+                    symptom="Unknown function, an option the function does not "
+                    "take, by() with a row function / group / tag / std, or a "
+                    "statistic of a text column",
+                    exception="MethodIncompatibility",
+                    remedy="Use the function's own options; compute row "
+                    "functions without by.",
+                ),
+            ],
+            alternatives=["collapse", "rowmean", "rank"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="poststratify",
             category="survey",
             description=(

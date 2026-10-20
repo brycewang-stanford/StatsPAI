@@ -44371,7 +44371,7 @@
     "name": "weightit"
   },
   {
-    "description": "Westfall-Young permutation stepdown p-values across outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Westfall-Young permutation stepdown p-values across outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: sp.westfall_young: robust=False (classical OLS standard errors) cannot be combined with cluster= -> Drop robust=False to use CR1 by cluster, or drop cluster= for the classical t.",
     "input_schema": {
       "properties": {
         "cluster": {
@@ -44392,6 +44392,11 @@
           "description": "Re-randomizations (all of them when there are no more).",
           "type": "integer"
         },
+        "robust": {
+          "default": true,
+          "description": "``False`` uses the classical (homoskedastic) OLS standard error in the t-statistic, as Stata ``regress`` without options (``wyoung`` with ``cmd(regress OUTCOMEVAR d ...)``); not with ``cluster``. ``vce='ols'`` is the same.",
+          "type": "boolean"
+        },
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
           "type": "integer"
@@ -44407,12 +44412,13 @@
           "x-statspai-role": "column"
         },
         "vce": {
-          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
           "type": "string",
           "x-statspai-grammar": "vce",
           "x-statspai-vce-kinds": [
             "cluster",
             "hc1",
+            "nonrobust",
             "robust"
           ]
         },

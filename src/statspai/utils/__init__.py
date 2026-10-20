@@ -27,6 +27,7 @@ from .dgp import (
     dgp_synth,
 )
 from .egen import (
+    egen,
     outlier_indicator,
     rank,
     rowcount,
@@ -67,6 +68,7 @@ __all__ = [
     "diff",
     "reshape",
     "collapse",
+    "egen",
     "rowmean",
     "rowtotal",
     "rowmax",

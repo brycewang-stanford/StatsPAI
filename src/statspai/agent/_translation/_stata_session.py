@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ...utils.egen import stata_percentile
 from ._stata_datastep import DataSteps, _generate_option, _is_tabulate, row_mask
 from ._stata_describe import by_groups, run_describe
 from ._stata_expr import StataExprError, evaluate
@@ -287,24 +288,6 @@ def _bsample(session: "StataSession", rest: str) -> bool:
     session._steps.replace_data(data.iloc[rows].reset_index(drop=True))
     session.stored["random_draws"] = True
     return False
-
-
-def stata_percentile(x: np.ndarray, p: float) -> float:
-    """The ``p``-th percentile as ``summarize, detail`` and ``_pctile``
-    define it: with ``P = n p / 100``, the mean of the ``P``-th and
-    ``(P+1)``-th order statistics when ``P`` is an integer, otherwise the
-    next order statistic above ``P``."""
-    x = np.sort(np.asarray(x, dtype=float))
-    n = x.size
-    if n == 0:
-        return float("nan")
-    pos = n * p / 100.0
-    k = int(np.floor(pos + 1e-12))
-    if abs(pos - k) < 1e-12:
-        lo = x[max(k, 1) - 1]
-        hi = x[min(k + 1, n) - 1]
-        return float((lo + hi) / 2.0)
-    return float(x[min(k + 1, n) - 1])
 
 
 def _count(session: "StataSession", rest: str) -> bool:

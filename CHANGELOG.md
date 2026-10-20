@@ -4,7 +4,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
-### Stata translation: `stteffects`, `didregress aggregate()`, classical `wyoung`
+### Stata translation: `stteffects`, `didregress aggregate()`, classical `wyoung`; `sp.egen`
 
 #### Added
 
@@ -33,6 +33,19 @@ All notable changes to StatsPAI will be documented in this file.
   Carlo error of wyoung's 20,000 draws
   (`tests/reference_parity/test_westfall_young_wyoung_parity.py`; wyoung
   used as a black box).
+- `sp.egen(data, fcn, x, by=, where=, ...)`: Stata's `egen` as a public
+  function (statistics by group, `rank` with `field` / `track`, `std`,
+  `seq`, `group` / `tag`, row functions, `anycount` / `anymatch`, `cut`),
+  returning a double-precision Series. It is the implementation the `egen`
+  step of `sp.stata` already used, moved to `utils/egen.py`; `sp.stata`'s
+  behaviour is unchanged. 42 commands match Stata 18 to 1e-12
+  (`tests/test_egen_public.py`).
+
+#### Fixed
+
+- `sp.rank` docstring: Stata's `field` is `method='min', ascending=False`
+  and `track` is `method='min'` (it said `'min'` -> `field`, `'dense'` ->
+  `track`); checked in Stata 18. No numbers change.
 
 ### `design=` on `sp.ltmle` and `sp.match`
 

@@ -50316,6 +50316,201 @@
   {
     "alias_of": null,
     "alternatives": [
+      "collapse",
+      "rowmean",
+      "rank"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Stata's egen: a new variable from a statistic by group (mean / count / sd / pctile / mode ...), rank, seq, std, group / tag of a variable list, row functions (rowtotal, rowmean, rowfirst, anycount ...) or cut, with Stata's missing-value and if rules. The implementation the egen step of sp.stata uses (double precision here).",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.egen(df, \"mean\", \"wage\", by=\"state\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Use the function's own options; compute row functions without by.",
+        "symptom": "Unknown function, an option the function does not take, by() with a row function / group / tag / std, or a statistic of a text column"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "egen",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "Series",
+      "description": "Series aligned with data.index (float64)",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Stata's egen: a new variable from a statistic by group (mean / count / sd / pctile / mode ...), rank, seq, std, group / tag of a variable list, row functions (rowtotal, rowmean, rowfirst, anycount ...) or cut, with Stata's missing-value and if rules. The implementation the egen step of sp.stata uses (double precision here).",
+      "name": "egen",
+      "parameters": {
+        "properties": {
+          "at": {
+            "description": "cut: the cut points at()",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "block": {
+            "default": 1,
+            "description": "seq: block()",
+            "type": "integer"
+          },
+          "by": {
+            "description": "Group variables (by()); not with std, group, tag or row functions",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "fcn": {
+            "description": "egen function",
+            "enum": [
+              "count",
+              "mean",
+              "median",
+              "sd",
+              "min",
+              "max",
+              "total",
+              "sum",
+              "pctile",
+              "iqr",
+              "skew",
+              "kurt",
+              "mad",
+              "mdev",
+              "mode",
+              "rowtotal",
+              "rowmean",
+              "rowmin",
+              "rowmax",
+              "rowsd",
+              "rownonmiss",
+              "rowmiss",
+              "rowfirst",
+              "rowlast",
+              "anycount",
+              "anymatch",
+              "cut",
+              "group",
+              "tag",
+              "std",
+              "rank",
+              "seq"
+            ],
+            "type": "string"
+          },
+          "icodes": {
+            "default": false,
+            "description": "cut: code the intervals 0, 1, ... (icodes)",
+            "type": "boolean"
+          },
+          "missing": {
+            "default": false,
+            "description": "total / sum / rowtotal: missing instead of 0 when no value; group / tag: missing values form groups",
+            "type": "boolean"
+          },
+          "mode_ties": {
+            "default": "missing",
+            "description": "mode with several modes: missing, minmode or maxmode",
+            "enum": [
+              "missing",
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "n_groups": {
+            "description": "cut: groups of about equal frequency (group(#))",
+            "type": "integer"
+          },
+          "p": {
+            "description": "Percentile for pctile (50)",
+            "type": "number"
+          },
+          "rank_ties": {
+            "default": "average",
+            "description": "rank ties: average, field (1 = largest) or track",
+            "enum": [
+              "average",
+              "field",
+              "track"
+            ],
+            "type": "string"
+          },
+          "start": {
+            "default": 1.0,
+            "description": "seq: from()",
+            "type": "number"
+          },
+          "stop": {
+            "description": "seq: to()",
+            "type": "number"
+          },
+          "values": {
+            "description": "anycount / anymatch: values()",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "where": {
+            "description": "Rows to use (Stata's if); the others get missing (tag: 0)",
+            "type": "boolean"
+          },
+          "x": {
+            "description": "The variable (statistics, std, rank, cut) as a column name or aligned values; the variable list for group / tag / row functions; none for seq",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "fcn"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "rake",
       "svydesign",
       "direct_standardize"
@@ -114077,6 +114272,138 @@
     "typical_n_min": null,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_romano_wolf_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "Westfall-Young permutation stepdown p-values across outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_frontier_known_truth_recovery.py",
+        "tests/reference_parity/test_westfall_young_wyoung_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "out = sp.westfall_young(d, y=[\"y1\", \"y2\"], treat=\"Z\", n_perms=1000, seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop robust=False to use CR1 by cluster, or drop cluster= for the classical t.",
+        "symptom": "sp.westfall_young: robust=False (classical OLS standard errors) cannot be combined with cluster=."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "westfall_young",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "reference": "docstring",
+      "returns": "docstring"
+    },
+    "reference": "Westfall, P. H. and Young, S. S. (1993). *Resampling-Based Multiple Testing*. Wiley.",
+    "returns": {
+      "class": "DataFrame",
+      "description": "pd.DataFrame: One row per outcome: outcome, coef, t, n_obs, p_analytic (t-distribution), p_perm (per-outcome randomization p-value) and p_wy (Westfall-Young adjusted); .attrs carries n_perms and exact.",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Westfall-Young permutation stepdown p-values across outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "westfall_young",
+      "parameters": {
+        "properties": {
+          "cluster": {
+            "description": "Unit of randomization when treatment was assigned to groups; also the cluster of the CR1 standard error.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "covariates": {
+            "description": "Controls in every regression.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "n_perms": {
+            "default": 10000,
+            "description": "Re-randomizations (all of them when there are no more).",
+            "type": "integer"
+          },
+          "robust": {
+            "default": true,
+            "description": "``False`` uses the classical (homoskedastic) OLS standard error in the t-statistic, as Stata ``regress`` without options (``wyoung`` with ``cmd(regress OUTCOMEVAR d ...)``); not with ``cluster``. ``vce='ols'`` is the same.",
+            "type": "boolean"
+          },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "strata": {
+            "description": "Randomization strata (blocks).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "Binary (0/1) treatment.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "vce": {
+            "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+            "type": "string",
+            "x-statspai-grammar": "vce",
+            "x-statspai-vce-kinds": [
+              "cluster",
+              "hc1",
+              "nonrobust",
+              "robust"
+            ]
+          },
+          "y": {
+            "description": "Outcomes (one hypothesis each).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_frontier_known_truth_recovery.py"
     ],
     "validation_status": "validated"
   },

@@ -22584,6 +22584,146 @@
     }
   },
   {
+    "description": "Stata's egen: a new variable from a statistic by group (mean / count / sd / pctile / mode ...), rank, seq, std, group / tag of a variable list, row functions (rowtotal, rowmean, rowfirst, anycount ...) or cut, with Stata's missing-value and if rules. The implementation the egen step of sp.stata uses (double precision here).",
+    "name": "egen",
+    "parameters": {
+      "properties": {
+        "at": {
+          "description": "cut: the cut points at()",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "block": {
+          "default": 1,
+          "description": "seq: block()",
+          "type": "integer"
+        },
+        "by": {
+          "description": "Group variables (by()); not with std, group, tag or row functions",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "fcn": {
+          "description": "egen function",
+          "enum": [
+            "count",
+            "mean",
+            "median",
+            "sd",
+            "min",
+            "max",
+            "total",
+            "sum",
+            "pctile",
+            "iqr",
+            "skew",
+            "kurt",
+            "mad",
+            "mdev",
+            "mode",
+            "rowtotal",
+            "rowmean",
+            "rowmin",
+            "rowmax",
+            "rowsd",
+            "rownonmiss",
+            "rowmiss",
+            "rowfirst",
+            "rowlast",
+            "anycount",
+            "anymatch",
+            "cut",
+            "group",
+            "tag",
+            "std",
+            "rank",
+            "seq"
+          ],
+          "type": "string"
+        },
+        "icodes": {
+          "default": false,
+          "description": "cut: code the intervals 0, 1, ... (icodes)",
+          "type": "boolean"
+        },
+        "missing": {
+          "default": false,
+          "description": "total / sum / rowtotal: missing instead of 0 when no value; group / tag: missing values form groups",
+          "type": "boolean"
+        },
+        "mode_ties": {
+          "default": "missing",
+          "description": "mode with several modes: missing, minmode or maxmode",
+          "enum": [
+            "missing",
+            "min",
+            "max"
+          ],
+          "type": "string"
+        },
+        "n_groups": {
+          "description": "cut: groups of about equal frequency (group(#))",
+          "type": "integer"
+        },
+        "p": {
+          "description": "Percentile for pctile (50)",
+          "type": "number"
+        },
+        "rank_ties": {
+          "default": "average",
+          "description": "rank ties: average, field (1 = largest) or track",
+          "enum": [
+            "average",
+            "field",
+            "track"
+          ],
+          "type": "string"
+        },
+        "start": {
+          "default": 1.0,
+          "description": "seq: from()",
+          "type": "number"
+        },
+        "stop": {
+          "description": "seq: to()",
+          "type": "number"
+        },
+        "values": {
+          "description": "anycount / anymatch: values()",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "where": {
+          "description": "Rows to use (Stata's if); the others get missing (tag: 0)",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "The variable (statistics, std, rank, cut) as a column name or aligned values; the variable list for group / tag / row functions; none for seq",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data",
+        "fcn"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Poststratification: average a model's predictions over the cells of a known population, weighting by cell counts, draw by draw for a Bayesian fit so the estimate carries the regression's uncertainty; overall and by subgroup. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Many sparse cells with a classical fit: cell estimates are noisy; use a multilevel model for the cell means.",
     "name": "poststratify",
     "parameters": {
@@ -53376,6 +53516,11 @@
           "description": "Re-randomizations (all of them when there are no more).",
           "type": "integer"
         },
+        "robust": {
+          "default": true,
+          "description": "``False`` uses the classical (homoskedastic) OLS standard error in the t-statistic, as Stata ``regress`` without options (``wyoung`` with ``cmd(regress OUTCOMEVAR d ...)``); not with ``cluster``. ``vce='ols'`` is the same.",
+          "type": "boolean"
+        },
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
           "type": "integer"
@@ -53391,12 +53536,13 @@
           "x-statspai-role": "column"
         },
         "vce": {
-          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'hc1', 'nonrobust', 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
           "type": "string",
           "x-statspai-grammar": "vce",
           "x-statspai-vce-kinds": [
             "cluster",
             "hc1",
+            "nonrobust",
             "robust"
           ]
         },

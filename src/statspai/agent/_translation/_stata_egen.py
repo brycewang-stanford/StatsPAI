@@ -58,20 +58,37 @@ Rows not selected by ``if`` / ``in`` get missing (``tag``: 0). The result
 is stored in single precision unless the line says ``double``, as in Stata;
 counts, groups and tags are whole numbers and are exact either way.
 
-Anything else (``cut`` with ``group()``, ``rank`` with ``unique``, the
-string functions ``ends`` and ``concat``, ``fill``, the user-written
-``egenmore`` functions) is refused.
+Anything else (``rank`` with ``unique``, the string functions ``ends``
+and ``concat``, ``fill``, the user-written ``egenmore`` functions) is
+refused.
+
+The computation is ``statspai.utils.egen.egen_compute``, the one
+implementation behind the public ``sp.egen``; this module parses the line,
+evaluates the expression (per group behind ``by g:``, where ``_n`` and
+``_N`` count within the group), stores the result in single precision
+unless the line says ``double``, and turns the taxonomy errors into
+``StataExprError`` with the same message.
 """
 
 from __future__ import annotations
 
 import fnmatch
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 import pandas as pd
 
+from ...exceptions import StatsPAIError
+from ...utils.egen import (
+    EGEN_FUNCTIONS,
+    EGEN_GROUP_STATS,
+    EGEN_NO_BY,
+    EGEN_OPTIONS,
+    EGEN_ROW,
+    egen_codes,
+    egen_compute,
+)
 from ._stata_expr import StataExprError, evaluate
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -84,16 +101,12 @@ _HEAD = re.compile(
     r"([A-Za-z_]\w*)\s*\(",
     re.I,
 )
-_GROUP_STATS = (
-    "count", "mean", "median", "sd", "min", "max", "total", "sum",
-    "pctile", "iqr", "skew", "kurt", "mad", "mdev", "mode",
-)  # fmt: skip
-_ROW = (
-    "rowtotal", "rowmean", "rowmin", "rowmax", "rowsd", "rownonmiss", "rowmiss",
-    "rowfirst", "rowlast", "anycount", "anymatch", "cut",
-)  # fmt: skip
 _WHOLE = ("count", "group", "tag", "rownonmiss", "rowmiss", "anycount",
           "anymatch", "seq")  # fmt: skip
+#: Stata's abbreviations of the seq() / anycount() options
+_SHORT = {"f": "from", "t": "to", "b": "block", "v": "values"}
+#: options that are flags (present or not)
+_FLAGS = ("missing", "minmode", "maxmode", "field", "track", "icodes", "label")
 
 
 def _balanced(text: str, start: int) -> int:
@@ -166,76 +179,6 @@ def _values(spec: str) -> List[float]:
     return out
 
 
-def _percentile(sorted_values: np.ndarray, p: float) -> float:
-    from ._stata_session import stata_percentile
-
-    return stata_percentile(sorted_values, p)
-
-
-def _statistic(fcn: str, x: np.ndarray, options: Dict[str, Any]) -> float:
-    """One group's statistic of the non-missing values ``x``."""
-    n = x.size
-    if fcn == "count":
-        return float(n)
-    if fcn in ("total", "sum"):
-        if n == 0:
-            return float("nan") if "missing" in options else 0.0
-        return float(x.sum())
-    if n == 0:
-        return float("nan")
-    if fcn == "mean":
-        return float(x.mean())
-    if fcn == "median":
-        return _percentile(x, 50.0)
-    if fcn == "min":
-        return float(x.min())
-    if fcn == "max":
-        return float(x.max())
-    if fcn == "sd":
-        return float(x.std(ddof=1)) if n > 1 else float("nan")
-    if fcn == "pctile":
-        return _percentile(x, float(options.get("p") or 50.0))
-    if fcn in ("skew", "kurt"):
-        dev = x - x.mean()
-        m2 = float(np.mean(dev**2))
-        if not m2 > 0:
-            return float("nan")
-        power = 3 if fcn == "skew" else 4
-        return float(np.mean(dev**power) / m2 ** (power / 2))
-    if fcn == "mad":
-        return _percentile(np.sort(np.abs(x - _percentile(x, 50.0))), 50.0)
-    if fcn == "mdev":
-        return float(np.mean(np.abs(x - x.mean())))
-    if fcn == "mode":
-        values, counts = np.unique(x, return_counts=True)
-        modes = values[counts == counts.max()]
-        if len(modes) == 1 or "minmode" in options:
-            return float(modes[0])
-        return float(modes[-1]) if "maxmode" in options else float("nan")
-    return _percentile(x, 75.0) - _percentile(x, 25.0)  # iqr
-
-
-def _combination_codes(frame: pd.DataFrame, keep_missing: bool) -> np.ndarray:
-    """0, 1, ... for the distinct rows of ``frame`` in sorted order; -1 where
-    a value is missing and missing values do not form groups."""
-    frame = frame.copy()
-    for name in frame.columns:
-        col = frame[name]
-        if col.dtype == object or pd.api.types.is_string_dtype(col):
-            # "" is the missing string: without `missing` it forms no group
-            # (Stata 18: group(s) is missing and tag(s) 0 where s is ""),
-            # with it "" is one group, sorted before the other strings
-            text = col.astype(object).where(col.notna(), "")
-            frame[name] = text if keep_missing else text.replace("", np.nan)
-    if keep_missing:
-        # a missing value sorts after every number, as in Stata
-        return np.asarray(
-            frame.groupby(list(frame.columns), sort=True, dropna=False).ngroup()
-        )
-    codes = frame.groupby(list(frame.columns), sort=True, dropna=True).ngroup()
-    return np.asarray(codes.fillna(-1).astype(int))
-
-
 def run_egen(
     steps: "DataSteps", line: str, groups: Optional[List[np.ndarray]] = None
 ) -> None:
@@ -272,215 +215,69 @@ def run_egen(
                 f"`egen {vtype}` of a statistic truncates in Stata; that is "
                 "not implemented"
             )
-    known = _GROUP_STATS + _ROW + ("group", "tag", "std", "rank", "seq")
-    if fcn not in known:
+    if fcn not in EGEN_FUNCTIONS:
         raise StataExprError(f"egen function {fcn}() is not implemented")
-    allowed = {"pctile": {"p"}, "total": {"missing"}, "sum": {"missing"}}
-    allowed.update({"group": {"missing"}, "tag": {"missing"}, "rowtotal": {"missing"}})
-    allowed.update({"mode": {"minmode", "maxmode"}, "rank": {"field", "track"}})
-    allowed.update({"seq": {"from", "f", "to", "t", "block", "b"}})
-    allowed.update({"anycount": {"values", "v"}, "anymatch": {"values", "v"}})
-    allowed.update({"cut": {"at", "icodes", "group", "label"}})
-    extra = set(options) - allowed.get(fcn, set())
+    if fcn in ("seq", "anycount", "anymatch"):
+        options = {_SHORT.get(k, k): v for k, v in options.items()}
+    extra = set(options) - EGEN_OPTIONS.get(fcn, frozenset())
     if extra:
         raise StataExprError(
             f"egen {fcn}(): option(s) {sorted(extra)} are not implemented"
         )
     if by_option and groups is not None:
         raise StataExprError("egen: `by` is given twice")
-    if (by_option or groups is not None) and fcn in _ROW + (
-        "group",
-        "tag",
-        "std",
-    ):  # noqa: E501
+    if (by_option or groups is not None) and fcn in EGEN_NO_BY:
         raise StataExprError(f"egen {fcn}() may not be combined with by")
     unknown = [b for b in by_option if b not in data.columns]
     if unknown:
         raise StataExprError(f"egen: variable(s) {unknown} are not in the data")
+    for flag in _FLAGS:
+        if flag in options:
+            options[flag] = True
+    if fcn in ("anycount", "anymatch"):
+        options["values"] = _values(str(options.get("values") or ""))
+    elif fcn == "cut" and (options.get("at") is not None or not options.get("group")):
+        options["at"] = _values(str(options.get("at") or ""))
+    if "p" in options:
+        options["p"] = float(options["p"] or 50.0)
 
     mask = row_mask(data, tail.if_cond, tail.in_range, steps.stored)
-    value: Any = np.full(n, np.nan)
+    code: Optional[np.ndarray] = None
+    if groups is not None:
+        code = np.zeros(n, dtype=int)
+        for g, rows in enumerate(groups):
+            code[rows] = g
+    elif by_option:
+        code = egen_codes(data[by_option], keep_missing=True)
 
-    if fcn in ("rank", "seq"):
-        if groups is not None:
-            code = np.zeros(n, dtype=int)
-            for g, rows in enumerate(groups):
-                code[rows] = g
-        elif by_option:
-            code = _combination_codes(data[by_option], keep_missing=True)
-        else:
-            code = np.zeros(n, dtype=int)
-        if fcn == "seq":
-            if argument:
-                raise StataExprError("egen seq() takes no argument")
-            start = float(options.get("from") or options.get("f") or 1)
-            repeat = int(float(options.get("block") or options.get("b") or 1))
-            stop = options.get("to") or options.get("t")
-            for g in np.unique(code):
-                rows = np.flatnonzero((code == g) & mask)
-                steps_ = np.arange(len(rows)) // max(repeat, 1)
-                if stop is not None:
-                    span = int(float(stop) - start) + 1
-                    if span < 1:
-                        raise StataExprError("egen seq(): to() is below from()")
-                    steps_ = steps_ % span
-                value[rows] = start + steps_
-        else:
-            x = evaluate(argument, data, steps.stored)
-            used = mask & ~np.isnan(x)
-            for g in np.unique(code):
-                rows = np.flatnonzero((code == g) & used)
-                v = x[rows]
-                lower = (v[:, None] > v[None, :]).sum(axis=1)
-                higher = (v[:, None] < v[None, :]).sum(axis=1)
-                if "field" in options:
-                    value[rows] = 1.0 + higher
-                elif "track" in options:
-                    value[rows] = 1.0 + lower
-                else:
-                    ties = len(v) - lower - higher
-                    value[rows] = lower + (ties + 1) / 2.0
-    elif fcn in _GROUP_STATS:
+    x: Optional[np.ndarray] = None
+    frame: Optional[pd.DataFrame] = None
+    if fcn == "seq":
+        if argument:
+            raise StataExprError("egen seq() takes no argument")
+    elif fcn in ("group", "tag") or fcn in EGEN_ROW:
+        frame = data[_varlist(argument, data)]
+    elif fcn in EGEN_GROUP_STATS and groups is not None:
         if not argument:
             raise StataExprError(f"egen {fcn}() needs an expression")
-        if groups is not None:
-            # behind `by g:` the expression sees one group at a time
-            x = np.full(n, np.nan)
-            code = np.zeros(n, dtype=int)
-            for g, rows in enumerate(groups):
-                part = data.iloc[rows].reset_index(drop=True)
-                got = evaluate(argument, part, steps.stored)
-                if got.dtype == object:
-                    raise StataExprError(f"egen {fcn}() of a string expression")
-                x[rows] = got
-                code[rows] = g
-        else:
-            x = evaluate(argument, data, steps.stored)
-            if x.dtype == object:
+        # behind `by g:` the expression sees one group at a time
+        x = np.full(n, np.nan)
+        for rows in groups:
+            part = data.iloc[rows].reset_index(drop=True)
+            got = evaluate(argument, part, steps.stored)
+            if got.dtype == object:
                 raise StataExprError(f"egen {fcn}() of a string expression")
-            if by_option:
-                code = _combination_codes(data[by_option], keep_missing=True)
-            else:
-                code = np.zeros(n, dtype=int)
-        used = mask & ~np.isnan(x)
-        order = np.argsort(code, kind="stable")
-        bounds = np.flatnonzero(np.r_[True, np.diff(code[order]) != 0, True])
-        for lo, hi in zip(bounds[:-1], bounds[1:]):
-            rows = order[lo:hi]
-            stat = _statistic(fcn, np.sort(x[rows][used[rows]]), options)
-            value[rows] = stat
-        value = np.where(mask, value, np.nan)
-    elif fcn == "std":
+            x[rows] = got
+    else:
+        if fcn in EGEN_GROUP_STATS and not argument:
+            raise StataExprError(f"egen {fcn}() needs an expression")
         x = evaluate(argument, data, steps.stored)
-        held = x[mask & ~np.isnan(x)]
-        if held.size > 1 and held.std(ddof=1) > 0:
-            value = np.where(mask, (x - held.mean()) / held.std(ddof=1), np.nan)
-    elif fcn in ("group", "tag"):
-        names = _varlist(argument, data)
-        code = _combination_codes(data[names], keep_missing="missing" in options)
-        selected = mask & (code >= 0)
-        if fcn == "group":
-            levels = np.unique(code[selected])
-            rank = {int(c): i + 1 for i, c in enumerate(levels)}
-            value = np.array(
-                [rank[int(c)] if s else np.nan for c, s in zip(code, selected)],
-                dtype=float,
-            )
-        else:
-            value = np.zeros(n)
-            positions = np.flatnonzero(selected)
-            _, first = np.unique(code[positions], return_index=True)
-            value[positions[first]] = 1.0
-    else:  # row functions
-        names = _varlist(argument, data)
-        block = np.column_stack(
-            [data[c].to_numpy(dtype=float, na_value=np.nan) for c in names]
-        )
-        present = ~np.isnan(block)
-        k = present.sum(axis=1)
-        with np.errstate(invalid="ignore", divide="ignore"):
-            if fcn == "rownonmiss":
-                value = k.astype(float)
-            elif fcn == "rowmiss":
-                value = (block.shape[1] - k).astype(float)
-            elif fcn in ("rowfirst", "rowlast"):
-                order = block if fcn == "rowfirst" else block[:, ::-1]
-                seen = ~np.isnan(order)
-                first = seen.argmax(axis=1)
-                value = np.where(
-                    seen.any(axis=1), order[np.arange(len(order)), first], np.nan
-                )
-            elif fcn in ("anycount", "anymatch"):
-                spec = str(options.get("values") or options.get("v") or "")
-                wanted = _values(spec)
-                hits = np.isin(block, wanted).sum(axis=1).astype(float)
-                value = hits if fcn == "anycount" else (hits > 0).astype(float)
-            elif fcn == "cut":
-                if block.shape[1] != 1:
-                    raise StataExprError("egen cut() takes one variable")
-                x = block[:, 0]
-                codes = "icodes" in options or "label" in options
-                if options.get("group"):
-                    # group(#): # groups of about equal frequency. The cuts
-                    # are the minimum, the # - 1 quantiles of `pctile x,
-                    # nq(#)` and the maximum plus one; the result is the
-                    # group number from 0 (group() implies icodes).
-                    if options.get("at"):
-                        raise StataExprError(
-                            "egen cut(): at() and group() cannot be combined"
-                        )
-                    try:
-                        n_groups = int(float(str(options["group"])))
-                    except ValueError:
-                        n_groups = 0
-                    held = np.sort(x[present[:, 0] & mask])
-                    if n_groups < 2 or held.size == 0:
-                        raise StataExprError(
-                            "egen cut(): group(#) needs an integer of 2 or more"
-                        )
-                    inner = [
-                        _percentile(held, 100.0 * i / n_groups)
-                        for i in range(1, n_groups)
-                    ]
-                    at = np.array([held[0]] + inner + [held[-1] + 1.0])
-                    # ties in the quantiles leave empty groups, as in Stata
-                    at = np.maximum.accumulate(at)
-                    codes = True
-                else:
-                    at = np.array(_values(str(options.get("at") or "")), dtype=float)
-                    if len(at) < 2 or np.any(np.diff(at) <= 0):
-                        raise StataExprError(
-                            "egen cut() needs at(#, #, ...) in ascending order "
-                            "or group(#)"
-                        )
-                where = np.searchsorted(at, x, side="right") - 1
-                inside = present[:, 0] & (where >= 0) & (x < at[-1])
-                where = np.clip(where, 0, len(at) - 1)
-                picked = where.astype(float) if codes else at[where]
-                value = np.where(inside, picked, np.nan)
-            elif fcn == "rowtotal":
-                value = np.where(present, block, 0.0).sum(axis=1)
-                if "missing" in options:
-                    value = np.where(k > 0, value, np.nan)
-            elif fcn == "rowmean":
-                value = np.where(
-                    k > 0, np.where(present, block, 0.0).sum(axis=1) / k, np.nan
-                )
-            elif fcn == "rowmin":
-                value = np.where(
-                    k > 0, np.where(present, block, np.inf).min(axis=1), np.nan
-                )
-            elif fcn == "rowmax":
-                value = np.where(
-                    k > 0, np.where(present, block, -np.inf).max(axis=1), np.nan
-                )
-            else:  # rowsd
-                mean = np.where(present, block, 0.0).sum(axis=1) / np.maximum(k, 1)
-                dev = np.where(present, block - mean[:, None], 0.0)
-                value = np.where(
-                    k > 1, np.sqrt((dev**2).sum(axis=1) / np.maximum(k - 1, 1)), np.nan
-                )
-        value = np.where(mask, value, np.nan)
+        if fcn in EGEN_GROUP_STATS and x.dtype == object:
+            raise StataExprError(f"egen {fcn}() of a string expression")
+    try:
+        value = egen_compute(fcn, n, mask, options, x=x, code=code, frame=frame)
+    except StatsPAIError as exc:
+        raise StataExprError(exc.message) from None
 
     double = (vtype or "").lower() == "double"
     steps.add_column(name, value, double=double)
