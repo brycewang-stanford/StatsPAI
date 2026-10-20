@@ -2429,6 +2429,7 @@ __all__ = [
     "xtpcse",
     "xtintreg",
     "xtregar",
+    "mmqreg",
     "xttobit",
     "model_average",
     "ModelAverageResult",
@@ -3427,6 +3428,7 @@ _register_lazy("panel.xtivreg", "xtivreg")
 _register_lazy("panel.xtpcse", "xtpcse")
 _register_lazy("panel.xtintreg", "xtintreg")
 _register_lazy("panel.xtregar", "xtregar")
+_register_lazy("panel.mmqreg", "mmqreg")
 _register_lazy("panel.xtintreg", "xttobit")
 _register_lazy("regression.model_average", "model_average", "ModelAverageResult")
 _register_lazy("inference._jackknife_general", "jackknife", "JackknifeResult")

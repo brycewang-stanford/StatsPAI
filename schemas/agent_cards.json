@@ -14876,6 +14876,157 @@
   {
     "alias_of": null,
     "alternatives": [
+      "qreg",
+      "sqreg"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Location-scale model: y = x'b + a_g + (x'g + d_g) e with e independent of x",
+      "Fitted scale positive for every observation"
+    ],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.mmqreg(df, \"y\", [\"x1\", \"x2\"], absorb=\"id\", quantile=0.25)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass x='col' or a list of columns.",
+        "symptom": "mmqreg: give at least one regressor."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. quantile=0.25 (not 25).",
+        "symptom": "mmqreg: quantile=<quantile> is not strictly between 0 and 1."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'gls', 'robust' or 'cluster'.",
+        "symptom": "mmqreg: vce=<vce>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass vce='cluster', cluster='<column>'.",
+        "symptom": "mmqreg: vce='cluster' and cluster= go together."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "mmqreg",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "machado2019quantiles; riosavila2024estimating",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults (quantile coefficients; model_info: q, density, location, scale, vcov_all)",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors.",
+      "name": "mmqreg",
+      "parameters": {
+        "properties": {
+          "absorb": {
+            "description": "Fixed effects to partial out (one or more columns)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Level",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "quantile": {
+            "default": 0.5,
+            "description": "Quantile, strictly between 0 and 1",
+            "type": "number"
+          },
+          "vce": {
+            "default": "gls",
+            "description": "Variance: 'gls' (valid under the location-scale model; mmqreg's default), 'robust' or 'cluster'",
+            "enum": [
+              "gls",
+              "robust",
+              "cluster"
+            ],
+            "type": "string"
+          },
+          "x": {
+            "description": "Regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_mmqreg.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "tobit",
       "xtintreg",
       "panel"

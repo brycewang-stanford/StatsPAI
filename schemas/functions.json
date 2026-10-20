@@ -7662,6 +7662,70 @@
     }
   },
   {
+    "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors.",
+    "name": "mmqreg",
+    "parameters": {
+      "properties": {
+        "absorb": {
+          "description": "Fixed effects to partial out (one or more columns)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "quantile": {
+          "default": 0.5,
+          "description": "Quantile, strictly between 0 and 1",
+          "type": "number"
+        },
+        "vce": {
+          "default": "gls",
+          "description": "Variance: 'gls' (valid under the location-scale model; mmqreg's default), 'robust' or 'cluster'",
+          "enum": [
+            "gls",
+            "robust",
+            "cluster"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
     "name": "xttobit",
     "parameters": {

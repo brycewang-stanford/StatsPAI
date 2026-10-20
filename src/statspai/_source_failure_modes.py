@@ -957,6 +957,29 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "f]>).",
         }
     ],
+    "mmqreg": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass x='col' or a list of columns.",
+            "symptom": "mmqreg: give at least one regressor.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. quantile=0.25 (not 25).",
+            "symptom": "mmqreg: quantile=<quantile> is not strictly between 0 "
+            "and 1.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'gls', 'robust' or 'cluster'.",
+            "symptom": "mmqreg: vce=<vce>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass vce='cluster', cluster='<column>'.",
+            "symptom": "mmqreg: vce='cluster' and cluster= go together.",
+        },
+    ],
     "model_average": [
         {
             "exception": "statspai.MethodIncompatibility",

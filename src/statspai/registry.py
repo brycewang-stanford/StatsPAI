@@ -9213,6 +9213,70 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="mmqreg",
+            category="panel",
+            description=(
+                "Quantile regression via moments (Machado-Santos Silva MMQR) "
+                "with one or more absorbed fixed effects (Stata xtqreg / "
+                "mmqreg): location, scale and quantile equations, with GLS, "
+                "robust or cluster influence-function standard errors."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome"),
+                ParamSpec("x", "list", True, description="Regressors"),
+                ParamSpec(
+                    "absorb",
+                    "list",
+                    False,
+                    None,
+                    "Fixed effects to partial out (one or more columns)",
+                ),
+                ParamSpec(
+                    "quantile",
+                    "float",
+                    False,
+                    0.5,
+                    "Quantile, strictly between 0 and 1",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "gls",
+                    "Variance: 'gls' (valid under the location-scale model; "
+                    "mmqreg's default), 'robust' or 'cluster'",
+                    ["gls", "robust", "cluster"],
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster column"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns=(
+                "EconometricResults (quantile coefficients; model_info: q, "
+                "density, location, scale, vcov_all)"
+            ),
+            example='sp.mmqreg(df, "y", ["x1", "x2"], absorb="id", quantile=0.25)',
+            tags=[
+                "quantile regression",
+                "fixed effects",
+                "panel",
+                "mmqr",
+                "xtqreg",
+                "mmqreg",
+                "location-scale",
+            ],
+            reference="machado2019quantiles; riosavila2024estimating",
+            assumptions=[
+                "Location-scale model: y = x'b + a_g + (x'g + d_g) e with e "
+                "independent of x",
+                "Fitted scale positive for every observation",
+            ],
+            alternatives=["qreg", "sqreg"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="xttobit",
             category="panel",
             description=(
@@ -36639,6 +36703,7 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "xtivreg": ["tests/test_xtivreg_stata.py"],
     "xtpcse": ["tests/test_xtpcse_stata.py"],
     "xtregar": ["tests/test_xtregar_stata.py"],
+    "mmqreg": ["tests/test_mmqreg.py"],
     "egen": ["tests/test_egen_public.py"],
     "xtset": ["tests/test_data_layer.py"],
     "lag": ["tests/test_data_layer.py"],
