@@ -179,7 +179,7 @@ others, and every point-identified model decomposes the data history:
 ```python
 px = sp.svar(fit, proxy=df["news"], proxy_target="i")   # proxy SVAR
 px.proxy_diagnostics["robust_f"]          # proxy strength; warns below 10
-px.irf(20, ci="bootstrap", reps=500, seed=1)   # wild bootstrap, proxy flipped with u
+px.irf(20, ci="bootstrap", reps=500, seed=1)   # moving block bootstrap of (u, proxy) pairs
 px.fevd(20)                               # share of the full forecast-error variance
 ab.historical_decomposition()             # actual = baseline + shock contributions
 ```

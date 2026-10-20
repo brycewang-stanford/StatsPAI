@@ -10956,7 +10956,7 @@
     }
   },
   {
-    "description": "Structural VAR on a fitted sp.var: short-run restrictions in the AB model A e = B u (Stata svar aeq() beq()), long-run restrictions on the cumulative impact matrix (Blanchard-Quah; Stata svar lreq()), or sign restrictions on impulse responses (a set of admissible models). Maximum likelihood with standard errors and a likelihood-ratio test of over-identifying restrictions; the result gives structural impulse responses and the forecast-error variance decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Long-run restrictions on a VAR with a unit root in levels -- I - A_1 - ... - A_p is singular; difference the integrated variables first; Sign-restricted bands are read as confidence intervals -- they are the spread of the identified set at the estimated reduced form and carry no sampling uncertainty.",
+    "description": "Structural VAR on a fitted sp.var: short-run restrictions in the AB model A e = B u (Stata svar aeq() beq()), long-run restrictions on the cumulative impact matrix (Blanchard-Quah; Stata svar lreq()), or sign restrictions on impulse responses (a set of admissible models), or an external instrument for one shock (proxy SVAR, with a moving block bootstrap for its bands). Maximum likelihood with standard errors and a likelihood-ratio test of over-identifying restrictions; the result gives structural impulse responses and the forecast-error variance decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Long-run restrictions on a VAR with a unit root in levels -- I - A_1 - ... - A_p is singular; difference the integrated variables first; Sign-restricted bands are read as confidence intervals -- they are the spread of the identified set at the estimated reduced form and carry no sampling uncertainty.",
     "name": "svar",
     "parameters": {
       "properties": {
@@ -10988,24 +10988,21 @@
           "type": "integer"
         },
         "proxy": {
-          "description": "External instrument for one shock (a proxy SVAR): correlated with that shock, uncorrelated with the others. One value per row of the data given to :func:`var` (or per residual), NaN where it is not observed. Identifies the shock's impact column ``b Cov(e_t, m_t)``, the 2SLS coefficients of each residual on the target's residual with the proxy as instrument; ``.irf(ci='bootstrap')`` uses a wild bootstrap that flips the residual and the proxy of a period together. ``.proxy_diagnostics`` holds the robust first-stage F (warning below 10) and ``.shock_series`` the identified shock.",
-          "type": "string",
-          "x-statspai-source": "signature"
+          "description": "Proxy SVAR: external instrument for one shock, one value per data row (NaN where unobserved)",
+          "type": "string"
+        },
+        "proxy_block_length": {
+          "description": "Proxy SVAR: block length of the moving block bootstrap behind irf(ci='bootstrap'); default ceil(T ** (1/3))",
+          "type": "integer"
         },
         "proxy_scale": {
           "default": "unit",
-          "description": "``'unit'``: the target's impact response is 1. ``'std'``: a one-standard-deviation shock, ``b / sqrt(b' Sigma^{-1} b)``.",
-          "enum": [
-            "unit",
-            "std"
-          ],
-          "type": "string",
-          "x-statspai-source": "signature"
+          "description": "Proxy SVAR: 'unit' (target impact = 1) or 'std' (one-standard-deviation shock)",
+          "type": "string"
         },
         "proxy_target": {
-          "description": "Variable whose impact response the proxy pins down (default the first variable), usually the policy variable.",
-          "type": "string",
-          "x-statspai-source": "signature"
+          "description": "Proxy SVAR: variable whose impact response is normalised (default the first variable)",
+          "type": "string"
         },
         "seed": {
           "description": "Seed of the rotation draws",

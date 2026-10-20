@@ -808,6 +808,7 @@ def svar(
     proxy: Optional[Any] = None,
     proxy_target: Optional[str] = None,
     proxy_scale: str = "unit",
+    proxy_block_length: Optional[int] = None,
 ) -> SVARResult:
     """Structural VAR: identify the shocks behind a fitted :func:`var`.
 
@@ -862,16 +863,23 @@ def svar(
         residual), NaN where it is not observed. Identifies the shock's
         impact column ``b ∝ Cov(e_t, m_t)``, the 2SLS coefficients of each
         residual on the target's residual with the proxy as instrument;
-        ``.irf(ci='bootstrap')`` uses a wild bootstrap that flips the
-        residual and the proxy of a period together. ``.proxy_diagnostics``
-        holds the robust first-stage F (warning below 10) and
-        ``.shock_series`` the identified shock.
+        ``.irf(ci='bootstrap')`` uses a residual-based moving block
+        bootstrap that draws blocks of (residual, proxy) pairs together.
+        (The residual-based wild bootstrap common in this literature is
+        not used: its bands are far too narrow, see Notes.)
+        ``.proxy_diagnostics`` holds the robust first-stage F (warning
+        below 10), the block length, and ``.shock_series`` the identified
+        shock.
     proxy_target : str, optional
         Variable whose impact response the proxy pins down (default the
         first variable), usually the policy variable.
     proxy_scale : {'unit', 'std'}, default 'unit'
         ``'unit'``: the target's impact response is 1. ``'std'``: a
         one-standard-deviation shock, ``b / sqrt(b' Sigma^{-1} b)``.
+    proxy_block_length : int, optional
+        Block length of the proxy bootstrap; default ``ceil(T ** (1/3))``
+        for ``T`` VAR residuals. Longer blocks keep more of the serial
+        dependence of the residual-proxy products.
 
     Returns
     -------
@@ -910,6 +918,16 @@ def svar(
     median falls; only the set, not the median, is what the restrictions
     deliver.
 
+    Proxy identification takes the impact column from the covariance of
+    the residuals with the proxy. A residual-based wild bootstrap that
+    multiplies the residual and the proxy of a period by the same sign
+    leaves every product ``u_t m_t`` unchanged, so that covariance never
+    varies across replicates and the bands are far too narrow (in the
+    simulated design of the tests its 95% bands covered the true impact
+    response in under a fifth of samples). The block bootstrap used here
+    resamples the pairs and covers at about the nominal rate. With a weak
+    proxy (robust F below 10) any of these bands undercovers.
+
     Examples
     --------
     >>> import numpy as np, pandas as pd
@@ -942,7 +960,11 @@ def svar(
     [@sims1980macroeconomics],
     [@blanchard1988dynamic],
     [@uhlig2005effects],
-    [@rubioramirez2010structural]
+    [@rubioramirez2010structural],
+    [@stock2012disentangling],
+    [@mertens2013dynamic],
+    [@jentsch2019dynamic],
+    [@olea2021inference]
     """
     if not isinstance(var_result, VARResult):
         raise MethodIncompatibility(
@@ -984,7 +1006,14 @@ def svar(
     if proxy is not None:
         from ._svar_proxy import proxy_svar
 
-        return proxy_svar(var_result, proxy, proxy_target, proxy_scale, alpha)
+        return proxy_svar(
+            var_result,
+            proxy,
+            proxy_target,
+            proxy_scale,
+            alpha,
+            block_length=proxy_block_length,
+        )
 
     if sign is not None:
         if sign_horizon < 0 or n_draws < 1:

@@ -716,10 +716,19 @@ All notable changes to StatsPAI will be documented in this file.
   period or two-way fixed effects or pooled OLS, differenced shock,
   instruments, and unit-clustered (default), Driscoll-Kraay or
   homoskedastic errors.
-- `sp.svar(fit, proxy=m, proxy_target=, proxy_scale=)` identifies one shock
-  with an external instrument (a proxy SVAR), with a wild
-  bootstrap for `irf(ci='bootstrap')`, FEVD shares of the full
-  forecast-error variance and the robust first-stage F.
+- `sp.svar(fit, proxy=m, proxy_target=, proxy_scale=, proxy_block_length=)`
+  identifies one shock with an external instrument (a proxy SVAR), with a
+  residual-based moving block bootstrap for `irf(ci='bootstrap')`, FEVD
+  shares of the full forecast-error variance and the robust first-stage F.
+  ⚠️ The first version on main (612557ee, never released) used the
+  Mertens-Ravn wild bootstrap, one Rademacher sign per period on the
+  residual and the proxy. The sign cancels in `u_t m_t`, so the
+  covariance that identifies the shock never varied across replicates: on
+  the simulated design of the tests its 95% bands covered the true impact
+  response in 17-19% of samples, with standard errors about a ninth of
+  the sampling SD (Jentsch and Lunsford 2019 show the same for this
+  bootstrap). The block bootstrap matches the robust 2SLS standard error
+  of the impact ratio and covers at about the nominal rate.
 - `SVARResult.historical_decomposition()` splits every variable into a
   shock-free baseline and accumulated shock contributions (R `svars::hd`).
 - `sp.granger_causality(data=, caused=, causing=, lags=, id=, time=)` is
@@ -731,7 +740,8 @@ All notable changes to StatsPAI will be documented in this file.
 - Evidence: `tests/reference_parity/test_ts_causal_parity.py`, 1e-12 or
   better against `lpirfs` 0.2.5, `plm` 2.6 (GPL packages used as black
   boxes), `svars` 1.3, Stata 18 `lpirf` and `xtgcause`; the proxy SVAR
-  against the 2SLS identity and a long simulated sample.
+  against the 2SLS identity, a long simulated sample, the HC0 2SLS
+  standard error and a coverage screen.
 - `sp.vcov(lp, vce)` / `sp.vcov_compare` re-report a local projection
   under another `vce=`: the call is recorded, and an impulse-response
   result is read as one estimate per horizon (per regime for `state=`).

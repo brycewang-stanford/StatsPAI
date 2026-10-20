@@ -12620,7 +12620,9 @@ def _build_registry() -> None:
                 "in the AB model A e = B u (Stata svar aeq() beq()), "
                 "long-run restrictions on the cumulative impact matrix "
                 "(Blanchard-Quah; Stata svar lreq()), or sign restrictions "
-                "on impulse responses (a set of admissible models). "
+                "on impulse responses (a set of admissible models), or an "
+                "external instrument for one shock (proxy SVAR, with a "
+                "moving block bootstrap for its bands). "
                 "Maximum likelihood with standard errors and a likelihood-"
                 "ratio test of over-identifying restrictions; the result "
                 "gives structural impulse responses and the forecast-error "
@@ -12667,6 +12669,38 @@ def _build_registry() -> None:
                 ParamSpec("max_tries", "int", False, 200000, "Rotations tried at most"),
                 ParamSpec("seed", "int", False, None, "Seed of the rotation draws"),
                 ParamSpec("alpha", "float", False, 0.05, "Band level (sign)"),
+                ParamSpec(
+                    "proxy",
+                    "array-like",
+                    False,
+                    None,
+                    "Proxy SVAR: external instrument for one shock, one value "
+                    "per data row (NaN where unobserved)",
+                ),
+                ParamSpec(
+                    "proxy_target",
+                    "str",
+                    False,
+                    None,
+                    "Proxy SVAR: variable whose impact response is normalised "
+                    "(default the first variable)",
+                ),
+                ParamSpec(
+                    "proxy_scale",
+                    "str",
+                    False,
+                    "unit",
+                    "Proxy SVAR: 'unit' (target impact = 1) or 'std' "
+                    "(one-standard-deviation shock)",
+                ),
+                ParamSpec(
+                    "proxy_block_length",
+                    "int",
+                    False,
+                    None,
+                    "Proxy SVAR: block length of the moving block bootstrap "
+                    "behind irf(ci='bootstrap'); default ceil(T ** (1/3))",
+                ),
             ],
             returns="SVARResult",
             example="sp.svar(fit, B=np.tril(np.full((3, 3), np.nan)))",

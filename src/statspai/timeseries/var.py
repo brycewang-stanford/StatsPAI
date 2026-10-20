@@ -762,6 +762,11 @@ def granger_causality(
     >>> gc2 = sp.granger_causality(data=df, caused="x", causing="y", lags=2)
     >>> print(gc2["reject"])  # y does not Granger-cause x
     False
+
+    References
+    ----------
+    [@granger1969investigating],
+    [@dumitrescu2012testing]
     """
     if caused is None or causing is None:
         raise MethodIncompatibility(

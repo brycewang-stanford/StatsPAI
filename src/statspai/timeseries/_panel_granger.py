@@ -21,6 +21,8 @@ This is ``plm::pgrangertest`` (all three statistics) and Stata's
 ``xtgcause`` (which writes ``Z_tilde`` with ``T - K`` regression
 observations; the two expressions are the same). P-values are two-sided,
 as both report them.
+
+References: [@dumitrescu2012testing].
 """
 
 from __future__ import annotations

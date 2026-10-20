@@ -10,14 +10,23 @@ Scaled to a one-standard-deviation shock it is
 ``b / sqrt(b' Sigma^{-1} b)``, ``Sigma`` the residual covariance of the
 whole sample; the shock series is ``b' Sigma^{-1} u_t / sqrt(b' Sigma^{-1} b)``.
 
-Inference is the recursive-design wild bootstrap of the VAR, the residuals
-and the proxy multiplied by the same Rademacher draw in each period, the
-VAR re-estimated and the shock re-identified on every replicate.
+Inference is a residual-based moving block bootstrap: blocks of
+consecutive (residual, proxy) pairs are drawn jointly, centred by block
+position, the VAR regenerated recursively from the estimated coefficients,
+re-estimated, and the shock re-identified on every replicate. The
+residual-based wild bootstrap of Mertens and Ravn (one Rademacher sign per
+period on the residual and the proxy) is not used: the sign cancels in
+the product ``u_t m_t``, so the covariance that identifies the shock never
+varies across replicates and the bands are far too narrow
+[@mertens2013dynamic; @jentsch2019dynamic]. On the simulated design of
+``tests/reference_parity/test_ts_causal_parity.py`` its nominal 95% bands
+covered the true impact response in 17-19% of samples; the block
+bootstrap's cover it at about the nominal rate (same test file).
 
 Proxy strength is reported as the heteroskedasticity-robust F statistic of
 the proxy in the regression of ``u_target`` on a constant and ``m``; below
 10 a warning is raised, because the impact ratio is then weakly identified
-and the Wald-type and bootstrap bands both undercover.
+and the Wald-type and bootstrap bands both undercover [@olea2021inference].
 """
 
 from __future__ import annotations
@@ -102,27 +111,62 @@ def proxy_impact(
     return b
 
 
-def wild_draws(
+def default_block_length(T: int) -> int:
+    """``ceil(T^(1/3))``, at most ``T``."""
+    return int(min(T, max(1, int(np.ceil(T ** (1.0 / 3.0) - 1e-12)))))
+
+
+def block_draws(
     var_result: Any,
     m: np.ndarray,
     reps: int,
     seed: Optional[int],
+    block_length: Optional[int] = None,
 ) -> Iterator[Tuple[List[np.ndarray], np.ndarray, np.ndarray, np.ndarray]]:
-    """Wild-bootstrap replicates: lag matrices, sigma, residuals, proxy."""
+    """Moving-block bootstrap replicates: lag matrices, sigma, residuals,
+    proxy.
+
+    Blocks of ``block_length`` consecutive periods of the residuals and the
+    proxy are drawn together (start uniform on ``0..T-l``) and laid end to
+    end, cut at ``T``. Each element is centred by the mean over all blocks
+    of its position in the block, so the bootstrap residuals have mean zero
+    at every date; the proxy enters a regression with a constant, where the
+    same centring leaves its covariance with the residuals intact. NaN
+    (unobserved proxy) travel with their period.
+    """
     B = np.asarray(var_result._B, float)
     X = np.asarray(var_result._X, float)
     levels = np.asarray(var_result._levels, float)
     k, p = int(var_result._k), int(var_result._lags)
     kp = k * p
     T = X.shape[0]
+    # validated in proxy_svar
+    ell = default_block_length(T) if block_length is None else int(block_length)
     resid = np.asarray(var_result.residuals, float)
     det = X[:, kp:] @ B[kp:, :] if X.shape[1] > kp else np.zeros((T, k))
     A_stack = B[:kp, :]
     start = levels[len(levels) - T - p : len(levels) - T]
+    n_start = T - ell + 1
+    pos = np.arange(ell)
+    # mean of position j over all admissible blocks
+    idx_all = np.arange(n_start)[:, None] + pos[None, :]  # (n_start, ell)
+    mu_u = resid[idx_all].mean(axis=0)  # (ell, k)
+    with np.errstate(invalid="ignore"):
+        m_blocks = m[idx_all]
+        seen = np.isfinite(m_blocks)
+        mu_m = np.where(
+            seen.any(axis=0),
+            np.where(seen, m_blocks, 0.0).sum(axis=0) / np.maximum(seen.sum(axis=0), 1),
+            0.0,
+        )
+    n_blocks = -(-T // ell)
     rng = np.random.default_rng(seed)
     for _ in range(reps):
-        eta = rng.choice([-1.0, 1.0], size=T)
-        e = resid * eta[:, None]
+        starts = rng.integers(0, n_start, size=n_blocks)
+        idx = (starts[:, None] + pos[None, :]).ravel()[:T]
+        j = np.tile(pos, n_blocks)[:T]
+        e = resid[idx] - mu_u[j]
+        m_b = m[idx] - mu_m[j]
         y = np.empty((T + p, k))
         y[:p] = start
         for t in range(T):
@@ -133,8 +177,8 @@ def wild_draws(
         Yb = y[p:]
         Bb = np.linalg.lstsq(Xb, Yb, rcond=None)[0]
         u = Yb - Xb @ Bb
-        lag_b = [Bb[j * k : (j + 1) * k, :].T for j in range(p)]
-        yield lag_b, u.T @ u / T, u, m * eta
+        lag_b = [Bb[jj * k : (jj + 1) * k, :].T for jj in range(p)]
+        yield lag_b, u.T @ u / T, u, m_b
 
 
 def proxy_svar(
@@ -144,6 +188,7 @@ def proxy_svar(
     scale: str,
     alpha: float,
     shock_name: Optional[str] = None,
+    block_length: Optional[int] = None,
 ):
     """Identify the shock; returns an ``SVARResult`` with one shock."""
     from .svar import SVARResult, _lag_matrices
@@ -182,7 +227,8 @@ def proxy_svar(
         warnings.warn(
             f"svar: the proxy is weak (robust F = {f_stat:.2f} < 10 in the "
             f"regression of the {target} residual on it); the identified "
-            "impact ratios are unreliable and their bands undercover.",
+            "impact ratios are unreliable and their bootstrap bands "
+            "undercover.",
             AssumptionWarning,
             stacklevel=3,
         )
@@ -215,17 +261,30 @@ def proxy_svar(
 
     result._proxy = m
     result._identify_proxy = identify
+    T = len(resid)
+    if block_length is not None and not (
+        isinstance(block_length, (int, np.integer)) and 1 <= int(block_length) <= T
+    ):
+        raise MethodIncompatibility(
+            f"svar: proxy_block_length={block_length!r} must be an integer "
+            f"between 1 and the {T} VAR residuals.",
+            recovery_hint="Leave it at None for ceil(T ** (1/3)).",
+        )
+    result._proxy_block_length = None if block_length is None else int(block_length)
+    result.proxy_diagnostics["block_length"] = (
+        default_block_length(T) if block_length is None else int(block_length)
+    )
     return result
 
 
 def proxy_bootstrap(
     result: Any, path: Any, reps: int, seed: Optional[int]
 ) -> Tuple[np.ndarray, int]:
-    """Stack of ``path(lag_matrices, impact)`` over wild-bootstrap draws."""
+    """Stack of ``path(lag_matrices, impact)`` over block-bootstrap draws."""
     draws: List[np.ndarray] = []
     failed = 0
-    for lag_b, sigma_b, u_b, m_b in wild_draws(
-        result._var_result, result._proxy, reps, seed
+    for lag_b, sigma_b, u_b, m_b in block_draws(
+        result._var_result, result._proxy, reps, seed, result._proxy_block_length
     ):
         try:
             impact_b = result._identify_proxy(lag_b, sigma_b, u_b, m_b)
