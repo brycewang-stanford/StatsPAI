@@ -275,3 +275,9 @@ Apache-2.0: rdd, which also requires its NOTICE file, if any, to be kept).
   put GPL code in the wheel; it was not assessed here.
 - `agent/_translation/` translates user Stata / R scripts into `sp.*` calls;
   its "translation" wording does not refer to reference implementations.
+
+## Addendum (2026-10-21)
+
+| Row | Path | Reference | License | Action |
+| --- | --- | --- | --- | --- |
+| X1 | `tests/reference_parity/_fixtures/_verify_rdbwselect_cascade.R` | R `rdrobust` (internal `rdrobust:::rdrobust_bw`; the file's header says it hand-replicates `rdbwselect`'s three-stage cascade) | GPL-3 (row H6) | Deleted. Only its header comment was read for this decision. No test, script, workflow or Makefile referenced it (`grep` by file name over the tree); the remaining mentions are prose in `docs/rfc/rd_three_month_plan.md` (historical plan) and `docs/dev/cleanroom/lprobust.md` (listed as "not read"), left as historical records. `rd/_cct_bandwidth.py` was already rewritten clean-room. |
