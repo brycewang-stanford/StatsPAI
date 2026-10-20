@@ -4833,3 +4833,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after the sp.xtregar lazy export
+
+- **Commits.** `1d6c1aa4d` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
+  24, 25, 26, 27, 53, 65, 66) and
+  `tests/orig_parity/results/_implementation_trace.json` (08).
+- **Reason.** `src/statspai/__init__.py` gained one `_register_lazy` line
+  for `sp.xtregar`; these modules execute its lazy-attribute hook.
+- **Effect on the paper.** None. The modules were re-run first; 13, 26,
+  27, 53, 65, 66 and orig 08 are byte-identical, 03, 15, 24 and 25 differ
+  only in the last digits (at most 4e-10 relative, inside the 1e-9
+  reproducibility tolerance), so the committed results were kept and only
+  the source hashes in the traces changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
