@@ -1031,7 +1031,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.heckprobit(df, y=\"insured\", x=[\"age\", \"income\"], select=\"asked\", z=[\"phone\", \"age\"])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 3000\nage, income, phone = rng.normal(size=(3, n))\nu, v = rng.multivariate_normal([0, 0], [[1, 0.5], [0.5, 1]], n).T\nasked = (0.3 + phone + 0.3 * age + v > 0).astype(int)\ninsured = (0.2 + 0.5 * age + 0.5 * income + u > 0).astype(int)\ndf = pd.DataFrame({'age': age, 'income': income, 'phone': phone,\n 'asked': asked, 'insured': insured * asked})\nr = sp.heckprobit(df, y='insured', x=['age', 'income'],\n select='asked', z=['phone', 'age'])",
     "failure_modes": [
       {
         "alternative": "probit",
@@ -1182,7 +1182,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.gologit(df, y=\"health\", x=[\"age\", \"income\"], npl=[\"age\"])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 2000\nage = rng.normal(size=n); income = rng.normal(size=n)\nlatent = 0.8 * age + 0.5 * income + rng.logistic(size=n)\ndf = pd.DataFrame({'age': age, 'income': income,\n 'health': np.digitize(latent, [-1.0, 0.5, 2.0])})\nr = sp.gologit(df, y='health', x=['age', 'income'], npl=['age'])",
     "failure_modes": [
       {
         "alternative": "ologit",
@@ -1341,7 +1341,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.intreg(df, y_lower=\"wage_lo\", y_upper=\"wage_hi\", x=[\"educ\", \"exper\"])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1500\neduc, exper = rng.normal(size=(2, n))\nw = 2 + 0.5 * educ + 0.3 * exper + rng.normal(size=n)\nlo = np.floor(w); hi = lo + 1.0\ndf = pd.DataFrame({'educ': educ, 'exper': exper,\n 'wage_lo': lo, 'wage_hi': hi})\nr = sp.intreg(df, y_lower='wage_lo', y_upper='wage_hi',\n x=['educ', 'exper'])",
     "failure_modes": [
       {
         "alternative": "intreg",
@@ -14153,7 +14153,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.xtivreg(df, y=\"lwage\", x=[\"exper\"], endog=\"educ\", instruments=[\"meduc\"], id=\"id\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn_id, T = 300, 4\nids = np.repeat(np.arange(n_id), T)\nz, e = rng.normal(size=(2, n_id * T))\nexper = rng.normal(size=n_id * T)\neduc = z + 0.5 * e + rng.normal(size=n_id * T)\nlwage = (0.1 * educ + 0.05 * exper + rng.normal(size=n_id)[ids] + e)\ndf = pd.DataFrame({'id': ids, 'lwage': lwage, 'educ': educ,\n 'exper': exper, 'meduc': z})\nr = sp.xtivreg(df, y='lwage', x=['exper'], endog='educ',\n instruments=['meduc'], id='id')",
     "failure_modes": [
       {
         "alternative": "xtivreg",
@@ -14338,7 +14338,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.xtpcse(df, y=\"gdp\", x=[\"trade\"], id=\"country\", time=\"year\", correlation=\"ar1\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\ncountries, years = 10, 20\ndf = pd.DataFrame({'country': np.repeat(np.arange(countries), years),\n 'year': np.tile(np.arange(years), countries)})\ndf['trade'] = rng.normal(size=len(df))\ndf['gdp'] = 1 + 0.5 * df.trade + rng.normal(size=len(df))\nr = sp.xtpcse(df, y='gdp', x=['trade'], id='country', time='year',\n correlation='ar1')",
     "failure_modes": [
       {
         "alternative": "xtpcse",
@@ -14525,7 +14525,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.xtintreg(df, y_lower=\"wage_lo\", y_upper=\"wage_hi\", x=[\"educ\"], id=\"id\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn_id, T = 100, 4\nids = np.repeat(np.arange(n_id), T)\neduc = rng.normal(size=n_id * T)\nw = 2 + educ + rng.normal(size=n_id)[ids] + rng.normal(size=n_id * T)\ndf = pd.DataFrame({'id': ids, 'educ': educ,\n 'wage_lo': np.floor(w), 'wage_hi': np.floor(w) + 1})\nr = sp.xtintreg(df, y_lower='wage_lo', y_upper='wage_hi', x=['educ'],\n id='id')",
     "failure_modes": [
       {
         "alternative": "xtintreg",
@@ -14817,7 +14817,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.xttobit(df, y=\"hours\", x=[\"wage\"], id=\"id\", ll=0)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn_id, T = 200, 5\nids = np.repeat(np.arange(n_id), T)\nwage = rng.normal(size=n_id * T)\ny = 1 + wage + rng.normal(size=n_id)[ids] + rng.normal(size=n_id * T)\ndf = pd.DataFrame({'id': ids, 'wage': wage, 'hours': np.maximum(y, 0)})\nr = sp.xttobit(df, y='hours', x=['wage'], id='id', ll=0)",
     "failure_modes": [
       {
         "alternative": "xttobit",
@@ -24145,7 +24145,7 @@
       ],
       "tolerance": ""
     },
-    "example": "W = sp.weightit(df, \"dose\", [\"x1\", \"x2\"], method=\"ebal\"); W.balance()",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nx1, x2 = rng.normal(size=(2, n))\ndf = pd.DataFrame({'x1': x1, 'x2': x2,\n 'dose': 0.5 * x1 - 0.3 * x2 + rng.normal(size=n)})\nr = sp.weightit(df, 'dose', ['x1', 'x2'], method='ebal')",
     "failure_modes": [
       {
         "alternative": "bal_tab",
@@ -24332,7 +24332,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.bal_tab(df, \"treat\", [\"x1\", \"x2\"], weights=W)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nx1, x2 = rng.normal(size=(2, n))\ntreat = rng.choice(['a', 'b', 'c'], n)\ndf = pd.DataFrame({'x1': x1 + (treat == 'b'), 'x2': x2, 'treat': treat})\nW = sp.weightit(df, 'treat', ['x1', 'x2'], method='glm')\nr = sp.bal_tab(df, 'treat', ['x1', 'x2'], weights=W)",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [],
@@ -44832,7 +44832,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.bart_causal(df, \"y\", \"d\", [\"x1\", \"x2\"], method=\"bcf\", seed=1)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 300\nx1, x2 = rng.normal(size=(2, n))\nd = (x1 + rng.normal(size=n) > 0).astype(int)\ndf = pd.DataFrame({'x1': x1, 'x2': x2, 'd': d,\n 'y': d + x1 + rng.normal(size=n)})\nr = sp.bart_causal(df, 'y', 'd', ['x1', 'x2'], draws=100, burnin=100,\n chains=1, seed=1)",
     "failure_modes": [
       {
         "alternative": "",
@@ -49843,7 +49843,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.lag(df, \"x\", id=\"firm\", time=\"year\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\ndf = pd.DataFrame({'firm': np.repeat([1, 2], 4),\n 'year': [2001, 2002, 2004, 2005] * 2,\n 'x': rng.normal(size=8)})\nr = sp.lag(df, 'x', id='firm', time='year') # NaN after the 2003 gap",
     "failure_modes": [
       {
         "alternative": "",
@@ -49959,7 +49959,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.lead(df, \"x\", id=\"firm\", time=\"year\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\ndf = pd.DataFrame({'firm': np.repeat([1, 2], 4),\n 'year': [2001, 2002, 2004, 2005] * 2,\n 'x': rng.normal(size=8)})\nr = sp.lead(df, 'x', id='firm', time='year')",
     "failure_modes": [
       {
         "alternative": "",
@@ -50075,7 +50075,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.diff(df, \"x\", id=\"firm\", time=\"year\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\ndf = pd.DataFrame({'firm': np.repeat([1, 2], 4),\n 'year': [2001, 2002, 2004, 2005] * 2,\n 'x': rng.normal(size=8)})\nr = sp.diff(df, 'x', id='firm', time='year')",
     "failure_modes": [
       {
         "alternative": "",
@@ -50189,7 +50189,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.xtset(df, id=\"firm\", time=\"year\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\ndf = pd.DataFrame({'firm': np.repeat([1, 2], 4),\n 'year': [2001, 2002, 2004, 2005] * 2,\n 'x': rng.normal(size=8)})\nr = sp.xtset(df, id='firm', time='year')",
     "failure_modes": [
       {
         "alternative": "",
@@ -50285,7 +50285,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.reshape(df, \"wide\", stubs=\"inc\", id=\"hid\", j=\"year\")",
+    "example": "import pandas as pd\ndf = pd.DataFrame({'hid': [1, 1, 2, 2], 'year': [2000, 2001] * 2,\n 'inc': [10.0, 11.0, 20.0, 22.0]})\nr = sp.reshape(df, 'wide', stubs='inc', id='hid', j='year')",
     "failure_modes": [
       {
         "alternative": "",
@@ -50395,7 +50395,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.collapse(df, \"(mean) wage (count) n=wage\", by=\"state\")",
+    "example": "df = sp.cps_wage()\nr = sp.collapse(df, '(mean) log_wage (count) n=log_wage', by='female')",
     "failure_modes": [
       {
         "alternative": "",
@@ -64895,7 +64895,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.group_sequential(n_looks=3, efficacy=\"errobfleming\", futility=\"errpocock\", side=\"upper\")",
+    "example": "r = sp.group_sequential(n_looks=3, efficacy='errobfleming',\n futility='errpocock', side='upper')",
     "failure_modes": [
       {
         "alternative": "",
@@ -65057,7 +65057,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.msprt(df, \"y\", \"d\", tau=0.2, sigma=1.0)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nd = rng.integers(0, 2, n)\ndf = pd.DataFrame({'d': d, 'y': 0.3 * d + rng.normal(size=n)})\nr = sp.msprt(df, 'y', 'd', tau=0.2, sigma=1.0)",
     "failure_modes": [
       {
         "alternative": "",
@@ -65202,7 +65202,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.msprt_lambda(0.3, 0.01, tau=0.2)",
+    "example": "r = sp.msprt_lambda(0.3, 0.01, tau=0.2)",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [],
@@ -65285,7 +65285,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.cuped(df, \"y\", \"d\", [\"y_pre\"])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 2000\ny_pre = rng.normal(size=n)\nd = rng.integers(0, 2, n)\ndf = pd.DataFrame({'d': d, 'y_pre': y_pre,\n 'y': 0.2 * d + 0.8 * y_pre + rng.normal(size=n)})\nr = sp.cuped(df, 'y', 'd', ['y_pre'])",
     "failure_modes": [
       {
         "alternative": "",
@@ -70519,7 +70519,7 @@
       ],
       "tolerance": "matched sets exact; refinement weights, estimates, conditional and unconditional SEs, balance and placebo estimates 1e-10 absolute"
     },
-    "example": "sp.panel_match(df, y=\"y\", treat=\"d\", id=\"unit\", time=\"year\", lag=4, lead=[0, 1, 2], covariates=[\"lag(y, 1:4)\", \"x\"], se_method=\"conditional\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nunits, T = 60, 12\ndf = pd.DataFrame({'unit': np.repeat(np.arange(units), T),\n 'year': np.tile(np.arange(T), units)})\nstart = rng.choice([6, 8, 99], units)\ndf['d'] = (df.year >= start[df.unit]).astype(int)\ndf['x'] = rng.normal(size=len(df))\ndf['y'] = 0.5 * df.d + df.x + rng.normal(size=len(df))\nr = sp.panel_match(df, y='y', treat='d', id='unit', time='year',\n lag=4, lead=[0, 1], covariates=['x'])",
     "failure_modes": [
       {
         "alternative": "",
@@ -94779,7 +94779,7 @@
       ],
       "tolerance": ""
     },
-    "example": "bool(0 <= sp.l1_imbalance(df, 'd', ['x']) < 0.3)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nx = rng.normal(size=n)\ndf = pd.DataFrame({'x': x, 'd': (x + rng.normal(size=n) > 0).astype(int)})\nr = sp.l1_imbalance(df, 'd', ['x'])",
     "failure_modes": [
       {
         "alternative": "balance_diagnostics",
@@ -102511,7 +102511,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "out = sp.iv_wild_bootstrap(fit, df, \"firm\", \"d\", n_boot=199, seed=1)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nG, m = 30, 20\nfirm = np.repeat(np.arange(G), m)\nz = rng.normal(size=G * m); u = rng.normal(size=G * m)\nd = z + 0.5 * u + rng.normal(size=G * m)\ndf = pd.DataFrame({'firm': firm, 'z': z, 'd': d,\n 'y': 0.5 * d + u + rng.normal(size=G)[firm]})\nfit = sp.ivreg('y ~ (d ~ z)', data=df, cluster='firm')\nr = sp.iv_wild_bootstrap(fit, df, 'firm', 'd', n_boot=199, seed=1)",
     "failure_modes": [
       {
         "alternative": "sp.anderson_rubin_ci",
@@ -120086,7 +120086,7 @@
       ],
       "tolerance": ""
     },
-    "example": "res = sp.rmst(df, \"time\", \"event\", group=\"a\", tau=10, weights=\"w\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\na = rng.integers(0, 2, n)\nt = rng.exponential(np.where(a == 1, 12.0, 8.0))\nc = rng.exponential(30.0, n)\ndf = pd.DataFrame({'a': a, 'time': np.minimum(t, c),\n 'event': (t <= c).astype(int)})\nr = sp.rmst(df, 'time', 'event', group='a', tau=10)",
     "failure_modes": [
       {
         "alternative": "",
@@ -120242,7 +120242,7 @@
       ],
       "tolerance": ""
     },
-    "example": "r = sp.stteffects(df, \"t\", \"d\", \"a\", covariates=[\"x\"], method=\"ra\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1500\nx = rng.normal(size=n)\na = (x + rng.normal(size=n) > 0).astype(int)\nt = rng.weibull(1.5, n) * np.exp(1 + 0.5 * a + 0.3 * x)\nc = rng.exponential(10.0, n)\ndf = pd.DataFrame({'x': x, 'a': a, 't': np.minimum(t, c),\n 'd': (t <= c).astype(int)})\nr = sp.stteffects(df, 't', 'd', 'a', covariates=['x'], method='ra')",
     "failure_modes": [
       {
         "alternative": "",
@@ -138404,7 +138404,7 @@
       ],
       "tolerance": ""
     },
-    "example": "list(sp.sdem(W, df, \"y ~ x\").params.index)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 200\nW = np.zeros((n, n)) # ring: each unit linked to its two neighbours\nfor i in range(n):\n W[i, (i - 1) % n] = W[i, (i + 1) % n] = 1\nx = rng.normal(size=n)\nWn = W / W.sum(1, keepdims=True)\nu = np.linalg.solve(np.eye(n) - 0.4 * Wn, rng.normal(size=n))\ndf = pd.DataFrame({'x': x, 'y': 1 + x + 0.5 * Wn @ x + u})\nr = sp.sdem(W, df, 'y ~ x')",
     "failure_modes": [
       {
         "alternative": "sem",
@@ -138528,7 +138528,7 @@
       ],
       "tolerance": ""
     },
-    "example": "list(sp.gns(W, df, \"y ~ x\").params.index)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 200\nW = np.zeros((n, n)) # ring: each unit linked to its two neighbours\nfor i in range(n):\n W[i, (i - 1) % n] = W[i, (i + 1) % n] = 1\nWn = W / W.sum(1, keepdims=True)\nx = rng.normal(size=n)\nu = np.linalg.solve(np.eye(n) - 0.3 * Wn, rng.normal(size=n))\ny = np.linalg.solve(np.eye(n) - 0.3 * Wn, 1 + x + 0.5 * Wn @ x + u)\ndf = pd.DataFrame({'x': x, 'y': y})\nr = sp.gns(W, df, 'y ~ x')",
     "failure_modes": [
       {
         "alternative": "sdm",
@@ -148745,7 +148745,7 @@
       ],
       "tolerance": ""
     },
-    "example": "r = sp.ida(df, cp, x=\"b\", y=\"c\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\na = rng.normal(size=2000); b = a + rng.normal(size=2000)\nc = b + rng.normal(size=2000)\ndf = pd.DataFrame({'a': a, 'b': b, 'c': c})\ncp = pd.DataFrame([[0, 1, 0], [1, 0, 1], [0, 1, 0]],\n index=list('abc'), columns=list('abc'))\nr = sp.ida(df, cp, x='b', y='c')",
     "failure_modes": [
       {
         "alternative": "ida",
@@ -160341,7 +160341,7 @@
       ],
       "tolerance": ""
     },
-    "example": "r = sp.mediate_paths(df, y=\"y\", treat=\"a\", mediators=[\"m1\", \"m2\"],\n interaction=False, n_boot=50)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\na = rng.integers(0, 2, n)\nm1 = 0.5 * a + rng.normal(size=n)\nm2 = 0.4 * a + 0.3 * m1 + rng.normal(size=n)\ny = 0.2 * a + 0.5 * m1 + 0.5 * m2 + rng.normal(size=n)\ndf = pd.DataFrame({'a': a, 'm1': m1, 'm2': m2, 'y': y})\nr = sp.mediate_paths(df, y='y', treat='a', mediators=['m1', 'm2'],\n interaction=False, n_boot=50)",
     "failure_modes": [
       {
         "alternative": "mediate_paths",
@@ -161250,7 +161250,7 @@
       ],
       "tolerance": ""
     },
-    "example": "r = sp.lmtp(df, 'Y', ['A'], shift=1.0, baseline=['W'])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nW = rng.normal(size=n)\nA = W + rng.normal(size=n)\ndf = pd.DataFrame({'W': W, 'A': A,\n 'Y': 0.5 * A + W + rng.normal(size=n)})\nr = sp.lmtp(df, 'Y', ['A'], shift=1.0, baseline=['W'])",
     "failure_modes": [
       {
         "alternative": "lmtp",

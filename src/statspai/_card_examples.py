@@ -448,4 +448,9 @@ RUNNABLE_EXAMPLES: Dict[str, str] = {
     ),
 }
 
+# Entry points added on 2026-10-19/20 (kept in their own module for size).
+from ._card_examples_new import NEW_EXAMPLES as _NEW_EXAMPLES  # noqa: E402
+
+RUNNABLE_EXAMPLES.update(_NEW_EXAMPLES)
+
 __all__ = ["RUNNABLE_EXAMPLES"]

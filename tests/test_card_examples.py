@@ -22,7 +22,15 @@ import statspai as sp
 from statspai._card_examples import RUNNABLE_EXAMPLES
 
 #: Examples that take more than a few seconds (learners, bootstrap).
-SLOW = {"tmle", "metalearner", "dml", "did_multiplegt", "honest_did"}
+SLOW = {
+    "tmle",
+    "metalearner",
+    "dml",
+    "did_multiplegt",
+    "honest_did",
+    "xtintreg",
+    "bart_causal",
+}
 
 
 def _audited():
