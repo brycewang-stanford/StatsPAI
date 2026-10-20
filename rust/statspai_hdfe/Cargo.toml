@@ -1,6 +1,6 @@
 [package]
 name = "statspai_hdfe"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 authors = ["Bryce Wang <brycew6m@stanford.edu>"]
 description = "Rust kernels (HDFE demeaning, GLM IRLS, cluster meat) for the StatsPAI Python package"
