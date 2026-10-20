@@ -2,9 +2,11 @@
 
 Rewrite of `sp.lprobust_at_point` and the five `sp.lpbwselect_*` selectors,
 which until 2026-10-20 self-declared being a port of R `nprobust` (GPL-3).
-Implementation: `src/statspai/nonparametric/lprobust.py` (public API,
-validation) and `src/statspai/nonparametric/_lprobust_bw.py` (building
-blocks).
+Implementation: `src/statspai/nonparametric/lprobust.py` (public API),
+`src/statspai/nonparametric/_lprobust_bw.py` (building blocks, input
+validation) and `src/statspai/nonparametric/_lprobust_select.py` (selector
+plumbing: plug-in error mapping, rule-of-thumb inputs, the `imse-dpi` grid
+loop, the CE rescaling).
 
 ## Inputs used
 
@@ -91,7 +93,15 @@ Black-box facts (each reproduced to 1e-12 or better against R):
 3. Every stage bandwidth (and the pilot) is floored at the distance to the
    `bwcheck`-th nearest observation; stage bandwidths are capped at
    `max|x - x0|`. R rejects `bwcheck = 0`; so does this module.
-4. Returned extra keys (kept from the old API): `V_h = (1+2nu) V / nu!^2`,
+4. Every local fit inside a selector (pilot, derivative and wide fits)
+   must see more distinct `x` values in its window than it has
+   coefficients; otherwise `DataInsufficient`. With exactly `order + 1`
+   distinct values the fit interpolates the cell means and its constants
+   are not estimates. Black-box: R refuses the same windows (on a 12-point
+   integer support at `x0 = 0`, R errors for both the triangular window
+   with 4 distinct values and the Epanechnikov one with 3). The criterion
+   is a count, so it does not depend on floating-point thresholds.
+5. Returned extra keys (kept from the old API): `V_h = (1+2nu) V / nu!^2`,
    `B_h = 2(p+1-nu) (c d)^2 / nu!^2`, likewise `V_b`, `B_b` for stage 2,
    so `h^(2p+3) = V_h / (n (B_h + regularization))`.
 
@@ -136,11 +146,19 @@ is even), and the `bwcheck` floor acts before the rescaling.
 ## Numerics
 
 QR on `sqrt(W) R` for every weighted fit; the global polynomial on `x`
-rescaled to `[-1, 1]`. Against a 50-digit evaluation of the same formulas:
-`mse-rot` at the largest `x` of the Stata fixture (`p = 3`, uniform) gives
-2.305973027596 (high precision), 2.305973027593 (this module),
-2.305973106 (R), 2.305973787 (replaced code); `mse-dpi` (`p = 1`, epa, same
-point) 2.813292466211719 / 2.8132924662117165 / – / 2.813292466380733.
+rescaled to `[-1, 1]`. Differences between this module, the replaced code
+and R were arbitrated by re-evaluating the same formulas in 50-digit
+arithmetic (`mpmath` at 50 to 60 digits, normal equations solved at that precision,
+nearest-neighbour variances from the double-precision data). Two examples,
+listed as high precision / this module / R / replaced code:
+`mse-rot` at the largest `x` of the Stata fixture (`p = 3`, uniform):
+2.305973027596 / 2.305973027593 / 2.305973106 / 2.305973787, so this
+module is within 1.4e-12 of the 50-digit value, R 3.4e-8 and the replaced
+code 3.3e-7; `mse-dpi` (`p = 1`, epa, same
+point, `bwcheck = 21`): 2.813292466211719 / 2.8132924662117165 / not run /
+2.813292466380733 (replaced code off by 6e-11). These differences, up to
+2e-9 on the `did_had` path and 1.5e-6 at `p = 3`, were accepted by the
+coordinating line (cr-rd-core) on 2026-10-20.
 
 ## Verification
 
@@ -160,6 +178,8 @@ rounding in ill-conditioned fits, and the high-precision checks above show
 the new values are the accurate ones. Behaviour changes: `bwcheck = 0` now
 raises (it returned the maximum distance for every bandwidth, an artefact of
 indexing the `bwcheck`-th distance at position -1); singular pilot windows
-raise `NumericalInstability` where the old code sometimes returned numbers
-from a singular solve; supplied-bandwidth fits whose window has too few
+raise `NumericalInstability` or `DataInsufficient` where the old code
+sometimes returned numbers from a singular solve; exactly identified pilot
+windows (distinct `x` = coefficients) raise `DataInsufficient`, as in the
+reference; supplied-bandwidth fits whose window has too few
 distinct `x` values raise instead of returning unstable numbers.

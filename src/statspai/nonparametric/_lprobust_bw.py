@@ -143,10 +143,30 @@ def local_fit(
 
     Returns ``(window_mask, scaled_distance_in_window, operator)`` where
     ``operator`` is :func:`wls_operator` on the window rows.
+
+    Raises
+    ------
+    DataInsufficient
+        Unless the window holds more distinct values of ``x`` than the fit
+        has coefficients. With exactly ``order + 1`` distinct values the fit
+        interpolates the cell means: the derivative it reports is the
+        interpolating polynomial's, and its bias and variance constants are
+        not the pre-asymptotic quantities the plug-in needs (the reference
+        refuses these windows too, black-box).
     """
     u = (x - x0) / h
     w = kernel_weights(u, kernel) / h
     mask = w > 0
+    distinct = np.unique(x[mask]).size
+    if distinct <= order + 1:
+        raise DataInsufficient(
+            f"a pilot local polynomial fit of order {order} at {x0!r} has "
+            f"{distinct} distinct value(s) of x in its window; it needs more "
+            f"than {order + 1}, otherwise it interpolates the data exactly.",
+            recovery_hint="Raise bwcheck so every pilot window holds more "
+            "distinct values of x, lower p, or supply the bandwidth directly.",
+            diagnostics={"distinct_x": int(distinct), "order": int(order)},
+        )
     return mask, u[mask], wls_operator(u[mask], w[mask], order)
 
 

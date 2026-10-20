@@ -235,3 +235,20 @@ def test_window_count_rule():
     with pytest.raises(DataInsufficient, match="fall inside the bandwidth"):
         sp.lprobust_at_point(x, y, 0.0, h=0.25, p=1)  # 3 rows have weight
     assert sp.lprobust_at_point(x, y, 0.0, h=0.35, p=1).n_eff == 4
+
+
+@pytest.mark.parametrize("kernel", ["triangular", "epanechnikov"])
+def test_exactly_identified_pilot_window_is_refused(kernel):
+    """On a 12-point integer support, the stage-1 pilot window at 0 holds 4
+    (triangular) or 3 (epanechnikov) distinct x for a cubic fit. A cubic
+    through 4 cell means interpolates them exactly, so the plug-in
+    constants it would feed are not estimates; R nprobust refuses both
+    cases too (black-box). The selector must raise, not return a number."""
+    x = np.repeat(np.arange(12.0), 17)
+    y = 0.3 * x + np.cos(np.arange(x.size))
+    with pytest.raises(DataInsufficient, match="distinct value"):
+        sp.lpbwselect_mse_dpi(x, y, 0.0, kernel=kernel)
+    # one more support point inside the window and the fit is identified
+    xs = np.r_[x, np.full(5, 0.5)]
+    ys = np.r_[y, np.linspace(0.0, 1.0, 5)]
+    assert np.isfinite(sp.lpbwselect_mse_dpi(xs, ys, 0.0, kernel="triangular")["h"])
