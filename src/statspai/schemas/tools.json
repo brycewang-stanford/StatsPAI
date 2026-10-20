@@ -21325,7 +21325,7 @@
         },
         "robust": {
           "default": "nonrobust",
-          "description": "Robust standard-error or covariance estimator option.",
+          "description": "``'nonrobust'``, ``'robust'`` / ``'hc0'`` / ``'hc1'``, ``'cluster'`` (with ``cluster=``), or ``'many_weak'``: the many-instrument standard errors of Hansen, Hausman and Newey (2008), Bekker's (1994) variance plus third- and fourth-moment terms for non-normal (homoskedastic) errors, valid when the number of instruments grows with the sample. The leverages are those of the instruments (R ``ivmodel``'s ``manyweakSE`` uses the regressors' and differs).",
           "type": "string",
           "x-aliases": [
             "vce"

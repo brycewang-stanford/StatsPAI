@@ -2363,7 +2363,7 @@
    "result_sha256": "af52945f2240d403b22f0d7edec7689170483b2963ebb8feda4f5de23e1acfbe"
   },
   "59_liml": {
-   "seconds": 1.45,
+   "seconds": 1.69,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2387,7 +2387,7 @@
     "src/statspai/output/_lineage.py": "a912fbc582be2dbc27206ec48cd84684ddc5a318aa469483bb89646af53180de",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "0550423a2051e6f31961b79cce29a7b2466fd6877be5ab09d88bbb133ee6c08c",
-    "src/statspai/regression/advanced_iv.py": "c5e19420b68a0bc9701f142af61022e50e6fb02903659fc8c03876c91a549b5c",
+    "src/statspai/regression/advanced_iv.py": "cdfcf14c996870a1f17acd9a266f7add301dece3916d14c0555d6466c1a70aba",
     "src/statspai/regression/iv.py": "ef02f5bdd2bf2e0fae5f121c1ec47af816f15dffef470a2c644d373066599bb7"
    },
    "dependency_versions": {

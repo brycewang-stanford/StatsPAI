@@ -129,6 +129,13 @@ def liml(
     z : list of str
         Excluded instruments.
     robust : str, default 'nonrobust'
+        ``'nonrobust'``, ``'robust'`` / ``'hc0'`` / ``'hc1'``, ``'cluster'``
+        (with ``cluster=``), or ``'many_weak'``: the many-instrument
+        standard errors of Hansen, Hausman and Newey (2008), Bekker's (1994)
+        variance plus third- and fourth-moment terms for non-normal
+        (homoskedastic) errors, valid when the number of instruments grows
+        with the sample. The leverages are those of the instruments (R
+        ``ivmodel``'s ``manyweakSE`` uses the regressors' and differs).
     cluster : str, optional
     fuller : float, optional
         Fuller's constant (typically 1 or 4). If None, pure LIML.
@@ -156,6 +163,10 @@ def liml(
     ...                  x_exog=['exper'], z=['z1', 'z2'])
     >>> bool(abs(result.params['educ'] - 0.8) < 0.2)
     True
+
+    References
+    ----------
+    hansen2008estimation, bekker1994alternative
     """
     if formula is not None:
         # Parse IV formula
@@ -261,13 +272,24 @@ def liml(
     # Stata grammar: vce='robust' / True / 'cluster firm'.
     from ..core._vcov_spec import parse_se_request
 
+    many_weak = isinstance(robust, str) and robust.strip().lower() in (
+        "many_weak",
+        "manyweak",
+    )
+    if many_weak and cluster is not None:
+        raise MethodIncompatibility(
+            "liml: robust='many_weak' has no clustered version.",
+            recovery_hint="Drop cluster=, or use robust='cluster'.",
+        )
     se_req = parse_se_request(
-        robust,
+        "nonrobust" if many_weak else robust,
         cluster,
         function="liml",
         supported=("nonrobust", "robust", "hc0", "hc1", "cluster"),
     )
     robust, cluster = se_req.kind, se_req.cluster
+    if many_weak:
+        robust = "many_weak"
 
     # Sandwich meat: the instrument-projected regressors P_Z X, for every
     # k-class estimator. This is what Stata's ``ivregress liml`` and
@@ -279,7 +301,12 @@ def liml(
     # references. Bread and meat use the small-sample convention of
     # ``ivregress ..., small``, like the classical SE below.
     scores = PzX * resid[:, None]
-    if robust == "cluster":
+    if robust == "many_weak":
+        from ._many_iv_se import hhn_vcov
+
+        Qz = np.linalg.qr(Z_all)[0]
+        var_cov = hhn_vcov(Y, X_all, beta, Qz, lambda M: Qz @ (Qz.T @ M))
+    elif robust == "cluster":
         clusters = df[cluster].values
         unique_cl, codes = np.unique(clusters, return_inverse=True)
         n_cl = len(unique_cl)
