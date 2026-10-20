@@ -43,7 +43,9 @@ Read:
 
 Not read: any clubSandwich source; the old bodies and docstrings; the old
 design note `docs/superpowers/specs/2026-04-27-htz-clubsandwich-parity-design.md`
-(marked superseded at its top without being opened; deleted on 2026-10-21).
+(marked superseded at its top without being opened; deleted on 2026-10-21);
+the implementation plan `docs/superpowers/plans/2026-04-27-htz-clubsandwich-parity.md`
+(deleted on 2026-10-21 after reading only its title).
 
 ## Specification
 
