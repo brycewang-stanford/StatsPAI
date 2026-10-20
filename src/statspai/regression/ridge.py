@@ -332,6 +332,12 @@ def ridge(
     if grid is None:
         m = float(np.mean(np.linalg.svd(Z, compute_uv=False) ** 2))
         grid = np.concatenate([[0.0], np.logspace(-4.0, 4.0, 100) * m])
+    if p >= n and np.any(grid == 0.0):
+        raise MethodIncompatibility(
+            "ridge: lambda = 0 is least squares, which is not unique with at "
+            "least as many regressors as observations.",
+            recovery_hint="Use strictly positive penalties.",
+        )
     if rank < p and np.any(grid == 0.0):
         warnings.warn(
             f"ridge: the regressors have rank {rank}, fewer than their number "

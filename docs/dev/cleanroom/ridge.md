@@ -85,6 +85,10 @@ intercept and `0` without.
   first grid minimiser of GCV. `select="gcv"` uses it; `"hkb"` / `"lw"`
   refit at the plug-in value (refused when it is NaN, naming the
   regressor and degrees-of-freedom requirement); the path is unchanged.
+- With at least as many regressors as observations (`p >= n`), a grid
+  containing 0 (the default grid included) is refused ("lambda = 0 is
+  least squares, which is not unique ..."; recovery: strictly positive
+  penalties); positive penalties are fitted.
 - A rank-deficient design whose grid contains 0 warns (`UserWarning`,
   "minimum-norm") that the `lambda = 0` row is the minimum-norm solution.
 - Result: `RidgeResult(params, lambda_, path, lambda_gcv, lambda_hkb,
