@@ -4,6 +4,14 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.rlasso_iv` intercept and sandwich, `sp.psmatch2` tie warning, neural estimators without bootstrap draws
+
+- **⚠️ Correctness**: `sp.rlasso_iv(select_Z=True, select_X=False)` fitted the first stage with an intercept but solved the second stage without one (a faithful copy of `hdm::rlassoIVselectZ` 0.3.2). With a nonzero mean in `y` or `d` the slope was inconsistent: on a known-truth DGP (beta = -2) it returned -0.64; it now returns -1.969, which is exactly robust 2SLS when every instrument is selected. The intercept is not added when the controls already contain a constant, so EminentDomain's coefficient (0.2274) is unchanged.
+- **⚠️ Correctness**: the same path's robust variance used the transposed bread (`A^+' Ω A^+` instead of `A^+ Ω A^+'`, `A = Dhat'[d, x]`), again as in hdm. The SE was wrong whenever the first stage left a control out (Monte Carlo: sampling SD 0.239, corrected formula 0.234, old formula 0.363). EminentDomain logGDP SE 0.2466 → 0.1760. The reference is now hdm's own first stage followed by hdm's `tsls(homoscedastic=FALSE)` (synthetic fixture), or the same sandwich computed in R with `MASS::ginv` where `tsls`'s `solve()` fails on EminentDomain's control block (`tests/reference_parity/_generate_rlasso.R`).
+- **⚠️ Correctness**: `sp.rlasso_iv(select_Z=True, select_X=True)`: when no control was selected for the instrument, the instrument was centred at the grand mean of the control matrix (hdm's `mean(x)`) instead of its own mean. The slope was unaffected; the robust SE was inflated (5x on the DGP above). `intercept=` is now passed to every Lasso step of the `select_X` and double-selection paths, where it used to be ignored.
+- **Fixed**: `sp.psmatch2(..., ties=True)` no longer shows `sp.match`'s tie warning, which told the user to pass `ties='all'` (not a psmatch2 option). Without `ties`, psmatch2 warns in its own terms and points to `ties=True`. Numbers unchanged.
+- **Fixed**: `sp.tarnet` / `sp.cfrnet` with `n_bootstrap` below 2 returned NaN `se` and `ci` through three numpy `RuntimeWarning`s and reported `pvalue = 0.0`. They now return NaN `se`, `ci` and `pvalue` without warnings, with `model_info['se_method'] = 'none'` and a `se_note` saying why. `sp.dragonnet`'s `se_note` now describes its AIPW influence-function SE (it used to carry the plug-in-dispersion note of the other two); its `n_bootstrap` is documented as unused.
+
 ### Cleanup: patched-leebounds fixtures retired, kernel/llr caliper warning, drdid RCS replay SE, dead recovery pointers
 
 - **Changed**: `sp.match(method='kernel' | 'llr', caliper=...)` now warns that the caliper has no effect (the kernel bandwidth is `bwidth`), as in Stata `psmatch2`, and sets `model_info['caliper_ignored']`. Numbers unchanged.

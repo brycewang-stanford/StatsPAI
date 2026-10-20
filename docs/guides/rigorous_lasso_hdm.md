@@ -35,8 +35,8 @@ pin every surface against `hdm` 0.3.2:
 | `rlasso` coefficients / `λ₀` / loadings / residuals | machine precision (~1e-13) |
 | `rlasso` selected support | **exact** |
 | `rlasso_effect` (partialling-out & double-selection) α, SE | ~1e-14 |
-| `rlasso_iv` (all 4 selection regimes, well-conditioned design) | ~1e-14 |
-| `rlasso_iv` on eminent domain (rank-deficient controls) | ~1e-9 |
+| `rlasso_iv` (all 4 selection regimes, well-conditioned design) | ~1e-14 (`select_Z`-only: against hdm's first stage + hdm `tsls`, see below) |
+| `rlasso_iv` on eminent domain (rank-deficient controls) | ~1e-9 (`select_Z`-only SE: corrected sandwich, see below) |
 
 > **Implementation note.** hdm's IV routines invert near-singular control
 > blocks with `MASS::ginv`, whose singular-value cutoff is
@@ -62,7 +62,7 @@ claimed bit-for-bit).
 | `rlassologit` | `sp.rlassologit` | **faithful port** — support **exact**, glmnet engine ~1e-6, `post=TRUE` refit ~1e-9 |
 | `rlassoEffect` | `sp.rlasso_effect` | **faithful port** — α, SE ~1e-14 (partialling-out & double-selection) |
 | `rlassoEffects` | `sp.rlasso_effects` | **faithful port** — ~1e-14 (multi-target) |
-| `rlassoIV`, `rlassoIVselectX`, `rlassoIVselectZ` | `sp.rlasso_iv(select_X=…, select_Z=…)` | **faithful port** — ~1e-14 well-conditioned, ~1e-9 rank-deficient |
+| `rlassoIV`, `rlassoIVselectX`, `rlassoIVselectZ` | `sp.rlasso_iv(select_X=…, select_Z=…)` | **faithful port** — ~1e-14 well-conditioned, ~1e-9 rank-deficient; `select_Z`-only path fixes two hdm 0.3.2 bugs (see below) |
 | `tsls` | `sp.rlasso_iv(select_Z=False, select_X=False)` | robust 2SLS path (no selection) |
 | `lambdaCalculation` | `sp.rlasso(penalty=…)` (internal) | homoskedastic & heteroskedastic (X-independent) bit-exact; X-dependent in-distribution only |
 | `rlassoATE` | `sp.dml(model='irm', score='ATE', ml_g='rlasso', ml_m='rlassologit')` | same doubly-robust (AIPW) score family; cross-fitted, DoubleML-aligned |
@@ -131,8 +131,18 @@ A faithful port of `hdm::rlassoIV`. Selection can run on the instruments
 # BCH (2012) optimal-instrument IV — select among many instruments
 res = sp.rlasso_iv(y="y", d="d", z=z_cols, x=x_cols, data=df,
                    select_Z=True, select_X=False)
-res.coef, res.se        # eminent domain logGDP -> 0.2274, 0.2466
+res.coef, res.se        # eminent domain logGDP -> 0.2274, 0.1760
 ```
+
+The `select_Z=True, select_X=False` path departs from `hdm` 0.3.2's
+`rlassoIVselectZ` in two places, both bugs in the reference. The second
+stage keeps an intercept (hdm drops it, which makes the slope inconsistent
+whenever `y` or `d` has a nonzero mean), and the robust variance uses the
+sandwich of the estimator that is computed (hdm transposes the bread, which
+changes the SE whenever the first stage leaves a control out; on eminent
+domain hdm reports 0.2466). With every instrument selected and no controls,
+the estimate is exactly robust 2SLS. The other three paths match hdm to
+~1e-14.
 
 | `select_Z` | `select_X` | method (`hdm` equivalent) |
 | --- | --- | --- |

@@ -5807,7 +5807,10 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "tests/reference_parity/_fixtures/rlasso_R.json",
         ],
         "note": "All four select_Z / select_X paths, BCCH EminentDomain and the AJR "
-        "vignette.",
+        "vignette. The select_Z-only path is pinned to hdm's first stage plus "
+        "hdm's tsls with the intercept restored: rlassoIVselectZ 0.3.2 drops "
+        "the second-stage intercept and transposes the sandwich bread "
+        "(reference bugs, documented in sp.rlasso_iv Notes).",
     },
     "rlassologit": {
         "status": "aligned",

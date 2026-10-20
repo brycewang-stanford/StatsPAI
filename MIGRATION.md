@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.rlasso_iv` with `select_Z=True, select_X=False`; neural estimators with `n_bootstrap < 2`
+
+- `sp.rlasso_iv(select_Z=True, select_X=False)` now keeps an intercept in
+  the second stage (unless the controls already contain a constant) and
+  uses the sandwich of the estimator it computes. Point estimates change
+  when `y` or `d` has a nonzero mean and the controls hold no constant;
+  standard errors change whenever controls are given and the first stage
+  leaves one out (EminentDomain logGDP: SE 0.2466 → 0.1760, coefficient
+  unchanged). Both old values were bugs carried over from
+  `hdm::rlassoIVselectZ` 0.3.2; there is no switch back. Without
+  controls and with every instrument selected, the result is now robust
+  2SLS (`sp.ivreg(..., robust='hc0')`).
+- `sp.rlasso_iv(select_Z=True, select_X=True)`: the SE changes when no
+  control is selected for the instrument (it was inflated); the
+  coefficient does not. `intercept=False` is now honoured by the
+  `select_X` and double-selection paths.
+- `sp.tarnet` / `sp.cfrnet` with `n_bootstrap=0` or `1`: `pvalue` is NaN
+  (it was 0.0); `se` and `ci` were already NaN.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` / `sp.rdbwselect` with `cluster=` and `vce='hc2'` / `'hc3'`; `sp.rddensity` not-computable test
 
 - With `cluster=`, `vce='hc2'` and `vce='hc3'` are now the cluster-robust

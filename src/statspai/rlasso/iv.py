@@ -64,6 +64,29 @@ def _ginv(A: np.ndarray) -> np.ndarray:
     return out
 
 
+def _spans_constant(x: Optional[np.ndarray]) -> bool:
+    """True when the control block already contains an intercept.
+
+    A literal constant column is the common case (``hdm``'s EminentDomain
+    controls carry one); a full set of dummies also spans the constant.
+    Appending a second, redundant constant would only perturb the
+    pseudo-inverse on an ill-conditioned control block.
+    """
+    if x is None:
+        return False
+    x = np.asarray(x, dtype=float)
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
+    if x.shape[1] == 0:
+        return False
+    if np.any((np.ptp(x, axis=0) == 0.0) & (x[0] != 0.0)):
+        return True
+    ones = np.ones(x.shape[0])
+    coef, *_ = np.linalg.lstsq(x, ones, rcond=None)
+    resid = ones - x @ coef
+    return bool(np.linalg.norm(resid) <= 1e-8 * np.sqrt(x.shape[0]))
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  tsls  (hdm::tsls.default)
 # ═══════════════════════════════════════════════════════════════════════
@@ -296,8 +319,17 @@ def _select_z(
         d_aug = np.column_stack([d, x])
     else:
         d_aug = d
+    # The first stage fits an intercept, so the second stage must carry
+    # one too. ``hdm::rlassoIVselectZ`` (0.3.2) omits it: with a nonzero
+    # mean in y or d its IV slope is then the ratio of uncentred moments
+    # and is inconsistent (truth -2 → -0.64 on a known-truth DGP). With
+    # every instrument selected the corrected estimator equals 2SLS.
+    if intercept and not _spans_constant(x):
+        Dhat = np.column_stack([Dhat, np.ones(n)])
+        d_aug = np.column_stack([d_aug, np.ones(n)])
 
-    alpha = _ginv(Dhat.T @ d_aug) @ (Dhat.T @ y)
+    Ainv = _ginv(Dhat.T @ d_aug)
+    alpha = Ainv @ (Dhat.T @ y)
     residuals = y - d_aug @ alpha
     if codes is None:
         Omega = Dhat.T @ (Dhat * (residuals**2)[:, None])
@@ -306,8 +338,12 @@ def _select_z(
         sums = np.zeros((n_clusters, Dhat.shape[1]))
         np.add.at(sums, codes, Dhat * residuals[:, None])
         Omega = sums.T @ sums
-    Qinv = _ginv(d_aug.T @ Dhat)
-    vcov_full = Qinv @ Omega @ Qinv.T
+    # alpha = A^+ Dhat'y with A = Dhat'd_aug, so Var(alpha) = A^+ Omega A^+'.
+    # hdm 0.3.2 uses ginv(d_aug'Dhat) = A^+' here, i.e. A^+' Omega A^+,
+    # which differs whenever controls make A asymmetric (hdm's own
+    # tsls(homoscedastic=FALSE) on [dhat, 1, x] gives the A^+ Omega A^+'
+    # value).
+    vcov_full = Ainv @ Omega @ Ainv.T
 
     coef = np.atleast_1d(alpha[:ke])
     se = np.sqrt(np.diag(vcov_full))[:ke]
@@ -343,6 +379,7 @@ def _select_x(
     control: Optional[Dict[str, Any]],
     treat_names: List[str],
     codes: Optional[np.ndarray] = None,
+    intercept: bool = True,
 ) -> RLassoIVResult:
     n = len(y)
     d = np.asarray(d, dtype=float).ravel()
@@ -351,17 +388,22 @@ def _select_x(
         z = z.reshape(-1, 1)
     num_iv = z.shape[1]
 
-    lasso_d_x = rlasso(x, d, post=post, penalty=penalty, control=control, cluster=codes)
+    kw = dict(
+        post=post,
+        intercept=intercept,
+        penalty=penalty,
+        control=control,
+        cluster=codes,
+    )
+    lasso_d_x = rlasso(x, d, **kw)
     Dr = d - lasso_d_x.predict(x)
-    lasso_y_x = rlasso(x, y, post=post, penalty=penalty, control=control, cluster=codes)
+    lasso_y_x = rlasso(x, y, **kw)
     Yr = y - lasso_y_x.predict(x)
 
     Zr = np.empty((n, num_iv))
     nsel_x = int(lasso_y_x.index.sum() + lasso_d_x.index.sum())
     for i in range(num_iv):
-        lasso_z_x = rlasso(
-            x, z[:, i], post=post, penalty=penalty, control=control, cluster=codes
-        )
+        lasso_z_x = rlasso(x, z[:, i], **kw)
         Zr[:, i] = z[:, i] - lasso_z_x.predict(x)
         nsel_x += int(lasso_z_x.index.sum())
 
@@ -395,15 +437,21 @@ def _select_both(
     control: Optional[Dict[str, Any]],
     treat_names: List[str],
     codes: Optional[np.ndarray] = None,
+    intercept: bool = True,
 ) -> RLassoIVResult:
     n = len(y)
     d = np.asarray(d, dtype=float).ravel()
     Zmat = np.column_stack([z, x])
 
-    lasso_d_zx = rlasso(
-        Zmat, d, post=post, penalty=penalty, control=control, cluster=codes
+    kw = dict(
+        post=post,
+        intercept=intercept,
+        penalty=penalty,
+        control=control,
+        cluster=codes,
     )
-    lasso_y_x = rlasso(x, y, post=post, penalty=penalty, control=control, cluster=codes)
+    lasso_d_zx = rlasso(Zmat, d, **kw)
+    lasso_y_x = rlasso(x, y, **kw)
 
     if lasso_d_zx.index.sum() == 0:
         return RLassoIVResult(
@@ -417,20 +465,25 @@ def _select_both(
         )
 
     PZ = lasso_d_zx.predict(Zmat)
-    lasso_PZ_x = rlasso(
-        x, PZ, post=post, penalty=penalty, control=control, cluster=codes
-    )
+    lasso_PZ_x = rlasso(x, PZ, **kw)
 
+    # With nothing selected the Lasso fit is the intercept alone, so the
+    # residual is the centred variable (or the raw one without an
+    # intercept). ``hdm::rlassoIV`` 0.3.2 centres the instrument at
+    # ``mean(x)``, the grand mean of the whole control matrix, instead of
+    # ``mean(PZ)``. The slope is unchanged (Dr and Yr are centred) but the
+    # robust variance is not: it inflated the SE five-fold on a DGP whose
+    # first-stage fit has mean 7.
     n_PZ_sel = int(lasso_PZ_x.index.sum())
     if n_PZ_sel == 0:
-        Dr = d - d.mean()
-        Zr = PZ - np.asarray(x, dtype=float).mean()
+        Dr = d - d.mean() if intercept else d.copy()
+        Zr = PZ - PZ.mean() if intercept else PZ.copy()
     else:
         Dr = d - lasso_PZ_x.predict(x)
         Zr = lasso_PZ_x.residuals
 
     if lasso_y_x.index.sum() == 0:
-        Yr = y - y.mean()
+        Yr = y - y.mean() if intercept else y.copy()
     else:
         Yr = lasso_y_x.residuals
 
@@ -507,7 +560,10 @@ def rlasso_iv(
     post : bool, default True
         Post-Lasso (OLS refit) inside every selection step.
     intercept : bool, default True
-        Passed to the underlying ``rlasso`` first stages.
+        Fit an intercept in every ``rlasso`` step (all selection paths)
+        and in the second stage of the ``select_Z=True, select_X=False``
+        path. Set ``False`` only for data that are already centred, e.g.
+        within-transformed panels.
     penalty, control : dict, optional
         Forwarded to :func:`statspai.rlasso.rlasso` (penalty level,
         loadings, iteration controls).
@@ -529,8 +585,26 @@ def rlasso_iv(
     -----
     With ``select_Z=True, select_X=False`` this is the Belloni-Chen-
     Chernozhukov-Hansen (2012) optimal-instrument estimator that the
-    eminent-domain application made famous; numbers agree with
-    ``hdm::rlassoIV(..., select.X=FALSE, select.Z=TRUE)`` to ~1e-6.
+    eminent-domain application made famous. Three paths match
+    ``hdm::rlassoIV`` 0.3.2 to ~1e-14. This one departs from
+    ``hdm::rlassoIVselectZ`` in two places, both reference bugs:
+
+    * the second stage keeps an intercept when ``intercept=True`` and the
+      controls do not already span a constant. hdm drops it, so with a
+      nonzero mean in ``y`` or ``d`` its slope is inconsistent (truth -2,
+      hdm -0.65 on ``tests/reference_parity/_fixtures/
+      rlasso_iv_nonzero_mean.csv``). With every instrument selected the
+      estimate is now exactly robust 2SLS;
+    * the sandwich is ``A^+ Omega A^+'`` with ``A = Dhat'[d, x]``; hdm
+      transposes ``A``, which changes the SE whenever the first stage
+      leaves some control out (EminentDomain logGDP: 0.2466 -> 0.1760;
+      hdm's own ``tsls(homoscedastic=FALSE)`` on ``[dhat, 1, x]`` gives
+      the corrected value).
+
+    With double selection and no control selected for the instrument,
+    the instrument is centred at its own mean; hdm centres it at the grand
+    mean of the control matrix, which leaves the slope unchanged but
+    inflates the SE.
 
     Examples
     --------
@@ -603,8 +677,12 @@ def rlasso_iv(
     if select_X and not select_Z:
         if Xmat is None:
             raise ValueError("select_X=True requires controls `x`.")
-        return _select_x(Xmat, D, Y, Zmat, post, penalty, control, treat_names, codes)
+        return _select_x(
+            Xmat, D, Y, Zmat, post, penalty, control, treat_names, codes, intercept
+        )
     # both
     if Xmat is None:
         raise ValueError("select_X=True requires controls `x`.")
-    return _select_both(Xmat, D, Y, Zmat, post, penalty, control, treat_names, codes)
+    return _select_both(
+        Xmat, D, Y, Zmat, post, penalty, control, treat_names, codes, intercept
+    )

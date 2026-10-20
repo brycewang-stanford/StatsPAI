@@ -703,3 +703,34 @@ class TestEdgeCases:
         )
         with pytest.raises(ValueError, match="fitted"):
             est.propensity()
+
+
+# ======================================================================
+# n_bootstrap < 2: no dispersion, explicit NaN, no numpy warnings
+# ======================================================================
+
+
+@pytest.mark.parametrize("fn", [tarnet, cfrnet])
+def test_no_bootstrap_draws_give_nan_inference_without_numpy_warnings(fn):
+    import warnings
+
+    rng = np.random.default_rng(0)
+    n = 200
+    df = pd.DataFrame({"x1": rng.normal(size=n), "x2": rng.normal(size=n)})
+    df["d"] = (rng.random(n) < 0.5).astype(int)
+    df["y"] = df.x1 + 2 * df.d + rng.normal(size=n)
+    kw = dict(y="y", treat="d", covariates=["x1", "x2"], epochs=3)
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        r0 = fn(df, n_bootstrap=0, **kw)
+    assert not [w for w in rec if issubclass(w.category, RuntimeWarning)]
+    assert np.isnan(r0.se) and np.isnan(r0.pvalue)
+    assert all(np.isnan(v) for v in r0.ci)
+    assert r0.model_info["se_method"] == "none"
+    assert "n_bootstrap=0" in r0.model_info["se_note"]
+    # the bootstrap does not touch the fit: same network, same estimate
+    r3 = fn(df, n_bootstrap=3, **kw)
+    assert np.isfinite(r0.estimate)
+    assert r0.estimate == r3.estimate
+    assert r3.se > 0 and r3.ci[0] < r3.estimate < r3.ci[1]
+    assert r3.model_info["se_method"] == "unit_bootstrap_cate_plugin"

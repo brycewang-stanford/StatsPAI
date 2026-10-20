@@ -538,3 +538,96 @@ def test_effects_result_carries_the_agent_contract():
     assert res.cite()
     # ... and it is still the dict it has always been.
     assert all(k in res for k in res.to_dict()["effects"])
+
+
+# ─── rlasso_iv: intercept handling (nonzero means), 2026-10-21 ───────────
+
+
+@pytest.fixture(scope="module")
+def iv_nonzero_mean():
+    """Known truth beta = -2, E[d] ~ 7, E[y] ~ -4; two strong instruments,
+    two irrelevant controls with nonzero means."""
+    rng = np.random.default_rng(7)
+    n = 2000
+    z = rng.standard_normal(n) + 3
+    z2 = rng.standard_normal(n) - 1
+    u = rng.standard_normal(n)
+    p = 5 + 1.0 * z + 0.8 * z2 + u + rng.standard_normal(n)
+    q = 10 - 2.0 * p + 2 * u + rng.standard_normal(n)
+    return pd.DataFrame(
+        dict(
+            q=q,
+            p=p,
+            z=z,
+            z2=z2,
+            x1=rng.standard_normal(n) + 2,
+            x2=rng.standard_normal(n),
+        )
+    )
+
+
+def test_rlasso_iv_select_z_keeps_intercept_equals_2sls(iv_nonzero_mean):
+    """select_Z=True without controls: every instrument is selected, so the
+    post-Lasso optimal-instrument estimator is exactly 2SLS (it returned
+    -0.64 before the second-stage intercept was restored)."""
+    df = iv_nonzero_mean
+    ref = sp.ivreg("q ~ (p ~ z + z2)", data=df, robust="hc0")
+    res = sp.rlasso_iv(y="q", d="p", z=["z", "z2"], data=df, select_X=False)
+    assert res.selection["n_selected_Z"] == 2
+    np.testing.assert_allclose(res.coef[0], ref.params["p"], rtol=1e-10)
+    np.testing.assert_allclose(res.se[0], ref.std_errors["p"], rtol=1e-8)
+    assert abs(res.coef[0] + 2.0) < 3 * res.se[0]
+
+
+def test_rlasso_iv_all_paths_agree_when_nothing_is_selected_out(iv_nonzero_mean):
+    """With both instruments selected and no control selected, select_Z,
+    select_X and double selection are all 2SLS of q on p; the double-
+    selection SE used to centre the instrument at mean(x) and was 5x too
+    large."""
+    df = iv_nonzero_mean
+    ref = sp.ivreg("q ~ (p ~ z + z2)", data=df, robust="hc0")
+    kw = dict(y="q", d="p", z=["z", "z2"], x=["x1", "x2"], data=df)
+    both = sp.rlasso_iv(**kw, select_Z=True, select_X=True)
+    assert both.selection["n_selected_X"] == 0
+    np.testing.assert_allclose(both.coef[0], ref.params["p"], rtol=1e-10)
+    np.testing.assert_allclose(both.se[0], ref.std_errors["p"], rtol=1e-8)
+    selx = sp.rlasso_iv(**kw, select_Z=False, select_X=True)
+    np.testing.assert_allclose(selx.coef[0], ref.params["p"], rtol=1e-10)
+    # select_Z with the (unselected) controls kept as exogenous regressors
+    selz = sp.rlasso_iv(**kw, select_Z=True, select_X=False)
+    assert abs(selz.coef[0] + 2.0) < 3 * selz.se[0]
+
+
+def test_rlasso_iv_constant_in_controls_is_not_duplicated(iv_nonzero_mean):
+    """A control block that already holds a constant column gives the same
+    estimate as no constant column (the intercept is not added twice)."""
+    df = iv_nonzero_mean
+    X = df[["x1", "x2"]].to_numpy()
+    kw = dict(y=df["q"].values, d=df["p"].values, z=df[["z", "z2"]].values)
+    a = sp.rlasso_iv(**kw, x=X, select_X=False)
+    b = sp.rlasso_iv(**kw, x=np.column_stack([np.ones(len(df)), X]), select_X=False)
+    np.testing.assert_allclose(a.coef[0], b.coef[0], rtol=1e-9)
+    np.testing.assert_allclose(a.se[0], b.se[0], rtol=1e-7)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        dict(select_Z=True, select_X=False),
+        dict(select_Z=False, select_X=True),
+        dict(select_Z=True, select_X=True),
+        dict(select_Z=False, select_X=False),
+    ],
+)
+def test_rlasso_iv_intercept_false_on_demeaned_equals_intercept_true(
+    iv_nonzero_mean, kwargs
+):
+    """intercept=False on demeaned data reproduces intercept=True on the raw
+    data (Frisch-Waugh-Lovell), for every selection path."""
+    df = iv_nonzero_mean
+    dm = df - df.mean()
+    kw = dict(y="q", d="p", z=["z", "z2"], x=["x1", "x2"], **kwargs)
+    raw = sp.rlasso_iv(**kw, data=df, intercept=True)
+    cen = sp.rlasso_iv(**kw, data=dm, intercept=False)
+    np.testing.assert_allclose(cen.coef[0], raw.coef[0], rtol=1e-9)
+    np.testing.assert_allclose(cen.se[0], raw.se[0], rtol=1e-7)

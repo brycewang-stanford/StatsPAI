@@ -120,7 +120,8 @@ def tarnet(
         Draws for the plug-in dispersion reported as ``se`` when
         ``refit_bootstrap`` is 0. It resamples the fitted effects with the
         network held fixed and is not a standard error for the ATE
-        (``model_info['se_valid_for_ate']`` is ``False``).
+        (``model_info['se_valid_for_ate']`` is ``False``). With fewer than
+        two draws ``se``, ``ci`` and ``pvalue`` are NaN.
     refit_bootstrap : int, default 0
         Number of bootstrap refits for a standard error that is one. Each
         refit trains a new network on a resample of the rows from its own
@@ -305,7 +306,8 @@ def cfrnet(
         Draws for the plug-in dispersion reported as ``se`` when
         ``refit_bootstrap`` is 0. It resamples the fitted effects with the
         network held fixed and is not a standard error for the ATE
-        (``model_info['se_valid_for_ate']`` is ``False``).
+        (``model_info['se_valid_for_ate']`` is ``False``). With fewer than
+        two draws ``se``, ``ci`` and ``pvalue`` are NaN.
     refit_bootstrap : int, default 0
         Number of bootstrap refits for a standard error that is one. Each
         refit trains a new network on a resample of the rows from its own
@@ -492,7 +494,8 @@ def dragonnet(
     alpha : float, default 0.05
         Significance level for confidence intervals.
     n_bootstrap : int, default 500
-        Bootstrap iterations for standard error estimation.
+        Not used: the standard error is the AIPW influence-function one.
+        Kept so the three neural estimators share a signature.
     random_state : int, default 42
         Random seed.
     verbose : bool, default False
@@ -1019,6 +1022,7 @@ class TARNet:
         model_info = self._build_model_info(
             cate, D, n, mu0_orig, mu1_orig, device, history
         )
+        _mark_no_bootstrap(model_info, self.n_bootstrap)
 
         return CausalResult(
             method="TARNet (Shalit et al. 2017)",
@@ -1415,6 +1419,7 @@ class CFRNet:
                 "covariates": self.covariates,
             }
         )
+        _mark_no_bootstrap(model_info, self.n_bootstrap)
 
         return CausalResult(
             method="CFRNet (Shalit et al. 2017)",
@@ -1844,6 +1849,12 @@ class DragonNet:
                 "n_covariates": len(self.covariates),
                 "covariates": self.covariates,
                 "se_method": "AIPW_influence_function",
+                "se_note": (
+                    "se is the standard deviation of the AIPW scores over "
+                    "sqrt(n), with the outcome and propensity heads fitted "
+                    "on the same sample (no cross-fitting); n_bootstrap is "
+                    "not used."
+                ),
                 "ate_plugin": float(np.mean(cate)),
                 "ate_aipw": ate_aipw,
                 "aipw_scores": aipw_scores,
@@ -2018,6 +2029,11 @@ def _bootstrap_ate_se(
     is reported as ``se`` for backward compatibility and flagged in
     ``model_info['se_valid_for_ate'] = False``; see ``_basic_neural_info``.
     """
+    if n_bootstrap < 2:
+        # No draws (or one): there is no dispersion to report. Return NaN
+        # explicitly instead of letting ``np.std(ddof=1)`` warn its way
+        # there; ``_mark_no_bootstrap`` records why in ``model_info``.
+        return float("nan")
     rng = np.random.RandomState(random_state)
     n = len(cate)
     boot_means = np.array(
@@ -2026,12 +2042,29 @@ def _bootstrap_ate_se(
     return float(np.std(boot_means, ddof=1))
 
 
+def _mark_no_bootstrap(model_info: Dict[str, Any], n_bootstrap: int) -> None:
+    """Record in ``model_info`` that no plug-in dispersion was computed."""
+    if n_bootstrap >= 2:
+        return
+    model_info["se_method"] = "none"
+    model_info["se_note"] = (
+        f"n_bootstrap={n_bootstrap}: a dispersion needs at least two "
+        "bootstrap draws, so se, ci and pvalue are NaN. Pass "
+        "n_bootstrap >= 2 for the plug-in dispersion of the fitted "
+        "effects, or refit_bootstrap > 0 for a "
+        "standard error of the ATE."
+    )
+
+
 def _inference(
     estimate: float,
     se: float,
     alpha: float,
 ) -> Tuple[float, Tuple[float, float]]:
     """Compute p-value and confidence interval."""
+    if not np.isfinite(se):
+        nan = float("nan")
+        return nan, (nan, nan)
     if se > 0:
         z_stat = estimate / se
         pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))

@@ -36676,7 +36676,7 @@
         },
         "intercept": {
           "default": true,
-          "description": "Passed to the underlying ``rlasso`` first stages.",
+          "description": "Fit an intercept in every ``rlasso`` step (all selection paths) and in the second stage of the ``select_Z=True, select_X=False`` path. Set ``False`` only for data that are already centred, e.g. within-transformed panels.",
           "type": "boolean"
         },
         "penalty": {

@@ -5423,7 +5423,7 @@
           },
           "n_bootstrap": {
             "default": 500,
-            "description": "Draws for the plug-in dispersion reported as ``se`` when ``refit_bootstrap`` is 0. It resamples the fitted effects with the network held fixed and is not a standard error for the ATE (``model_info['se_valid_for_ate']`` is ``False``).",
+            "description": "Draws for the plug-in dispersion reported as ``se`` when ``refit_bootstrap`` is 0. It resamples the fitted effects with the network held fixed and is not a standard error for the ATE (``model_info['se_valid_for_ate']`` is ``False``). With fewer than two draws ``se``, ``ci`` and ``pvalue`` are NaN.",
             "type": "integer",
             "x-statspai-source": "signature"
           },
@@ -5673,7 +5673,7 @@
           },
           "n_bootstrap": {
             "default": 500,
-            "description": "Draws for the plug-in dispersion reported as ``se`` when ``refit_bootstrap`` is 0. It resamples the fitted effects with the network held fixed and is not a standard error for the ATE (``model_info['se_valid_for_ate']`` is ``False``).",
+            "description": "Draws for the plug-in dispersion reported as ``se`` when ``refit_bootstrap`` is 0. It resamples the fitted effects with the network held fixed and is not a standard error for the ATE (``model_info['se_valid_for_ate']`` is ``False``). With fewer than two draws ``se``, ``ci`` and ``pvalue`` are NaN.",
             "type": "integer",
             "x-statspai-source": "signature"
           },
@@ -5918,7 +5918,7 @@
           },
           "n_bootstrap": {
             "default": 500,
-            "description": "Bootstrap iterations for standard error estimation.",
+            "description": "Not used: the standard error is the AIPW influence-function one. Kept so the three neural estimators share a signature.",
             "type": "integer",
             "x-statspai-source": "signature"
           },
@@ -119647,7 +119647,7 @@
           },
           "intercept": {
             "default": true,
-            "description": "Passed to the underlying ``rlasso`` first stages.",
+            "description": "Fit an intercept in every ``rlasso`` step (all selection paths) and in the second stage of the ``select_Z=True, select_X=False`` path. Set ``False`` only for data that are already centred, e.g. within-transformed panels.",
             "type": "boolean"
           },
           "penalty": {
@@ -141523,7 +141523,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R rd2d::rd2d / rd2d.distance 1.0.0 (Cattaneo, Titiunik & Yu) [R 4.5, rd2d 1.0.0, sandwich 3.1.1]; tolerance estimate.p/q, std.err.p/q, t, CI, cross-point covariance rel 1e-9 (observed 1.6e-11); bandwidths rel 1e-8 (observed 1.2e-12); N exact -- tests/reference_parity/test_rd_open_R_parity.py"
+      "Cross-language parity (bit-exact) vs R rd2d::rd2d / rd2d.distance 1.0.0 (Cattaneo, Titiunik & Yu) [R 4.5, rd2d 1.0.0, sandwich 3.1.1]; tolerance estimate.p/q, std.err.p/q, t, CI, cross-point covariance rel 1e-9 (observed 1.6e-11); bandwidths rel 1e-8 (observed 1.2e-12); N exact -- tests/reference_parity/test_rd_open_R_parity.py",
+      "tests/reference_parity/test_rd2d_floor_R_parity.py"
     ],
     "validation_status": "certified"
   },

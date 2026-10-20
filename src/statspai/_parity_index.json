@@ -18332,6 +18332,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rd2d_floor_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -20146,7 +20149,7 @@
       ],
       "function": "rlasso_iv",
       "notes": [
-        "All four select_Z / select_X paths, BCCH EminentDomain and the AJR vignette."
+        "All four select_Z / select_X paths, BCCH EminentDomain and the AJR vignette. The select_Z-only path is pinned to hdm's first stage plus hdm's tsls with the intercept restored: rlassoIVselectZ 0.3.2 drops the second-stage intercept and transposes the sandwich bread (reference bugs, documented in sp.rlasso_iv Notes)."
       ],
       "reference": "R hdm::rlassoIV 0.3.2",
       "reference_versions": {

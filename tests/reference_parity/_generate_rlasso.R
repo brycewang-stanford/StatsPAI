@@ -122,14 +122,32 @@ write.csv(data.frame(y = y3, d = d3, x, z, check.names = FALSE),
 
 resZ    <- rlassoIV(x = x, d = d3, y = y3, z = z, select.X = FALSE, select.Z = TRUE)
 resBoth <- rlassoIV(x = x, d = d3, y = y3, z = z, select.X = TRUE,  select.Z = TRUE)
+# hdm 0.3.2's rlassoIVselectZ reports A^+' Omega A^+ with A = Dhat'D; the
+# sandwich of alpha = A^+ Dhat'y is A^+ Omega A^+' (what hdm's own tsls
+# computes; tsls cannot be used here because the 80-column control block
+# makes solve(Z'Z) singular). x already holds a constant column (column 50),
+# so no intercept is appended.
+selz_ginv <- function(x, d, y, z) {
+  dhat <- as.numeric(predict(rlasso(cbind(z, x), d, post = TRUE, intercept = TRUE)))
+  Dh <- cbind(dhat, x); D <- cbind(d, x)
+  Ainv <- MASS::ginv(t(Dh) %*% D)
+  a <- Ainv %*% (t(Dh) %*% y)
+  e <- as.numeric(y - D %*% a)
+  V <- Ainv %*% (t(Dh) %*% (Dh * e^2)) %*% t(Ainv)
+  list(coef = a[1], se = sqrt(V[1, 1]))
+}
+stopifnot(any(apply(x, 2, sd) == 0))
+resZfix <- selz_ginv(x, d3, y3, z)
 # Core rlasso of d on [z,x] — the first-stage selection that was 17x off
 lasso_d_zx <- rlasso(cbind(z, x), d3, post = TRUE)
 
 out$eminent_logGDP <- list(
   n = length(y3), n_x = ncol(x), n_z = ncol(z),
-  selectZ = list(coef = as.numeric(resZ$coefficients),
-                 se = as.numeric(resZ$se),
+  selectZ = list(coef = as.numeric(resZfix$coef),
+                 se = as.numeric(resZfix$se),
                  n_selected = as.integer(sum(resZ$selection.matrix[, 1]))),
+  selectZ_hdm_raw = list(coef = as.numeric(resZ$coefficients),
+                         se = as.numeric(resZ$se)),
   selectBoth = list(coef = as.numeric(resBoth$coefficients),
                     se = as.numeric(resBoth$se)),
   lasso_d_on_zx = list(n_selected = as.integer(sum(lasso_d_zx$index)),
@@ -153,17 +171,52 @@ write.csv(data.frame(y = y4, d = dd4, Xc, Zc, check.names = FALSE),
           file.path(FIX, "rlasso_iv_synth.csv"), row.names = FALSE)
 
 ivZ    <- rlassoIV(x = Xc, d = dd4, y = y4, z = Zc, select.X = FALSE, select.Z = TRUE)
+# hdm 0.3.2's rlassoIVselectZ fits the first stage with an intercept but
+# solves the second stage without one (see sp.rlasso_iv). The reference
+# StatsPAI matches is hdm's own first stage followed by hdm's own tsls with
+# the intercept restored: the selectZ estimator is just-identified IV with
+# instruments [dhat, 1, x] for regressors [d, 1, x].
+selz_with_intercept <- function(x, d, y, z) {
+  dhat <- as.numeric(predict(rlasso(cbind(z, x), d, post = TRUE, intercept = TRUE)))
+  r <- tsls(x = x, d = d, y = y, z = dhat, intercept = TRUE, homoscedastic = FALSE)
+  list(coef = as.numeric(r$coefficients[1]), se = as.numeric(r$se[1]))
+}
+ivZfix <- selz_with_intercept(Xc, dd4, y4, Zc)
 ivX    <- rlassoIV(x = Xc, d = dd4, y = y4, z = Zc, select.X = TRUE,  select.Z = FALSE)
 ivBoth <- rlassoIV(x = Xc, d = dd4, y = y4, z = Zc, select.X = TRUE,  select.Z = TRUE)
 ivNone <- tsls(x = Xc, d = dd4, y = y4, z = Zc, homoscedastic = FALSE)
 
 out$iv_synth <- list(
   n = n4, px = px, pz = pz, beta_true = beta4,
-  selectZ    = list(coef = as.numeric(ivZ$coefficients),    se = as.numeric(ivZ$se)),
+  selectZ    = ivZfix,
+  selectZ_hdm_raw = list(coef = as.numeric(ivZ$coefficients), se = as.numeric(ivZ$se)),
   selectX    = list(coef = as.numeric(ivX$coefficients),    se = as.numeric(ivX$se)),
   selectBoth = list(coef = as.numeric(ivBoth$coefficients), se = as.numeric(ivBoth$se)),
   plain_tsls = list(coef = as.numeric(ivNone$coefficients[1]),
                     se = as.numeric(ivNone$se[1]))
+)
+
+## ──── Fixture E: nonzero-mean IV, no controls (rlassoIVselectZ intercept) ────
+# Known truth beta = -2 with E[y], E[d] far from zero. hdm's selectZ (no
+# second-stage intercept) is inconsistent here; with every instrument
+# selected the intercept-restored estimator is plain 2SLS.
+set.seed(5)
+n5 <- 2000L
+z5 <- cbind(z1 = rnorm(n5) + 3, z2 = rnorm(n5) - 1)
+u5 <- rnorm(n5)
+d5 <- 5 + z5[, 1] + 0.8 * z5[, 2] + u5 + rnorm(n5)
+y5 <- 10 - 2 * d5 + 2 * u5 + rnorm(n5)
+write.csv(data.frame(y = y5, d = d5, z5, check.names = FALSE),
+          file.path(FIX, "rlasso_iv_nonzero_mean.csv"), row.names = FALSE)
+iv5_hdm <- rlassoIV(x = NULL, d = d5, y = y5, z = z5, select.X = FALSE, select.Z = TRUE)
+iv5_tsls <- tsls(x = NULL, d = d5, y = y5, z = z5, intercept = TRUE, homoscedastic = FALSE)
+out$iv_nonzero_mean <- list(
+  n = n5, beta_true = -2,
+  n_selected = as.integer(sum(iv5_hdm$selection.matrix[, 1])),
+  tsls = list(coef = as.numeric(iv5_tsls$coefficients[1]),
+              se = as.numeric(iv5_tsls$se[1])),
+  selectZ_hdm_raw = list(coef = as.numeric(iv5_hdm$coefficients),
+                         se = as.numeric(iv5_hdm$se))
 )
 
 writeLines(js(out), file.path(FIX, "rlasso_R.json"))
@@ -174,6 +227,7 @@ cat("  effect PO:     alpha =", round(out$effect$partialling_out$alpha, 4),
     " se =", round(out$effect$partialling_out$se, 4), "\n")
 cat("  eminent selZ:  coef  =", round(out$eminent_logGDP$selectZ$coef, 4),
     " se =", round(out$eminent_logGDP$selectZ$se, 4),
+    " (hdm raw se =", round(out$eminent_logGDP$selectZ_hdm_raw$se, 4), ")",
     " n_sel =", out$eminent_logGDP$selectZ$n_selected, "\n")
 cat("  eminent both:  coef  =", round(out$eminent_logGDP$selectBoth$coef, 4),
     " se =", round(out$eminent_logGDP$selectBoth$se, 4), "\n")

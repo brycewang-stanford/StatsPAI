@@ -25,7 +25,11 @@ near machine precision, not "within 5%":
   (observed ~1e-13); selected support: **exact**.
 - ``rlasso_effect`` alpha / se: ``atol=1e-6`` (observed ~1e-14).
 - ``rlasso_iv`` on a well-conditioned design: ``atol=1e-6`` (observed
-  ~1e-14) for every selection path.
+  ~1e-14) for every selection path. The ``select_Z``-only path is pinned
+  to hdm's own first stage followed by hdm's ``tsls`` with the intercept
+  restored: ``rlassoIVselectZ`` 0.3.2 drops the second-stage intercept and
+  transposes the sandwich bread (see ``sp.rlasso_iv`` Notes); hdm's raw
+  numbers are kept in the fixture as ``selectZ_hdm_raw``.
 - ``rlasso_iv`` on EminentDomain (rank-deficient control block): the
   Moore-Penrose pseudo-inverse SVD differs between LAPACK builds, so we
   allow ``atol=1e-4`` (observed ~1e-9).
@@ -199,13 +203,40 @@ def test_rlasso_iv_synth_matches_hdm(iv_synth, R, key, kwargs):
     np.testing.assert_allclose(res.se[0], exp["se"], atol=1e-6)
 
 
+# ──────────── rlasso_iv selectZ with nonzero means (intercept, fixture E) ────
+
+
+def test_rlasso_iv_selectZ_nonzero_mean_is_2sls(R):
+    """``hdm`` 0.3.2's ``rlassoIVselectZ`` drops the intercept from the
+    second stage (here -0.652 against a truth of -2). StatsPAI restores it;
+    with both instruments selected the estimator is then exactly robust
+    2SLS, which ``hdm::tsls(intercept=TRUE, homoscedastic=FALSE)`` gives."""
+    df = pd.read_csv(_FIXTURE_DIR / "rlasso_iv_nonzero_mean.csv")
+    exp = R["iv_nonzero_mean"]
+    assert exp["n_selected"] == 2
+    res = sp.rlasso_iv(
+        y=df["y"].values,
+        d=df["d"].values,
+        z=df[["z1", "z2"]].values,
+        select_Z=True,
+        select_X=False,
+    )
+    assert res.selection["n_selected_Z"] == exp["n_selected"]
+    np.testing.assert_allclose(res.coef[0], exp["tsls"]["coef"], rtol=1e-10)
+    np.testing.assert_allclose(res.se[0], exp["tsls"]["se"], rtol=1e-8)
+    # the known truth is -2; hdm's uncorrected value is 1.35 away from it
+    assert abs(res.coef[0] - exp["beta_true"]) < 3 * res.se[0]
+
+
 # ───────────────────── rlasso_iv on EminentDomain (real data) ──────────────
 
 
 def test_eminent_selectZ_matches_hdm(eminent, R):
     """The headline case: BCH (2012) optimal-instrument IV on eminent
-    domain.  StatsPAI's pre-port estimator was ~17x off (0.013 vs 0.227);
-    the faithful port lands on hdm's 0.2274 / 0.2466."""
+    domain.  StatsPAI's pre-port estimator was ~17x off (0.013 vs 0.227).
+    The coefficient is hdm's 0.2274 (the controls hold a constant column,
+    so no intercept is added); the SE is the sandwich of that estimator,
+    0.1760, where hdm 0.3.2 reports 0.2466 from a transposed bread."""
     y, d, X, Z = eminent
     exp = R["eminent_logGDP"]["selectZ"]
     res = sp.rlasso_iv(y=y, d=d, z=Z, x=X, select_Z=True, select_X=False)
