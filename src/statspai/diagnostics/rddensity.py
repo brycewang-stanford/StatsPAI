@@ -1,30 +1,33 @@
 """
-Cattaneo-Jansson-Ma (2020) density discontinuity test.
+Cattaneo-Jansson-Ma density discontinuity (manipulation) test.
 
-Tests whether the density of the running variable is continuous at
-the RD cutoff. Replaces McCrary (2008) as the modern standard for
-RD manipulation testing.
+Tests whether the density of the running variable is continuous at the
+RD cutoff, the modern replacement for McCrary (2008). Each side's density
+at the cutoff is the slope of a local polynomial fitted to the empirical
+distribution function (cattaneo2020simple); the default test is the
+robust bias-corrected statistic with jackknife standard errors and the
+``comb`` data-driven bandwidths (cattaneo2018manipulation).
 
-Uses local polynomial density estimation on each side of the cutoff
-with data-driven bandwidth selection and bias-corrected inference.
+Clean-room rewrite of the native path: written from the two papers, the
+published help pages and black-box runs of R ``rddensity`` 2.6 (GPL-2),
+whose source was not read. The shared estimator primitives live in
+:mod:`statspai.rd._lpdensity`; the conventions pinned by black-box
+probing are recorded in ``docs/dev/cleanroom/rddensity.md``.
+``backend='r'`` still delegates to the R package when it is installed.
 
 References
 ----------
-Cattaneo, M.D., Jansson, M. and Ma, X. (2020).
-"Simple Local Polynomial Density Estimators."
-*Journal of the American Statistical Association*, 115(531), 1449-1455. [@cattaneo2020simple]
-
-Cattaneo, M.D., Jansson, M. and Ma, X. (2018).
-"Manipulation Testing Based on Density Discontinuity."
-*The Stata Journal*, 18(1), 234-261. [@cattaneo2018manipulation]
+cattaneo2020simple
+cattaneo2018manipulation
 """
 
 import json
 import shutil
 import subprocess
 import tempfile
+from math import factorial
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -34,6 +37,13 @@ from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..rd._lpdensity import (
+    _cdf_counts,
+    boundary_bias_constant,
+    boundary_fit,
+    kth_distance,
+    normal_reference_bandwidth,
+)
 
 #: ``estimate`` / ``pvalue`` are the CJM t-test (what rddensity and Stata
 #: report); ``se`` / ``ci`` are for the density difference f(c+) - f(c-),
@@ -130,6 +140,15 @@ def _validate_support(X: np.ndarray, c: float) -> Tuple[int, int, int]:
     return n, n_l, n_r
 
 
+_NATIVE_NOTE = (
+    "StatsPAI native rddensity mirrors the default rddensity unrestricted "
+    "triangular-kernel path: rdbwdensity combination bandwidths, mass-point "
+    "ECDF handling, and jackknife CJM local-polynomial density inference. "
+    "backend='r' remains available for users who want to delegate directly "
+    "to the R package."
+)
+
+
 @accepts_aliases(_strict=True, running="x", cutoff="c")
 def rddensity(
     data: pd.DataFrame,
@@ -146,88 +165,75 @@ def rddensity(
     bino_nw: int = 10,
     bino_p: float = 0.5,
 ) -> CausalResult:
-    """
-    CJM (2020) density discontinuity test for RD manipulation.
+    """CJM (2020) density discontinuity test for RD manipulation.
 
-    Modern replacement for McCrary (2008). Uses local polynomial
-    density estimation with bias-corrected inference.
+    Estimates the density of the running variable just below and just
+    above the cutoff with local polynomials fitted to the empirical CDF
+    and tests whether the two limits are equal. The reported statistic is
+    the robust bias-corrected one: densities of order ``p + 1`` evaluated
+    with bandwidths chosen for order ``p``, studentised with jackknife
+    standard errors (the defaults of R/Stata ``rddensity``).
 
     Parameters
     ----------
-    data : pd.DataFrame
+    data : pandas.DataFrame
+        Data containing the running variable.
     x : str
-        Running variable.
+        Running-variable column (alias ``running``).
     c : float, default 0
-        RD cutoff.
+        Cutoff (alias ``cutoff``).
     p : int, default 2
-        Polynomial order for density estimation.
-    h : float or length-2 sequence, optional
-        Bandwidth. A scalar applies the same bandwidth on both sides;
-        a length-2 sequence is interpreted as ``(h_left, h_right)``.
-        Default: automatic StatsPAI native pilot rule.
+        Local polynomial order of the density estimator (1 to 7).
+    h : float or (float, float), optional
+        Bandwidth, or ``(h_left, h_right)``. Default: the ``comb``
+        data-driven bandwidths (median of the per-side, difference and sum
+        MSE-optimal choices on each side).
     alpha : float, default 0.05
-    backend : {"native", "r"}, default "native"
-        ``"native"`` uses StatsPAI's Python port of the default
-        ``rddensity`` unrestricted triangular-kernel selector/test path.
-        ``"r"`` delegates to ``rddensity::rddensity`` through
-        ``Rscript`` when the R package is installed, matching the
-        reference package's selector and test statistic.
-    bino_w : float or length-2 sequence, optional
-        Half-width of the first window of the binomial tests (two values:
-        below and above the cutoff). By default it is the smallest
-        half-width holding ``bino_n`` observations.
-    bino_wstep : float or length-2 sequence, optional
-        Increment in half-width between windows. Defaults to the first
-        window's half-width.
+        Level of ``ci`` (on the density-difference scale).
+    backend : {'native', 'r'}, default 'native'
+        ``'r'`` runs ``rddensity::rddensity`` through ``Rscript``.
+    bino_w : float or (float, float), optional
+        Half-width(s) of the first binomial-test window (below / above).
+        Default: the distance to the ``bino_n``-th closest observation.
+    bino_wstep : float or (float, float), optional
+        Increment of the half-widths; default the first half-width(s).
     bino_n : int, default 20
         Observations in the first window when ``bino_w`` is not given.
     bino_nw : int, default 10
         Number of windows.
     bino_p : float, default 0.5
-        Probability of falling below the cutoff under the null.
+        Null probability of falling below the cutoff.
 
     Returns
     -------
     CausalResult
-        - ``estimate``: T-statistic for density discontinuity
-        - ``pvalue``: p-value for H0: continuous density at cutoff
-        - ``model_info``: density estimates left/right, bandwidth;
-          ``'conventional'``, the statistic without bias correction that
-          ``rddensity, all`` also prints (the robust one above is the
-          test); ``'binomial_tests'``, the table of exact binomial tests
-          in ten symmetric windows around the cutoff
+        ``estimate`` and ``pvalue`` are the robust T statistic and its
+        p-value; ``se`` and ``ci`` are for the density difference
+        ``f(c+) - f(c-)`` (``model_info['density_diff']``). ``model_info``
+        also holds the one-sided densities and SEs, the bandwidths, the
+        effective sample sizes, the order-``p`` (conventional) test and
+        the exact binomial tests.
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> import numpy as np, pandas as pd
-    >>> rng = np.random.default_rng(3)
-    >>> df = pd.DataFrame({'score': rng.normal(0, 1, 2000)})
-    >>> result = sp.rddensity(df, x='score', c=0)
-    >>> bool(0.0 <= result.pvalue <= 1.0)
+    >>> rng = np.random.default_rng(0)
+    >>> df = pd.DataFrame({"x": rng.normal(size=2000)})
+    >>> res = sp.rddensity(df, x="x", c=0)
+    >>> bool(res.pvalue > 0.01)
     True
-    >>> manipulated = result.pvalue < 0.05  # True => evidence of sorting
 
-    Notes
-    -----
-    The test estimates the density from the left and right using
-    local polynomial regression on the empirical CDF, then tests:
-
-        H0: f_+(c) = f_-(c)  (no density discontinuity)
-        H1: f_+(c) ≠ f_-(c)  (manipulation at cutoff)
-
-    Native-path differences from McCrary (2008):
-    - No arbitrary binning step
-    - CJM/rddensity combination bandwidth selector
-    - Local-polynomial density estimate on the empirical CDF, matching
-      the default ``rddensity`` unrestricted triangular-kernel path
-
-    See Cattaneo, Jansson & Ma (2020, *JASA*).
+    References
+    ----------
+    cattaneo2020simple
+    cattaneo2018manipulation
     """
-    backend_norm = _validate_inputs(data, x, c, p, alpha, backend)
-    if backend_norm in {"r", "rddensity", "r_reference", "r_package"}:
-        return _rddensity_r_backend(data=data, x=x, c=c, p=p, h=h, alpha=alpha)
-    if backend_norm not in {"native", "statspai"}:
+    backend_key = _validate_inputs(data, x, c, p, alpha, backend)
+    if backend_key in {"r", "rddensity"}:
+        return _rddensity_r_backend(data, x, c, p, h, alpha)
+    if backend_key != "native":
         raise MethodIncompatibility(
             "backend must be 'native' or 'r'.",
             recovery_hint="Use backend='native' or backend='r'.",
@@ -236,99 +242,83 @@ def rddensity(
 
     X = _running_values(data, x)
     n, n_l, n_r = _validate_support(X, c)
+    xs = np.sort(X, kind="stable")
+    dist = xs - c
+    h_l, h_r, h_source = _resolve_bandwidths(
+        h, dist[dist < 0], dist[dist >= 0], p, x_all=dist
+    )
+    bino = _binomial_tests(
+        dist, bino_n, bino_nw, w=bino_w, wstep=bino_wstep, prob=bino_p
+    )
 
-    X_c = X - c
-    x_left = X_c[X_c < 0]
-    x_right = X_c[X_c >= 0]
+    counts = _cdf_counts(xs, mass_points=True) - 1.0  # leave-one-out
+    robust = _side_pair(xs, counts, c, h_l, h_r, p + 1)
+    conv = _side_pair(xs, counts, c, h_l, h_r, p)
 
-    h_l, h_r, h_source = _resolve_bandwidths(h, x_left, x_right, p, x_all=X_c)
-
-    fV = _rddensity_fit(X_c, h_l=h_l, h_r=h_r, p=p)
-
-    f_left = float(fV[0, 0])
-    f_right = float(fV[1, 0])
-    diff = float(fV[2, 0])
-    se_diff = float(np.sqrt(fV[2, 1])) if np.isfinite(fV[2, 1]) else 0.0
-    T_stat = diff / se_diff if se_diff > 0 else 0.0
-    pvalue = float(2 * stats.norm.sf(abs(T_stat)))
-
+    diff = robust["right"] - robust["left"]
+    se_diff = float(np.sqrt(robust["se_left"] ** 2 + robust["se_right"] ** 2))
+    if np.isfinite(diff) and np.isfinite(se_diff) and se_diff > 0:
+        t_stat = diff / se_diff
+        pvalue = float(2 * stats.norm.sf(abs(t_stat)))
+    else:  # statistic not computable on these windows
+        t_stat, se_diff, pvalue = 0.0, 0.0, 1.0
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (diff - z_crit * se_diff, diff + z_crit * se_diff)
 
-    # The conventional statistic (order p, no bias correction), which
-    # Stata's `rddensity, all` prints above the robust one.
-    conv = _rddensity_fit(X_c, h_l=h_l, h_r=h_r, p=p, order=p)
-    conv_se = float(np.sqrt(conv[2, 1])) if np.isfinite(conv[2, 1]) else float("nan")
-    conv_t = float(conv[2, 0]) / conv_se if conv_se > 0 else float("nan")
+    conv_diff = conv["right"] - conv["left"]
+    conv_se = float(np.sqrt(conv["se_left"] ** 2 + conv["se_right"] ** 2))
+    conv_t = conv_diff / conv_se if conv_se > 0 else np.nan
     conventional = {
-        "density_left": float(conv[0, 0]),
-        "density_right": float(conv[1, 0]),
-        "se_left": float(np.sqrt(conv[0, 1])),
-        "se_right": float(np.sqrt(conv[1, 1])),
+        "density_left": conv["left"],
+        "density_right": conv["right"],
+        "se_left": conv["se_left"],
+        "se_right": conv["se_right"],
         "se": conv_se,
-        "statistic": conv_t,
+        "statistic": float(conv_t),
         "pvalue": float(2 * stats.norm.sf(abs(conv_t))),
     }
 
     model_info = {
         "test": "Cattaneo-Jansson-Ma (2020)",
-        "density_left": f_left,
-        "density_right": f_right,
-        "density_diff": diff,
-        "se_left": float(np.sqrt(fV[0, 1])),
-        "se_right": float(np.sqrt(fV[1, 1])),
+        "density_left": robust["left"],
+        "density_right": robust["right"],
+        "density_diff": float(diff),
+        "se_left": robust["se_left"],
+        "se_right": robust["se_right"],
         "conventional": conventional,
-        "binomial_tests": _binomial_tests(
-            X_c,
-            n_first=int(bino_n),
-            n_windows=int(bino_nw),
-            w=bino_w,
-            wstep=bino_wstep,
-            prob=float(bino_p),
-        ),
-        "bandwidth_left": h_l,
-        "bandwidth_right": h_r,
+        "binomial_tests": bino,
+        "bandwidth_left": float(h_l),
+        "bandwidth_right": float(h_r),
         "bandwidth_source": h_source,
         "backend": "native",
         "validation_tier": "T2_native_reference_parity",
         "reference_backend": "rddensity",
-        "validation_note": (
-            "StatsPAI native rddensity mirrors the default rddensity "
-            "unrestricted triangular-kernel path: rdbwdensity combination "
-            "bandwidths, mass-point ECDF handling, and jackknife CJM "
-            "local-polynomial density inference. backend='r' remains "
-            "available for users who want to delegate directly to the R "
-            "package."
-        ),
-        "polynomial_order": p,
+        "validation_note": _NATIVE_NOTE,
+        "polynomial_order": int(p),
         "n_left": n_l,
         "n_right": n_r,
-        # Full-side counts above; the counts that actually entered the
-        # estimate are these. rddensity reports the latter as N$eff_*, and
-        # it is the number a paper's table should carry -- on the senate
-        # data the two differ by a factor of 5.
-        "n_eff_left": int(np.sum((X < c) & (X >= c - h_l))),
-        "n_eff_right": int(np.sum((X >= c) & (X <= c + h_r))),
+        "n_eff_left": robust["n_left"],
+        "n_eff_right": robust["n_right"],
         "cutoff": c,
+        "scale": dict(_SCALE),
     }
-
-    _result = CausalResult(
+    result = CausalResult(
         method="CJM (2020) Density Test",
         estimand=_ESTIMAND,
-        estimate=float(T_stat),
+        estimate=float(t_stat),
         se=float(se_diff),
         pvalue=pvalue,
         ci=ci,
         alpha=alpha,
         n_obs=n,
-        model_info={**model_info, "scale": dict(_SCALE)},
+        model_info=model_info,
         _citation_key="rddensity",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
         _attach_prov(
-            _result,
+            result,
             function="sp.diagnostics.rddensity",
             params={
                 "x": x,
@@ -336,14 +326,25 @@ def rddensity(
                 "p": p,
                 "h": h,
                 "alpha": alpha,
-                "backend": backend,
+                "backend": "native",
             },
             data=data,
             overwrite=False,
         )
-    except Exception:  # pragma: no cover
+    except Exception:  # pragma: no cover - provenance is best effort
         pass
-    return _result
+    return result
+
+
+def _side_pair(
+    xs: np.ndarray, counts: np.ndarray, c: float, h_l: float, h_r: float, order: int
+) -> Dict[str, Any]:
+    """Both one-sided density fits of ``order`` at the cutoff."""
+    out: Dict[str, Any] = {}
+    for side, h in (("left", h_l), ("right", h_r)):
+        est, se, n_win = boundary_fit(xs, counts, xs, c, h, side, order)
+        out[side], out[f"se_{side}"], out[f"n_{side}"] = est, se, n_win
+    return out
 
 
 def _resolve_bandwidths(
@@ -353,58 +354,38 @@ def _resolve_bandwidths(
     p: int,
     x_all: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, str]:
+    """Validate a user bandwidth or compute the default ``comb`` pair.
+
+    ``x_left`` / ``x_right`` / ``x_all`` are centred at the cutoff.
+    """
     if h is None:
         if x_all is None:
-            return _cjm_bandwidth(x_left, p), _cjm_bandwidth(x_right, p), "native_pilot"
-        h_l, h_r = _rddensity_default_bandwidths(x_all, p)
+            x_all = np.concatenate([np.asarray(x_left), np.asarray(x_right)])
+        h_l, h_r = _default_bandwidths(np.sort(np.asarray(x_all, float)), p)
         return h_l, h_r, "rddensity_comb"
-
-    if np.isscalar(h):
-        try:
-            h_value = float(cast(Any, h))
-        except (TypeError, ValueError) as exc:
+    if np.ndim(h) == 0:
+        values = [h]
+    else:
+        values = list(np.ravel(np.asarray(h, dtype=object)))
+        if len(values) != 2:
             raise MethodIncompatibility(
-                "h must be positive and finite.",
-                recovery_hint="Pass h=None or a positive finite bandwidth.",
-                diagnostics={"h": repr(h)},
-            ) from exc
-        if not np.isfinite(h_value) or h_value <= 0:
-            raise MethodIncompatibility(
-                "h must be positive and finite.",
-                recovery_hint="Pass h=None or a positive finite bandwidth.",
-                diagnostics={"h": h},
+                "h must be a scalar or a length-2 sequence (h_left, h_right).",
+                recovery_hint="Pass h=0.5 or h=(0.35, 0.55).",
+                diagnostics={"len_h": len(values)},
             )
-        return h_value, h_value, "manual_scalar"
-
     try:
-        h_values = list(cast(Sequence[float], h))
-    except TypeError as exc:
+        bws = [float(v) for v in values]
+    except (TypeError, ValueError):
+        bws = [np.nan]
+    if not all(np.isfinite(b) and b > 0 for b in bws):
         raise MethodIncompatibility(
-            "h must be a scalar or a length-2 sequence (h_left, h_right).",
-            recovery_hint="Pass h=0.5 or h=(0.35, 0.55).",
+            "h must be positive and finite.",
+            recovery_hint="Pass h=None or a positive finite bandwidth.",
             diagnostics={"h": repr(h)},
-        ) from exc
-    if len(h_values) != 2:
-        raise MethodIncompatibility(
-            "h must be a scalar or a length-2 sequence (h_left, h_right).",
-            recovery_hint="Pass h=0.5 or h=(0.35, 0.55).",
-            diagnostics={"h_length": len(h_values)},
         )
-    try:
-        h_l, h_r = float(h_values[0]), float(h_values[1])
-    except (TypeError, ValueError) as exc:
-        raise MethodIncompatibility(
-            "h_left and h_right must be positive and finite.",
-            recovery_hint="Use positive finite side-specific bandwidths.",
-            diagnostics={"h": [repr(v) for v in h_values]},
-        ) from exc
-    if not (np.isfinite(h_l) and np.isfinite(h_r)) or h_l <= 0 or h_r <= 0:
-        raise MethodIncompatibility(
-            "h_left and h_right must be positive and finite.",
-            recovery_hint="Use positive finite side-specific bandwidths.",
-            diagnostics={"h_left": h_l, "h_right": h_r},
-        )
-    return h_l, h_r, "manual_side_specific"
+    if len(bws) == 1:
+        return bws[0], bws[0], "manual_scalar"
+    return bws[0], bws[1], "manual_side_specific"
 
 
 def _rddensity_r_backend(
@@ -581,238 +562,110 @@ def _find_rscript() -> Optional[str]:
     return None
 
 
-def _cjm_bandwidth(x: np.ndarray, p: int) -> float:
-    """Legacy fallback bandwidth used only when no full sample is available."""
-    n = len(x)
-    sd = np.std(x)
-    h = 1.06 * sd * n ** (-1 / (2 * p + 3))
-    return float(max(h, 0.01 * sd))
+def _regularize(h: float, sides: Sequence[np.ndarray], k: int) -> float:
+    """Widen ``h`` to hold ``k`` observations and ``k`` distinct values on
+    every side in ``sides``, then cap it at the farthest observation.
+
+    ``sides`` are sorted absolute distances to the cutoff; the default
+    ``k = 20 + p + 1`` follows the rdbwdensity help (nLocalMin /
+    nUniqueMin), and a side with fewer than ``k`` observations contributes
+    its farthest one. The cap, and the rule that a bandwidth the MSE
+    formula cannot produce (NaN: bias not estimable) takes the lower
+    bound, were found by black-box probing.
+    """
+    lower = 0.0
+    for d in sides:
+        if d.size:
+            lower = max(lower, kth_distance(d, k), kth_distance(np.unique(d), k))
+    h = lower if np.isnan(h) else max(h, lower)
+    far = max(float(d[-1]) for d in sides if d.size)
+    return min(h, far)
 
 
-def _rddensity_unique(
-    x: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Run-length encoding matching ``rddensity:::rddensityUnique``."""
-    x = np.asarray(x, dtype=float)
-    n = len(x)
-    if n == 0:
-        empty = np.array([], dtype=int)
-        return np.array([], dtype=float), empty, empty, empty
-    unique_vals: list[float] = []
-    freqs: list[int] = []
-    first: list[int] = []
-    last: list[int] = []
-    start = 0
-    for idx in range(1, n + 1):
-        if idx == n or x[idx] != x[idx - 1]:
-            unique_vals.append(float(x[idx - 1]))
-            freqs.append(idx - start)
-            first.append(start)
-            last.append(idx - 1)
-            start = idx
+def _default_bandwidths(x_centered: np.ndarray, p: int) -> Tuple[float, float]:
+    """``comb`` bandwidths: ``median(h_side, h_diff, h_sum)`` on each side."""
+    table = _bandwidth_table(x_centered, p)
+    pair = [table[k][0] for k in ("diff", "sum")]
     return (
-        np.asarray(unique_vals, dtype=float),
-        np.asarray(freqs, dtype=int),
-        np.asarray(first, dtype=int),
-        np.asarray(last, dtype=int),
+        float(np.median([table["l"][0]] + pair)),
+        float(np.median([table["r"][0]] + pair)),
     )
 
 
-def _rddensity_h(x: float, p: int) -> float:
-    """Probabilists' Hermite polynomial used by ``rdbwdensity``."""
-    if p == 0:
-        return 1.0
-    if p == 1:
-        return x
-    if p == 2:
-        return x**2 - 1
-    if p == 3:
-        return x**3 - 3 * x
-    if p == 4:
-        return x**4 - 6 * x**2 + 3
-    if p == 5:
-        return x**5 - 10 * x**3 + 15 * x
-    if p == 6:
-        return x**6 - 15 * x**4 + 45 * x**2 - 15
-    if p == 7:
-        return x**7 - 21 * x**5 + 105 * x**3 - 105 * x
-    if p == 8:
-        return x**8 - 28 * x**6 + 210 * x**4 - 420 * x**2 + 105
-    if p == 9:
-        return x**9 - 36 * x**7 + 378 * x**5 - 1260 * x**3 + 945 * x
-    if p == 10:
-        return x**10 - 45 * x**8 + 630 * x**6 - 3150 * x**4 + 4725 * x**2 - 945
-    raise MethodIncompatibility(
-        "p must be between 1 and 7 for rddensity defaults.",
-        recovery_hint="Use p in the supported range 1..7.",
-        diagnostics={"p": p},
-    )
-
-
-def _dnorm(x: float) -> float:
-    return float(np.exp(-0.5 * x**2) / np.sqrt(2 * np.pi))
-
-
-def _kernel_power_integral(power: int, low: float = 0.0, up: float = 1.0) -> float:
-    """Triangular-kernel integral of x^power on [low, up]."""
-    return (up ** (power + 1) - low ** (power + 1)) / (power + 1) - (
-        up ** (power + 2) - low ** (power + 2)
-    ) / (power + 2)
-
-
-def _sgenerate(p: int) -> np.ndarray:
-    out = np.zeros((p + 1, p + 1), dtype=float)
-    for i in range(1, p + 2):
-        for j in range(1, p + 2):
-            out[i - 1, j - 1] = _kernel_power_integral(i + j - 2)
-    return out
-
-
-def _cgenerate(k: int, p: int) -> np.ndarray:
-    out = np.zeros((p + 1, 1), dtype=float)
-    for i in range(1, p + 2):
-        out[i - 1, 0] = _kernel_power_integral(i + k - 1)
-    return out
-
-
-def _order_stat(x: np.ndarray, k: int) -> float:
-    x_sorted = np.sort(np.asarray(x, dtype=float))
-    return float(x_sorted[min(len(x_sorted), k) - 1])
-
-
-def _rddensity_ecdf_y(n: int, freq: np.ndarray, index_last: np.ndarray) -> np.ndarray:
-    y = np.arange(n, dtype=float) / (n - 1)
-    return np.repeat(y[index_last], freq)
-
-
-def _rddensity_default_bandwidths(
+def _bandwidth_table(
     x_centered: np.ndarray, p: int
-) -> Tuple[float, float]:
-    """Port of ``rdbwdensity(..., bwselect='comb')`` for the default path."""
-    x = np.sort(np.asarray(x_centered, dtype=float))
-    n = len(x)
-    n_l = int(np.sum(x < 0))
-    n_r = int(np.sum(x >= 0))
-    x_unique, freq, _index_first, index_last = _rddensity_unique(x)
-    n_l_unique = int(np.sum(x_unique < 0))
-    n_r_unique = int(np.sum(x_unique >= 0))
+) -> Dict[str, Tuple[float, float, float]]:
+    """MSE-optimal bandwidths of cattaneo2018manipulation (section 2.5).
 
-    x_mu = float(np.mean(x))
-    x_sd = float(np.std(x, ddof=1))
-    z = x_mu / x_sd
-    cb = np.array(
-        [
-            25884.4444444942,
-            3430865.45512362,
-            845007948.042626,
-            330631733667.038,
-            187774809656037,
-            145729502641999264,
-            1.4601350297445e20,
-        ]
-    )
-    cc = np.array(
-        [
-            4.80000000000002,
-            548.571428571555,
-            100800.000000204,
-            29558225.4581006,
-            12896196859.6126,
-            7890871468221.61,
-            6467911284037581.0,
-        ]
-    )
-    fhat_b = 1.0 / (_rddensity_h(z, p + 2) ** 2 * _dnorm(z))
-    fhat_c = 1.0 / (_rddensity_h(z, p) ** 2 * _dnorm(z))
-    b_n = (((2 * p + 1) / 4) * fhat_b * cb[p - 1] / n) ** (1 / (2 * p + 5)) * x_sd
-    c_n = ((1 / (2 * p)) * fhat_c * cc[p - 1] / n) ** (1 / (2 * p + 1)) * x_sd
+    For each target (left density, right density, their difference, their
+    sum) the MSE-optimal bandwidth is ``(V / (2p B^2 n))^(1/(2p+1))``:
 
-    b_n = min(b_n, float(np.max(np.abs(x_unique))))
-    c_n = min(c_n, float(np.max(np.abs(x_unique))))
-    b_n = max(
-        b_n,
-        _order_stat(np.abs(x[x < 0]), 20 + p + 3),
-        _order_stat(x[x >= 0], 20 + p + 3),
-        _order_stat(np.abs(x_unique[x_unique < 0]), 20 + p + 3),
-        _order_stat(x_unique[x_unique >= 0], 20 + p + 3),
-    )
-    c_n = max(
-        c_n,
-        _order_stat(np.abs(x[x < 0]), 20 + p + 1),
-        _order_stat(x[x >= 0], 20 + p + 1),
-        _order_stat(np.abs(x_unique[x_unique < 0]), 20 + p + 1),
-        _order_stat(x_unique[x_unique >= 0], 20 + p + 1),
-    )
+    * ``V`` = ``n h1 se^2`` with ``se`` the jackknife SE of the order-``p``
+      fit at a normal-reference pilot ``h1`` (variance of the difference
+      and of the sum: ``V_left + V_right``);
+    * ``B = F^(p+1)(c)/(p+1)! * e_1' S^-1 c`` with the triangular-kernel
+      boundary constant and ``F^(p+1)`` from an order-``p+2`` fit at a
+      second normal-reference pilot (``B_diff = B_r - B_l``,
+      ``B_sum = B_r + B_l``).
 
-    y = _rddensity_ecdf_y(n, freq, index_last)
-    mask_b = np.abs(x) <= b_n
-    mask_c = np.abs(x) <= c_n
-    x_b, y_b = x[mask_b], y[mask_b]
-    x_c, y_c = x[mask_c], y[mask_c]
-    fv_b = _rddensity_fv(
-        y_b,
-        x_b,
-        n_l,
-        n_r,
-        int(np.sum(x_b < 0)),
-        int(np.sum(x_b >= 0)),
-        b_n,
-        b_n,
-        p + 2,
-        p + 1,
-    )
-    fv_c = _rddensity_fv(
-        y_c,
-        x_c,
-        n_l,
-        n_r,
-        int(np.sum(x_c < 0)),
-        int(np.sum(x_c >= 0)),
-        c_n,
-        c_n,
-        p,
-        1,
-    )
+    Returns ``{target: (h, V, B^2)}`` for ``l``, ``r``, ``diff``, ``sum``
+    (the layout of rdbwdensity's table); ``x_centered`` is sorted.
+    """
+    n = x_centered.size
+    xs = np.asarray(x_centered, float)
+    counts = _cdf_counts(xs, mass_points=True) - 1.0
+    d_left = np.sort(-xs[xs < 0])
+    d_right = xs[xs >= 0]
+    both = (d_left, d_right)
+    k = 20 + p + 1
 
-    hn = np.full((4, 3), np.nan, dtype=float)
-    hn[:, 1] = n * c_n * fv_c[:, 1]
-    s_mat = _sgenerate(p)
-    c_vec = _cgenerate(p + 1, p)
-    bias_factor = np.linalg.solve(s_mat, c_vec).ravel()[1]
-    hn[0, 2] = fv_b[0, 3] * bias_factor * ((-1) ** p)
-    hn[1, 2] = fv_b[1, 3] * bias_factor
-    hn[2, 2] = hn[1, 2] - hn[0, 2]
-    hn[3, 2] = hn[1, 2] + hn[0, 2]
-    hn[:, 2] = hn[:, 2] ** 2
-    hn[:, 0] = ((1 / (2 * p)) * hn[:, 1] / hn[:, 2] / n) ** (1 / (2 * p + 1))
-    for i in range(4):
-        if hn[i, 1] < 0:
-            hn[i, 0] = 0.0
-            hn[i, 1] = np.nan
-        if not np.isfinite(hn[i, 0]):
-            hn[i, 0] = 0.0
+    h_var = _regularize(normal_reference_bandwidth(xs, 0.0, p, 1), both, k)
+    h_der = _regularize(normal_reference_bandwidth(xs, 0.0, p + 2, p + 1), both, k)
+    V: Dict[str, float] = {}
+    B: Dict[str, float] = {}
+    for side in ("left", "right"):
+        _, se, _ = boundary_fit(xs, counts, xs, 0.0, h_var, side, p)
+        V[side] = n * h_var * se**2
+        deriv, _, _ = boundary_fit(
+            xs, counts, xs, 0.0, h_der, side, p + 2, v=p + 1, with_se=False
+        )
+        B[side] = deriv / factorial(p + 1) * boundary_bias_constant(p, side)
+    if not (np.isfinite(B["left"]) and np.isfinite(B["right"])):
+        # rdbwdensity reports no bias constant for either side when one
+        # side's derivative fit is not identified (black-box finding)
+        B = {"left": np.nan, "right": np.nan}
 
-    hn[0, 0] = min(hn[0, 0], abs(float(x_unique[0])))
-    hn[1, 0] = min(hn[1, 0], float(x_unique[-1]))
-    hn[2, 0] = min(hn[2, 0], max(abs(float(x_unique[0])), float(x_unique[-1])))
-    hn[3, 0] = min(hn[3, 0], max(abs(float(x_unique[0])), float(x_unique[-1])))
-    n_min = 20 + p + 1
-    h_l_min = _order_stat(np.abs(x[x < 0]), min(n_l, n_min))
-    h_r_min = _order_stat(x[x >= 0], min(n_r, n_min))
-    hn[0, 0] = max(hn[0, 0], h_l_min)
-    hn[1, 0] = max(hn[1, 0], h_r_min)
-    hn[2, 0] = max(hn[2, 0], h_l_min, h_r_min)
-    hn[3, 0] = max(hn[3, 0], h_l_min, h_r_min)
-    h_l_min = _order_stat(np.abs(x_unique[x_unique < 0]), min(n_l_unique, n_min))
-    h_r_min = _order_stat(x_unique[x_unique >= 0], min(n_r_unique, n_min))
-    hn[0, 0] = max(hn[0, 0], h_l_min)
-    hn[1, 0] = max(hn[1, 0], h_r_min)
-    hn[2, 0] = max(hn[2, 0], h_l_min, h_r_min)
-    hn[3, 0] = max(hn[3, 0], h_l_min, h_r_min)
+    def mse_h(var: float, bias: float) -> float:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return float((var / (2 * p * bias**2 * n)) ** (1.0 / (2 * p + 1)))
 
-    h_left = float(np.median([hn[0, 0], hn[2, 0], hn[3, 0]]))
-    h_right = float(np.median([hn[1, 0], hn[2, 0], hn[3, 0]]))
-    return h_left, h_right
+    v_two = V["left"] + V["right"]
+    cells = {
+        "l": (V["left"], B["left"], (d_left,)),
+        "r": (V["right"], B["right"], (d_right,)),
+        "diff": (v_two, B["right"] - B["left"], both),
+        "sum": (v_two, B["right"] + B["left"], both),
+    }
+    return {
+        key: (_regularize(mse_h(var, bias), sides, k), var, bias**2)
+        for key, (var, bias, sides) in cells.items()
+    }
+
+
+def _window_spec(
+    value: Optional[Union[float, Sequence[float]]], name: str
+) -> Optional[Tuple[float, float]]:
+    if value is None:
+        return None
+    vals = np.atleast_1d(np.asarray(value, dtype=float)).ravel()
+    if vals.size not in (1, 2) or not np.all(np.isfinite(vals)) or np.any(vals <= 0):
+        raise MethodIncompatibility(
+            f"{name} must be one positive half-width, or two (below and "
+            "above the cutoff).",
+            recovery_hint=f"Pass {name}=0.5 or {name}=(0.5, 1.0).",
+            diagnostics={name: repr(value)},
+        )
+    return (float(vals[0]), float(vals[-1]))
 
 
 def _binomial_tests(
@@ -826,157 +679,39 @@ def _binomial_tests(
 ) -> pd.DataFrame:
     """Exact binomial tests of the split of observations around the cutoff.
 
-    The table ``rddensity`` prints under its density test. By default the
-    first half-width is the smallest that holds ``n_first`` observations
-    (the ``n_first``-th smallest distance to the cutoff) and window ``k``
-    is ``k`` times as wide, which is Stata ``rddensity``'s rule. ``w``
-    fixes the first half-width instead (two values: below and above the
-    cutoff) and ``wstep`` the increment, which defaults to ``w``. In each
-    window the count below the cutoff is tested against ``prob``.
+    Follows the Stata ``rddensity`` help: the first symmetric window holds
+    ``n_first`` observations (half-width = distance to the ``n_first``-th
+    closest observation) and its half-width is also the increment, unless
+    ``w`` / ``wstep`` are given (one value, or one per side). Window ``k``
+    counts ``c - w_l <= x < c`` and ``c <= x <= c + w_r`` and tests
+    ``P(below) = prob`` (cattaneo2018manipulation's companion test).
+    ``half_width`` is the below-cutoff half-width; a ``half_width_right``
+    column is added when the two sides differ.
     """
-    columns = ["half_width", "n_left", "n_right", "pvalue"]
-
-    def _pair(value: Union[float, Sequence[float]], name: str) -> Tuple[float, float]:
-        arr = np.atleast_1d(np.asarray(value, dtype=float))
-        if arr.size not in (1, 2) or not np.all(np.isfinite(arr)) or np.any(arr <= 0):
-            raise MethodIncompatibility(
-                f"{name} must be one positive half-width, or two "
-                "(below and above the cutoff).",
-                recovery_hint=f"Pass {name}=0.5 or {name}=(0.5, 1.0).",
-                diagnostics={name: value},
-            )
-        return float(arr[0]), float(arr[-1])
-
-    if w is None:
-        distance = np.sort(np.abs(x_centered))
-        if distance.size < n_first:
-            return pd.DataFrame(columns=columns, dtype=float)
-        first = (float(distance[n_first - 1]),) * 2
-    else:
-        first = _pair(w, "bino_w")
-    step = first if wstep is None else _pair(wstep, "bino_wstep")
-    asymmetric = first[0] != first[1] or step[0] != step[1]
-    if asymmetric:
-        columns = ["half_width", "half_width_right", "n_left", "n_right", "pvalue"]
-    rows: list = []
-    for k in range(n_windows):
-        half_l = first[0] + k * step[0]
-        half_r = first[1] + k * step[1]
-        n_left = int(np.sum((x_centered < 0) & (x_centered >= -half_l)))
-        n_right = int(np.sum((x_centered >= 0) & (x_centered <= half_r)))
+    cols = ["half_width", "n_left", "n_right", "pvalue"]
+    xc = np.asarray(x_centered, dtype=float)
+    first = _window_spec(w, "bino_w")
+    step = _window_spec(wstep, "bino_wstep")
+    if first is None:
+        if xc.size < n_first:
+            return pd.DataFrame(columns=cols)
+        w0 = kth_distance(np.sort(np.abs(xc)), n_first)
+        first = (w0, w0)
+    if step is None:
+        step = first
+    rows = []
+    for k in range(int(n_windows)):
+        w_l = first[0] + k * step[0]
+        w_r = first[1] + k * step[1]
+        n_left = int(np.sum((xc < 0) & (xc >= -w_l)))
+        n_right = int(np.sum((xc >= 0) & (xc <= w_r)))
         total = n_left + n_right
-        pvalue = float(stats.binomtest(n_left, total, prob).pvalue) if total else np.nan
-        if asymmetric:
-            rows.append((half_l, half_r, n_left, n_right, pvalue))
-        else:
-            rows.append((half_l, n_left, n_right, pvalue))
-    return pd.DataFrame(rows, columns=columns)
-
-
-def _rddensity_fit(
-    x_centered: np.ndarray,
-    *,
-    h_l: float,
-    h_r: float,
-    p: int,
-    order: Optional[int] = None,
-) -> np.ndarray:
-    """``rddensity`` density/test fit of polynomial order ``order``: ``p + 1``
-    by default (the robust, bias-corrected test), ``p`` for the conventional
-    one."""
-    x = np.sort(np.asarray(x_centered, dtype=float))
-    n = len(x)
-    n_l = int(np.sum(x < 0))
-    n_r = int(np.sum(x >= 0))
-    _x_unique, freq, _index_first, index_last = _rddensity_unique(x)
-    y = _rddensity_ecdf_y(n, freq, index_last)
-    mask = (x >= -h_l) & (x <= h_r)
-    x_h = x[mask]
-    y_h = y[mask]
-    return _rddensity_fv(
-        y_h,
-        x_h,
-        n_l,
-        n_r,
-        int(np.sum(x_h < 0)),
-        int(np.sum(x_h >= 0)),
-        h_l,
-        h_r,
-        p + 1 if order is None else order,
-        1,
-    )
-
-
-def _rddensity_fv(
-    y: np.ndarray,
-    x: np.ndarray,
-    n_l: int,
-    n_r: int,
-    n_lh: int,
-    n_rh: int,
-    h_l: float,
-    h_r: float,
-    p: int,
-    s: int,
-) -> np.ndarray:
-    """Port of ``rddensity:::rddensity_fV`` for the default unrestricted path."""
-    n = n_l + n_r
-    n_h = n_lh + n_rh
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float).reshape(-1, 1)
-    weights = np.empty(n_h, dtype=float)
-    weights[:n_lh] = (1 + x[:n_lh] / h_l) / h_l
-    weights[n_lh:] = (1 - x[n_lh:] / h_r) / h_r
-
-    xp = np.empty((n_h, 2 * p + 2), dtype=float)
-    hp = np.empty(2 * p + 2, dtype=float)
-    for j in range(1, 2 * p + 3):
-        col = j - 1
-        if j % 2:
-            power = (j - 1) // 2
-            xp[:n_lh, col] = (x[:n_lh] / h_l) ** power
-            xp[n_lh:, col] = 0.0
-            hp[col] = h_l**power
-        else:
-            power = (j - 2) // 2
-            xp[:n_lh, col] = 0.0
-            xp[n_lh:, col] = (x[n_lh:] / h_r) ** power
-            hp[col] = h_r**power
-
-    out = np.full((4, 4), np.nan, dtype=float)
-    xp_w = xp * weights[:, None]
-    try:
-        s_inv = np.linalg.inv(xp_w.T @ xp)
-    except np.linalg.LinAlgError:
-        return out
-    hp_inv = np.diag(1 / hp)
-    coef = hp_inv @ s_inv @ (xp_w.T @ y)
-    out[0, 0] = coef[2, 0]
-    out[1, 0] = coef[3, 0]
-    out[2, 0] = coef[3, 0] - coef[2, 0]
-    out[3, 0] = coef[3, 0] + coef[2, 0]
-    out[0, 3] = coef[2 * s, 0]
-    out[1, 3] = coef[2 * s + 1, 0]
-    out[2, 3] = out[1, 3] - out[0, 3]
-    out[3, 3] = out[1, 3] + out[0, 3]
-
-    leverage = np.zeros((n_h, xp.shape[1]), dtype=float)
-    x_unique, freq, index_first, _index_last = _rddensity_unique(x)
-    del x_unique
-    for col in range(xp.shape[1]):
-        rev = xp_w[::-1, col]
-        cumsum = np.cumsum(np.r_[0.0, rev]) / (n - 1)
-        values = cumsum[:n_h][::-1]
-        leverage[:, col] = np.repeat(values[index_first], freq)
-    v_mat = hp_inv @ s_inv @ (leverage.T @ leverage) @ s_inv @ hp_inv
-    out[0, 1] = v_mat[2, 2]
-    out[1, 1] = v_mat[3, 3]
-    out[2, 1] = v_mat[2, 2] + v_mat[3, 3] - 2 * v_mat[2, 3]
-    out[3, 1] = v_mat[2, 2] + v_mat[3, 3] + 2 * v_mat[2, 3]
-    for i in range(4):
-        if np.isfinite(out[i, 1]) and out[i, 1] < 0:
-            out[i, 1] = np.nan
-    return out
+        pval = stats.binomtest(n_left, total, prob).pvalue if total > 0 else np.nan
+        rows.append((w_l, w_r, n_left, n_right, float(pval)))
+    table = pd.DataFrame(rows, columns=["half_width", "half_width_right"] + cols[1:])
+    if (table["half_width"] == table["half_width_right"]).all():
+        table = table.drop(columns="half_width_right")
+    return table
 
 
 # Citation
