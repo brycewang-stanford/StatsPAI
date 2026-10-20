@@ -352,12 +352,13 @@ class CoxKernel:
         _, _, denom = self._terms(r)
         xbar = self._xbar(r, denom)
         xbar_sum = self._per_event_group(xbar)
-        dead_x = rs.over_groups(self.X * rs.dead[:, None])
-        if self.weighted:
-            raise NotImplementedError("event_time_scores: unweighted fits only")
+        # with case weights each death scores w_i x_i and each Efron term
+        # its mean death weight, as in the score of score_hessian
+        xbar_wsum = self._per_event_group(xbar * self.term_w[:, None])
+        dead_x = rs.over_groups(self.X * (self.w * rs.dead)[:, None])
         # ascending time within stratum = reversed group order per stratum
         ev = rs.ev[np.lexsort((rs.g_time[rs.ev], rs.g_code[rs.ev]))]
-        scores = dead_x[ev] - xbar_sum[ev]
+        scores = dead_x[ev] - xbar_wsum[ev]
         mean_xbar = xbar_sum / np.maximum(rs.d, 1)[:, None]
         # deaths: stratum, ascending time, data order within a time
         rows = np.flatnonzero(rs.dead)
@@ -452,14 +453,21 @@ def harrell_c(score: np.ndarray, T: np.ndarray, E: np.ndarray) -> float:
     return (less + 0.5 * equal) / total
 
 
-def km_left_survival(T: np.ndarray, E: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def km_left_survival(
+    T: np.ndarray, E: np.ndarray, start: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, np.ndarray]:
     """Distinct times (ascending) and the Kaplan-Meier estimate just
-    before each."""
+    before each. With ``start`` the risk set at ``t`` is the rows with
+    ``start < t <= T`` (counting-process data)."""
     T = np.asarray(T, dtype=float)
     dead = np.asarray(E) == 1
     times, inv, counts = np.unique(T, return_inverse=True, return_counts=True)
     n_dead = np.bincount(inv, weights=dead, minlength=len(times))
     n_risk = len(T) - (np.cumsum(counts) - counts)
+    if start is not None:
+        # rows that have not entered yet: start >= t
+        s_sorted = np.sort(np.asarray(start, dtype=float))
+        n_risk = n_risk - (len(T) - np.searchsorted(s_sorted, times, side="left"))
     surv = np.cumprod(1.0 - n_dead / n_risk)
     left = np.ones(len(times))
     left[1:] = surv[:-1]

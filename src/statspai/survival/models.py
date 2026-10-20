@@ -186,6 +186,16 @@ class CoxResult(EconometricResults):
             regression of the scaled Schoenfeld residuals on ``g(t)``. With
             ``transform='identity'`` it reproduces ``estat phtest``, and
             with the other three its ``km``, ``rank`` and ``log`` options.
+            Unweighted right-censored fits only.
+
+        Weighted fits (``weights=``) and counting-process fits (``start=``)
+        get the score test of ``cox.zph`` for such fits: the case weights
+        enter the score and the information as they enter the partial
+        likelihood, the information is the model-based one whatever
+        variance the fit reports, and ``g`` ignores the weights (``'km'``
+        is the unweighted Kaplan-Meier of the ``(start, stop]`` data,
+        ``'rank'`` ranks the stop times of all rows). Fits with
+        ``design=`` are refused.
 
         Returns
         -------
@@ -223,18 +233,16 @@ class CoxResult(EconometricResults):
         ----------
         [@grambsch1994proportional]
         """
-        if (
-            getattr(self, "_weights", None) is not None
-            or getattr(self, "_start", None) is not None
-        ):
+        if self.model_info.get("survey_design") is not None:
             raise MethodIncompatibility(
-                "ph_test is implemented for unweighted right-censored fits; "
-                "this fit used weights= or start= (counting-process data).",
-                recovery_hint=(
-                    "Refit without weights= / start= for the test, or use R "
-                    "survival::cox.zph on the weighted / (start, stop] fit."
-                ),
+                "ph_test: this fit used design= (a complex survey design); "
+                "the score test here uses the model-based information and "
+                "would ignore the strata and PSUs.",
+                recovery_hint="Refit with weights=<design weight column> for "
+                "a weighted (non-design) proportional-hazards test.",
             )
+        w_arr = getattr(self, "_weights", None)
+        start_arr = getattr(self, "_start", None)
         beta = np.asarray(self.params.values, dtype=float)
         X = np.asarray(self._X, dtype=float)
         T = np.asarray(self._durations, dtype=float)
@@ -245,21 +253,37 @@ class CoxResult(EconometricResults):
         breslow = str(self.model_info.get("ties", "efron")).lower() == "breslow"
         names = list(self.params.index)
         p = len(names)
-
-        kern = CoxKernel(X, T, E, np.asarray(strata), breslow=breslow)
-        ev, times, U_k, resid_group, resid = kern.event_time_scores(beta)
-        if len(times) < 2:
-            raise DataInsufficient(
-                "ph_test needs at least two distinct event times.",
-            )
         method = str(method).lower()
         if method not in ("score", "approx"):
             raise MethodIncompatibility(
                 f"ph_test: method must be 'score' or 'approx', got {method!r}",
                 recovery_hint="Use method='score' (cox.zph) or 'approx' (Stata).",
             )
+        if method == "approx" and (w_arr is not None or start_arr is not None):
+            raise MethodIncompatibility(
+                "ph_test(method='approx') is the Grambsch-Therneau "
+                "approximation for unweighted right-censored fits; this fit "
+                "used weights= or start= (counting-process data).",
+                recovery_hint="Use method='score' (R survival::cox.zph), "
+                "which handles case weights and (start, stop] data.",
+            )
+
+        kern = CoxKernel(
+            X,
+            T,
+            E,
+            np.asarray(strata),
+            breslow=breslow,
+            weights=w_arr,
+            start=start_arr,
+        )
+        ev, times, U_k, resid_group, resid = kern.event_time_scores(beta)
+        if len(times) < 2:
+            raise DataInsufficient(
+                "ph_test needs at least two distinct event times.",
+            )
         ev_only = method == "approx"
-        g_k = _ph_time_transform(transform, T, E, times, ev_only)
+        g_k = _ph_time_transform(transform, T, E, times, ev_only, start=start_arr)
         if not np.all(np.isfinite(g_k)):
             raise DataInsufficient(
                 f"ph_test: transform={transform!r} is not finite at every "
@@ -1077,8 +1101,13 @@ def _ph_time_transform(
     E: np.ndarray,
     at: np.ndarray,
     rank_events_only: bool = False,
+    start: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """``g(t)`` of the proportional-hazards test, evaluated at ``at``."""
+    """``g(t)`` of the proportional-hazards test, evaluated at ``at``.
+
+    Case weights do not enter ``g`` (R ``cox.zph`` uses the unweighted
+    Kaplan-Meier and ranks, checked on its outputs); ``start`` makes the
+    Kaplan-Meier one of counting-process data."""
     at = np.asarray(at, dtype=float)
     if callable(transform):
         return np.asarray(transform(at), dtype=float)
@@ -1098,7 +1127,7 @@ def _ph_time_transform(
     if name == "km":
         # 1 - S(t-): the Kaplan-Meier estimate of the pooled sample just
         # before each time.
-        times, left = km_left_survival(T, E)
+        times, left = km_left_survival(T, E, start)
         return np.asarray(1.0 - left[np.searchsorted(times, at)], dtype=float)
     raise MethodIncompatibility(
         "ph_test: transform must be 'km', 'rank', 'identity', 'log' or a "

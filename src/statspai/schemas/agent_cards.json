@@ -3160,7 +3160,8 @@
       "tests": [
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_did2x2_wild_parity.py",
-        "tests/reference_parity/test_sunab_weighted_parity.py"
+        "tests/reference_parity/test_sunab_weighted_parity.py",
+        "tests/reference_parity/test_survey_did_parity.py"
       ],
       "tolerance": ""
     },
@@ -3311,6 +3312,10 @@
             "description": "Input dataset.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "design": {
+            "description": "A survey design from sp.svydesign on the same rows, forwarded to did_2x2 (method '2x2') or callaway_santanna (method 'cs', panel, analytic SEs): design weights as unit weights, SEs by survey linearisation of the influence functions over strata / PSUs / fpc, t on the design df. Refused with other methods, aggregation=, weights= or cluster=.",
+            "type": "string"
           },
           "estimator": {
             "default": "dr",
@@ -10904,9 +10909,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survey::svydesign + svymean/svytotal/svyglm/degf (strata, nested PSUs, fpc, survey.lonely.psu); Stata svyset + svy: mean/total/regress/logit/poisson + estat effects [R version 4.5.2 (2025-10-31), Stata 18 MP, survey 4.5]; tolerance estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel (observed <= 4e-14; p 6e-13) -- tests/reference_parity/test_survey_design_R_parity.py",
       "tests/external_parity/test_gelman_ros_examples.py",
+      "tests/reference_parity/test_cox_zph_weighted_parity.py",
       "tests/reference_parity/test_mediate_design_Stata_parity.py",
       "tests/reference_parity/test_survey_calib_R_parity.py",
-      "tests/reference_parity/test_survey_calibrated_design_parity.py",
       "API/unit contract evidence: tests/test_survey.py"
     ],
     "validation_status": "certified"
@@ -118487,8 +118492,8 @@
       "Cross-language parity (bit-exact) vs survival::coxph [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 24_coxph -- tests/r_parity/24_coxph.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_cox_ph_test_parity.py",
-      "tests/reference_parity/test_linear_model_extensions_parity.py",
-      "tests/reference_parity/test_survey_causal_parity.py"
+      "tests/reference_parity/test_cox_zph_weighted_parity.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py"
     ],
     "validation_status": "certified"
   },

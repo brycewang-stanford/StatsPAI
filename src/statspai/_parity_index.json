@@ -4446,6 +4446,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_cox_ph_test_parity.py",
+        "tests/reference_parity/test_cox_zph_weighted_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
         "tests/reference_parity/test_survival_epi_R_parity.py",
@@ -5330,7 +5331,8 @@
       "test": [
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_did2x2_wild_parity.py",
-        "tests/reference_parity/test_sunab_weighted_parity.py"
+        "tests/reference_parity/test_sunab_weighted_parity.py",
+        "tests/reference_parity/test_survey_did_parity.py"
       ],
       "tolerance": ""
     },
@@ -22780,6 +22782,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_gelman_ros_examples.py",
+        "tests/reference_parity/test_cox_zph_weighted_parity.py",
         "tests/reference_parity/test_mediate_design_Stata_parity.py",
         "tests/reference_parity/test_survey_calib_R_parity.py",
         "tests/reference_parity/test_survey_calibrated_design_parity.py",

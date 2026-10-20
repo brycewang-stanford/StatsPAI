@@ -349,8 +349,10 @@ def test_bad_inputs_fail_loudly(df, cp):
         weights="w",
         weights_as="sampling",
     )
+    # the score test handles weights (test_cox_zph_weighted_parity.py); the
+    # Grambsch-Therneau approximation is defined for unweighted fits only
     with pytest.raises(MethodIncompatibility):
-        fit.ph_test()
+        fit.ph_test(method="approx")
 
 
 def test_non_integer_weights_with_model_based_variance_warn(df):

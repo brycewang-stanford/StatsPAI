@@ -4,6 +4,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Survey designs reach `sp.did`; PH test for weighted Cox fits
+
+#### Added
+
+- `sp.did(..., design=sp.svydesign(...))` forwards the design to
+  `sp.did_2x2` (`method='2x2'` / `'classic'` / `'twfe'`) and
+  `sp.callaway_santanna` (`method='cs'`, panel, analytic SEs); the numbers
+  are those of the two estimators' `design=` paths (R `survey` /
+  `did` parity in `tests/reference_parity/test_survey_did_parity.py`, now
+  also through the dispatcher). Other methods and `aggregation=` are
+  refused with a typed error (`sp.aggte` has no design variance; the CS
+  design fit already reports the simple ATT and the event study).
+- `CoxResult.ph_test()` on fits with `weights=` and / or `start=`
+  (counting-process data): the score test of R `survival::cox.zph`, equal
+  to it on 14 weighted, delayed-entry, time-varying and stratified fits
+  under both tie rules and the four time transforms (relative 1e-6;
+  `tests/reference_parity/test_cox_zph_weighted_parity.py`). These fits
+  used to raise. The time transform ignores the weights and the
+  information is model-based whatever variance the fit reports, as
+  `cox.zph` does (read from its outputs; survival is LGPL, used as a black
+  box). `method='approx'` stays unweighted / right-censored only; fits
+  with `design=` are refused. Weighted fits now also carry
+  `model_info['ph_test']`, so `result.violations()` can flag them.
+
 ### `sp.mediate(design=)`
 
 #### Added

@@ -1507,6 +1507,10 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "A survey design from sp.svydesign on the same rows, forwarded to did_2x2 (method '2x2') or callaway_santanna (method 'cs', panel, analytic SEs): design weights as unit weights, SEs by survey linearisation of the influence functions over strata / PSUs / fpc, t on the design df. Refused with other methods, aggregation=, weights= or cluster=.",
+          "type": "string"
+        },
         "estimator": {
           "default": "dr",
           "description": "Callaway-Sant'Anna estimator: doubly-robust, IPW, or regression adjustment",
