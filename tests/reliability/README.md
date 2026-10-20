@@ -187,36 +187,40 @@ fits that ran.
 | ---: | --- | ---: | ---: | ---: |
 | 1000 | continuous | 0.944 | 0.944 | n/a |
 | 1000 | 50 | 0.955 | 0.955 | 0.856 |
-| 1000 | 20 | 0.955 | 0.956 | 0.691 |
-| 1000 | 10 | 0.888 | 0.949 (13 refused) | 0.631 |
-| 1000 | 5 | 0.891 (1 refused) | 0.733 (708 refused) | 0.320 |
+| 1000 | 20 | 0.956 | 0.956 | 0.657 |
+| 1000 | 10 | 0.942 (3 refused) | 0.948 (21 refused) | 0.410 |
+| 1000 | 5 | 0.903 (969 refused) | 0.903 (969 refused) | 0.065 (969 refused) |
 | 4000 | continuous | 0.943 | 0.943 | n/a |
 | 4000 | 50 | 0.941 | 0.940 | 0.844 |
-| 4000 | 20 | 0.937 | 0.936 | 0.648 |
-| 4000 | 10 | 0.689 | 0.919 (382 refused) | 0.451 |
-| 4000 | 5 | 0.710 | 0.604 (598 refused) | 0.224 |
+| 4000 | 20 | 0.931 | 0.936 | 0.610 |
+| 4000 | 10 | 0.938 (4 refused) | 0.957 (770 refused) | 0.466 |
+| 4000 | 5 | 0.875 (976 refused) | 0.875 (976 refused) | 0.042 (976 refused) |
 
 What the table says:
 
 - The default holds its coverage with a continuous running variable and
   with 50 or 20 support points a side.
-- At 10 and 5 support points a side the default covers 89% at n = 1000
-  and 69% to 71% at n = 4000. The mass-point adjustment floors the pilot
-  bandwidth at the tenth distinct value from the cutoff, which at 10
-  points a side is the whole side: the conventional estimate is biased by
-  0.21 to 0.26 on a jump of 1, and more data narrows the interval around
-  the biased value. This is the reference behaviour (R `rdrobust` does
-  the same); `sp.rdrobust` already warns when the running variable has
-  fewer than 30 distinct values and points at `sp.rd_discrete`.
+- At 10 support points a side the default covers 94% at both sample
+  sizes. The mass-point adjustment floors only the pilot bandwidth at the
+  tenth distinct value from the cutoff, as R `rdrobust` does. Until the
+  2026-10-20 fix StatsPAI floored the final bandwidths too, which held h
+  at the whole side, biased the conventional estimate by 0.21 to 0.26 on
+  a jump of 1, and pulled coverage down to 69% to 89%.
+- At 5 support points a side the bandwidth that matches R is narrower
+  than the spacing of the support points, so the window holds fewer
+  distinct values than the local polynomial has coefficients. Those fits
+  are refused (`DataInsufficient` or `NumericalInstability`, with a hint
+  to `sp.rd_discrete` and `sp.rdrandinf`) instead of returning a
+  pseudo-inverse number: 969 of 1,000 at n = 1000 and 976 at n = 4000.
+  `sp.rdrobust` also warns when the running variable has fewer than 30
+  distinct values and points at `sp.rd_discrete`.
 - Clustering on the support points makes it worse at every level: 84% to
-  86% at 50 points a side, 65% to 69% at 20, 22% to 32% at 5.
-  `sp.rdrobust` now warns when each cluster holds a single value of the
+  86% at 50 points a side, 61% to 66% at 20, 41% to 47% at 10.
+  `sp.rdrobust` warns when each cluster holds a single value of the
   running variable.
-- `masspoints='off'` treats the data as continuous. With 5 points a side
-  most fits are refused, and the ones that run have intervals thousands
-  of units long. Before this study those refusals were a
-  `TypeError: float() argument must be ... not 'complex'` and, in a few
-  cases, a NaN interval returned without an error.
+- `masspoints='off'` treats the data as continuous. At 10 points a side
+  it refuses 21 fits at n = 1000 and 770 at n = 4000; at 5 points it
+  refuses the same fits as the default.
 
 Rerun with `python tests/reliability/rd_mass_points.py` (about half an
 hour). `tests/test_reliability_rd_mass_points.py` recomputes one cell on

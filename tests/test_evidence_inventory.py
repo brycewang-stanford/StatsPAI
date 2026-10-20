@@ -176,16 +176,22 @@ def test_reliability_studies_are_tabulated_from_the_stored_files(built):
 
 
 def test_a_refused_fit_counts_against_the_rate(built):
-    """rd_mass_points, masspoints='off', 5 support points: 708 of 1,000 refused."""
+    """rd_mass_points, masspoints='off', 5 support points: 969 of 1,000 refused.
+
+    With the bandwidths that match R rdrobust (since the mass-point fix that
+    floors only the pilot bandwidth), 5 support points a side leave fewer
+    distinct values in the window than the local polynomial has coefficients,
+    so the fit is refused instead of returning a pseudo-inverse number.
+    """
     studies = {s["study"]: s for s in built["inference_reliability"]["studies"]}
     (row,) = [
         r
         for r in studies["rd_mass_points"]["rows"]
         if r["method"] == "off" and r["design"] == "n=1000, support_per_side=5"
     ]
-    assert row["refused"] == 708
-    # 73.3% of the 292 fits that ran covered; over all 1,000 that is 21.4%
-    assert row["rate"] == pytest.approx(0.214, abs=1e-3)
+    assert row["refused"] == 969
+    # 28 of the 31 fits that ran covered; over all 1,000 that is 2.8%
+    assert row["rate"] == pytest.approx(0.028, abs=1e-3)
     assert row["within_2_mc_se_of_nominal"] is False
 
 

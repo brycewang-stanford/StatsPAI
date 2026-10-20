@@ -1005,8 +1005,15 @@ def rdrobust(
             "Insufficient observations inside the bandwidth for the local fit: "
             + ", ".join(f"{k}: {v[0]} (need > {v[1]})" for k, v in _short.items())
             + f". h = {h}, b = {b}.",
-            recovery_hint="Use a larger bandwidth or a lower polynomial order.",
+            recovery_hint=(
+                "Use a larger bandwidth or a lower polynomial order. If the "
+                "running variable takes few distinct values (a bandwidth "
+                "narrower than the spacing of its support points), use a "
+                "method built for a discrete running variable "
+                "(sp.rd_discrete, or local randomization with sp.rdrandinf)."
+            ),
             diagnostics={k: v[0] for k, v in _need.items()},
+            alternative_functions=["sp.rd_discrete", "sp.rdrandinf"],
         )
 
     # --- Conventional estimate: order p, bandwidth h ---
