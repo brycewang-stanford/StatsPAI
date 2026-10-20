@@ -36,6 +36,7 @@ difference-in-differences estimators." *Journal of Econometrics*, 219(1),
 
 from __future__ import annotations
 
+import functools
 import pathlib
 
 import numpy as np
@@ -54,7 +55,9 @@ R_REFERENCE = {
 }
 
 _ESTIMATORS = {
-    "drdid_rc": drdid_rc,
+    # R's standard error needs R's sign for the pre-period comparison
+    # regression term (documented T4 divergence, see the drdid_rc docstring).
+    "drdid_rc": functools.partial(drdid_rc, variance_convention="reference"),
     "std_ipw_did_rc": std_ipw_did_rc,
     "reg_did_rc": reg_did_rc,
 }

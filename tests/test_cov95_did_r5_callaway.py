@@ -24,7 +24,6 @@ from statspai.did.callaway_santanna import (
     _estimate_single_att_rcs,
     _get_gt_pairs,
     _pretrend_test,
-    _rcs_residualise_on_controls,
     callaway_santanna,
 )
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
@@ -378,17 +377,3 @@ def test_rcs_single_att_empty_cell():
         y, g, t, g_val=4, t_val=5, base_val=99, n_obs=6
     )
     assert att == 0.0 and np.isinf(se)
-
-
-def test_rcs_residualise_not_enough_controls():
-    # < k+2 controls -> return untouched (line 1028)
-    df = pd.DataFrame(
-        {
-            "g": [0, 4, 4, 4],
-            "t": [1, 1, 2, 2],
-            "x1": [1.0, 2, 3, 4],
-        }
-    )
-    y = np.array([1.0, 2, 3, 4])
-    out = _rcs_residualise_on_controls(y, df, "g", "t", ["x1"])
-    assert np.allclose(out, y)

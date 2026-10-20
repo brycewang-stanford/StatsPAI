@@ -58,8 +58,12 @@ def _rc_runs(df: pd.DataFrame, weights):
     x = df[["x1", "x2"]].to_numpy()
     args = (df["y"].to_numpy(), df["post"].to_numpy(), df["D"].to_numpy(), x, weights)
     return {
-        "drdid_rc": lambda: _rcs.drdid_rc(*args),
-        "drdid_rc1": lambda: _rcs.drdid_rc(*args, locally_efficient=False),
+        # R's convention for the pre-period comparison-regression term
+        # (documented T4 divergence; the default 'delta' is the paper's).
+        "drdid_rc": lambda: _rcs.drdid_rc(*args, variance_convention="reference"),
+        "drdid_rc1": lambda: _rcs.drdid_rc(
+            *args, locally_efficient=False, variance_convention="reference"
+        ),
         "drdid_imp_rc": lambda: _rcs.drdid_imp_rc(*args),
         "drdid_imp_rc1": lambda: _rcs.drdid_imp_rc(*args, locally_efficient=False),
         "std_ipw_did_rc": lambda: _rcs.std_ipw_did_rc(*args),
@@ -143,16 +147,16 @@ def test_pre_period_regression_convention_identity(weighting):
     cov = df[["x1", "x2"]].to_numpy()
     raw = df["w"].to_numpy() if weighting == "w" else None
     for efficient in (True, False):
-        ref = _rcs.drdid_rc(y, post, d, cov, raw, locally_efficient=efficient)
-        dlt = _rcs.drdid_rc(
+        ref = _rcs.drdid_rc(
             y,
             post,
             d,
             cov,
             raw,
             locally_efficient=efficient,
-            variance_convention="delta",
+            variance_convention="reference",
         )
+        dlt = _rcs.drdid_rc(y, post, d, cov, raw, locally_efficient=efficient)
         assert dlt.att == ref.att
 
         n = len(df)

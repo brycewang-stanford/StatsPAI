@@ -78,6 +78,9 @@ def test_notyettreated_att_gt_matches_r_did(data, case):
             anticipation=int(case["anticipation"]),
             estimator="dr",
             panel=case["panel"],
+            # R's sign for the pre-period comparison-regression term on
+            # repeated cross-sections (documented T4; default is 'delta').
+            variance_convention="reference",
         )
     ours = res.detail.set_index(["group", "time"])
     ref = pd.DataFrame(

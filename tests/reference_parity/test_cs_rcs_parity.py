@@ -6,7 +6,8 @@ Repeated cross-sections. Until now ``panel=False`` accepted only
 
 The (g, t) loop now hands each two-period sub-sample to the matching
 Sant'Anna-Zhao estimator in :mod:`statspai.did._rcs`, which is what R
-``did::att_gt(panel = FALSE)`` does (confirmed from ``did:::compute.att_gt``):
+``did::att_gt(panel = FALSE)`` does (the ``att_gt`` help page and black-box
+runs):
 
     est_method = "dr"   ->  DRDID::drdid_rc
     est_method = "ipw"  ->  DRDID::std_ipw_did_rc
@@ -21,7 +22,12 @@ Reference generation (R 4.5.2, did 2.5.1, DRDID 1.3.0), on the locked
                 bstrap=FALSE, cband=FALSE)
     aggte(a, type="simple", bstrap=FALSE, cband=FALSE)
 
-Point estimates and standard errors are both pinned at 1e-8.
+Point estimates and standard errors are both pinned at 1e-8. For
+``est_method = "dr"`` the R standard error is reproduced with
+``variance_convention='reference'``; StatsPAI's default ``'delta'`` carries
+the pre-period comparison-regression estimation effect with the sign of
+Sant'Anna and Zhao (2020, Appendix B), a documented divergence (T4; Monte
+Carlo evidence in ``_fixtures/_drdid_rc_pre_regression_mc.py``).
 
 ``mpdta`` is a panel, so under ``panel=False`` the county id repeats across
 years. On such data did 2.3.0 reported aggregate standard errors 0.003% to
@@ -116,7 +122,8 @@ def test_rcs_simple_att_matches_r_did(mpdta, key):
 def test_rcs_simple_se_matches_r_did(mpdta, key):
     estimator, control_group = key
     _, se_r = R_RCS[key]
-    fit = _rcs_fit(mpdta, estimator, control_group, x=["lpop"])
+    kw = {"variance_convention": "reference"} if estimator == "dr" else {}
+    fit = _rcs_fit(mpdta, estimator, control_group, x=["lpop"], **kw)
     agg = sp.aggte(fit, type="simple", bstrap=False)
     assert agg.se == pytest.approx(
         se_r, rel=1e-8
@@ -219,3 +226,37 @@ def test_clustervars_under_rcs_give_clustered_analytic_ses(mpdta):
         MethodIncompatibility, match="constant within every cohort x period cell"
     ):
         _rcs_fit(mpdta, "dr", "nevertreated", clustervars=["countyreal", "first_treat"])
+
+
+@pytest.mark.parametrize("control_group", ["nevertreated", "notyettreated"])
+def test_rcs_dr_default_uses_the_delta_method_influence_function(mpdta, control_group):
+    """The default DR standard errors are those of ``_rcs.drdid_rc`` with
+    the paper's influence function, cell by cell; the ATT(g, t) do not
+    depend on the convention."""
+    from statspai.did._rcs import drdid_rc
+
+    delta = _rcs_fit(mpdta, "dr", control_group, x=["lpop"])
+    ref = _rcs_fit(
+        mpdta, "dr", control_group, x=["lpop"], variance_convention="reference"
+    )
+    assert delta.model_info["variance_convention"] == "delta"
+    np.testing.assert_allclose(delta.detail["att"], ref.detail["att"], rtol=1e-12)
+    np.testing.assert_allclose(delta.estimate, ref.estimate, rtol=1e-12)
+
+    # Cell (2007, 2006) of the varying base period: rows of cohort 2007 and
+    # of the comparison group in 2005 and 2006.
+    g = mpdta["first_treat"].to_numpy()
+    t = mpdta["year"].to_numpy()
+    comp = (g == 0) if control_group == "nevertreated" else ((g == 0) | (g > 2006))
+    rows = ((g == 2007) | comp) & np.isin(t, [2005, 2006])
+    sub = mpdta.loc[rows]
+    res = drdid_rc(
+        sub["lemp"].to_numpy(),
+        (sub["year"] == 2006).to_numpy(float),
+        (sub["first_treat"] == 2007).to_numpy(float),
+        sub[["lpop"]].to_numpy(),
+        variance_convention="delta",
+    )
+    cell = delta.detail.query("group == 2007 and time == 2006").iloc[0]
+    assert cell["att"] == pytest.approx(res.att, rel=1e-12)
+    assert cell["se"] == pytest.approx(res.se, rel=1e-12)

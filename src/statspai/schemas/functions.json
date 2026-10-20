@@ -1939,6 +1939,15 @@
           "x-canonical": "time",
           "x-statspai-role": "column"
         },
+        "variance_convention": {
+          "default": "delta",
+          "description": "estimator='dr' on repeated cross-sections / allow_unbalanced_panel only. 'delta' (default): the Sant'Anna-Zhao influence function. 'reference': R did / DRDID's SE, whose pre-period comparison-regression term has the opposite sign and under-covers when the propensity model is wrong. Same ATT(g,t).",
+          "enum": [
+            "delta",
+            "reference"
+          ],
+          "type": "string"
+        },
         "vce": {
           "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap'. Any other kind raises.",
           "type": "string",
@@ -30811,6 +30820,15 @@
           "default": 0.995,
           "description": "Drop control units whose propensity score reaches this cutoff (DRDID trim.level). 1.0 disables.",
           "type": "number"
+        },
+        "variance_convention": {
+          "default": "delta",
+          "description": "est_method='dr', method='trad' on repeated cross-sections only. 'delta' (default): the paper's influence function. 'reference': R DRDID's drdid_rc standard error, whose pre-period comparison-regression term has the opposite sign and under-covers when the propensity model is wrong. Same point estimate.",
+          "enum": [
+            "delta",
+            "reference"
+          ],
+          "type": "string"
         },
         "weights": {
           "description": "Observation weights column (R DRDID i.weights), renormalised to mean one.",

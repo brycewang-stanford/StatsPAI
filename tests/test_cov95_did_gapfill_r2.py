@@ -246,16 +246,40 @@ def test_drdid_id_not_a_column_raises():
 def test_drdid_id_supports_both_nuisance_methods():
     """``method='trad'`` on a panel used to raise; since 1.23.0 it runs.
 
-    It dispatches to ``DRDID::drdid_panel`` (plain logit + OLS) where
-    ``'imp'`` dispatches to ``drdid_imp_panel`` (tilting + weighted OLS),
-    so the two must produce genuinely different numbers.
+    It dispatches to ``drdid_panel`` (plain logit + OLS) where ``'imp'``
+    dispatches to ``drdid_imp_panel`` (tilting + odds-weighted OLS). With an
+    intercept-only design the tilting score equals the logit score (both
+    are the sample treated share) and the two estimators coincide exactly;
+    with a covariate each equals its own 2x2 engine.
     """
+    from statspai.did.callaway_santanna import _dr_att, _dr_imp_att
+
     df = _drdid_panel(60)
     imp = sp.drdid(df, y="y", group="treated", time="post", id="id", method="imp")
     trad = sp.drdid(df, y="y", group="treated", time="post", id="id", method="trad")
     assert imp.model_info["engine"] == "drdid_imp_panel"
     assert trad.model_info["engine"] == "drdid_panel"
-    assert imp.estimate != trad.estimate
+    assert imp.estimate == pytest.approx(trad.estimate, rel=1e-12)
+    assert imp.se == pytest.approx(trad.se, rel=1e-12)
+
+    wide = df.pivot(index="id", columns="post", values="y")
+    unit = df[df["post"] == 0].set_index("id").loc[wide.index]
+    dy = (wide[1] - wide[0]).to_numpy()
+    d = unit["treated"].to_numpy(float)
+    x = unit[["x"]].to_numpy(float)
+    for method, engine in (("imp", _dr_imp_att), ("trad", _dr_att)):
+        fit = sp.drdid(
+            df,
+            y="y",
+            group="treated",
+            time="post",
+            id="id",
+            covariates=["x"],
+            method=method,
+        )
+        att, se, _ = engine(dy, d, x, 0.995, np.ones(len(d)))
+        assert fit.estimate == pytest.approx(att, rel=1e-12)
+        assert fit.se == pytest.approx(se, rel=1e-12)
 
 
 def test_drdid_id_missing_covariate_raises():
@@ -341,20 +365,24 @@ def test_drdid_id_panel_degenerate_covariate_pinv_fallback():
     assert r.se > 0
 
 
-def test_calibrated_pscore_i_weights():
-    from statspai.did.wooldridge_did import _calibrated_pscore
+def test_ipt_score_balances_covariates_and_ignores_weight_scale():
+    """The improved panel estimator's tilting score (sp.drdid method='imp').
+
+    Its first-order condition balances every column of X between the
+    treated arm and the odds-weighted control arm (Sant'Anna-Zhao 2020,
+    Section 3.1), and rescaling the weights leaves the fit unchanged.
+    """
+    from statspai.did._dr_common import ipt_fit
 
     rng = np.random.default_rng(1)
     X = np.column_stack([np.ones(80), rng.normal(size=80)])
     D = (rng.random(80) < 0.4).astype(float)
-    # Scaled (valid) weights are renormalised to mean one → same fit as
-    # unit weights.
-    ps_w, _ = _calibrated_pscore(X, D, i_weights=np.full(80, 2.0))
-    ps_u, _ = _calibrated_pscore(X, D, i_weights=None)
-    assert np.allclose(ps_w, ps_u, atol=1e-8)
-    assert ps_w.min() > 0.0 and ps_w.max() < 1.0
-    with pytest.raises(MethodIncompatibility, match="non-negative"):
-        _calibrated_pscore(X, D, i_weights=np.r_[-1.0, np.ones(79)])
+    _, ps_w = ipt_fit(D, X, np.full(80, 2.0))
+    _, ps_u = ipt_fit(D, X, np.ones(80))
+    assert np.allclose(ps_w, ps_u, atol=1e-10)
+    odds = ps_u / (1.0 - ps_u)
+    gap = X.T @ (D - (1.0 - D) * odds)
+    assert np.max(np.abs(gap)) < 1e-9 * np.abs(X).sum()
 
 
 # ======================================================================

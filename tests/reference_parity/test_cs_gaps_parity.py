@@ -193,6 +193,9 @@ def test_allow_unbalanced_panel_matches_r(unbalanced, reference, estimator, cova
             control_group="nevertreated",
             allow_unbalanced_panel=True,
             bstrap=False,
+            # R's DR standard error (documented T4 divergence; the default
+            # 'delta' is the paper's influence function).
+            variance_convention="reference",
         )
     merged = _merge(got.detail, want)
     np.testing.assert_allclose(

@@ -63,6 +63,32 @@ def _close(mine: float, theirs: float, rtol: float) -> None:
 # ----------------------------------------------------------------------
 
 
+def _rc_dripw_reference_se(df: pd.DataFrame, locally_efficient: bool) -> float:
+    """``sp.drdid`` with R / Stata's sign for the pre-period comparison
+    regression term (``variance_convention='reference'``).
+
+    StatsPAI's default (``'delta'``, Sant'Anna-Zhao Appendix B) differs from
+    Stata's ``dripw`` on repeated cross-sections in that one term: a
+    documented T4 divergence (Monte Carlo coverage 0.95 vs 0.81 under a
+    misspecified propensity score). The translated call keeps the default;
+    this reproduces Stata's number from the same estimator.
+    """
+    two = df[df["g"].isin([2004, 0]) & df["year"].isin([2003, 2005])]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.drdid(
+            two,
+            y="y",
+            group="d04",
+            time="year",
+            covariates=["x1", "x2"],
+            method="trad",
+            locally_efficient=locally_efficient,
+            variance_convention="reference",
+        )
+    return float(fit.se)
+
+
 @pytest.mark.parametrize("flag", ["drimp", "dripw", "reg", "stdipw", "ipw"])
 @pytest.mark.parametrize("design", ["panel", "rc"])
 def test_drdid_estimators(df, flag, design):
@@ -71,7 +97,11 @@ def test_drdid_estimators(df, flag, design):
     b, se = _ref(f"drdid_{design}_{flag}")["ATET:r1vs0.d04"]
     rtol = RTOL_REG if flag == "reg" else RTOL_PS
     _close(res.estimate, b, rtol)
-    _close(res.se, se, rtol)
+    if design == "rc" and flag == "dripw":
+        assert res.model_info["variance_convention"] == "delta"
+        _close(_rc_dripw_reference_se(df, True), se, rtol)
+    else:
+        _close(res.se, se, rtol)
 
 
 def test_drdid_default_is_the_improved_estimator(df):
@@ -86,7 +116,7 @@ def test_drdid_rc1_on_repeated_cross_sections(df):
     res = _run(f"drdid y x1 x2 {_TWO}, time(year) treatment(d04) dripw rc1", df)
     b, se = _ref("drdid_rc_dripw_rc1")["ATET:r1vs0.d04"]
     _close(res.estimate, b, RTOL_PS)
-    _close(res.se, se, RTOL_PS)
+    _close(_rc_dripw_reference_se(df, False), se, RTOL_PS)
 
 
 # ----------------------------------------------------------------------
@@ -438,7 +468,13 @@ def test_drdid_all(df, design):
     for name, row in rows.iterrows():
         b, se = ref[name]
         _close(row["att"], b, RTOL_PS)
-        _close(row["se"], se, RTOL_PS)
+        if design == "rc" and name in ("dripw", "dripw_rc1"):
+            # T4: Stata's sign for the pre-period regression term.
+            se = ref[name][1]
+            mine = _rc_dripw_reference_se(df, name == "dripw")
+            _close(mine, se, RTOL_PS)
+        else:
+            _close(row["se"], se, RTOL_PS)
     _close(res.estimate, ref["drimp"][0], RTOL_PS)
 
 

@@ -248,22 +248,6 @@ def test_outcome_regression_falls_back_to_the_control_mean():
     np.testing.assert_allclose(m_hat, dy[c == 1].mean())
 
 
-def test_rcs_residualisation_is_skipped_when_least_squares_fails(panel):
-    df = panel.copy()
-    df.loc[df.index[-1], "x1"] = np.nan  # a never-treated row
-    y = df["y"].to_numpy()
-    out = C._rcs_residualise_on_controls(y, df, "g", "t", ["x1"])
-    np.testing.assert_array_equal(out, y)
-    # with clean covariates the control-arm slope is removed
-    clean = C._rcs_residualise_on_controls(
-        panel["y"].to_numpy(), panel, "g", "t", ["x1"]
-    )
-    ctrl = (panel["g"] == 0).to_numpy()
-    assert abs(np.corrcoef(clean[ctrl], panel.loc[ctrl, "x1"])[0, 1]) < abs(
-        np.corrcoef(y[ctrl], panel.loc[ctrl, "x1"])[0, 1]
-    )
-
-
 # ----------------------------------------------------------------------
 # small helpers
 # ----------------------------------------------------------------------

@@ -145,6 +145,14 @@ def _h_drdid(cmd: StataCommand) -> Dict[str, Any]:
         except ValueError:
             lost.append("pscoretrim")
             notes.append(f"pscoretrim({raw_trim}) is not a number.")
+    if not ivar and args.get("est_method") == "dr" and args.get("method") == "trad":
+        notes.append(
+            "Standard error: sp.drdid uses the influence function of "
+            "Sant'Anna and Zhao (2020, Appendix B); Stata's dripw on repeated "
+            "cross-sections carries the pre-period comparison-regression term "
+            "with the opposite sign. Add variance_convention='reference' to "
+            "reproduce Stata's SE (the ATT is the same)."
+        )
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
     out = _emit("drdid", args, f"sp.drdid(data=df, {kw})", notes)
     out["untranslated_options"] = lost

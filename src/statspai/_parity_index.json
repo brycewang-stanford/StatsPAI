@@ -6599,7 +6599,8 @@
       "additional_tests": [
         "tests/reference_parity/test_cs_rcs_options_parity.py",
         "tests/reference_parity/test_drdid_family_parity.py",
-        "tests/reference_parity/test_drdid_rc_parity.py"
+        "tests/reference_parity/test_drdid_rc_parity.py",
+        "tests/reference_parity/test_stata_did_commands_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"

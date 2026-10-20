@@ -3125,6 +3125,20 @@ def _build_registry() -> None:
                     ["rademacher", "mammen"],
                 ),
                 ParamSpec("random_state", "int", False, None),
+                ParamSpec(
+                    "variance_convention",
+                    "str",
+                    False,
+                    "delta",
+                    "estimator='dr' on repeated cross-sections / "
+                    "allow_unbalanced_panel only. 'delta' (default): the "
+                    "Sant'Anna-Zhao influence function. 'reference': R "
+                    "did / DRDID's SE, whose pre-period comparison-"
+                    "regression term has the opposite sign and "
+                    "under-covers when the propensity model is wrong. Same "
+                    "ATT(g,t).",
+                    ["delta", "reference"],
+                ),
             ],
             returns="CausalResult",
             example='sp.callaway_santanna(df, y="earnings", g="first_treat", t="year", i="worker")',
@@ -29296,6 +29310,19 @@ def _build_registry() -> None:
                     0.995,
                     "Drop control units whose propensity score reaches "
                     "this cutoff (DRDID trim.level). 1.0 disables.",
+                ),
+                ParamSpec(
+                    "variance_convention",
+                    "str",
+                    False,
+                    "delta",
+                    "est_method='dr', method='trad' on repeated "
+                    "cross-sections only. 'delta' (default): the paper's "
+                    "influence function. 'reference': R DRDID's drdid_rc "
+                    "standard error, whose pre-period comparison-regression "
+                    "term has the opposite sign and under-covers when the "
+                    "propensity model is wrong. Same point estimate.",
+                    ["delta", "reference"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec(

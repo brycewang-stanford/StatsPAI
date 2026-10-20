@@ -25,7 +25,6 @@ import pytest
 
 import statspai as sp
 from statspai.did.wooldridge_did import (
-    _logistic_fit,
     _ols_fit,
     _stars,
     drdid,
@@ -624,13 +623,15 @@ def test_ols_fit_with_cluster_matches_no_cluster_dimensions():
     np.testing.assert_allclose(beta_c, beta_nc, atol=1e-10)
 
 
-def test_logistic_fit_recovers_sign():
+def test_pscore_diagnostic_is_the_logit_mle():
+    """The ``ps_mean_*`` diagnostic scores solve the logit score equations."""
+    from statspai.did.wooldridge_did import _pscore_diagnostic
+
     rng = np.random.default_rng(0)
     n = 800
     X = np.column_stack([np.ones(n), rng.normal(size=n)])
     p_true = 1.0 / (1.0 + np.exp(-(0.0 + 2.0 * X[:, 1])))
-    y = rng.binomial(1, p_true)
-    p_hat = _logistic_fit(X, y)
-    # Predicted probabilities are bounded and correlated with truth
+    y = rng.binomial(1, p_true).astype(float)
+    p_hat = _pscore_diagnostic(X, y)
     assert ((p_hat > 0) & (p_hat < 1)).all()
-    assert np.corrcoef(p_hat, p_true)[0, 1] > 0.8
+    np.testing.assert_allclose(X.T @ (y - p_hat), 0.0, atol=1e-8)

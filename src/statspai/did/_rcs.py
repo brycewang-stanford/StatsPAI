@@ -76,7 +76,7 @@ _TRIM_LEVEL = 0.995
 #: Fitted propensity scores are capped here so the odds stay finite.
 _PSCORE_CAP = 1.0 - 1e-6
 
-_VARIANCE_CONVENTIONS = ("reference", "delta")
+_VARIANCE_CONVENTIONS = ("delta", "reference")
 
 
 @attach_result_protocol
@@ -211,7 +211,7 @@ def _check_convention(variance_convention: str) -> None:
         raise MethodIncompatibility(
             f"variance_convention must be one of {_VARIANCE_CONVENTIONS}, "
             f"got {variance_convention!r}.",
-            recovery_hint="Use 'reference' (the default) or 'delta'.",
+            recovery_hint="Use 'delta' (the default) or 'reference'.",
             diagnostics={"variance_convention": variance_convention},
         )
 
@@ -405,7 +405,7 @@ def drdid_rc(
     trim_level: float = _TRIM_LEVEL,
     locally_efficient: bool = True,
     *,
-    variance_convention: str = "reference",
+    variance_convention: str = "delta",
 ) -> RCSResult:
     """Doubly robust DiD for repeated cross-sections.
 
@@ -428,12 +428,19 @@ def drdid_rc(
         zero weight.
     locally_efficient : bool, default True
         Use eq. (3.4) rather than (3.3).
-    variance_convention : {'reference', 'delta'}, default 'reference'
+    variance_convention : {'delta', 'reference'}, default 'delta'
         Sign of the pre-period comparison-regression estimation effect.
-        ``'reference'`` reproduces the reference implementation; ``'delta'``
-        is the delta-method influence function of the paper's Appendix B.
-        The two agree when the propensity model is correct; see
-        ``docs/dev/cleanroom/did_drdid.md``.
+        ``'delta'`` is the delta-method influence function of the paper's
+        Appendix B. ``'reference'`` carries that term with the opposite
+        sign, as R ``DRDID`` 1.3.0 does (black box); it reproduces R's
+        standard error but under-covers when the propensity model is wrong
+        (Monte Carlo coverage 0.81 against 0.95 for ``'delta'``,
+        ``tests/reference_parity/_fixtures/_drdid_rc_pre_regression_mc.py``).
+        The two agree asymptotically when the propensity model is correct;
+        see ``docs/dev/cleanroom/did_drdid.md``.
+
+        .. versionchanged:: 1.40.0
+           The default was ``'reference'``.
 
     Returns
     -------

@@ -254,9 +254,24 @@ def influence_se_did(
     return np.asarray(out[0] if squeeze else out)
 
 
-# ----------------------------------------------------------------------
-# Multiplier bootstrap (Callaway–Sant'Anna / R did::mboot convention)
-# ----------------------------------------------------------------------
+# Multiplier bootstrap (Callaway and Sant'Anna 2021, Algorithm 1)
+# ---------------------------------------------------------------------------
+
+#: Two-point multiplier distributions with mean 0 and variance 1.
+#: Mammen (1993): values (1 -+ sqrt 5)/2; the negative value has
+#: probability (sqrt 5 + 1)/(2 sqrt 5) (Callaway and Sant'Anna 2021, Sec. 4).
+_SQRT5 = float(np.sqrt(5.0))
+_MULTIPLIERS = {
+    "rademacher": ((-1.0, 1.0), None),
+    "mammen": (
+        ((1.0 - _SQRT5) / 2.0, (1.0 + _SQRT5) / 2.0),
+        ((_SQRT5 + 1.0) / (2.0 * _SQRT5), 1.0 - (_SQRT5 + 1.0) / (2.0 * _SQRT5)),
+    ),
+}
+
+#: Smallest standard error reported for a column whose bootstrap
+#: distribution has zero spread, so that t statistics stay finite.
+_SE_FLOOR = 1e-12
 
 
 def multiplier_bootstrap(
@@ -269,140 +284,105 @@ def multiplier_bootstrap(
     weight_type: str = "rademacher",
     cluster_ids: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, float]:
-    """Multiplier bootstrap on influence functions, following R ``did::mboot``.
+    """Multiplier-bootstrap standard errors and the sup-t critical value.
+
+    Clean-room implementation of Algorithm 1 of Callaway and Sant'Anna
+    (2021): each draw perturbs the estimated influence functions by iid
+    multipliers ``V`` with mean zero and unit variance,
+    ``R* = sqrt(n) E_n[V psi]``; the standard error of column ``k`` is the
+    bootstrap interquartile range of ``R*_k`` divided by that of the
+    standard normal, over ``sqrt(n)``; the critical value of the
+    simultaneous band is the ``1 - alpha`` sample quantile of
+    ``max_k |R*_k| / sigma_k``. With ``cluster_ids`` one multiplier is
+    drawn per cluster and applied to the cluster's sum of influence
+    functions (Remark 10 of the paper). Specification:
+    ``docs/dev/cleanroom/cs_rcs.md``.
 
     Parameters
     ----------
-    psi : ndarray, shape (n, K)
-        Influence functions of the K estimands, one row per unit
-        (or per observation for repeated cross-sections).
+    psi : ndarray
+        ``(n_rows, K)`` influence functions (a 1-D array is one column),
+        scaled so that ``theta_hat - theta ~ sum(psi) / n_units``.
     n_units : int
-        Number of rows the influence functions are scaled to (the ``n``
-        in ``Var(θ̂) = E[ψ²]/n``). Usually ``psi.shape[0]``.
+        The ``n`` of that scaling.
     alpha : float
-        Nominal level for the uniform (sup-t) critical value.
+        One minus the coverage of the simultaneous band.
     n_boot : int
-        Number of bootstrap replications.
-    random_state : int, optional
-        Seed for the multiplier draws.
+        Number of bootstrap draws.
+    random_state : int or numpy Generator, optional
+        Seed of :func:`numpy.random.default_rng`.
     weight_type : {'rademacher', 'mammen'}, default 'rademacher'
-        Multiplier distribution. ``'rademacher'`` (±1) matches what the
-        R ``did`` package actually draws (``BMisc::multiplier_bootstrap``
-        — its docs cite Mammen 1993, but the implementation is
-        Rademacher; verified empirically against BMisc 1.4.x).
-        ``'mammen'`` is the Mammen (1993) two-point distribution of
-        CS2021 §4.2, available in Stata ``csdid`` via ``wbtype(mammen)``.
-    cluster_ids : ndarray of shape (n,), optional
-        Cluster membership per row. When given, rows are collapsed to
-        cluster **sums** and one multiplier
-        is drawn per cluster, keeping the ``1/n`` scaling of the estimator
-        — the R ``did::mboot`` convention (CS2021, Remark 10).
-
-        .. warning::
-           Collapsing to cluster *means* instead — which StatsPAI did
-           before 1.23.0, mirroring an older R ``did`` — coincides with
-           this only when every cluster has the same size. With unbalanced
-           clusters it silently rescales each cluster's contribution by
-           ``1/|c|`` and can inflate the SEs several-fold.
+        Multiplier distribution.
+    cluster_ids : array-like, optional
+        Row-aligned cluster labels; multipliers are drawn per cluster.
 
     Returns
     -------
-    se : ndarray of shape (K,)
-        Pointwise bootstrap standard errors (IQR-rescaled, robust to
-        heavy-tailed multiplier draws — same rescaling as R ``did``).
-    crit_unif : float
-        Uniform (sup-t) critical value at level ``1 - alpha``. Never
-        smaller than the pointwise Normal quantile.
+    se : ndarray
+        ``(K,)`` bootstrap standard errors (``1e-12`` for a column whose
+        bootstrap draws have no spread).
+    crit : float
+        Critical value of the uniform band, never below the pointwise
+        normal value ``z_{1 - alpha/2}``.
+
+    Notes
+    -----
+    Conventions kept so that seeded results are reproducible across
+    versions: the contributions being perturbed (rows, or cluster sums
+    ordered by sorted cluster label) are centred at their mean before the
+    draws; the multipliers are one ``(n_boot, m)`` draw of
+    ``Generator.choice`` over the two support points; sample quantiles are
+    the inverse of the empirical distribution function (the smallest draw
+    whose empirical CDF reaches ``p``). Columns with zero bootstrap spread
+    are left out of the sup-t statistic; a non-finite influence function
+    makes the critical value non-finite.
 
     References
     ----------
-    Callaway, B. and Sant'Anna, P.H.C. (2021). "Difference-in-Differences
-    with Multiple Time Periods." *Journal of Econometrics*, 225(2),
-    200-230, Section 4.2. [@callaway2021difference]
-
-    Mammen, E. (1993). "Bootstrap and Wild Bootstrap for High Dimensional
-    Linear Models." *Annals of Statistics*, 21(1), 255-285.
-    [@mammen1993bootstrap]
+    [@callaway2021difference]
     """
-    psi = np.asarray(psi, dtype=float)
-    if psi.ndim == 1:
-        psi = psi[:, None]
-    if weight_type not in ("mammen", "rademacher"):
+    if weight_type not in _MULTIPLIERS:
         raise ValueError(
-            f"weight_type must be 'mammen' or 'rademacher', got {weight_type!r}"
+            f"weight_type must be one of {sorted(_MULTIPLIERS)}, got {weight_type!r}"
         )
-
-    # Collapse to cluster *sums* (as R did::mboot does)
-    # so the bootstrap resamples clusters, not units.
-    #
-    # The divisor stays `n` (rows), not `n_clusters`: the estimator is the
-    # 1/n empirical average of ψ, so the bootstrap analogue of θ̂ − θ is
-    # (1/n) Σ_c V_c Σ_{i∈c} ψ_i.  R writes the same thing as
-    # `bres = sqrt(n_clusters) * mean_c(V_c · S_c)` rescaled by
-    # `sqrt(n_clusters)/n`, which reduces to dividing the cluster-sum
-    # bootstrap draws by n.  Collapsing to cluster means and dividing by
-    # n_clusters instead — the pre-1.23.0 path — only agrees when all
-    # clusters are the same size; with unbalanced clusters (the usual case,
-    # e.g. counties within states) it reweights each cluster by 1/|c| and
-    # blows the SEs up.
+    contrib = np.asarray(psi, dtype=float)
+    if contrib.ndim == 1:
+        contrib = contrib[:, None]
     if cluster_ids is not None:
-        cluster_ids = np.asarray(cluster_ids)
-        if cluster_ids.shape[0] != psi.shape[0]:
+        labels = np.asarray(cluster_ids)
+        if labels.shape[0] != contrib.shape[0]:
             raise ValueError(
-                f"cluster_ids length {cluster_ids.shape[0]} ≠ psi rows "
-                f"{psi.shape[0]}"
+                f"cluster_ids has length {labels.shape[0]}, expected "
+                f"{contrib.shape[0]} (one label per row of psi)"
             )
-        codes, uniq = pd.factorize(cluster_ids, sort=True)
-        n_clusters = len(uniq)
-        sums = np.zeros((n_clusters, psi.shape[1]))
-        np.add.at(sums, codes, psi)
-        psi_boot = sums
-        n_eff = int(n_units)
-    else:
-        psi_boot = psi
-        n_eff = int(n_units)
+        _, code = np.unique(labels, return_inverse=True)
+        sums = np.zeros((int(code.max()) + 1, contrib.shape[1]))
+        np.add.at(sums, code.ravel(), contrib)
+        contrib = sums
+    contrib = contrib - contrib.mean(axis=0)
 
+    support, probs = _MULTIPLIERS[weight_type]
     rng = np.random.default_rng(random_state)
-    n_rows = psi_boot.shape[0]
+    v = rng.choice(np.asarray(support), size=(int(n_boot), contrib.shape[0]), p=probs)
 
-    if weight_type == "mammen":
-        # Two-point Mammen weights with mean 0, variance 1.
-        # P(V = (1-√5)/2) = (√5+1)/(2√5); P(V = (1+√5)/2) = (√5-1)/(2√5).
-        sqrt5 = np.sqrt(5.0)
-        a, b = (1 - sqrt5) / 2.0, (1 + sqrt5) / 2.0
-        pa = (sqrt5 + 1.0) / (2.0 * sqrt5)
-        u = rng.random((n_boot, n_rows))
-        V = np.where(u < pa, a, b)
-    else:  # rademacher
-        V = rng.integers(0, 2, size=(n_boot, n_rows)) * 2.0 - 1.0
+    root_n = np.sqrt(float(n_units))
+    draws = root_n * (v @ contrib) / float(n_units)
+    q25, q75 = np.quantile(draws, [0.25, 0.75], axis=0, method="inverted_cdf")
+    sigma = (q75 - q25) / (stats.norm.ppf(0.75) - stats.norm.ppf(0.25))
 
-    # Bootstrap draws of the K linear combinations, centered under
-    # H0: θ_true = θ̂ (influence functions are asymptotically mean-zero;
-    # centering removes the finite-sample mean).
-    psi_centered = psi_boot - psi_boot.mean(axis=0, keepdims=True)
-    boot = V @ psi_centered / n_eff
+    spread = ~(sigma == 0.0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sup_t = np.max(np.abs(draws[:, spread]) / sigma[spread], axis=1)
+    if sup_t.size and spread.any():
+        crit = float(np.quantile(sup_t, 1.0 - alpha, method="inverted_cdf"))
+    else:
+        crit = float("nan") if not np.all(np.isfinite(sigma)) else -np.inf
+    z_point = float(stats.norm.ppf(1.0 - alpha / 2.0))
+    crit = crit if np.isnan(crit) else max(crit, z_point)
 
-    # Pointwise SEs from bootstrap, IQR-rescaled (R did convention —
-    # robust to heavy tails in multiplier weights compared to raw std).
-    # method='inverted_cdf' matches R's quantile(type = 1): with few
-    # clusters the multiplier distribution is discrete and the quantile
-    # convention shifts SEs by several percent — parity requires R's.
-    q75 = np.quantile(boot, 0.75, axis=0, method="inverted_cdf")
-    q25 = np.quantile(boot, 0.25, axis=0, method="inverted_cdf")
-    iqr_norm = stats.norm.ppf(0.75) - stats.norm.ppf(0.25)
-    se = (q75 - q25) / iqr_norm
-    # Guard against degenerate columns (e.g. a singleton cell).
-    fallback_std = boot.std(axis=0, ddof=1)
-    se = np.where(se > 0, se, fallback_std)
-    se = np.where(se > 0, se, 1e-12)
-
-    # Uniform (sup-t) critical value (R: quantile type = 1).
-    max_t = np.max(np.abs(boot) / se, axis=1)
-    crit_unif = float(np.quantile(max_t, 1 - alpha, method="inverted_cdf"))
-    # Never shrink below the pointwise Normal quantile.
-    crit_unif = max(crit_unif, float(stats.norm.ppf(1 - alpha / 2)))
-
-    return np.asarray(se, dtype=float), crit_unif
+    se = sigma / root_n
+    se = np.where(se > _SE_FLOOR, se, np.where(np.isnan(se), np.nan, _SE_FLOOR))
+    return se, crit
 
 
 # ----------------------------------------------------------------------

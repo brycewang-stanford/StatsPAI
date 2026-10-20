@@ -36,7 +36,14 @@ def main(seed: int = 11, draws: int = 1000) -> None:
         for eff in (False, True):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                ref = drdid_rc(y, t, d, x[:, None], locally_efficient=eff)
+                ref = drdid_rc(
+                    y,
+                    t,
+                    d,
+                    x[:, None],
+                    locally_efficient=eff,
+                    variance_convention="reference",
+                )
                 dlt = drdid_rc(
                     y,
                     t,

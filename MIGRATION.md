@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ DR-DiD standard errors on repeated cross-sections; never-treated cohorts beyond the sample; classical dynamic-panel GMM after FOD / `h=1`
+
+- `sp.drdid(est_method='dr', method='trad')` without `id=` and
+  `sp.callaway_santanna(estimator='dr')` with `panel=False` or
+  `allow_unbalanced_panel=True` now default to
+  `variance_convention='delta'` (Sant'Anna and Zhao 2020, Appendix B).
+  Standard errors with covariates change; point estimates do not. To
+  reproduce R `DRDID` / `did` or Stata `drdid` / `csdid`, pass
+  `variance_convention='reference'`. Under a misspecified propensity score
+  the reference SE under-covers (Monte Carlo coverage 0.81 vs 0.95).
+- `sp.callaway_santanna`: a cohort first treated after the last observed
+  period is now part of the never-treated comparison group, as in R
+  `did`. Results change only for data with such cohorts and
+  `control_group='nevertreated'`.
+- Dynamic-panel GMM with `transform='fod'` or `h=1`, one-step and
+  `robust=False`: σ̂² is no longer halved, so classical SEs grow by about
+  √2 and the Sargan statistic halves. Classical AR(1)/AR(2) statistics
+  after system GMM or orthogonal deviations change to xtabond2's
+  formula. Robust and two-step results are unchanged.
+
 ## 1.39.6 → unreleased: ⚠️ design-mode `sp.rdsampsi` uses the exact power equation
 
 `sp.rdsampsi` without `data=` now returns the smallest sample whose two-sided

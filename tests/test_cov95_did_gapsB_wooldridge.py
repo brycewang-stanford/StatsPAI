@@ -16,7 +16,6 @@ import statspai as sp
 from statspai.did.wooldridge_did import (
     _aggregate_cells,
     _cohort_atts_from_cells,
-    _drdid_imp_panel_core,
     _etwfe_repeated_cs,
 )
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
@@ -226,9 +225,12 @@ def test_drdid_panel_drops_units_with_missing_weight():
     assert r_holed.estimate != r_full.estimate
 
 
-def test_drdid_imp_panel_core_empty_input():
-    with pytest.raises(DataInsufficient, match="at least one complete unit"):
-        _drdid_imp_panel_core(np.array([]), np.array([]), np.ones((0, 1)))
+def test_drdid_panel_without_complete_pairs_raises():
+    df = pd.DataFrame(
+        {"id": [1, 2], "post": [0, 1], "treated": [1, 0], "y": [1.0, 2.0]}
+    )
+    with pytest.raises(DataInsufficient, match="No complete pre/post unit pairs"):
+        sp.drdid(df, y="y", group="treated", time="post", id="id")
 
 
 # ----------------------------------------------------------------------

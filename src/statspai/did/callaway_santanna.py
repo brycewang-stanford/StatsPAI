@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import warnings
 from numbers import Real
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -53,6 +53,8 @@ from ._core import normalize_se_method as _normalize_se_method
 from ._core import parallel_trends_block as _pt_block
 from ._core import require_bool as _require_bool
 from ._core import weight_influence as _weight_influence
+from ._cs_rcs import cs_repeated_cross_sections as _callaway_santanna_rcs
+from ._cs_rcs import gt_cells as _get_gt_pairs
 from ._validate import inference_note as _inference_note
 from ._validate import require_constant_cohort as _require_constant_cohort
 
@@ -281,6 +283,7 @@ def callaway_santanna(
     se_method: Optional[str] = None,
     balance: Optional[str] = None,
     design: Optional[Any] = None,
+    variance_convention: Literal["delta", "reference"] = "delta",
 ) -> CausalResult:
     """
     Callaway & Sant'Anna (2021) estimator for staggered DID.
@@ -589,6 +592,21 @@ def callaway_santanna(
         does so on one fixed sample at the price of discarding the
         incomplete units (with 30% of cells missing at random over eight
         periods, about 6% of units are complete).
+    variance_convention : {'delta', 'reference'}, default 'delta'
+        Only for ``estimator='dr'`` on the repeated-cross-section path
+        (``panel=False``, or an unbalanced panel with
+        ``allow_unbalanced_panel=True``). ``'delta'`` uses the influence
+        function of Sant'Anna and Zhao (2020, Appendix B). ``'reference'``
+        reproduces R ``did`` / ``DRDID``, whose influence function carries
+        the estimation effect of the pre-period comparison regression
+        with the opposite sign; its standard errors are too small when the
+        propensity model is misspecified (95% intervals covered 81% of the
+        time in a Monte Carlo where ``'delta'`` covered 95%). The ATT(g, t)
+        are the same under both.
+
+        .. versionchanged:: 1.40.0
+           ⚠️ The default was the R convention (``'reference'``).
+
     References
     ----------
     Callaway, B. and Sant'Anna, P. H. C. (2021). Difference-in-differences
@@ -602,6 +620,11 @@ def callaway_santanna(
             callaway_santanna, _args, design, function="sp.callaway_santanna"
         )
     data = _require_dataframe(data, function="callaway_santanna")
+    variance_convention = _require_string_option(
+        variance_convention,
+        argument="variance_convention",
+        valid=("delta", "reference"),
+    )  # type: ignore[assignment]
     y = _require_column_name(y, argument="y")
     g = _require_column_name(g, argument="g")
     t = _require_column_name(t, argument="t")
@@ -767,6 +790,7 @@ def callaway_santanna(
         columns=[y, t, i, *(x or [])],
         function="callaway_santanna",
     )
+    data = _never_treated_beyond_horizon(data, g, t)
     if panel:
         # R `did` stops on a cohort that varies within a unit; the reshape
         # below would otherwise keep each unit's first row only.
@@ -963,6 +987,7 @@ def callaway_santanna(
             boot_weight_type=boot_weight_type,
             random_state=random_state,
             exclude_cohorts=excluded_cohorts,
+            variance_convention=variance_convention,
         )
 
     # A panel has one row per unit and period. Repeated (unit, period) rows
@@ -1352,6 +1377,24 @@ def callaway_santanna(
 # ======================================================================
 
 
+def _never_treated_beyond_horizon(data: pd.DataFrame, g: str, t: str) -> pd.DataFrame:
+    """Recode cohorts first treated after the last observed period to 0.
+
+    Units whose treatment starts after the sample ends are untreated in
+    every observed period, so they belong to the never-treated comparison
+    group. R ``did`` treats them that way (black box: same ATT and SE to
+    1e-15 on a panel and on repeated cross-sections). Until 1.40 they were
+    left out of ``control_group='nevertreated'``.
+    """
+    g_num = pd.to_numeric(data[g], errors="coerce")
+    beyond = (g_num > data[t].max()).to_numpy()
+    if not beyond.any():
+        return data
+    data = data.copy()
+    data.loc[beyond, g] = 0
+    return data
+
+
 def _balance_full(
     data: pd.DataFrame, i: str, t: str
 ) -> "tuple[pd.DataFrame, Dict[str, Any]]":
@@ -1630,92 +1673,6 @@ def _drop_unidentified_cells(
         [inf_funcs_list[k] for k in keep],
         cells,
     )
-
-
-def _get_gt_pairs(
-    cohorts: list,
-    time_periods: list,
-    base_period: str,
-    anticipation: int = 0,
-) -> List[Tuple[int, int, int]]:
-    """Determine all (g, t, base) triples to estimate.
-
-    Mirrors the ``pret`` block of R ``did::compute.att_gt``:
-
-    - the cohort-level base is the last period with ``t + δ < g``
-      (``g − 1 − δ`` on a unit-spaced grid), used for every
-      post-treatment cell and for *all* cells under ``'universal'``;
-    - under ``'varying'`` a pre-treatment cell (``t < g``) instead uses
-      the period immediately before ``t``, **unshifted by δ**. R only
-      applies the anticipation shift once a cell is post-treatment, so
-      shifting the pre-cell base here too would move every placebo off
-      the reference implementation (this is what StatsPAI did before
-      1.23.0).
-
-    Comparisons are strict inequalities on the observed period grid
-    rather than ``t − 1`` arithmetic, so irregularly spaced periods
-    (1990, 1995, 2000, …) resolve to the neighbouring observed period
-    instead of silently dropping the cell.
-    """
-    pairs = []
-    for g_val in cohorts:
-        # R: pret_g <- tail(which((tlist + anticipation) < glist[g]), 1)
-        available_pre = [tp for tp in time_periods if tp + anticipation < g_val]
-        if not available_pre:
-            # R warns and drops the cohort ("There are no pre-treatment
-            # periods for the group first treated at ..."); say so rather
-            # than silently returning a smaller grid (§7).
-            warnings.warn(
-                f"callaway_santanna: cohort g={g_val} has no pre-treatment "
-                f"period once anticipation={anticipation} is accounted for "
-                "(no observed period t with t + anticipation < g). Every "
-                "ATT(g, t) for this cohort is unidentified, so the cohort is "
-                "dropped — matching R `did`. Its units still serve as "
-                "controls where the control group allows.",
-                UserWarning,
-                stacklevel=3,
-            )
-            continue
-        universal_base = max(available_pre)
-
-        for t_val in time_periods:
-            if base_period == "varying" and t_val < g_val:
-                # R: varying base period => pret <- t (the period right
-                # before the cell), regardless of anticipation.
-                pre_of_t = [tp for tp in time_periods if tp < t_val]
-                if not pre_of_t:
-                    continue
-                this_base = max(pre_of_t)
-            else:
-                this_base = universal_base
-
-            # A cell whose base *is* itself is the normalised reference:
-            # ATT ≡ 0 by construction, not an estimable placebo.
-            #
-            # R reports it (att = 0, se = NA) and its aggte keeps e = −1
-            # as a pinned zero, so an R event-study plot has a point there
-            # where StatsPAI's has a gap. Emitting it here was tried and
-            # withdrawn: a zero-variance row propagates through
-            #  into the Rambachan-Roth / equivalence
-            # machinery, where it makes the pre-period covariance
-            # singular and moved pinned FLCI parity numbers. Closing that
-            # off needs a sweep of every event-study consumer, not a
-            # local patch — tracked as a known difference from R instead
-            # of shipped half-done.
-            #
-            # Under 'varying' this never fires for a pre-treatment cell,
-            # so e = −1 stays a genuine placebo there.
-            if this_base == t_val:
-                continue
-
-            pairs.append((g_val, t_val, this_base))
-
-    return pairs
-
-
-# ======================================================================
-# ATT(g,t) estimators
-# ======================================================================
 
 
 def _estimate_single_att(
@@ -3076,6 +3033,7 @@ def _estimate_single_att_rcs_sz(
     w_arr: Optional[np.ndarray] = None,
     anticipation: int = 0,
     notyet_cutoff: str = "period",
+    variance_convention: str = "delta",
 ) -> Tuple[float, float, np.ndarray]:
     """Sant'Anna-Zhao ATT(g, t) for one (g, t) cell of a repeated cross-section.
 
@@ -3129,8 +3087,9 @@ def _estimate_single_att_rcs_sz(
         "ipw_abadie": ipw_did_rc,
         "reg": reg_did_rc,
     }[estimator]
+    extra = {"variance_convention": variance_convention} if estimator == "dr" else {}
     try:
-        res = fn(y_sub, post_sub, d_sub, x_sub, weights=w_sub)
+        res = fn(y_sub, post_sub, d_sub, x_sub, weights=w_sub, **extra)
     except (DataInsufficient, MethodIncompatibility, np.linalg.LinAlgError):
         return 0.0, np.inf, np.zeros(n_obs)
     if not np.isfinite(res.att) or not np.isfinite(res.se):
@@ -3139,556 +3098,6 @@ def _estimate_single_att_rcs_sz(
     inf_full = np.zeros(n_obs)
     inf_full[idx] = res.influence * (n_obs / n_rel)
     return float(res.att), float(res.se), inf_full
-
-
-def _callaway_santanna_rcs(
-    data: pd.DataFrame,
-    y: str,
-    g: str,
-    t: str,
-    base_period: str,
-    anticipation: int,
-    alpha: float,
-    x: Optional[List[str]] = None,
-    estimator: str = "reg",
-    control_group: str = "nevertreated",
-    notyet_cutoff: str = "period",
-    pretest: str = "joint",
-    pretest_periods: Optional[int] = None,
-    unit_col: Optional[str] = None,
-    weights_col: Optional[str] = None,
-    clustervar: Optional[str] = None,
-    bstrap: bool = False,
-    biters: int = 1000,
-    cband: bool = False,
-    boot_weight_type: str = "rademacher",
-    random_state: Optional[int] = None,
-    exclude_cohorts: Sequence[Any] = (),
-) -> CausalResult:
-    """Unconditional (or regression-adjusted) 2×2 cell-mean DID for RCS.
-
-    For each (g, t) pair with base period b:
-
-        ATT(g, t) = (Ȳ_{g,t} - Ȳ_{g,b}) - (Ȳ_{c,t} - Ȳ_{c,b})
-
-    where c = never-treated cohort.  Observation-level influence
-    functions are assembled as
-
-        ψ_i =  1{G_i=g, T_i=t}  (Y_i - Ȳ_{g,t}) / p_{g,t}
-            -  1{G_i=g, T_i=b}  (Y_i - Ȳ_{g,b}) / p_{g,b}
-            -  1{G_i=c, T_i=t}  (Y_i - Ȳ_{c,t}) / p_{c,t}
-            +  1{G_i=c, T_i=b}  (Y_i - Ȳ_{c,b}) / p_{c,b}
-
-    with ``p_{g,t} = #{i: G_i=g, T_i=t} / n``.  SE(ATT) is the sample
-    variance of ψ divided by ``n``, matching CS2021 eqn (2.4) for RCS.
-
-    ``unit_col`` drives the unbalanced-panel route
-    (``allow_unbalanced_panel=True``). The estimators are unchanged —
-    observations are still not matched across time — but the influence
-    functions are folded to the unit level by summation and ``n`` becomes
-    the number of units rather than the number of rows, mirroring R
-    ``did``'s ``.rowid <- idname`` assignment for this case. That fold is
-    what lets the SEs pick up the within-unit correlation that a true
-    repeated cross-section does not have. With ``unit_col=None`` (a true
-    repeated cross-section) the fold is the identity.
-    """
-    df = data.copy()
-    _require_columns(df, (y, g, t, *(x or [])), function="_callaway_santanna_rcs")
-    if unit_col is not None:
-        _require_columns(df, (unit_col,), function="_callaway_santanna_rcs")
-    if weights_col is not None:
-        _require_columns(df, (weights_col,), function="_callaway_santanna_rcs")
-    if clustervar is not None:
-        _require_columns(df, (clustervar,), function="_callaway_santanna_rcs")
-
-    df[g] = df[g].fillna(0).replace([np.inf, -np.inf], 0).astype(int)
-    drop_cols = [y, t] + (list(x) if x else []) + ([weights_col] if weights_col else [])
-    df = df.dropna(subset=drop_cols).reset_index(drop=True)
-    n_obs = len(df)
-    if n_obs == 0:
-        raise DataInsufficient(
-            "No observations after dropping NaNs.",
-            recovery_hint=(
-                "Drop fewer rows or impute outcome/time/covariate data before "
-                "RCS DID."
-            ),
-            diagnostics={"function": "_callaway_santanna_rcs"},
-        )
-
-    # Unbalanced-panel fold. `unit_codes` maps each row to its unit's slot
-    # in the influence-function matrix; `n_scale` is the `n` that scales
-    # every influence function and every SE (R: `n <- length(unique(
-    # data[, idname]))`, with idname = .rowid = the unit id here).
-    # Observation weights omega. Renormalised to mean one over the
-    # estimation sample so the reported ATT is scale-invariant, matching
-    # DRDID / did. omega is part of the *estimand*, not a precision knob:
-    # see the note on callaway_santanna(weights=).
-    if weights_col is not None:
-        w_arr = df[weights_col].astype(float).to_numpy()
-        if not np.all(np.isfinite(w_arr)) or np.any(w_arr < 0):
-            raise MethodIncompatibility(
-                f"weights column {weights_col!r} must be finite and " "non-negative.",
-                recovery_hint="Repair or drop the offending rows.",
-                diagnostics={"weights": weights_col},
-            )
-        if w_arr.sum() <= 0:
-            raise DataInsufficient(
-                f"weights column {weights_col!r} sums to zero.",
-                recovery_hint="Supply positive weights for some rows.",
-                diagnostics={"weights": weights_col},
-            )
-        w_arr = w_arr / w_arr.mean()
-    else:
-        w_arr = None
-
-    if unit_col is not None:
-        # omega must be time-invariant within unit here for the same reason
-        # it must on the panel path: the fold sums a unit's influence
-        # contributions, so a within-unit-varying weight would silently
-        # reweight periods against each other.
-        if weights_col is not None:
-            n_varying = int((df.groupby(unit_col)[weights_col].nunique() > 1).sum())
-            if n_varying:
-                raise MethodIncompatibility(
-                    f"weights column {weights_col!r} varies within unit for "
-                    f"{n_varying} units. Unit weights must be time-invariant.",
-                    recovery_hint=(
-                        "Collapse the weight to one value per unit, or drop "
-                        "allow_unbalanced_panel."
-                    ),
-                    diagnostics={"weights": weights_col, "n_varying": n_varying},
-                )
-        unit_codes, unit_uniques = pd.factorize(df[unit_col], sort=True)
-        n_scale = int(len(unit_uniques))
-        if n_scale < 2:
-            raise DataInsufficient(
-                f"allow_unbalanced_panel=True needs at least 2 units, "
-                f"found {n_scale}.",
-                recovery_hint=(
-                    "Check the unit identifier `i`, or pass panel=False to "
-                    "treat the data as true repeated cross-sections."
-                ),
-                diagnostics={"function": "_callaway_santanna_rcs"},
-            )
-    else:
-        unit_codes, unit_uniques = None, None
-        n_scale = n_obs
-
-    def _fold(inf_obs: np.ndarray) -> np.ndarray:
-        """Rows → influence-function slots, summing within unit.
-
-        The per-cell influence function arrives scaled by ``n_obs / n_cell``
-        (the RCS convention); rescaling by ``n_scale / n_obs`` restores R's
-        ``n / n1`` before the ``rowsum`` fold.
-        """
-        if unit_codes is None:
-            return inf_obs
-        out = np.zeros(n_scale, dtype=float)
-        np.add.at(out, unit_codes, inf_obs)
-        return out * (n_scale / n_obs)
-
-    # Covariate adjustment: residualise Y on X using the never-treated
-    # pool with period fixed effects. Plug-in influence functions treat
-    # β̂ as known (asymptotically valid; see Sant'Anna & Zhao 2020).
-    y_series = df[y].astype(float).to_numpy().copy()
-    covariate_info: Optional[Dict[str, Any]] = None
-    if x:
-        y_series = _rcs_residualise_on_controls(y_series, df, g, t, x)
-        covariate_info = {
-            "covariates": list(x),
-            "approach": "residualisation on never-treated with period FEs",
-        }
-
-    time_periods = sorted(df[t].unique())
-    t_max = max(time_periods)
-    cohorts = sorted(
-        [
-            v
-            for v in df[g].unique()
-            if v > 0 and v <= t_max and not any(v == e for e in exclude_cohorts)
-        ]
-    )
-    excluded_cohorts = list(exclude_cohorts)
-    if not cohorts:
-        raise DataInsufficient(
-            "No treatment cohorts found.",
-            recovery_hint=(
-                "Encode first treatment periods in `g`, using 0 for "
-                "never-treated observations."
-            ),
-            diagnostics={"function": "_callaway_santanna_rcs"},
-        )
-
-    gt_pairs = _get_gt_pairs(cohorts, time_periods, base_period, anticipation)
-    if not gt_pairs:
-        raise DataInsufficient(
-            "No valid (group, time) pairs to estimate.",
-            recovery_hint=(
-                "Check treatment timing, base_period, anticipation, and "
-                "available periods."
-            ),
-            diagnostics={
-                "function": "_callaway_santanna_rcs",
-                "cohorts": cohorts,
-                "time_periods": time_periods,
-                "base_period": base_period,
-                "anticipation": anticipation,
-            },
-        )
-
-    y_arr = y_series  # possibly residualised (legacy cell-mean path)
-    y_raw_arr = df[y].astype(float).to_numpy()  # Sant'Anna-Zhao path
-    g_arr = df[g].values
-    t_arr = df[t].values
-
-    gt_results: List[Dict[str, Any]] = []
-    inf_funcs_list: List[np.ndarray] = []
-    z_crit = stats.norm.ppf(1 - alpha / 2)
-
-    # The Sant'Anna-Zhao RCS estimators (matching R did's panel=FALSE path)
-    # consume raw covariates directly; the legacy cell-mean path residualises
-    # first and then differences means, so the two must not be mixed.
-    x_mat = df[list(x)].to_numpy(dtype=float) if x else None
-    # Every propensity-score estimator goes through its DRDID port. Through
-    # 1.39 'stdipw' and 'ipw_abadie' were missing from this set and fell
-    # through to the cell-mean outcome regression below, so on repeated
-    # cross-sections they returned the unconditional 2x2 means under an IPW
-    # name (tests/reference_parity/test_cs_options_R_parity.py).
-    use_sz = estimator in {"dr", "drimp", "ipw", "stdipw", "ipw_abadie"} or (
-        estimator == "reg" and bool(x)
-    )
-
-    for g_val, t_val, base_val in gt_pairs:
-        if use_sz:
-            att, se, inf_func = _estimate_single_att_rcs_sz(
-                y_raw_arr,
-                g_arr,
-                t_arr,
-                x_mat,
-                g_val=g_val,
-                t_val=t_val,
-                base_val=base_val,
-                estimator=estimator,
-                control_group=control_group,
-                n_obs=n_obs,
-                w_arr=w_arr,
-                anticipation=anticipation,
-                notyet_cutoff=notyet_cutoff,
-            )
-        else:
-            att, se, inf_func = _estimate_single_att_rcs(
-                y_arr,
-                g_arr,
-                t_arr,
-                g_val=g_val,
-                t_val=t_val,
-                base_val=base_val,
-                n_obs=n_obs,
-                w_arr=w_arr,
-                control_group=control_group,
-                notyet_cutoff=notyet_cutoff,
-                anticipation=anticipation,
-            )
-        if unit_codes is not None:
-            # Fold to units, then re-derive the SE from the folded function.
-            # Taking the per-cell RCS SE at face value here would treat a
-            # unit's pre and post rows as independent draws and understate
-            # the variance.
-            inf_func = _fold(inf_func)
-            if np.isfinite(se):
-                se = float(np.sqrt(np.mean(inf_func**2) / n_scale))
-        pval = float(2 * stats.norm.sf(abs(att / se))) if se > 0 else 1.0
-        # Treated observations behind this 2x2, counted over BOTH of its
-        # periods. That is the quantity Stata csdid weights cells by
-        # (e(gtt)'s N_trt); R did weights by the cohort share instead, and
-        # the two only coincide when every cell has the same number of
-        # observations in both periods. sp.aggte(agg_weights=) needs it.
-        in_cohort = g_arr == g_val
-        n_treated_obs = int(
-            np.sum(in_cohort & (t_arr == base_val))
-            + np.sum(in_cohort & (t_arr == t_val))
-        )
-        gt_results.append(
-            {
-                "group": g_val,
-                "time": t_val,
-                "att": att,
-                "se": se,
-                "ci_lower": att - z_crit * se,
-                "ci_upper": att + z_crit * se,
-                "pvalue": pval,
-                "relative_time": t_val - g_val,
-                "n_treated_obs": n_treated_obs,
-            }
-        )
-        inf_funcs_list.append(inf_func)
-
-    detail = pd.DataFrame(gt_results)
-    detail, inf_funcs_list, dropped_cells = _drop_unidentified_cells(
-        detail, inf_funcs_list
-    )
-    inf_matrix = np.column_stack(inf_funcs_list) if inf_funcs_list else None
-
-    # ---- optional multiplier bootstrap -------------------------------
-    #
-    # The analytic SEs above are per-cell; the bootstrap replaces them
-    # with multiplier draws on the influence functions, which is what
-    # makes uniform bands and cluster-robust inference available on this
-    # path too. The influence rows live in whichever space the fold
-    # produced -- observations for a true repeated cross-section, units
-    # under allow_unbalanced_panel -- so the cluster vector is mapped to
-    # the same space.
-    crit_val_uniform: Optional[float] = None
-    boot_cfg: Optional[Dict[str, Any]] = None
-    rc_cluster_ids: Optional[np.ndarray] = None
-    if clustervar is not None:
-        if unit_codes is not None:
-            n_varying = int((df.groupby(unit_col)[clustervar].nunique() > 1).sum())
-            if n_varying:
-                raise MethodIncompatibility(
-                    f"cluster variable {clustervar!r} is time-varying within "
-                    f"unit for {n_varying} units.",
-                    recovery_hint=(
-                        "Under allow_unbalanced_panel=True the influence "
-                        "functions are per unit, so the cluster must be "
-                        "time-invariant. To cluster on a row-level variable "
-                        "(e.g. city x year) treat the rows as repeated "
-                        "cross-sections with panel=False, as Stata csdid / "
-                        "csdid2 do without ivar()."
-                    ),
-                    diagnostics={"clustervar": clustervar, "n_varying": n_varying},
-                )
-            slot = np.empty(n_scale, dtype=object)
-            slot[unit_codes] = df[clustervar].to_numpy()
-            rc_cluster_ids = slot
-        else:
-            # The influence function of every ATT(g,t) sums to zero within a
-            # cohort x period cell. A cluster made of whole cells (the period
-            # itself, say) therefore has cluster sums of zero and a clustered
-            # standard error of zero, whatever the data.
-            if bool((df.groupby([g, t])[clustervar].nunique() <= 1).all()):
-                raise MethodIncompatibility(
-                    f"cluster variable {clustervar!r} is constant within every "
-                    f"cohort x period cell ({g!r} x {t!r}), so the clustered "
-                    "standard error is identically zero.",
-                    recovery_hint=(
-                        "Cluster on a variable that cuts across the cells, "
-                        "such as a region or a region x period identifier."
-                    ),
-                    diagnostics={"clustervar": clustervar},
-                )
-            rc_cluster_ids = df[clustervar].to_numpy()
-    if not bstrap and rc_cluster_ids is not None and inf_matrix is not None:
-        detail = _cluster_detail_se(detail, inf_matrix, n_scale, rc_cluster_ids, alpha)
-    if bstrap and inf_matrix is not None:
-        cluster_ids = None
-        if clustervar is not None:
-            if unit_codes is not None:
-                n_varying = int((df.groupby(unit_col)[clustervar].nunique() > 1).sum())
-                if n_varying:
-                    raise MethodIncompatibility(
-                        f"cluster variable {clustervar!r} varies within unit "
-                        f"for {n_varying} units.",
-                        recovery_hint=(
-                            "Cluster variables must be time-invariant within " "unit."
-                        ),
-                        diagnostics={
-                            "clustervar": clustervar,
-                            "n_varying": n_varying,
-                        },
-                    )
-                cluster_by_slot = np.empty(n_scale, dtype=object)
-                cluster_by_slot[unit_codes] = df[clustervar].to_numpy()
-                cluster_ids = cluster_by_slot
-            else:
-                cluster_ids = df[clustervar].to_numpy()
-
-        # The aggregates below draw from the same multiplier bootstrap, as on
-        # the panel path; through 1.39 they kept the analytic SE here while
-        # model_info said se_method='multiplier'.
-        boot_cfg = {
-            "n_boot": biters,
-            "random_state": random_state,
-            "weight_type": boot_weight_type,
-            "cluster_ids": cluster_ids,
-        }
-        se_boot, crit = _core_multiplier_bootstrap(
-            inf_matrix,
-            n_scale,
-            alpha,
-            biters,
-            random_state,
-            weight_type=boot_weight_type,
-            cluster_ids=cluster_ids,
-        )
-        valid_se = np.isfinite(detail["se"].to_numpy())
-        se_new = np.where(valid_se, se_boot, np.inf)
-        att_vals = detail["att"].to_numpy()
-        with np.errstate(divide="ignore", invalid="ignore"):
-            z_stat = np.where(
-                np.isfinite(se_new) & (se_new > 0), att_vals / se_new, 0.0
-            )
-        detail["se"] = se_new
-        detail["pvalue"] = np.where(
-            np.isfinite(se_new) & (se_new > 0),
-            2 * stats.norm.sf(np.abs(z_stat)),
-            1.0,
-        )
-        detail["ci_lower"] = att_vals - z_crit * se_new
-        detail["ci_upper"] = att_vals + z_crit * se_new
-        if cband:
-            crit_val_uniform = crit
-            detail["cband_lower"] = att_vals - crit * se_new
-            detail["cband_upper"] = att_vals + crit * se_new
-
-    # Cohort sizes for aggregation weights, and the cohort label attached to
-    # each influence-function row. Both live in the same space as the
-    # influence functions: units under the unbalanced-panel fold, rows for a
-    # true repeated cross-section (where a "unit" is one observation).
-    if unit_codes is not None:
-        cohort_by_slot = np.zeros(n_scale, dtype=g_arr.dtype)
-        cohort_by_slot[unit_codes] = g_arr
-    else:
-        cohort_by_slot = g_arr
-    # Under omega the aggregation weights must be omega-*mass* per cohort,
-    # not head counts -- otherwise sp.aggte would weight cohorts by the
-    # number of rows while the ATT(g, t) inside them answer a
-    # population-weighted question.
-    slot_weights: Optional[np.ndarray] = None
-    if w_arr is None:
-        cohort_sizes = pd.Series(
-            {g_val: float((cohort_by_slot == g_val).sum()) for g_val in cohorts}
-        )
-    else:
-        if unit_codes is not None:
-            w_by_slot = np.zeros(n_scale, dtype=float)
-            w_by_slot[unit_codes] = w_arr
-        else:
-            w_by_slot = w_arr
-        # sp.aggte needs omega per influence row as well: the cohort
-        # shares are estimated, and their influence function
-        # (_core.weight_influence) is built from ``omega_i * 1{G_i = g}``.
-        slot_weights = w_by_slot / w_by_slot.mean()
-        cohort_sizes = pd.Series(
-            {
-                g_val: float(w_by_slot[cohort_by_slot == g_val].sum())
-                for g_val in cohorts
-            }
-        )
-
-    post_mask = detail["relative_time"] >= 0
-    agg_est, agg_se, agg_pval, agg_ci = _aggregate_simple(
-        detail[post_mask],
-        inf_matrix[:, post_mask.values] if inf_matrix is not None else None,
-        cohort_sizes,
-        n_scale,
-        alpha,
-        boot_cfg=boot_cfg,
-        unit_cohorts=cohort_by_slot,
-        unit_weights=slot_weights,
-        cluster_ids=rc_cluster_ids,
-    )
-    event_study = _aggregate_event_study(
-        detail,
-        inf_matrix,
-        cohort_sizes,
-        n_scale,
-        alpha,
-        boot_cfg=boot_cfg,
-        unit_cohorts=cohort_by_slot,
-        unit_weights=slot_weights,
-        cluster_ids=rc_cluster_ids,
-    )
-    pretrend = _pretrend_test(
-        detail,
-        inf_matrix,
-        n_scale,
-        pretest=pretest,
-        pretest_periods=pretest_periods,
-        cluster_ids=rc_cluster_ids,
-    )
-
-    unbalanced = unit_codes is not None
-    model_info: Dict[str, Any] = {
-        "estimator": (
-            f"{estimator.upper()} (RCS, Sant'Anna-Zhao)"
-            if use_sz
-            else "REG (RCS, cell-mean)" + (" + covariates" if x else "")
-        )
-        + (" — unbalanced panel" if unbalanced else ""),
-        "control_group": control_group,
-        "notyet_cutoff": notyet_cutoff,
-        "base_period": base_period,
-        "anticipation": anticipation,
-        # An unbalanced panel keeps its panel identity: the estimator is the
-        # RCS one, but the influence functions are indexed by unit.
-        "panel": bool(unbalanced),
-        "allow_unbalanced_panel": unbalanced,
-        # what the group-mean comparison needs beyond parallel trends
-        # (tests/reliability/unbalanced_panel.py)
-        **(
-            {"unbalanced_assumption": "stable group composition over time"}
-            if unbalanced
-            else {}
-        ),
-        "n_units": n_scale,  # the "n" for aggte / the bootstrap
-        "n_obs": n_obs,
-        # The same configuration keys as the panel path: sp.aggte inherits
-        # bstrap / biters / cband from them (as R did's aggte does from
-        # att_gt), and sp.validation_scope reads the fitted configuration.
-        "weights": weights_col,
-        "weighted": weights_col is not None,
-        "covariates": list(x) if x else None,
-        "clustervars": clustervar,
-        "bstrap": bstrap,
-        "biters": biters if bstrap else 0,
-        "cband": cband,
-        "boot_weight_type": boot_weight_type if bstrap else None,
-        "n_periods": len(time_periods),
-        "n_cohorts": len(cohorts),
-        "cohorts": cohorts,
-        "comparison_only_cohorts": [float(c) for c in excluded_cohorts],
-        "dropped_gt_cells": dropped_cells,
-        "event_study": event_study,
-        "pretrend_test": pretrend,
-        "cohort_sizes": cohort_sizes,
-        # Private plumbing for sp.influence_functions. Under the unbalanced
-        # fold a row is a unit; for a true RCS it is an observation.
-        "se_method": "multiplier" if bstrap else "analytic",
-        "inference_note": _inference_note(bstrap, cband),
-        "crit_val_uniform": crit_val_uniform,
-        "_cluster_ids": rc_cluster_ids,
-        # Row cohort / period of a true repeated cross-section (influence
-        # rows = observations): sp.aggte(agg_weights='csdid') rebuilds the
-        # cell memberships from them to carry csdid's estimated
-        # treated-count weights into the variance.
-        "_row_cohorts": g_arr if unit_codes is None else None,
-        "_row_times": t_arr if unit_codes is None else None,
-        "_unit_ids": (np.asarray(unit_uniques) if unbalanced else df.index.to_numpy()),
-        "_unit_cohorts": cohort_by_slot,
-        "_unit_weights": slot_weights,
-    }
-    if covariate_info is not None:
-        model_info.update(covariate_info)
-
-    return CausalResult(
-        method=(
-            "Callaway and Sant'Anna (2021) — unbalanced panel"
-            if unbalanced
-            else "Callaway and Sant'Anna (2021) — repeated cross-sections"
-        ),
-        estimand="ATT",
-        estimate=agg_est,
-        se=agg_se,
-        pvalue=agg_pval,
-        ci=agg_ci,
-        alpha=alpha,
-        n_obs=n_obs,
-        detail=detail,
-        model_info=model_info,
-        _influence_funcs=inf_matrix,
-        _citation_key="callaway_santanna",
-    )
 
 
 def _estimate_single_att_rcs(
@@ -3764,56 +3173,3 @@ def _estimate_single_att_rcs(
     # SE from sample variance of the influence function.
     se = float(np.sqrt(np.mean(inf**2) / n_obs))
     return att, se, inf
-
-
-def _rcs_residualise_on_controls(
-    y_arr: np.ndarray,
-    df: pd.DataFrame,
-    g_col: str,
-    t_col: str,
-    x_cols: List[str],
-) -> np.ndarray:
-    """Fit Y = Xβ + period-FE on never-treated observations; return
-    Y − X'β̂ for every observation (treated + control).
-
-    The period FEs absorb the unconditional time pattern in the control
-    group, so after residualisation the remaining cross-period mean
-    movement in the control cells is zero and the RCS DID reduces to a
-    covariate-adjusted comparison, matching the "outcome regression"
-    flavour of Sant'Anna & Zhao (2020) adapted to repeated cross-sections.
-    Influence functions downstream treat β̂ as known; asymptotically
-    negligible at √n.
-    """
-    y_arr = np.asarray(y_arr, dtype=float)
-    g_arr = df[g_col].values
-    t_arr = df[t_col].values
-    x_mat = df[x_cols].to_numpy(dtype=float)
-
-    # Keep only observations with finite covariates; the Y slot is
-    # already clean from the upstream dropna.
-    control = g_arr == 0
-    if control.sum() < x_mat.shape[1] + 2:
-        # Not enough controls to fit; return untouched Y.
-        return y_arr
-
-    # Build the control design: covariates + period dummies.
-    periods = sorted(np.unique(t_arr[control]))
-    X_ctrl = x_mat[control]
-    t_ctrl = t_arr[control]
-    period_dummies_ctrl = np.column_stack(
-        [(t_ctrl == p).astype(float) for p in periods]
-    )
-    design_ctrl = np.column_stack([X_ctrl, period_dummies_ctrl])
-
-    y_ctrl = y_arr[control]
-    try:
-        beta, *_ = np.linalg.lstsq(design_ctrl, y_ctrl, rcond=None)
-    except np.linalg.LinAlgError:
-        return y_arr
-
-    beta_x = beta[: x_mat.shape[1]]
-    # For residualisation of every observation (including treated), we
-    # only subtract the X contribution.  The period FE absorbs only the
-    # control group's period mean, which is exactly what we want to
-    # leave inside Y for the treated cell.
-    return np.asarray(y_arr - x_mat @ beta_x, dtype=float)

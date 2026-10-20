@@ -37,11 +37,11 @@ de Chaisemartin, C. and D'Haultfoeuille, X. (2020).
 """
 
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import optimize, stats
+from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns, missing_named_columns
@@ -49,7 +49,12 @@ from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
-from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
@@ -2244,7 +2249,10 @@ def _drdid_all(data: pd.DataFrame, **common: Any) -> CausalResult:
     rows = []
     headline: Optional[CausalResult] = None
     for label, kwargs in specs:
-        fit = drdid(data, **common, **kwargs)
+        call = dict(common)
+        if kwargs.get("method") != "trad":
+            call.pop("variance_convention", None)
+        fit = drdid(data, **call, **kwargs)
         est, se = float(fit.estimate), float(fit.se)
         rows.append(
             {
@@ -2301,6 +2309,7 @@ def drdid(
     locally_efficient: bool = True,
     weights: Optional[str] = None,
     trim_level: float = 0.995,
+    variance_convention: Literal["delta", "reference"] = "delta",
 ) -> CausalResult:
     """
     Doubly Robust Difference-in-Differences (Sant'Anna & Zhao 2020).
@@ -2394,6 +2403,18 @@ def drdid(
         disable.
 
         .. versionadded:: 1.23.0
+    variance_convention : {'delta', 'reference'}, default 'delta'
+        Only for ``est_method='dr', method='trad'`` on repeated
+        cross-sections. ``'delta'`` is the influence function of Sant'Anna
+        and Zhao (2020, Appendix B). ``'reference'`` reproduces R
+        ``DRDID::drdid_rc`` / ``drdid_rc1``, which carry the estimation
+        effect of the pre-period comparison regression with the opposite
+        sign; that standard error is too small when the propensity model
+        is misspecified (Monte Carlo coverage of a 95% interval 0.81,
+        against 0.95 for ``'delta'``). The point estimate is the same.
+
+        .. versionchanged:: 1.40.0
+           ⚠️ The default was the R convention (``'reference'``).
     alpha : float, default 0.05
         Significance level.
     n_boot : int, default 500
@@ -2428,6 +2449,14 @@ def drdid(
     >>> abs(result.estimate - 4.0) < 1.0
     True
     """
+    if variance_convention not in ("delta", "reference"):
+        raise MethodIncompatibility(
+            "variance_convention must be 'delta' or 'reference'; got "
+            f"{variance_convention!r}.",
+            recovery_hint="Use 'delta' (the paper's influence function) or "
+            "'reference' (R DRDID's standard error).",
+            diagnostics={"variance_convention": variance_convention},
+        )
     if est_method == "all":
         return _drdid_all(
             data,
@@ -2439,6 +2468,7 @@ def drdid(
             id=id,
             weights=weights,
             trim_level=trim_level,
+            variance_convention=variance_convention,
         )
     df = data.copy()
 
@@ -2488,6 +2518,16 @@ def drdid(
             f"(it selects the Abadie 2005 estimator over the Hajek-"
             f"normalised one), but est_method={est_method!r} was "
             "requested, so it has no effect.",
+            UserWarning,
+            stacklevel=2,
+        )
+    if variance_convention != "delta" and not (
+        est_method == "dr" and method == "trad" and id is None
+    ):
+        warnings.warn(
+            "drdid: variance_convention only affects est_method='dr', "
+            "method='trad' on repeated cross-sections (id=None); it has no "
+            "effect here.",
             UserWarning,
             stacklevel=2,
         )
@@ -2595,11 +2635,12 @@ def drdid(
             w_panel = np.ones(len(wide), dtype=float)
         w_panel = w_panel / w_panel.mean()
 
+        _require_panel_arms(D_panel, w_panel, X_panel.shape[1], est_method)
         z_crit_panel = stats.norm.ppf(1 - alpha / 2)
-        if est_method == "dr" and method == "imp" and weights is not None:
-            # The weighted improved estimator is the one callaway_santanna
-            # runs per cell (inverse probability tilting and odds-weighted
-            # least squares, both with the unit weights).
+        if est_method == "dr" and method == "imp":
+            # The improved estimator is the one callaway_santanna runs per
+            # cell: inverse probability tilting and odds-weighted least
+            # squares, both with the (normalised) unit weights.
             from .callaway_santanna import _dr_imp_att
 
             att_hat, att_se, _inf = _dr_imp_att(
@@ -2610,17 +2651,8 @@ def drdid(
                 w_panel,
             )
             ci = (att_hat - z_crit_panel * att_se, att_hat + z_crit_panel * att_se)
-            ps_fit = _logistic_fit(X_panel, D_panel)
+            ps_fit = _pscore_diagnostic(X_panel, D_panel, w_panel, tilting=True)
             ps_flag = 0
-            engine_name = "drdid_imp_panel"
-        elif est_method == "dr" and method == "imp":
-            att_hat, att_se, ci, ps_fit, ps_flag = _drdid_imp_panel_core(
-                delta_y,
-                D_panel,
-                X_panel,
-                alpha=alpha,
-                trim_level=trim_level,
-            )
             engine_name = "drdid_imp_panel"
         else:
             # The remaining panel estimators are exactly the 2x2 engines
@@ -2665,7 +2697,7 @@ def drdid(
                 att_hat, att_se = float(_res.att), float(_res.se)
                 engine_name = "twfe_did_panel"
             ci = (att_hat - z_crit_panel * att_se, att_hat + z_crit_panel * att_se)
-            ps_fit = _logistic_fit(X_panel, D_panel)
+            ps_fit = _pscore_diagnostic(X_panel, D_panel)
             ps_flag = 0
 
         t_stat = att_hat / att_se if att_se > 0 else np.nan
@@ -2795,16 +2827,27 @@ def drdid(
 
     x_rc = X[:, 1:] if X.shape[1] > 1 else None
     if est_method == "dr":
-        engine = _drdid_imp_rc if method == "imp" else _drdid_rc
-        res = engine(
-            Y,
-            T,
-            G,
-            x_rc,
-            weights=w_vec,
-            trim_level=trim_level,
-            locally_efficient=locally_efficient,
-        )
+        if method == "imp":
+            res = _drdid_imp_rc(
+                Y,
+                T,
+                G,
+                x_rc,
+                weights=w_vec,
+                trim_level=trim_level,
+                locally_efficient=locally_efficient,
+            )
+        else:
+            res = _drdid_rc(
+                Y,
+                T,
+                G,
+                x_rc,
+                weights=w_vec,
+                trim_level=trim_level,
+                locally_efficient=locally_efficient,
+                variance_convention=variance_convention,
+            )
         _eff = "" if locally_efficient else "1"
         engine_name = f"drdid_imp_rc{_eff}" if method == "imp" else f"drdid_rc{_eff}"
     elif est_method == "ipw":
@@ -2843,7 +2886,7 @@ def drdid(
     )
 
     # ── Diagnostics ─────────────────────────────────────────────────
-    ps_full = _logistic_fit(X, G)
+    ps_full = _pscore_diagnostic(X, G)
     n_treated = int(G.sum())
     n_control = int((1 - G).sum())
 
@@ -2861,6 +2904,9 @@ def drdid(
         "ps_mean_treated": float(ps_full[G == 1].mean()),
         "ps_mean_control": float(ps_full[G == 0].mean()),
         "covariates": covariates or [],
+        "variance_convention": (
+            variance_convention if (est_method == "dr" and method == "trad") else None
+        ),
     }
 
     _result = CausalResult(
@@ -2905,173 +2951,63 @@ def drdid(
     return _result
 
 
-def _logistic_coefficients(
-    X: np.ndarray,
-    y: np.ndarray,
-    max_iter: int = 50,
-) -> np.ndarray:
-    """Fit logistic regression via IRLS, return coefficients."""
-    n, k = X.shape
-    beta = np.zeros(k)
-    for _ in range(max_iter):
-        z = X @ beta
-        z = np.clip(z, -20, 20)
-        mu = 1.0 / (1.0 + np.exp(-z))
-        mu = np.clip(mu, 1e-8, 1 - 1e-8)
-        w = mu * (1 - mu)
-        Xw = X * w[:, np.newaxis]
-        try:
-            H = np.linalg.inv(Xw.T @ X)
-        except np.linalg.LinAlgError:
-            H = np.linalg.pinv(Xw.T @ X)
-        grad = X.T @ (y - mu)
-        delta = H @ grad
-        beta += delta
-        if np.max(np.abs(delta)) < 1e-8:
-            break
-    return beta
+def _require_panel_arms(
+    d: np.ndarray, w: np.ndarray, n_regressors: int, est_method: str
+) -> None:
+    """Refuse a two-period panel the 2x2 estimators cannot identify.
 
-
-def _logistic_fit(X: np.ndarray, y: np.ndarray, max_iter: int = 50) -> np.ndarray:
-    """Fit logistic regression via IRLS, return predicted probabilities."""
-    beta = _logistic_coefficients(X, y, max_iter=max_iter)
-    z = X @ beta
-    z = np.clip(z, -20, 20)
-    return np.asarray(1.0 / (1.0 + np.exp(-z)), dtype=float)
-
-
-def _weighted_lstsq(X: np.ndarray, y: np.ndarray, weights: np.ndarray) -> np.ndarray:
-    """Weighted least-squares coefficients using the same objective as R lm."""
-    weights = np.asarray(weights, dtype=float)
-    sw = np.sqrt(np.clip(weights, 0.0, np.inf))
-    try:
-        return np.asarray(
-            np.linalg.lstsq(X * sw[:, None], y * sw, rcond=None)[0],
-            dtype=float,
-        )
-    except np.linalg.LinAlgError:
-        return np.asarray(np.linalg.pinv(X * sw[:, None]) @ (y * sw), dtype=float)
-
-
-def _calibrated_pscore(
-    X: np.ndarray,
-    D: np.ndarray,
-    i_weights: Optional[np.ndarray] = None,
-) -> tuple[np.ndarray, int]:
-    """DRDID::pscore.cal translation for the improved panel estimator."""
-    n = len(D)
-    iw: np.ndarray
-    if i_weights is None:
-        iw = np.ones(n, dtype=float)
-    else:
-        iw = np.asarray(i_weights, dtype=float)
-        if np.any(iw < 0):
-            raise MethodIncompatibility("i_weights must be non-negative")
-        iw = iw / iw.mean()
-
-    init = _logistic_coefficients(X, D, max_iter=100)
-
-    def _eta(gamma: np.ndarray) -> np.ndarray:
-        return np.asarray(np.clip(X @ gamma, -700, 700), dtype=float)
-
-    def objective(gamma: np.ndarray) -> float:
-        eta = _eta(gamma)
-        return float(np.mean(iw * ((1.0 - D) * np.exp(eta) - D * eta)))
-
-    def gradient(gamma: np.ndarray) -> np.ndarray:
-        eta = _eta(gamma)
-        return np.asarray((iw * ((1.0 - D) * np.exp(eta) - D)) @ X / n, dtype=float)
-
-    opt = optimize.minimize(
-        objective,
-        init,
-        jac=gradient,
-        method="BFGS",
-        options={"gtol": 1e-10, "maxiter": 1000},
-    )
-    gamma = opt.x if opt.success else init
-    flag = 0 if opt.success else 2
-
-    # Newton refinement. The tilting loss is convex with a closed-form
-    # Hessian, and R's `pscore.cal` solves it with a trust-region Newton
-    # method; quasi-Newton stops a few orders of magnitude short of that.
-    #
-    # The extra precision is not cosmetic. Inverse probability tilting
-    # earns its name by making the covariate-balance conditions hold
-    # *exactly* at the optimum, which is what kills the first-order
-    # nuisance terms in the improved DR estimators. A γ that is merely
-    # close leaves those terms alive: a 1.5e-9 discrepancy in p̂(X) moved
-    # `drdid_imp_rc` by 7e-4 in the ATT and 2.9% in the SE — five orders
-    # of magnitude of amplification, because the odds weights p/(1-p)
-    # multiply the imbalance back in.
-    def _hessian(g: np.ndarray) -> np.ndarray:
-        eta = _eta(g)
-        h_w = iw * (1.0 - D) * np.exp(eta)
-        return np.asarray((X.T * h_w) @ X / n, dtype=float)
-
-    for _ in range(50):
-        grad = gradient(gamma)
-        if not np.all(np.isfinite(grad)) or np.max(np.abs(grad)) < 1e-13:
-            break
-        hess = _hessian(gamma)
-        try:
-            step = np.linalg.solve(hess, grad)
-        except np.linalg.LinAlgError:
-            break
-        if not np.all(np.isfinite(step)):
-            break
-        candidate = gamma - step
-        # Convex problem, but guard the step anyway: a bad Hessian near a
-        # boundary should not move us to a worse point.
-        if objective(candidate) > objective(gamma):
-            break
-        gamma = candidate
-
-    ps = 1.0 / (1.0 + np.exp(-np.clip(X @ gamma, -700, 700)))
-    return np.minimum(ps, 1.0 - 1e-6), flag
-
-
-def _drdid_imp_panel_core(
-    delta_y: np.ndarray,
-    D: np.ndarray,
-    X: np.ndarray,
-    *,
-    alpha: float = 0.05,
-    trim_level: float = 0.995,
-) -> tuple[float, float, tuple[float, float], np.ndarray, int]:
-    """Sant'Anna-Zhao improved panel DR-DID core matching DRDID::drdid_imp_panel."""
-    n = len(D)
-    if n == 0:
-        raise DataInsufficient("panel DR-DID requires at least one complete unit")
-    p_treat = D.mean()
-    if p_treat <= 0 or p_treat >= 1:
-        raise DataInsufficient("panel DR-DID requires treated and control units")
-
-    ps, ps_flag = _calibrated_pscore(X, D)
-    trim_ps = np.ones(n, dtype=float)
-    trim_ps[D == 0] = (ps[D == 0] < trim_level).astype(float)
-
-    control = D == 0
-    if control.sum() < X.shape[1]:
+    Both arms need positive weight; estimators with a comparison-group
+    outcome regression (``'dr'``, ``'reg'``) also need at least as many
+    comparison units as regressors. Without this the engines return an
+    infinite standard error, or a minimum-norm regression fit.
+    """
+    n_treated = int(np.sum((d == 1) & (w > 0)))
+    n_control = int(np.sum((d == 0) & (w > 0)))
+    if n_treated == 0 or n_control == 0:
         raise DataInsufficient(
-            "Not enough control units for panel DR-DID outcome regression"
+            "Panel DR-DID needs both treated and control units with complete "
+            f"pre/post pairs; found {n_treated} treated and {n_control} "
+            "control units.",
+            recovery_hint=(
+                "Check the group coding and that both groups are observed in "
+                "both periods."
+            ),
+            diagnostics={"n_treated": n_treated, "n_control": n_control},
         )
-    odds = ps / (1.0 - ps)
-    beta = _weighted_lstsq(X[control], delta_y[control], odds[control])
-    out_delta = X @ beta
-
-    summand = trim_ps * (1.0 - (1.0 - D) / (1.0 - ps)) * (delta_y - out_delta)
-    att = float(np.mean(summand) / p_treat)
-    inf_func = trim_ps * (summand - D * att) / p_treat
-    se = float(np.std(inf_func, ddof=1) * np.sqrt(n - 1) / n)
-    z_crit = stats.norm.ppf(1.0 - alpha / 2.0)
-    ci = (att - z_crit * se, att + z_crit * se)
-    return att, se, (float(ci[0]), float(ci[1])), ps, ps_flag
+    if est_method in ("dr", "reg") and n_control < n_regressors:
+        raise DataInsufficient(
+            f"Not enough control units ({n_control}) for the comparison-group "
+            f"outcome regression on {n_regressors} regressors (intercept "
+            "included).",
+            recovery_hint="Use fewer covariates, or est_method='ipw'.",
+            diagnostics={"n_control": n_control, "n_regressors": n_regressors},
+        )
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  3. Enhanced TWFE Decomposition (Bacon + dCDH weights)
-# ═══════════════════════════════════════════════════════════════════════
+def _pscore_diagnostic(
+    X: np.ndarray,
+    d: np.ndarray,
+    w: Optional[np.ndarray] = None,
+    *,
+    tilting: bool = False,
+) -> np.ndarray:
+    """Propensity scores for the ``ps_mean_*`` diagnostics of ``sp.drdid``.
+
+    Logit maximum likelihood, or inverse probability tilting for the
+    improved estimator (the score that estimator weights by). Reported in
+    ``model_info`` only. Returns NaNs when the fit fails (singular design).
+    """
+    from ._dr_common import ipt_fit, logit_fit
+
+    w_arr = np.ones(len(d)) if w is None else np.asarray(w, dtype=float)
+    fit = ipt_fit if tilting else logit_fit
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ConvergenceWarning)
+            _, p = fit(np.asarray(d, float), X, w_arr)
+    except np.linalg.LinAlgError:
+        return np.full(len(d), np.nan)
+    return np.asarray(p, dtype=float)
 
 
 @_calendar_time_aware(time="time", cohort="first_treat")
