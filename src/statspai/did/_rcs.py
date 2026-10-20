@@ -1,65 +1,63 @@
-"""Repeated cross-section DiD primitives (Sant'Anna & Zhao 2020).
+"""Two-period DiD estimators for repeated cross-sections (Sant'Anna & Zhao 2020).
 
-The panel path in :mod:`statspai.did.callaway_santanna` builds ATT(g, t) from
-within-unit differences ``Y_t - Y_base``.  Repeated cross-sections have no
-unit pairing, so they need a different estimator entirely: one that pools the
-two periods and identifies the ATT from period-specific outcome regressions
-plus a propensity score.
+Clean-room rewrite (2026-10-20); the reference implementation (R ``DRDID``,
+GPL-3) was used only as a black box. Specification and evidence:
+``docs/dev/cleanroom/did_drdid.md``.
 
-This module ports **all eight** repeated-cross-section estimators of R
-``DRDID`` 1.2.3, keeping their influence functions so downstream
-aggregation (``sp.aggte``) and the multiplier bootstrap work unchanged.
-Three of them are what ``did::att_gt(panel = FALSE)`` dispatches to; the
-rest are reachable through :func:`statspai.did.drdid`:
+Repeated cross-sections observe each row once, in the pre-period
+(``post = 0``) or the post-period (``post = 1``), so the ATT is identified
+from the four (group x period) cells under the stationarity assumption of
+Sant'Anna and Zhao (2020, Assumption 1(b)). Every estimator returns the ATT,
+its analytic standard error and the per-row influence function, so
+``sp.aggte`` and the multiplier bootstrap can combine cells.
 
-===========================  =================================  ============
-``DRDID`` function           function here                      reached by
-===========================  =================================  ============
-``drdid_rc``                 :func:`drdid_rc`                   ``did`` "dr"
-``drdid_rc1``                :func:`drdid_rc` (``locally_       ``sp.drdid``
-                             efficient=False``)
-``drdid_imp_rc``             :func:`drdid_imp_rc`               ``sp.drdid``
-``drdid_imp_rc1``            :func:`drdid_imp_rc` (``locally_   ``sp.drdid``
-                             efficient=False``)
-``std_ipw_did_rc``           :func:`std_ipw_did_rc`             ``did`` "ipw"
-``ipw_did_rc``               :func:`ipw_did_rc`                 ``sp.drdid``
-``reg_did_rc``               :func:`reg_did_rc`                 ``did`` "reg"
-``twfe_did_rc``              :func:`twfe_did_rc`                ``sp.drdid``
-===========================  =================================  ============
+==========================  ===========================================
+function                    estimator (Sant'Anna and Zhao 2020)
+==========================  ===========================================
+:func:`drdid_rc`            DR, eq. (3.4); ``locally_efficient=False``
+                            gives eq. (3.3)
+:func:`drdid_imp_rc`        improved DR, eqs. (3.9)-(3.10): inverse
+                            probability tilting + odds-weighted least
+                            squares, no first-step estimation effect
+:func:`std_ipw_did_rc`      IPW with Hajek-normalised arm weights
+:func:`ipw_did_rc`          IPW of Abadie type, eq. (2.3)
+:func:`reg_did_rc`          outcome regression, eq. (2.2)
+:func:`twfe_did_rc`         two-way fixed-effects regression, eq. (2.5)
+==========================  ===========================================
 
-Every convention that moves the answer is reproduced from the reference
-implementation rather than re-derived:
-
-1. The propensity score is a logit of ``D`` on the covariates over the
-   **pooled** sample, with fitted values capped at ``1 - 1e-6``.
-2. Control units are trimmed at ``ps < trim_level`` (default 0.995); treated
-   units are never trimmed (their bound is ``ps < 1.01``).
-3. Four **separate** outcome regressions are fit — control/pre, control/post,
-   treated/pre, treated/post — each on its own cell and then predicted for
-   every observation.
-4. The influence function carries the estimation error of the propensity
-   score *and* of all four outcome regressions; dropping any of those terms
-   changes the standard error materially.
-
-Verified against R ``DRDID`` 1.2.3: ``drdid_rc`` reproduces both the ATT and
-the analytic standard error to 10 decimal places on the module's parity
-fixture.
+Conventions (each pinned by black-box runs of the reference on our data):
+weights are divided by their mean; the propensity score is a logit of the
+group dummy on the covariates over the pooled sample, capped at
+``1 - 1e-6``; comparison rows with a score at or above ``trim_level`` get
+zero weight in the comparison arm; the four outcome regressions are fit
+separately per cell; the standard error is ``sqrt(mean(IF**2) / n)``
+(``sd(IF) / sqrt(n)`` for the TWFE regression).
 
 References
 ----------
-Sant'Anna, P.H.C. and Zhao, J. (2020). "Doubly robust
-difference-in-differences estimators." *Journal of Econometrics*, 219(1),
-101-122. [@santanna2020doubly]
+[@santanna2020doubly]
 """
 
 from __future__ import annotations
 
-from typing import Any, NamedTuple, Optional
+from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 import numpy as np
 
 from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._dr_common import (
+    HajekMean,
+    design_matrix,
+    ipt_fit,
+    logit_fit,
+    logit_influence,
+    normalized_weights,
+    se_from_influence,
+    spanning_columns,
+    wls_coef,
+    wls_influence,
+)
 
 __all__ = [
     "RCSResult",
@@ -71,9 +69,14 @@ __all__ = [
     "twfe_did_rc",
 ]
 
-#: Control units with a propensity score above this are dropped.  Matches
-#: ``DRDID``'s ``trim.level`` default.
+#: Comparison rows with a propensity score at or above this level are given
+#: zero weight (the reference's documented ``trim.level`` default).
 _TRIM_LEVEL = 0.995
+
+#: Fitted propensity scores are capped here so the odds stay finite.
+_PSCORE_CAP = 1.0 - 1e-6
+
+_VARIANCE_CONVENTIONS = ("reference", "delta")
 
 
 @attach_result_protocol
@@ -85,524 +88,583 @@ class RCSResult(NamedTuple):
     influence: np.ndarray
 
 
+class _Sample(NamedTuple):
+    y: np.ndarray
+    post: np.ndarray
+    d: np.ndarray
+    x: np.ndarray  # covariates with a leading intercept column
+    w: np.ndarray  # weights normalised to mean one
+
+
+def _as_vector(values: Any, name: str) -> np.ndarray:
+    arr = np.asarray(values, dtype=float)
+    if arr.ndim != 1:
+        arr = arr.reshape(-1)
+    if not np.all(np.isfinite(arr)):
+        raise MethodIncompatibility(
+            f"`{name}` contains missing or non-finite values.",
+            recovery_hint=f"Drop or impute the rows with non-finite `{name}`.",
+            diagnostics={"argument": name},
+        )
+    return arr
+
+
+def _require_binary(arr: np.ndarray, name: str) -> None:
+    if not np.all((arr == 0.0) | (arr == 1.0)):
+        raise MethodIncompatibility(
+            f"`{name}` must be a 0/1 indicator.",
+            recovery_hint=f"Recode `{name}` as 0/1.",
+            diagnostics={"argument": name, "values": sorted(set(np.unique(arr)))[:5]},
+        )
+
+
 def _prepare(
-    y: np.ndarray,
-    post: np.ndarray,
-    d: np.ndarray,
-    covariates: Optional[np.ndarray],
-    weights: Optional[np.ndarray],
-) -> tuple:
-    y = np.asarray(y, dtype=float).ravel()
-    post = np.asarray(post, dtype=float).ravel()
-    d = np.asarray(d, dtype=float).ravel()
-    n = y.size
-
-    if not (post.size == d.size == n):
+    y: Any,
+    post: Any,
+    d: Any,
+    covariates: Any,
+    weights: Any,
+) -> _Sample:
+    """Validate the inputs and return them as arrays (weights mean one)."""
+    y_arr = _as_vector(y, "y")
+    post_arr = _as_vector(post, "post")
+    d_arr = _as_vector(d, "d")
+    n = y_arr.shape[0]
+    if post_arr.shape[0] != n or d_arr.shape[0] != n:
         raise MethodIncompatibility(
-            "y, post and D must have the same length.",
-            recovery_hint="Check the (g, t) cell construction.",
-            diagnostics={"n_y": n, "n_post": post.size, "n_d": d.size},
+            "`y`, `post` and `d` must have the same length.",
+            recovery_hint="Pass one value per observation for each argument.",
+            diagnostics={
+                "len_y": n,
+                "len_post": int(post_arr.shape[0]),
+                "len_d": int(d_arr.shape[0]),
+            },
         )
+    _require_binary(post_arr, "post")
+    _require_binary(d_arr, "d")
 
-    if covariates is None:
-        x = np.ones((n, 1))
+    if covariates is not None:
+        cov = np.asarray(covariates, dtype=float)
+        if cov.ndim == 1:
+            cov = cov[:, None]
+        if cov.shape[0] != n:
+            raise MethodIncompatibility(
+                "`covariates` must have one row per observation.",
+                recovery_hint="Align the covariate matrix with `y`.",
+                diagnostics={"rows": int(cov.shape[0]), "expected": n},
+            )
+        if not np.all(np.isfinite(cov)):
+            raise MethodIncompatibility(
+                "`covariates` contains missing or non-finite values.",
+                recovery_hint="Drop or impute the rows with non-finite covariates.",
+                diagnostics={"argument": "covariates"},
+            )
+        covariates = cov
+    x = design_matrix(covariates, n)
+
+    if weights is None:
+        w = np.ones(n, dtype=float)
     else:
-        x = np.asarray(covariates, dtype=float)
-        if x.ndim == 1:
-            x = x[:, None]
-        if not np.allclose(x[:, 0], 1.0):
-            x = np.column_stack([np.ones(n), x])
+        raw = _as_vector(weights, "weights")
+        if raw.shape[0] != n:
+            raise MethodIncompatibility(
+                "`weights` must have one entry per observation.",
+                recovery_hint="Align the weight vector with `y`.",
+                diagnostics={"len_weights": int(raw.shape[0]), "expected": n},
+            )
+        if np.any(raw < 0):
+            raise MethodIncompatibility(
+                "`weights` must be non-negative.",
+                recovery_hint="Pass non-negative observation weights.",
+                diagnostics={"min_weight": float(raw.min())},
+            )
+        if raw.sum() <= 0:
+            raise DataInsufficient(
+                "`weights` sum to zero.",
+                recovery_hint="Give at least one observation a positive weight.",
+                diagnostics={"n": n},
+            )
+        w = normalized_weights(raw, n)
 
-    w = np.ones(n) if weights is None else np.asarray(weights, dtype=float).ravel()
-    if np.min(w) < 0:
-        raise MethodIncompatibility(
-            "weights must be non-negative.",
-            recovery_hint="Drop or repair the negative weights.",
-            diagnostics={"min_weight": float(np.min(w))},
-        )
-    w = w / w.mean()
-
-    # All four cells must be populated or the outcome regressions are not
-    # identified — fail loudly rather than return a silently degenerate ATT.
     cells = {
-        "control/pre": (d == 0) & (post == 0),
-        "control/post": (d == 0) & (post == 1),
-        "treated/pre": (d == 1) & (post == 0),
-        "treated/post": (d == 1) & (post == 1),
+        (dd, tt): float(np.sum(w[(d_arr == dd) & (post_arr == tt)]))
+        for dd in (0, 1)
+        for tt in (0, 1)
     }
-    empty = [name for name, mask in cells.items() if int(mask.sum()) < x.shape[1]]
+    empty = [k for k, mass in cells.items() if mass <= 0]
     if empty:
         raise DataInsufficient(
-            "repeated cross-section DiD needs all four "
-            f"treatment x period cells populated; too few observations in: "
-            f"{', '.join(empty)}.",
-            recovery_hint="Widen the comparison window, drop covariates, or "
-            "use a different control group.",
-            diagnostics={name: int(mask.sum()) for name, mask in cells.items()},
+            "Repeated cross-section DiD needs all four treatment x period "
+            "cells to be populated; empty (d, post) cells: "
+            f"{sorted(empty)}.",
+            recovery_hint=(
+                "Make sure treated and comparison observations exist in both "
+                "the pre- and the post-period."
+            ),
+            diagnostics={"empty_cells": [list(k) for k in sorted(empty)]},
+        )
+    return _Sample(y_arr, post_arr, d_arr, x, w)
+
+
+def _check_convention(variance_convention: str) -> None:
+    if variance_convention not in _VARIANCE_CONVENTIONS:
+        raise MethodIncompatibility(
+            f"variance_convention must be one of {_VARIANCE_CONVENTIONS}, "
+            f"got {variance_convention!r}.",
+            recovery_hint="Use 'reference' (the default) or 'delta'.",
+            diagnostics={"variance_convention": variance_convention},
         )
 
-    return y, post, d, x, w, n
+
+def _comparison_odds(
+    s: _Sample, trim_level: float, tilting: bool
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Propensity score, its odds, and the trimming indicator.
+
+    ``tilting=False`` fits the logit by maximum likelihood; ``True`` uses
+    inverse probability tilting. Comparison rows with a score at or above
+    ``trim_level`` get ``keep = 0``; treated rows are always kept.
+    """
+    fit = ipt_fit if tilting else logit_fit
+    _, p = fit(s.d, s.x, s.w)
+    p = np.minimum(p, _PSCORE_CAP)
+    keep = np.where(s.d == 1.0, 1.0, (p < trim_level).astype(float))
+    return p, p / (1.0 - p), keep
 
 
-def _pscore(d: np.ndarray, x: np.ndarray, w: np.ndarray) -> np.ndarray:
-    """Weighted logit propensity score, capped like ``DRDID``."""
-    import statsmodels.api as sm
-
-    fit = sm.GLM(d, x, family=sm.families.Binomial(), freq_weights=w).fit()
-    return np.minimum(np.asarray(fit.fittedvalues, dtype=float), 1 - 1e-6)
+def _cell(s: _Sample, dd: int, tt: int) -> np.ndarray:
+    return (s.d == dd) & (s.post == tt)
 
 
-def _wls(x: np.ndarray, y: np.ndarray, w: np.ndarray, mask: np.ndarray) -> np.ndarray:
-    """Weighted OLS on a cell, returned as coefficients."""
-    sw = np.sqrt(w[mask])
-    coef, *_ = np.linalg.lstsq(x[mask] * sw[:, None], y[mask] * sw, rcond=None)
-    return coef
+class _CellFit(NamedTuple):
+    """Least-squares fit of ``y`` on one (group, period) cell."""
+
+    x: np.ndarray  # the design columns kept for this cell (all rows)
+    coef: np.ndarray
+    rows: np.ndarray
+    w: np.ndarray
+
+    @property
+    def fitted(self) -> np.ndarray:
+        return self.x @ self.coef
+
+    def effect(self, y: np.ndarray, grad: np.ndarray) -> np.ndarray:
+        """Estimation effect ``l_i' grad`` of this fit's coefficients."""
+        return wls_influence(self.x, y, self.w, self.rows, self.coef) @ grad
 
 
-def _asy_lin_ols(
-    x: np.ndarray, weights: np.ndarray, resid: np.ndarray, n: int
-) -> np.ndarray:
-    """Asymptotic linear representation of a weighted OLS coefficient."""
-    wx = weights[:, None] * x
-    xpx = wx.T @ x / n
-    if np.linalg.cond(xpx) > 1 / np.finfo(float).eps:
+def _require_identified(
+    s: _Sample, cells: Tuple[Tuple[int, int], ...], label: str
+) -> None:
+    """Each fitted cell needs at least as many rows as regressors."""
+    k = s.x.shape[1]
+    short = [
+        (dd, tt) for dd, tt in cells if int(np.sum(_cell(s, dd, tt) & (s.w > 0))) < k
+    ]
+    if short:
         raise DataInsufficient(
-            "outcome-regression design matrix is singular in a "
-            "treatment x period cell.",
-            recovery_hint="Drop collinear covariates.",
-            diagnostics={"cond": float(np.linalg.cond(xpx))},
+            f"The outcome regressions are not identified: {label} need at "
+            f"least {k} observations each (one per regressor); too few in "
+            f"(d, post) cells {sorted(short)}.",
+            recovery_hint=(
+                "Use fewer covariates, or a design with more observations in "
+                "each treatment x period cell."
+            ),
+            diagnostics={
+                "regressors": k,
+                "short_cells": [list(c) for c in sorted(short)],
+            },
         )
-    return ((weights * resid)[:, None] * x) @ np.linalg.inv(xpx)
+
+
+def _fit_cell(
+    s: _Sample, dd: int, tt: int, w: np.ndarray, *, drop_collinear: bool
+) -> _CellFit:
+    """Fit the regression of ``y`` on the covariates within one cell.
+
+    A covariate that is collinear with earlier columns within the cell (for
+    example constant there) leaves the regression unidentified. With
+    ``drop_collinear`` it is dropped and contributes nothing to the cell's
+    predictions; otherwise the fit is refused. The reference behaves the
+    same way (black box): its improved estimators drop such columns, the
+    others stop with a singular-design error.
+    """
+    rows = _cell(s, dd, tt)
+    cols = spanning_columns(s.x, rows, w)
+    if cols.size < s.x.shape[1] and not drop_collinear:
+        raise MethodIncompatibility(
+            f"The outcome regression on the (d={dd}, post={tt}) cell is "
+            "singular: a covariate is collinear with the others (or constant) "
+            "within that cell.",
+            recovery_hint=(
+                "Remove the covariate, or use method='imp', which drops "
+                "covariates that are collinear within a cell."
+            ),
+            diagnostics={
+                "cell": [dd, tt],
+                "rank": int(cols.size),
+                "regressors": int(s.x.shape[1]),
+            },
+        )
+    x = s.x[:, cols]
+    return _CellFit(x, wls_coef(x, s.y, w, rows), rows, w)
+
+
+def _doubly_robust(
+    s: _Sample,
+    *,
+    trim_level: float,
+    locally_efficient: bool,
+    tilting: bool,
+    variance_convention: str,
+) -> RCSResult:
+    """Shared body of :func:`drdid_rc` and :func:`drdid_imp_rc`."""
+    p, odds, keep = _comparison_odds(s, trim_level, tilting)
+
+    # Outcome regressions per (group, period) cell. Under tilting the
+    # comparison cells are weighted by the odds (Sant'Anna-Zhao eq. 3.10).
+    _require_identified(
+        s, ((0, 0), (0, 1), (1, 0), (1, 1)), "all four treatment x period cells"
+    )
+    fits: Dict[Tuple[int, int], _CellFit] = {
+        (dd, tt): _fit_cell(
+            s,
+            dd,
+            tt,
+            s.w * odds if (tilting and dd == 0) else s.w,
+            drop_collinear=tilting,
+        )
+        for dd in (0, 1)
+        for tt in (0, 1)
+    }
+    mu = {key: fit.fitted for key, fit in fits.items()}
+    xs = {key: fit.x for key, fit in fits.items()}
+
+    a11 = s.w * s.d * s.post
+    a10 = s.w * s.d * (1.0 - s.post)
+    comp = keep * s.w * odds * (1.0 - s.d)
+    a01 = comp * s.post
+    a00 = comp * (1.0 - s.post)
+
+    t11 = HajekMean(a11, s.y - mu[0, 1])
+    t10 = HajekMean(a10, s.y - mu[0, 0])
+    c01 = HajekMean(a01, s.y - mu[0, 1])
+    c00 = HajekMean(a00, s.y - mu[0, 0])
+    att = (t11.theta - t10.theta) - (c01.theta - c00.theta)
+    influence = (t11.influence - t10.influence) - (c01.influence - c00.influence)
+
+    grad = {key: np.zeros(fit.x.shape[1]) for key, fit in fits.items()}
+    grad[0, 1] = c01.grad_through_z(xs[0, 1]) - t11.grad_through_z(xs[0, 1])
+    pre_term = t10.grad_through_z(xs[0, 0]) - c00.grad_through_z(xs[0, 0])
+    if variance_convention == "reference":
+        # The reference carries this pre-period comparison-regression term
+        # with the opposite sign; see "The pre-period comparison regression"
+        # in the specification.
+        pre_term = -pre_term
+    grad[0, 0] = pre_term
+
+    if locally_efficient:
+        a_d = s.w * s.d
+        post_gap = mu[1, 1] - mu[0, 1]
+        pre_gap = mu[1, 0] - mu[0, 0]
+        e_post_all = HajekMean(a_d, post_gap)
+        e_post_cell = HajekMean(a11, post_gap)
+        e_pre_all = HajekMean(a_d, pre_gap)
+        e_pre_cell = HajekMean(a10, pre_gap)
+        att += (e_post_all.theta - e_post_cell.theta) - (
+            e_pre_all.theta - e_pre_cell.theta
+        )
+        influence = influence + (e_post_all.influence - e_post_cell.influence)
+        influence = influence - (e_pre_all.influence - e_pre_cell.influence)
+        for key, sign in (((1, 1), 1.0), ((0, 1), -1.0)):
+            g = e_post_all.grad_through_z(xs[key]) - e_post_cell.grad_through_z(xs[key])
+            grad[key] = grad[key] + sign * g
+        for key, sign in (((1, 0), -1.0), ((0, 0), 1.0)):
+            g = e_pre_all.grad_through_z(xs[key]) - e_pre_cell.grad_through_z(xs[key])
+            grad[key] = grad[key] + sign * g
+
+    if not tilting:
+        # Estimation effects of the outcome regressions and of the logit.
+        for key, fit in fits.items():
+            if np.any(grad[key] != 0.0):
+                influence = influence + fit.effect(s.y, grad[key])
+        g_ps = c00.grad_through_a(a00[:, None] * s.x) - c01.grad_through_a(
+            a01[:, None] * s.x
+        )
+        influence = influence + logit_influence(s.x, s.d, s.w, p) @ g_ps
+
+    return RCSResult(float(att), se_from_influence(influence), influence)
 
 
 def drdid_rc(
-    y: np.ndarray,
-    post: np.ndarray,
-    d: np.ndarray,
+    y: Any,
+    post: Any,
+    d: Any,
+    covariates: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
+    trim_level: float = _TRIM_LEVEL,
+    locally_efficient: bool = True,
+    *,
+    variance_convention: str = "reference",
+) -> RCSResult:
+    """Doubly robust DiD for repeated cross-sections.
+
+    Logit propensity score by maximum likelihood, outcome regressions by
+    least squares on each (group, period) cell. ``locally_efficient=True``
+    is Sant'Anna and Zhao (2020) eq. (3.4), which also uses the treated
+    regressions; ``False`` is eq. (3.3). The influence function carries the
+    estimation effects of the logit and of the outcome regressions.
+
+    Parameters
+    ----------
+    y, post, d : array-like
+        Outcome, post-period dummy and treated-group dummy, one per row.
+    covariates : ndarray, optional
+        Covariates without an intercept (one is added).
+    weights : array-like, optional
+        Non-negative observation weights (normalised to mean one).
+    trim_level : float, default 0.995
+        Comparison rows with a propensity score at or above this level get
+        zero weight.
+    locally_efficient : bool, default True
+        Use eq. (3.4) rather than (3.3).
+    variance_convention : {'reference', 'delta'}, default 'reference'
+        Sign of the pre-period comparison-regression estimation effect.
+        ``'reference'`` reproduces the reference implementation; ``'delta'``
+        is the delta-method influence function of the paper's Appendix B.
+        The two agree when the propensity model is correct; see
+        ``docs/dev/cleanroom/did_drdid.md``.
+
+    Returns
+    -------
+    RCSResult
+        ``att``, ``se`` and the per-row ``influence``.
+
+    References
+    ----------
+    [@santanna2020doubly]
+    """
+    _check_convention(variance_convention)
+    s = _prepare(y, post, d, covariates, weights)
+    return _doubly_robust(
+        s,
+        trim_level=trim_level,
+        locally_efficient=locally_efficient,
+        tilting=False,
+        variance_convention=variance_convention,
+    )
+
+
+def drdid_imp_rc(
+    y: Any,
+    post: Any,
+    d: Any,
     covariates: Optional[np.ndarray] = None,
     weights: Optional[np.ndarray] = None,
     trim_level: float = _TRIM_LEVEL,
     locally_efficient: bool = True,
 ) -> RCSResult:
-    """DR DiD for repeated cross-sections.
+    """Improved doubly robust DiD for repeated cross-sections.
 
-    Port of ``DRDID::drdid_rc`` — the estimator R ``did::att_gt`` uses for
-    ``panel = FALSE, est_method = "dr"``.  Verified to 10 decimal places on
-    both the ATT and the analytic SE.
+    Sant'Anna and Zhao (2020) Section 3.2: the propensity score by inverse
+    probability tilting, the comparison-cell regressions by least squares
+    weighted by the fitted odds, the treated-cell regressions by ordinary
+    least squares. Those first steps leave no estimation effect, so the
+    influence function is the sum of the Hajek terms.
+    ``locally_efficient=False`` gives eq. (3.9), ``True`` eq. (3.10).
 
-    ``locally_efficient=False`` gives ``DRDID::drdid_rc1`` instead: the
-    same doubly robust estimator, but dropping the four extra terms that
-    attain the semiparametric efficiency bound. Those terms need outcome
-    regressions fit on the *treated* cells as well, so ``rc1`` fits only
-    the two control regressions. Both are consistent; ``rc1`` is simply
-    not efficient, and is the variant Sant'Anna & Zhao (2020) use when the
-    treated-cell regressions are not credible.
+    Parameters are as in :func:`drdid_rc`.
+
+    Returns
+    -------
+    RCSResult
+
+    References
+    ----------
+    [@santanna2020doubly]
     """
-    y, post, d, x, w, n = _prepare(y, post, d, covariates, weights)
-
-    ps = _pscore(d, x, w)
-    trim = np.where(d == 0, ps < trim_level, ps < 1.01).astype(float)
-
-    b_c_pre = _wls(x, y, w, (d == 0) & (post == 0))
-    b_c_post = _wls(x, y, w, (d == 0) & (post == 1))
-    oc_pre, oc_post = x @ b_c_pre, x @ b_c_post
-    oc = post * oc_post + (1 - post) * oc_pre
-
-    if locally_efficient:
-        # Only the efficient variant needs the treated-cell regressions.
-        b_t_pre = _wls(x, y, w, (d == 1) & (post == 0))
-        b_t_post = _wls(x, y, w, (d == 1) & (post == 1))
-        ot_pre, ot_post = x @ b_t_pre, x @ b_t_post
-
-    w_tr_pre = trim * w * d * (1 - post)
-    w_tr_post = trim * w * d * post
-    w_co_pre = trim * w * ps * (1 - d) * (1 - post) / (1 - ps)
-    w_co_post = trim * w * ps * (1 - d) * post / (1 - ps)
-    w_d = trim * w * d
-    w_dt1 = trim * w * d * post
-    w_dt0 = trim * w * d * (1 - post)
-
-    mean = np.mean
-    eta_tr_pre = w_tr_pre * (y - oc) / mean(w_tr_pre)
-    eta_tr_post = w_tr_post * (y - oc) / mean(w_tr_post)
-    eta_co_pre = w_co_pre * (y - oc) / mean(w_co_pre)
-    eta_co_post = w_co_post * (y - oc) / mean(w_co_post)
-
-    a_tr_pre, a_tr_post = mean(eta_tr_pre), mean(eta_tr_post)
-    a_co_pre, a_co_post = mean(eta_co_pre), mean(eta_co_post)
-
-    att = float((a_tr_post - a_tr_pre) - (a_co_post - a_co_pre))
-    if locally_efficient:
-        eta_d_post = w_d * (ot_post - oc_post) / mean(w_d)
-        eta_dt1_post = w_dt1 * (ot_post - oc_post) / mean(w_dt1)
-        eta_d_pre = w_d * (ot_pre - oc_pre) / mean(w_d)
-        eta_dt0_pre = w_dt0 * (ot_pre - oc_pre) / mean(w_dt0)
-        a_d_post, a_dt1_post = mean(eta_d_post), mean(eta_dt1_post)
-        a_d_pre, a_dt0_pre = mean(eta_d_pre), mean(eta_dt0_pre)
-        att += (a_d_post - a_dt1_post) - (a_d_pre - a_dt0_pre)
-
-    # --- influence function -------------------------------------------------
-    alr_c_pre = _asy_lin_ols(x, w * (1 - d) * (1 - post), y - oc_pre, n)
-    alr_c_post = _asy_lin_ols(x, w * (1 - d) * post, y - oc_post, n)
-    if locally_efficient:
-        alr_t_pre = _asy_lin_ols(x, w * d * (1 - post), y - ot_pre, n)
-        alr_t_post = _asy_lin_ols(x, w * d * post, y - ot_post, n)
-
-    hess = np.linalg.inv(x.T @ ((ps * (1 - ps) * w)[:, None] * x)) * n
-    alr_ps = ((w * (d - ps))[:, None] * x) @ hess
-
-    inf_tr_pre = eta_tr_pre - w_tr_pre * a_tr_pre / mean(w_tr_pre)
-    inf_tr_post = eta_tr_post - w_tr_post * a_tr_post / mean(w_tr_post)
-    m1_post = -np.mean((w_tr_post * post)[:, None] * x, axis=0) / mean(w_tr_post)
-    m1_pre = -np.mean((w_tr_pre * (1 - post))[:, None] * x, axis=0) / mean(w_tr_pre)
-    inf_tr_or = alr_c_post @ m1_post + alr_c_pre @ m1_pre
-
-    inf_co_pre = eta_co_pre - w_co_pre * a_co_pre / mean(w_co_pre)
-    inf_co_post = eta_co_post - w_co_post * a_co_post / mean(w_co_post)
-    m2_pre = np.mean((w_co_pre * (y - oc - a_co_pre))[:, None] * x, axis=0) / mean(
-        w_co_pre
+    s = _prepare(y, post, d, covariates, weights)
+    return _doubly_robust(
+        s,
+        trim_level=trim_level,
+        locally_efficient=locally_efficient,
+        tilting=True,
+        variance_convention="delta",
     )
-    m2_post = np.mean((w_co_post * (y - oc - a_co_post))[:, None] * x, axis=0) / mean(
-        w_co_post
-    )
-    inf_co_ps = alr_ps @ (m2_post - m2_pre)
-    m3_post = -np.mean((w_co_post * post)[:, None] * x, axis=0) / mean(w_co_post)
-    m3_pre = -np.mean((w_co_pre * (1 - post))[:, None] * x, axis=0) / mean(w_co_pre)
-    inf_co_or = alr_c_post @ m3_post + alr_c_pre @ m3_pre
-
-    inf_treat = inf_tr_post - inf_tr_pre + inf_tr_or
-    inf_cont = inf_co_post - inf_co_pre + inf_co_ps + inf_co_or
-    influence = inf_treat - inf_cont
-
-    if locally_efficient:
-        inf_eff = (
-            (eta_d_post - w_d * a_d_post / mean(w_d))
-            - (eta_dt1_post - w_dt1 * a_dt1_post / mean(w_dt1))
-        ) - (
-            (eta_d_pre - w_d * a_d_pre / mean(w_d))
-            - (eta_dt0_pre - w_dt0 * a_dt0_pre / mean(w_dt0))
-        )
-        mom_post = np.mean((w_d / mean(w_d) - w_dt1 / mean(w_dt1))[:, None] * x, axis=0)
-        mom_pre = np.mean((w_d / mean(w_d) - w_dt0 / mean(w_dt0))[:, None] * x, axis=0)
-        inf_or = (alr_t_post - alr_c_post) @ mom_post - (
-            alr_t_pre - alr_c_pre
-        ) @ mom_pre
-        influence = influence + inf_eff + inf_or
-
-    se = float(np.std(influence, ddof=1) * np.sqrt(n - 1) / n)
-    return RCSResult(att=att, se=se, influence=np.asarray(influence, dtype=float))
 
 
 def reg_did_rc(
-    y: np.ndarray,
-    post: np.ndarray,
-    d: np.ndarray,
+    y: Any,
+    post: Any,
+    d: Any,
     covariates: Optional[np.ndarray] = None,
     weights: Optional[np.ndarray] = None,
 ) -> RCSResult:
     """Outcome-regression DiD for repeated cross-sections.
 
-    Port of ``DRDID::reg_did_rc`` (R ``did``'s ``est_method = "reg"``).
+    Sant'Anna and Zhao (2020) eq. (2.2): the treated pre/post mean change
+    minus the average, over treated rows, of the predicted comparison-group
+    change from two cell regressions (comparison/pre, comparison/post).
+
+    Parameters are as in :func:`drdid_rc` (no propensity score).
+
+    Returns
+    -------
+    RCSResult
+
+    References
+    ----------
+    [@santanna2020doubly]
     """
-    y, post, d, x, w, n = _prepare(y, post, d, covariates, weights)
-
-    b_c_pre = _wls(x, y, w, (d == 0) & (post == 0))
-    b_c_post = _wls(x, y, w, (d == 0) & (post == 1))
-    oc_pre, oc_post = x @ b_c_pre, x @ b_c_post
-
-    w_treat = w * d
-    w_tr_pre = w * d * (1 - post)
-    w_tr_post = w * d * post
-    mean = np.mean
-
-    eta_treat = w_treat * (oc_post - oc_pre) / mean(w_treat)
-    eta_tr_pre = w_tr_pre * y / mean(w_tr_pre)
-    eta_tr_post = w_tr_post * y / mean(w_tr_post)
-
-    a_treat = mean(eta_treat)
-    a_tr_pre, a_tr_post = mean(eta_tr_pre), mean(eta_tr_post)
-    att = float((a_tr_post - a_tr_pre) - a_treat)
-
-    alr_c_pre = _asy_lin_ols(x, w * (1 - d) * (1 - post), y - oc_pre, n)
-    alr_c_post = _asy_lin_ols(x, w * (1 - d) * post, y - oc_post, n)
-
-    inf_tr_pre = eta_tr_pre - w_tr_pre * a_tr_pre / mean(w_tr_pre)
-    inf_tr_post = eta_tr_post - w_tr_post * a_tr_post / mean(w_tr_post)
-    inf_treat_obs = eta_treat - w_treat * a_treat / mean(w_treat)
-
-    m_post = np.mean(w_treat[:, None] * x, axis=0) / mean(w_treat)
-    m_pre = np.mean(w_treat[:, None] * x, axis=0) / mean(w_treat)
-    inf_or = alr_c_post @ m_post - alr_c_pre @ m_pre
-
-    influence = (inf_tr_post - inf_tr_pre) - (inf_treat_obs + inf_or)
-    se = float(np.std(influence, ddof=1) * np.sqrt(n - 1) / n)
-    return RCSResult(att=att, se=se, influence=np.asarray(influence, dtype=float))
+    s = _prepare(y, post, d, covariates, weights)
+    _require_identified(s, ((0, 0), (0, 1)), "the two comparison-group cells")
+    post_fit = _fit_cell(s, 0, 1, s.w, drop_collinear=False)
+    pre_fit = _fit_cell(s, 0, 0, s.w, drop_collinear=False)
+    t11 = HajekMean(s.w * s.d * s.post, s.y)
+    t10 = HajekMean(s.w * s.d * (1.0 - s.post), s.y)
+    gap = HajekMean(s.w * s.d, post_fit.fitted - pre_fit.fitted)
+    att = t11.theta - t10.theta - gap.theta
+    influence = (
+        t11.influence
+        - t10.influence
+        - gap.influence
+        - post_fit.effect(s.y, gap.grad_through_z(post_fit.x))
+        + pre_fit.effect(s.y, gap.grad_through_z(pre_fit.x))
+    )
+    return RCSResult(float(att), se_from_influence(influence), influence)
 
 
 def std_ipw_did_rc(
-    y: np.ndarray,
-    post: np.ndarray,
-    d: np.ndarray,
+    y: Any,
+    post: Any,
+    d: Any,
     covariates: Optional[np.ndarray] = None,
     weights: Optional[np.ndarray] = None,
     trim_level: float = _TRIM_LEVEL,
 ) -> RCSResult:
-    """Standardised IPW DiD for repeated cross-sections.
+    """IPW DiD for repeated cross-sections with Hajek-normalised weights.
 
-    Port of ``DRDID::std_ipw_did_rc`` (R ``did``'s ``est_method = "ipw"``).
+    Each of the four cells is averaged with weights that sum to one: the
+    treated cells with the observation weights, the comparison cells with
+    the propensity odds. The influence function carries the logit
+    estimation effect.
+
+    Parameters are as in :func:`drdid_rc`.
+
+    Returns
+    -------
+    RCSResult
+
+    References
+    ----------
+    [@santanna2020doubly]
     """
-    y, post, d, x, w, n = _prepare(y, post, d, covariates, weights)
-
-    ps = _pscore(d, x, w)
-    trim = np.where(d == 0, ps < trim_level, ps < 1.01).astype(float)
-
-    w_tr_pre = trim * w * d * (1 - post)
-    w_tr_post = trim * w * d * post
-    w_co_pre = trim * w * ps * (1 - d) * (1 - post) / (1 - ps)
-    w_co_post = trim * w * ps * (1 - d) * post / (1 - ps)
-    mean = np.mean
-
-    eta_tr_pre = w_tr_pre * y / mean(w_tr_pre)
-    eta_tr_post = w_tr_post * y / mean(w_tr_post)
-    eta_co_pre = w_co_pre * y / mean(w_co_pre)
-    eta_co_post = w_co_post * y / mean(w_co_post)
-
-    a_tr_pre, a_tr_post = mean(eta_tr_pre), mean(eta_tr_post)
-    a_co_pre, a_co_post = mean(eta_co_pre), mean(eta_co_post)
-    att = float((a_tr_post - a_tr_pre) - (a_co_post - a_co_pre))
-
-    hess = np.linalg.inv(x.T @ ((ps * (1 - ps) * w)[:, None] * x)) * n
-    alr_ps = ((w * (d - ps))[:, None] * x) @ hess
-
-    inf_tr_pre = eta_tr_pre - w_tr_pre * a_tr_pre / mean(w_tr_pre)
-    inf_tr_post = eta_tr_post - w_tr_post * a_tr_post / mean(w_tr_post)
-    inf_co_pre = eta_co_pre - w_co_pre * a_co_pre / mean(w_co_pre)
-    inf_co_post = eta_co_post - w_co_post * a_co_post / mean(w_co_post)
-
-    m_pre = np.mean((w_co_pre * (y - a_co_pre))[:, None] * x, axis=0) / mean(w_co_pre)
-    m_post = np.mean((w_co_post * (y - a_co_post))[:, None] * x, axis=0) / mean(
-        w_co_post
+    s = _prepare(y, post, d, covariates, weights)
+    p, odds, keep = _comparison_odds(s, trim_level, tilting=False)
+    comp = keep * s.w * odds * (1.0 - s.d)
+    a01, a00 = comp * s.post, comp * (1.0 - s.post)
+    t11 = HajekMean(s.w * s.d * s.post, s.y)
+    t10 = HajekMean(s.w * s.d * (1.0 - s.post), s.y)
+    c01, c00 = HajekMean(a01, s.y), HajekMean(a00, s.y)
+    att = (t11.theta - t10.theta) - (c01.theta - c00.theta)
+    g_ps = c00.grad_through_a(a00[:, None] * s.x) - c01.grad_through_a(
+        a01[:, None] * s.x
     )
-    inf_co_ps = alr_ps @ (m_post - m_pre)
-
-    influence = (inf_tr_post - inf_tr_pre) - (inf_co_post - inf_co_pre + inf_co_ps)
-    se = float(np.std(influence, ddof=1) * np.sqrt(n - 1) / n)
-    return RCSResult(att=att, se=se, influence=np.asarray(influence, dtype=float))
-
-
-def drdid_imp_rc(
-    y: np.ndarray,
-    post: np.ndarray,
-    d: np.ndarray,
-    covariates: Optional[np.ndarray] = None,
-    weights: Optional[np.ndarray] = None,
-    trim_level: float = _TRIM_LEVEL,
-    locally_efficient: bool = True,
-) -> RCSResult:
-    """ "Improved" DR DiD for repeated cross-sections.
-
-    Port of ``DRDID::drdid_imp_rc`` (and, with
-    ``locally_efficient=False``, ``DRDID::drdid_imp_rc1``). This is what R
-    ``DRDID::drdid(..., panel = FALSE, estMethod = "imp")`` dispatches to.
-
-    "Improved" means the two nuisances are estimated so that the DR moment
-    is Neyman-orthogonal *by construction* rather than only asymptotically:
-
-    - the propensity score comes from inverse probability tilting
-      (Graham, Pinto & Egel 2012) instead of plain logit MLE, and
-    - the control outcome regressions are fit by WLS with the
-      propensity-odds weights ``ω p(X)/(1 − p(X))``.
-
-    The payoff is visible in the influence function: unlike
-    :func:`drdid_rc`, it carries **no** nuisance-estimation terms at all —
-    the propensity-score and outcome-regression corrections that
-    ``drdid_rc`` must add are identically zero here. Shorter code, and one
-    fewer place to get a variance wrong.
-    """
-    from .wooldridge_did import _calibrated_pscore
-
-    y, post, d, x, w, n = _prepare(y, post, d, covariates, weights)
-
-    ps, _flag = _calibrated_pscore(x, d, w)
-    trim = np.where(d == 0, ps < trim_level, ps < 1.01).astype(float)
-
-    # Control regressions carry the propensity-odds weights; treated
-    # regressions are plain WLS (DRDID: `wols_rc(treat = FALSE)` vs a
-    # bare `fastglm` on the treated cell).
-    odds_w = w * ps / (1 - ps)
-    b_c_pre = _wls(x, y, odds_w, (d == 0) & (post == 0))
-    b_c_post = _wls(x, y, odds_w, (d == 0) & (post == 1))
-    oc_pre, oc_post = x @ b_c_pre, x @ b_c_post
-    oc = post * oc_post + (1 - post) * oc_pre
-
-    if locally_efficient:
-        b_t_pre = _wls(x, y, w, (d == 1) & (post == 0))
-        b_t_post = _wls(x, y, w, (d == 1) & (post == 1))
-        ot_pre, ot_post = x @ b_t_pre, x @ b_t_post
-
-    # Treated cells are not trimmed (DRDID's treated bound is ps < 1.01).
-    w_tr_pre = w * d * (1 - post)
-    w_tr_post = w * d * post
-    w_co_pre = trim * w * ps * (1 - d) * (1 - post) / (1 - ps)
-    w_co_post = trim * w * ps * (1 - d) * post / (1 - ps)
-    w_d = w * d
-    w_dt1 = w * d * post
-    w_dt0 = w * d * (1 - post)
-
-    mean = np.mean
-    eta_tr_pre = w_tr_pre * (y - oc) / mean(w_tr_pre)
-    eta_tr_post = w_tr_post * (y - oc) / mean(w_tr_post)
-    eta_co_pre = w_co_pre * (y - oc) / mean(w_co_pre)
-    eta_co_post = w_co_post * (y - oc) / mean(w_co_post)
-
-    a_tr_pre, a_tr_post = mean(eta_tr_pre), mean(eta_tr_post)
-    a_co_pre, a_co_post = mean(eta_co_pre), mean(eta_co_post)
-    att = float((a_tr_post - a_tr_pre) - (a_co_post - a_co_pre))
-
-    inf_tr_pre = eta_tr_pre - w_tr_pre * a_tr_pre / mean(w_tr_pre)
-    inf_tr_post = eta_tr_post - w_tr_post * a_tr_post / mean(w_tr_post)
-    inf_co_pre = eta_co_pre - w_co_pre * a_co_pre / mean(w_co_pre)
-    inf_co_post = eta_co_post - w_co_post * a_co_post / mean(w_co_post)
-    influence = (inf_tr_post - inf_tr_pre) - (inf_co_post - inf_co_pre)
-
-    if locally_efficient:
-        eta_d_post = w_d * (ot_post - oc_post) / mean(w_d)
-        eta_dt1_post = w_dt1 * (ot_post - oc_post) / mean(w_dt1)
-        eta_d_pre = w_d * (ot_pre - oc_pre) / mean(w_d)
-        eta_dt0_pre = w_dt0 * (ot_pre - oc_pre) / mean(w_dt0)
-        a_d_post, a_dt1_post = mean(eta_d_post), mean(eta_dt1_post)
-        a_d_pre, a_dt0_pre = mean(eta_d_pre), mean(eta_dt0_pre)
-        att += (a_d_post - a_dt1_post) - (a_d_pre - a_dt0_pre)
-
-        inf_eff = (
-            (eta_d_post - w_d * a_d_post / mean(w_d))
-            - (eta_dt1_post - w_dt1 * a_dt1_post / mean(w_dt1))
-        ) - (
-            (eta_d_pre - w_d * a_d_pre / mean(w_d))
-            - (eta_dt0_pre - w_dt0 * a_dt0_pre / mean(w_dt0))
-        )
-        influence = influence + inf_eff
-
-    se = float(np.std(influence, ddof=1) * np.sqrt(n - 1) / n)
-    return RCSResult(att=att, se=se, influence=np.asarray(influence, dtype=float))
+    influence = (
+        (t11.influence - t10.influence)
+        - (c01.influence - c00.influence)
+        + logit_influence(s.x, s.d, s.w, p) @ g_ps
+    )
+    return RCSResult(float(att), se_from_influence(influence), influence)
 
 
 def ipw_did_rc(
-    y: np.ndarray,
-    post: np.ndarray,
-    d: np.ndarray,
+    y: Any,
+    post: Any,
+    d: Any,
     covariates: Optional[np.ndarray] = None,
     weights: Optional[np.ndarray] = None,
     trim_level: float = _TRIM_LEVEL,
 ) -> RCSResult:
-    """Abadie (2005) IPW DiD for repeated cross-sections — *not* normalised.
+    """IPW DiD for repeated cross-sections of Abadie type (not normalised).
 
-    Port of ``DRDID::ipw_did_rc``. The sibling :func:`std_ipw_did_rc`
-    divides each cell by its own realised weight mass (Hájek); this one
-    divides every cell by the population quantities ``Π̂ = E[ωD]`` and
-    ``λ̂ = E[ω·post]``, so the four cell weights need not average to one.
+    Sant'Anna and Zhao (2020) eq. (2.3):
+    ``tau = E[(a_1 - a_0) (T - lambda) Y / (lambda (1 - lambda))] / E[a_1]``
+    with ``a_1 = w D`` and ``a_0`` the trimmed odds weights of the
+    comparison rows. Written as ``(A / L1 - B / L0) / P`` in the sample
+    moments ``A = E_n[(a_1 - a_0) T Y]``, ``B = E_n[(a_1 - a_0) (1 - T) Y]``,
+    ``P = E_n[a_1]``, ``L1 = E_n[w T]`` and ``L0 = E_n[w (1 - T)]``; the
+    influence function is the delta method in those five moments plus the
+    logit estimation effect.
 
-    That makes the influence function longer, not shorter: because Π̂ and
-    λ̂ are themselves estimated, each cell contributes two extra terms for
-    their estimation error (``inf.*2`` / ``inf.*3`` in DRDID). Dropping
-    them is the same class of mistake as dropping the propensity-score
-    estimation effect.
+    Parameters are as in :func:`drdid_rc`.
+
+    Returns
+    -------
+    RCSResult
+
+    References
+    ----------
+    [@santanna2020doubly]
     """
-    y, post, d, x, w, n = _prepare(y, post, d, covariates, weights)
+    s = _prepare(y, post, d, covariates, weights)
+    p, odds, keep = _comparison_odds(s, trim_level, tilting=False)
+    a1 = s.w * s.d
+    a0 = keep * s.w * odds * (1.0 - s.d)
+    contrast = a1 - a0
+    mom_a = np.mean(contrast * s.post * s.y)
+    mom_b = np.mean(contrast * (1.0 - s.post) * s.y)
+    mass = float(a1.mean())
+    l1 = float(np.mean(s.w * s.post))
+    l0 = float(np.mean(s.w * (1.0 - s.post)))
+    att = (mom_a / l1 - mom_b / l0) / mass
 
-    ps = _pscore(d, x, w)
-    trim = np.where(d == 0, ps < trim_level, ps < 1.01).astype(float)
-
-    # Treated cells carry no trimming in DRDID (their bound is ps < 1.01,
-    # always true), so `trim` multiplies the control cells only.
-    w_tr_pre = w * d * (1 - post)
-    w_tr_post = w * d * post
-    w_co_pre = trim * w * ps * (1 - d) * (1 - post) / (1 - ps)
-    w_co_post = trim * w * ps * (1 - d) * post / (1 - ps)
-
-    mean = np.mean
-    pi_hat = mean(w * d)
-    lam = mean(w * post)
-    one_minus_lam = mean(w * (1 - post))
-
-    eta_tr_pre = w_tr_pre * y / (pi_hat * one_minus_lam)
-    eta_tr_post = w_tr_post * y / (pi_hat * lam)
-    eta_co_pre = w_co_pre * y / (pi_hat * one_minus_lam)
-    eta_co_post = w_co_post * y / (pi_hat * lam)
-
-    a_tr_pre, a_tr_post = mean(eta_tr_pre), mean(eta_tr_post)
-    a_co_pre, a_co_post = mean(eta_co_pre), mean(eta_co_post)
-    att = float((a_tr_post - a_tr_pre) - (a_co_post - a_co_pre))
-
-    def _cell_inf(eta: np.ndarray, a: float, period: np.ndarray, denom: float) -> Any:
-        """η − a, plus the estimation error of Π̂ and of λ̂ (or 1 − λ̂)."""
-        return (
-            (eta - a) - (w * d - pi_hat) * a / pi_hat - (w * period - denom) * a / denom
-        )
-
-    inf_tr_post = _cell_inf(eta_tr_post, a_tr_post, post, lam)
-    inf_tr_pre = _cell_inf(eta_tr_pre, a_tr_pre, 1 - post, one_minus_lam)
-    inf_co_post = _cell_inf(eta_co_post, a_co_post, post, lam)
-    inf_co_pre = _cell_inf(eta_co_pre, a_co_pre, 1 - post, one_minus_lam)
-
-    hess = np.linalg.inv(x.T @ ((ps * (1 - ps) * w)[:, None] * x)) * n
-    alr_ps = ((w * (d - ps))[:, None] * x) @ hess
-    # DRDID: mom.logit.<cell> <- colMeans(-eta.cont.<cell> * int.cov)
-    mom_pre = -np.mean(eta_co_pre[:, None] * x, axis=0)
-    mom_post = -np.mean(eta_co_post[:, None] * x, axis=0)
-    inf_logit = alr_ps @ (mom_post - mom_pre)
-
-    influence = (inf_tr_post - inf_tr_pre) - (inf_co_post - inf_co_pre) + inf_logit
-    se = float(np.std(influence, ddof=1) * np.sqrt(n - 1) / n)
-    return RCSResult(att=att, se=se, influence=np.asarray(influence, dtype=float))
+    per_row = contrast * s.y * (s.post / l1 - (1.0 - s.post) / l0)
+    influence = (per_row - att * a1) / mass
+    influence = influence - (mom_a / (l1**2 * mass)) * (s.w * s.post - l1)
+    influence = influence + (mom_b / (l0**2 * mass)) * (s.w * (1.0 - s.post) - l0)
+    # d tau / d gamma: a_0 moves by a_0 x, entering A and B with a minus sign.
+    shifted = a0 * s.y * (s.post / l1 - (1.0 - s.post) / l0)
+    g_ps = -(shifted[:, None] * s.x).mean(axis=0) / mass
+    influence = influence + logit_influence(s.x, s.d, s.w, p) @ g_ps
+    return RCSResult(float(att), se_from_influence(influence), influence)
 
 
 def twfe_did_rc(
-    y: np.ndarray,
-    post: np.ndarray,
-    d: np.ndarray,
+    y: Any,
+    post: Any,
+    d: Any,
     covariates: Optional[np.ndarray] = None,
     weights: Optional[np.ndarray] = None,
 ) -> RCSResult:
-    """TWFE regression DiD for repeated cross-sections.
+    """Two-way fixed-effects regression DiD for repeated cross-sections.
 
-    Port of ``DRDID::twfe_did_rc``: weighted OLS of
-    ``y ~ D + post + D:post + X`` with the coefficient on ``D:post`` read
-    off as the ATT, and the usual sandwich influence function.
+    Weighted least squares of ``y`` on ``(1, d, post, d * post, covariates)``;
+    the ATT is the interaction coefficient (Sant'Anna and Zhao 2020,
+    eq. 2.5). That coefficient equals the ATT only under homogeneous effects
+    and no covariate-specific trends. The influence function is the
+    least-squares influence row for the interaction and the standard error
+    ``sd(IF) / sqrt(n)``.
 
-    Included for completeness and as a **contrast**, not as a
-    recommendation: with covariates this is exactly the specification
-    Sant'Anna & Zhao (2020) and Caetano & Callaway (2024) warn about — it
-    recovers the ATT only under effect homogeneity across covariate
-    strata. Prefer :func:`drdid_rc`.
+    Parameters
+    ----------
+    y, post, d : array-like
+    covariates : ndarray, optional
+    weights : array-like, optional
+
+    Returns
+    -------
+    RCSResult
+
+    References
+    ----------
+    [@santanna2020doubly]
     """
-    y, post, d, x, w, n = _prepare(y, post, d, covariates, weights)
-
-    # `_prepare` already prepends the intercept; the extra covariates (if
-    # any) are the remaining columns.
-    extra = x[:, 1:]
-    design = np.column_stack([np.ones(n), d, post, d * post, extra])
-    k_att = 3  # index of the D:post column
-
-    sw = np.sqrt(w)
-    coef, *_ = np.linalg.lstsq(design * sw[:, None], y * sw, rcond=None)
-    att = float(coef[k_att])
-
-    resid = y - design @ coef
-    xpx = (design * w[:, None]).T @ design / n
-    if np.linalg.cond(xpx) > 1 / np.finfo(float).eps:
-        raise DataInsufficient(
-            "TWFE design matrix is singular.",
-            recovery_hint="Drop collinear covariates.",
-            diagnostics={"cond": float(np.linalg.cond(xpx))},
-        )
-    alr = ((w * resid)[:, None] * design) @ np.linalg.inv(xpx)
-    influence = alr[:, k_att]
-
-    # DRDID's TWFE functions use `sd(inf)/sqrt(n)` where every other
-    # estimator in the package uses `sd(inf)*sqrt(n-1)/n`. The two differ
-    # by sqrt(1 - 1/n) — 3e-4 at n = 1600, invisible in a smoke test and
-    # exactly the kind of thing that turns up as an unexplained residual
-    # in a parity table. Reproduce the reference's own convention.
+    s = _prepare(y, post, d, covariates, weights)
+    n = s.y.shape[0]
+    z = np.column_stack([s.x[:, :1], s.d, s.post, s.d * s.post, s.x[:, 1:]])
+    every = np.ones(n, dtype=bool)
+    coef = wls_coef(z, s.y, s.w, every)
+    influence = wls_influence(z, s.y, s.w, every, coef)[:, 3]
     se = float(np.std(influence, ddof=1) / np.sqrt(n))
-    return RCSResult(att=att, se=se, influence=np.asarray(influence, dtype=float))
+    return RCSResult(float(coef[3]), se, influence)

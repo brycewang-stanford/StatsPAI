@@ -134,8 +134,8 @@ def aggte(
         .. versionadded:: 1.31.0
     share_variance : bool, default True
         Carry the sampling variability of the *estimated* cohort shares
-        into the aggregated variance (R ``did:::wif``; the Callaway &
-        Sant'Anna reference convention). ``False`` holds the cohort shares
+        into the aggregated variance (the Callaway & Sant'Anna reference
+        convention, also R ``did``'s). ``False`` holds the cohort shares
         fixed, which is the convention of Stata ``csdid``'s
         ``estat group`` aggregate (``GAverage``); point estimates are
         identical either way and only the ``'group'`` overall (and any
@@ -311,15 +311,15 @@ def aggte(
     # Per-cell aggregated influence functions.
     #
     # ⚠️ correctness fix: the aggregation weights are *estimated* cohort
-    # shares, not constants.  Treating them as fixed drops R
-    # ``did:::wif`` from the variance and the reported SE came out up to
+    # shares, not constants.  Treating them as fixed drops their
+    # influence function from the variance and the reported SE came out up to
     # ~8% too small (anti-conservative).  Build the corrected functions
     # once here; every SE below is derived from them so the analytic and
     # bootstrap paths cannot drift apart.
     unit_cohorts = model_info.get("_unit_cohorts")
     # ω from the underlying fit. The aggregation weights are cohort
     # *shares* of the target population, so under ω they must be built
-    # from ω-mass — matching R did's ``pg <- mean(weights * (G == g))``.
+    # from ω-mass, pg = mean(ω · 1{G == g}) (as R did does).
     unit_weights = model_info.get("_unit_weights")
     psi_cells: Optional[np.ndarray] = None
     if inf_matrix is not None:
@@ -463,7 +463,7 @@ def aggte(
         # bootstrap, so the two agree only up to bootstrap noise.
         if psi_cells is not None:
             # Compose the OVERALL from the already-corrected per-cell
-            # functions.  R applies ``wif`` once, at the level where the
+            # functions.  The estimated-share term enters once, at the level where the
             # estimated cohort shares actually enter:
             #
             #   dynamic / calendar — the overall is an equal-weight mean
@@ -471,7 +471,7 @@ def aggte(
             #     are constants and carry no extra term.
             #   group — the overall re-weights theta(g) by each cohort's
             #     estimated share, so the term applies here instead (the
-            #     per-cohort cells are single-cohort and hence wif-free).
+            #     per-cohort cells are single-cohort, so their share term is zero).
             overall_inf = np.asarray(psi_cells @ w_overall, dtype=float)
             if type == "group" and ind_cells is not None:
                 pg_g, ind_g = _cohort_share_context(
@@ -895,7 +895,7 @@ def _plain_labels(labels: np.ndarray) -> List[Any]:
 def _se_from_influence(
     psi: np.ndarray, n_units: int, cluster_ids: Optional[np.ndarray] = None
 ) -> np.ndarray:
-    """``sqrt(mean(ψ²) / n)`` per column — R ``did``'s ``getSE``.
+    """``sqrt(mean(ψ²) / n)`` per column (the analytic SE R ``did`` reports).
 
     With ``cluster_ids`` the cluster sums replace the rows (Stata
     ``csdid, cluster()``); see :func:`statspai.did._core.influence_se_did`.
@@ -916,21 +916,25 @@ def _aggregated_influence(
 ) -> np.ndarray:
     """Per-cell aggregated influence functions, weight estimation included.
 
-    Column ``r`` is ``Ψ[:, keep] @ w_r + wif_r @ att[keep]`` where
-    ``keep`` are the cells row ``r`` of ``W`` actually loads on.  This is
-    R ``did:::get_agg_inf_func`` with a non-null ``wif``.
+    Column ``r`` is ``inf_matrix @ W[r]`` plus the estimated-share term
+    ``weight_influence(pg[keep], ind[:, keep]) @ att_vec[keep]`` over the
+    cells ``keep`` that row ``r`` gives non-zero weight. The share term is
+    exactly zero when those cells belong to a single cohort, so per-cohort
+    averages are unaffected. Clean-room implementation; specification in
+    ``docs/dev/cleanroom/did_drdid.md``.
+
+    Returns
+    -------
+    ndarray of shape (n_units, K)
     """
-    n_units = inf_matrix.shape[0]
-    out = np.zeros((n_units, W.shape[0]), dtype=float)
+    psi = np.asarray(inf_matrix @ W.T, dtype=float)
     for r in range(W.shape[0]):
-        keep = np.nonzero(W[r])[0]
+        keep = np.flatnonzero(W[r] != 0.0)
         if keep.size == 0:
             continue
-        w = W[r, keep]
-        psi = inf_matrix[:, keep] @ w
-        wif = _weight_influence(pg[keep], ind[:, keep])
-        out[:, r] = psi + wif @ att_vec[keep]
-    return out
+        share_if = _weight_influence(pg[keep], ind[:, keep])
+        psi[:, r] = psi[:, r] + share_if @ np.asarray(att_vec, dtype=float)[keep]
+    return psi
 
 
 def _analytic_se(W: np.ndarray, detail: pd.DataFrame) -> np.ndarray:

@@ -294,7 +294,7 @@ def multiplier_bootstrap(
         CS2021 §4.2, available in Stata ``csdid`` via ``wbtype(mammen)``.
     cluster_ids : ndarray of shape (n,), optional
         Cluster membership per row. When given, rows are collapsed to
-        cluster **sums** (``rowsum(inf.func, cluster)``) and one multiplier
+        cluster **sums** and one multiplier
         is drawn per cluster, keeping the ``1/n`` scaling of the estimator
         — the R ``did::mboot`` convention (CS2021, Remark 10).
 
@@ -332,7 +332,7 @@ def multiplier_bootstrap(
             f"weight_type must be 'mammen' or 'rademacher', got {weight_type!r}"
         )
 
-    # Collapse to cluster *sums* (R did::mboot: `rowsum(inf.func, cluster)`)
+    # Collapse to cluster *sums* (as R did::mboot does)
     # so the bootstrap resamples clusters, not units.
     #
     # The divisor stays `n` (rows), not `n_clusters`: the estimator is the
@@ -818,10 +818,9 @@ def cohort_share_context(
     """Build ``(pg, ind)`` for a vector of per-cell cohort labels.
 
     ``pg[k]`` is the share of **all** units (never-treated included) whose
-    cohort equals cell ``k``'s group, matching R ``did``'s
-    ``pg <- mean(weights * (G == g))``.  ``ind[i, k]`` is
-    ``ω_i · 1{G_i == g_k}``, matching ``did:::wif``'s
-    ``weights.ind * 1*(glist == group[k])``.
+    cohort equals cell ``k``'s group, ``pg[k] = mean(ω · 1{G == g_k})``,
+    and ``ind[i, k] = ω_i · 1{G_i == g_k}``: the inputs of
+    :func:`weight_influence`.
 
     Parameters
     ----------
@@ -847,37 +846,42 @@ def cohort_share_context(
 def weight_influence(pg: "np.ndarray", ind: "np.ndarray") -> "np.ndarray":
     """Influence function of the *estimated* aggregation weights.
 
-    Port of R ``did:::wif``.  Callaway-Sant'Anna aggregations weight each
-    cell by its cohort share ``pg[k] = P(G = g_k)``, which is itself
-    estimated.  Treating those weights as fixed drops a term from the
-    variance and makes the reported standard error too small
-    (anti-conservative).
+    The Callaway-Sant'Anna aggregates weight cell ``k`` by
+    ``w_k = p_k / S`` with ``p_k = E_n[ind_k]`` the (weighted) share of the
+    cell's cohort and ``S = sum_j p_j``. Those shares are estimated, so by
+    the delta method each weight contributes
+
+        IF(w_k)_i = (ind_ik - p_k) / S - p_k * sum_j (ind_ij - p_j) / S**2
+
+    to the aggregate's influence function through ``IF(w) @ ATT``. Rows
+    sum to zero across cells (the weights always sum to one) and columns
+    average to zero; cells of one cohort give identically zero. Clean-room
+    implementation from Callaway and Sant'Anna (2021); specification in
+    ``docs/dev/cleanroom/did_drdid.md``.
 
     Parameters
     ----------
-    pg : ndarray, shape (K,)
-        Estimated cohort share behind each kept cell.
-    ind : ndarray, shape (n_units, K)
-        ``1{G_i == g_k}`` membership indicators.
+    pg : ndarray of shape (K,)
+        Cohort shares ``p_k`` (see :func:`cohort_share_context`).
+    ind : ndarray of shape (n, K)
+        Per-unit indicators ``omega_i 1{G_i = g_k}``.
 
     Returns
     -------
-    ndarray, shape (n_units, K)
-        Multiply by the cell ATTs and add to ``Psi[:, keep] @ w``.
+    ndarray of shape (n, K)
+        Zero when the cells carry no cohort mass.
 
-    Notes
-    -----
-    When every kept cell comes from the same cohort the ``pg`` factors
-    cancel and this is identically zero — which is why single-cohort
-    aggregates were never affected by the omission.
+    References
+    ----------
+    [@callaway2021difference]
     """
-    total = float(np.sum(pg))
-    if total <= 0:
-        return np.zeros_like(ind, dtype=float)
-    centered = ind - pg[None, :]
-    if1 = centered / total
-    if2 = np.outer(centered.sum(axis=1), pg / (total**2))
-    return np.asarray(if1 - if2, dtype=float)
+    pg = np.asarray(pg, dtype=float)
+    ind = np.asarray(ind, dtype=float)
+    total = float(pg.sum())
+    if total <= 0.0:
+        return np.zeros_like(ind)
+    dev = ind - pg[None, :]
+    return dev / total - np.outer(dev.sum(axis=1), pg) / total**2
 
 
 # ======================================================================

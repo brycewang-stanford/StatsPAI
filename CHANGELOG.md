@@ -16,6 +16,39 @@ All notable changes to StatsPAI will be documented in this file.
 
 - **Added**: `sp.from_stata` / `sp.stata` translate `xtregar` (`fe` / `re`, `rhotype()` with its abbreviations, `rhof()`, `twostep`, `lbi`), `xttobit` (`ll(#)` / `ul(#)`, `intpoints()`, `tobit`) and `xtintreg` (`intpoints()`, `intreg`) to `sp.xtregar` / `sp.xttobit` / `sp.xtintreg`. The panel declaration comes from `xtset` as for `xtreg`. Refused: `ll` / `ul` without a number or with a variable, `xttobit` without any limit, factor-variable regressors, weights; `intmethod(ghermite)`, `noconstant`, `offset()` and `constraints()` are left out of the call and listed in `untranslated_options`, so `sp.stata` refuses to run them. Executed equivalence: the Stata lines run through `sp.stata` reproduce the frozen Stata 18 numbers of `tests/test_xtregar_stata.py` (1e-10) and `tests/test_xttobit_stata.py` (1e-6) (`tests/test_stata_translation_xt_ar_censored.py`).
 
+### DR-DiD engines and CS aggregation weights: clean-room rewrite
+
+- **Changed**: `did/_rcs.py` (the eight repeated-cross-section estimators
+  behind `sp.drdid` and `callaway_santanna(panel=False)`), the panel 2x2
+  engines of `callaway_santanna` (`estimator='reg' | 'ipw' | 'stdipw' |
+  'ipw_abadie' | 'dr' | 'drimp'`, also used by `sp.drdid` on panels),
+  `did/_core.weight_influence` and `sp.aggte`'s aggregated influence
+  functions are reimplemented from scratch. The earlier code had been
+  written after reading R `DRDID` / `did` source (GPL-3); the new code was
+  written only from Sant'Anna and Zhao (2020), Callaway and Sant'Anna
+  (2021), the DRDID help pages and DRDID 1.3.0's outputs on our data (black
+  box). Shared algebra lives in the new `did/_dr_common.py`; specification
+  and evidence in `docs/dev/cleanroom/did_drdid.md`. Signatures, result
+  fields and published numbers are unchanged (Track A 04 / 79 and
+  original-data 02 reproduce within 1e-9; all CS / drdid / aggte reference
+  tests pass at their tolerances). New black-box fixture: 82 estimator x
+  design x weighting cases (one design with trimmed controls, one with
+  singular cell regressions) with ATT, SE and five influence-function
+  projections (`test_drdid_blackbox_R_parity.py`). Repeated-cross-section
+  cell regressions that are singular now raise `MethodIncompatibility` for
+  the traditional DR and OR estimators and drop the collinear column for
+  the improved ones, as the reference does.
+- **Open (owner decision)**: on repeated cross-sections the reference
+  carries the pre-period comparison-regression estimation effect of the
+  traditional DR estimators (`drdid_rc`, `drdid_rc1`) with the opposite sign
+  to the delta method (paper, Appendix B). With a misspecified propensity
+  score the reference SE is about a third too small in a Monte Carlo
+  (coverage 0.81 vs 0.95). The default keeps the reference sign;
+  `_rcs.drdid_rc(..., variance_convention='delta')` gives the paper's
+  influence function. Switching the default would be a correctness fix for
+  `sp.drdid(method='trad')` on repeated cross-sections and
+  `callaway_santanna(panel=False, estimator='dr')`.
+
 ### `sp.panel_match`: clean-room rewrite
 
 - **Changed**: `sp.panel_match` is reimplemented from scratch

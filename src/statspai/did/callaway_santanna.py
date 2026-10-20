@@ -42,6 +42,7 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from . import _dr_common as _drc
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import cohort_share_context as _cohort_share_context
 from ._core import covariates_from_formula as _covariates_from_formula
@@ -1862,6 +1863,143 @@ def _estimate_single_att(
 
 
 # ------------------------------------------------------------------
+# Shared plumbing of the panel 2x2 engines
+# ------------------------------------------------------------------
+#
+# Every engine below works on the long difference ``dy = Y_t - Y_base`` of
+# one (g, t) cell and returns ``(att, se, influence)``, the influence
+# function being on the scale ``att_hat - att ~ mean(influence)`` so that
+# ``se = sqrt(mean(influence**2) / n)``. The algebra (Hajek means, the
+# nuisance influence functions and the delta-method gradients) is written
+# out in docs/dev/cleanroom/did_drdid.md, section "Panel estimators", after
+# Sant'Anna and Zhao (2020) [@santanna2020doubly].
+
+
+def _not_estimated(n: int) -> Tuple[float, float, np.ndarray]:
+    """The "not estimated" triple of a degenerate cell."""
+    return 0.0, np.inf, np.zeros(n)
+
+
+def _cell_arrays(
+    dy: np.ndarray,
+    d: np.ndarray,
+    w: Optional[np.ndarray],
+) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """``dy``, ``d`` and the weights rescaled to mean one.
+
+    ``None`` when the weights have no positive mass (the cell cannot be
+    estimated).
+    """
+    dy = np.asarray(dy, dtype=float)
+    d = np.asarray(d, dtype=float)
+    if w is None:
+        return dy, d, np.ones(dy.shape[0], dtype=float)
+    w = np.asarray(w, dtype=float)
+    mass = float(w.mean()) if w.size else 0.0
+    if not np.isfinite(mass) or mass <= 0:
+        return None
+    return dy, d, _drc.normalized_weights(w, dy.shape[0])
+
+
+def _arms_have_mass(d: np.ndarray, w: np.ndarray) -> bool:
+    """True when both the treated and the comparison arm carry weight."""
+    return float(np.sum(w * d)) > 0 and float(np.sum(w * (1.0 - d))) > 0
+
+
+def _nuisance_design(x: Optional[np.ndarray], fitted: np.ndarray) -> np.ndarray:
+    """Design matrix (with intercept) of the nuisance fit behind ``fitted``.
+
+    The covariate fits of :func:`_estimate_pscore` and
+    :func:`_estimate_outcome_reg` fall back to a constant (with a warning)
+    when they cannot use the covariates, so a constant ``fitted`` means the
+    nuisance parameter is the intercept alone. Constant covariate columns
+    are dropped: they span the intercept, and the estimation effect does
+    not depend on how the column space is parameterised.
+    """
+    n = fitted.shape[0]
+    if np.ptp(fitted) == 0:
+        return np.ones((n, 1), dtype=float)
+    return _covariate_design(x, n)
+
+
+def _covariate_design(x: Optional[np.ndarray], n: int) -> np.ndarray:
+    """Intercept plus the non-constant covariate columns."""
+    if x is None:
+        return np.ones((n, 1), dtype=float)
+    x = np.asarray(x, dtype=float)
+    if x.ndim == 1:
+        x = x[:, None]
+    varying = np.ptp(x, axis=0) > 0 if x.shape[1] else np.zeros(0, dtype=bool)
+    return _drc.design_matrix(x[:, varying] if varying.any() else None, n)
+
+
+def _project(influence: Any, gram_and_score: Any, grad: np.ndarray) -> np.ndarray:
+    """``l_i' grad`` for a nuisance influence function ``l``.
+
+    ``influence`` computes the ``n x k`` influence matrix with the shared
+    primitive; when its Gram / Hessian matrix is singular (collinear
+    covariates) ``gram_and_score`` supplies ``(gram, score)`` and the
+    minimum-norm solve is used, which gives the same ``l_i' grad`` for any
+    ``grad`` in the column space of the design.
+    """
+    try:
+        out = influence() @ grad
+        if np.all(np.isfinite(out)):
+            return out
+    except np.linalg.LinAlgError:
+        pass
+    gram, score = gram_and_score()
+    return score @ np.linalg.lstsq(gram, grad, rcond=None)[0]
+
+
+def _wls_effect(
+    x_design: np.ndarray,
+    resid: np.ndarray,
+    w: np.ndarray,
+    rows: np.ndarray,
+    grad: np.ndarray,
+) -> np.ndarray:
+    """Estimation effect ``l_b' grad`` of a WLS fit with residuals ``resid``."""
+    n, k = x_design.shape
+    zeros = np.zeros(k)
+
+    def gram_and_score() -> Tuple[np.ndarray, np.ndarray]:
+        wr = np.where(rows, w, 0.0)
+        gram = (x_design.T * wr) @ x_design / n
+        return gram, x_design * (wr * np.where(rows, resid, 0.0))[:, None]
+
+    # ``resid`` already is ``y - x'b`` on the fitted rows, so passing it as
+    # the outcome with a zero coefficient vector reproduces the residuals
+    # exactly.
+    return _project(
+        lambda: _drc.wls_influence(x_design, resid, w, rows, zeros),
+        gram_and_score,
+        grad,
+    )
+
+
+def _logit_effect(
+    x_design: np.ndarray,
+    d: np.ndarray,
+    w: np.ndarray,
+    pscore: np.ndarray,
+    grad: np.ndarray,
+) -> np.ndarray:
+    """Estimation effect ``l_g' grad`` of the weighted logit propensity fit."""
+    n = x_design.shape[0]
+
+    def gram_and_score() -> Tuple[np.ndarray, np.ndarray]:
+        hess = (x_design.T * (w * pscore * (1.0 - pscore))) @ x_design / n
+        return hess, x_design * (w * (d - pscore))[:, None]
+
+    return _project(
+        lambda: _drc.logit_influence(x_design, d, w, pscore),
+        gram_and_score,
+        grad,
+    )
+
+
+# ------------------------------------------------------------------
 # Doubly Robust
 # ------------------------------------------------------------------
 
@@ -1873,60 +2011,63 @@ def _dr_att(
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
     w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
-    """Doubly robust ATT(g,t) estimator (Sant'Anna & Zhao 2020).
+    """Doubly robust 2x2 DiD on a panel (Sant'Anna-Zhao eq. 3.1).
 
-    ``w`` carries the unit weights ω (mean 1). Every ``np.mean(w * z)``
-    reduces exactly to ``np.mean(z)`` at ω ≡ 1, so the unweighted path is
-    numerically untouched.
+    The difference of two Hajek means of the outcome-regression residual
+    ``r = dy - m(X)``: over the treated (weights ``w``) and over the
+    comparison units (weights ``w p/(1-p)``, trimmed at ``pscore_trim``).
+    ``m`` is the weighted least-squares fit of ``dy`` on the comparison
+    units, ``p`` the weighted logit propensity score.
+
+    Parameters
+    ----------
+    dy : ndarray
+        Outcome change ``Y_t - Y_base`` per unit.
+    d : ndarray
+        1 for the treated cohort, 0 for the comparison units.
+    x : ndarray or None
+        Covariates without an intercept column.
+    pscore_trim : float
+        Comparison units with ``p >= pscore_trim`` get weight zero.
+    w : ndarray, optional
+        Unit weights; rescaled to mean one here.
+
+    Returns
+    -------
+    tuple
+        ``(att, se, influence)``; a degenerate cell gives
+        ``(0.0, inf, zeros)``.
+
+    References
+    ----------
+    [@santanna2020doubly]; docs/dev/cleanroom/did_drdid.md.
     """
     n = len(dy)
-    c = 1 - d
-    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
+    arrays = _cell_arrays(dy, d, w)
+    if arrays is None:
+        return _not_estimated(n)
+    dy, d, w = arrays
+    if not _arms_have_mass(d, w):
+        return _not_estimated(n)
 
-    # --- Propensity score ---
     pscore = _estimate_pscore(d, x, n, w)
     keep = _pscore_trim_mask(pscore, d, pscore_trim)
     _TRIM_TALLY.record(keep, d)
-
-    # --- Outcome regression ---
-    m_hat = _estimate_outcome_reg(dy, c, x, n, w)
-
-    # --- DR weights ---
-    p_d = np.mean(w * d)
-    w1 = keep * w * d / p_d if p_d > 0 else np.zeros(n)
-
-    ipw_raw = keep * w * pscore * c / (1 - pscore)
-    ipw_denom = np.mean(ipw_raw)
-    w0 = ipw_raw / ipw_denom if ipw_denom > 1e-12 else np.zeros(n)
-
-    # ATT, as the difference of two Hajek-normalised arm means.
+    m_hat = _estimate_outcome_reg(dy, 1 - d, x, n, w)
     resid = dy - m_hat
-    eta_t = float(np.mean(w1 * resid))
-    eta_c = float(np.mean(w0 * resid))
-    att = eta_t - eta_c
 
-    # ⚠️ correctness fix (2): de-mean each arm by its own mean.
-    #
-    # The previous form ``(w1 - w0) resid - att w1`` substitutes ``w1``
-    # for ``w0`` in the control arm's centring term. Both weights are
-    # Hajek-normalised to mean one, so the ATT is unaffected, but the
-    # variance is not. See the fuller note in :func:`_ipw_att`.
-    #
-    inf_func = w1 * (resid - eta_t) - w0 * (resid - eta_c)
+    a_1 = w * d
+    a_0 = keep * w * (1.0 - d) * pscore / (1.0 - pscore)
+    p_d = float(a_1.mean())
+    ipw_denom = float(a_0.mean())
+    if p_d <= 0 or not np.isfinite(ipw_denom) or ipw_denom <= 0:
+        return _not_estimated(n)
 
-    # ⚠️ correctness fix (3): propagate both nuisance estimation effects.
-    #
-    # DR is Neyman-orthogonal in each nuisance separately, so these terms
-    # are second-order and the omission cost far less than in
-    # :func:`_ipw_att` — but "second-order" is not "zero", and the gap to
-    # ``DRDID::drdid_panel`` was up to 0.9% on the reference grid. Port
-    # the three remaining pieces (DRDID 1.2.3, read from source):
-    #
-    #     inf.treat.2 = alr_wols @ M1 / E[w_treat]
-    #     inf.cont.2  = alr_ps   @ M2 / E[w_cont]
-    #     inf.cont.3  = alr_wols @ M3 / E[w_cont]
-    #     att.inf = inf.treat.1 - inf.treat.2 - (inf.cont.1 + inf.cont.2 - inf.cont.3)
-    adj = _dr_estimation_effect(
+    treated = _drc.HajekMean(a_1, resid)
+    comparison = _drc.HajekMean(a_0, resid)
+    att = treated.theta - comparison.theta
+
+    effect = _dr_estimation_effect(
         dy=dy,
         d=d,
         x=x,
@@ -1934,16 +2075,14 @@ def _dr_att(
         keep=keep,
         pscore=pscore,
         resid=resid,
-        eta_c=eta_c,
+        eta_c=comparison.theta,
         p_d=p_d,
         ipw_denom=ipw_denom,
     )
-    if adj is not None:
-        inf_func = inf_func + adj
-
-    se = float(np.sqrt(np.mean(inf_func**2) / n))
-
-    return float(att), se, inf_func
+    if effect is None:
+        return _not_estimated(n)
+    influence = treated.influence - comparison.influence + effect
+    return float(att), _drc.se_from_influence(influence), influence
 
 
 def _dr_estimation_effect(
@@ -1959,66 +2098,72 @@ def _dr_estimation_effect(
     p_d: float,
     ipw_denom: float,
 ) -> Optional[np.ndarray]:
-    """Nuisance-estimation correction for the DR influence function.
+    """Nuisance estimation effect in the influence function of :func:`_dr_att`.
 
-    Port of ``DRDID::drdid_panel``'s ``inf.treat.2``, ``inf.cont.2`` and
-    ``inf.cont.3``. Returns the signed sum to be *added* to the
-    first-order influence function, or ``None`` when either first-stage
-    design is singular — in which case the caller keeps the uncorrected
-    (slightly conservative) variance rather than emitting a nonsense one.
+    The sum of the outcome-regression term
+    ``l_b' (E_n[a_0 X]/E_n[a_0] - E_n[a_1 X]/E_n[a_1])`` and the propensity
+    term ``-l_g' E_n[a_0 (r - eta_c) X]/E_n[a_0]``, with ``a_1 = w d``,
+    ``a_0 = keep w p/(1-p) (1-d)`` and ``l_b`` / ``l_g`` the influence
+    functions of the comparison-arm WLS fit and of the logit fit.
 
-    ``x`` is the covariate block *without* an intercept; DRDID's
-    ``int.cov`` is the model matrix including one, and the correction is
-    non-trivial even in the no-covariate case, where ``int.cov`` is a
-    single column of ones.
+    Parameters
+    ----------
+    dy, d, x, w : ndarray
+        Outcome change, treated dummy, covariates (no intercept, or None)
+        and mean-one weights of the cell.
+    keep : ndarray
+        Trimming mask (0 for trimmed comparison units).
+    pscore : ndarray
+        Fitted propensity scores.
+    resid : ndarray
+        ``dy - m(X)``, the outcome-regression residual.
+    eta_c : float
+        Hajek mean of ``resid`` over the comparison arm.
+    p_d, ipw_denom : float
+        ``E_n[a_1]`` and ``E_n[a_0]``.
+
+    Returns
+    -------
+    ndarray or None
+        The ``n``-vector, or ``None`` when an arm has no weight.
+
+    References
+    ----------
+    [@santanna2020doubly]; docs/dev/cleanroom/did_drdid.md.
     """
-    n = len(dy)
-    try:
-        import statsmodels.api as sm
-
-        xc = (
-            np.ones((n, 1), dtype=float)
-            if x is None or x.shape[1] == 0
-            else sm.add_constant(np.asarray(x, dtype=float))
-        )
-    except ImportError:  # pragma: no cover - statsmodels is a core dep
+    dy = np.asarray(dy, dtype=float)
+    d = np.asarray(d, dtype=float)
+    w = np.asarray(w, dtype=float)
+    pscore = np.asarray(pscore, dtype=float)
+    resid = np.asarray(resid, dtype=float)
+    if not (np.isfinite(p_d) and p_d > 0 and np.isfinite(ipw_denom) and ipw_denom > 0):
         return None
-
-    if p_d <= 0 or ipw_denom <= 1e-12:
+    with np.errstate(divide="ignore", invalid="ignore"):
+        a_0 = np.asarray(keep, dtype=float) * w * (1.0 - d) * pscore / (1.0 - pscore)
+    if not np.all(np.isfinite(a_0)) or float(a_0.mean()) <= 0:
         return None
+    a_1 = w * d
 
-    # DRDID's un-normalised arm weights.
-    w_treat = keep * w * d
-    w_cont = keep * w * pscore * (1.0 - d) / (1.0 - pscore)
-    mw_t, mw_c = float(np.mean(w_treat)), float(np.mean(w_cont))
-    if mw_t <= 0 or mw_c <= 0:
+    # Outcome regression: the residual moves by -X db in both Hajek means.
+    x_or = _nuisance_design(x, dy - resid)
+    m_1 = (a_1[:, None] * x_or).mean(axis=0) / p_d
+    m_0 = (a_0[:, None] * x_or).mean(axis=0) / ipw_denom
+    or_effect = _wls_effect(x_or, resid, w, d == 0, m_0 - m_1)
+
+    # Propensity score: the comparison weights move by a_0 X dg.
+    ps_effect = _pscore_estimation_effect(
+        dy=resid - eta_c,
+        d=d,
+        x=x,
+        w=w,
+        pscore=pscore,
+        arm_weights=a_0,
+        arm_denom=ipw_denom,
+        center=False,
+    )
+    if ps_effect is None:
         return None
-
-    # Asymptotic linear representation of the control-arm WLS.
-    weights_ols = w * (1.0 - d)
-    wols_x = weights_ols[:, None] * xc
-    xpx = (wols_x.T @ xc) / n
-    try:
-        xpx_inv = np.linalg.inv(xpx)
-    except np.linalg.LinAlgError:
-        return None
-    alr_wols = ((weights_ols * resid)[:, None] * xc) @ xpx_inv
-
-    # Asymptotic linear representation of the weighted logit.
-    hess_w = pscore * (1.0 - pscore) * w
-    info = (xc.T * hess_w) @ xc / n
-    try:
-        info_inv = np.linalg.inv(info)
-    except np.linalg.LinAlgError:
-        return None
-    alr_ps = ((w * (d - pscore))[:, None] * xc) @ info_inv
-
-    m1 = np.mean(w_treat[:, None] * xc, axis=0)
-    m2 = np.mean((w_cont * (resid - eta_c))[:, None] * xc, axis=0)
-    m3 = np.mean(w_cont[:, None] * xc, axis=0)
-
-    out = -(alr_wols @ m1) / mw_t - (alr_ps @ m2) / mw_c + (alr_wols @ m3) / mw_c
-    return out if np.all(np.isfinite(out)) else None
+    return or_effect + ps_effect
 
 
 def _dr_imp_att(
@@ -2028,57 +2173,75 @@ def _dr_imp_att(
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
     w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
-    """Improved doubly robust ATT(g,t) (Sant'Anna & Zhao 2020, Section 3.1).
+    """Improved (locally efficient, bias-reduced) DR 2x2 DiD on a panel.
 
-    ``DRDID::drdid_imp_panel``: the propensity score solves the inverse
-    probability tilting moment (the odds-weighted controls reproduce the
-    treated covariate means exactly) and the outcome regression is least
-    squares on the controls weighted by the fitted odds. At that pair of
-    nuisance estimates the derivative of the DR moment in either nuisance
-    is zero in sample, so the influence function is the plug-in one.
+    As :func:`_dr_att`, with the propensity score fitted by inverse
+    probability tilting and the comparison outcome regression fitted by
+    least squares with weights ``w p/(1-p)`` (Sant'Anna-Zhao Section 3.1).
+    Both fits' first-order conditions remove the estimation effect, so the
+    influence function is the two Hajek terms alone. Without covariates
+    the tilting and the logit scores coincide and :func:`_dr_att` is used.
 
-    Without covariates both nuisances are constants and every estimator of
-    the family is the difference in mean changes; the call is passed to
-    :func:`_dr_att` so that case stays one code path.
+    Parameters
+    ----------
+    dy, d, x, pscore_trim, w
+        As in :func:`_dr_att`.
+
+    Returns
+    -------
+    tuple
+        ``(att, se, influence)``; a degenerate cell gives
+        ``(0.0, inf, zeros)``.
+
+    References
+    ----------
+    [@santanna2020doubly]; docs/dev/cleanroom/did_drdid.md.
     """
-    if x is None or x.shape[1] == 0:
-        return _dr_att(dy, d, x, pscore_trim, w)
-    from .wooldridge_did import _calibrated_pscore, _weighted_lstsq
-
     n = len(dy)
-    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
-    xc = np.column_stack([np.ones(n), np.asarray(x, dtype=float)])
+    arrays = _cell_arrays(dy, d, w)
+    if arrays is None:
+        return _not_estimated(n)
+    dy, d, w = arrays
+    if not _arms_have_mass(d, w):
+        return _not_estimated(n)
 
-    pscore, flag = _calibrated_pscore(xc, d, w)
-    if flag:
+    x_design = _covariate_design(x, n)
+    if x_design.shape[1] == 1:
+        return _dr_att(dy, d, None, pscore_trim, w)
+
+    try:
+        _, pscore = _drc.ipt_fit(d, x_design, w)
+        if not np.all(np.isfinite(pscore)):
+            raise FloatingPointError("non-finite tilted propensity scores")
+    except (np.linalg.LinAlgError, FloatingPointError) as exc:
         warnings.warn(
-            "callaway_santanna(estimator='drimp'): the inverse probability "
-            "tilting propensity score did not converge in an ATT(g,t) cell; "
-            "the logit fit is used there, so the cell is the plain doubly "
-            "robust estimate without its estimation-effect terms. Check "
-            "overlap, or use estimator='dr'.",
-            RuntimeWarning,
-            stacklevel=4,
+            "callaway_santanna: the inverse-probability-tilting propensity "
+            f"fit failed ({type(exc).__name__}: {exc}); this ATT(g,t) falls "
+            "back to the standard doubly robust estimator (logit propensity "
+            "score, unweighted comparison regression). Check for separated "
+            "or collinear covariates.",
+            ConvergenceWarning,
+            stacklevel=2,
         )
+        return _dr_att(dy, d, x, pscore_trim, w)
+    pscore = np.clip(pscore, 1e-6, 1 - 1e-6)
     keep = _pscore_trim_mask(pscore, d, pscore_trim)
     _TRIM_TALLY.record(keep, d)
 
     odds = pscore / (1.0 - pscore)
-    control = d == 0
-    beta = _weighted_lstsq(xc[control], dy[control], (w * odds)[control])
-    resid = dy - xc @ beta
+    controls = d == 0
+    coef = _drc.wls_coef(x_design, dy, w * odds, controls)
+    resid = dy - x_design @ coef
 
-    w_treat = keep * w * d
-    w_cont = keep * w * odds * (1.0 - d)
-    m_t, m_c = float(np.mean(w_treat)), float(np.mean(w_cont))
-    if m_t <= 0 or m_c <= 1e-12:
-        return 0.0, np.inf, np.zeros(n)
-    eta_t = float(np.mean(w_treat * resid) / m_t)
-    eta_c = float(np.mean(w_cont * resid) / m_c)
-    att = eta_t - eta_c
-    inf_func = w_treat * (resid - eta_t) / m_t - w_cont * (resid - eta_c) / m_c
-    se = float(np.sqrt(np.mean(inf_func**2) / n))
-    return float(att), se, inf_func
+    a_1 = w * d
+    a_0 = keep * w * (1.0 - d) * odds
+    if float(a_0.mean()) <= 0:
+        return _not_estimated(n)
+    treated = _drc.HajekMean(a_1, resid)
+    comparison = _drc.HajekMean(a_0, resid)
+    att = treated.theta - comparison.theta
+    influence = treated.influence - comparison.influence
+    return float(att), _drc.se_from_influence(influence), influence
 
 
 # ------------------------------------------------------------------
@@ -2093,66 +2256,61 @@ def _ipw_att(
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
     w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
-    """Stabilized (Hájek-normalized) IPW ATT(g,t) estimator.
+    """Normalised (Hajek) IPW 2x2 DiD on a panel.
 
-    This is what R ``did``/``DRDID`` call ``std_ipw_did_panel`` and what
-    Stata ``csdid`` calls ``method(stdipw)`` — *not* Abadie (2005), which
-    normalizes both arms by the same E[D]. See :func:`_ipw_abadie_att`.
+    ``theta(w d, dy) - theta(w p/(1-p) (1-d), dy)``: the treated mean of
+    ``dy`` minus the odds-weighted comparison mean, comparison units with
+    ``p >= pscore_trim`` trimmed. The influence function carries the
+    estimation effect of the logit propensity fit.
+
+    Parameters
+    ----------
+    dy, d, x, pscore_trim, w
+        As in :func:`_dr_att`.
+
+    Returns
+    -------
+    tuple
+        ``(att, se, influence)``; a degenerate cell gives
+        ``(0.0, inf, zeros)``.
+
+    References
+    ----------
+    [@santanna2020doubly]; docs/dev/cleanroom/did_drdid.md.
     """
     n = len(dy)
-    c = 1 - d
-    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
+    arrays = _cell_arrays(dy, d, w)
+    if arrays is None:
+        return _not_estimated(n)
+    dy, d, w = arrays
+    if not _arms_have_mass(d, w):
+        return _not_estimated(n)
 
     pscore = _estimate_pscore(d, x, n, w)
     keep = _pscore_trim_mask(pscore, d, pscore_trim)
     _TRIM_TALLY.record(keep, d)
+    a_1 = w * d
+    a_0 = keep * w * (1.0 - d) * pscore / (1.0 - pscore)
+    if float(a_0.mean()) <= 0:
+        return _not_estimated(n)
 
-    p_d = np.mean(w * d)
-    w1 = keep * w * d / p_d if p_d > 0 else np.zeros(n)
-
-    ipw_raw = keep * w * pscore * c / (1 - pscore)
-    ipw_denom = np.mean(ipw_raw)
-    w0 = ipw_raw / ipw_denom if ipw_denom > 1e-12 else np.zeros(n)
-
-    # ⚠️ correctness fix (two parts), validated against R
-    # ``DRDID::std_ipw_did_panel`` via ``did::att_gt(est_method="ipw")``.
-    #
-    # (1) The influence function must de-mean each arm by *its own* mean,
-    #     not both by the ATT. The old form was
-    #
-    #         (w1 - w0) dY - att w1
-    #       = w1 (dY - eta_t) - w0 dY + w1 eta_c
-    #
-    #     which carries ``+w1 eta_c`` where the correct term is
-    #     ``+w0 eta_c``. Both weight vectors are Hajek-normalised to mean
-    #     one, so the two agree in expectation and the ATT was never
-    #     affected — but they have different variances, so every reported
-    #     IPW standard error was wrong.
-    #
-    # (2) IPW is not Neyman-orthogonal in the propensity score, so the
-    #     score's estimation effect belongs in the influence function.
-    #     Omitting it inflates the SE further.
-    eta_t = float(np.mean(w1 * dy))
-    eta_c = float(np.mean(w0 * dy))
-    att = eta_t - eta_c
-
-    inf_func = w1 * (dy - eta_t) - w0 * (dy - eta_c)
-    if x is not None and x.shape[1] > 0 and ipw_denom > 1e-12:
-        adj = _pscore_estimation_effect(
-            dy=dy,
-            x=x,
-            w=w,
-            d=d,
-            pscore=pscore,
-            arm_weights=ipw_raw,
-            arm_denom=ipw_denom,
-        )
-        if adj is not None:
-            inf_func = inf_func - adj
-
-    se = float(np.sqrt(np.mean(inf_func**2) / n))
-
-    return float(att), se, inf_func
+    treated = _drc.HajekMean(a_1, dy)
+    comparison = _drc.HajekMean(a_0, dy)
+    effect = _pscore_estimation_effect(
+        dy=dy,
+        d=d,
+        x=x,
+        w=w,
+        pscore=pscore,
+        arm_weights=a_0,
+        arm_denom=comparison.mass,
+        center=True,
+    )
+    if effect is None:
+        return _not_estimated(n)
+    att = treated.theta - comparison.theta
+    influence = treated.influence - comparison.influence + effect
+    return float(att), _drc.se_from_influence(influence), influence
 
 
 def _pscore_estimation_effect(
@@ -2166,55 +2324,53 @@ def _pscore_estimation_effect(
     arm_denom: float,
     center: bool = True,
 ) -> Optional[np.ndarray]:
-    """Asymptotic-linear correction for having *estimated* the logit.
+    """Logit estimation effect of a comparison-arm term ``E_n[a z]/arm_denom``.
 
-    Port of the ``asy.lin.rep.ps %*% M2`` term in ``DRDID``. Returns
-    ``None`` when the logit information matrix is singular, in which case
-    the caller keeps the uncorrected (conservative) influence function
-    rather than producing a nonsense variance.
+    For comparison weights ``a = arm_weights`` proportional to the
+    propensity odds, ``d a / d g = a X``, so the term's gradient is
+    ``E_n[a z X] / arm_denom``; it enters an ATT with a minus sign. With
+    ``center=True`` (a Hajek mean, ``arm_denom = E_n[a]``) ``z`` is ``dy``
+    minus its Hajek mean over the arm; with ``center=False`` ``z = dy``
+    (the Abadie estimator divides by the treated mass instead).
 
-    Parameters mirror :func:`_ipw_att`'s locals; ``arm_weights`` is the
-    un-normalised control-arm weight vector and ``arm_denom`` its mean.
+    Parameters
+    ----------
+    dy, d, x, w : ndarray
+        Outcome (change), treated dummy, covariates (no intercept, or
+        None) and mean-one weights.
+    pscore : ndarray
+        Fitted logit propensity scores.
+    arm_weights : ndarray
+        The comparison-arm weights ``a``.
+    arm_denom : float
+        The denominator of the term.
+    center : bool
+        Centre ``dy`` at its Hajek mean over the arm.
 
-    ``center`` selects which of DRDID's two ``mom.logit`` forms to build,
-    and the choice is dictated by what the estimator divides by:
+    Returns
+    -------
+    ndarray or None
+        ``-l_g' E_n[a z X]/arm_denom`` per row, or ``None`` when the arm
+        has no weight or ``arm_denom`` is not positive.
 
-    - ``True`` — ``colMeans(w_cont (ΔY − η_c) X) / E[w_cont]``, the
-      Hájek-normalised form used by ``std_ipw_did_panel``. The estimator
-      divides the control arm by its *own* weight mass, so that mass is
-      itself estimated and the ``η_c`` term is its derivative.
-    - ``False`` — ``colMeans(w_cont ΔY X)``, the form used by
-      ``ipw_did_panel`` (Abadie). Both arms share the fixed denominator
-      ``E[D]``, so there is no control-mass derivative to subtract and
-      de-meaning here would remove a term that belongs in the variance.
+    References
+    ----------
+    [@santanna2020doubly]; docs/dev/cleanroom/did_drdid.md.
     """
-    try:
-        import statsmodels.api as sm
-
-        xc = sm.add_constant(x)
-    except ImportError:  # pragma: no cover - statsmodels is a core dep
+    dy = np.asarray(dy, dtype=float)
+    a = np.asarray(arm_weights, dtype=float)
+    pscore = np.asarray(pscore, dtype=float)
+    if not (np.isfinite(arm_denom) and arm_denom > 0):
         return None
-
-    # Score of the weighted logit: w (D - p) X.
-    score = (w * (d - pscore))[:, None] * xc
-    # Information matrix: E[w p (1-p) X X'].
-    hess_w = w * pscore * (1.0 - pscore)
-    info = (xc.T * hess_w) @ xc / len(dy)
-    try:
-        info_inv = np.linalg.pinv(info)
-    except np.linalg.LinAlgError:  # pragma: no cover - pinv rarely raises
+    mass = float(a.mean())
+    if not np.isfinite(mass) or mass <= 0:
         return None
-    if not np.all(np.isfinite(info_inv)):
-        return None
-    asy_lin_ps = score @ info_inv
-
-    if center:
-        eta = float(np.mean(arm_weights * dy) / arm_denom)
-        m2 = np.mean((arm_weights * (dy - eta))[:, None] * xc, axis=0) / arm_denom
-    else:
-        m2 = np.mean((arm_weights * dy)[:, None] * xc, axis=0) / arm_denom
-    out = asy_lin_ps @ m2
-    return out if np.all(np.isfinite(out)) else None
+    z = dy - float(np.mean(a * dy) / mass) if center else dy
+    x_ps = _nuisance_design(x, pscore)
+    grad = (a[:, None] * z[:, None] * x_ps).mean(axis=0) / arm_denom
+    return -_logit_effect(
+        x_ps, np.asarray(d, dtype=float), np.asarray(w, dtype=float), pscore, grad
+    )
 
 
 def _ipw_abadie_att(
@@ -2224,62 +2380,60 @@ def _ipw_abadie_att(
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
     w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
-    """Abadie (2005) IPW ATT(g,t) — Horvitz-Thompson, *not* normalized.
+    """Abadie (2005) IPW 2x2 DiD on a panel (Sant'Anna-Zhao eq. 2.4).
 
-    Reference: ``abadie2005semiparametric``.
+    ``E_n[(a_1 - a_0) dy] / E_n[a_1]`` with ``a_1 = w d`` and
+    ``a_0 = w p/(1-p) (1-d)`` (trimmed at ``pscore_trim``): both arms are
+    divided by the treated mass, so the comparison weights are not
+    normalised to sum to one.
 
-    Both arms are scaled by the same E[D], so the control weights need not
-    average to one in finite samples. This is Stata ``csdid``'s
-    ``method(ipw)``; it is a genuinely different estimator from
-    :func:`_ipw_att`, differing at O(1e-4) on ``mpdta``.
+    Parameters
+    ----------
+    dy, d, x, pscore_trim, w
+        As in :func:`_dr_att`.
+
+    Returns
+    -------
+    tuple
+        ``(att, se, influence)``; a degenerate cell gives
+        ``(0.0, inf, zeros)``.
+
+    References
+    ----------
+    [@santanna2020doubly]; docs/dev/cleanroom/did_drdid.md.
     """
     n = len(dy)
-    c = 1 - d
-    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
+    arrays = _cell_arrays(dy, d, w)
+    if arrays is None:
+        return _not_estimated(n)
+    dy, d, w = arrays
+    if not _arms_have_mass(d, w):
+        return _not_estimated(n)
 
     pscore = _estimate_pscore(d, x, n, w)
     keep = _pscore_trim_mask(pscore, d, pscore_trim)
     _TRIM_TALLY.record(keep, d)
+    a_1 = w * d
+    a_0 = keep * w * (1.0 - d) * pscore / (1.0 - pscore)
+    p_d = float(a_1.mean())
+    if float(a_0.mean()) <= 0:
+        return _not_estimated(n)
 
-    p_d = np.mean(w * d)
-    if p_d <= 0:
-        return 0.0, np.inf, np.zeros(n)
-
-    # Abadie's single common denominator E[ωD] for both arms.
-    w1 = keep * w * d / p_d
-    w0 = keep * w * pscore * c / ((1 - pscore) * p_d)
-
-    att = float(np.mean((w1 - w0) * dy))
-
-    # ⚠️ correctness fix: propagate the propensity-score estimation effect.
-    #
-    # IPW is not Neyman-orthogonal in the score, so treating p̂(X) as known
-    # is not a second-order omission — it inflated this SE by ~34% against
-    # ``DRDID::ipw_did_panel`` on the reference fixture. The sibling
-    # :func:`_ipw_att` (Hájek-normalised) already carried this term; the
-    # Abadie variant did not.
-    #
-    # DRDID builds it un-centred here (``mom.logit <- att.cont * int.cov``)
-    # because both arms are divided by the fixed E[ωD] rather than by the
-    # control weight mass — see :func:`_pscore_estimation_effect`.
-    inf_func = (w1 - w0) * dy - att * w1
-    if x is not None and x.shape[1] > 0:
-        adj = _pscore_estimation_effect(
-            dy=dy,
-            x=x,
-            w=w,
-            d=d,
-            pscore=pscore,
-            arm_weights=w0,
-            arm_denom=1.0,
-            center=False,
-        )
-        if adj is not None:
-            inf_func = inf_func - adj
-
-    se = float(np.sqrt(np.mean(inf_func**2) / n))
-
-    return att, se, inf_func
+    att = float(np.mean((a_1 - a_0) * dy) / p_d)
+    effect = _pscore_estimation_effect(
+        dy=dy,
+        d=d,
+        x=x,
+        w=w,
+        pscore=pscore,
+        arm_weights=a_0,
+        arm_denom=p_d,
+        center=False,
+    )
+    if effect is None:
+        return _not_estimated(n)
+    influence = ((a_1 - a_0) * dy - att * a_1) / p_d + effect
+    return att, _drc.se_from_influence(influence), influence
 
 
 # ------------------------------------------------------------------
@@ -2293,93 +2447,47 @@ def _reg_att(
     x: Optional[np.ndarray],
     w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
-    """Outcome regression ATT(g,t) estimator."""
+    """Outcome-regression 2x2 DiD on a panel (Sant'Anna-Zhao eq. 2.2).
+
+    The treated Hajek mean of ``dy - m(X)``, ``m`` the weighted
+    least-squares fit of ``dy`` on the comparison units. The influence
+    function carries the estimation effect of that fit. When the
+    regression cannot use the covariates (it warns) the estimator is the
+    unadjusted difference of the arm means.
+
+    Parameters
+    ----------
+    dy, d, x, w
+        As in :func:`_dr_att`.
+
+    Returns
+    -------
+    tuple
+        ``(att, se, influence)``; a degenerate cell gives
+        ``(0.0, inf, zeros)``.
+
+    References
+    ----------
+    [@santanna2020doubly]; docs/dev/cleanroom/did_drdid.md.
+    """
     n = len(dy)
-    c = 1 - d
-    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
+    arrays = _cell_arrays(dy, d, w)
+    if arrays is None:
+        return _not_estimated(n)
+    dy, d, w = arrays
+    if not _arms_have_mass(d, w):
+        return _not_estimated(n)
 
-    p_d = np.mean(w * d)
-    w1 = w * d / p_d if p_d > 0 else np.zeros(n)
+    m_hat = _estimate_outcome_reg(dy, 1 - d, x, n, w)
+    resid = dy - m_hat
+    a_1 = w * d
+    treated = _drc.HajekMean(a_1, resid)
 
-    c_mask = c.astype(bool)
-    c_count = int(c_mask.sum())
-
-    x_arr: Optional[np.ndarray]
-    if x is None or x.shape[1] == 0:
-        x_arr = None
-        use_constant_outcome = True
-    else:
-        x_arr = x
-        use_constant_outcome = c_count < 2
-
-    if x_arr is not None and not use_constant_outcome:
-        k = x_arr.shape[1]
-        use_constant_outcome = c_count <= k + 1
-
-    if use_constant_outcome:
-        m0 = _weighted_control_mean(dy, c_mask, w) if c_count > 0 else 0.0
-        m_hat_const = np.full(n, m0, dtype=float)
-        resid = dy - m_hat_const
-        att = float(np.mean(w1 * resid))
-
-        p_c = np.mean(w * c)
-        control_adjust = w * c * resid / p_c if p_c > 0 else np.zeros(n)
-    else:
-        assert x_arr is not None
-        try:
-            import statsmodels.api as sm
-
-            x_const_control = sm.add_constant(x_arr[c_mask])
-            # WLS with ω; at ω ≡ 1 the sqrt(w) scaling is exactly 1.0, so
-            # this is bit-identical to the historical OLS call.
-            ols = sm.WLS(dy[c_mask], x_const_control, weights=w[c_mask])
-            result = ols.fit()
-            x_const = sm.add_constant(x_arr)
-            m_hat = np.asarray(result.predict(x_const), dtype=float).reshape(n)
-            resid = dy - m_hat
-            att = float(np.mean(w1 * resid))
-
-            # Outcome-regression inference must include the uncertainty in
-            # the control regression used to estimate m0(X).  For the WLS
-            # first stage this is the delta-method term:
-            #   - E[ω D X / p]' (E[ω C X X'])^{-1} ω C X_i u_i.
-            # ω ≡ 1 keeps the original ``A'A`` contraction verbatim: the
-            # weighted form ``(A' diag(ω)) A`` is algebraically identical
-            # but reassociates the BLAS call and shifts the SE by ~2 ULP,
-            # which is enough to move a pinned parity fixture.
-            if np.allclose(w[c_mask], 1.0):
-                a_mat = (x_const_control.T @ x_const_control) / n
-            else:
-                a_mat = (x_const_control.T * w[c_mask]) @ x_const_control / n
-            xbar_treat = np.mean(w1[:, None] * x_const, axis=0)
-            lever = x_const @ (np.linalg.pinv(a_mat).T @ xbar_treat)
-            control_adjust = w * c * resid * lever
-        except Exception as exc:
-            # The user requested a covariate-adjusted outcome regression but
-            # the control OLS failed (collinear / degenerate design). Fall
-            # back to the control-mean estimator, but do NOT do so silently:
-            # this changes the point estimate from covariate-adjusted to
-            # unconditional (CLAUDE.md §3.7 — fail loudly).
-            warnings.warn(
-                "callaway_santanna: the covariate-adjusted outcome "
-                f"regression failed ({type(exc).__name__}: {exc}); this "
-                "ATT(g,t) falls back to the UNADJUSTED control-mean "
-                "estimator, so it is no longer covariate-adjusted. Check "
-                "for collinear or degenerate covariates.",
-                ConvergenceWarning,
-                stacklevel=2,
-            )
-            m0 = _weighted_control_mean(dy, c_mask, w) if c_count > 0 else 0.0
-            m_hat = np.full(n, m0)
-            resid = dy - m_hat
-            att = float(np.mean(w1 * resid))
-            p_c = np.mean(w * c)
-            control_adjust = w * c * resid / p_c if p_c > 0 else np.zeros(n)
-
-    inf_func = w1 * (resid - att) - control_adjust
-    se = float(np.sqrt(np.mean(inf_func**2) / n))
-
-    return att, se, inf_func
+    x_or = _nuisance_design(x, m_hat)
+    m_1 = (a_1[:, None] * x_or).mean(axis=0) / treated.mass
+    effect = _wls_effect(x_or, resid, w, d == 0, -m_1)
+    influence = treated.influence + effect
+    return float(treated.theta), _drc.se_from_influence(influence), influence
 
 
 # ======================================================================
@@ -2445,11 +2553,10 @@ def _pscore_trim_mask(
 ) -> np.ndarray:
     """Zero-weight control units whose propensity score is at/above ``trim``.
 
-    Follows ``DRDID``'s convention exactly (and hence R ``did`` and Stata
-    ``csdid``, both of which inherit it)::
-
-        trim.ps       <- (ps < 1.01)                 # treated: never trimmed
-        trim.ps[D==0] <- (ps[D==0] < trim.level)     # controls: ps >= level out
+    Treated units are never trimmed; a control is kept when its score is
+    below ``trim`` (the ``trim.level`` convention documented by R ``DRDID``
+    and used by R ``did`` and Stata ``csdid``; confirmed on their outputs,
+    see docs/dev/cleanroom/did_drdid.md).
 
     A control with p(X) → 1 looks almost exactly like a treated unit, so its
     odds weight p/(1−p) explodes and a single observation can dominate the
@@ -2518,8 +2625,8 @@ def _estimate_pscore(
     and warns when the fit merely fails to converge (see below): either way
     the caller is told that p(X) is not the object they asked for.
 
-    With ω supplied the logit is fit by weighted maximum likelihood, which
-    is what R ``DRDID`` does via ``glm(..., weights = i.weights)``. The
+    With ω supplied the logit is fit by weighted maximum likelihood (the
+    reference's weighted fit agrees on its outputs). The
     unweighted branch keeps the original ``sm.Logit`` call verbatim so the
     existing R/Stata parity fixtures stay bit-identical.
     """
@@ -3459,8 +3566,8 @@ def _callaway_santanna_rcs(
         else:
             w_by_slot = w_arr
         # sp.aggte needs omega per influence row as well: the cohort
-        # shares are estimated, and their influence function (R
-        # ``did:::wif``) is built from ``omega_i * 1{G_i = g}``.
+        # shares are estimated, and their influence function
+        # (_core.weight_influence) is built from ``omega_i * 1{G_i = g}``.
         slot_weights = w_by_slot / w_by_slot.mean()
         cohort_sizes = pd.Series(
             {
