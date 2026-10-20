@@ -73,6 +73,24 @@ class LTMLEMSMResult(ResultProtocolMixin):
     regime_means : pd.DataFrame
         For each regime, the mean of the targeted ``Q*_0(d)`` (on the
         outcome's scale) and its weight.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> n = 300
+    >>> L0 = rng.normal(size=n)
+    >>> A0 = rng.binomial(1, 0.5, size=n)
+    >>> L1 = 0.5 * L0 + rng.normal(size=n)
+    >>> A1 = rng.binomial(1, 0.5, size=n)
+    >>> Y = rng.binomial(1, 1 / (1 + np.exp(-(0.3 * (A0 + A1) + 0.2 * L1))))
+    >>> df = pd.DataFrame(dict(L0=L0, A0=A0, L1=L1, A1=A1, Y=Y))
+    >>> r = sp.ltmle_msm(df, 'Y', ['A0', 'A1'], [['L0'], ['L1']],
+    ...                  [(0, 0), (1, 0), (0, 1), (1, 1)],
+    ...                  {'cum_a': [0, 1, 1, 2]})
+    >>> isinstance(r, sp.LTMLEMSMResult)
+    True
     """
 
     _citation_keys = ("lendle2017ltmle", "vanderlaan2012targeted")
