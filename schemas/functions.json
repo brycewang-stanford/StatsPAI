@@ -13006,6 +13006,11 @@
           ],
           "x-statspai-role": "columns"
         },
+        "cross_fit": {
+          "default": true,
+          "description": "With ps_learner: out-of-fold propensity scores (False warns: in-sample scores overfit)",
+          "type": "boolean"
+        },
         "data": {
           "description": "Input data.",
           "type": "object",
@@ -13032,6 +13037,11 @@
           "type": "integer",
           "x-statspai-source": "signature"
         },
+        "n_folds": {
+          "default": 5,
+          "description": "Cross-fitting folds for ps_learner (>= 2), drawn from seed",
+          "type": "integer"
+        },
         "normalize": {
           "default": true,
           "description": "If True, use Hajek (normalised) weights. Generally recommended for finite-sample stability, and the estimate does not change when a constant is added to the outcome. ``False`` is Horvitz-Thompson: the weighted sums are divided by the size of the target population (``n`` for the ATE, the number of treated for the ATT, of controls for the ATC).",
@@ -13041,6 +13051,10 @@
         "propensity": {
           "description": "Known treatment probability: one number, or a column of per-unit design probabilities. No propensity model is fitted; the sandwich drops the first-stage term. Fitting the propensity is more precise even when it is known.",
           "type": "number"
+        },
+        "ps_learner": {
+          "description": "Classifier with fit / predict_proba (e.g. GradientBoostingClassifier, sp.SuperLearner(task='classification')) for the propensity score in place of ps_model; bootstrap SE refits it per replicate; sandwich, design= and propensity= are refused",
+          "type": "string"
         },
         "ps_model": {
           "default": "logit",
