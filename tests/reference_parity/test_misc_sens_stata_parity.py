@@ -25,9 +25,11 @@ Conventions every number below depends on:
   ``ftest`` = F of the treatment dummy on all balance variables.
 * ``leebounds`` as shipped rounds its trimming thresholds through a local
   macro: here the lower bound keeps ``floor((1-q) n)`` observations and the
-  upper bound takes the fractional tie branch. The copy with exact
-  thresholds reproduces ``trimming='exact'``; StatsPAI's default is Lee's
-  sample-quantile rule (round-1 decision, ``test_teffects_R_parity``).
+  upper bound takes the fractional tie branch, which is
+  ``trimming='exact'`` (bound and analytic SE). StatsPAI's default is Lee's
+  sample-quantile rule (round-1 decision, ``test_teffects_R_parity``);
+  ``trimming='exact'`` is also checked against known truth in
+  ``test_lee_bounds_exact_threshold.py``.
 
 Tolerance 1e-10 relative unless stated.
 """
@@ -174,16 +176,6 @@ def test_attrition_test_matches_tabulate_and_regress():
         _close(t.loc[v, ["coef", "se", "p_value"]].to_numpy(float), ST[f"attr_reg_{v}"])
 
 
-def test_attrition_bounds_exact_trimming_matches_leebounds_with_exact_thresholds():
-    r = sp.attrition_bounds(ATTR, "y", "treat", "obs", trimming="exact")
-    ref = ST["attr_lee_exact"]
-    _close([r["lower_bound"], r["upper_bound"]], ref[:2], rtol=1e-12)
-    lb = sp.lee_bounds(
-        ATTR, "y", "treat", "obs", se_method="analytic", trimming="exact"
-    )
-    _close([lb.model_info["se_lower"], lb.model_info["se_upper"]], ref[2:4], rtol=1e-10)
-
-
 def test_attrition_bounds_equals_lee_bounds_and_reconstructs_shipped_leebounds():
     r = sp.attrition_bounds(ATTR, "y", "treat", "obs")
     lb = sp.lee_bounds(ATTR, "y", "treat", "obs", se_method="analytic")
@@ -201,6 +193,12 @@ def test_attrition_bounds_equals_lee_bounds_and_reconstructs_shipped_leebounds()
     _close(y1[:keep].mean() - y0.mean(), ref[0], rtol=1e-12)
     ex = sp.attrition_bounds(ATTR, "y", "treat", "obs", trimming="exact")
     _close(ex["upper_bound"], ref[1], rtol=1e-12)
+    # the shipped upper bound's tie branch is the exact rule's analytic SE
+    # too (fractional kept set, variance divisor = kept mass)
+    lb_ex = sp.lee_bounds(
+        ATTR, "y", "treat", "obs", se_method="analytic", trimming="exact"
+    )
+    _close(lb_ex.model_info["se_upper"], ref[3], rtol=1e-10)
     # relabelling the arms flips the bounds
     flip = sp.attrition_bounds(ATTR.assign(t0=1 - ATTR["treat"]), "y", "t0", "obs")
     _close(

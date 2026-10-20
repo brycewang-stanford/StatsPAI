@@ -6,8 +6,6 @@
 *   _ado_teffects/      leebounds (SSC, Tauchmann v1.5), tebounds (SJ15-2
 *                       st0386), med4way (GitHub anddis/med4way),
 *                       doseresponse + gpscore (SSC)
-*   _ado_teffects_patched/  a copy of leebounds.ado written by this script
-*                       (see block 4); created fresh on every run.
 *
 * The do-file installs the packages itself when they are missing. Run
 * _generate_teffects_data.py first, then, from this directory:
@@ -21,13 +19,12 @@
 *   M-estimation sandwich (divisor n).
 * * leebounds: default vce(analytic); cieffect gives the Imbens-Manski
 *   interval, whose critical value leebounds finds on a 0.001 grid.
-*   leebounds stores each trimming threshold in a local macro
-*   (`local uth = r(r1)`), which keeps ~15 significant digits. For a
-*   continuous outcome the threshold then fails the `y == threshold` test
-*   and the tie branch (fractional trimming) never runs; which side of the
-*   rounded threshold the quantile observation lands on decides whether it
-*   is kept. Block 4 re-runs leebounds with the thresholds held exactly
-*   (%21x hex), which is the behaviour the code is written for.
+*   Only the shipped leebounds is run (black box). Its trimming thresholds
+*   are rounded to ~15 significant digits, so on a continuous outcome
+*   the quantile observation is kept or dropped whole rather than
+*   trimmed fractionally; the exact-threshold behaviour of sp.lee_bounds
+*   is checked against known-truth designs in Python instead
+*   (tests/reference_parity/test_lee_bounds_exact_threshold.py).
 * * tebounds: binary outcome, erates(0) (no misclassification); worst
 *   case (j=2), MTS positive selection (j=3, "p"), MTS+MTR positive (j=5).
 * * med4way: yreg(linear) mreg(linear), a0(0) a1(1) m(0), covariates at
@@ -46,7 +43,6 @@ set type double
 
 local here "`c(pwd)'"
 local ado "`here'/_ado_teffects"
-local adop "`here'/_ado_teffects_patched"
 capture mkdir "`ado'"
 net set ado "`ado'"
 adopath ++ "`ado'"
@@ -97,27 +93,6 @@ foreach spec in d dflip {
     local trimmed_control = ("`e(trimmed)'" == "control")
     file write `fh' `""trim": "' %23.16e (e(trim)) `", "trimmed_control": `trimmed_control'}"' "," _n
 }
-
-* ---- 4. leebounds with the trimming thresholds held exactly --------------
-* A patched copy of leebounds.ado whose trimming thresholds are held as
-* exact doubles (%21x) instead of rounded decimal text. Owner decision
-* pending (2026-10-21 cleanup): this patch depends on the ado's text.
-capture mkdir "`adop'"
-capture mkdir "`adop'/l"
-tempfile p1
-filefilter "`ado'/l/leebounds.ado" "`p1'", from("local uth = r(r1)") to("local uth : display %21x r(r1)") replace
-filefilter "`p1'" "`adop'/l/leebounds.ado", from("local lth = r(r1)") to("local lth : display %21x r(r1)") replace
-adopath - "`ado'"
-adopath ++ "`adop'"
-discard
-quietly leebounds ys d, select(s)
-matrix b = e(b)
-matrix V = e(V)
-file write `fh' `"  "leebounds_exact": {"lower": "' %23.16e (b[1,1]) `", "upper": "' %23.16e (b[1,2]) ", "
-file write `fh' `""V_lower": "' %23.16e (V[1,1]) `", "V_upper": "' %23.16e (V[2,2]) "}," _n
-adopath - "`adop'"
-adopath ++ "`ado'"
-discard
 
 * ---- 5. tebounds (binary outcome, no misclassification) ------------------
 quietly tebounds yb, treat(d) erates(0)

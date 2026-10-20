@@ -111882,7 +111882,8 @@
       "tests": [
         "tests/reference_parity/test_teffects_R_parity.py",
         "tests/reference_parity/_fixtures/teffects_R.json",
-        "tests/reference_parity/_fixtures/teffects_Stata.json"
+        "tests/reference_parity/_fixtures/teffects_Stata.json",
+        "tests/reference_parity/test_lee_bounds_exact_threshold.py"
       ],
       "tolerance": "1e-10 rel on bounds and analytic variances"
     },
@@ -124760,7 +124761,7 @@
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "Stata leebounds (thresholds held exactly)",
+      "reference": "Stata leebounds 1.5 as shipped (upper bound, tie branch)",
       "reference_versions": {
         "Stata": "18",
         "leebounds": "1.5"
@@ -124772,7 +124773,8 @@
       "source": "reference_parity_frozen",
       "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_misc_sens_stata_parity.py"
+        "tests/reference_parity/test_misc_sens_stata_parity.py",
+        "tests/reference_parity/test_lee_bounds_exact_threshold.py"
       ],
       "tolerance": "1e-12 rel"
     },
@@ -124870,7 +124872,7 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata leebounds (thresholds held exactly) [Stata 18, leebounds 1.5]; tolerance 1e-12 rel -- tests/reference_parity/test_misc_sens_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata leebounds 1.5 as shipped (upper bound, tie branch) [Stata 18, leebounds 1.5]; tolerance 1e-12 rel -- tests/reference_parity/test_misc_sens_stata_parity.py"
     ],
     "validation_status": "certified"
   },

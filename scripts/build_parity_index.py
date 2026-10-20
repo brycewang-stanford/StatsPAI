@@ -5036,14 +5036,17 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "tests/reference_parity/test_teffects_R_parity.py",
             "tests/reference_parity/_fixtures/teffects_R.json",
             "tests/reference_parity/_fixtures/teffects_Stata.json",
+            "tests/reference_parity/test_lee_bounds_exact_threshold.py",
         ],
-        "note": "trimming='quantile' matches the shipped upper bound; "
-        "trimming='exact' matches both bounds once the thresholds are held "
-        "exactly (%21x). As shipped, leebounds keeps its threshold in a "
-        "15-digit local macro, so its tie branch never runs and its lower "
-        "bound drops the quantile observation. The test rebuilds that number "
-        "from the rounded threshold (reference defect, T4 for that one "
-        "number).",
+        "note": "trimming='quantile' matches the shipped upper bound. As "
+        "shipped, leebounds keeps its threshold in a 15-digit local macro, so "
+        "its lower bound drops the quantile observation; the test rebuilds "
+        "that number from the rounded threshold (reference defect, T4 for "
+        "that one number). trimming='exact' (fractional trimming at the "
+        "quantile) is checked against exact rational bounds, the empirical "
+        "quantile-function integral and Lee's Proposition 3 variance by hand "
+        "(T1), and against the shipped tie branch where leebounds takes it "
+        "(misc_sens attrition upper bound).",
     },
     "ltmle": {
         "status": "bit-exact",
@@ -7159,12 +7162,18 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     },
     "attrition_bounds": {
         "status": "bit-exact",
-        "reference": "Stata leebounds (thresholds held exactly)",
+        "reference": "Stata leebounds 1.5 as shipped (upper bound, tie branch)",
         "reference_versions": {"leebounds": "1.5", "Stata": "18"},
         "tolerance": "1e-12 rel",
         "sides": ["py", "Stata"],
-        "test": ["tests/reference_parity/test_misc_sens_stata_parity.py"],
-        "note": "trimming='exact'; default quantile rule equals sp.lee_bounds.",
+        "test": [
+            "tests/reference_parity/test_misc_sens_stata_parity.py",
+            "tests/reference_parity/test_lee_bounds_exact_threshold.py",
+        ],
+        "note": "Default quantile rule equals sp.lee_bounds. trimming='exact' "
+        "matches the shipped upper bound and its SE (leebounds takes its "
+        "fractional tie branch there); the lower bound under 'exact' is "
+        "checked against the empirical quantile-function integral (T1).",
     },
     "attrition_test": {
         "status": "bit-exact",

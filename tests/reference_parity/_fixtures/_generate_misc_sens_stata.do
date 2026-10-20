@@ -34,8 +34,9 @@
 *   stores each threshold in a local macro (~15 digits), so which side of the
 *   rounded threshold the quantile observation falls decides whether it is
 *   kept; here the lower bound drops it (keeps floor((1-q) n)) and the upper
-*   bound takes the fractional tie branch. The patched copy (block 4b) holds
-*   the thresholds exactly and computes fractional trimming on both sides.
+*   bound takes the fractional tie branch. Only the shipped leebounds is run
+*   (black box); exact-threshold trimming is checked against known-truth
+*   designs in tests/reference_parity/test_lee_bounds_exact_threshold.py.
 * ---------------------------------------------------------------------------
 version 18
 clear all
@@ -172,27 +173,6 @@ quietly leebounds y treat0, select(obs)
 matrix b = e(b)
 matrix r = (b[1,1], b[1,2])
 wrow `fh' "attr_lee_flip" r
-* leebounds with the trimming thresholds held exactly (the round-1 teffects
-* patch): a patched copy that holds them as exact doubles (%21x) instead of
-* rounded decimal text. Owner decision pending (2026-10-21 cleanup): this
-* patch depends on the ado's text.
-local adop "`here'/_ado_misc_sens_patched"
-capture mkdir "`adop'"
-capture mkdir "`adop'/l"
-tempfile p1
-filefilter "`ado'/l/leebounds.ado" "`p1'", from("local uth = r(r1)") to("local uth : display %21x r(r1)") replace
-filefilter "`p1'" "`adop'/l/leebounds.ado", from("local lth = r(r1)") to("local lth : display %21x r(r1)") replace
-adopath - "`ado'"
-adopath ++ "`adop'"
-discard
-quietly leebounds y treat, select(obs)
-matrix b = e(b)
-matrix V = e(V)
-matrix r = (b[1,1], b[1,2], sqrt(V[1,1]), sqrt(V[2,2]))
-wrow `fh' "attr_lee_exact" r
-adopath - "`adop'"
-adopath ++ "`ado'"
-discard
 
 * ---- 5. balance: iebaltab ----------------------------------------------------
 quietly iebaltab b1 b2 b3, grpvar(treat) ftest
