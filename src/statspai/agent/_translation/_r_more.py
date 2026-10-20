@@ -4,7 +4,8 @@ Each mapping was run against the R package on the same data
 (``tests/test_translation_from_r_more.py``): ``AER::ivreg`` / ``ivreg``,
 ``survival::coxph``, ``pwr::pwr.t.test``, ``survey::svydesign`` +
 ``svyglm``, ``lmtest::coeftest`` with ``sandwich`` covariances,
-``etwfe::etwfe`` + ``emfx``. ``did::aggte``,
+``etwfe::etwfe`` + ``emfx``, ``WeightIt::weightit`` (against the
+WeightIt outputs of the ``sp.weightit`` parity fixture). ``did::aggte``,
 ``DIDmultiplegtDYN::did_multiplegt_dyn`` and ``modelsummary`` map to the
 StatsPAI functions written to mirror them (their own parity tests pin the
 numbers). Functions whose R inputs are objects built elsewhere (a weights
@@ -694,6 +695,79 @@ def _h_modelsummary(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[st
     return _unread(out, kw, ())
 
 
+# ---------------------------------------------------------------------------
+# WeightIt::weightit
+# ---------------------------------------------------------------------------
+
+#: WeightIt methods sp.weightit implements ("ps" is WeightIt's old name for
+#: "glm").
+_WEIGHTIT_METHODS = {"glm": "glm", "ps": "glm", "cbps": "cbps", "ebal": "ebal",
+                     "energy": "energy"}  # fmt: skip
+
+
+def _h_weightit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
+    """``weightit(treat ~ x1 + x2, data, method, estimand, focal, moments,
+    int, d.moments)`` -> ``sp.weightit``.
+
+    Methods ``glm`` (alias ``ps``), ``cbps``, ``ebal`` and ``energy``;
+    WeightIt's default method is ``glm`` and its default estimand ``ATE``,
+    as are sp.weightit's. ``int = TRUE`` is ``interactions=True``. Other
+    arguments (``stabilize``, ``s.weights``, ``by``, ``ps``, the energy
+    tuning arguments ...) change the weights and are listed as
+    untranslated.
+    """
+    fml = _formula(pos, kw)
+    lhs, sep, rhs = (fml or "").partition("~")
+    covs = _terms(rhs) if sep else None
+    treat = lhs.strip()
+    if covs is None or not re.fullmatch(_NAME, treat):
+        return _emit_error(
+            "weightit: only `treat ~ x1 + x2 + ...` with column names is "
+            "translated (build transformed terms as columns first).",
+            command="weightit",
+            suggestions=["weightit"],
+        )
+    read = ["formula", "method", "estimand", "focal", "moments", "int", "d.moments"]
+    method_r = _strip_quotes(kw.get("method", '"glm"')).strip()
+    method = _WEIGHTIT_METHODS.get(method_r)
+    if method is None:
+        return _emit_error(
+            f"weightit: method = {method_r!r} is not implemented in "
+            "sp.weightit (it has 'glm', 'cbps', 'ebal' and 'energy').",
+            command="weightit",
+            suggestions=["weightit"],
+            statspai_functions=["weightit"],
+        )
+    args: Dict[str, Any] = {"treat": treat, "covariates": covs, "method": method}
+    estimand = _strip_quotes(kw.get("estimand", '"ATE"')).strip().upper()
+    args["estimand"] = estimand
+    if "focal" in kw:
+        args["focal"] = _strip_quotes(kw["focal"]).strip()
+    for r_name, sp_name in (("moments", "moments"), ("d.moments", "d_moments")):
+        if r_name in kw:
+            value = _number(kw[r_name])
+            if value is None or value != int(value):
+                return _emit_error(
+                    f"weightit: {r_name} must be a whole number.",
+                    command="weightit",
+                )
+            args[sp_name] = int(value)
+    if _true(kw.get("int")):
+        args["interactions"] = True
+    code = "sp.weightit(df, " + ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit(
+        "weightit",
+        args,
+        code + ")",
+        [
+            "The weights are W.weights; W.balance() is cobalt::bal.tab. "
+            "Estimate the effect with a weighted regression (e.g. "
+            "sp.regress(..., weights=W.weights)) as after WeightIt."
+        ],
+    )
+    return _unread(out, kw, tuple(read))
+
+
 HANDLERS = {
     "ivreg": _h_ivreg,
     "coxph": _h_coxph,
@@ -706,24 +780,18 @@ HANDLERS = {
     "aggte": _h_aggte,
     "did_multiplegt_dyn": _h_did_multiplegt_dyn,
     "modelsummary": _h_modelsummary,
+    "weightit": _h_weightit,
 }
 
 
 #: R functions whose inputs are objects built in other lines; refused with
 #: the sp call to make instead. ``(message, [sp functions])``.
 R_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
-    "weightit": (
-        "WeightIt::weightit estimates the propensity score and returns "
-        "weights; sp.ps_weights(ps, treat, estimand=) turns a fitted score "
-        "into the same weights, and sp.ipw(data, y=, treat=, covariates=) "
-        "estimates the weighted effect in one call.",
-        ["ps_weights", "ipw"],
-    ),
     "synthdid_estimate": (
         "synthdid_estimate(Y, N0, T0) takes the matrices of panel.matrices(); "
-        "call sp.sdid(data, outcome=, unit=, time=, treated_unit= / "
-        "treat_unit=, treatment_time=) on the long panel instead.",
-        ["sdid"],
+        "call sp.synthdid_estimate(data, y=, unit=, time=, treat_unit=, "
+        "treat_time=) (an alias of sp.sdid) on the long panel instead.",
+        ["synthdid_estimate", "sdid"],
     ),
     "mediate": (
         "mediation::mediate(model.m, model.y, treat=, mediator=) takes two "

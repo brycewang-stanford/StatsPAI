@@ -36,6 +36,17 @@ All notable changes to StatsPAI will be documented in this file.
   and leaves the data alone; so do these now (`DataInsufficient`; `_rc` is
   2000 under `capture`). A group whose weights are all zero is left out,
   as in Stata (`tests/test_data_layer.py`).
+- `sp.from_r('weightit(...)')` was refused with guidance pointing to
+  `sp.ps_weights`, although `sp.weightit` exists. It now translates
+  `weightit(treat ~ x1 + ..., method = "glm" | "ps" | "cbps" | "ebal" |
+  "energy", estimand, focal, moments, int, d.moments)` to `sp.weightit`;
+  five translated lines reproduce the WeightIt 1.7.0 weights of the
+  `sp.weightit` parity fixture to 1e-8 (WeightIt is GPL: outputs only).
+  Arguments that change the weights and have no counterpart (`stabilize`,
+  `s.weights`, `by`, ...) are listed as untranslated. The
+  `synthdid_estimate` guidance now names `sp.synthdid_estimate`. The other
+  `R_GUIDANCE` and Stata `_UNTRANSLATED_GUIDANCE` entries were audited: none
+  has a translation handler or names a missing function.
 
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 

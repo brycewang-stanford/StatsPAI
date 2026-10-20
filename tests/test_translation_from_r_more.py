@@ -277,8 +277,7 @@ def test_translations_to_mirrored_functions():
 @pytest.mark.parametrize(
     "line, function",
     [
-        ("weightit(d ~ x, data = df)", "ps_weights"),
-        ("synthdid_estimate(setup$Y, setup$N0, setup$T0)", "sdid"),
+        ("synthdid_estimate(setup$Y, setup$N0, setup$T0)", "synthdid_estimate"),
         ('mediation::mediate(med, out, treat = "d", mediator = "m")', "mediate"),
         ("CausalImpact(data, pre.period, post.period)", "causal_impact"),
         ("spatialreg::lagsarlm(y ~ x, data = df, listw = lw)", "sar"),
@@ -294,3 +293,44 @@ def test_guidance_names_an_existing_function(line, function):
     assert out["ok"] is False
     assert function in out["statspai_functions"]
     assert callable(getattr(sp, function))
+
+
+# WeightIt::weightit: the R lines of
+# reference_parity/_fixtures/_generate_weightit_cobalt_R.R, run through
+# sp.from_r and compared with the weights WeightIt 1.7.0 returned for them
+# (GPL, black box). Tolerances as in test_weightit_cobalt_parity.py.
+_WEIGHTIT_LINES = {
+    "bin_glm_ATE": 'weightit(bin ~ x1 + x2 + x3, data = d, method = "glm", '
+    'estimand = "ATE")',
+    "bin_glm_ATC": "WeightIt::weightit(bin ~ x1 + x2 + x3, data = d, "
+    "method = 'ps', estimand = 'ATC')",
+    "multi_cbps_ATT": 'weightit(treat ~ x1 + x2 + x3, data = d, method = "cbps", '
+    'estimand = "ATT", focal = "b")',
+    "multi_ebal_ATE_m2int": "weightit(treat ~ x1 + x2 + x3, data = d, "
+    'method = "ebal", moments = 2, int = TRUE)',
+    "cont_ebal_d3": 'weightit(dose ~ x1 + x2 + x3, data = d, method = "ebal", '
+    "d.moments = 3)",
+}
+
+
+@pytest.mark.parametrize("key", sorted(_WEIGHTIT_LINES))
+def test_weightit_translation_reproduces_weightit(key):
+    import json
+    import pathlib
+
+    fx = pathlib.Path(__file__).parent / "reference_parity" / "_fixtures"
+    ref = json.loads((fx / "weightit_cobalt_R.json").read_text(encoding="utf-8"))
+    data = pd.read_csv(fx / "weightit_cobalt_data.csv")
+    out, W = _run(_WEIGHTIT_LINES[key], data)
+    assert out["tool"] == "weightit" and "untranslated_arguments" not in out
+    np.testing.assert_allclose(
+        W.weights.to_numpy(), ref["weights"][key]["w"], rtol=1e-8, atol=0
+    )
+
+
+def test_weightit_refuses_what_it_cannot_carry():
+    out = sp.from_r('weightit(d ~ x, data = df, method = "gbm")')
+    assert out["ok"] is False and "weightit" in out["statspai_functions"]
+    out = sp.from_r("weightit(d ~ x, data = df, stabilize = TRUE)")
+    assert out["ok"] and out["untranslated_arguments"] == ["stabilize"]
+    assert sp.from_r("weightit(d ~ log(x), data = df)")["ok"] is False
