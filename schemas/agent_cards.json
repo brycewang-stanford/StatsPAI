@@ -127181,12 +127181,12 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "``1 - alpha`` is R's ``level / 100``.",
+            "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
           "approach": {
             "default": "location",
-            "description": "See the module docstring.",
+            "description": "Bivariate local polynomial in ``x - b``; univariate in the signed distance to ``b``; or ``sp.rdrobust`` on the signed distance to the boundary curve (one pooled effect).",
             "enum": [
               "location",
               "distance",
@@ -127195,12 +127195,12 @@
             "type": "string"
           },
           "boundary": {
-            "description": "``f(x1) -> x2`` describing the boundary; used only to place default evaluation points (``n_eval`` of them) and by ``approach=\"pooled\"``. ``None`` means the line ``x1 = 0``.",
+            "description": "Boundary curve ``x2 = f(x1)``, used for default evaluation points and by ``approach='pooled'``; default the line ``x1 = 0``.",
             "type": "string"
           },
           "bwcheck": {
             "default": "auto",
-            "description": "Minimum number of observations (or mass points) inside every bandwidth; ``'auto'`` is R's default ``50 + p + 1``.",
+            "description": "Minimum number of observations (distinct locations with ``masspoints='adjust'``) in every window; 'auto' is ``50 + p + 1``.",
             "type": [
               "integer",
               "string"
@@ -127208,7 +127208,7 @@
           },
           "bwparam": {
             "default": "main",
-            "description": "Fuzzy designs: select the bandwidth for the ratio or the ITT.",
+            "description": "Fuzzy bandwidth target: the Wald ratio or the reduced form.",
             "enum": [
               "main",
               "itt"
@@ -127217,27 +127217,17 @@
           },
           "bwselect": {
             "default": "mserd",
-            "description": "``mserd``, ``cerrd``, ``imserd``, ``icerrd``, ``msetwo``, ``certwo``, ``imsetwo`` or ``icertwo``.",
-            "enum": [
-              "mserd",
-              "cerrd",
-              "imserd",
-              "icerrd",
-              "msetwo",
-              "certwo",
-              "imsetwo",
-              "icertwo"
-            ],
+            "description": "``mserd``/``cerrd`` (common), ``msetwo``/``certwo`` (per side), ``i``-prefixed forms integrate over the evaluation points.",
             "type": "string"
           },
           "cluster": {
-            "description": "Cluster identifier (vce must then be hc0 or hc1).",
+            "description": "Cluster column.",
             "type": "string",
             "x-statspai-role": "column"
           },
           "cqt": {
             "default": 0.5,
-            "description": "Distance approach: quantile of the distance below which the pilot polynomial for the bias constant is fitted.",
+            "description": "Distance approach: quantile of ``|D|`` defining the subsample of the bias polynomial.",
             "type": "number"
           },
           "data": {
@@ -127250,26 +127240,26 @@
               0,
               0
             ],
-            "description": "Location approach: partial derivative of the effect to estimate.",
+            "description": "Partial derivative order of the target (location approach).",
             "items": {
               "type": "integer"
             },
             "type": "array"
           },
           "distance": {
-            "description": "Distance approach: signed distances (non-negative on the treated side) to each evaluation point. Default: Euclidean distance to ``eval_points`` signed by ``treatment``.",
+            "description": "Distance approach: user signed distances (negative on the control side), one column per evaluation point.",
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "eval_points": {
-            "description": "Boundary points (R's ``b``). Default: ``n_eval`` points along ``boundary`` between the 10th and 90th percentiles of the data.",
+            "description": "Boundary points; default on the boundary (see ``n_eval``).",
             "type": "string"
           },
           "fitmethod": {
             "default": "joint",
-            "description": "``joint`` applies the degrees-of-freedom correction to both sides together (R's default).",
+            "description": "Treatment-interacted fit (joint small-sample factors and cluster sums) or side-by-side fits.",
             "enum": [
               "joint",
               "separate"
@@ -127277,11 +127267,11 @@
             "type": "string"
           },
           "fuzzy": {
-            "description": "Treatment take-up for a fuzzy design; the effect is the ratio of the outcome and take-up jumps.",
+            "description": "Treatment-receipt column (fuzzy design: effect = ITT / first stage).",
             "type": "string"
           },
           "h": {
-            "description": "Bandwidth. ``location``: scalar or ``(k, 4)`` array ``(h01, h02, h11, h12)``; ``distance``: scalar or ``(k, 2)`` array ``(h0, h1)``. ``None`` selects it (R ``rdbw2d`` / ``rdbw2d.distance``).",
+            "description": "Bandwidth used for local smoothing or kernel weighting.",
             "type": "number"
           },
           "kernel": {
@@ -127297,7 +127287,7 @@
           },
           "kernel_type": {
             "default": "prod",
-            "description": "Location approach: product or radial kernel.",
+            "description": "Product or radial kernel (location approach).",
             "enum": [
               "prod",
               "rad"
@@ -127305,7 +127295,7 @@
             "type": "string"
           },
           "kink_position": {
-            "description": "Distance approach: 0-based indices (or a boolean mask) of evaluation points that are known kinks of the boundary.",
+            "description": "Distance approach: 0-based indices (or a mask) of kink points.",
             "items": {
               "type": "string"
             },
@@ -127313,7 +127303,7 @@
           },
           "kink_unknown": {
             "default": false,
-            "description": "Distance approach: boundary may have kinks at unknown places; undersmooth the bandwidth (first) and the bias-correction bandwidth (second).",
+            "description": "Distance approach: shrink the bandwidth to the kink rate ``n^(-1/4)`` (first) and the inference bandwidth to ``n^(-1/3)`` (second).",
             "type": "boolean"
           },
           "masspoints": {
@@ -127328,7 +127318,7 @@
           },
           "method": {
             "default": "dpi",
-            "description": "Location approach: pilot bandwidth rule for the bias constants.",
+            "description": "Bias-bandwidth rule of the location selector.",
             "enum": [
               "dpi",
               "rot"
@@ -127337,25 +127327,25 @@
           },
           "n_eval": {
             "default": 1,
-            "description": "Number of eval.",
+            "description": "Number of default evaluation points.",
             "type": "integer"
           },
           "p": {
             "default": 1,
-            "description": "Polynomial order of the point estimator.",
+            "description": "Polynomial order of the point estimate.",
             "type": "integer"
           },
           "q": {
-            "description": "Order of the bias-correction fit; default ``p + 1`` (``p`` for the distance approach with ``kink_unknown``).",
+            "description": "Order of the bias-correction fit (default ``p + 1``; ``p`` with an unknown kink in the distance approach).",
             "type": "integer"
           },
           "scalebiascrct": {
             "default": 1.0,
-            "description": "Location approach: weight of the higher-order bias correction in the bandwidth selector.",
+            "description": "Weight of the higher-order bias term of the location selector.",
             "type": "number"
           },
           "scaleregul": {
-            "description": "Regularisation weight of the bandwidth selector; default is R's (3 for location, 1 for distance).",
+            "description": "Weight of the regularisation term of the selector (default 3 for the location approach, 1 for the distance approach).",
             "type": "number"
           },
           "side": {
@@ -127370,15 +127360,15 @@
           },
           "stdvars": {
             "default": true,
-            "description": "Location approach: standardise x1, x2 before selecting bandwidths.",
+            "description": "Standardise the scores before selecting bandwidths (location).",
             "type": "boolean"
           },
           "tangvec": {
-            "description": "Location approach: tangential direction for a directional derivative (overrides ``deriv``).",
+            "description": "Direction of a directional derivative at each point (location).",
             "type": "string"
           },
           "treatment": {
-            "description": "0/1 assignment (R's ``assignment``); defines the two sides of the boundary.",
+            "description": "0/1 column: the side of the boundary each unit is on.",
             "type": "string",
             "x-aliases": [
               "treat"
@@ -127388,17 +127378,17 @@
           },
           "vce": {
             "default": "hc1",
-            "description": "vce parameter (str).",
+            "description": "Variance estimator; with ``cluster`` only hc0/hc1 (hc2/hc3 are reset to hc1 with a warning).",
             "enum": [
-              "hc1",
               "hc0",
+              "hc1",
               "hc2",
               "hc3"
             ],
             "type": "string"
           },
           "weights": {
-            "description": "WBATE weights over the evaluation points (R ``summary(..., WBATE=)``); normalised to sum to one. Default: equal weights.",
+            "description": "Weights of the headline average over evaluation points.",
             "items": {
               "type": "number"
             },
@@ -127413,7 +127403,7 @@
             "type": "string"
           },
           "y": {
-            "description": "Outcome.",
+            "description": "Outcome column.",
             "type": "string",
             "x-statspai-role": "column"
           }
@@ -141231,7 +141221,7 @@
       ],
       "tolerance": "estimate.p/q, std.err.p/q, t, CI, cross-point covariance rel 1e-9 (observed 1.6e-11); bandwidths rel 1e-8 (observed 1.2e-12); N exact"
     },
-    "example": "res = sp.rd2d(df, y=\"y\", x1=\"x1\", x2=\"x2\", treatment=\"treat\",\n eval_points=b)",
+    "example": "r = sp.rd2d(df, y=\"y\", x1=\"x1\", x2=\"x2\", treatment=\"t\", n_eval=3)",
     "failure_modes": [
       {
         "alternative": "sp.rdrandinf",
@@ -141268,10 +141258,10 @@
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "@cattaneo2025boundary; @keele2015geographic",
+    "reference": "cattaneo2025boundary",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: detail holds one row per evaluation point with R's main columns (b1, b2, estimate_p, std_err_p, estimate_q, std_err_q, t_value, p_value, ci_lower, ci_upper, bandwidths, effective sample sizes).",
+      "description": "CausalResult: detail: one row per evaluation point (estimate_p, std_err_p, estimate_q, std_err_q, t_value, p_value, ci_lower, ci_upper, bandwidths, n_co, n_tr); headline: the weighted average of estimate_q.",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -141293,12 +141283,12 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "``1 - alpha`` is R's ``level / 100``.",
+            "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
           "approach": {
             "default": "location",
-            "description": "See the module docstring.",
+            "description": "Bivariate local polynomial in ``x - b``; univariate in the signed distance to ``b``; or ``sp.rdrobust`` on the signed distance to the boundary curve (one pooled effect).",
             "enum": [
               "location",
               "distance",
@@ -141307,12 +141297,12 @@
             "type": "string"
           },
           "boundary": {
-            "description": "``f(x1) -> x2`` describing the boundary; used only to place default evaluation points (``n_eval`` of them) and by ``approach=\"pooled\"``. ``None`` means the line ``x1 = 0``.",
+            "description": "Boundary curve ``x2 = f(x1)``, used for default evaluation points and by ``approach='pooled'``; default the line ``x1 = 0``.",
             "type": "string"
           },
           "bwcheck": {
             "default": "auto",
-            "description": "Minimum number of observations (or mass points) inside every bandwidth; ``'auto'`` is R's default ``50 + p + 1``.",
+            "description": "Minimum number of observations (distinct locations with ``masspoints='adjust'``) in every window; 'auto' is ``50 + p + 1``.",
             "type": [
               "integer",
               "string"
@@ -141320,7 +141310,7 @@
           },
           "bwparam": {
             "default": "main",
-            "description": "Fuzzy designs: select the bandwidth for the ratio or the ITT.",
+            "description": "Fuzzy bandwidth target: the Wald ratio or the reduced form.",
             "enum": [
               "main",
               "itt"
@@ -141329,27 +141319,17 @@
           },
           "bwselect": {
             "default": "mserd",
-            "description": "``mserd``, ``cerrd``, ``imserd``, ``icerrd``, ``msetwo``, ``certwo``, ``imsetwo`` or ``icertwo``.",
-            "enum": [
-              "mserd",
-              "cerrd",
-              "imserd",
-              "icerrd",
-              "msetwo",
-              "certwo",
-              "imsetwo",
-              "icertwo"
-            ],
+            "description": "``mserd``/``cerrd`` (common), ``msetwo``/``certwo`` (per side), ``i``-prefixed forms integrate over the evaluation points.",
             "type": "string"
           },
           "cluster": {
-            "description": "Cluster identifier (vce must then be hc0 or hc1).",
+            "description": "Cluster column.",
             "type": "string",
             "x-statspai-role": "column"
           },
           "cqt": {
             "default": 0.5,
-            "description": "Distance approach: quantile of the distance below which the pilot polynomial for the bias constant is fitted.",
+            "description": "Distance approach: quantile of ``|D|`` defining the subsample of the bias polynomial.",
             "type": "number"
           },
           "data": {
@@ -141362,26 +141342,26 @@
               0,
               0
             ],
-            "description": "Location approach: partial derivative of the effect to estimate.",
+            "description": "Partial derivative order of the target (location approach).",
             "items": {
               "type": "integer"
             },
             "type": "array"
           },
           "distance": {
-            "description": "Distance approach: signed distances (non-negative on the treated side) to each evaluation point. Default: Euclidean distance to ``eval_points`` signed by ``treatment``.",
+            "description": "Distance approach: user signed distances (negative on the control side), one column per evaluation point.",
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "eval_points": {
-            "description": "Boundary points (R's ``b``). Default: ``n_eval`` points along ``boundary`` between the 10th and 90th percentiles of the data.",
+            "description": "Boundary points; default on the boundary (see ``n_eval``).",
             "type": "string"
           },
           "fitmethod": {
             "default": "joint",
-            "description": "``joint`` applies the degrees-of-freedom correction to both sides together (R's default).",
+            "description": "Treatment-interacted fit (joint small-sample factors and cluster sums) or side-by-side fits.",
             "enum": [
               "joint",
               "separate"
@@ -141389,11 +141369,11 @@
             "type": "string"
           },
           "fuzzy": {
-            "description": "Treatment take-up for a fuzzy design; the effect is the ratio of the outcome and take-up jumps.",
+            "description": "Treatment-receipt column (fuzzy design: effect = ITT / first stage).",
             "type": "string"
           },
           "h": {
-            "description": "Bandwidth. ``location``: scalar or ``(k, 4)`` array ``(h01, h02, h11, h12)``; ``distance``: scalar or ``(k, 2)`` array ``(h0, h1)``. ``None`` selects it (R ``rdbw2d`` / ``rdbw2d.distance``).",
+            "description": "Bandwidth used for local smoothing or kernel weighting.",
             "type": "number"
           },
           "kernel": {
@@ -141409,7 +141389,7 @@
           },
           "kernel_type": {
             "default": "prod",
-            "description": "Location approach: product or radial kernel.",
+            "description": "Product or radial kernel (location approach).",
             "enum": [
               "prod",
               "rad"
@@ -141417,7 +141397,7 @@
             "type": "string"
           },
           "kink_position": {
-            "description": "Distance approach: 0-based indices (or a boolean mask) of evaluation points that are known kinks of the boundary.",
+            "description": "Distance approach: 0-based indices (or a mask) of kink points.",
             "items": {
               "type": "string"
             },
@@ -141425,7 +141405,7 @@
           },
           "kink_unknown": {
             "default": false,
-            "description": "Distance approach: boundary may have kinks at unknown places; undersmooth the bandwidth (first) and the bias-correction bandwidth (second).",
+            "description": "Distance approach: shrink the bandwidth to the kink rate ``n^(-1/4)`` (first) and the inference bandwidth to ``n^(-1/3)`` (second).",
             "type": "boolean"
           },
           "masspoints": {
@@ -141440,7 +141420,7 @@
           },
           "method": {
             "default": "dpi",
-            "description": "Location approach: pilot bandwidth rule for the bias constants.",
+            "description": "Bias-bandwidth rule of the location selector.",
             "enum": [
               "dpi",
               "rot"
@@ -141449,25 +141429,25 @@
           },
           "n_eval": {
             "default": 1,
-            "description": "Number of eval.",
+            "description": "Number of default evaluation points.",
             "type": "integer"
           },
           "p": {
             "default": 1,
-            "description": "Polynomial order of the point estimator.",
+            "description": "Polynomial order of the point estimate.",
             "type": "integer"
           },
           "q": {
-            "description": "Order of the bias-correction fit; default ``p + 1`` (``p`` for the distance approach with ``kink_unknown``).",
+            "description": "Order of the bias-correction fit (default ``p + 1``; ``p`` with an unknown kink in the distance approach).",
             "type": "integer"
           },
           "scalebiascrct": {
             "default": 1.0,
-            "description": "Location approach: weight of the higher-order bias correction in the bandwidth selector.",
+            "description": "Weight of the higher-order bias term of the location selector.",
             "type": "number"
           },
           "scaleregul": {
-            "description": "Regularisation weight of the bandwidth selector; default is R's (3 for location, 1 for distance).",
+            "description": "Weight of the regularisation term of the selector (default 3 for the location approach, 1 for the distance approach).",
             "type": "number"
           },
           "side": {
@@ -141482,15 +141462,15 @@
           },
           "stdvars": {
             "default": true,
-            "description": "Location approach: standardise x1, x2 before selecting bandwidths.",
+            "description": "Standardise the scores before selecting bandwidths (location).",
             "type": "boolean"
           },
           "tangvec": {
-            "description": "Location approach: tangential direction for a directional derivative (overrides ``deriv``).",
+            "description": "Direction of a directional derivative at each point (location).",
             "type": "string"
           },
           "treatment": {
-            "description": "0/1 assignment (R's ``assignment``); defines the two sides of the boundary.",
+            "description": "0/1 column: the side of the boundary each unit is on.",
             "type": "string",
             "x-aliases": [
               "treat"
@@ -141500,17 +141480,17 @@
           },
           "vce": {
             "default": "hc1",
-            "description": "vce parameter (str).",
+            "description": "Variance estimator; with ``cluster`` only hc0/hc1 (hc2/hc3 are reset to hc1 with a warning).",
             "enum": [
-              "hc1",
               "hc0",
+              "hc1",
               "hc2",
               "hc3"
             ],
             "type": "string"
           },
           "weights": {
-            "description": "WBATE weights over the evaluation points (R ``summary(..., WBATE=)``); normalised to sum to one. Default: equal weights.",
+            "description": "Weights of the headline average over evaluation points.",
             "items": {
               "type": "number"
             },
@@ -141525,7 +141505,7 @@
             "type": "string"
           },
           "y": {
-            "description": "Outcome.",
+            "description": "Outcome column.",
             "type": "string",
             "x-statspai-role": "column"
           }
@@ -141589,7 +141569,7 @@
       ],
       "tolerance": "per-point bandwidths rel 1e-8 (observed 5.0e-13)"
     },
-    "example": "bw = sp.rd2d_bw(df, y=\"y\", x1=\"x1\", x2=\"x2\", treatment=\"treat\")",
+    "example": "list(sp.rd2d_bw(df, y=\"y\", x1=\"x1\", x2=\"x2\", treatment=\"t\").columns)",
     "failure_modes": [
       {
         "alternative": "sp.rdrandinf",
@@ -141643,13 +141623,14 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cattaneo2025boundary",
     "returns": {
       "class": "DataFrame",
-      "description": "pd.DataFrame: b1, b2, h01, h02, h11, h12 (location) or b1, b2, h0, h1 (distance), one row per evaluation point.",
+      "description": "DataFrame: One row per evaluation point: b1, b2 and h01, h02, h11, h12 (location) or h0, h1 (distance).",
       "fields": {}
     },
     "signature": {
@@ -141659,7 +141640,7 @@
         "properties": {
           "approach": {
             "default": "location",
-            "description": "Bivariate fit at boundary points, or a univariate fit on the signed distance. ``sp.rd2d``'s ``'pooled'`` has no bandwidth selector of its own -- call :func:`sp.rdbwselect` on the signed distance instead.",
+            "description": "approach parameter (str).",
             "enum": [
               "location",
               "distance"
@@ -141667,12 +141648,12 @@
             "type": "string"
           },
           "boundary": {
-            "description": "``f(x1) -> x2`` tracing the boundary; ``None`` uses ``x1 = 0``.",
+            "description": "Boundary ``x2 = f(x1)`` for default evaluation points.",
             "type": "string"
           },
           "bwcheck": {
             "default": "auto",
-            "description": "bwcheck parameter (Union[int, str, None]).",
+            "description": "'auto' is 20 (location) or ``20 + p + 1`` (distance).",
             "type": [
               "integer",
               "string"
@@ -141681,11 +141662,15 @@
           "bwparam": {
             "default": "main",
             "description": "bwparam parameter (str).",
+            "enum": [
+              "main",
+              "itt"
+            ],
             "type": "string"
           },
           "bwselect": {
             "default": "mserd",
-            "description": "bwselect parameter (str).",
+            "description": "One of mserd, cerrd, imserd, icerrd, msetwo, certwo, imsetwo, icertwo.",
             "enum": [
               "mserd",
               "cerrd",
@@ -141709,7 +141694,7 @@
             "type": "number"
           },
           "data": {
-            "description": "Long frame holding the outcome, both running variables and the treatment indicator.",
+            "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
@@ -141738,6 +141723,10 @@
           "fitmethod": {
             "default": "joint",
             "description": "fitmethod parameter (str).",
+            "enum": [
+              "joint",
+              "separate"
+            ],
             "type": "string"
           },
           "fuzzy": {
@@ -141746,17 +141735,22 @@
           },
           "kernel": {
             "default": "triangular",
-            "description": "``'triangular'``, ``'uniform'`` or ``'epanechnikov'``.",
+            "description": "Kernel function used for weighting or smoothing.",
             "enum": [
               "triangular",
+              "epanechnikov",
               "uniform",
-              "epanechnikov"
+              "gaussian"
             ],
             "type": "string"
           },
           "kernel_type": {
             "default": "prod",
             "description": "kernel_type parameter (str).",
+            "enum": [
+              "prod",
+              "rad"
+            ],
             "type": "string"
           },
           "kink_position": {
@@ -141774,11 +141768,16 @@
           "masspoints": {
             "default": "check",
             "description": "masspoints parameter (str).",
+            "enum": [
+              "check",
+              "adjust",
+              "off"
+            ],
             "type": "string"
           },
           "method": {
             "default": "dpi",
-            "description": "Estimator or algorithm variant to use.",
+            "description": "Bias-bandwidth rule (location approach).",
             "enum": [
               "dpi",
               "rot"
@@ -141792,7 +141791,7 @@
           },
           "p": {
             "default": 1,
-            "description": "Polynomial order of the point estimator.",
+            "description": "p parameter (int).",
             "type": "integer"
           },
           "scalebiascrct": {
@@ -141815,7 +141814,7 @@
             "type": "string"
           },
           "treatment": {
-            "description": "Column names, as in :func:`sp.rd2d`.",
+            "description": "Outcome, the two running variables and the 0/1 side indicator.",
             "type": "string",
             "x-aliases": [
               "treat"
@@ -141835,15 +141834,15 @@
             "type": "string"
           },
           "x1": {
-            "description": "Column names, as in :func:`sp.rd2d`.",
+            "description": "Outcome, the two running variables and the 0/1 side indicator.",
             "type": "string"
           },
           "x2": {
-            "description": "Column names, as in :func:`sp.rd2d`.",
+            "description": "Outcome, the two running variables and the 0/1 side indicator.",
             "type": "string"
           },
           "y": {
-            "description": "Column names, as in :func:`sp.rd2d`.",
+            "description": "Outcome, the two running variables and the 0/1 side indicator.",
             "type": "string",
             "x-statspai-role": "column"
           }

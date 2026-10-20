@@ -427,9 +427,9 @@ def test_distance_primitives_on_degenerate_input():
     )
     # a quadratic needs more than three points
     with pytest.raises(DataInsufficient, match="cqt quantile"):
-        dist_mod._poly_lm(np.arange(3.0), np.arange(3.0), 2)
+        dist_mod._quantile_poly_fit(np.arange(3.0), np.arange(3.0), 2)
     # fewer kernel-weighted points than coefficients: no intercept
     y = np.arange(5.0)
     d = np.array([0.1, 0.2, 5.0, 6.0, 7.0])
-    out = dist_mod._local_intercepts(y, None, d, 1.0, 1, "tri")
+    out = dist_mod._side_jumps(y, None, d, 1.0, 1, "tri")
     assert np.isnan(out[0]) and np.isnan(out[1])

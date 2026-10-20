@@ -43,6 +43,8 @@ Counts: class 2 = 7 (rd2d location / distance / WBATE, rd2d_bw, boundary_rd, rd_
    decimals; `approach="location"` pooled pointwise fits by inverse-variance
    weights. R rd2d estimates **pointwise** effects `tau(b)` with the rdbw2d
    MSE/CER bandwidths and robust bias-corrected inference (estimate.q /
+   std.err.q). [2026-10-21: the port below was replaced by a clean-room
+   rewrite, licence audit row H9; see `docs/dev/cleanroom/rd2d.md`.]
    std.err.q). Rebuilt as a line-by-line port of R rd2d 1.0.0 (every routine
    named in the docstrings): sharp and fuzzy, product/radial kernels, HC0–3,
    clusters, joint/separate fits, all 8 `bwselect`, dpi/rot, masspoints,
