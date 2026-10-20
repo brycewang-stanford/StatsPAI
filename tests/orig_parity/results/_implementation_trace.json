@@ -387,7 +387,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 31.87,
+   "seconds": 31.88,
    "error": null,
    "boundary_calls": [
     {
@@ -488,7 +488,7 @@
     "src/statspai/core/results.py": "617ab2f97d47dabae0d74191e7c1e9919af174512ea192b45b01184a0a0fb70a",
     "src/statspai/datasets/__init__.py": "35afc67fba95f72807d97c36fd13d55c3af6d1093f19c5ad63cbf92885109c61",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
-    "src/statspai/inference/aipw.py": "0ab2f88abf714e2e95b12143ec4eb5f4b95282066299b0c14734d0f0a7f5713d",
+    "src/statspai/inference/aipw.py": "e3295914793bd6017275a71195032bd42f2c6b2f3e0e557e0378c2bda90a7156",
     "src/statspai/inference/basic_tests.py": "bbfcf957e14302a42ba31da82f76609748a77292e8d3241b2001a24193a577d9",
     "src/statspai/inference/g_computation.py": "45b3e7b8dbe8c91f0d5c072d2068c13462f8b94be3ea0ba7cf3558d76becf9d7",
     "src/statspai/output/_lineage.py": "a912fbc582be2dbc27206ec48cd84684ddc5a318aa469483bb89646af53180de",
