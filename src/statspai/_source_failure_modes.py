@@ -1698,6 +1698,34 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "tuned and fixed by keyword.",
         }
     ],
+    "two_stage_interference": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use weighting='group' or 'individual'.",
+            "symptom": "two_stage_interference: " "weighting=<weighting>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. alpha=0.05.",
+            "symptom": "two_stage_interference: alpha=<alpha> " "is not in (0, 1).",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "The cross-saturation effects need "
+            "groups at two or more saturations; "
+            "with one, use "
+            "sp.difference_in_means(cluster=).",
+            "symptom": "two_stage_interference: only one " "saturation in the data.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Pool or drop the saturation levels " "with a single group.",
+            "symptom": "two_stage_interference: fewer than "
+            "two groups at saturation(s) "
+            "<thin.index.tolist()>; the "
+            "group-level variance needs two.",
+        },
+    ],
     "unitroot": [
         {
             "exception": "statspai.MethodIncompatibility",

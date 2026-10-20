@@ -858,6 +858,7 @@ from .interference import (
     network_hte,
     peer_effects,
     spillover,
+    two_stage_interference,
 )
 from .iv.continuous_late import ContinuousLATEResult, continuous_iv_late
 
@@ -2062,6 +2063,7 @@ __all__ = [
     "breakdown_frontier",
     # Interference
     "spillover",
+    "two_stage_interference",
     "SpilloverEstimator",
     # Dynamic Treatment Regimes
     "g_estimation",

@@ -80,7 +80,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `neural_causal` | 3,450 | 6 | 18 |
 | `postestimation` | 5,945 | 11 | 20 |
 | `bounds` | 3,328 | 7 | 12 |
-| `interference` | 3,349 | 11 | 22 |
+| `interference` | 3,789 | 12 | 23 |
 | `bartik` | 3,209 | 6 | 9 |
 | `causal_llm` | 3,025 | 10 | 15 |
 | `experimental` | 4,615 | 10 | 23 |

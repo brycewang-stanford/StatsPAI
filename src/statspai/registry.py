@@ -27316,6 +27316,81 @@ def _build_registry() -> None:
         )
     )
 
+    register(
+        FunctionSpec(
+            name="two_stage_interference",
+            category="causal",
+            description=(
+                "Hudgens-Halloran two-stage randomized (saturation) design "
+                "under partial interference: direct, indirect (spillover), "
+                "total and overall effects from the groups' randomized "
+                "saturations, with the conservative group-level variance "
+                "(exact for constant group-level effects)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per unit"),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec("treat", "str", True, None, "Unit treatment, 0/1"),
+                ParamSpec(
+                    "group",
+                    "str",
+                    True,
+                    None,
+                    "Group column: first-stage unit and interference boundary",
+                ),
+                ParamSpec(
+                    "saturation",
+                    "str",
+                    True,
+                    None,
+                    "Each group's randomized share to treat, in [0, 1], "
+                    "constant within the group",
+                ),
+                ParamSpec(
+                    "reference",
+                    "float",
+                    False,
+                    None,
+                    "Saturation the cross-saturation effects are measured "
+                    "against (default: the lowest)",
+                ),
+                ParamSpec(
+                    "weighting",
+                    "str",
+                    False,
+                    "group",
+                    "Average over groups (Hudgens-Halloran) or over units",
+                    ["group", "individual"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the intervals"),
+            ],
+            returns=(
+                "CausalResult (headline: total effect of the highest saturation; "
+                "detail: one row per effect; model_info['means'])"
+            ),
+            example='sp.two_stage_interference(df, "y", "d", "village", "sat")',
+            tags=[
+                "interference",
+                "spillover",
+                "two-stage randomization",
+                "saturation design",
+                "hudgens-halloran",
+                "partial interference",
+            ],
+            reference="hudgens2008toward; basse2018analyzing",
+            assumptions=[
+                "Partial interference: no spillover across groups",
+                "Groups randomized to saturations, then units within each group "
+                "with that share treated (fixed counts)",
+            ],
+            alternatives=[
+                "spillover",
+                "network_exposure",
+                "cluster_cross_interference",
+            ],
+        )
+    )
+
     # -- Social network analysis (sp.network) ------------------------- #
     _network_api_evidence = [
         "API/unit contract evidence: tests/test_network.py",
@@ -36572,6 +36647,7 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "reshape": ["tests/test_data_layer.py"],
     "collapse": ["tests/test_data_layer.py"],
     "cuped": ["tests/test_cuped.py"],
+    "two_stage_interference": ["tests/test_two_stage_interference.py"],
     "msprt": ["tests/test_msprt.py"],
     "msprt_lambda": ["tests/test_msprt.py"],
 }

@@ -62722,8 +62722,10 @@
               "parmigiani",
               "partial",
               "peer_effects",
+              "saturation",
               "spillover",
-              "staggered_cluster"
+              "staggered_cluster",
+              "two_stage"
             ],
             "type": "string"
           }
@@ -63648,6 +63650,156 @@
       "API/unit contract evidence: tests/test_dispatchers_v150.py"
     ],
     "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "spillover",
+      "network_exposure",
+      "cluster_cross_interference"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Partial interference: no spillover across groups",
+      "Groups randomized to saturations, then units within each group with that share treated (fixed counts)"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects).",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.two_stage_interference(df, \"y\", \"d\", \"village\", \"sat\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use weighting='group' or 'individual'.",
+        "symptom": "two_stage_interference: weighting=<weighting>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. alpha=0.05.",
+        "symptom": "two_stage_interference: alpha=<alpha> is not in (0, 1)."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "The cross-saturation effects need groups at two or more saturations; with one, use sp.difference_in_means(cluster=).",
+        "symptom": "two_stage_interference: only one saturation in the data."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Pool or drop the saturation levels with a single group.",
+        "symptom": "two_stage_interference: fewer than two groups at saturation(s) <thin.index.tolist()>; the group-level variance needs two."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "two_stage_interference",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hudgens2008toward; basse2018analyzing",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult (headline: total effect of the highest saturation; detail: one row per effect; model_info['means'])",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects).",
+      "name": "two_stage_interference",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the intervals",
+            "type": "number"
+          },
+          "data": {
+            "description": "One row per unit",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "group": {
+            "description": "Group column: first-stage unit and interference boundary",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "reference": {
+            "description": "Saturation the cross-saturation effects are measured against (default: the lowest)",
+            "type": "number"
+          },
+          "saturation": {
+            "description": "Each group's randomized share to treat, in [0, 1], constant within the group",
+            "type": "string"
+          },
+          "treat": {
+            "description": "Unit treatment, 0/1",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "weighting": {
+            "default": "group",
+            "description": "Average over groups (Hudgens-Halloran) or over units",
+            "enum": [
+              "group",
+              "individual"
+            ],
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "group",
+          "saturation"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_two_stage_interference.py"
+    ],
+    "validation_status": "api_stable"
   },
   {
     "alias_of": null,

@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 155 | 356 | 356 |
+| causal | 155 | 356 | 357 |
 | regression | 45 | 59 | 62 |
 | timeseries | 24 | 52 | 53 |
 | inference | 28 | 51 | 52 |

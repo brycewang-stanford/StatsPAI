@@ -28,6 +28,8 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
     "partial": ("statspai.interference.spillover", "spillover"),
     "spillover": ("statspai.interference.spillover", "spillover"),
     "hudgens_halloran": ("statspai.interference.spillover", "spillover"),
+    "two_stage": ("statspai.interference.two_stage", "two_stage_interference"),
+    "saturation": ("statspai.interference.two_stage", "two_stage_interference"),
     # -- Network interference ------------------------------------- #
     "network_exposure": ("statspai.interference.network_exposure", "network_exposure"),
     "aronow_samii": ("statspai.interference.network_exposure", "network_exposure"),

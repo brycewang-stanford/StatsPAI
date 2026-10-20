@@ -28454,8 +28454,10 @@
             "parmigiani",
             "partial",
             "peer_effects",
+            "saturation",
             "spillover",
-            "staggered_cluster"
+            "staggered_cluster",
+            "two_stage"
           ],
           "type": "string"
         }
@@ -28877,6 +28879,64 @@
         "y",
         "treat",
         "cluster"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects).",
+    "name": "two_stage_interference",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the intervals",
+          "type": "number"
+        },
+        "data": {
+          "description": "One row per unit",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "group": {
+          "description": "Group column: first-stage unit and interference boundary",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "reference": {
+          "description": "Saturation the cross-saturation effects are measured against (default: the lowest)",
+          "type": "number"
+        },
+        "saturation": {
+          "description": "Each group's randomized share to treat, in [0, 1], constant within the group",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Unit treatment, 0/1",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "weighting": {
+          "default": "group",
+          "description": "Average over groups (Hudgens-Halloran) or over units",
+          "enum": [
+            "group",
+            "individual"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "group",
+        "saturation"
       ],
       "type": "object"
     }

@@ -19011,8 +19011,10 @@
             "parmigiani",
             "partial",
             "peer_effects",
+            "saturation",
             "spillover",
-            "staggered_cluster"
+            "staggered_cluster",
+            "two_stage"
           ],
           "type": "string"
         }
@@ -43989,6 +43991,58 @@
       "type": "object"
     },
     "name": "two_criteria_match"
+  },
+  {
+    "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects). Assumptions: Partial interference: no spillover across groups; Groups randomized to saturations, then units within each group with that share treated (fixed counts). Failure modes: two_stage_interference: weighting=<weighting> -> Use weighting='group' or 'individual'; two_stage_interference: alpha=<alpha> is not in (0, 1) -> Pass e.g. alpha=0.05; two_stage_interference: only one saturation in the data -> The cross-saturation effects need groups at two or more saturations; with one, use sp.difference_in_means(cluster=). Alternatives: sp.spillover, sp.network_exposure, sp.cluster_cross_interference.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the intervals",
+          "type": "number"
+        },
+        "group": {
+          "description": "Group column: first-stage unit and interference boundary",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "reference": {
+          "description": "Saturation the cross-saturation effects are measured against (default: the lowest)",
+          "type": "number"
+        },
+        "saturation": {
+          "description": "Each group's randomized share to treat, in [0, 1], constant within the group",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Unit treatment, 0/1",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "weighting": {
+          "default": "group",
+          "description": "Average over groups (Hudgens-Halloran) or over units",
+          "enum": [
+            "group",
+            "individual"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "group",
+        "saturation",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "two_stage_interference"
   },
   {
     "description": "Compute two-way cluster-robust standard errors. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff. Assumptions: Errors are independent across clusters; any within-cluster dependence is unrestricted; Clusters are defined at (or above) the level at which treatment was assigned; Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs. Pre-conditions: A fitted regression result (or its design matrix and residuals) and a cluster column with no missing values; Two-way clustering needs both dimensions to have many clusters. Failure modes: Few clusters (G < 30) or one dominant cluster -> Report wild cluster bootstrap p-values / inverted CIs (sp.wild_cluster_boot, sp.wild_cluster_ci_inv) or CR3 jackknife; Very few treated clusters -> Cluster-robust SEs are unreliable; use sp.did_few_treated or randomization inference. Alternatives: sp.sp.wild_cluster_boot, sp.sp.cr2_se, sp.sp.conley.",

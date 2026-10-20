@@ -36,10 +36,12 @@ from .orthogonal import (
 from .peer_effects import PeerEffectsResult, peer_effects
 from .randomization_test import InterferenceTestResult, interference_test
 from .spillover import SpilloverEstimator, spillover
+from .two_stage import two_stage_interference
 
 __all__ = [
     "spillover",
     "SpilloverEstimator",
+    "two_stage_interference",
     "network_exposure",
     "NetworkExposureResult",
     "interference_test",
