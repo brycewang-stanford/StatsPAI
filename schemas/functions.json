@@ -11143,7 +11143,7 @@
     }
   },
   {
-    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
+    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
     "name": "weightit",
     "parameters": {
       "properties": {
@@ -11164,6 +11164,16 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "dist": {
+          "default": "scaled_euclidean",
+          "description": "energy: distance between covariate vectors",
+          "enum": [
+            "scaled_euclidean",
+            "mahalanobis",
+            "euclidean"
+          ],
+          "type": "string"
+        },
         "estimand": {
           "default": "ATE",
           "description": "ATE or ATT (with focal) for every categorical method; ATC for a binary treatment; ATO / ATM with glm; continuous treatments take ATE only",
@@ -11180,24 +11190,39 @@
           "description": "Treatment level whose covariate distribution is the target for the ATT; required for a multi-category treatment",
           "type": "string"
         },
+        "improved": {
+          "default": true,
+          "description": "energy, ATE: also minimise the energy distances between pairs of weighted groups (improved energy balancing)",
+          "type": "boolean"
+        },
         "interactions": {
           "default": false,
-          "description": "cbps / ebal: also balance pairwise covariate products",
+          "description": "cbps / ebal / energy: also balance pairwise covariate products",
           "type": "boolean"
+        },
+        "lam": {
+          "default": 0.0001,
+          "description": "energy: penalty on the squared normalized weights (WeightIt lambda); larger = less variable weights, worse balance",
+          "type": "number"
         },
         "method": {
           "default": "glm",
-          "description": "glm = inverse (generalized) propensity score; cbps = just-identified CBPS (categorical treatments); ebal = entropy balancing",
+          "description": "glm = inverse (generalized) propensity score; cbps = just-identified CBPS (categorical treatments); ebal = entropy balancing; energy = energy balancing (categorical treatments)",
           "enum": [
             "glm",
             "cbps",
-            "ebal"
+            "ebal",
+            "energy"
           ],
           "type": "string"
         },
+        "min_w": {
+          "default": 1e-08,
+          "description": "energy: smallest allowed weight",
+          "type": "number"
+        },
         "moments": {
-          "default": 1,
-          "description": "cbps / ebal: balance powers up to this order (1-3) of each non-binary covariate",
+          "description": "cbps / ebal: balance powers up to this order (1-3, default 1) of each non-binary covariate; energy: exact mean balance on these powers (0-3, default 0 = none)",
           "type": "integer"
         },
         "treat": {

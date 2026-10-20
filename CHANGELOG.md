@@ -47,6 +47,26 @@ All notable changes to StatsPAI will be documented in this file.
   with `design=` are refused. Weighted fits now also carry
   `model_info['ph_test']`, so `result.violations()` can flag them.
 
+### `sp.weightit(method='energy')`
+
+#### Added
+
+- Energy balancing for binary and multi-category treatments
+  (`sp.weightit(..., method='energy')`, Huling and Mak 2024): non-negative
+  weights minimising the energy distance between each weighted group and
+  the full sample (ATE; with `improved=True`, the default, also between
+  pairs of groups) or the focal group (ATT / ATC), with `lam=`, `dist=`
+  (`'scaled_euclidean'`, `'mahalanobis'`, `'euclidean'`), `min_w=` and exact
+  mean balance through `moments=` / `interactions=`. The quadratic
+  programme is solved exactly by an active-set iteration on the optimality
+  conditions (no new dependency). Weights equal R WeightIt 1.7.0 (GPL,
+  used as a black box) to 1e-9 on 15 specifications; on a flat programme
+  where WeightIt's OSQP stops early, the objective values agree to 1e-11
+  and ours is the lower
+  (`tests/reference_parity/test_weightit_energy_parity.py`). Continuous
+  treatments are refused. `moments=` now defaults to `None` (1 for
+  `cbps` / `ebal`, as before; 0 for `energy`).
+
 ### `sp.ipw(ps_learner=)`
 
 #### Added

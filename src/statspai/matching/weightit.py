@@ -3,13 +3,13 @@
 :func:`weightit` is the one entry point: it reads the treatment type from
 the column (or ``treat_type=``) and returns weights from a generalized
 propensity-score model (``method='glm'``), the just-identified covariate
-balancing propensity score (``'cbps'``) or entropy balancing
-(``'ebal'``). :func:`sp.bal_tab` reports the balance the weights achieve.
+balancing propensity score (``'cbps'``), entropy balancing (``'ebal'``) or
+energy balancing (``'energy'``, categorical treatments). :func:`sp.bal_tab` reports the balance the weights achieve.
 
 References
 ----------
 [@greifer2026weightit], [@imai2014covariate], [@hainmueller2012entropy],
-[@robins2000marginal], [@hirano2004propensity]
+[@robins2000marginal], [@hirano2004propensity], [@huling2024energy]
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibil
 from ..exceptions import warn as _sp_warn
 from . import _weightit_core as _core
 
-_METHODS = ("glm", "cbps", "ebal")
+_METHODS = ("glm", "cbps", "ebal", "energy")
 _TREAT_TYPES = ("binary", "multinomial", "continuous")
 _ESTIMANDS = {
     ("glm", "binary"): ("ATE", "ATT", "ATC", "ATO", "ATM"),
@@ -34,6 +34,8 @@ _ESTIMANDS = {
     ("cbps", "multinomial"): ("ATE", "ATT"),
     ("ebal", "binary"): ("ATE", "ATT", "ATC"),
     ("ebal", "multinomial"): ("ATE", "ATT"),
+    ("energy", "binary"): ("ATE", "ATT", "ATC"),
+    ("energy", "multinomial"): ("ATE", "ATT"),
 }
 
 
@@ -174,9 +176,13 @@ def weightit(
     *,
     focal: Any = None,
     treat_type: Optional[str] = None,
-    moments: int = 1,
+    moments: Optional[int] = None,
     interactions: bool = False,
     d_moments: Optional[int] = None,
+    improved: bool = True,
+    lam: float = 1e-4,
+    dist: str = "scaled_euclidean",
+    min_w: float = 1e-8,
 ) -> WeightItResult:
     """Balancing weights for a binary, multi-category or continuous treatment.
 
@@ -192,7 +198,7 @@ def weightit(
         categorical treatments; other numeric columns are continuous.
     covariates : sequence of str
         Covariates; categorical ones are expanded into indicators.
-    method : {'glm', 'cbps', 'ebal'}, default 'glm'
+    method : {'glm', 'cbps', 'ebal', 'energy'}, default 'glm'
         ``'glm'``: inverse generalized propensity scores from a
         (multinomial) logit, or for a continuous treatment the ratio of
         normal densities ``phi(z_A) / phi(r / sigma)`` from a linear model
@@ -202,6 +208,12 @@ def weightit(
         weighted sums of ``(1, X)`` equal across groups. ``'ebal'``:
         entropy balancing; for a continuous treatment it zeroes the
         weighted treatment-covariate covariances while keeping the means.
+        ``'energy'`` (binary and multi-category treatments): energy
+        balancing, the non-negative weights that minimise the energy
+        distance between each weighted group and the target distribution
+        (the full sample for the ATE, the focal group for the ATT), a
+        distance between whole multivariate distributions rather than
+        between chosen moments.
     estimand : str, default 'ATE'
         ``'ATE'`` or ``'ATT'`` (with ``focal``) for every categorical
         method; ``'ATC'`` for a binary treatment; ``'ATO'`` (overlap) and
@@ -214,16 +226,34 @@ def weightit(
     treat_type : {'binary', 'multinomial', 'continuous'}, optional
         Override the type read from the column. Required for a numeric
         column with 3 to 10 integer values, which could be either.
-    moments : int, default 1
+    moments : int, optional
         For ``'cbps'`` / ``'ebal'``: balance powers up to this order of
-        each non-binary covariate.
+        each non-binary covariate (default 1). For ``'energy'``: add exact
+        balance constraints on the means of these powers (default 0, no
+        constraint beyond the energy distance).
     interactions : bool, default False
-        For ``'cbps'`` / ``'ebal'``: also balance pairwise products.
+        For ``'cbps'`` / ``'ebal'`` / ``'energy'`` (with ``moments >= 1``):
+        also balance pairwise products.
     d_moments : int, optional
         Continuous ``'ebal'``: also keep the central moments 2..``d_moments``
         of the treatment and of each non-binary covariate at their sample
         values (without it only the means are held, and the balanced
         covariate powers of ``moments``). Default ``None`` (= 1).
+    improved : bool, default True
+        ``'energy'`` with ``estimand='ATE'``: add the energy distances
+        between every pair of weighted groups to those between each group
+        and the full sample (the improved energy balancing weights of
+        Huling and Mak). ``False`` is the standard version.
+    lam : float, default 1e-4
+        ``'energy'``: penalty on the squared weights, ``lam / 2`` times the
+        sum of squares of each group's normalized weights; larger values
+        trade balance for a larger effective sample size.
+    dist : {'scaled_euclidean', 'mahalanobis', 'euclidean'}
+        ``'energy'``: distance between covariate vectors (columns divided
+        by their standard deviations, whitened by the sample covariance,
+        or as given).
+    min_w : float, default 1e-8
+        ``'energy'``: smallest allowed weight.
 
     Returns
     -------
@@ -235,7 +265,8 @@ def weightit(
     -----
     Conventions follow R ``WeightIt`` 1.7.0, checked on shared fixtures
     for every supported method / treatment type / estimand
-    (``tests/reference_parity/test_weightit_cobalt_parity.py``). Weights
+    (``tests/reference_parity/test_weightit_cobalt_parity.py``,
+    ``tests/reference_parity/test_weightit_energy_parity.py``). Weights
     are normalized as WeightIt normalizes them: ATE inverse-probability
     weights are ``1 / P(A = a | X)``; ATT weights equal 1 in the focal
     group; entropy-balancing weights sum to ``n`` per group (ATE), to
@@ -246,6 +277,14 @@ def weightit(
     treatment model and the marginal moments and does not reach exact
     balance; it is not offered here. ``method='ebal'`` reaches exact
     covariance balance.
+
+    Energy balancing solves its quadratic programme exactly (active-set
+    iteration on the optimality conditions). Its objective is flat in some
+    directions -- with ``lam`` near zero, weights several hundredths apart
+    can differ in the objective only in the eleventh digit -- so where
+    WeightIt's iterative solver (OSQP) stops short, the two weight vectors
+    differ by more than their objective values do. Energy balancing of a
+    continuous treatment (independence weights) is not implemented.
 
     Examples
     --------
@@ -282,11 +321,34 @@ def weightit(
         )
     if not covariates:
         raise MethodIncompatibility("weightit: at least one covariate is required.")
-    if int(moments) < 1 or int(moments) > 3:
+    if moments is None:
+        moments = 0 if method == "energy" else 1
+    low = 0 if method == "energy" else 1
+    if int(moments) < low or int(moments) > 3:
         raise MethodIncompatibility(
-            f"weightit: moments must be 1, 2 or 3; got {moments}.",
+            f"weightit: moments must be between {low} and 3 for method="
+            f"{method!r}; got {moments}.",
             recovery_hint="Use moments=1 (means), 2 or 3.",
         )
+    if method == "energy":
+        from ._energy import DISTANCES
+
+        if dist not in DISTANCES:
+            raise MethodIncompatibility(
+                f"weightit: dist must be one of {DISTANCES}; got {dist!r}.",
+                recovery_hint="Use 'scaled_euclidean' (the default).",
+            )
+        if not (np.isfinite(lam) and lam >= 0):
+            raise MethodIncompatibility(
+                f"weightit: lam must be a non-negative number; got {lam!r}.",
+                recovery_hint="Use the default 1e-4, or a larger value for "
+                "less variable weights.",
+            )
+        if not (np.isfinite(min_w) and min_w < 1):
+            raise MethodIncompatibility(
+                f"weightit: min_w must be a number below 1; got {min_w!r}.",
+                recovery_hint="Use the default 1e-8.",
+            )
     estimand = str(estimand).upper()
     if estimand == "ATU":
         estimand = "ATC"
@@ -350,7 +412,7 @@ def weightit(
             extra = {"d_moments": dm}
         else:
             raise MethodIncompatibility(
-                "weightit: method='cbps' is implemented for binary and "
+                f"weightit: method={method!r} is implemented for binary and "
                 "multi-category treatments only.",
                 recovery_hint="Use method='ebal', which balances the "
                 "treatment-covariate covariances exactly, or method='glm'.",
@@ -443,6 +505,27 @@ def weightit(
         beta = _core.cbps_fit(Mt, G, K, estimand_core, focal_code, beta0)
         P, _ = _core._probs(Mt, beta, K)
         w = _core.group_weights(P, G, estimand_core, focal_code)
+    elif method == "energy":
+        from ._energy import energy_weights
+
+        M = (
+            _core.balance_terms(X, cov_cols, moments, interactions)[0]
+            if moments >= 1
+            else None
+        )
+        w = energy_weights(
+            X,
+            G,
+            K,
+            estimand_core,
+            focal_code,
+            improved=improved,
+            lam=float(lam),
+            dist=dist,
+            min_w=float(min_w),
+            M=M,
+        )
+        P = None
     else:
         M, _ = _core.balance_terms(X, cov_cols, moments, interactions)
         w = _core.ebal_groups(M, G, K, estimand_core, focal_code)

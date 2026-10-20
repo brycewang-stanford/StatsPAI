@@ -12900,9 +12900,11 @@ def _build_registry() -> None:
                 "just-identified covariate balancing propensity score for "
                 "categorical treatments ('cbps'); entropy balancing, which for "
                 "a continuous treatment zeroes the weighted treatment-covariate "
-                "covariances ('ebal'). Returns weights aligned to the data and "
-                ".balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 "
-                "(multinomial glm 2e-7, WeightIt's optimizer tolerance)."
+                "covariances ('ebal'); energy balancing of whole covariate "
+                "distributions for categorical treatments ('energy'). Returns "
+                "weights aligned to the data and .balance() (sp.bal_tab). "
+                "Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, "
+                "WeightIt's optimizer tolerance)."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True, None, "Analysis data"),
@@ -12924,8 +12926,9 @@ def _build_registry() -> None:
                     "glm",
                     "glm = inverse (generalized) propensity score; cbps = "
                     "just-identified CBPS (categorical treatments); ebal = "
-                    "entropy balancing",
-                    enum=["glm", "cbps", "ebal"],
+                    "entropy balancing; energy = energy balancing (categorical "
+                    "treatments)",
+                    enum=["glm", "cbps", "ebal", "energy"],
                 ),
                 ParamSpec(
                     "estimand",
@@ -12958,16 +12961,17 @@ def _build_registry() -> None:
                     "moments",
                     "int",
                     False,
-                    1,
-                    "cbps / ebal: balance powers up to this order (1-3) of each "
-                    "non-binary covariate",
+                    None,
+                    "cbps / ebal: balance powers up to this order (1-3, default "
+                    "1) of each non-binary covariate; energy: exact mean "
+                    "balance on these powers (0-3, default 0 = none)",
                 ),
                 ParamSpec(
                     "interactions",
                     "bool",
                     False,
                     False,
-                    "cbps / ebal: also balance pairwise covariate products",
+                    "cbps / ebal / energy: also balance pairwise covariate " "products",
                 ),
                 ParamSpec(
                     "d_moments",
@@ -12976,6 +12980,37 @@ def _build_registry() -> None:
                     None,
                     "Continuous ebal: also hold central moments 2..d_moments of "
                     "the treatment and each covariate at their sample values",
+                ),
+                ParamSpec(
+                    "improved",
+                    "bool",
+                    False,
+                    True,
+                    "energy, ATE: also minimise the energy distances between "
+                    "pairs of weighted groups (improved energy balancing)",
+                ),
+                ParamSpec(
+                    "lam",
+                    "float",
+                    False,
+                    1e-4,
+                    "energy: penalty on the squared normalized weights (WeightIt "
+                    "lambda); larger = less variable weights, worse balance",
+                ),
+                ParamSpec(
+                    "dist",
+                    "str",
+                    False,
+                    "scaled_euclidean",
+                    "energy: distance between covariate vectors",
+                    enum=["scaled_euclidean", "mahalanobis", "euclidean"],
+                ),
+                ParamSpec(
+                    "min_w",
+                    "float",
+                    False,
+                    1e-8,
+                    "energy: smallest allowed weight",
                 ),
             ],
             returns="WeightItResult",

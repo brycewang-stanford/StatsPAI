@@ -24741,7 +24741,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_weightit_cobalt_parity.py"
+        "tests/reference_parity/test_weightit_cobalt_parity.py",
+        "tests/reference_parity/test_weightit_energy_parity.py"
       ],
       "tolerance": ""
     },
