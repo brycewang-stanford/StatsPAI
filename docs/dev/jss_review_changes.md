@@ -5014,3 +5014,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after the W5-defaults owner decisions
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `eda3f5b1e`.
+- **Reason.** `core/_spec_counter.py` (public `sp.reset_spec_counter`),
+  `did/sun_abraham.py` (`aggregation=` FutureWarning), `dml/_learners.py`
+  (`'rlasso'` classifier alias), `forest/causal_forest.py` (`n_jobs`
+  default) and `__init__.py` are on the traced paths of Track A modules 01
+  03 05 08 13 14 15 24 25 26 27 35 51 53 54 55 56 65 66 67 71 and of the
+  original-data modules 01 04 04b 08 09. Every module was re-run first: the
+  committed results reproduce within 1e-9 (last-digit jitter in seven
+  Track A and two original-data files, restored); only the traces were
+  re-recorded. Module 05 passes `aggregation='fixest_att'` and no module
+  uses the `'rlasso'` alias in a classifier role.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
