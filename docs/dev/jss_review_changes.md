@@ -5103,3 +5103,22 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after the MEDIUM provenance clean-room rewrites
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `1792b7c81`.
+- **Reason.** Comment / docstring rewording and bit-identical helper
+  rewrites in `survey/`, `forest/_grf_family.py`, `forest/_grf_fit.py`,
+  `diagnostics/sensemakr.py`, `decomposition/oaxaca.py`,
+  `inference/jackknife.py`, `spatial/models/gmm.py`, and the clean-room
+  psmatch2 kernel / llr / SE code in `matching/match.py` and
+  `matching/_matched_frame.py`, are on the traced paths of Track A modules
+  04 10 11 13 21 22 24 30 53 65 66 79 and original-data modules 02 04 04b.
+  Every module was re-run on the rebased tree first: the committed results
+  reproduce (worst 5.6e-16); only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
