@@ -48771,12 +48771,12 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Level of ``ci`` (on the density-difference scale).",
           "type": "number"
         },
         "backend": {
           "default": "native",
-          "description": "``\"native\"`` uses StatsPAI's Python port of the default ``rddensity`` unrestricted triangular-kernel selector/test path. ``\"r\"`` delegates to ``rddensity::rddensity`` through ``Rscript`` when the R package is installed, matching the reference package's selector and test statistic.",
+          "description": "``'r'`` runs ``rddensity::rddensity`` through ``Rscript``.",
           "enum": [
             "native",
             "r"
@@ -48795,7 +48795,7 @@
         },
         "bino_p": {
           "default": 0.5,
-          "description": "Probability of falling below the cutoff under the null.",
+          "description": "Null probability of falling below the cutoff.",
           "type": "number"
         },
         "bino_w": {
@@ -48810,7 +48810,7 @@
               "type": "array"
             }
           ],
-          "description": "Half-width of the first window of the binomial tests (two values: below and above the cutoff). By default it is the smallest half-width holding ``bino_n`` observations."
+          "description": "Half-width(s) of the first binomial-test window (below / above)."
         },
         "bino_wstep": {
           "anyOf": [
@@ -48824,18 +48824,18 @@
               "type": "array"
             }
           ],
-          "description": "Increment in half-width between windows. Defaults to the first window's half-width."
+          "description": "Increment of the half-widths; default the first half-width(s)."
         },
         "c": {
           "default": 0,
-          "description": "RD cutoff.",
+          "description": "Cutoff (alias ``cutoff``).",
           "type": "number",
           "x-aliases": [
             "cutoff"
           ]
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Data containing the running variable.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -48851,15 +48851,15 @@
               "type": "array"
             }
           ],
-          "description": "Bandwidth. A scalar applies the same bandwidth on both sides; a length-2 sequence is interpreted as ``(h_left, h_right)``."
+          "description": "Bandwidth, or ``(h_left, h_right)``. Default: the ``comb`` data-driven bandwidths (median of the per-side, difference and sum MSE-optimal choices on each side)."
         },
         "p": {
           "default": 2,
-          "description": "Polynomial order for density estimation.",
+          "description": "Local polynomial order of the density estimator (1 to 7).",
           "type": "integer"
         },
         "x": {
-          "description": "Running variable.",
+          "description": "Running-variable column (alias ``running``).",
           "type": "string",
           "x-aliases": [
             "running"
@@ -58359,25 +58359,25 @@
     "parameters": {
       "properties": {
         "b": {
-          "description": "Bias bandwidth, for the order-``p+1`` fit that estimates the leading bias. Defaults to ``h`` (``rho = 1``), which is ``lprobust``'s behaviour when only ``h`` is supplied.",
+          "description": "Bias bandwidth, for the order-``p+1`` fit that estimates the leading bias. Defaults to ``h`` (``rho = 1``), the reference's behaviour when only ``h`` is supplied.",
           "type": "number"
         },
         "deriv": {
           "default": 0,
-          "description": "Order of the derivative to report; 0 is the level.",
+          "description": "Order of the derivative estimated, ``0 <= deriv <= p``. Default 0.",
           "type": "integer"
         },
         "eval_point": {
-          "description": "Where to evaluate the regression function.",
+          "description": "Point at which the regression function (or its derivative) is estimated.",
           "type": "number"
         },
         "h": {
-          "description": "Main bandwidth, for the order-``p`` fit.",
+          "description": "Main bandwidth, a positive finite number.",
           "type": "number"
         },
         "kernel": {
           "default": "epanechnikov",
-          "description": "Default epanechnikov, matching ``lprobust``.",
+          "description": "Kernel function. Default epanechnikov, as in the reference.",
           "enum": [
             "epanechnikov",
             "triangular",
@@ -58388,20 +58388,20 @@
         },
         "n_neighbors": {
           "default": 3,
-          "description": "Neighbours for the nearest-neighbour variance, matching ``lprobust``'s ``vce(nn)`` default of 3.",
+          "description": "Minimum number of nearest neighbours in the variance estimate; ties with the last neighbour are all included. Default 3.",
           "type": "integer"
         },
         "p": {
           "default": 1,
-          "description": "Polynomial order -- 1 is local linear.",
+          "description": "Order of the local polynomial for the point estimate. Default 1.",
           "type": "integer"
         },
         "x": {
-          "description": "Running variable and outcome, same length.",
+          "description": "Running variable (the regressor).",
           "type": "string"
         },
         "y": {
-          "description": "Running variable and outcome, same length.",
+          "description": "Outcome, same length as ``x``. Rows where either is non-finite are dropped.",
           "type": "string"
         }
       },
@@ -58421,44 +58421,50 @@
       "properties": {
         "bwcheck": {
           "default": 21,
-          "description": "bwcheck parameter (int).",
+          "description": "Minimum number of observations every window must contain. Default 21. ``1`` imposes no minimum.",
           "type": "integer"
         },
         "bwregul": {
           "default": 1.0,
-          "description": "bwregul parameter (float).",
+          "description": "Scale of the regularization term; ``0`` removes it. Default 1.",
           "type": "number"
         },
         "deriv": {
           "default": 0,
-          "description": "deriv parameter (int).",
+          "description": "Derivative order; ``p - deriv`` must be odd. Default 0.",
           "type": "integer"
         },
         "eval_point": {
-          "description": "eval_point parameter (float).",
+          "description": "Evaluation point.",
           "type": "number"
         },
         "kernel": {
           "default": "epanechnikov",
-          "description": "Kernel function used for weighting or smoothing.",
+          "description": "Kernel function. Default epanechnikov.",
+          "enum": [
+            "epanechnikov",
+            "triangular",
+            "uniform",
+            "gaussian"
+          ],
           "type": "string"
         },
         "n_neighbors": {
           "default": 3,
-          "description": "Number of neighbors.",
+          "description": "Nearest neighbours in the variance estimates. Default 3.",
           "type": "integer"
         },
         "p": {
           "default": 1,
-          "description": "p parameter (int).",
+          "description": "Order of the local polynomial for the point estimate. Default 1.",
           "type": "integer"
         },
         "x": {
-          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         }
       },
@@ -58477,16 +58483,16 @@
       "properties": {
         "deriv": {
           "default": 0,
-          "description": "Derivative estimated; 0 is the intercept ``did_had`` needs.",
+          "description": "Derivative order; ``p - deriv`` must be odd. Default 0.",
           "type": "integer"
         },
         "eval_point": {
-          "description": "Where the bandwidth is optimal for.",
+          "description": "Evaluation point.",
           "type": "number"
         },
         "kernel": {
           "default": "epanechnikov",
-          "description": "Kernel function used for weighting or smoothing.",
+          "description": "Kernel function (compact kernels only). Default epanechnikov.",
           "enum": [
             "epanechnikov",
             "triangular",
@@ -58496,15 +58502,15 @@
         },
         "p": {
           "default": 1,
-          "description": "Polynomial order.",
+          "description": "Polynomial order. Default 1.",
           "type": "integer"
         },
         "x": {
-          "description": "Running variable and outcome. Non-finite rows are dropped.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         },
         "y": {
-          "description": "Running variable and outcome. Non-finite rows are dropped.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         }
       },
@@ -58523,27 +58529,27 @@
       "properties": {
         "bwcheck": {
           "default": 21,
-          "description": "Forwarded to :func:`lpbwselect_mse_dpi` at every grid point.",
+          "description": "Minimum number of observations in every pilot window. Default 21.",
           "type": "integer"
         },
         "bwregul": {
           "default": 1.0,
-          "description": "Forwarded to :func:`lpbwselect_mse_dpi` at every grid point.",
+          "description": "Scale of the regularization term of the pointwise ``b``. Default 1.",
           "type": "number"
         },
         "deriv": {
           "default": 0,
-          "description": "deriv parameter (int).",
+          "description": "Derivative order; ``p - deriv`` must be odd. Default 0.",
           "type": "integer"
         },
         "imsegrid": {
           "default": 30,
-          "description": "Number of equally spaced evaluation points.",
+          "description": "Number of grid points, at least 2. Default 30.",
           "type": "integer"
         },
         "kernel": {
           "default": "epanechnikov",
-          "description": "Kernel function used for weighting or smoothing.",
+          "description": "Kernel function. Default epanechnikov.",
           "enum": [
             "epanechnikov",
             "triangular",
@@ -58554,20 +58560,20 @@
         },
         "n_neighbors": {
           "default": 3,
-          "description": "Forwarded to :func:`lpbwselect_mse_dpi` at every grid point.",
+          "description": "Nearest neighbours in the variance estimates. Default 3.",
           "type": "integer"
         },
         "p": {
           "default": 1,
-          "description": "p parameter (int).",
+          "description": "Polynomial order. Default 1.",
           "type": "integer"
         },
         "x": {
-          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         }
       },
@@ -58585,12 +58591,12 @@
       "properties": {
         "deriv": {
           "default": 0,
-          "description": "deriv parameter (int).",
+          "description": "Derivative order; ``p - deriv`` must be odd. Default 0.",
           "type": "integer"
         },
         "kernel": {
           "default": "epanechnikov",
-          "description": "Kernel function used for weighting or smoothing.",
+          "description": "Kernel function (compact kernels only). Default epanechnikov.",
           "enum": [
             "epanechnikov",
             "triangular",
@@ -58600,15 +58606,15 @@
         },
         "p": {
           "default": 1,
-          "description": "Polynomial order.",
+          "description": "Polynomial order. Default 1.",
           "type": "integer"
         },
         "x": {
-          "description": "Running variable and outcome. Non-finite rows are dropped.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         },
         "y": {
-          "description": "Running variable and outcome. Non-finite rows are dropped.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         }
       },
@@ -58626,26 +58632,26 @@
       "properties": {
         "bwcheck": {
           "default": 21,
-          "description": "Forwarded to :func:`lpbwselect_mse_dpi`.",
+          "description": "Minimum number of observations in every window. Default 21.",
           "type": "integer"
         },
         "bwregul": {
           "default": 1.0,
-          "description": "Forwarded to :func:`lpbwselect_mse_dpi`.",
+          "description": "Scale of the regularization term. Default 1.",
           "type": "number"
         },
         "deriv": {
           "default": 0,
-          "description": "deriv parameter (int).",
+          "description": "Derivative order; ``p - deriv`` must be odd. Default 0.",
           "type": "integer"
         },
         "eval_point": {
-          "description": "eval_point parameter (float).",
+          "description": "Evaluation point.",
           "type": "number"
         },
         "kernel": {
           "default": "epanechnikov",
-          "description": "Kernel function used for weighting or smoothing.",
+          "description": "Kernel function. Default epanechnikov.",
           "enum": [
             "epanechnikov",
             "triangular",
@@ -58656,20 +58662,20 @@
         },
         "n_neighbors": {
           "default": 3,
-          "description": "Forwarded to :func:`lpbwselect_mse_dpi`.",
+          "description": "Nearest neighbours in the variance estimates. Default 3.",
           "type": "integer"
         },
         "p": {
           "default": 1,
-          "description": "p parameter (int).",
+          "description": "Polynomial order. Default 1.",
           "type": "integer"
         },
         "x": {
-          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Running variable and outcome; rows with a non-finite value are dropped.",
           "type": "string"
         }
       },

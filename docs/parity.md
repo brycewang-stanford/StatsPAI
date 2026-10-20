@@ -899,13 +899,13 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `longitudinal_analyze` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `longitudinal_contrast` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `loo_predict` | [`test_oct2026_reanchor_known_truth.py`](../tests/reference_parity/test_oct2026_reanchor_known_truth.py) |
-| `lpbwselect_ce_rot` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
-| `lpbwselect_imse_dpi` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
-| `lpbwselect_imse_rot` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
-| `lpbwselect_mse_dpi` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) (+1) |
-| `lpbwselect_mse_rot` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) (+1) |
+| `lpbwselect_ce_rot` | [`test_lprobust_cleanroom.py`](../tests/reference_parity/test_lprobust_cleanroom.py) (+1) |
+| `lpbwselect_imse_dpi` | [`test_lprobust_cleanroom.py`](../tests/reference_parity/test_lprobust_cleanroom.py) (+1) |
+| `lpbwselect_imse_rot` | [`test_lprobust_cleanroom.py`](../tests/reference_parity/test_lprobust_cleanroom.py) (+1) |
+| `lpbwselect_mse_dpi` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) (+2) |
+| `lpbwselect_mse_rot` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) (+2) |
 | `lpcmci` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
-| `lprobust_at_point` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
+| `lprobust_at_point` | [`test_lprobust_cleanroom.py`](../tests/reference_parity/test_lprobust_cleanroom.py) (+1) |
 | `ltmle_msm` | [`test_ltmle_msm_parity.py`](../tests/reference_parity/test_ltmle_msm_parity.py) |
 | `ltmle_survival` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `machado_mata` | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) |

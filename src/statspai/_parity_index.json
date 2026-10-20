@@ -12537,6 +12537,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_lprobust_cleanroom.py",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
       "tolerance": ""
@@ -12554,6 +12555,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_lprobust_cleanroom.py",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
       "tolerance": ""
@@ -12571,6 +12573,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_lprobust_cleanroom.py",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
       "tolerance": ""
@@ -12589,6 +12592,7 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_did_had_parity.py",
+        "tests/reference_parity/test_lprobust_cleanroom.py",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
       "tolerance": ""
@@ -12607,6 +12611,7 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_did_had_parity.py",
+        "tests/reference_parity/test_lprobust_cleanroom.py",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
       "tolerance": ""
@@ -12670,6 +12675,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_lprobust_cleanroom.py",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
       "tolerance": ""
@@ -18928,6 +18934,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_rddensity_all_stata.py",
+        "tests/reference_parity/test_rddensity_bandwidth_regimes.py",
         "tests/reference_parity/test_rddensity_parity.py",
         "tests/reference_parity/test_rdlocrand_extensions_parity.py"
       ],

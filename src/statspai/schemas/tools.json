@@ -34014,12 +34014,12 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Level of ``ci`` (on the density-difference scale).",
           "type": "number"
         },
         "backend": {
           "default": "native",
-          "description": "``\"native\"`` uses StatsPAI's Python port of the default ``rddensity`` unrestricted triangular-kernel selector/test path. ``\"r\"`` delegates to ``rddensity::rddensity`` through ``Rscript`` when the R package is installed, matching the reference package's selector and test statistic.",
+          "description": "``'r'`` runs ``rddensity::rddensity`` through ``Rscript``.",
           "enum": [
             "native",
             "r"
@@ -34038,7 +34038,7 @@
         },
         "bino_p": {
           "default": 0.5,
-          "description": "Probability of falling below the cutoff under the null.",
+          "description": "Null probability of falling below the cutoff.",
           "type": "number"
         },
         "bino_w": {
@@ -34053,7 +34053,7 @@
               "type": "array"
             }
           ],
-          "description": "Half-width of the first window of the binomial tests (two values: below and above the cutoff). By default it is the smallest half-width holding ``bino_n`` observations."
+          "description": "Half-width(s) of the first binomial-test window (below / above)."
         },
         "bino_wstep": {
           "anyOf": [
@@ -34067,11 +34067,11 @@
               "type": "array"
             }
           ],
-          "description": "Increment in half-width between windows. Defaults to the first window's half-width."
+          "description": "Increment of the half-widths; default the first half-width(s)."
         },
         "c": {
           "default": 0,
-          "description": "RD cutoff.",
+          "description": "Cutoff (alias ``cutoff``).",
           "type": "number",
           "x-aliases": [
             "cutoff"
@@ -34089,15 +34089,15 @@
               "type": "array"
             }
           ],
-          "description": "Bandwidth. A scalar applies the same bandwidth on both sides; a length-2 sequence is interpreted as ``(h_left, h_right)``."
+          "description": "Bandwidth, or ``(h_left, h_right)``. Default: the ``comb`` data-driven bandwidths (median of the per-side, difference and sum MSE-optimal choices on each side)."
         },
         "p": {
           "default": 2,
-          "description": "Polynomial order for density estimation.",
+          "description": "Local polynomial order of the density estimator (1 to 7).",
           "type": "integer"
         },
         "x": {
-          "description": "Running variable.",
+          "description": "Running-variable column (alias ``running``).",
           "type": "string",
           "x-aliases": [
             "running"
