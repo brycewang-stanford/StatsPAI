@@ -4,6 +4,13 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Cleanup: patched-leebounds fixtures retired, kernel/llr caliper warning, drdid RCS replay SE, dead recovery pointers
+
+- **Changed**: `sp.match(method='kernel' | 'llr', caliper=...)` now warns that the caliper has no effect (the kernel bandwidth is `bwidth`), as in Stata `psmatch2`, and sets `model_info['caliper_ignored']`. Numbers unchanged.
+- **Changed**: `sp.from_stata` / `sp.stata` translate `drdid ..., dripw` (with or without `rc1`, and `drdid ..., all`) on repeated cross-sections with `variance_convention='reference'`, so a replayed line prints Stata's SE. A note says that `sp.drdid`'s default `'delta'` (Sant'Anna and Zhao 2020, Appendix B) gives the asymptotically correct SE under propensity-score misspecification. The ATT is unchanged.
+- **Fixed**: `alternative_functions` recovery pointers that were not callable `sp.<name>` paths (`sp.binscatter`'s classic-with-controls warning, `sp.panel_match` refusals, `sp.scest(treat=)`).
+- **Tests**: the teffects / misc_sens Stata do-files no longer patch a copy of `leebounds.ado` (no licence stated); the rows that patch produced (`leebounds_exact`, `attr_lee_exact`) are retired and `trimming='exact'` is checked by known-truth and identity tests (`tests/reference_parity/test_lee_bounds_exact_threshold.py`). License provenance audit, addendum rows X2 / X3 (the superseded HTZ implementation plan is deleted).
+
 ### RD follow-ups: CR2 / CR3 cluster variances in `sp.rdrobust`, NaN density test, rdplot T4 notes
 
 - **⚠️ Correctness**: `sp.rdrobust` / `sp.rdbwselect` with `cluster=` and `vce='hc2'` / `'hc3'` used HC2 / HC3-scaled residuals with the CR1 small-sample factor. R rdrobust 4.0.0 (the canonical implementation, used as a black box) maps these to its CR2 / CR3 variances, and so does StatsPAI now: each cluster's residuals times `(I - H_gg)^(-1/2)` / `(I - H_gg)^(-1)` with `H_gg` the cluster block of the weighted hat matrix of the same fit, no small-sample factor. SEs rise by 7% (CR2) to 18% (CR3) on the `rd_covs_discriminating` fixture, and the selected bandwidths move with them. `vce='cr1' / 'cr2' / 'cr3'` are accepted (falling back to `hc*` with a warning when no cluster is given, as in R). New parity test `tests/reference_parity/test_rd_cluster_cr23_R_parity.py` (10 designs x {CR1, CR2, CR3}: fixed and selected bandwidths, `h > b`, covariates, fuzzy, weights, p = 2, uniform kernel) agrees to 1e-9.
