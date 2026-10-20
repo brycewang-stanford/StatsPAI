@@ -170,6 +170,63 @@ Audit rows H13-H18 and H22 of `docs/dev/2026-10-20-license-provenance-audit.md`:
   exactly (on one test panel: 294 SLSQP fallbacks and 11 failed draws
   before, none now; the solved values agree to 7e-13).
 
+### Licence provenance: permissive notices and the MEDIUM audit rows
+
+Follow-up to `docs/dev/2026-10-20-license-provenance-audit.md`. Clean-room
+records are in `docs/dev/cleanroom/`.
+
+- **Added**: `THIRD_PARTY_NOTICES.md` now carries the copyright line and
+  licence text of every permissively licensed implementation StatsPAI code
+  follows (fect, interflex, hdm, TwoWayFEWeights, did2s, DIDmultiplegtDYN,
+  bacondecomp, DiSCos, randomizr, ivDiag, cdgd, mbreaks, didFF, robomit,
+  csdid, synthdid under its BSD-3 option, mgwr, rdd), copied from the
+  packages' licence files.
+- **Changed (no numeric change)**: re-implemented from published formulas
+  or documentation, with the previous outputs recorded as a black box and
+  matched: `sp.oster_bounds` / `sp.oster_delta` exact solution (Oster 2019
+  and the MIT R package robomit; 4,000 + 12,000 recorded cases to 6e-13),
+  `sp.ridge` (MASS used as a black box; 22 recorded calls to 1.4e-13),
+  the sensemakr robustness value and benchmark bounds (Cinelli and Hazlett
+  2020), the Barnard-Rubin df of `sp.mice` pooling, grf observation
+  weights, the CR2 symmetric matrix power and the mode-based-estimate
+  bandwidth (Hartwig et al. 2017, eq. 7). Docstrings of the spatial GMM,
+  survey, DiSCos quantile, Yun and Gelbach code now cite the papers
+  instead of naming R / Stata internals.
+- **Changed (clean-room rewrites, A-class rows)**: `sp.psmatch2(...)
+  .pstest()` (pstest help file, Rosenbaum-Rubin 1985, Rubin 2001), the
+  weak-IV-robust AR / K / J / CLR tests behind `sp.weakrobust` (papers,
+  weakiv help file; Stata parity 1.1e-13), and psmatch2's kernel / radius /
+  llr matching, analytic SE and the lpoly smoother (help file, Stata
+  manuals; Stata parity 3.3e-15). Previous outputs recorded as a black box
+  agree to <= 1.8e-13, except nine local-linear matches with the normal
+  kernel and bandwidths 0.001-0.02 on nearly collinear local designs
+  (ATT moves by up to 4.5e-8; the previous code was itself up to 1.9e-6
+  from the exact answer).
+- **Fixed**: grf-style observation weights accept string cluster labels
+  (a `TypeError` before).
+- **Fixed**: `pstest()` with a constant or collinear covariate counted it
+  in the LR chi-square degrees of freedom; Stata and now StatsPAI use the
+  covariates the probit keeps (p 1.497e-14 against 7.82e-14 on a 400-row
+  sample). Rubin's B and R now match Stata to ~1e-14 (was 1e-9).
+- **Fixed**: the weak-IV LM helpers refuse fewer instruments than
+  regressors, a malformed `b0` and fewer clusters than instruments with
+  typed errors (NaN or NumPy errors before; no public entry point reaches
+  them); the CLR p-value has its correct limits at CLR = inf and rk = inf.
+- **⚠️ Correctness (approximation table)**: the Hansen (1997) response
+  surface behind `sp.structural_break(method='sup-f')` p-values was a
+  transcription of Hansen's unlicensed `pv_sup` table (also in GPL
+  `strucchange`). The paper prints only part of it, so StatsPAI now
+  recomputes it by simulation from the paper's description
+  (`scripts/generate_hansen_supf_table.py`, seed 19970101, 200,000
+  replications). The p-values move by at most 0.0006 for p < .01, 0.0021
+  for p <= .10 and 0.0076 above (against R `strucchange` / Stata `estat
+  sbsingle`): within twice the approximation error Hansen reports for his
+  own table, and checked against an independent simulation to be as
+  accurate as the original table. `hansen_supf_pvalue` now refuses `k` outside 1..40 or
+  non-integer (a `KeyError` / silent truncation before) and a trimming
+  that is neither a `pi_0` in (0, 0.5] nor a `lambda >= 1` (0.5 < pi_0 < 1
+  returned a negative p-value).
+
 ### `sp.panel_match`: clean-room rewrite
 
 - **Changed**: `sp.panel_match` is reimplemented from scratch

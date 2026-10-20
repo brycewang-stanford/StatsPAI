@@ -14,12 +14,18 @@ Data: ``ts_break.csv`` (round 1) and ``r2_ts_break.csv``
 
 Conventions pinned
 ------------------
-* sup-F p-value: Hansen (1997) response surface, the table of Hansen's own
-  ``pv_sup`` (= ``strucchange:::sc.beta.sup`` entry for entry), evaluated at
-  strucchange's ``lambda = ((n - from) to) / (from (n - to))``. R computes
-  ``1 - pchisq``; we use the survival function, so p-values below ~1e-10
-  agree in absolute (<= 1e-13), not relative, terms. Stata stores
-  ``r(p_swald)`` to ~12 significant digits.
+* sup-F p-value: Hansen (1997) response surface p = 1 - chi2(theta_0 +
+  theta_1 x; eta), interpolated linearly in pi_0, evaluated at
+  strucchange's ``lambda = ((n - from) to) / (from (n - to))``. R and Stata
+  use Hansen's own coefficient table; StatsPAI's table was recomputed by
+  simulation from the paper (``scripts/generate_hansen_supf_table.py``,
+  2026-10-20 clean-room rewrite), so the two are independent Monte Carlo
+  approximations of the same asymptotic p-value function and agree to
+  approximation accuracy, not to rounding. The budget is twice the maximum
+  absolute error Hansen's Table 1 reports for his own approximation:
+  0.0025 for p <= .10 (bound 0.005), 0.0058 over all p (bound 0.012). The
+  interpolation rules themselves are checked exactly on the coefficients
+  (``test_hansen_pvalue_identities``).
 * Bai-Perron sequential: ``mbreaks::dosequa(prewhit = 0, robust = 0,
   hetdat = 1, hetvar = 0, eps1 = 0.15, m = 5, signif = 1..4)``; statistics
   on mbreaks' scale ``(T_j - 2q)(SSR_0 - SSR_1) / SSR_1``; critical values
@@ -39,8 +45,8 @@ Conventions pinned
   5N + 3 in ``k`` (its own manual prints 5N + 4).
 
 Tolerances: deterministic statistics 1e-10 rel (observed <= 1e-14);
-p-values 1e-10 rel when p > 1e-6 (observed 3.7e-13 vs R, 2.7e-11 vs
-Stata's 12-digit store), 1e-13 absolute below.
+Hansen sup-F p-values: the Monte Carlo budget above (observed 0.0021 for
+p <= .10 and 0.0076 above, vs R and Stata).
 """
 
 from __future__ import annotations
@@ -78,12 +84,16 @@ CASES = {
 LEVELS = (0.10, 0.05, 0.025, 0.01)  # mbreaks signif = 1, 2, 3, 4
 
 
+# Twice the maximum absolute error of Hansen's (1997) Table 1: our table
+# and his are independent simulations of the same asymptotic p-value.
+HANSEN_P_BUDGET_SMALL = 0.005  # reference p <= .10
+HANSEN_P_BUDGET = 0.012
+
+
 def _p_close(ours, ref):
     ours, ref = float(ours), float(ref)
-    if ref > 1e-6:
-        assert abs(ours - ref) <= 1e-10 * ref, (ours, ref)
-    else:
-        assert abs(ours - ref) <= 1e-13, (ours, ref)
+    budget = HANSEN_P_BUDGET_SMALL if ref <= 0.10 else HANSEN_P_BUDGET
+    assert abs(ours - ref) <= budget, (ours, ref)
 
 
 # ===========================================================================
@@ -112,12 +122,7 @@ def test_hansen_pvalue_function_matches_strucchange_grid():
 def test_hansen_pvalue_function_matches_stata_pvalsup_grid():
     P = np.asarray(S["pvalsup_grid"], float).reshape(-1, 4)
     for k, pi0, x, p in P:
-        ours = hansen_supf_pvalue(x, int(k), pi0)
-        if p > 1e-6:
-            # Stata's r(p) carries ~12 significant digits
-            assert abs(ours - p) <= 1e-10 * p
-        else:
-            assert abs(ours - p) <= 1e-13
+        _p_close(hansen_supf_pvalue(x, int(k), pi0), p)
 
 
 def test_hansen_pvalue_identities():

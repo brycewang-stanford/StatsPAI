@@ -66,6 +66,18 @@ option restores the old values.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ sup-F p-values (Hansen 1997 table recomputed)
+
+`sp.structural_break(method='sup-f')` p-values (and
+`statspai.timeseries.structural_break.hansen_supf_pvalue`) use a
+response-surface table that StatsPAI recomputed by simulation from Hansen
+(1997) instead of a transcription of his program's table. Expect changes of
+up to 0.002 for p <= .10 and 0.008 above; the third decimal of a p-value may
+differ from R `strucchange` and Stata `estat sbsingle`. `k` outside 1..40,
+non-integer `k`, and a trimming in (0.5, 1) or <= 0 now raise
+`MethodIncompatibility`. To reproduce an old number exactly, use
+StatsPAI 1.39.6.
+
 ## 1.39.6 → unreleased: ⚠️ `sp.breakdown_m(method='relative_magnitude')` precision and search
 
 The default (C-LF) relative-magnitude breakdown value is now the first

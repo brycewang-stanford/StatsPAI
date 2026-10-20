@@ -164,40 +164,66 @@ def _supf_pvalue(stat: float, q: int, n: int, trimming: float) -> float:
 
 
 def hansen_supf_pvalue(stat: float, k: int, lam: float) -> float:
-    """Hansen's (1997) approximate asymptotic p-value of a sup-Wald statistic.
+    """Approximate asymptotic p-value of a sup-Wald statistic (Hansen 1997).
 
     ``stat`` is the Wald-scale statistic (``k`` x sup-F), ``k`` the number
     of coefficients tested for constancy (1..40), ``lam`` either Andrews'
-    ``pi_0`` (``< 1``) or his ``lambda`` (``>= 1``, then
-    ``pi_0 = 1 / (1 + sqrt(lambda))``). Transcribes ``pv_sup`` of Hansen's
-    own code, which ``strucchange::sctest(type = "supF")`` and Stata's
-    ``estat sbsingle`` use: a chi-square response surface per ``pi_0`` in
-    .01, .03, ..., .49, linearly interpolated in ``pi_0``.
+    ``pi_0`` (``0 < pi_0 <= 0.5``) or his ``lambda`` (``>= 1``, then
+    ``pi_0 = 1 / (1 + sqrt(lambda))``). Hansen's (1997) eq. (8) with
+    ``v = 1``: ``p = 1 - chi2(theta_0 + theta_1 stat; eta)``, one row of
+    ``(theta_0, theta_1, eta)`` per ``pi_0`` in .01, .03, ..., .49 from
+    :mod:`._hansen_supf_table`, which StatsPAI recomputed by simulation
+    from the paper's description (``scripts/generate_hansen_supf_table.py``)
+    [@hansen1997approximate]. Between rows the p-value is interpolated
+    linearly in ``pi_0``; between .49 and .5 it is interpolated towards
+    the exact ``chi2(k)`` p-value at ``pi_0 = .5``; below .01 the .01 row is
+    used. These interpolation rules are those of R ``strucchange`` and
+    Stata ``estat sbsingle`` (black-box outputs), whose own coefficients
+    are Hansen's and agree with these to Monte Carlo accuracy.
     """
-    from scipy import stats as _st
+    from scipy import stats
 
-    from ._break_tables import HANSEN_SUP_BETA
+    from ._hansen_supf_table import HANSEN_SUP_BETA
 
-    if k > 40:
+    if int(k) != k or not 1 <= int(k) <= 40:
         raise MethodIncompatibility(
-            "Hansen's (1997) table covers k <= 40 tested coefficients",
-            recovery_hint="Use pvalue_method='simulate'.",
+            "Hansen's (1997) table covers 1 <= k <= 40 tested coefficients; "
+            f"got k={k}.",
+            recovery_hint="Use pvalue_method='simulate' for more than 40 coefficients.",
         )
-    tau = lam if lam < 1 else 1.0 / (1.0 + np.sqrt(lam))
-    beta = np.asarray(HANSEN_SUP_BETA[int(k)], float)
-    x = beta[:, 0] + beta[:, 1] * stat
-    x = x * (x > 0)
-    pp = _st.chi2.sf(x, beta[:, 2])
-    if tau == 0.5:
-        return float(_st.chi2.sf(stat, k))
-    if tau <= 0.01:
-        return float(pp[24])
-    if tau >= 0.49:
-        return float(((0.5 - tau) * pp[0] + (tau - 0.49) * _st.chi2.sf(stat, k)) * 100)
-    taua = (0.51 - tau) * 50
-    tau1 = int(np.floor(taua))
-    # R's 1-based pp[tau1] is pp[tau1 - 1] here
-    return float((tau1 + 1 - taua) * pp[tau1 - 1] + (taua - tau1) * pp[tau1])
+    k = int(k)
+    stat = float(stat)
+    if np.isnan(stat):
+        return float("nan")
+    lam = float(lam)
+    if lam >= 1.0:
+        pi0 = 1.0 / (1.0 + np.sqrt(lam))
+    elif 0.0 < lam <= 0.5:
+        pi0 = lam
+    else:
+        raise MethodIncompatibility(
+            f"Trimming {lam} is neither a pi_0 in (0, 0.5] nor a lambda >= 1.",
+            recovery_hint="Pass pi_0 = trimming fraction (e.g. 0.15) or "
+            "lambda = ((1 - pi_0) / pi_0)^2.",
+        )
+    rows = np.asarray(HANSEN_SUP_BETA[k], dtype=float)  # pi_0 = .49, ..., .01
+    nodes = np.round(np.arange(0.49, 0.0, -0.02), 2)
+
+    def row_p(i: int) -> float:
+        t0, t1, eta = rows[i]
+        return float(stats.chi2.sf(t0 + t1 * stat, eta))
+
+    if pi0 >= 0.49:
+        w = (pi0 - 0.49) / 0.01
+        return (1.0 - w) * row_p(0) + w * float(stats.chi2.sf(stat, k))
+    if pi0 <= 0.01:
+        return row_p(nodes.size - 1)
+    hi = int(np.flatnonzero(nodes >= pi0 - 1e-12)[-1])  # node at or above pi0
+    if abs(nodes[hi] - pi0) < 1e-12:
+        return row_p(hi)
+    lo = hi + 1  # the next node below pi0
+    w = (pi0 - nodes[lo]) / (nodes[hi] - nodes[lo])
+    return (1.0 - w) * row_p(lo) + w * row_p(hi)
 
 
 class StructuralBreakResult(ResultProtocolMixin):

@@ -1318,6 +1318,16 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "ridge": [
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Add at least one regressor to the formula.",
+            "symptom": "ridge: the model has no regressors to penalise.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Check for missing values in the outcome and regressors.",
+            "symptom": "ridge: <n> complete observation(s); at least 2 are " "needed.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Drop the constant column(s).",
             "symptom": "ridge: regressor(s) <bad> do not vary.",
         },
