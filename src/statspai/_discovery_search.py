@@ -246,6 +246,8 @@ PHRASES: Tuple[Tuple[str, str], ...] = (
     ("multiple hypothesis testing", "mht"),
     ("multiple testing", "mht"),
     ("wild cluster bootstrap", "wildboot"),
+    ("entropy balancing", "ebal"),
+    ("entropy balance", "ebal"),
 )
 
 #: Paraphrases an applied researcher types instead of the design name
@@ -340,6 +342,7 @@ CONCEPT_TARGETS: Dict[str, Tuple[str, ...]] = {
     "wildboot": ("wild_cluster_bootstrap",),
     "donor": ("synth", "sdid", "augsynth"),
     "weakiv": ("iv_diag", "effective_f_test", "weakrobust", "anderson_rubin_ci"),
+    "ebal": ("ebalance",),
     "cutoff": ("rdrobust", "rd"),
 }
 

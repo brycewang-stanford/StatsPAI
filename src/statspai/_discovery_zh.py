@@ -80,6 +80,8 @@ ZH_TERMS: Tuple[Tuple[str, str], ...] = (
     ("\u805a\u675f", "bunching"),
     # 工具变量
     ("\u5de5\u5177\u53d8\u91cf", "instrumental variables"),
+    # 弱工具变量
+    ("\u5f31\u5de5\u5177\u53d8\u91cf", "weak instruments"),
     # 弱工具
     ("\u5f31\u5de5\u5177", "weak instruments"),
     # 两阶段最小二乘

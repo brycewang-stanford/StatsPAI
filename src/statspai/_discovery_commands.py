@@ -41,6 +41,8 @@ SUPPLEMENT: Dict[str, Tuple[str, Tuple[str, ...]]] = {
     "sunab": ("r", ("sun_abraham",)),
     "bacon": ("r", ("bacon_decomposition",)),
     "lm_robust": ("r", ("regress",)),
+    # The R / Python package name; its estimator is synthdid_estimate().
+    "synthdid": ("r", ("sdid",)),
 }
 
 #: Command names that are also ordinary English words. Inside a multi-word

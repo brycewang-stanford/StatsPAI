@@ -31,6 +31,8 @@ EVAL = [
     ("my instrument is weak", WEAK_IV),
     ("eligibility determined by a score cutoff", RD),
     ("treatment assigned above a threshold of a running variable", RD),
+    # 2026-10-20 re-audit: ebalance ranked fourth behind weightit / sbw.
+    ("entropy balancing weights", {"ebalance"}),
 ]
 
 

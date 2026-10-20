@@ -60,6 +60,7 @@ def test_command_name_ranks_translator_target_first(query, line, lang):
         ("xtabond2", "xtabond"),
         ("csdid2", "callaway_santanna"),
         ("honestdid", "honest_did"),
+        ("synthdid", "sdid"),
     ],
 )
 def test_names_outside_the_translators_resolve(query, expected):

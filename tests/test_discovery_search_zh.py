@@ -54,6 +54,9 @@ QUERIES = [
     ("双重机器学习", "dml"),
     # 事件研究
     ("事件研究", "event_study"),
+    # 内生性 弱工具变量 检验 (2026-10-20: 工具变量 swallowed the 弱 of
+    # 弱工具变量, so the weak-IV diagnostics were not in the top three)
+    ("内生性 弱工具变量 检验", "iv_diag"),
 ]
 
 
