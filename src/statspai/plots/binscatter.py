@@ -296,9 +296,8 @@ def binscatter(
             "2024), which keeps the controls in one regression with the bin "
             "indicators.",
             stacklevel=3,
-            recovery_hint="Pass method='binsreg'.",
+            recovery_hint="Pass method='binsreg' to sp.binscatter.",
             diagnostics={"method": "classic", "controls": list(controls)},
-            alternative_functions=["sp.binscatter(method='binsreg')"],
         )
 
     # --- Default bins ---

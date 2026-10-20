@@ -39,7 +39,9 @@ _SE_METHODS = ("bootstrap", "conditional", "unconditional")
 
 def _refusal(msg: str, hint: str) -> MethodIncompatibility:
     return MethodIncompatibility(
-        msg, recovery_hint=hint, alternative_functions=["did_multiplegt_dyn", "fect"]
+        msg,
+        recovery_hint=hint,
+        alternative_functions=["sp.did_multiplegt_dyn", "sp.fect"],
     )
 
 

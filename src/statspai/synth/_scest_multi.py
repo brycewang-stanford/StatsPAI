@@ -128,7 +128,7 @@ def scest_multi(
             "never-treated donors.",
             recovery_hint="Synthetic control needs untreated donor units; "
             "for not-yet-treated comparisons see sp.staggered_synth.",
-            alternative_functions=["staggered_synth"],
+            alternative_functions=["sp.staggered_synth"],
         )
     if treated_unit is None:
         targets: List[Any] = sorted(adopt, key=lambda v: (str(type(v)), v))
