@@ -64497,26 +64497,26 @@
     }
   },
   {
-    "description": "Prediction intervals for synthetic control methods (R ``scpi::scpi``). Validation: certified parity evidence. Do NOT use when: several units are treated -- this ports the single-treated-unit path; use sp.sdid or sp.gsynth. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= is accepted for API compatibility with R scpi but the simulation currently runs serially.",
+    "description": "Prediction intervals for synthetic control methods. Validation: certified parity evidence. Do NOT use when: several units are treated -- the prediction intervals cover one treated unit (sp.scest(treat=) gives point estimates for several); use sp.sdid or sp.gsynth. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= is accepted for API compatibility with R scpi but the simulation currently runs serially.",
     "name": "scpi",
     "parameters": {
       "properties": {
         "Q": {
-          "description": "Constraint bounds; see :func:`scest`.",
+          "description": "Norm bound of the weights for ``'simplex'`` / ``'lasso'`` / ``'ridge'``; see :func:`scest`.",
           "type": "number"
         },
         "Q2": {
-          "description": "Constraint bounds; see :func:`scest`.",
+          "description": "L2 bound of the weights for ``'L1-L2'``; see :func:`scest`.",
           "type": "number"
         },
         "alpha": {
           "default": 0.05,
-          "description": "Default for both ``u_alpha`` and ``e_alpha``. As in R, the combined interval has nominal coverage at least ``1 - (u_alpha + e_alpha)`` (0.90 with the defaults).",
+          "description": "Default for both ``u_alpha`` and ``e_alpha``; the reported interval has nominal coverage ``1 - u_alpha - e_alpha``.",
           "type": "number"
         },
         "cores": {
           "default": 1,
-          "description": "Accepted for API compatibility; the simulation runs serially.",
+          "description": "Accepted for compatibility; the simulation runs serially.",
           "type": "integer"
         },
         "data": {
@@ -64525,16 +64525,16 @@
           "x-statspai-role": "dataframe"
         },
         "draws": {
-          "description": "``(J, sims)`` matrix of standard-normal draws used for the in-sample simulation instead of generating them; passing the matrix R's ``rnorm`` produced reproduces R's simulated bounds.",
+          "description": "Standard normal draws, ``(n_donors, sims)``; overrides ``seed``.",
           "type": "string"
         },
         "e_alpha": {
-          "description": "Levels of the in-sample / out-of-sample bounds (default ``alpha``).",
+          "description": "Level of the out-of-sample bounds (default ``alpha``).",
           "type": "number"
         },
         "e_method": {
           "default": "gaussian",
-          "description": "Out-of-sample bound: sub-Gaussian, location-scale or quantile regression. All three are always computed (``model_info``).",
+          "description": "Out-of-sample bound: sub-Gaussian, location-scale or quantile regression.",
           "enum": [
             "gaussian",
             "ls",
@@ -64544,7 +64544,7 @@
         },
         "e_order": {
           "default": 1,
-          "description": "Order of the out-of-sample moment models (R ``e.order``; ``e.lags`` is fixed at 0).",
+          "description": "Design for the out-of-sample moments, as ``u_order``.",
           "enum": [
             0,
             1
@@ -64556,7 +64556,7 @@
           "type": "number"
         },
         "outcome": {
-          "description": "Column names.",
+          "description": "Outcome variable column name.",
           "type": "string",
           "x-aliases": [
             "y"
@@ -64566,7 +64566,7 @@
         },
         "pi_type": {
           "default": "both",
-          "description": "Which interval is reported in ``period_results`` / ``ci``: ``'both'`` = R ``CI.all.<e_method>`` (in-sample + out-of-sample bounds), ``'in_sample'`` = R ``CI.in.sample``, ``'out_of_sample'`` = synthetic fit + out-of-sample bounds only (not an R table).",
+          "description": "Which interval is reported in ``period_results`` and ``ci``: the in-sample plus out-of-sample bounds, the in-sample bounds only, or the out-of-sample bounds only. All are kept in ``model_info['bounds']``.",
           "enum": [
             "both",
             "in_sample",
@@ -64575,10 +64575,10 @@
           "type": "string"
         },
         "rho": {
-          "description": "Regularisation of the local geometry (default ``'type-2'``).",
+          "description": "Sparsity threshold that decides which weights are treated as zero (binding constraints); default ``'type-2'``.",
           "enum": [
-            "type-1",
-            "type-2"
+            "type-2",
+            "type-1"
           ],
           "type": [
             "number",
@@ -64587,7 +64587,7 @@
         },
         "rho_max": {
           "default": 0.2,
-          "description": "Upper bound on ``rho``.",
+          "description": "Upper bound on the data-driven rho.",
           "type": "number"
         },
         "ridge_lambda": {
@@ -64595,16 +64595,16 @@
           "type": "number"
         },
         "seed": {
-          "description": "Seed of the ``numpy`` generator for the in-sample draws (R uses its own ``rnorm`` stream, so simulated bounds agree with R only up to Monte Carlo error unless ``draws`` is supplied).",
+          "description": "Seed of the standard normal draws.",
           "type": "integer"
         },
         "sims": {
           "default": 200,
-          "description": "Number of in-sample simulation draws (R ``sims``; >= 10).",
+          "description": "Number of simulation draws (at least 10).",
           "type": "integer"
         },
         "time": {
-          "description": "Column names.",
+          "description": "Time period column name.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -64617,17 +64617,17 @@
           "type": "string"
         },
         "u_alpha": {
-          "description": "Levels of the in-sample / out-of-sample bounds (default ``alpha``).",
+          "description": "Level of the in-sample bounds (default ``alpha``).",
           "type": "number"
         },
         "u_missp": {
           "default": true,
-          "description": "Allow a misspecified conditional mean of the pseudo-residuals (R ``u.missp``).",
+          "description": "Treat the weight model as misspecified: the conditional mean of the pseudo-residuals is estimated (by least squares on the active donors and a constant) instead of being set to zero.",
           "type": "boolean"
         },
         "u_order": {
           "default": 1,
-          "description": "Order of the pseudo-residual mean model (R ``u.order``; ``u.lags`` is fixed at 0).",
+          "description": "Residual design for the conditional mean: a constant (0) or the active donors and a constant (1). Falls back to 0 when ``T0 <= columns + 10``.",
           "enum": [
             0,
             1
@@ -64636,7 +64636,7 @@
         },
         "u_sigma": {
           "default": "HC1",
-          "description": "Variance estimator of the pseudo-residuals.",
+          "description": "Heteroskedasticity-robust variance of the pseudo-residuals.",
           "enum": [
             "HC0",
             "HC1",
@@ -64647,7 +64647,7 @@
           "type": "string"
         },
         "unit": {
-          "description": "Column names.",
+          "description": "Unit identifier column name.",
           "type": "string",
           "x-aliases": [
             "id"
@@ -64657,7 +64657,7 @@
         },
         "w_constr": {
           "default": "simplex",
-          "description": "Weight constraint; see :func:`scest`.",
+          "description": "Weight constraint (``'simplex'``, ``'lasso'``, ``'ridge'``, ``'L1-L2'``, ``'ols'``); see :func:`scest`.",
           "type": "string"
         }
       },
@@ -64673,21 +64673,21 @@
     }
   },
   {
-    "description": "Estimate synthetic control weights (R ``scpi::scest``). Validation: certified parity evidence.",
+    "description": "Estimate synthetic control weights. Validation: certified parity evidence.",
     "name": "scest",
     "parameters": {
       "properties": {
         "Q": {
-          "description": "Norm bound of the constraint (sum of weights for ``simplex``).",
+          "description": "Norm bound for ``'simplex'`` / ``'lasso'`` / ``'ridge'``.",
           "type": "number"
         },
         "Q2": {
-          "description": "L2 bound for ``'L1-L2'``. Default: R's ridge rule.",
+          "description": "L2 bound for ``'L1-L2'``.",
           "type": "number"
         },
         "anticipation": {
           "default": 0,
-          "description": "With ``treat=``: number of periods before adoption that may already respond; they are moved out of the pre-treatment window.",
+          "description": "With ``treat=``: number of periods before adoption excluded from the pre-treatment fit.",
           "type": "integer"
         },
         "data": {
@@ -64697,7 +64697,7 @@
         },
         "effect": {
           "default": "unit-time",
-          "description": "With ``treat=``: which summary of the post-treatment gaps is in ``effects``. ``'unit-time'`` every unit-period gap, ``'unit'`` each unit's average over its post-treatment periods, ``'time'`` the average across treated units at horizons ``1..min_i T1_i``.",
+          "description": "With ``treat=``: report every gap, each unit's average gap, or the average across units by horizon.",
           "enum": [
             "unit-time",
             "unit",
@@ -64706,7 +64706,7 @@
           "type": "string"
         },
         "lasso_lambda": {
-          "description": "Deprecated and ignored (emit ``DeprecationWarning``). Before 1.28.x these set L1 / L2 *penalties* of a different estimator; R ``scpi`` constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.",
+          "description": "Deprecated and ignored (a ``DeprecationWarning`` is raised); the weights are norm-bounded, use ``Q`` / ``Q2``.",
           "type": "number"
         },
         "outcome": {
@@ -64719,7 +64719,7 @@
           "x-statspai-role": "column"
         },
         "ridge_lambda": {
-          "description": "Deprecated and ignored (emit ``DeprecationWarning``). Before 1.28.x these set L1 / L2 *penalties* of a different estimator; R ``scpi`` constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.",
+          "description": "Deprecated and ignored (a ``DeprecationWarning`` is raised); the weights are norm-bounded, use ``Q`` / ``Q2``.",
           "type": "number"
         },
         "time": {
@@ -64728,12 +64728,12 @@
           "x-statspai-role": "column"
         },
         "treat": {
-          "description": "0/1 treatment column (1 from a unit's adoption period on): several treated units with staggered adoption (R ``scdataMulti``). Each treated unit gets its own weights, fitted on its periods before adoption with the never-treated units as donors; units treated later are never donors.",
+          "description": "0/1 treatment column for several treated units with staggered adoption; each treated unit gets its own fit with the never-treated units as donors.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "treated_unit": {
-          "description": "Identifier of the treated unit. With ``treat=``, optionally the subset of treated units to estimate (R ``units.est``); default all.",
+          "description": "Identifier of the treated unit. With ``treat=``, optionally the subset of treated units to estimate (default all).",
           "type": "string"
         },
         "treatment_time": {
@@ -64751,7 +64751,7 @@
         },
         "w_constr": {
           "default": "simplex",
-          "description": "Weight constraint, as in R ``w.constr = list(name = ...)``: - ``'simplex'`` : w >= 0, sum(w) = Q (Q = 1) - ``'lasso'`` : ||w||_1 <= Q (Q = 1), weights may be negative - ``'ridge'`` : ||w||_2 <= Q, Q from R's ``shrinkage.EST`` rule (``max(Q_hat, 0.5)`` with Q_hat = ||b_ols|| / (1 + lambda), lambda = sigma^2 J / ||b_ols||^2) - ``'L1-L2'`` : w >= 0, sum(w) = 1 and ||w||_2 <= Q2 (Q2 as ridge Q) - ``'ols'`` : unconstrained least squares (``'ls'`` is an alias)",
+          "description": "Constraint on the weights: - ``'simplex'``: ``w >= 0``, ``sum(w) = Q`` (Q = 1); - ``'lasso'``: ``||w||_1 <= Q`` (Q = 1), weights may be negative; - ``'ridge'``: ``||w||_2 <= Q``, by default ``Q = max(||b|| / (1 + lambda), 0.5)`` with ``b`` the least-squares weights (on a lasso-selected subset of donors when ``T0 - J <= 10``) and ``lambda = k sigma^2 / ||b||^2``; - ``'L1-L2'``: ``w >= 0``, ``sum(w) = 1`` and ``||w||_2 <= Q2`` (Q2 as the ridge Q); - ``'ols'`` (alias ``'ls'``): unconstrained least squares.",
           "type": "string"
         }
       },
