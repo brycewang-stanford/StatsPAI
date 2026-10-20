@@ -27235,6 +27235,18 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
+        "remedy": "Add at least one regressor to the formula.",
+        "symptom": "ridge: the model has no regressors to penalise."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check for missing values in the outcome and regressors.",
+        "symptom": "ridge: <n> complete observation(s); at least 2 are needed."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
         "remedy": "Drop the constant column(s).",
         "symptom": "ridge: regressor(s) <bad> do not vary."
       },
@@ -113604,7 +113616,7 @@
           },
           "family": {
             "default": "gaussian",
-            "description": "``\"gaussian\"``, ``\"binomial\"`` (logistic), or ``\"poisson\"``. Canonical links; the sandwich is ``A^{-1} B A^{-1}`` with ``A = X' diag(w V(mu)) X`` and ``B`` the design covariance of the score totals ``w (y - mu) x`` (R ``survey:::svy.varcoef``).",
+            "description": "``\"gaussian\"``, ``\"binomial\"`` (logistic), or ``\"poisson\"``. Canonical links; the sandwich is ``A^{-1} B A^{-1}`` with ``A = X' diag(w V(mu)) X`` and ``B`` the design covariance of the score totals ``w (y - mu) x`` (the linearisation sandwich of a design-weighted estimating equation).",
             "enum": [
               "gaussian",
               "binomial",
@@ -140679,7 +140691,7 @@
           },
           "w_lags": {
             "default": 2,
-            "description": "Spatial lags of ``X`` used as instruments: ``[W X, ..., W^w_lags X]``. ``2`` is Kelejian-Prucha's ``H = [X, WX, W^2 X]`` and the only choice ``gstsls`` offers (its ``W2X`` argument is not used by the code); ``1`` is PySAL ``spreg.GM_Combo``'s default.",
+            "description": "Spatial lags of ``X`` used as instruments: ``[W X, ..., W^w_lags X]``. ``2`` is Kelejian-Prucha's ``H = [X, WX, W^2 X]`` and what R ``spatialreg::gstsls`` uses (run as a black box on the columbus data, its estimates and standard errors are identical with ``W2X = TRUE`` and ``W2X = FALSE``); ``1`` is PySAL ``spreg.GM_Combo``'s default.",
             "type": "integer"
           }
         },
