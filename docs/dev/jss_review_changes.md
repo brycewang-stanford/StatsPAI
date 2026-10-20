@@ -5068,3 +5068,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after the E-value clean-room rewrite (audit H13)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `2969e6067` (rewrite), `7aea8e0e5` (traces).
+- **Reason.** License provenance audit row H13: `diagnostics/evalue.py`
+  (`evalue_rd` and the E-value threshold) was re-implemented clean-room
+  (spec `docs/dev/cleanroom/evalue.md`). The file is on the traced paths of
+  Track A module 23 and original-data module 11. Both were re-run first and
+  reproduce their committed results (worst relative difference 5.7e-14 on
+  23's `evalue_ci_rd`, whose value now equals R bit for bit; 0 on orig 11);
+  only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
