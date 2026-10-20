@@ -95,7 +95,7 @@ class LocalProjectionsResult(ResultProtocolMixin):
     shock_name: str
     outcome_name: str
     n_obs_per_horizon: np.ndarray  # (H+1,)  — usable sample per horizon
-    method: str = "direct"
+    method: str = "direct"  # design that produced the responses
     diagnostics: Dict[str, Any] = field(default_factory=dict)
 
     def to_frame(self) -> pd.DataFrame:
@@ -464,22 +464,19 @@ def local_projections(
         {"outcome": outcome, "shock": shock, "controls": controls},
         function="sp.local_projections",
     )
-    identification_norm = identification.lower().replace("-", "_")
-    if identification_norm not in {"direct", "lpirfs_cholesky", "cholesky"}:
-        raise ValueError("identification must be 'direct' or 'lpirfs_cholesky'")
-    from ._lp_dispatch import extended_design
+    from ._lpx_route import route
 
-    extended = extended_design(
-        data=data,
+    _result = route(
+        data,
         outcome=outcome,
         shock=shock,
-        controls=controls,
+        controls=list(controls),
         horizons=horizons,
         nw_lags=nw_lags,
         alpha=alpha,
         cumulative=cumulative,
         auto_lag=auto_lag,
-        cholesky=identification_norm in {"lpirfs_cholesky", "cholesky"},
+        identification=identification,
         endog_order=endog_order,
         lags=lags,
         instruments=instruments,
@@ -497,8 +494,12 @@ def local_projections(
         panel_effect=panel_effect,
         diff_shock=diff_shock,
     )
-    if extended is not None:
-        return extended
+    if _result is not None:
+        _attach_explicit_provenance(_result, data, _result.method, locals())
+        return _result
+    identification_norm = identification.lower().replace("-", "_")
+    if identification_norm not in {"direct", "lpirfs_cholesky", "cholesky"}:
+        raise ValueError("identification must be 'direct' or 'lpirfs_cholesky'")
     if identification_norm in {"lpirfs_cholesky", "cholesky"}:
         if controls:
             raise ValueError(
@@ -660,3 +661,32 @@ def local_projections(
     except Exception:  # pragma: no cover
         pass
     return _result
+
+
+def _attach_explicit_provenance(
+    result: Any, data: pd.DataFrame, method: str, args: Dict[str, Any]
+) -> None:
+    """Record the call of an explicit design on ``result`` (best effort)."""
+    keys = (
+        "outcome", "shock", "controls", "horizons", "nw_lags", "alpha",
+        "cumulative", "endog_order", "lags", "instruments", "vce", "dfk",
+        "trend", "common_sample", "state", "state_transform", "gamma",
+        "hp_lambda", "lag_state", "id", "time", "panel_effect", "diff_shock",
+    )  # fmt: skip
+    params = {k: args.get(k) for k in keys}
+    params["identification"] = args.get("identification")
+    params["method"] = method
+    try:
+        from ..output._lineage import attach_provenance as _attach_prov
+
+        _attach_prov(
+            result,
+            function="sp.timeseries.local_projections",
+            params=params,
+            data=data,
+            overwrite=False,
+        )
+    except Exception as exc:  # pragma: no cover - lineage is best effort
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(result, section="provenance", exc=exc)

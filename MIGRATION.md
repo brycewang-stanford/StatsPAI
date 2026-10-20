@@ -17,6 +17,20 @@ old SEs were not a valid covariance.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.local_projections` state-dependent options, redundant instruments
+
+- `sp.local_projections(state=...)` now applies `dfk=` and `common_sample=`
+  (observed shock) and `vce=` / `dfk=` (with
+  `identification='lpirfs_cholesky'`); they were silently ignored, so
+  standard errors and, with `common_sample=True`, estimates change for
+  calls that passed them. Calls without them are unchanged.
+- An excluded instrument that duplicates a control or lag is dropped with an
+  `AssumptionWarning`; the response equals the fit without it.
+- Arguments of another design (`gamma=` without `state=`, `diff_shock=`
+  without `id=` / `time=`, `dfk=` / `trend=` / `common_sample=` on a panel,
+  `nw_lags=` on a panel unless `vce='driscoll_kraay'`) now raise
+  `MethodIncompatibility` instead of being ignored. Drop them.
+
 ## 1.39.6 → unreleased: ⚠️ classifier learners in `sp.dynamic_dml`; rigorous-Lasso learners refuse `sample_weight`
 
 - `sp.dynamic_dml(model_t=<classifier>)` (or `model_y=`) now residualises

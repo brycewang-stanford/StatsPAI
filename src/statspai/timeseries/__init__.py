@@ -10,7 +10,7 @@ cross-validation and hierarchical reconciliation.
 
 from typing import Any
 
-from ._lp_state import StateDependentLPResult
+from ._lpx_state import StateDependentLPResult
 from .ardl import ARDLResult, ardl
 from .arima import ARIMAResult, arima
 from .bagging import BaggedForecastResult, bagged_forecast, bootstrap_series

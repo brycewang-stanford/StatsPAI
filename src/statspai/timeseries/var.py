@@ -775,17 +775,17 @@ def granger_causality(
         )
 
     if id is not None or time is not None:
-        if id is None or time is None or data is None or var_result is not None:
+        if var_result is not None or data is None or id is None or time is None:
             raise MethodIncompatibility(
-                "granger_causality: the panel test needs data=, id= and time= "
-                "(and no var_result).",
-                recovery_hint="sp.granger_causality(data=df, caused='y', "
-                "causing='x', lags=1, id='country', time='year')",
+                "granger_causality: the panel (Dumitrescu-Hurlin) test needs "
+                "data=, id= and time=, and no var_result.",
+                recovery_hint="Pass the long panel as data= with its unit "
+                "column as id= and period column as time=.",
             )
-        from ._panel_granger import panel_granger
+        from ._dh_granger import dumitrescu_hurlin
 
-        return panel_granger(
-            data, caused, causing, 1 if lags is None else lags, id, time
+        return dumitrescu_hurlin(
+            data, caused=caused, causing=causing, lags=lags, id=id, time=time
         )
 
     if var_result is None:

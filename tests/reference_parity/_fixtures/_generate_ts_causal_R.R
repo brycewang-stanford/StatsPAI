@@ -31,6 +31,12 @@ nl1 = function(f) list(s1 = f$irf_s1_mean[1, ], s1se = f$irf_s1_up[1, ] - f$irf_
                        s2 = f$irf_s2_mean[1, ], s2se = f$irf_s2_up[1, ] - f$irf_s2_mean[1, ])
 ch = lp_nl(endog_data = en, lags_endog_lin = 2, lags_endog_nl = 2, trend = 0, shock_type = 1,
            confint = 1, hor = H, switching = d$state, use_hp = FALSE, gamma = 3)
+# g ordered first (a nonzero impact on y), and homoskedastic bands
+cg = lp_nl(endog_data = d[, c("g", "y")], lags_endog_lin = 2, lags_endog_nl = 2, trend = 0,
+           shock_type = 1, confint = 1, hor = H, switching = d$state, use_hp = FALSE, gamma = 3)
+co = lp_nl(endog_data = en, lags_endog_lin = 2, lags_endog_nl = 2, trend = 1, shock_type = 1,
+           confint = 1, hor = H, switching = d$d, use_logistic = FALSE, use_hp = FALSE,
+           use_nw = FALSE)
 state = list(
   logistic = nl1(lp_nl_iv(endog_data = en, lags_endog_nl = 2, shock = d[, "z", drop = FALSE],
                           trend = 0, confint = 1, hor = H, switching = d$state,
@@ -42,7 +48,17 @@ state = list(
                        trend = 0, confint = 1, hor = H, switching = d$d, use_logistic = FALSE,
                        use_hp = FALSE, nw_lag = 2)),
   cholesky = list(s1 = ch$irf_s1_mean[1, , 2], s1se = ch$irf_s1_up[1, , 2] - ch$irf_s1_mean[1, , 2],
-                  s2 = ch$irf_s2_mean[1, , 2], s2se = ch$irf_s2_up[1, , 2] - ch$irf_s2_mean[1, , 2]))
+                  s2 = ch$irf_s2_mean[1, , 2], s2se = ch$irf_s2_up[1, , 2] - ch$irf_s2_mean[1, , 2]),
+  contemp = nl1(lp_nl_iv(endog_data = en, lags_endog_nl = 2, shock = d[, "z", drop = FALSE],
+                         trend = 0, confint = 1, hor = H, switching = d$state, use_hp = FALSE,
+                         gamma = 3, contemp_data = d[, "w", drop = FALSE])),
+  nolag_olsse = nl1(lp_nl_iv(endog_data = en, lags_endog_nl = 2, shock = d[, "z", drop = FALSE],
+                             trend = 2, confint = 1, hor = H, switching = d$state, use_hp = FALSE,
+                             gamma = 3, lag_switching = FALSE, use_nw = FALSE)),
+  cholesky_gfirst = list(s1 = cg$irf_s1_mean[2, , 1], s1se = cg$irf_s1_up[2, , 1] - cg$irf_s1_mean[2, , 1],
+                         s2 = cg$irf_s2_mean[2, , 1], s2se = cg$irf_s2_up[2, , 1] - cg$irf_s2_mean[2, , 1]),
+  cholesky_olsse = list(s1 = co$irf_s1_mean[1, , 2], s1se = co$irf_s1_up[1, , 2] - co$irf_s1_mean[1, , 2],
+                        s2 = co$irf_s2_mean[1, , 2], s2se = co$irf_s2_up[1, , 2] - co$irf_s2_mean[1, , 2]))
 pl = function(f) list(irf = as.numeric(f$irf_panel_mean),
                       se = as.numeric(f$irf_panel_up - f$irf_panel_mean))
 panel = list(

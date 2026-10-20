@@ -554,3 +554,148 @@ def test_translated_lpirf_reproduces_stata(spec):
 def test_untranslated_lpirf_forms_are_refused_with_guidance(line):
     out = sp.from_stata(line)
     assert out["ok"] is False
+
+
+# ------------------------------- 2026-10-20 clean-room rewrite: more cases
+STATE_EXTRA = {
+    # controls enter once, not per regime (lpirfs contemp_data)
+    "contemp": dict(shock="z", horizons=5, lags=2, state="state", gamma=3,
+                    controls=["w"]),
+    # F_t instead of F_{t-1}, quadratic trend, homoskedastic (use_nw=FALSE)
+    "nolag_olsse": dict(shock="z", horizons=5, lags=2, state="state", gamma=3,
+                        lag_state=False, trend=2, vce="ols"),
+    # the shock ordered first, so the impact response of y is not zero
+    "cholesky_gfirst": dict(shock="g", horizons=6, lags=2, state="state", gamma=3,
+                            identification="lpirfs_cholesky", endog_order=["g", "y"]),
+    "cholesky_olsse": dict(shock="g", horizons=6, lags=2, state="d",
+                           state_transform="none", trend=1, vce="ols",
+                           identification="lpirfs_cholesky"),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("case", sorted(STATE_EXTRA))
+def test_state_dependent_options_match_lpirfs(case):
+    kw = {"endog_order": ["y", "g"], **STATE_EXTRA[case]}
+    fit = sp.local_projections(SERIES, outcome="y", **kw)
+    ref = R["lp_nl"][case]
+    assert _rel(fit.irf_state0, ref["s1"]) < 1e-11
+    assert _rel(fit.se_state0, ref["s1se"]) < 1e-11
+    assert _rel(fit.irf_state1, ref["s2"]) < 1e-11
+    assert _rel(fit.se_state1, ref["s2se"]) < 1e-11
+    if case == "cholesky_gfirst":
+        assert (
+            fit.irf_state1[0]
+            == fit.irf_state0[0]
+            == fit.diagnostics["impact_vector"][1]
+        )
+
+
+@pytest.mark.parametrize("K", [1, 2])
+def test_panel_granger_unit_statistics_match_xtgcause(K):
+    g = sp.granger_causality(
+        data=PANEL, caused="y", causing="x", lags=K, id="id", time="time"
+    )
+    st = STATA[STATA.spec == f"xtgcause{K}"].set_index("name")
+    ind = g["individual"].set_index("id")
+    for i in (1, 2, 3):
+        assert abs(ind.loc[i, "wald"] - st.loc[f"unit{i}", "b"]) < 1e-12 * max(
+            1.0, abs(st.loc[f"unit{i}", "b"])
+        )
+        # r(PVi): W_i / K referred to F(K, n_i - 2K - 1)
+        assert abs(ind.loc[i, "p_value"] - st.loc[f"unit{i}", "se"]) < 1e-12
+
+
+def test_redundant_instrument_is_dropped_with_a_warning():
+    # w is both a control and an excluded instrument: it adds nothing to
+    # the instrument space, so the fit is the one with z alone
+    with pytest.warns(AssumptionWarning, match="add nothing"):
+        both = sp.local_projections(
+            SERIES, outcome="y", shock="g", instruments=["z", "w"],
+            controls=["w"], horizons=3, lags=1,
+        )  # fmt: skip
+    alone = sp.local_projections(
+        SERIES, outcome="y", shock="g", instruments=["z"], controls=["w"],
+        horizons=3, lags=1,
+    )  # fmt: skip
+    np.testing.assert_allclose(both.irf, alone.irf, rtol=1e-12)
+    np.testing.assert_allclose(both.se, alone.se, rtol=1e-12)
+    assert both.diagnostics["dropped_instruments"] == ["w"]
+
+
+def test_instrument_spanned_by_the_controls_is_refused():
+    with pytest.raises(MethodIncompatibility, match="not identified"):
+        sp.local_projections(
+            SERIES, outcome="y", shock="g", instruments=["w"], controls=["w"],
+            horizons=1, lags=1,
+        )  # fmt: skip
+
+
+@pytest.mark.parametrize("vce", ["ols", "robust"])
+def test_first_stage_f_is_the_wald_f_under_the_projection_variance(vce):
+    fit = sp.local_projections(
+        SERIES, outcome="y", shock="g", instruments=["z", "w"], horizons=0,
+        lags=1, vce=vce,
+    )  # fmt: skip
+    d = SERIES.assign(ly=SERIES.y.shift(1), lg=SERIES.g.shift(1)).dropna()
+    W = np.column_stack([np.ones(len(d)), d.z, d.w, d.ly, d.lg])
+    b, *_ = np.linalg.lstsq(W, d.g.to_numpy(), rcond=None)
+    e = d.g.to_numpy() - W @ b
+    B = np.linalg.inv(W.T @ W)
+    if vce == "ols":
+        V = e @ e / (len(e) - W.shape[1]) * B
+    else:
+        V = B @ ((W * e[:, None] ** 2).T @ W) @ B
+    ex = [1, 2]
+    want = b[ex] @ np.linalg.solve(V[np.ix_(ex, ex)], b[ex]) / 2
+    assert abs(fit.diagnostics["first_stage_f"][0] - want) < 1e-9 * want
+
+
+def test_state_dependent_projection_applies_dfk_and_common_sample():
+    base = dict(outcome="y", shock="z", horizons=3, lags=1, state="d",
+                state_transform="none", vce="robust")  # fmt: skip
+    plain = sp.local_projections(SERIES, **base)
+    dfk = sp.local_projections(SERIES, **base, dfk=True)
+    k = 1 + 2 * 3  # intercept, then shock and two lags in each regime
+    n = plain.n_obs_per_horizon
+    np.testing.assert_allclose(
+        dfk.se_state1, plain.se_state1 * np.sqrt(n / (n - k)), rtol=1e-12
+    )
+    np.testing.assert_allclose(dfk.irf_state1, plain.irf_state1, rtol=1e-12)
+    common = sp.local_projections(SERIES, **base, common_sample=True)
+    assert set(common.n_obs_per_horizon) == {n[-1]}
+    # the longest horizon already uses the common sample
+    assert common.irf_state1[-1] == pytest.approx(plain.irf_state1[-1], rel=1e-12)
+    assert common.se_state0[-1] == pytest.approx(plain.se_state0[-1], rel=1e-12)
+
+
+def test_outcome_reproduced_exactly_is_refused():
+    # w among its own controls: y_t on y_t at horizon 0 leaves rounding noise
+    with pytest.raises(MethodIncompatibility, match="exactly"):
+        sp.local_projections(
+            SERIES, outcome="w", shock="z", controls=["w"], horizons=2, lags=1
+        )
+
+
+@pytest.mark.parametrize(
+    "data,kw,match",
+    [
+        ("series", dict(gamma=3), "no state="),
+        ("series", dict(hp_lambda=1600), "no state="),
+        ("series", dict(diff_shock=True), "id= / time="),
+        ("series", dict(panel_effect="twoways"), "id= / time="),
+        ("panel", dict(dfk=True), "dfk="),
+        ("panel", dict(trend=1), "trend="),
+        ("panel", dict(common_sample=True), "common_sample"),
+        ("panel", dict(nw_lags=2), "Driscoll-Kraay"),
+        ("series", dict(state="d", state_transform="none",
+                        identification="lpirfs_cholesky", common_sample=True),
+         "common_sample"),
+    ],
+)  # fmt: skip
+def test_arguments_of_another_design_are_refused(data, kw, match):
+    if data == "panel":
+        args = dict(data=PANEL, outcome="y", shock="x", id="id", time="time")
+    else:
+        args = dict(data=SERIES, outcome="y", shock="g")
+    with pytest.raises(MethodIncompatibility, match=match):
+        sp.local_projections(**args, horizons=2, **kw)

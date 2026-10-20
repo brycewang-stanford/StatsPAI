@@ -38,5 +38,10 @@ foreach K in 1 2 {
     file write `fh' "xtgcause`K',wbar," %21.17g (r(wbar)) ",," _n
     file write `fh' "xtgcause`K',zbar," %21.17g (r(zbar)) "," %21.17g (r(zbar_pv)) "," _n
     file write `fh' "xtgcause`K',zbart," %21.17g (r(zbart)) "," %21.17g (r(zbart_pv)) "," _n
+    matrix W = r(Wi)
+    matrix P = r(PVi)
+    forvalues i = 1/3 {
+        file write `fh' "xtgcause`K',unit`i'," %21.17g (W[`i',1]) "," %21.17g (P[`i',1]) "," _n
+    }
 }
 file close `fh'
