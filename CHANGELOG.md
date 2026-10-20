@@ -208,6 +208,19 @@ records are in `docs/dev/cleanroom/`.
   kernel and bandwidths 0.001-0.02 on nearly collinear local designs
   (ATT moves by up to 4.5e-8; the previous code was itself up to 1.9e-6
   from the exact answer).
+- **Changed (clean-room rewrite, row M2)**: `sp.lee_bounds`'s Stata
+  `leebounds` emulation (`trimming='leebounds'`, `covariates=`, `weights=`)
+  was re-implemented from Lee (2009), Tauchmann's documentation and
+  black-box Stata runs. 422 recorded results on 32 data sets agree to
+  7.7e-14; Stata fixtures as before (bounds 3.3e-15).
+  `model_info['leebounds_ntall']` is renamed `between_cell_divisor` (the
+  old key is kept as a deprecated alias).
+- **⚠️ Correctness**: `sp.lee_bounds(trimming='leebounds')` rounded a
+  trimming threshold below 1e-5 in absolute value to 16 significant
+  digits; Stata stores such numbers with 12 (scientific notation), so on
+  outcomes measured in very small units the emulation missed Stata
+  `leebounds` by up to 2.7% on a bound. It now matches (8e-11 on six such
+  outcome sets). No other trimming and no previous fixture changes.
 - **Fixed**: grf-style observation weights accept string cluster labels
   (a `TypeError` before).
 - **Fixed**: `pstest()` with a constant or collinear covariate counted it

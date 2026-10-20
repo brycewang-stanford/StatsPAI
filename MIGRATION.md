@@ -66,6 +66,16 @@ option restores the old values.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.lee_bounds(trimming='leebounds')` on tiny outcomes; `leebounds_ntall` renamed
+
+With outcomes whose trimming threshold is below 1e-5 in absolute value,
+`trimming='leebounds'` now rounds the threshold as Stata stores it (12
+significant digits) and so matches Stata `leebounds`; earlier versions
+could differ from Stata by up to 2.7% on a bound there. Other inputs are
+unchanged. `model_info['leebounds_ntall']` (tightened bounds) is now
+`model_info['between_cell_divisor']`; the old key is still filled and will
+be removed in a later minor version.
+
 ## 1.39.6 → unreleased: ⚠️ sup-F p-values (Hansen 1997 table recomputed)
 
 `sp.structural_break(method='sup-f')` p-values (and
