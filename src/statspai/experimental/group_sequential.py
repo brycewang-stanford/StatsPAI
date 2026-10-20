@@ -161,12 +161,32 @@ class GroupSequentialResult(ResultProtocolMixin):
             first stop. At the final look a z that does not cross the
             efficacy bound is a futility (acceptance) decision.
         """
-        zs = np.asarray(list(z), dtype=float)
+        try:
+            zs = np.asarray(list(z), dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise MethodIncompatibility(
+                "decision(): z must be a sequence of numbers (one z-statistic "
+                "per look).",
+                recovery_hint="Pass the z-statistics of the looks done so far.",
+            ) from exc
         k_max = len(self.boundaries)
         if zs.ndim != 1 or zs.size == 0 or zs.size > k_max:
             raise MethodIncompatibility(
                 f"z must hold between 1 and {k_max} values (one per look).",
                 recovery_hint="Pass the z-statistics of the looks done so far.",
+            )
+        bad = np.flatnonzero(~np.isfinite(zs))
+        if bad.size:
+            # NaN compares False with every bound, so it used to read as
+            # 'continue'; an infinite z (zero standard error) is no test
+            # statistic either.
+            raise MethodIncompatibility(
+                f"decision(): z at look(s) {(bad + 1).tolist()} is not finite "
+                f"({zs[bad].tolist()}).",
+                recovery_hint="Recompute the z-statistic of that look (a NaN "
+                "or infinite z usually means a missing estimate or a zero "
+                "standard error); pass only the looks with a finite z.",
+                diagnostics={"looks": (bad + 1).tolist()},
             )
         b = self.boundaries
         rows = []

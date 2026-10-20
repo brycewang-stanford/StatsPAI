@@ -28,6 +28,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from .._aliases import accepts_aliases
+from ..core._learners import positive_class_proba
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # sklearn is imported lazily inside the methods that need it so that
@@ -154,6 +155,41 @@ class SuperLearner:
         self.random_state = random_state
         self._fitted = False
         self.n_features_in_: Optional[int] = None
+
+    # scikit-learn estimator protocol (duck-typed; inheriting BaseEstimator
+    # would import scikit-learn on every ``import statspai``). ``clone``
+    # needs get_params / set_params, which is how sp.lmtp / sp.ltmle /
+    # sp.aipw take a fresh copy of a user learner per fold.
+    def get_params(self, deep: bool = True) -> dict:
+        """Constructor parameters (scikit-learn ``get_params``)."""
+        del deep
+        return {
+            "library": self.library,
+            "n_folds": self.n_folds,
+            "task": self.task,
+            "random_state": self.random_state,
+        }
+
+    def set_params(self, **params: Any) -> "SuperLearner":
+        """Set constructor parameters (scikit-learn ``set_params``)."""
+        valid = self.get_params()
+        for k, v in params.items():
+            if k not in valid:
+                raise MethodIncompatibility(
+                    f"SuperLearner.set_params(): unknown parameter {k!r}.",
+                    recovery_hint=f"Valid parameters: {sorted(valid)}.",
+                )
+            setattr(self, k, v)
+        return self
+
+    @property
+    def _estimator_type(self) -> str:
+        return "classifier" if self.task == "classification" else "regressor"
+
+    def __sklearn_tags__(self) -> Any:
+        from ..core._sklearn_tags import duck_typed_tags
+
+        return duck_typed_tags(self)
 
     def fit(
         self, X: Any, y: Any, sample_weight: Optional[Any] = None
@@ -308,7 +344,9 @@ class SuperLearner:
                 m = clone(learner)
                 _fit_one(m, X_tr, y_tr, None if sw is None else sw[train_idx])
                 if self.task == "classification" and hasattr(m, "predict_proba"):
-                    cv_preds[test_idx, k] = m.predict_proba(X_te)[:, 1]
+                    cv_preds[test_idx, k] = positive_class_proba(
+                        m, X_te, context="SuperLearner"
+                    )
                 else:
                     cv_preds[test_idx, k] = m.predict(X_te)
 
@@ -388,6 +426,8 @@ class SuperLearner:
             self._fitted_learners.append(m)
 
         self.n_features_in_ = X.shape[1]
+        if self.task == "classification":
+            self.classes_ = np.array([0.0, 1.0])
         self._fitted = True
         return self
 
@@ -550,7 +590,7 @@ class SuperLearner:
         preds = np.zeros((n, n_learners))
         for k, m in enumerate(self._fitted_learners):
             if self.task == "classification" and hasattr(m, "predict_proba"):
-                preds[:, k] = m.predict_proba(X)[:, 1]
+                preds[:, k] = positive_class_proba(m, X, context="SuperLearner")
             else:
                 preds[:, k] = m.predict(X)
 
@@ -566,10 +606,12 @@ class SuperLearner:
         return np.asarray(out)
 
     def predict_proba(self, X: Any) -> np.ndarray:
-        """Predict probabilities (for classification task).
+        """Predict P(Y = 1) (for classification task).
 
-        Identical to :meth:`predict` under ``task='classification'`` —
-        kept as a separate method for sklearn-style API parity.
+        Identical to :meth:`predict` under ``task='classification'``: a
+        vector of shape ``(n,)``, not scikit-learn's ``(n, 2)`` array. The
+        estimators that take a learner (``sp.aipw``, ``sp.ipw``,
+        ``sp.ltmle``, ``sp.lmtp``) accept both shapes.
         """
         return self.predict(X)
 

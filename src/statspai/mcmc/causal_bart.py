@@ -42,6 +42,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._validate import treatment_as_float
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..exceptions import warn as _sp_warn
 from .trees import _cutpoints, _Forest
@@ -387,7 +388,7 @@ def bart_causal(
     rows = data[[y, treat] + covariates].notna().all(axis=1).to_numpy()
     df = data.loc[rows]
     yv = df[y].to_numpy(dtype=float)
-    z = df[treat].to_numpy(dtype=float)
+    z = treatment_as_float(df[treat], function="bart_causal")
     if not np.isin(z, (0.0, 1.0)).all() or z.min() == z.max():
         raise MethodIncompatibility(
             "bart_causal: the treatment must be 0/1 with both values present.",

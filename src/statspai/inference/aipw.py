@@ -812,20 +812,15 @@ def _learner_predict(
 ) -> np.ndarray:
     """Fit a clone of a user learner and predict (probability of 1 for a
     classifier)."""
-    try:
-        from sklearn.base import clone
+    from ..core._learners import clone_learner, positive_class_proba
 
-        m = clone(learner)
-    except (TypeError, ValueError, RuntimeError):
-        import copy
-
-        m = copy.deepcopy(learner)
+    m = clone_learner(learner)
     if w_train is None:
         m.fit(X_train, y_train)
     else:
         m.fit(X_train, y_train, sample_weight=w_train)
     if proba:
-        return np.asarray(m.predict_proba(X_test)[:, 1], dtype=float)
+        return positive_class_proba(m, X_test, context="ps_learner")
     return np.asarray(m.predict(X_test), dtype=float)
 
 

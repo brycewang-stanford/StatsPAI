@@ -52,6 +52,7 @@ from scipy import stats
 from scipy.special import expit, logit
 
 from .._aliases import accepts_aliases
+from ..core._learners import clone_learner, positive_class_proba
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -101,9 +102,7 @@ class _Logistic:
 
 
 def _clone(model: Any) -> Any:
-    from sklearn.base import clone
-
-    return clone(model)
+    return clone_learner(model)
 
 
 def _apply_shift(shift: Shift, a: np.ndarray) -> np.ndarray:
@@ -216,7 +215,11 @@ def _fit_policy(
             clf.fit(Xs if ratio_learner is None else Xs[:, 1:], lab)
             te_o = te[observed[t][te]]
             Xe = Xn[te_o] if ratio_learner is None else Xn[te_o][:, 1:]
-            p = np.clip(clf.predict_proba(Xe)[:, 1], 1e-12, 1 - 1e-12)
+            p = np.clip(
+                positive_class_proba(clf, Xe, context="lmtp ratio_learner"),
+                1e-12,
+                1 - 1e-12,
+            )
             raw[te_o, t] = p / (1 - p)
     cap = float(np.quantile(raw, trim)) if trim < 1 else np.inf
     ratios = np.minimum(raw, cap)

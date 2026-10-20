@@ -65,6 +65,7 @@ from scipy.special import expit, logit
 
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._learners import clone_learner, positive_class_proba
 from ..exceptions import (
     ColumnNotFound,
     ConvergenceWarning,
@@ -271,19 +272,12 @@ def _logit_fit_predict(
         m = _clone_learner(learner)
         kw = {"sample_weight": sw[rows]} if (weighted and sw is not None) else {}
         m.fit(X[rows][:, 1:], y[rows], **kw)
-        return np.asarray(m.predict_proba(X[:, 1:])[:, 1], dtype=float)
+        return positive_class_proba(m, X[:, 1:], context="ltmle g_learner")
     return expit(X @ _logit_fit(X[rows], y[rows], None if sw is None else sw[rows]))
 
 
 def _clone_learner(learner: Any) -> Any:
-    try:
-        from sklearn.base import clone
-
-        return clone(learner)
-    except (TypeError, ValueError, RuntimeError):
-        import copy
-
-        return copy.deepcopy(learner)
+    return clone_learner(learner)
 
 
 def _fluctuate(q_next: np.ndarray, off: np.ndarray, w: np.ndarray) -> float:
