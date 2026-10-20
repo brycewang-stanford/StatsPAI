@@ -9186,7 +9186,10 @@ def _build_registry() -> None:
                 ),
             ],
             returns="EconometricResults",
-            example='sp.xtregar(df, y="invest", x=["mvalue", "kstock"], id="firm", time="year", method="fe")',
+            example=(
+                'sp.xtregar(df, y="invest", x=["mvalue", "kstock"], id="firm", '
+                'time="year", method="fe")'
+            ),
             tags=[
                 "panel",
                 "ar1",
