@@ -1939,10 +1939,12 @@ on the native engine. One million rows, firm and year effects, against R
 ### Rust kernels installed by default; statspai-hdfe 0.9 runs every pass in parallel
 
 `pip install statspai` now installs `statspai-hdfe` on every platform it
-publishes a wheel for (Linux x86_64 / aarch64, macOS x86_64 / arm64,
-Windows x64), through an environment marker, so pip never compiles Rust;
-other platforms keep the NumPy / Numba paths. The crate (0.9.0, kernel API
-3, on PyPI since 2026-10-18; StatsPAI requires it from this release)
+publishes a wheel for (Linux x86_64 / aarch64 with glibc or musl, macOS
+x86_64 / arm64, Windows x64 / ARM64), through an environment marker, so pip
+never compiles Rust; other platforms keep the NumPy / Numba paths. The
+crate (kernel API 3; 0.9.0 on PyPI since 2026-10-18, 0.9.1 since
+2026-10-20 with the same code and the musllinux aarch64 and Windows ARM64
+wheels added; StatsPAI requires 0.9.1 from this release)
 splits every pass over the rows into fixed chunks that
 run in parallel and are added in a fixed order, so fits are bit-identical
 at any thread count (checked at 1, 3 and 8 threads for feols, fepois,
@@ -1984,10 +1986,10 @@ affected).
 
 #### Changed
 
-- `statspai-hdfe>=0.9.0,<1` is a core dependency on the platforms above;
-  the `rust` extra remains for building it elsewhere. The wheel workflow
-  also builds musllinux aarch64 and Windows ARM64 wheels from the next
-  crate release on (the marker covers them once they are published).
+- `statspai-hdfe>=0.9.1,<1` is a core dependency on the platforms above;
+  the `rust` extra remains for building it elsewhere. The Windows ARM64
+  wheel is built on the native `windows-11-arm` runner (cross-compiling
+  from x64 fails without an ARM64 interpreter).
 - One- and two-fixed-effect demeaning, the cross-tab reweighting, and
   every per-iteration pass of the IRLS (working response, cross products,
   deviance, step-halving) run over row chunks in parallel. Rust results

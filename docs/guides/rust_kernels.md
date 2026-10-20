@@ -8,7 +8,8 @@ cluster-robust sandwich meat. They ship as a separate package,
 
 From the release after 1.39.6, `pip install statspai` installs
 `statspai-hdfe` on every platform it has a wheel for: Linux (x86_64,
-aarch64), macOS (x86_64, arm64) and Windows (x64); one wheel per platform
+aarch64, glibc and musl), macOS (x86_64, arm64) and Windows (x64,
+ARM64); one wheel per platform
 serves every CPython from 3.10. Elsewhere pip never has to compile Rust:
 the package is skipped and every function below runs on NumPy / Numba,
 with the same estimates to within the residualisation tolerance.
@@ -24,7 +25,7 @@ is bit-identical whatever the number of threads.
 import statspai as sp
 
 sp.fast.backend_info()
-# {'available': True, 'version': '0.9.0', 'api_version': 3, 'threads': 8, ...}
+# {'available': True, 'version': '0.9.1', 'api_version': 3, 'threads': 8, ...}
 
 sp.fast.set_num_threads(4)   # or STATSPAI_NUM_THREADS=4 before starting Python
 fit = sp.fast.feols("y ~ x1 + x2 | firm + year", data=df)

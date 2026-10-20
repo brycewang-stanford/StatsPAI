@@ -16,7 +16,7 @@ the residualisation tolerance. Check which one is in use:
 
 ```python
 import statspai as sp
-sp.fast.backend_info()      # {'available': True, 'version': '0.9.0', 'threads': 8, ...}
+sp.fast.backend_info()      # {'available': True, 'version': '0.9.1', 'threads': 8, ...}
 sp.fast.set_num_threads(4)  # or set STATSPAI_NUM_THREADS before starting Python
 ```
 
