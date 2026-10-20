@@ -5224,3 +5224,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces re-recorded after the kernel / llr caliper warning in `sp.match`
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `f32eb3457` (warning), `31e0f81f3` (traces).
+- **Reason.** `sp.match(method='kernel' | 'llr', caliper=...)` now warns
+  that the caliper has no effect (numbers unchanged).
+  `src/statspai/matching/match.py` is on the traced paths of Track A module
+  11 and original-data modules 04 / 04b. All three were re-run first and
+  reproduce their committed results bit for bit. Only the traces were
+  re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
