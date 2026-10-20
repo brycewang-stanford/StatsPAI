@@ -4982,6 +4982,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   the pre-extension code; `33_var.py` and `34_lp.py` were re-run first and
   reproduce their committed results byte for byte; only the trace was
   re-recorded.
+### 2026-10-20 — trace 59 re-record after `sp.liml(robust='many_weak')`
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `d6b0f7e68`.
+- **Reason.** `regression/advanced_iv.py` (new `robust='many_weak'`
+  branch; the classical, robust and cluster paths are untouched) and the
+  new `regression/_many_iv_se.py` are on the traced path of Track A module
+  59. The module was re-run first: its committed result reproduces within
+  the 1e-9 reproduction tolerance (last-digit differences, 1e-14), so the
+  committed file was kept; only the trace was re-recorded.
 - **Effect on the paper.** None; no number changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
