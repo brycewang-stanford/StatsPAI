@@ -2714,6 +2714,19 @@ def _build_registry() -> None:
                     "did::att_gt(allow_unbalanced_panel=TRUE)). Inert on a "
                     "balanced panel. The two are different estimators.",
                 ),
+                ParamSpec(
+                    "design",
+                    "SurveyDesign",
+                    False,
+                    None,
+                    "A survey design from sp.svydesign on the same rows, "
+                    "forwarded to did_2x2 (method '2x2') or "
+                    "callaway_santanna (method 'cs', panel, analytic SEs): "
+                    "design weights as unit weights, SEs by survey "
+                    "linearisation of the influence functions over strata / "
+                    "PSUs / fpc, t on the design df. Refused with other "
+                    "methods, aggregation=, weights= or cluster=.",
+                ),
             ],
             returns="CausalResult",
             example='sp.did(df, y="wage", treat="treated", time="post")',

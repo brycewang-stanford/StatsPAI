@@ -278,6 +278,34 @@ def _indicator_to_cohort(
     return cohort
 
 
+_DESIGN_DID_METHODS = frozenset({"2x2", "callaway_santanna", "cs"})
+
+
+def _refuse_did_design(method: str, aggregation: Optional[str]) -> None:
+    """``design=`` reaches only the estimators with a survey variance."""
+    if method not in _DESIGN_DID_METHODS:
+        raise MethodIncompatibility(
+            f"sp.did: design= (a complex survey design) is implemented for "
+            f"method='2x2' and method='cs' only; got method={method!r}. "
+            "The other DID estimators have no survey-linearisation variance, "
+            "and ignoring the strata and PSUs would understate the SE.",
+            recovery_hint="Use method='2x2' (two periods) or method='cs' "
+            "(staggered panel), or drop design= and pass weights= / cluster=.",
+            diagnostics={"method": method},
+            alternative_functions=["sp.did_2x2", "sp.callaway_santanna"],
+        )
+    if aggregation is not None:
+        raise MethodIncompatibility(
+            "sp.did: aggregation= re-aggregates ATT(g,t) through sp.aggte, "
+            "which has no survey-design variance. A design= fit already "
+            "reports the simple ATT as its headline and the event study in "
+            "model_info['event_study'], both with design standard errors.",
+            recovery_hint="Drop aggregation=; read result.estimate (simple "
+            "ATT) and result.model_info['event_study'] (dynamic).",
+            diagnostics={"aggregation": aggregation},
+        )
+
+
 @records_call("did")
 @accepts_aliases(
     _strict=True, unit="id", controls="covariates", outcome="y", treatment="treat"
@@ -314,6 +342,7 @@ def did(
     wild_reps: int = 999,
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
+    design: Any = None,
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -417,6 +446,17 @@ def did(
         .. versionadded:: 1.23.0
     anticipation : int, default 0
         Forwarded to :func:`callaway_santanna`.
+    design : SurveyDesign, optional
+        A complex survey design from :func:`sp.svydesign` declared on the
+        same rows as ``data``. Forwarded to :func:`did_2x2` (``method``
+        ``'2x2'`` / ``'classic'`` / ``'twfe'``) or :func:`callaway_santanna`
+        (``'cs'``, panel, analytic SEs): the design weights are the unit
+        weights and the standard errors are the survey linearisation of
+        the influence functions over strata / PSUs / fpc, with t
+        intervals on the design df. Other methods, ``aggregation=``,
+        ``weights=`` and ``cluster=`` are refused with ``design=``.
+
+        .. versionadded:: 1.40.0
 
     Returns
     -------
@@ -605,7 +645,7 @@ def did(
                         # cluster on the unit, which is what repeats.
                         if data.duplicated(subset=[id, time]).any():
                             method = "2x2"
-                            if cluster is None and vce is None:
+                            if cluster is None and vce is None and design is None:
                                 cluster = id
                     else:
                         warnings.warn(
@@ -740,6 +780,9 @@ def did(
 
     # ── Dispatch ───────────────────────────────────────────────────── #
 
+    if design is not None:
+        _refuse_did_design(method, aggregation)
+
     if method == "2x2":
         return did_2x2(
             data,
@@ -755,6 +798,7 @@ def did(
             wild_reps=wild_reps,
             wild_weight_type=wild_weight_type,
             seed=seed,
+            design=design,
         )
 
     # ── ω guard ────────────────────────────────────────────────────── #
@@ -837,6 +881,7 @@ def did(
             anticipation=anticipation,
             panel=panel,
             allow_unbalanced_panel=allow_unbalanced_panel,
+            design=design,
         )
         if aggregation is not None:
             if aggregation not in ("simple", "dynamic", "group", "calendar"):

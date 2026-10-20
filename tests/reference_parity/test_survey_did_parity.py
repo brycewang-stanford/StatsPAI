@@ -114,3 +114,54 @@ def test_msm_design_matches_ipw_svyglm_recipe(name, family):
     # statsmodels / glm logits of the weight models agree to ~1e-12
     _close(r.detail["estimate"].values, ref["coef"], rtol=1e-8)
     _close(r.detail["se"].values, ref["se"], rtol=1e-8)
+
+
+# ---- sp.did dispatcher forwards design= -------------------------------- #
+
+
+@pytest.mark.parametrize("name", list(DESIGNS))
+def test_did_dispatcher_cs_design_matches_R(panel, name):
+    ref = R["cs_dr"]
+    des = sp.svydesign(panel, weights="w", **DESIGNS[name])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.did(
+            panel,
+            y="y",
+            treat="g",
+            time="t",
+            id="id",
+            covariates=["x"],
+            base_period="varying",
+            design=des,
+        )
+    _close(r.estimate, ref["simple"], rtol=1e-9)
+    _close(r.se, ref[name]["se_simple"], rtol=1e-9)
+    _close(r.detail["se"].values, ref[name]["se_cells"], rtol=1e-9)
+    assert r.model_info["survey_design"]["df"] == ref[name]["degf"]
+
+
+@pytest.mark.parametrize("name", list(DESIGNS))
+def test_did_dispatcher_2x2_design_matches_svyglm(panel, name):
+    ref = R["did2x2"][name]
+    sub = panel[panel.t.isin([2, 3]) & panel.g.isin([0, 3])].copy()
+    sub["treat"] = (sub.g == 3).astype(int)
+    sub["post"] = (sub.t == 3).astype(int)
+    des = sp.svydesign(sub, weights="w", **DESIGNS[name])
+    r = sp.did(sub, y="y", treat="treat", time="post", design=des)
+    _close(r.estimate, ref["att"])
+    _close(r.se, ref["se"])
+    assert r.model_info["survey_design"]["df"] == ref["degf"]
+
+
+def test_did_dispatcher_design_refusals(panel):
+    from statspai.exceptions import MethodIncompatibility
+
+    des = sp.svydesign(panel, weights="w", **DESIGNS["full"])
+    kw = dict(y="y", treat="g", time="t", id="id", design=des)
+    with pytest.raises(MethodIncompatibility, match="method='2x2' and method='cs'"):
+        sp.did(panel, method="sun_abraham", **kw)
+    with pytest.raises(MethodIncompatibility, match="aggregation="):
+        sp.did(panel, aggregation="dynamic", **kw)
+    with pytest.raises(MethodIncompatibility, match="weights"):
+        sp.did(panel, weights="w", **kw)
