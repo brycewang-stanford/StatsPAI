@@ -37,7 +37,7 @@ from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
-from .bcf import bcf as _bcf_binary
+from .bcf import _bcf_fit as _bcf_binary
 
 __all__ = ["bcf_ordinal", "BCFOrdinalResult"]
 

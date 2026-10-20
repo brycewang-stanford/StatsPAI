@@ -1282,6 +1282,16 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "artists",
         },
     ],
+    "reset_spec_counter": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the outcome's column name, or None to "
+            "reset every outcome.",
+            "symptom": "reset_spec_counter(outcome=<outcome>): "
+            "outcome must be a column name (str) or "
+            "None.",
+        }
+    ],
     "ridge": [
         {
             "exception": "statspai.MethodIncompatibility",

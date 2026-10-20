@@ -671,6 +671,123 @@ def set_tool_profile(profile: Optional[str]) -> str:
     return _normalise_profile(_ACTIVE_PROFILE)
 
 
+#: What the ``text`` content block of a successful ``tools/call`` carries.
+#: ``full`` (default): the compact JSON of ``structuredContent`` again, as
+#: the spec asks for clients that ignore structured output. ``summary``: a
+#: few lines (headline numbers, violations, errors, handles) that point at
+#: ``structuredContent`` for the rest -- for clients known to read it.
+_TEXT_MODES = ("full", "summary")
+DEFAULT_TEXT_MODE = "full"
+_ACTIVE_TEXT_MODE: Optional[str] = None
+
+
+def _normalise_text_mode(mode: Optional[str]) -> str:
+    key = str(mode).strip().lower()
+    if key not in _TEXT_MODES:
+        raise ValueError(
+            f"Unknown MCP text mode {mode!r}; choose one of {list(_TEXT_MODES)} "
+            "(STATSPAI_MCP_TEXT / --text)."
+        )
+    return key
+
+
+def set_text_mode(mode: Optional[str]) -> str:
+    """Set the ``tools/call`` text-block mode for this process; return it.
+
+    ``None`` goes back to ``STATSPAI_MCP_TEXT`` (default ``'full'``).
+    """
+    global _ACTIVE_TEXT_MODE
+    _ACTIVE_TEXT_MODE = None if mode is None else _normalise_text_mode(mode)
+    return _text_mode()
+
+
+def _text_mode() -> str:
+    if _ACTIVE_TEXT_MODE is not None:
+        return _ACTIVE_TEXT_MODE
+    env = os.environ.get("STATSPAI_MCP_TEXT")
+    if env is None or not env.strip():
+        return DEFAULT_TEXT_MODE
+    return _normalise_text_mode(env)
+
+
+def _fmt_num(v: Any) -> str:
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, int):
+        return str(v)
+    return f"{v:.6g}"
+
+
+_SUMMARY_MAX_TERMS = 12
+_SUMMARY_MAX_VIOLATIONS = 5
+
+
+def _summary_text(structured: Dict[str, Any], n_bytes: int) -> str:
+    """A few plain lines describing ``structured`` (``--text summary``)."""
+    lines: List[str] = []
+    head = [
+        str(structured[k])
+        for k in ("method", "estimand")
+        if structured.get(k) not in (None, "")
+    ]
+    if head:
+        lines.append(" | ".join(head))
+    est = structured.get("estimate")
+    if isinstance(est, (int, float)) and not isinstance(est, bool):
+        parts = [f"estimate {_fmt_num(est)}"]
+        for key, label in (("se", "SE"), ("pvalue", "p")):
+            if isinstance(structured.get(key), (int, float)):
+                parts.append(f"{label} {_fmt_num(structured[key])}")
+        ci = structured.get("ci")
+        if isinstance(ci, (list, tuple)) and len(ci) == 2:
+            parts.append(f"CI [{_fmt_num(ci[0])}, {_fmt_num(ci[1])}]")
+        lines.append(", ".join(parts))
+    coefs = structured.get("coefficients")
+    if isinstance(coefs, dict) and coefs:
+        items = list(coefs.items())
+        for term, row in items[:_SUMMARY_MAX_TERMS]:
+            if isinstance(row, dict):
+                cell = f"{term}: {_fmt_num(row.get('estimate'))}"
+                if row.get("std_error") is not None:
+                    cell += f" ({_fmt_num(row.get('std_error'))})"
+                if row.get("p_value") is not None:
+                    cell += f" p={_fmt_num(row.get('p_value'))}"
+                lines.append(cell)
+        if len(items) > _SUMMARY_MAX_TERMS:
+            lines.append(f"... {len(items) - _SUMMARY_MAX_TERMS} more terms")
+    if structured.get("n_obs") is not None:
+        lines.append(f"N = {_fmt_num(structured['n_obs'])}")
+    if structured.get("error"):
+        lines.append(
+            f"error ({structured.get('error_kind', 'error')}): {structured['error']}"
+        )
+        if structured.get("hint"):
+            lines.append(f"hint: {structured['hint']}")
+    viol = structured.get("violations")
+    if isinstance(viol, list) and viol:
+        lines.append(f"violations: {len(viol)}")
+        for v in viol[:_SUMMARY_MAX_VIOLATIONS]:
+            if isinstance(v, dict):
+                msg = v.get("message", v.get("test", ""))
+                lines.append(f"- [{v.get('severity', '?')}] {msg}")
+    for key in ("result_id", "data_id"):
+        if structured.get(key):
+            lines.append(f"{key}: {structured[key]}")
+    if structured.get("truncated"):
+        lines.append("output truncated by the byte budget (see output_budget)")
+    if not lines and structured.get("narrative"):
+        lines.append(str(structured["narrative"]))
+    if not lines:
+        keys = list(structured)
+        shown = ", ".join(keys[:20]) + (", ..." if len(keys) > 20 else "")
+        lines.append(f"fields: {shown}")
+    lines.append(
+        f"Full result ({n_bytes} bytes of JSON) is in structuredContent; this "
+        "server sends a summary text block (STATSPAI_MCP_TEXT=summary)."
+    )
+    return "\n".join(lines)
+
+
 def _profile_tool_names(profile: str) -> Optional["frozenset[str]"]:
     """Names advertised under ``profile``; ``None`` means every tool."""
     if profile == "full":
@@ -2276,6 +2393,10 @@ def _run_tools_call(
     # JSON also be returned as a ``text`` block for older clients, so the
     # same object is sent once more, compactly (no indentation).
     text = json.dumps(structured, separators=(",", ":"), allow_nan=False)
+    if _text_mode() == "summary":
+        # Opt-in: clients that read structuredContent do not need the same
+        # JSON twice (owner decision 2026-10-20; default stays "full").
+        text = _summary_text(structured, len(text))
     content: List[Dict[str, Any]] = [{"type": "text", "text": text}]
     if plot_bytes is not None:
         import base64
@@ -2973,7 +3094,8 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
             "(keep handles on disk across restarts), "
             "STATSPAI_MCP_STATE_MAX_BYTES, STATSPAI_MCP_HTTP_TOKEN (bearer "
             "token; required to bind a non-loopback host), "
-            "STATSPAI_MCP_HTTP_ALLOWED_ORIGINS, STATSPAI_MCP_DEBUG."
+            "STATSPAI_MCP_HTTP_ALLOWED_ORIGINS, STATSPAI_MCP_DEBUG, "
+            "STATSPAI_MCP_TEXT (full | summary; same as --text)."
         ),
     )
 
@@ -3022,7 +3144,18 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
         default=DEFAULT_HTTP_PATH,
         help="HTTP endpoint path (default /mcp).",
     )
+    parser.add_argument(
+        "--text",
+        default=os.environ.get("STATSPAI_MCP_TEXT") or DEFAULT_TEXT_MODE,
+        help="Text block of a tools/call result: 'full' (default; the JSON "
+        "of structuredContent again, for clients that ignore it) or "
+        "'summary' (a few lines; for clients that read structuredContent).",
+    )
     args = parser.parse_args(argv)
+    try:
+        set_text_mode(args.text)
+    except ValueError as exc:
+        parser.error(str(exc))
     set_tool_profile(args.profile)
     # Tools run on worker threads; a GUI backend cannot plot there.
     _ensure_headless_matplotlib()
@@ -3044,6 +3177,7 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
         # Under ``python -m`` this file runs as ``__main__`` while the
         # transport imports the package module; set the profile there.
         _canonical.set_tool_profile(args.profile)
+        _canonical.set_text_mode(args.text)
         try:
             serve_http(args.host, args.port, path=args.http_path)
         except ValueError as exc:
@@ -3057,6 +3191,7 @@ __all__ = [
     "serve_http",
     "handle_request",
     "set_tool_profile",
+    "set_text_mode",
     "DEFAULT_PROFILE",
     "tool_manifest",
     "MCP_PROTOCOL_VERSION",

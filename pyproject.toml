@@ -59,6 +59,12 @@ dependencies = [
     # core dep so published artifacts work on Linux/macOS/Windows without
     # users having to discover the optional-dep pitfall at runtime.
     "tabulate>=0.9.0",
+    # Every result's .plot() and the event-study / RD / synth figures draw
+    # with matplotlib. A core dependency since 1.40 (owner decision
+    # 2026-10-20) so figures work after a bare install; it is still
+    # imported only when a figure is drawn (the cold-import budget in
+    # scripts/quality_gate.py holds). seaborn / plotly stay in [plotting].
+    "matplotlib>=3.5.0",
     # Rust kernels (rust/statspai_hdfe, published as its own package): HDFE
     # demeaning and the coefficient-space solver, the native Poisson IRLS
     # and the cluster meat behind sp.feols / sp.fepois / sp.fast /

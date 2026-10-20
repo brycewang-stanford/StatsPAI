@@ -125,8 +125,14 @@ class CausalForest(BaseModel):
     random_state : int, optional
         Seed.  Results are reproducible for a given seed and ``n_jobs``-
         independent.
-    n_jobs : int, default=1
-        Threads used to grow trees (-1 = all cores).
+    n_jobs : int, default=-1
+        Threads used to grow trees (-1 = all cores). Results do not depend
+        on it: every tree draws from its own seed and the trees are
+        combined in a fixed order.
+
+        .. versionchanged:: 1.40.0
+           The default was ``1``. Estimates are byte-identical for any
+           value (``tests/test_treatment_effects_oct19_fixes.py``).
     verbose : int, default=0
         Verbosity level
     split_rule : {"grf", "cffe", "legacy"}, default="grf"
@@ -222,7 +228,7 @@ class CausalForest(BaseModel):
         honest: bool = True,
         bootstrap: Optional[bool] = None,
         random_state: Optional[int] = None,
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         verbose: int = 0,
         split_rule: str = "grf",
         mtry: Optional[int] = None,
@@ -2251,6 +2257,7 @@ def causal_forest(
     time: Optional[Any] = None,
     Y_hat: Optional[Any] = None,
     W_hat: Optional[Any] = None,
+    n_jobs: int = -1,
     **kwargs: Any,
 ) -> CausalForest:
     """
@@ -2309,6 +2316,12 @@ def causal_forest(
         arrays).  ``unit=`` is accepted as an alias of ``id``.
     Y_hat, W_hat : array-like, optional
         Precomputed out-of-sample nuisance predictions.
+    n_jobs : int, default=-1
+        Threads used to grow the trees (grf ``num.threads``); ``-1`` uses
+        every core. The estimates do not depend on it.
+
+        .. versionchanged:: 1.40.0
+           The default was ``1``; outputs are byte-identical.
     **kwargs
         Additional arguments passed to :class:`CausalForest`
         (``split_rule``, ``mtry``, ``ci_group_size``, ``alpha``, ...).
@@ -2437,6 +2450,7 @@ def causal_forest(
         model_t=model_t,
         discrete_treatment=discrete_treatment,
         random_state=random_state,
+        n_jobs=n_jobs,
         **kwargs,
     )
 

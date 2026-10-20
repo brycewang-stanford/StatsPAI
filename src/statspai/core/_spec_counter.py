@@ -33,6 +33,7 @@ __all__ = [
     "record_specifications",
     "specification_count",
     "reset_specification_counter",
+    "reset_spec_counter",
     "multiplicity_violation",
     "MULTIPLICITY_INFO",
     "MULTIPLICITY_WARNING",
@@ -107,6 +108,62 @@ def reset_specification_counter(outcome: Optional[str] = None) -> None:
             del _FAMILIES[key]
 
 
+def reset_spec_counter(outcome: Optional[str] = None) -> Dict[str, Any]:
+    """Forget the specifications this session has recorded.
+
+    Every fit of ``sp.regress`` / ``sp.feols`` / ``sp.fepois`` /
+    ``sp.hdfe_ols`` / ``sp.panel`` and every ``sp.spec_curve`` run adds its
+    specifications to a per-process count, and a result's
+    ``violations()`` reports how many distinct specifications of the same
+    outcome were fitted before it (``test='specification_search'``). Call
+    this when a new, pre-specified analysis starts in the same Python
+    process or MCP server, so earlier exploration is not counted against
+    it. Nothing else is reset.
+
+    Parameters
+    ----------
+    outcome : str, optional
+        Forget only the specifications of this outcome (every frame layout
+        it was fitted on). ``None`` forgets all of them.
+
+    Returns
+    -------
+    dict
+        ``{"outcome": outcome, "families_cleared": k,
+        "specifications_cleared": m}``: how many (outcome, column set)
+        families and distinct specifications were forgotten.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> out = sp.reset_spec_counter()
+    >>> sorted(out)
+    ['families_cleared', 'outcome', 'specifications_cleared']
+    >>> sp.reset_spec_counter()["specifications_cleared"]
+    0
+    """
+    if outcome is not None and not isinstance(outcome, str):
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            f"reset_spec_counter(outcome={outcome!r}): outcome must be a "
+            "column name (str) or None.",
+            recovery_hint="Pass the outcome's column name, or None to reset "
+            "every outcome.",
+            diagnostics={"outcome_type": type(outcome).__name__},
+        )
+    with _LOCK:
+        keys = [k for k in _FAMILIES if outcome is None or k[0] == str(outcome)]
+        n_specs = sum(len(_FAMILIES[k]) for k in keys)
+        for k in keys:
+            del _FAMILIES[k]
+    return {
+        "outcome": outcome,
+        "families_cleared": len(keys),
+        "specifications_cleared": int(n_specs),
+    }
+
+
 def multiplicity_violation(record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """The violation dict for a multiplicity record, or ``None`` below the bar."""
     k = int(record.get("specifications_tried", 0) or 0)
@@ -127,8 +184,8 @@ def multiplicity_violation(record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "recovery_hint": (
             "Report every specification tried (sp.spec_curve) or adjust the "
             "family of p-values (sp.romano_wolf, sp.adjust_pvalues). The "
-            "count is per process; start a new session for a new, "
-            "pre-specified analysis."
+            "count is per process; call sp.reset_spec_counter() (or start "
+            "a new session) before a new, pre-specified analysis."
         ),
         "alternatives": ["sp.spec_curve", "sp.romano_wolf", "sp.adjust_pvalues"],
     }

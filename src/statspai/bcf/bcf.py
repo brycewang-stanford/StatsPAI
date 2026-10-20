@@ -80,6 +80,11 @@ def bcf(
        with valid inference use ``sp.causal_forest``; for doubly robust
        ATE use ``sp.dml`` / ``sp.aipw`` / ``sp.tmle``.
 
+    .. deprecated:: 1.40.0
+       ``sp.bcf`` will route to ``sp.bart_causal(method='bcf')`` in a later
+       minor release; every call emits a ``FutureWarning`` until then. The
+       numbers of this release are unchanged.
+
     Parameters
     ----------
     data : pd.DataFrame
@@ -130,6 +135,48 @@ def bcf(
     import warnings
 
     warnings.warn(
+        "sp.bcf will route to sp.bart_causal(method='bcf') (the MCMC "
+        "Bayesian causal forest) in a later minor release; its estimates and "
+        "result type will then be those of sp.bart_causal. Call "
+        "sp.bart_causal(method='bcf') to adopt it now. This release returns "
+        "the same numbers as before. See MIGRATION.md.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _bcf_fit(
+        data,
+        y,
+        treat,
+        covariates,
+        n_trees_mu=n_trees_mu,
+        n_trees_tau=n_trees_tau,
+        n_bootstrap=n_bootstrap,
+        n_folds=n_folds,
+        alpha=alpha,
+        random_state=random_state,
+    )
+
+
+def _bcf_fit(
+    data: pd.DataFrame,
+    y: str,
+    treat: str,
+    covariates: List[str],
+    n_trees_mu: int = 200,
+    n_trees_tau: int = 50,
+    n_bootstrap: int = 200,
+    n_folds: int = 5,
+    alpha: float = 0.05,
+    random_state: int = 42,
+) -> CausalResult:
+    """The fit behind :func:`bcf`, without its deprecation notice.
+
+    ``sp.bcf_ordinal`` and ``sp.bcf_factor_exposure`` call this, so the
+    planned rerouting of ``sp.bcf`` does not change them.
+    """
+    import warnings
+
+    warnings.warn(
         BCFApproximationWarning(
             "sp.bcf is a BCF-style approximation (random-forest prognostic "
             "model + gradient-boosting effect model, bootstrap intervals), "
@@ -148,7 +195,7 @@ def bcf(
                 "sp.tmle",
             ],
         ),
-        stacklevel=2,
+        stacklevel=3,
     )
     est = BayesianCausalForest(
         data=data,

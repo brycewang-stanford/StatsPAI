@@ -154,7 +154,7 @@ com = sp.community_detection(g)
 sp.network_plot(g, node_color=com.membership, layout="spring")
 ```
 
-`matplotlib` is imported lazily (install the `plotting` extra); the
+`matplotlib` (a core dependency) is imported lazily; the
 Fruchterman-Reingold and circular layouts are computed in numpy.
 
 ## Reference networks

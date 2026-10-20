@@ -35,7 +35,7 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from .bcf import bcf as _bcf_binary
+from .bcf import _bcf_fit as _bcf_binary
 
 __all__ = ["bcf_factor_exposure", "BCFFactorExposureResult"]
 

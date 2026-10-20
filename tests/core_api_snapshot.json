@@ -80,21 +80,44 @@
      "default": "'linear'",
      "name": "outcome_model",
      "positional": true
+    },
+    {
+     "default": "None",
+     "name": "design",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "ps_learner",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "outcome_learner",
+     "positional": true
     }
    ]
   },
   "callaway_santanna": {
    "aliases": {
+    "alp": "alpha",
     "cluster": "clustervars",
     "cohort": "g",
     "controls": "x",
     "covariates": "x",
+    "est_method": "estimator",
     "first_treat": "g",
+    "gname": "g",
     "id": "i",
+    "idname": "i",
     "seed": "random_state",
     "time": "t",
+    "tname": "t",
     "unit": "i",
-    "vce": "clustervars"
+    "vce": "clustervars",
+    "weightsname": "weights",
+    "xformla": "x",
+    "yname": "y"
    },
    "params": [
     {
@@ -226,6 +249,11 @@
      "default": "None",
      "name": "balance",
      "positional": true
+    },
+    {
+     "default": "None",
+     "name": "design",
+     "positional": true
     }
    ]
   },
@@ -356,6 +384,11 @@
     {
      "default": "None",
      "name": "W_hat",
+     "positional": true
+    },
+    {
+     "default": "-1",
+     "name": "n_jobs",
      "positional": true
     }
    ]
@@ -507,6 +540,11 @@
      "default": "None",
      "name": "seed",
      "positional": true
+    },
+    {
+     "default": "None",
+     "name": "design",
+     "positional": true
     }
    ]
   },
@@ -575,6 +613,11 @@
      "default": "None",
      "name": "observation_ids",
      "positional": false
+    },
+    {
+     "default": "None",
+     "name": "design",
+     "positional": false
     }
    ]
   },
@@ -621,6 +664,21 @@
     {
      "default": "False",
      "name": "dof_adjust",
+     "positional": true
+    },
+    {
+     "default": "'ATT'",
+     "name": "estimand",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "base_weights",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "weights",
      "positional": true
     }
    ]
@@ -683,6 +741,7 @@
   "event_study": {
    "aliases": {
     "controls": "covariates",
+    "first_treat": "treat_time",
     "id": "unit",
     "vce": "cluster"
    },
@@ -1015,6 +1074,16 @@
      "default": "True",
      "name": "grid_expand",
      "positional": true
+    },
+    {
+     "default": "None",
+     "name": "bias_direction",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "monotonicity_direction",
+     "positional": true
     }
    ]
   },
@@ -1097,6 +1166,26 @@
     {
      "default": "None",
      "name": "propensity",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "design",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "ps_learner",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "cross_fit",
+     "positional": true
+    },
+    {
+     "default": "5",
+     "name": "n_folds",
      "positional": true
     }
    ]
@@ -1265,6 +1354,11 @@
      "default": "None",
      "name": "weights_as",
      "positional": true
+    },
+    {
+     "default": "None",
+     "name": "design",
+     "positional": true
     }
    ]
   },
@@ -1309,6 +1403,21 @@
     {
      "default": "None",
      "name": "subset",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "predict",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "category",
+     "positional": true
+    },
+    {
+     "default": "True",
+     "name": "vcov",
      "positional": true
     }
    ]
@@ -1697,6 +1806,11 @@
     {
      "default": "None",
      "name": "weights_as",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "design",
      "positional": true
     }
    ]
@@ -2189,11 +2303,20 @@
      "default": "None",
      "name": "weights_as",
      "positional": false
+    },
+    {
+     "default": "None",
+     "name": "design",
+     "positional": false
     }
    ]
   },
   "regtable": {
    "aliases": {
+    "coeflabels": "coef_labels",
+    "model_names": "model_labels",
+    "mtitles": "model_labels",
+    "variable_labels": "coef_labels",
     "vce": "vcov"
    },
    "params": [
@@ -2666,6 +2789,13 @@
    "function": "feols",
    "migration": "`fixef_rm` of `sp.feols` and `sp.fepois` defaults to",
    "param": "fixef_rm"
+  },
+  {
+   "change": "default changed from 1 to -1",
+   "date": "2026-10-20",
+   "function": "causal_forest",
+   "migration": "`sp.causal_forest(n_jobs=)` now defaults to `-1` (all cores) instead of `1`; estimates are byte-identical for any thread count.",
+   "param": "n_jobs"
   }
  ]
 }

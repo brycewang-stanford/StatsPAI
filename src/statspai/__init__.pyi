@@ -236,6 +236,7 @@ from .conformal_causal.extended import (
 from .conformal_causal.extended import conformal_continuous as conformal_continuous
 from .conformal_causal.extended import conformal_interference as conformal_interference
 from .conformal_causal.regression import conformal_regression as conformal_regression
+from .core._spec_counter import reset_spec_counter as reset_spec_counter
 from .core.effect_summary import EffectSummary as EffectSummary
 from .core.effect_summary import effect_summary as effect_summary
 from .core.results import CausalResult as CausalResult

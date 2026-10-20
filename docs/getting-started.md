@@ -14,7 +14,7 @@ That is all you need for the core estimators. Optional extras pull in heavier
 backends only when you want them:
 
 ```bash
-pip install "StatsPAI[plotting]"   # matplotlib / seaborn / plotly figures
+pip install "StatsPAI[plotting]"   # seaborn / plotly (matplotlib is in the core install)
 pip install "StatsPAI[bayes]"      # PyMC + ArviZ for Bayesian estimators
 pip install "StatsPAI[tune]"       # Optuna for tuned meta-learners / Auto-CATE
 pip install "StatsPAI[rd-cct]"     # rdrobust for exact CCT RD parity

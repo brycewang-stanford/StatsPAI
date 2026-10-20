@@ -64,6 +64,20 @@ The IV, state-dependent and panel local projections of `sp.local_projections` an
 - **Changed**: arguments that belong to another design are refused instead of ignored: `gamma=` / `hp_lambda=` / `state_transform=` / `lag_state=False` without `state=`, `panel_effect=` / `diff_shock=` without `id=` / `time=`, and on panel projections `dfk=`, `trend=`, `common_sample=` and `nw_lags=` other than with `vce='driscoll_kraay'`. A horizon whose regressors reproduce the outcome exactly (e.g. the outcome among the controls at `h = 0`) is refused; its standard errors were rounding noise.
 - **Added**: the Dumitrescu-Hurlin per-unit Wald statistics and p-values are pinned to Stata `xtgcause`'s `r(Wi)` / `r(PVi)` (the p-value refers `W_i / K` to `F(K, n_i - 2K - 1)`; `plm` reports the `chi2(K)` value). Panel IV projections report `first_stage_f` by horizon under the projection's variance, as the single-series ones do.
 
+### Owner decisions of 2026-10-20: defaults, deprecations, MCP text block, `sp.reset_spec_counter`
+
+Recorded in `docs/dev/2026-10-20-owner-decisions.md`; migration notes in `MIGRATION.md`. Only the first item changes numbers.
+
+- **⚠️ Correctness**: the string `'rlasso'` (and `'rigorous_lasso'`) in a classifier role (`sp.dml` `irm` / `iivm` `ml_m` and `ml_r`, `sp.dml_did(ml_m=)`, `sp.dml_panel` with a binary treatment) now resolves to `sp.RlassologitClassifier`, the logistic rigorous Lasso that `hdm` fits for propensities (`rlassologit`). It was `sp.RlassoClassifier`, a linear-probability fit clipped to `[clip, 1 - clip]`, whose clipped rows can carry inverse weights of 1000. Estimates with that alias change; regressor roles keep `sp.RlassoRegressor`, and `'rlasso_lpm'` selects the old classifier. Test: `ml_m='rlasso'` equals `ml_m='rlassologit'` and `'rlasso_lpm'` equals `sp.RlassoClassifier()` exactly (`tests/test_rlasso.py`).
+- **Changed**: `sp.causal_forest(n_jobs=)` defaults to `-1` (all cores; was `1`), and `n_jobs` is an explicit parameter of `sp.causal_forest` and registered. Outputs are byte-identical for any thread count (pinned by `tests/test_treatment_effects_oct19_fixes.py` and `tests/test_owner_decisions_oct20.py`). Core API snapshot updated with the MIGRATION acknowledgement.
+- **Deprecated**: `sp.hdfe_ols` with two or more cluster variables and no `cluster_df=` warns (`FutureWarning`) that the default multi-way small-sample factor moves from `'per_term'` (R `sandwich::vcovCL`) to `'min'` (Stata `reghdfe`, R `fixest`) in a later minor release. Standard errors are unchanged in this release.
+- **Deprecated**: `sp.sun_abraham` without `aggregation=` warns (`FutureWarning`) that the headline `.estimate` moves from the equal-weight event-time average to the cell-weighted ATT of `fixest::summary(agg = "att")` (`aggregation='fixest_att'`). Numbers unchanged; `sp.did(method='sun_abraham')` now passes a missing `aggregation` through, so it warns too. Track A module 05 already passes `aggregation='fixest_att'`.
+- **Deprecated**: `sp.bcf` warns (`FutureWarning`) that it will route to `sp.bart_causal(method='bcf')`. Numbers unchanged; `sp.bcf_ordinal` and `sp.bcf_factor_exposure` call the same fit without the notice and are not affected by the planned rerouting.
+- **Changed**: `matplotlib>=3.5` is a core dependency (still imported only when a figure is drawn; `import statspai` does not load it). seaborn and plotly stay in `[plotting]`.
+- **Changed**: `sp.binscatter(method='classic', controls=...)` warns (`AssumptionWarning`) that residualize-then-bin is not consistent for `E[y | x, controls]` when `x` and the controls are related, suggests `method='binsreg'`, and records it in `bin_data.attrs['diagnostics']`. The default stays `'classic'`.
+- **Added**: `sp.reset_spec_counter(outcome=None)` forgets the session's specification-search count (the `specification_search` violation) and returns what it cleared; callable as an MCP tool by name or through `call_function`. The violation's recovery hint names it.
+- **Added**: the MCP server's text block of a successful `tools/call` can be a few summary lines instead of the JSON of `structuredContent` again: `STATSPAI_MCP_TEXT=summary` or `statspai-mcp --text summary` (`mcp_server.set_text_mode`). The default stays `full` for clients that ignore `structuredContent`. Measured savings in `docs/dev/modules/agent_mcp.md`.
+
 ### Classifier learners in DML, metalearners, causal forest; `sp.RlassoClassifier` as a propensity
 
 - **⚠️ Correctness**: `sp.dynamic_dml(model_t=<classifier>)` (or `model_y=`) residualised on the classifier's hard 0/1 label from `predict`, so the residual was `T - 1{p > 0.5}`, not `T - E[T | state]`. A classifier on a 0/1 target now gives P(T = 1), and a classifier on any other target is refused, as in `sp.dml`. Estimates with a classifier learner change; the default `RidgeCV` and any regressor are byte-identical.
@@ -2183,6 +2197,12 @@ period gave `sun_abraham` zero standard errors. The checks now live in
 - `sp.sumstats` / `sp.balance_table` raised a raw `TypeError` on a string
   or categorical column; each level now gets a row (the statistics of its
   0/1 indicator, so `Mean` is the level's share, Stata `summarize i.var`).
+  The SMD of a level row in `sp.balance_table` follows R `cobalt`'s binary
+  convention, `(p_t - p_c) / sqrt((p_t(1-p_t) + p_c(1-p_c)) / 2)` (the
+  whole sample's `sqrt(p(1-p))` when both arms are constant), equal to
+  `cobalt::bal.tab(binary = "std", s.d.denom = "pooled")` to 1e-12 (cobalt
+  4.6.2 as a black box; `tests/test_owner_decisions_oct20.py`). Numeric
+  covariates, 0/1 numeric columns included, keep the sample-SD denominator.
   Both take `filename=` (.xlsx / .docx / .tex / .html / .md / .txt / .csv)
   and `output='markdown'`; an unknown `output=` (or `balance_table(test=)`)
   raises instead of falling back to text.

@@ -42,6 +42,59 @@ old SEs were not a valid covariance.
   `nw_lags=` on a panel unless `vce='driscoll_kraay'`) now raise
   `MethodIncompatibility` instead of being ignored. Drop them.
 
+---
+
+## 1.39.6 → unreleased: default changes and announced deprecations (owner decisions 2026-10-20)
+
+None of these changes a number in this release, except the `'rlasso'`
+classifier alias in the next section. The full record is
+`docs/dev/2026-10-20-owner-decisions.md`.
+
+- `sp.causal_forest(n_jobs=)` now defaults to `-1` (all cores) instead of `1`; estimates are byte-identical for any thread count.
+  `n_jobs` is now an explicit parameter of `sp.causal_forest` (it used to
+  travel through `**kwargs`), and `sp.CausalForest(n_jobs=)` has the same
+  default. Pass `n_jobs=1` to keep a single thread.
+- `sp.hdfe_ols` with two or more cluster variables and no `cluster_df=`
+  emits a `FutureWarning`: the default small-sample factor of a multi-way
+  cluster variance will change from `'per_term'` (each inclusion-exclusion
+  term scaled by its own `G/(G-1)`, R `sandwich::vcovCL`) to `'min'`
+  (`G_min/(G_min-1)` on every term, Stata `reghdfe` and R `fixest`) in a
+  later minor release. Pass `cluster_df='per_term'` to keep today's
+  standard errors, or `cluster_df='min'` to adopt the new ones now.
+  One-way clustering is not affected.
+- `sp.sun_abraham` without `aggregation=` emits a `FutureWarning`: the
+  headline `.estimate` / `.se` will change in a later minor release from
+  the equal-weight average of the post-treatment relative-time effects
+  (`aggregation='event_time'`, today's default) to the cohort-by-period
+  cell-weighted ATT that `fixest::summary(agg = "att")` reports
+  (`aggregation='fixest_att'`). Pass `aggregation='event_time'` to keep
+  today's headline, or `'fixest_att'` to adopt the new one now. The
+  event-time coefficients do not depend on it, and both numbers are in
+  `model_info` either way.
+- `sp.bcf` emits a `FutureWarning`: in a later minor release it will route
+  to `sp.bart_causal(method='bcf')`, so its result type becomes that of
+  `sp.bart_causal`. Call `sp.bart_causal(method='bcf')` directly to adopt it
+  now; the numbers of `sp.bcf` are unchanged in this release.
+- `matplotlib>=3.5` is a core dependency (still imported only when a plot
+  is drawn). `pip install statspai[plotting]` remains the way to get
+  seaborn and plotly.
+
+---
+
+## 1.39.6 → unreleased: ⚠️ `ml_m='rlasso'` in a classifier role is the logistic rigorous Lasso
+
+`sp.dml` (`irm` / `iivm` propensities, `ml_r`; any classifier role),
+`sp.dml_did(ml_m=)` and `sp.dml_panel` (binary treatment) resolve the string `'rlasso'` (and
+`'rigorous_lasso'`) to `sp.RlassologitClassifier` when the role is a
+classifier, which is what `hdm` fits for propensities (`rlassologit`). It
+used to be `sp.RlassoClassifier`, a linear-probability rigorous Lasso whose
+predictions are clipped to `[clip, 1 - clip]`; estimates with that alias
+change. Regressor roles (`ml_g`, a continuous `ml_m`) keep
+`sp.RlassoRegressor`. For the old propensities pass
+`ml_m=sp.RlassoClassifier()` or the new alias `ml_m='rlasso_lpm'`.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ classifier learners in `sp.dynamic_dml`; rigorous-Lasso learners refuse `sample_weight`
 
 - `sp.dynamic_dml(model_t=<classifier>)` (or `model_y=`) now residualises

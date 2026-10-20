@@ -80,12 +80,13 @@ pip install statspai
 ```
 
 Python 3.10 – 3.13 on Linux and macOS. The core install covers estimation, diagnostics, the bundled
-datasets, and `.xlsx` / `.docx` / LaTeX export. Plotting and heavier backends
-are optional extras:
+datasets, `.xlsx` / `.docx` / LaTeX export, and matplotlib figures (`.plot()`,
+`sp.ggdid()` and the rest). seaborn / plotly styles and heavier backends are
+optional extras:
 
 | Extra | Adds | Needed for |
 | --- | --- | --- |
-| `statspai[plotting]` | matplotlib, seaborn, plotly | `.plot()`, `sp.ggdid()`, `sp.interactive()` and other figures |
+| `statspai[plotting]` | seaborn, plotly (matplotlib is a core dependency) | seaborn-styled and interactive plotly figures |
 | `statspai[fixest]` | pyfixest (Python ≥ 3.10) | `sp.fixest.*` wrappers and the pyfixest cross-validation engine |
 | `statspai[bayes]` | PyMC, ArviZ | Bayesian estimators |
 | `statspai[neural]` / `statspai[deepiv]` | PyTorch | neural causal models, DeepIV |
@@ -114,7 +115,7 @@ to a published design (`source == "simulated"`), including the
 Callaway–Sant'Anna `mpdta` panel used below; their numbers are not the numbers
 from the original data.
 
-At a glance: 1,623 registered functions across 90 submodules; 668k LOC (core) + 458k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
+At a glance: 1,624 registered functions across 90 submodules; 668k LOC (core) + 458k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
 
 ---
 
@@ -597,7 +598,7 @@ templates, standard-error formats, and single-model exports.
 If you miss Stata's Graph Editor, use `sp.interactive(fig)` on any matplotlib
 figure returned by StatsPAI. In Jupyter it opens an editing panel next to a
 live preview, so beginners can adjust a figure without learning every
-matplotlib option first. Requires `pip install "statspai[plotting]" ipywidgets`.
+matplotlib option first. Requires `pip install ipywidgets`.
 
 What it is for:
 

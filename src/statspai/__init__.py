@@ -2519,6 +2519,7 @@ __all__ = [
     "examples",
     "preflight",
     "session",
+    "reset_spec_counter",
     "sensitivity_dashboard",
     "SensitivityDashboard",
     "pub_ready",
@@ -3435,6 +3436,8 @@ _register_lazy(
     "get_code",
 )
 _register_lazy("plots._legend_sync", "refresh_legend")
+# Session spec-search counter (core/_spec_counter.py): public reset.
+_register_lazy("core._spec_counter", "reset_spec_counter")
 _register_lazy(
     "geolift",
     "geolift",

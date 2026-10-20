@@ -515,6 +515,23 @@ def _compute_stats(
     return pd.DataFrame(rows).T
 
 
+def _level_smd(p_t: float, p_c: float, p_all: float) -> float:
+    """SMD of a 0/1 level indicator, R ``cobalt``'s binary convention.
+
+    ``(p_t - p_c) / sqrt((p_t (1 - p_t) + p_c (1 - p_c)) / 2)``: the
+    proportions' own variances, no ``n - 1``. When both arms are constant
+    (a level that separates them) the denominator is the whole sample's
+    ``sqrt(p (1 - p))``, which is what ``cobalt::bal.tab`` reports there.
+    """
+    diff = p_t - p_c
+    denom = np.sqrt((p_t * (1 - p_t) + p_c * (1 - p_c)) / 2)
+    if denom <= 1e-12:
+        denom = np.sqrt(p_all * (1 - p_all))
+    if denom <= 1e-12:
+        return 0.0
+    return float(diff / denom)
+
+
 def balance_table(
     data: pd.DataFrame,
     treat: str,
@@ -541,7 +558,12 @@ def balance_table(
     covariates : list of str
         Variables to check balance on. A string, categorical or boolean
         covariate gets one row per level, the balance of its 0/1 indicator
-        (the means are the shares of the level in each arm).
+        (the means are the shares of the level in each arm). The SMD of
+        such a level is R ``cobalt``'s binary one, ``(p_t - p_c) /
+        sqrt((p_t(1 - p_t) + p_c(1 - p_c)) / 2)`` (the whole sample's
+        ``sqrt(p(1 - p))`` when both arms are constant); numeric covariates,
+        a 0/1 numeric column included, keep the pooled sample-SD
+        denominator.
     output : str, default 'text'
         'text', 'latex', 'html', 'markdown', 'dataframe', or a file path
         (.xlsx / .docx / .tex / .html / .md / .txt / .csv). Anything else
@@ -599,9 +621,13 @@ def balance_table(
             f"balance_table: unknown test {test!r}.",
             recovery_hint="Use test='ttest' or 'ranksum'.",
         )
+    given = set(covariates)
     data, covariates, labels = _expand_categoricals(
         data, list(covariates), labels, exclude=treat
     )
+    # 0/1 indicators of the levels of a string / categorical / boolean
+    # covariate (the expansion's new columns).
+    level_rows = {v for v in covariates if v not in given}
     T = data[treat].values
     treated = data[T == 1]
     control = data[T == 0]
@@ -621,8 +647,11 @@ def balance_table(
         sd_c = c_vals.std()
 
         # Standardized mean difference
-        sd_pooled = np.sqrt((sd_t**2 + sd_c**2) / 2)
-        smd = (mean_t - mean_c) / sd_pooled if sd_pooled > 0 else 0
+        if var in level_rows:
+            smd = _level_smd(mean_t, mean_c, pd.concat([t_vals, c_vals]).mean())
+        else:
+            sd_pooled = np.sqrt((sd_t**2 + sd_c**2) / 2)
+            smd = (mean_t - mean_c) / sd_pooled if sd_pooled > 0 else 0
 
         # Test
         if test == "ttest":

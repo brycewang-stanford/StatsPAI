@@ -5025,6 +5025,11 @@
             "n_trees"
           ]
         },
+        "n_jobs": {
+          "default": -1,
+          "description": "Threads for growing trees (-1 = all cores; was 1 before 1.40). Estimates do not depend on it.",
+          "type": "integer"
+        },
         "random_state": {
           "description": "Random seed",
           "type": "integer",
@@ -17543,8 +17548,7 @@
           "type": "array"
         },
         "cluster_df": {
-          "default": "per_term",
-          "description": "Small-sample factor of a multi-way cluster variance (the inclusion-exclusion sum ``V_a + V_b - V_ab``). ``'per_term'`` scales each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does; ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to reproduce their numbers. The two differ by a few percent with few clusters in one dimension (0.00935 against 0.00856 on one 40 x 15 panel); one-way clustering is the same either way. The choice is recorded in ``cluster_info['cluster_df']``. OLS with fixed effects only.",
+          "description": "Small-sample factor of a multi-way cluster variance (the inclusion-exclusion sum ``V_a + V_b - V_ab``). ``None`` (the default) is ``'per_term'`` in this release and warns (``FutureWarning``) when two or more cluster variables are given: the default will become ``'min'`` in a later minor release. Pass either value to silence the warning. ``'per_term'`` scales each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does; ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to reproduce their numbers. The two differ by a few percent with few clusters in one dimension (0.00935 against 0.00856 on one 40 x 15 panel); one-way clustering is the same either way. The choice is recorded in ``cluster_info['cluster_df']``. OLS with fixed effects only. .. deprecated:: 1.40.0 The implicit ``'per_term'`` default for multi-way clustering; it becomes ``'min'`` (see MIGRATION.md).",
           "enum": [
             "per_term",
             "min"
@@ -35403,6 +35407,22 @@
     "name": "replicate"
   },
   {
+    "description": "Forget the session's specification-search count (the 'specification_search' violation that sp.regress / feols / fepois / hdfe_ols / panel / spec_curve results report). Call it before a new, pre-specified analysis in the same Python process or MCP server. Returns how much was forgotten. Failure modes: reset_spec_counter(outcome=<outcome>): outcome must be a column name (str) or None -> Pass the outcome's column name, or None to reset every outcome. Alternatives: sp.spec_curve, sp.romano_wolf, sp.adjust_pvalues.",
+    "input_schema": {
+      "properties": {
+        "outcome": {
+          "description": "Forget only this outcome's specifications (None = all).",
+          "type": "string",
+          "x-canonical": "y",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "reset_spec_counter"
+  },
+  {
     "description": "Ramsey RESET test for functional form misspecification. Validation: certified parity evidence. Assumptions: The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity. Pre-conditions: A fitted StatsPAI result object (sp.regress / sp.logit / ...) -- these functions do not take raw data. Failure modes: Heteroskedasticity or RESET rejects -> Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms. Alternatives: sp.sp.margins, sp.sp.test, sp.sp.regress.",
     "input_schema": {
       "properties": {
@@ -40063,6 +40083,14 @@
     "description": "Sun-Abraham (2021) interaction-weighted event study for staggered adoption (Stata eventstudyinteract, fixest sunab). Cohort column g = first-treatment period, 0 / NaN never treated. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
+        "aggregation": {
+          "description": "Headline ATT; omitted = event_time (FutureWarning: fixest_att later).",
+          "enum": [
+            "event_time",
+            "fixest_att"
+          ],
+          "type": "string"
+        },
         "cluster": {
           "type": "string"
         },

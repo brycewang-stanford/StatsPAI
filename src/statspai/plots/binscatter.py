@@ -139,6 +139,10 @@ def binscatter(
         robust bias-corrected intervals from a continuous piecewise-linear
         fit on the same bins. ``absorb`` and ``weights`` are not available
         with ``'binsreg'``.
+        With ``controls`` and ``'classic'`` an ``AssumptionWarning`` says
+        that residualize-then-bin is not consistent for ``E[y | x, w]``
+        and ``bin_data.attrs['diagnostics']`` records it; the default stays
+        ``'classic'``.
     cb : bool, default False
         With ``method='binsreg'``: add the uniform confidence band (same
         piecewise-linear fit, simulated critical value of the sup-t
@@ -271,6 +275,31 @@ def binscatter(
 
     if len(df) < 10:
         raise ValueError("Need at least 10 observations after dropping NaN")
+
+    # Residualize-then-bin (Stepner's binscatter) does not estimate
+    # E[y | x, w] unless x and the controls are unrelated; binsreg puts the
+    # controls in one regression with the bin indicators (CCFF 2024).
+    classic_controls_note: Optional[str] = None
+    if method == "classic" and controls:
+        classic_controls_note = (
+            "binscatter(method='classic') residualizes y and x on the "
+            "controls before binning; that is not a consistent estimate of "
+            "E[y | x, controls] when x is related to the controls."
+        )
+        from ..exceptions import AssumptionWarning
+        from ..exceptions import warn as _warn
+
+        _warn(
+            AssumptionWarning,
+            classic_controls_note
+            + " Pass method='binsreg' (Cattaneo, Crump, Farrell and Feng "
+            "2024), which keeps the controls in one regression with the bin "
+            "indicators.",
+            stacklevel=3,
+            recovery_hint="Pass method='binsreg'.",
+            diagnostics={"method": "classic", "controls": list(controls)},
+            alternative_functions=["sp.binscatter(method='binsreg')"],
+        )
 
     # --- Default bins ---
     if n_bins is None and method == "classic":
@@ -467,6 +496,11 @@ def binscatter(
         result_df.attrs["binsreg"] = (
             binsreg_info[None] if by is None else dict(binsreg_info)
         )
+    if classic_controls_note is not None:
+        result_df.attrs["diagnostics"] = {
+            "classic_with_controls": classic_controls_note,
+            "suggest": "method='binsreg'",
+        }
 
     return fig, ax, result_df
 

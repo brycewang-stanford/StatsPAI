@@ -136,6 +136,12 @@ SPECS: List[Dict[str, Any]] = [
                 },
                 "covariates": {"type": "array", "items": {"type": "string"}},
                 "cluster": {"type": "string"},
+                "aggregation": {
+                    "type": "string",
+                    "enum": ["event_time", "fixest_att"],
+                    "description": "Headline ATT; omitted = event_time "
+                    "(FutureWarning: fixest_att later).",
+                },
             },
             "required": ["y", "g", "t", "i"],
         },

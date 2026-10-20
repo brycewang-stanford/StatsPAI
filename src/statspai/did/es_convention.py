@@ -399,6 +399,8 @@ def _default_runners(
             i=unit,
             event_window=window,
             cluster=cluster,
+            # only the event-time path is read; the headline is irrelevant
+            aggregation="event_time",
         )
         return _normalise_path(res.model_info["event_study"])
 

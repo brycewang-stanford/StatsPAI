@@ -150,7 +150,15 @@ def _fit_sa(df: pd.DataFrame, opt: "_Options") -> Tuple[float, float]:
     # Sun-Abraham compares with a cohort, never with not-yet-treated cells;
     # the calibration keeps at least two never-treated units, so that cohort
     # is the reference under either setting
-    r = sun_abraham(df, y=_Y, g=_G, t=_T, i=_ID, control_group="nevertreated")
+    r = sun_abraham(
+        df,
+        y=_Y,
+        g=_G,
+        t=_T,
+        i=_ID,
+        control_group="nevertreated",
+        aggregation="fixest_att",
+    )
     return (
         float(r.model_info["att_fixest_att"]),
         float(r.model_info["se_fixest_att"]),

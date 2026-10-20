@@ -52,11 +52,11 @@ StatsPAI 面向那些原本需要在 Stata、R 和 Python 之间来回切换的�
 pip install statspai
 ```
 
-支持 Python 3.10 – 3.13（Linux 与 macOS）。核心安装已包含估计、诊断、内置数据集，以及 `.xlsx` / `.docx` / LaTeX 导出。画图和较重的后端是可选 extras：
+支持 Python 3.10 – 3.13（Linux 与 macOS）。核心安装已包含估计、诊断、内置数据集、`.xlsx` / `.docx` / LaTeX 导出，以及 matplotlib 图形（`.plot()`、`sp.ggdid()` 等）。seaborn / plotly 样式和较重的后端是可选 extras：
 
 | Extra | 增加 | 用途 |
 | --- | --- | --- |
-| `statspai[plotting]` | matplotlib、seaborn、plotly | `.plot()`、`sp.ggdid()`、`sp.interactive()` 等图形 |
+| `statspai[plotting]` | seaborn、plotly（matplotlib 已是核心依赖） | seaborn 样式与 plotly 交互图形 |
 | `statspai[fixest]` | pyfixest（Python ≥ 3.10） | `sp.fixest.*` 封装，以及交叉验证中的 pyfixest 引擎 |
 | `statspai[bayes]` | PyMC、ArviZ | 贝叶斯估计器 |
 | `statspai[neural]` / `statspai[deepiv]` | PyTorch | 神经网络因果模型、DeepIV |
@@ -76,7 +76,7 @@ print(sp.datasets.list_datasets()[["name", "design", "source"]])
 
 StatsPAI 内置 14 个可离线加载的数据集。大部分是真实的已发表数据（`source == "bundled CSV"`）：Card (1995) NLSYM 教育回报数据、带 PSID 对照组的 LaLonde/NSW、R `rdrobust` 附带的美国参议院 RD 数据、California Proposition 99、castle-doctrine 面板、NHEFS 等。少数是按已发表设计校准的**确定性模拟复刻**（`source == "simulated"`），包括下面用到的 Callaway–Sant'Anna `mpdta` 面板——它们的数字不是原始数据上的数字。
 
-一眼概览：1,623 个注册函数，分布在 90 个子模块；668k 行核心代码 + 458k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
+一眼概览：1,624 个注册函数，分布在 90 个子模块；668k 行核心代码 + 458k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
 
 ---
 
@@ -462,7 +462,7 @@ tbl.to_latex()                # LaTeX 源码；另有 .to_markdown()、.to_html(
 
 如果你怀念 Stata 的 Graph Editor，可以对 StatsPAI 返回的任意 matplotlib 图使用
 `sp.interactive(fig)`。它会在 Jupyter 里打开一个带实时预览的编辑面板，新手不用先记住
-matplotlib 的所有参数，也能把图调到适合论文或汇报的样子。需要 `pip install "statspai[plotting]" ipywidgets`。
+matplotlib 的所有参数，也能把图调到适合论文或汇报的样子。需要 `pip install ipywidgets`。
 
 它适合做这些事：
 

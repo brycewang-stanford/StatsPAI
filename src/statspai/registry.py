@@ -4214,6 +4214,14 @@ def _build_registry() -> None:
                     enum=["grf", "cffe", "legacy"],
                 ),
                 ParamSpec("random_state", "int", False, None),
+                ParamSpec(
+                    "n_jobs",
+                    "int",
+                    False,
+                    -1,
+                    "Threads for growing trees (-1 = all cores; was 1 before "
+                    "1.40). Estimates do not depend on it.",
+                ),
             ],
             returns=(
                 "CausalForest (fitted). predict() gives out-of-bag CATEs; "
@@ -15297,6 +15305,33 @@ def _build_registry() -> None:
             example='sp.spec_curve(df, y="outcome", x="treat", controls=[[], ["x1"], ["x1", "x2"]])',
             tags=["robustness", "specification", "multiverse"],
             reference="Simonsohn, Simmons & Nelson (2020)",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="reset_spec_counter",
+            category="robustness",
+            description=(
+                "Forget the session's specification-search count (the "
+                "'specification_search' violation that sp.regress / feols / "
+                "fepois / hdfe_ols / panel / spec_curve results report). Call "
+                "it before a new, pre-specified analysis in the same Python "
+                "process or MCP server. Returns how much was forgotten."
+            ),
+            params=[
+                ParamSpec(
+                    "outcome",
+                    "str",
+                    False,
+                    None,
+                    "Forget only this outcome's specifications (None = all).",
+                ),
+            ],
+            returns=("dict {outcome, families_cleared, specifications_cleared}"),
+            example="sp.reset_spec_counter()",
+            tags=["robustness", "specification", "multiplicity", "session"],
+            alternatives=["spec_curve", "romano_wolf", "adjust_pvalues"],
         )
     )
 
@@ -29193,10 +29228,12 @@ def _build_registry() -> None:
                     "aggregation",
                     "str",
                     False,
-                    "event_time",
+                    None,
                     "Headline summary convention: 'event_time' (equal weight "
                     "per relative time) or 'fixest_att' (cohort-size "
-                    "weighted, matching fixest agg='att').",
+                    "weighted, matching fixest agg='att'). None = "
+                    "'event_time' with a FutureWarning: 'fixest_att' becomes "
+                    "the default in a later minor release.",
                     ["event_time", "fixest_att"],
                 ),
                 ParamSpec(

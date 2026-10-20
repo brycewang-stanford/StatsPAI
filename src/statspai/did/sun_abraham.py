@@ -43,6 +43,7 @@ Sun, L. and Abraham, S. (2021).
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -313,7 +314,7 @@ def sun_abraham(
     covariates: Optional[List[str]] = None,
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
-    aggregation: str = "event_time",
+    aggregation: Optional[str] = None,
     share_variance: bool = True,
     alpha: float = 0.05,
     pretest: str = "joint",
@@ -411,13 +412,19 @@ def sun_abraham(
         Additional controls (time-varying; added linearly).
     cluster : str, optional
         Cluster variable for SEs. Default: clusters on ``i``.
-    aggregation : {'event_time', 'fixest_att'}, default 'event_time'
+    aggregation : {'event_time', 'fixest_att'}, optional
         Overall post-treatment summary convention. ``'event_time'`` is the
         historical StatsPAI default: equal-weight the post-treatment
         relative-time IW effects. ``'fixest_att'`` weights each post
         cohort-time cell by its treated cohort size, matching
         ``fixest::summary(..., agg='att')`` and Stata/R default ATT
-        parity on balanced staggered panels.
+        parity on balanced staggered panels. ``None`` (the default) is
+        ``'event_time'`` in this release and emits a ``FutureWarning``:
+        a later minor release makes ``'fixest_att'`` the default headline.
+        Pass either value to silence it.
+
+        .. deprecated:: 1.40.0
+           The implicit ``'event_time'`` headline (see MIGRATION.md).
     share_variance : bool, default True
         Whether Var(δ̂_ℓ) carries the cohort-share estimation term
         ``β' Var(ŵ) β`` of Sun & Abraham (2021, Prop. 3). ``True`` is the
@@ -550,6 +557,20 @@ def sun_abraham(
             f"control_group must be 'nevertreated' or 'lastcohort', "
             f"got {control_group!r}"
         )
+    if aggregation is None:
+        warnings.warn(
+            "sun_abraham: without aggregation=, .estimate is the equal-weight "
+            "average of the post-treatment event-time effects "
+            "(aggregation='event_time'). A later minor release makes the "
+            "cohort-by-period cell-weighted ATT that fixest's "
+            "summary(agg = 'att') reports (aggregation='fixest_att') the "
+            "default headline. Pass aggregation='event_time' to keep this "
+            "number or 'fixest_att' to adopt the new one now; both are in "
+            "model_info either way. See MIGRATION.md.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        aggregation = "event_time"
     aggregation_aliases = {
         "event_time": "event_time",
         "event_time_equal": "event_time",

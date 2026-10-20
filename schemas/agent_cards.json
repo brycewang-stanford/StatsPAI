@@ -6197,6 +6197,11 @@
               "n_trees"
             ]
           },
+          "n_jobs": {
+            "default": -1,
+            "description": "Threads for growing trees (-1 = all cores; was 1 before 1.40). Estimates do not depend on it.",
+            "type": "integer"
+          },
           "random_state": {
             "description": "Random seed",
             "type": "integer",
@@ -28611,6 +28616,77 @@
       "API/unit contract evidence: tests/test_spec_curve.py"
     ],
     "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "spec_curve",
+      "romano_wolf",
+      "adjust_pvalues"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "robustness",
+    "cost_profile": "",
+    "description": "Forget the session's specification-search count (the 'specification_search' violation that sp.regress / feols / fepois / hdfe_ols / panel / spec_curve results report). Call it before a new, pre-specified analysis in the same Python process or MCP server. Returns how much was forgotten.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.reset_spec_counter()",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the outcome's column name, or None to reset every outcome.",
+        "symptom": "reset_spec_counter(outcome=<outcome>): outcome must be a column name (str) or None."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "reset_spec_counter",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "dict",
+      "description": "dict {outcome, families_cleared, specifications_cleared}",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Forget the session's specification-search count (the 'specification_search' violation that sp.regress / feols / fepois / hdfe_ols / panel / spec_curve results report). Call it before a new, pre-specified analysis in the same Python process or MCP server. Returns how much was forgotten.",
+      "name": "reset_spec_counter",
+      "parameters": {
+        "properties": {
+          "outcome": {
+            "description": "Forget only this outcome's specifications (None = all).",
+            "type": "string",
+            "x-canonical": "y",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
   },
   {
     "alias_of": null,
@@ -67120,8 +67196,7 @@
       "parameters": {
         "properties": {
           "aggregation": {
-            "default": "event_time",
-            "description": "Headline summary convention: 'event_time' (equal weight per relative time) or 'fixest_att' (cohort-size weighted, matching fixest agg='att').",
+            "description": "Headline summary convention: 'event_time' (equal weight per relative time) or 'fixest_att' (cohort-size weighted, matching fixest agg='att'). None = 'event_time' with a FutureWarning: 'fixest_att' becomes the default in a later minor release.",
             "enum": [
               "event_time",
               "fixest_att"
@@ -92969,8 +93044,8 @@
             "type": "integer"
           },
           "n_jobs": {
-            "default": 1,
-            "description": "Threads used to grow trees (-1 = all cores).",
+            "default": -1,
+            "description": "Threads used to grow trees (-1 = all cores). Results do not depend on it: every tree draws from its own seed and the trees are combined in a fixed order. .. versionchanged:: 1.40.0 The default was ``1``. Estimates are byte-identical for any value (``tests/test_treatment_effects_oct19_fixes.py``).",
             "type": "integer"
           },
           "nuisance_folds": {
@@ -94457,8 +94532,7 @@
             "type": "array"
           },
           "cluster_df": {
-            "default": "per_term",
-            "description": "Small-sample factor of a multi-way cluster variance (the inclusion-exclusion sum ``V_a + V_b - V_ab``). ``'per_term'`` scales each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does; ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to reproduce their numbers. The two differ by a few percent with few clusters in one dimension (0.00935 against 0.00856 on one 40 x 15 panel); one-way clustering is the same either way. The choice is recorded in ``cluster_info['cluster_df']``. OLS with fixed effects only.",
+            "description": "Small-sample factor of a multi-way cluster variance (the inclusion-exclusion sum ``V_a + V_b - V_ab``). ``None`` (the default) is ``'per_term'`` in this release and warns (``FutureWarning``) when two or more cluster variables are given: the default will become ``'min'`` in a later minor release. Pass either value to silence the warning. ``'per_term'`` scales each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does; ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to reproduce their numbers. The two differ by a few percent with few clusters in one dimension (0.00935 against 0.00856 on one 40 x 15 panel); one-way clustering is the same either way. The choice is recorded in ``cluster_info['cluster_df']``. OLS with fixed effects only. .. deprecated:: 1.40.0 The implicit ``'per_term'`` default for multi-way clustering; it becomes ``'min'`` (see MIGRATION.md).",
             "enum": [
               "per_term",
               "min"
@@ -96299,7 +96373,7 @@
       "parameters": {
         "properties": {
           "covariates": {
-            "description": "Variables to check balance on. A string, categorical or boolean covariate gets one row per level, the balance of its 0/1 indicator (the means are the shares of the level in each arm).",
+            "description": "Variables to check balance on. A string, categorical or boolean covariate gets one row per level, the balance of its 0/1 indicator (the means are the shares of the level in each arm). The SMD of such a level is R ``cobalt``'s binary one, ``(p_t - p_c) / sqrt((p_t(1 - p_t) + p_c(1 - p_c)) / 2)`` (the whole sample's ``sqrt(p(1 - p))`` when both arms are constant); numeric covariates, a 0/1 numeric column included, keep the pooled sample-SD denominator.",
             "items": {
               "type": "string"
             },
@@ -96701,7 +96775,7 @@
           },
           "method": {
             "default": "classic",
-            "description": "``'classic'`` residualizes ``y`` and ``x`` on the controls and plots bin means (Stepner's ``binscatter``). ``'binsreg'`` is the binscatter of Cattaneo, Crump, Farrell and Feng (2024), as R / Stata ``binsreg`` computes it: the controls enter one regression with the bin indicators and each dot is that bin's coefficient at the mean of the controls (residualizing estimates a different function when ``x`` and the controls are related); bins at the quantiles of ``x`` (``quantiles`` is ignored); ``n_bins=None`` selects the IMSE-optimal number (direct plug-in, as ``binsregselect``); ``ci=True`` gives robust bias-corrected intervals from a continuous piecewise-linear fit on the same bins. ``absorb`` and ``weights`` are not available with ``'binsreg'``.",
+            "description": "``'classic'`` residualizes ``y`` and ``x`` on the controls and plots bin means (Stepner's ``binscatter``). ``'binsreg'`` is the binscatter of Cattaneo, Crump, Farrell and Feng (2024), as R / Stata ``binsreg`` computes it: the controls enter one regression with the bin indicators and each dot is that bin's coefficient at the mean of the controls (residualizing estimates a different function when ``x`` and the controls are related); bins at the quantiles of ``x`` (``quantiles`` is ignored); ``n_bins=None`` selects the IMSE-optimal number (direct plug-in, as ``binsregselect``); ``ci=True`` gives robust bias-corrected intervals from a continuous piecewise-linear fit on the same bins. ``absorb`` and ``weights`` are not available with ``'binsreg'``. With ``controls`` and ``'classic'`` an ``AssumptionWarning`` says that residualize-then-bin is not consistent for ``E[y | x, w]`` and ``bin_data.attrs['diagnostics']`` records it; the default stays ``'classic'``.",
             "enum": [
               "classic",
               "binsreg"

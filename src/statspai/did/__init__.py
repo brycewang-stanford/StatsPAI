@@ -925,7 +925,7 @@ def did(
             covariates=covariates,
             weights=weights,
             cluster=cluster,
-            aggregation=aggregation or "event_time",
+            aggregation=aggregation,
             alpha=alpha,
         )
 
